@@ -30,9 +30,16 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   }
 
+  function userName(id, mode = "label") {
+    const user = CHECKLIST.users?.[id] || {};
+    if (mode === "full") return user.full || `${user.label || id}${user.handle ? ` (${user.handle})` : ""}`;
+    if (mode === "short") return user.short || user.label || id;
+    return user.display || user.label || id;
+  }
+
   function playerOptions(selected) {
-    return Object.entries(CHECKLIST.users || { corey: { label: "Corey" }, matt: { label: "Matt" } })
-      .map(([id, user]) => `<option value="${id}" ${id === selected ? "selected" : ""}>${user.label || id}</option>`).join("");
+    return Object.keys(CHECKLIST.users || { corey: {}, matt: {} })
+      .map(id => `<option value="${id}" ${id === selected ? "selected" : ""}>${userName(id, "full")}</option>`).join("");
   }
 
   function classOptions(selected) {
@@ -41,9 +48,8 @@
   }
 
   function ensureControls() {
-    const armorPanel = document.querySelector(".armor-panel .panel-head");
     const columns = document.querySelector(".armor-columns");
-    if (!armorPanel || !columns || document.querySelector(".armor-column-controls")) return;
+    if (!columns || document.querySelector(".armor-column-controls")) return;
     const controls = document.createElement("div");
     controls.className = "armor-column-controls";
     controls.innerHTML = ["left", "right"].map(side => `<div class="armor-control" data-side="${side}"><label>${side} player<select data-field="player">${playerOptions(config[side].player)}</select></label><label>${side} class<select data-field="className">${classOptions(config[side].className)}</select></label></div>`).join("");
@@ -59,7 +65,6 @@
     });
   }
 
-  function normalize(text) { return String(text || "").toLowerCase(); }
   function statusCell(value, itemId) { return `<div class="status-cell ${value ? "yes" : "no"}" data-help-id="${itemId}" title="${value ? "Owned" : "Not owned"} — click for unlock help">${value ? "✅" : "⛔"}</div>`; }
   function initials(name) { return String(name || "?").split(/\s+|-/).filter(Boolean).slice(0,2).map(p => p[0]?.toUpperCase() || "").join("") || "?"; }
   function iconMarkup(item) {
@@ -84,10 +89,9 @@
     const title = document.querySelectorAll(".class-title")[titleIndex];
     if (!root || !title) return 0;
     const { player, className } = config[side];
-    const user = CHECKLIST.users?.[player]?.label || player;
     const klass = CLASS_LABELS[className] || className;
     title.className = `class-title ${className}`;
-    title.innerHTML = `<span>${CLASS_MARKS[className] || "◆"}</span><strong>${user} · ${klass}</strong>`;
+    title.innerHTML = `<span>${CLASS_MARKS[className] || "◆"}</span><strong>${userName(player, "full")} · ${klass}</strong>`;
     const { search, view } = currentFilters();
     const items = [...(CATALOG.armor?.[className] || [])].sort((a,b) => (SLOT_ORDER[a.slot] || 99) - (SLOT_ORDER[b.slot] || 99) || a.name.localeCompare(b.name));
     const visible = items.filter(item => {
@@ -100,7 +104,7 @@
     });
     root.innerHTML = visible.length ? visible.map(item => {
       const owned = getOwned(className, item.id, player);
-      return `<article class="armor-card is-focus-card" data-id="${item.id}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="How to unlock" data-help-id="${item.id}">?</button></div><div class="badge-row"><span class="badge slot">${item.slot}</span><span class="badge source">${item.source}</span></div></div></div><div class="armor-status status-row"><div class="player-label">${CHECKLIST.users?.[player]?.short || player}</div>${statusCell(owned, item.id)}</div></article>`;
+      return `<article class="armor-card is-focus-card" data-id="${item.id}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="How to unlock" data-help-id="${item.id}">?</button></div><div class="badge-row"><span class="badge slot">${item.slot}</span><span class="badge source">${item.source}</span></div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
     }).join("") : `<div class="empty-state">No ${klass} armor matches this filter.</div>`;
     return visible.length;
   }
