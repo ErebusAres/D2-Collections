@@ -24,8 +24,8 @@
     if (!chip || !status || !btn) return;
     const hasAuth = signedIn();
     chip.classList.toggle("is-signed-in", hasAuth);
-    status.textContent = hasAuth ? "Bungie linked" : "Bungie offline";
-    btn.textContent = hasAuth ? "Logout" : "Login with Bungie";
+    if (status.textContent !== (hasAuth ? "Bungie linked" : "Bungie offline")) status.textContent = hasAuth ? "Bungie linked" : "Bungie offline";
+    if (btn.textContent !== (hasAuth ? "Logout" : "Login with Bungie")) btn.textContent = hasAuth ? "Logout" : "Login with Bungie";
     btn.title = hasAuth ? "Clear saved Bungie sign-in code" : "Sign in with Bungie";
   }
 
@@ -38,9 +38,8 @@
     render();
   }, true);
 
-  const observer = new MutationObserver(render);
-  observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   window.addEventListener("storage", render);
   setTimeout(render, 0);
   setTimeout(render, 400);
+  window.D2_RENDER_COMPACT_AUTH = render;
 })();
