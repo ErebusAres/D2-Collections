@@ -11,14 +11,12 @@
   <div class="app-shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">Manual-first Destiny 2 tracker</p>
+        <p class="eyebrow">Repo-backed Destiny 2 tracker</p>
         <h1>D2 Exotic Collections</h1>
-        <p class="hero-copy">Track what Corey and Matt own, which catalysts are started or finished, and which class exotics are actually equipped.</p>
+        <p class="hero-copy">A fast static checklist for Corey and Matt. The page reads from repo data, so the visible ✅ / ⛔ status is the source of truth across computers.</p>
       </div>
       <div class="hero-actions">
-        <button id="exportBtn" class="button primary" type="button">Export checklist</button>
-        <label class="button ghost" for="importFile">Import JSON</label>
-        <input id="importFile" type="file" accept="application/json" hidden />
+        <button id="exportBtn" class="button primary" type="button">Export repo state</button>
       </div>
     </header>
 
@@ -28,7 +26,7 @@
       <div class="panel-head">
         <div>
           <p class="eyebrow">Bungie API</p>
-          <h2>Login-ready, still manual-first</h2>
+          <h2>Login-ready, still repo-backed</h2>
         </div>
         <span id="apiStatus" class="count-pill">Not connected</span>
       </div>
@@ -47,7 +45,7 @@
           <button id="clearApiBtn" class="button danger" type="button">Clear API settings</button>
         </div>
       </div>
-      <p id="oauthNote" class="muted small-note">This does not replace manual checkmarks yet. It prepares the app for a later import/sync flow where you can log in, export collection data, and paste it back here for repo updates.</p>
+      <p id="oauthNote" class="muted small-note">The checklist does not auto-save from the browser. Future API import can create/export data for GPT or a GitHub commit, while this page stays readable on every device.</p>
     </section>
 
     <nav class="toolbar" aria-label="Collection controls">
@@ -84,17 +82,17 @@
         <div class="panel-head">
           <div>
             <p class="eyebrow">Armor</p>
-            <h2>Warlock / Titan equipped board</h2>
+            <h2>Corey Warlock / Matt Titan board</h2>
           </div>
           <span id="armorCount" class="count-pill"></span>
         </div>
         <div class="armor-columns">
           <article>
-            <div class="class-title warlock"><span>◆</span><strong>Warlock</strong></div>
+            <div class="class-title warlock"><span>◆</span><strong>Corey · Warlock</strong></div>
             <div id="warlockList" class="armor-list"></div>
           </article>
           <article>
-            <div class="class-title titan"><span>◆</span><strong>Titan</strong></div>
+            <div class="class-title titan"><span>◆</span><strong>Matt · Titan</strong></div>
             <div id="titanList" class="armor-list"></div>
           </article>
         </div>
@@ -105,11 +103,11 @@
       <div class="panel-head">
         <div>
           <p class="eyebrow">Back end</p>
-          <h2>Copy/paste state</h2>
+          <h2>Copy/paste repo state</h2>
         </div>
-        <button id="resetLocalBtn" class="button danger" type="button">Reset browser overrides</button>
+        <span class="count-pill">Read-only display</span>
       </div>
-      <p class="muted">Tick boxes in the browser for quick updates. Export creates the same structure used by <code>data/checklist.js</code>, so you can paste it into the repo or send it to GPT later.</p>
+      <p class="muted">GitHub Pages cannot persist checklist changes by itself. Edit <code>data/checklist.js</code> in the repo, or export this state and send it here so GPT can update the repo data.</p>
       <textarea id="exportBox" spellcheck="false" placeholder="Exported checklist JSON appears here…"></textarea>
     </section>
   </div>
