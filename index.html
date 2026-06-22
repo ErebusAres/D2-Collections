@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>D2 Exotic Collections</title>
-  <meta name="description" content="Manual Destiny 2 exotic collection tracker for weapons, catalysts, Warlock armor, and Titan armor." />
+  <meta name="description" content="Manual Destiny 2 exotic collection tracker for weapons, catalysts, Warlock armor, Titan armor, and Hunter armor." />
   <link rel="stylesheet" href="assets/styles.css" />
 </head>
 <body>
@@ -13,34 +13,18 @@
       <div>
         <p class="eyebrow">Repo-backed Destiny 2 tracker</p>
         <h1>D2 Exotic Collections</h1>
-        <p class="hero-copy">A fast static checklist for Corey and Matt. The page reads from repo data, so the visible ✅ / ⛔ status is the source of truth across computers.</p>
+        <p class="hero-copy">A fast static checklist for Ares and Icee. The page reads from repo data, so the visible ✅ / ⛔ status is the source of truth across computers.</p>
       </div>
       <div class="hero-actions">
-        <button id="exportBtn" class="button primary" type="button">Export repo state</button>
+        <div class="auth-chip" aria-label="Bungie account status">
+          <span id="apiStatus" class="count-pill">Not signed in</span>
+          <button id="loginBtn" class="button primary" type="button">Login with Bungie</button>
+        </div>
+        <button id="exportBtn" class="button ghost" type="button">Export repo state</button>
       </div>
     </header>
 
     <section id="summary" class="summary-grid" aria-label="Collection summary"></section>
-
-    <section class="panel api-panel" aria-label="Bungie sign in">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">Bungie</p>
-          <h2>Sign in ready</h2>
-        </div>
-        <span id="apiStatus" class="count-pill">Not signed in</span>
-      </div>
-      <div class="login-strip">
-        <div>
-          <strong>Use your Bungie account later for collection import/export.</strong>
-          <p id="oauthNote" class="muted small-note">No setup needed here. Use the site sign-in button; the checklist remains repo-backed.</p>
-        </div>
-        <div class="api-actions">
-          <button id="loginBtn" class="button primary" type="button">Login with Bungie</button>
-          <button id="clearApiBtn" class="button danger" type="button">Clear login</button>
-        </div>
-      </div>
-    </section>
 
     <nav class="toolbar" aria-label="Collection controls">
       <div class="search-wrap">
@@ -54,8 +38,8 @@
       </div>
       <div class="segmented" role="group" aria-label="Player focus">
         <button class="seg active" data-player="all" type="button">Both</button>
-        <button class="seg" data-player="corey" type="button">Corey</button>
-        <button class="seg" data-player="matt" type="button">Matt</button>
+        <button class="seg" data-player="corey" type="button">Ares</button>
+        <button class="seg" data-player="matt" type="button">Icee</button>
       </div>
     </nav>
 
@@ -81,11 +65,11 @@
         </div>
         <div class="armor-columns">
           <article>
-            <div class="class-title warlock"><span>◆</span><strong>Corey · Warlock</strong></div>
+            <div class="class-title warlock"><span>◆</span><strong>🔥 Ares (ErebusAres) · Warlock</strong></div>
             <div id="warlockList" class="armor-list"></div>
           </article>
           <article>
-            <div class="class-title titan"><span>◆</span><strong>Matt · Titan</strong></div>
+            <div class="class-title titan"><span>◆</span><strong>🧊 Icee (IceeDedPple) · Titan</strong></div>
             <div id="titanList" class="armor-list"></div>
           </article>
         </div>
@@ -110,6 +94,7 @@
   <script src="data/hunter-catalog.js"></script>
   <script src="data/checklist.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/auth-compact.js"></script>
   <script src="assets/armor-columns.js"></script>
   <script src="assets/help.js"></script>
   <script src="assets/icon-audit.js"></script>
