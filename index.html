@@ -24,6 +24,32 @@
 
     <section id="summary" class="summary-grid" aria-label="Collection summary"></section>
 
+    <section class="panel api-panel" aria-label="Bungie API setup">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">Bungie API</p>
+          <h2>Login-ready, still manual-first</h2>
+        </div>
+        <span id="apiStatus" class="count-pill">Not connected</span>
+      </div>
+      <div class="api-grid">
+        <label class="field-label">
+          <span>API key</span>
+          <input id="apiKeyInput" type="password" placeholder="Paste Bungie API key for this browser" autocomplete="off" />
+        </label>
+        <label class="field-label">
+          <span>OAuth client ID</span>
+          <input id="clientIdInput" type="text" value="53180" autocomplete="off" />
+        </label>
+        <div class="api-actions">
+          <button id="saveApiBtn" class="button ghost" type="button">Save API settings</button>
+          <button id="loginBtn" class="button primary" type="button">Login with Bungie</button>
+          <button id="clearApiBtn" class="button danger" type="button">Clear API settings</button>
+        </div>
+      </div>
+      <p id="oauthNote" class="muted small-note">This does not replace manual checkmarks yet. It prepares the app for a later import/sync flow where you can log in, export collection data, and paste it back here for repo updates.</p>
+    </section>
+
     <nav class="toolbar" aria-label="Collection controls">
       <div class="search-wrap">
         <span aria-hidden="true">⌕</span>
@@ -88,6 +114,7 @@
     </section>
   </div>
 
+  <script src="data/bungie-config.js"></script>
   <script src="data/catalog.js"></script>
   <script src="data/checklist.js"></script>
   <script src="assets/app.js"></script>
