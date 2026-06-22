@@ -1,7 +1,10 @@
 (() => {
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: { warlock: [], titan: [] } };
   const BASE = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: { warlock: {}, titan: {} } };
+  const BUNGIE = window.D2_BUNGIE_CONFIG || {};
   const STORAGE_KEY = "d2-collections-checklist-v1";
+  const API_STORAGE_KEY = "d2-collections-api-settings-v1";
+  const CLASS_FOCUS = { warlock: "corey", titan: "matt" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
 
   const blankWeapon = () => ({ owned: false, catalyst: false, complete: false, equipped: false });
@@ -10,6 +13,7 @@
 
   let filters = { search: "", view: "all", player: "all" };
   let state = mergeState(clone(BASE), readLocal());
+  let apiSettings = readApiSettings();
 
   const els = {
     summary: document.querySelector("#summary"),
@@ -22,7 +26,14 @@
     exportBtn: document.querySelector("#exportBtn"),
     exportBox: document.querySelector("#exportBox"),
     importFile: document.querySelector("#importFile"),
-    resetLocalBtn: document.querySelector("#resetLocalBtn")
+    resetLocalBtn: document.querySelector("#resetLocalBtn"),
+    apiStatus: document.querySelector("#apiStatus"),
+    apiKeyInput: document.querySelector("#apiKeyInput"),
+    clientIdInput: document.querySelector("#clientIdInput"),
+    saveApiBtn: document.querySelector("#saveApiBtn"),
+    loginBtn: document.querySelector("#loginBtn"),
+    clearApiBtn: document.querySelector("#clearApiBtn"),
+    oauthNote: document.querySelector("#oauthNote")
   };
 
   function readLocal() {
@@ -36,6 +47,27 @@
 
   function saveLocal() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function readApiSettings() {
+    try {
+      const raw = localStorage.getItem(API_STORAGE_KEY);
+      const saved = raw ? JSON.parse(raw) : {};
+      return {
+        apiKey: saved.apiKey || BUNGIE.apiKey || "",
+        clientId: saved.clientId || BUNGIE.clientId || "53180",
+        oauthCode: saved.oauthCode || "",
+        lastSaved: saved.lastSaved || ""
+      };
+    } catch {
+      return { apiKey: BUNGIE.apiKey || "", clientId: BUNGIE.clientId || "53180", oauthCode: "", lastSaved: "" };
+    }
+  }
+
+  function saveApiSettings(next = apiSettings) {
+    apiSettings = next;
+    localStorage.setItem(API_STORAGE_KEY, JSON.stringify(apiSettings));
+    renderApiPanel();
   }
 
   function mergeState(base, overlay) {
@@ -86,6 +118,16 @@
     return filters.player === "all" ? players : [filters.player];
   }
 
+  function armorPlayersForClass(className) {
+    if (filters.player !== "all") return [filters.player];
+    return [CLASS_FOCUS[className] || players[0]];
+  }
+
+  function focusLabel(className) {
+    const player = CLASS_FOCUS[className];
+    return `${BASE.users[player]?.label || player} ${className === "warlock" ? "Warlock" : "Titan"}`;
+  }
+
   function matchesText(item) {
     const q = filters.search.trim().toLowerCase();
     if (!q) return true;
@@ -101,7 +143,7 @@
   }
 
   function matchesArmorView(className, item) {
-    const rows = playerList().map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
+    const rows = armorPlayersForClass(className).map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
     if (filters.view === "missing") return rows.some(row => !row.owned);
     if (filters.view === "catalysts") return false;
     if (filters.view === "equipped") return rows.some(row => row.equipped);
@@ -113,6 +155,7 @@
     renderWeapons();
     renderArmor("warlock", els.warlock);
     renderArmor("titan", els.titan);
+    renderApiPanel();
   }
 
   function renderSummary() {
@@ -124,10 +167,10 @@
     const equippedTotal = [...weaponRows, ...armorRows].filter(row => row.equipped).length;
 
     const cards = [
-      metric("Weapons owned", ownedWeapons, weaponRows.length, "Player/item ownership"),
+      metric("Weapons owned", ownedWeapons, weaponRows.length, "Corey + Matt weapon ownership"),
       metric("Catalysts complete", catalystDone, weaponRows.length, "Finished weapon catalysts"),
-      metric("Armor owned", ownedArmor, armorRows.length, "Warlock + Titan pieces"),
-      metric("Equipped flags", equippedTotal, [...weaponRows, ...armorRows].length, "Currently marked in-use")
+      metric("Armor owned", ownedArmor, armorRows.length, "Corey WL + Matt Titan"),
+      metric("Equipped flags", equippedTotal, [...weaponRows, ...armorRows].length, "Marked in-use")
     ];
     els.summary.innerHTML = cards.join("");
   }
@@ -138,12 +181,12 @@
   }
 
   function flattenWeaponRows() {
-    return CATALOG.weapons.flatMap(item => players.map(player => ({ item, player, ...(state.weapons[item.id]?.[player] || blankWeapon()) })));
+    return CATALOG.weapons.flatMap(item => playerList().map(player => ({ item, player, ...(state.weapons[item.id]?.[player] || blankWeapon()) })));
   }
 
   function flattenArmorRows() {
     return ["warlock", "titan"].flatMap(className =>
-      CATALOG.armor[className].flatMap(item => players.map(player => ({ className, item, player, ...(state.armor[className]?.[item.id]?.[player] || blankArmor()) })))
+      CATALOG.armor[className].flatMap(item => armorPlayersForClass(className).map(player => ({ className, item, player, ...(state.armor[className]?.[item.id]?.[player] || blankArmor()) })))
     );
   }
 
@@ -184,26 +227,31 @@
 
   function renderArmor(className, root) {
     const visible = CATALOG.armor[className].filter(item => matchesText(item) && matchesArmorView(className, item));
-    root.innerHTML = visible.length ? visible.map(item => renderArmorCard(className, item)).join("") : emptyState(`No ${className} armor matches this filter.`);
     const totalVisible = ["warlock", "titan"].reduce((sum, klass) => sum + CATALOG.armor[klass].filter(item => matchesText(item) && matchesArmorView(klass, item)).length, 0);
     const total = CATALOG.armor.warlock.length + CATALOG.armor.titan.length;
     els.armorCount.textContent = `${totalVisible} / ${total}`;
+    root.innerHTML = visible.length
+      ? visible.map(item => renderArmorCard(className, item)).join("")
+      : emptyState(`No ${className} armor matches this filter.`);
   }
 
   function renderArmorCard(className, item) {
-    const playerRows = playerList().map(player => {
+    const focusPlayer = CLASS_FOCUS[className];
+    const playerRows = armorPlayersForClass(className).map(player => {
       const s = state.armor[className]?.[item.id]?.[player] || blankArmor();
+      const isFocus = player === focusPlayer;
       return `<div class="armor-status">
-        <div class="player-label">${BASE.users[player]?.short || player}</div>
+        <div class="player-label ${isFocus ? "is-focus" : ""}">${BASE.users[player]?.short || player}</div>
         ${checkboxCell("armor", item.id, player, "owned", s.owned, "Own", "", className)}
         ${checkboxCell("armor", item.id, player, "equipped", s.equipped, "Eq", s.equipped ? "is-equipped" : "", className)}
       </div>`;
     }).join("");
 
-    return `<article class="armor-card" data-id="${item.id}">
+    return `<article class="armor-card is-focus-card" data-id="${item.id}">
       <div class="item-meta">
         <div class="item-name"><h3>${item.name}</h3></div>
         <div class="badge-row">
+          <span class="badge focus">${focusLabel(className)}</span>
           <span class="badge slot">${item.slot}</span>
           <span class="badge source">${item.source}</span>
         </div>
@@ -230,7 +278,12 @@
       state.weapons[id] = state.weapons[id] || {};
       state.weapons[id][player] = { ...blankWeapon(), ...(state.weapons[id][player] || {}) };
       state.weapons[id][player][field] = input.checked;
-      if (field === "complete" && input.checked) state.weapons[id][player].catalyst = true;
+      if (field === "complete" && input.checked) {
+        state.weapons[id][player].owned = true;
+        state.weapons[id][player].catalyst = true;
+      }
+      if (field === "catalyst" && input.checked) state.weapons[id][player].owned = true;
+      if (field === "equipped" && input.checked) state.weapons[id][player].owned = true;
       if ((field === "catalyst" || field === "owned") && !input.checked) {
         if (field === "owned") Object.assign(state.weapons[id][player], blankWeapon());
         if (field === "catalyst") state.weapons[id][player].complete = false;
@@ -271,6 +324,38 @@
     reader.readAsText(file);
   }
 
+  function renderApiPanel() {
+    if (!els.apiStatus) return;
+    els.apiKeyInput.value = apiSettings.apiKey || "";
+    els.clientIdInput.value = apiSettings.clientId || BUNGIE.clientId || "53180";
+    const hasKey = Boolean(apiSettings.apiKey);
+    const hasCode = Boolean(apiSettings.oauthCode);
+    els.apiStatus.textContent = hasCode ? "OAuth code captured" : hasKey ? "API key saved locally" : "Not connected";
+    if (hasCode) {
+      els.oauthNote.textContent = "OAuth returned a code and saved it locally. Token exchange and collection import are scaffolded for the next API pass.";
+    } else {
+      els.oauthNote.textContent = "This does not replace manual checkmarks yet. It prepares the app for a later import/sync flow where you can log in, export collection data, and paste it back here for repo updates.";
+    }
+  }
+
+  function buildAuthUrl() {
+    const clientId = els.clientIdInput.value.trim() || BUNGIE.clientId || "53180";
+    const redirectUri = `${window.location.origin}${window.location.pathname}`;
+    const params = new URLSearchParams({ client_id: clientId, response_type: "code", redirect_uri: redirectUri });
+    return `${BUNGIE.authUrl || "https://www.bungie.net/en/OAuth/Authorize"}?${params.toString()}`;
+  }
+
+  function captureOAuthCode() {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("code");
+    if (!code) return;
+    apiSettings.oauthCode = code;
+    apiSettings.lastSaved = new Date().toISOString();
+    saveApiSettings(apiSettings);
+    url.searchParams.delete("code");
+    window.history.replaceState({}, document.title, url.toString());
+  }
+
   document.body.addEventListener("change", handleCheck);
   els.search.addEventListener("input", event => { filters.search = event.target.value; render(); });
   document.querySelectorAll("[data-view]").forEach(btn => btn.addEventListener("click", () => {
@@ -293,6 +378,29 @@
     els.exportBox.value = "Browser overrides reset. Reloading from data/checklist.js.";
     render();
   });
+  els.saveApiBtn.addEventListener("click", () => {
+    saveApiSettings({
+      ...apiSettings,
+      apiKey: els.apiKeyInput.value.trim(),
+      clientId: els.clientIdInput.value.trim() || BUNGIE.clientId || "53180",
+      lastSaved: new Date().toISOString()
+    });
+  });
+  els.loginBtn.addEventListener("click", () => {
+    saveApiSettings({
+      ...apiSettings,
+      apiKey: els.apiKeyInput.value.trim(),
+      clientId: els.clientIdInput.value.trim() || BUNGIE.clientId || "53180",
+      lastSaved: new Date().toISOString()
+    });
+    window.location.href = buildAuthUrl();
+  });
+  els.clearApiBtn.addEventListener("click", () => {
+    localStorage.removeItem(API_STORAGE_KEY);
+    apiSettings = readApiSettings();
+    renderApiPanel();
+  });
 
+  captureOAuthCode();
   render();
 })();
