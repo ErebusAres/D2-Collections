@@ -5,6 +5,7 @@
   const API_KEY_STORAGE = "d2-collections-bungie-api-key";
   const API_ROOT = "https://www.bungie.net/Platform";
   const EXPECTED_EXOTIC_TOTAL = 1239;
+  const OAUTH_REDIRECT_URI = "https://erebusares.github.io/D2-Collections/index.html";
   let refreshPromise = null;
 
   function readJson(key) {
@@ -39,10 +40,7 @@
   }
 
   function redirectUri() {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("code");
-    url.searchParams.delete("state");
-    return `${url.origin}${url.pathname}`;
+    return CONFIG.redirectUri || window.D2_COLLECTIONS_REDIRECT_URI || OAUTH_REDIRECT_URI;
   }
 
   function authCode() {
