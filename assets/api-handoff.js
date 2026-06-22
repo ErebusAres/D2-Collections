@@ -1,0 +1,90 @@
+(() => {
+  const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
+  const CHECKLIST = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: {} };
+  const AUTH_KEY = "d2-collections-auth-v1";
+
+  const css = `
+    .api-handoff-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.api-handoff-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.api-handoff-note{font-size:.86rem}.api-handoff-box{min-height:180px}.api-handoff-status{font-size:.82rem;color:var(--muted);margin-top:8px}@media(max-width:900px){.api-handoff-grid{grid-template-columns:1fr}}
+  `;
+  const style = document.createElement("style");
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  function armorClasses() { return Object.keys(CATALOG.armor || {}); }
+  function authSummary() {
+    try {
+      const auth = JSON.parse(localStorage.getItem(AUTH_KEY) || "{}");
+      return { signedInCodeCaptured: Boolean(auth.oauthCode), lastSaved: auth.lastSaved || "" };
+    } catch {
+      return { signedInCodeCaptured: false, lastSaved: "" };
+    }
+  }
+
+  function catalogSnapshot() {
+    return {
+      weapons: (CATALOG.weapons || []).map(item => ({ id: item.id, name: item.name, type: item.type, slot: item.slot, element: item.element, source: item.source })),
+      armor: Object.fromEntries(armorClasses().map(className => [className, (CATALOG.armor[className] || []).map(item => ({ id: item.id, name: item.name, slot: item.slot, source: item.source }))]))
+    };
+  }
+
+  function buildHandoffPayload(extra = {}) {
+    return {
+      d2CollectionsHandoff: true,
+      generatedAt: new Date().toISOString(),
+      note: "Paste this into ChatGPT so it can update data/checklist.js. Do not include OAuth codes, access tokens, or refresh tokens.",
+      auth: authSummary(),
+      users: CHECKLIST.users || {},
+      currentChecklist: CHECKLIST,
+      catalog: catalogSnapshot(),
+      importedCollectionData: extra.importedCollectionData || null
+    };
+  }
+
+  function tryParseJson(text) {
+    try { return JSON.parse(text); } catch { return null; }
+  }
+
+  function init() {
+    const dataPanel = document.querySelector(".data-panel");
+    if (!dataPanel || document.querySelector("#apiHandoffPanel")) return;
+    const panel = document.createElement("section");
+    panel.id = "apiHandoffPanel";
+    panel.className = "panel data-panel";
+    panel.innerHTML = `
+      <div class="panel-head"><div><p class="eyebrow">API handoff</p><h2>Bungie collection copy/paste bridge</h2></div><span class="count-pill">No database needed</span></div>
+      <p class="muted api-handoff-note">For now, use this as the bridge between Bungie login/API data and repo updates. Paste collection API output on the left, then build a safe handoff payload on the right and send that to ChatGPT. Do not paste OAuth codes, access tokens, or refresh tokens.</p>
+      <div class="api-handoff-grid">
+        <div><label class="field-label"><span>Paste Bungie collection / profile JSON here</span><textarea id="apiInputBox" class="api-handoff-box" spellcheck="false" placeholder="Paste raw Bungie collection/profile JSON or a normalized collection export here…"></textarea></label></div>
+        <div><label class="field-label"><span>Safe payload to send to ChatGPT</span><textarea id="apiOutputBox" class="api-handoff-box" spellcheck="false" placeholder="Click Build handoff payload…"></textarea></label></div>
+      </div>
+      <div class="api-handoff-actions">
+        <button id="buildHandoffBtn" class="button primary" type="button">Build handoff payload</button>
+        <button id="copyHandoffBtn" class="button ghost" type="button">Copy payload</button>
+        <button id="clearHandoffBtn" class="button danger" type="button">Clear boxes</button>
+      </div>
+      <div id="apiHandoffStatus" class="api-handoff-status"></div>
+    `;
+    dataPanel.insertAdjacentElement("afterend", panel);
+
+    const input = panel.querySelector("#apiInputBox");
+    const output = panel.querySelector("#apiOutputBox");
+    const status = panel.querySelector("#apiHandoffStatus");
+    panel.querySelector("#buildHandoffBtn").addEventListener("click", () => {
+      const parsed = input.value.trim() ? tryParseJson(input.value.trim()) : null;
+      if (input.value.trim() && !parsed) {
+        status.textContent = "Input is not valid JSON yet. Fix the paste or leave it blank to export the current repo checklist/catalog only.";
+        return;
+      }
+      const payload = buildHandoffPayload({ importedCollectionData: parsed });
+      output.value = JSON.stringify(payload, null, 2);
+      status.textContent = parsed ? "Built payload with pasted collection data." : "Built payload with current repo checklist/catalog only.";
+    });
+    panel.querySelector("#copyHandoffBtn").addEventListener("click", () => {
+      if (!output.value.trim()) output.value = JSON.stringify(buildHandoffPayload(), null, 2);
+      navigator.clipboard?.writeText(output.value).then(() => { status.textContent = "Copied handoff payload."; }).catch(() => { status.textContent = "Copy failed; select the box and copy manually."; });
+    });
+    panel.querySelector("#clearHandoffBtn").addEventListener("click", () => { input.value = ""; output.value = ""; status.textContent = "Cleared."; });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+})();
