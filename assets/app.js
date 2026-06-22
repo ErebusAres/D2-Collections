@@ -1,15 +1,16 @@
 (() => {
-  const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: { warlock: [], titan: [] } };
-  const BASE = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: { warlock: {}, titan: {} } };
+  const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
+  const BASE = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: {} };
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
   const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
-  const ICON_CACHE_KEY = "d2-collections-icon-cache-v1";
-  const CLASS_FOCUS = { warlock: "corey", titan: "matt" };
+  const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "corey" };
+  const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
+  const armorClasses = () => Object.keys(CATALOG.armor || {}).filter(className => Array.isArray(CATALOG.armor[className]));
 
   const blankWeapon = () => ({ owned: false, catalyst: false, complete: false });
   const blankArmor = () => ({ owned: false });
-  const clone = value => JSON.parse(JSON.stringify(value));
+  const clone = value => JSON.parse(JSON.stringify(value || {}));
 
   let filters = { search: "", view: "all", player: "all" };
   let state = mergeState(clone(BASE));
@@ -26,9 +27,7 @@
     exportBtn: document.querySelector("#exportBtn"),
     exportBox: document.querySelector("#exportBox"),
     apiStatus: document.querySelector("#apiStatus"),
-    loginBtn: document.querySelector("#loginBtn"),
-    clearApiBtn: document.querySelector("#clearApiBtn"),
-    oauthNote: document.querySelector("#oauthNote")
+    loginBtn: document.querySelector("#loginBtn")
   };
 
   function readAuthState() {
@@ -51,33 +50,27 @@
     const merged = base || {};
     merged.users = merged.users || { corey: { label: "Corey", short: "C" }, matt: { label: "Matt", short: "M" } };
     merged.weapons = merged.weapons || {};
-    merged.armor = merged.armor || { warlock: {}, titan: {} };
-    merged.armor.warlock = merged.armor.warlock || {};
-    merged.armor.titan = merged.armor.titan || {};
+    merged.armor = merged.armor || {};
     hydrateDefaults(merged);
     return merged;
   }
 
   function hydrateDefaults(next) {
-    CATALOG.weapons.forEach(item => {
+    (CATALOG.weapons || []).forEach(item => {
       next.weapons[item.id] = next.weapons[item.id] || {};
       players.forEach(player => {
         next.weapons[item.id][player] = { ...blankWeapon(), ...(next.weapons[item.id][player] || {}) };
       });
     });
-    ["warlock", "titan"].forEach(className => {
+    armorClasses().forEach(className => {
       next.armor[className] = next.armor[className] || {};
-      CATALOG.armor[className].forEach(item => {
+      (CATALOG.armor[className] || []).forEach(item => {
         next.armor[className][item.id] = next.armor[className][item.id] || {};
         players.forEach(player => {
           next.armor[className][item.id][player] = { ...blankArmor(), ...(next.armor[className][item.id][player] || {}) };
         });
       });
     });
-  }
-
-  function allCatalogItems() {
-    return [...CATALOG.weapons, ...CATALOG.armor.warlock, ...CATALOG.armor.titan];
   }
 
   function playerList() {
@@ -90,8 +83,9 @@
   }
 
   function focusLabel(className) {
-    const player = CLASS_FOCUS[className];
-    return `${BASE.users[player]?.label || player} ${className === "warlock" ? "Warlock" : "Titan"}`;
+    const player = CLASS_FOCUS[className] || players[0];
+    const user = BASE.users?.[player]?.label || player;
+    return `${user} ${CLASS_LABELS[className] || className}`;
   }
 
   function matchesText(item) {
@@ -123,18 +117,14 @@
   }
 
   function renderSummary() {
+    if (!els.summary) return;
     const weaponRows = flattenWeaponRows();
     const armorRows = flattenArmorRows();
-    const ownedWeapons = weaponRows.filter(row => row.owned).length;
-    const catalystOwned = weaponRows.filter(row => row.catalyst).length;
-    const catalystDone = weaponRows.filter(row => row.complete).length;
-    const ownedArmor = armorRows.filter(row => row.owned).length;
-
     els.summary.innerHTML = [
-      metric("Weapons owned", ownedWeapons, weaponRows.length, "Corey + Matt"),
-      metric("Catalysts owned", catalystOwned, weaponRows.length, "Obtained catalysts"),
-      metric("Catalysts complete", catalystDone, weaponRows.length, "Finished catalysts"),
-      metric("Armor owned", ownedArmor, armorRows.length, "Corey WL + Matt Titan")
+      metric("Weapons owned", weaponRows.filter(row => row.owned).length, weaponRows.length, "Ares + Icee"),
+      metric("Catalysts owned", weaponRows.filter(row => row.catalyst).length, weaponRows.length, "Obtained catalysts"),
+      metric("Catalysts complete", weaponRows.filter(row => row.complete).length, weaponRows.length, "Finished catalysts"),
+      metric("Armor owned", armorRows.filter(row => row.owned).length, armorRows.length, "Configured classes")
     ].join("");
   }
 
@@ -144,88 +134,49 @@
   }
 
   function flattenWeaponRows() {
-    return CATALOG.weapons.flatMap(item => playerList().map(player => ({ item, player, ...(state.weapons[item.id]?.[player] || blankWeapon()) })));
+    return (CATALOG.weapons || []).flatMap(item => playerList().map(player => ({ item, player, ...(state.weapons[item.id]?.[player] || blankWeapon()) })));
   }
 
   function flattenArmorRows() {
-    return ["warlock", "titan"].flatMap(className =>
-      CATALOG.armor[className].flatMap(item => armorPlayersForClass(className).map(player => ({ className, item, player, ...(state.armor[className]?.[item.id]?.[player] || blankArmor()) })))
+    return armorClasses().flatMap(className =>
+      (CATALOG.armor[className] || []).flatMap(item => armorPlayersForClass(className).map(player => ({ className, item, player, ...(state.armor[className]?.[item.id]?.[player] || blankArmor()) })))
     );
   }
 
   function renderWeapons() {
-    const visible = CATALOG.weapons.filter(item => matchesText(item) && matchesWeaponView(item));
-    els.weaponCount.textContent = `${visible.length} / ${CATALOG.weapons.length}`;
+    if (!els.weapons) return;
+    const visible = (CATALOG.weapons || []).filter(item => matchesText(item) && matchesWeaponView(item));
+    if (els.weaponCount) els.weaponCount.textContent = `${visible.length} / ${(CATALOG.weapons || []).length}`;
     els.weapons.innerHTML = visible.length ? visible.map(renderWeaponCard).join("") : emptyState("No weapons match this filter.");
   }
 
   function renderWeaponCard(item) {
     const playerRows = playerList().map(player => {
       const s = state.weapons[item.id]?.[player] || blankWeapon();
-      return `<div class="status-grid status-row">
-        <div class="player-label">${BASE.users[player]?.short || player}</div>
-        ${statusCell(s.owned, "Owned", "Not owned")}
-        ${statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim")}
-        ${statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim")}
-      </div>`;
+      return `<div class="status-grid status-row"><div class="player-label">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}${statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim")}${statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim")}</div>`;
     }).join("");
 
-    return `<article class="weapon-card" data-id="${item.id}">
-      <div class="item-meta item-with-icon">
-        ${itemIconMarkup(item)}
-        <div>
-          <div class="item-name"><h3>${item.name}</h3></div>
-          <div class="badge-row">
-            <span class="badge ${item.slot.toLowerCase()}">${item.slot}</span>
-            <span class="badge slot">${item.type}</span>
-            <span class="badge">${item.element}</span>
-            <span class="badge source">${item.source}</span>
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>
-        ${playerRows}
-      </div>
-    </article>`;
+    return `<article class="weapon-card" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span><span class="badge">${item.element || ""}</span><span class="badge source">${item.source || ""}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root) {
-    const visible = CATALOG.armor[className].filter(item => matchesText(item) && matchesArmorView(className, item));
-    const totalVisible = ["warlock", "titan"].reduce((sum, klass) => sum + CATALOG.armor[klass].filter(item => matchesText(item) && matchesArmorView(klass, item)).length, 0);
-    const total = CATALOG.armor.warlock.length + CATALOG.armor.titan.length;
-    els.armorCount.textContent = `${totalVisible} / ${total}`;
-    root.innerHTML = visible.length
-      ? visible.map(item => renderArmorCard(className, item)).join("")
-      : emptyState(`No ${className} armor matches this filter.`);
+    if (!root || !CATALOG.armor?.[className]) return;
+    const visible = (CATALOG.armor[className] || []).filter(item => matchesText(item) && matchesArmorView(className, item));
+    const totalVisible = armorClasses().reduce((sum, klass) => sum + (CATALOG.armor[klass] || []).filter(item => matchesText(item) && matchesArmorView(klass, item)).length, 0);
+    const total = armorClasses().reduce((sum, klass) => sum + (CATALOG.armor[klass] || []).length, 0);
+    if (els.armorCount) els.armorCount.textContent = `${totalVisible} / ${total}`;
+    root.innerHTML = visible.length ? visible.map(item => renderArmorCard(className, item)).join("") : emptyState(`No ${className} armor matches this filter.`);
   }
 
   function renderArmorCard(className, item) {
-    const focusPlayer = CLASS_FOCUS[className];
+    const focusPlayer = CLASS_FOCUS[className] || players[0];
     const playerRows = armorPlayersForClass(className).map(player => {
       const s = state.armor[className]?.[item.id]?.[player] || blankArmor();
       const isFocus = player === focusPlayer;
-      return `<div class="armor-status status-row">
-        <div class="player-label ${isFocus ? "is-focus" : ""}">${BASE.users[player]?.short || player}</div>
-        ${statusCell(s.owned, "Owned", "Not owned")}
-      </div>`;
+      return `<div class="armor-status status-row"><div class="player-label ${isFocus ? "is-focus" : ""}">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}</div>`;
     }).join("");
 
-    return `<article class="armor-card is-focus-card" data-id="${item.id}">
-      <div class="item-meta item-with-icon">
-        ${itemIconMarkup(item)}
-        <div>
-          <div class="item-name"><h3>${item.name}</h3></div>
-          <div class="badge-row">
-            <span class="badge focus">${focusLabel(className)}</span>
-            <span class="badge slot">${item.slot}</span>
-            <span class="badge source">${item.source}</span>
-          </div>
-        </div>
-      </div>
-      <div class="armor-status header"><span></span><span>Own</span></div>
-      ${playerRows}
-    </article>`;
+    return `<article class="armor-card is-focus-card" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge focus">${focusLabel(className)}</span><span class="badge slot">${item.slot || ""}</span><span class="badge source">${item.source || ""}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
   }
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {
@@ -245,69 +196,6 @@
     return String(name || "?").split(/\s+|-/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase() || "").join("") || "?";
   }
 
-  function normalizeName(name) {
-    return String(name || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/['’]/g, "")
-      .replace(/[^a-z0-9]+/gi, " ")
-      .trim()
-      .toLowerCase();
-  }
-
-  function applyIconMap(iconMap) {
-    allCatalogItems().forEach(item => {
-      const icon = iconMap[item.id] || iconMap[normalizeName(item.name)];
-      if (icon) item.icon = icon;
-    });
-  }
-
-  function applyCachedIcons() {
-    try {
-      const raw = localStorage.getItem(ICON_CACHE_KEY);
-      const cached = raw ? JSON.parse(raw) : null;
-      if (cached?.icons) applyIconMap(cached.icons);
-    } catch {}
-  }
-
-  async function loadManifestIcons() {
-    try {
-      const manifestResponse = await fetch(`${BUNGIE.apiRoot || "https://www.bungie.net/Platform"}/Destiny2/Manifest/`);
-      const manifestJson = await manifestResponse.json();
-      const response = manifestJson.Response || manifestJson.response || manifestJson;
-      const version = response.version || "unknown";
-      const cachedRaw = localStorage.getItem(ICON_CACHE_KEY);
-      const cached = cachedRaw ? JSON.parse(cachedRaw) : null;
-      if (cached?.version === version && cached?.icons) return;
-
-      const paths = response.jsonWorldComponentContentPaths || response.jsonWorldContentPaths || {};
-      const langPaths = paths.en || paths[Object.keys(paths)[0]] || {};
-      const inventoryPath = langPaths.DestinyInventoryItemDefinition;
-      if (!inventoryPath) return;
-
-      const definitionUrl = inventoryPath.startsWith("http") ? inventoryPath : `https://www.bungie.net${inventoryPath}`;
-      const definitions = await (await fetch(definitionUrl)).json();
-      const wantedByName = new Map(allCatalogItems().map(item => [normalizeName(item.name), item]));
-      const icons = {};
-
-      Object.values(definitions).forEach(def => {
-        const display = def.displayProperties || {};
-        if (!display.name || !display.icon) return;
-        const match = wantedByName.get(normalizeName(display.name));
-        if (!match || icons[match.id]) return;
-        icons[match.id] = display.icon;
-      });
-
-      if (Object.keys(icons).length) {
-        localStorage.setItem(ICON_CACHE_KEY, JSON.stringify({ version, icons, savedAt: new Date().toISOString() }));
-        applyIconMap(icons);
-        render();
-      }
-    } catch (error) {
-      console.warn("D2 Collections icon manifest load failed", error);
-    }
-  }
-
   function emptyState(text) {
     return `<div class="empty-state">${text}</div>`;
   }
@@ -315,19 +203,14 @@
   function exportState() {
     hydrateDefaults(state);
     const output = JSON.stringify(state, null, 2);
-    els.exportBox.value = output;
+    if (els.exportBox) els.exportBox.value = output;
     navigator.clipboard?.writeText(output).catch(() => {});
   }
 
   function renderAuthPanel() {
     if (!els.apiStatus) return;
     const hasCode = Boolean(authState.oauthCode);
-    els.apiStatus.textContent = hasCode ? "Signed in code captured" : "Not signed in";
-    if (els.oauthNote) {
-      els.oauthNote.textContent = hasCode
-        ? "Sign-in returned a code and saved it locally. Collection import is the next pass."
-        : "No setup needed here. Use the sign-in button; the collection board remains repo-backed.";
-    }
+    els.apiStatus.textContent = hasCode ? "Bungie linked" : "Bungie offline";
   }
 
   function buildAuthUrl() {
@@ -348,7 +231,7 @@
     window.history.replaceState({}, document.title, url.toString());
   }
 
-  els.search.addEventListener("input", event => { filters.search = event.target.value; render(); });
+  if (els.search) els.search.addEventListener("input", event => { filters.search = event.target.value; render(); });
   document.querySelectorAll("[data-view]").forEach(btn => btn.addEventListener("click", () => {
     document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
@@ -361,16 +244,9 @@
     filters.player = btn.dataset.player;
     render();
   }));
-  els.exportBtn.addEventListener("click", exportState);
-  if (els.loginBtn) els.loginBtn.addEventListener("click", () => { window.location.href = buildAuthUrl(); });
-  if (els.clearApiBtn) els.clearApiBtn.addEventListener("click", () => {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    authState = readAuthState();
-    renderAuthPanel();
-  });
+  if (els.exportBtn) els.exportBtn.addEventListener("click", exportState);
+  if (els.loginBtn) els.loginBtn.addEventListener("click", () => { if (!authState.oauthCode) window.location.href = buildAuthUrl(); });
 
-  applyCachedIcons();
   captureOAuthCode();
   render();
-  loadManifestIcons();
 })();
