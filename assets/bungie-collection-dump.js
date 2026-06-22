@@ -3,6 +3,7 @@
   const AUTH_KEY = "d2-collections-auth-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v1";
   const API_ROOT = "https://www.bungie.net/Platform";
+  const EXPECTED_EXOTIC_TOTAL = 1239;
 
   function readJson(key) {
     try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
@@ -71,6 +72,18 @@
     return data.Response || data;
   }
 
+  function collectibleStats(profile) {
+    const collectibleMap = profile?.profileCollectibles?.data?.collectibles || {};
+    const ids = Object.keys(collectibleMap);
+    const visible = ids.filter(id => collectibleMap[id]?.state !== undefined);
+    return {
+      expectedFullExoticItemTotal: EXPECTED_EXOTIC_TOTAL,
+      returnedCollectibleRecords: ids.length,
+      returnedVisibleCollectibleRecords: visible.length,
+      note: "Expected total is the full exotic-item target provided by the user. Returned counts are raw Bungie collectible records from this profile response."
+    };
+  }
+
   async function buildCollectionDump() {
     const bearer = await getBearer();
     const memberships = await bungieGet("/User/GetMembershipsForCurrentUser/", bearer);
@@ -86,6 +99,7 @@
         membershipId,
         displayName: membership.displayName || memberships.bungieNetUser?.displayName || "",
         bungieGlobalDisplayName: memberships.bungieNetUser?.uniqueName || memberships.bungieNetUser?.displayName || "",
+        collectionStats: collectibleStats(profile),
         profile
       });
     }
@@ -94,6 +108,7 @@
       generatedAt: new Date().toISOString(),
       note: "Logged-in Bungie account collection/profile dump. Tell ChatGPT whether this dump is for Corey/Ares or Matt/Icee.",
       source: "logged_in_bungie_account",
+      expectedFullExoticItemTotal: EXPECTED_EXOTIC_TOTAL,
       membershipCount: destinyMemberships.length,
       memberships: destinyMemberships.map(item => ({
         membershipType: item.membershipType,
@@ -124,7 +139,7 @@
         try {
           const dump = await buildCollectionDump();
           output.value = JSON.stringify(dump, null, 2);
-          status.textContent = `Built logged-in collection dump for ${dump.membershipCount} Destiny membership(s). Send this here and tell me who it belongs to.`;
+          status.textContent = `Built logged-in collection dump for ${dump.membershipCount} Destiny membership(s). Expected exotic total target: ${dump.expectedFullExoticItemTotal}. Send this here and tell me who it belongs to.`;
         } catch (error) {
           status.textContent = error.message || String(error);
         } finally {
