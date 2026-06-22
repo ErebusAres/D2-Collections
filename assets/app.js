@@ -3,6 +3,7 @@
   const BASE = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: { warlock: {}, titan: {} } };
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
   const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
+  const ICON_CACHE_KEY = "d2-collections-icon-cache-v1";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
 
@@ -73,6 +74,10 @@
         });
       });
     });
+  }
+
+  function allCatalogItems() {
+    return [...CATALOG.weapons, ...CATALOG.armor.warlock, ...CATALOG.armor.titan];
   }
 
   function playerList() {
@@ -240,6 +245,69 @@
     return String(name || "?").split(/\s+|-/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase() || "").join("") || "?";
   }
 
+  function normalizeName(name) {
+    return String(name || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/['’]/g, "")
+      .replace(/[^a-z0-9]+/gi, " ")
+      .trim()
+      .toLowerCase();
+  }
+
+  function applyIconMap(iconMap) {
+    allCatalogItems().forEach(item => {
+      const icon = iconMap[item.id] || iconMap[normalizeName(item.name)];
+      if (icon) item.icon = icon;
+    });
+  }
+
+  function applyCachedIcons() {
+    try {
+      const raw = localStorage.getItem(ICON_CACHE_KEY);
+      const cached = raw ? JSON.parse(raw) : null;
+      if (cached?.icons) applyIconMap(cached.icons);
+    } catch {}
+  }
+
+  async function loadManifestIcons() {
+    try {
+      const manifestResponse = await fetch(`${BUNGIE.apiRoot || "https://www.bungie.net/Platform"}/Destiny2/Manifest/`);
+      const manifestJson = await manifestResponse.json();
+      const response = manifestJson.Response || manifestJson.response || manifestJson;
+      const version = response.version || "unknown";
+      const cachedRaw = localStorage.getItem(ICON_CACHE_KEY);
+      const cached = cachedRaw ? JSON.parse(cachedRaw) : null;
+      if (cached?.version === version && cached?.icons) return;
+
+      const paths = response.jsonWorldComponentContentPaths || response.jsonWorldContentPaths || {};
+      const langPaths = paths.en || paths[Object.keys(paths)[0]] || {};
+      const inventoryPath = langPaths.DestinyInventoryItemDefinition;
+      if (!inventoryPath) return;
+
+      const definitionUrl = inventoryPath.startsWith("http") ? inventoryPath : `https://www.bungie.net${inventoryPath}`;
+      const definitions = await (await fetch(definitionUrl)).json();
+      const wantedByName = new Map(allCatalogItems().map(item => [normalizeName(item.name), item]));
+      const icons = {};
+
+      Object.values(definitions).forEach(def => {
+        const display = def.displayProperties || {};
+        if (!display.name || !display.icon) return;
+        const match = wantedByName.get(normalizeName(display.name));
+        if (!match || icons[match.id]) return;
+        icons[match.id] = display.icon;
+      });
+
+      if (Object.keys(icons).length) {
+        localStorage.setItem(ICON_CACHE_KEY, JSON.stringify({ version, icons, savedAt: new Date().toISOString() }));
+        applyIconMap(icons);
+        render();
+      }
+    } catch (error) {
+      console.warn("D2 Collections icon manifest load failed", error);
+    }
+  }
+
   function emptyState(text) {
     return `<div class="empty-state">${text}</div>`;
   }
@@ -301,6 +369,8 @@
     renderAuthPanel();
   });
 
+  applyCachedIcons();
   captureOAuthCode();
   render();
+  loadManifestIcons();
 })();
