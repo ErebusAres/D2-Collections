@@ -22,30 +22,24 @@
 
     <section id="summary" class="summary-grid" aria-label="Collection summary"></section>
 
-    <section class="panel api-panel" aria-label="Bungie API setup">
+    <section class="panel api-panel" aria-label="Bungie sign in">
       <div class="panel-head">
         <div>
-          <p class="eyebrow">Bungie API</p>
-          <h2>Login-ready, still repo-backed</h2>
+          <p class="eyebrow">Bungie</p>
+          <h2>Sign in ready</h2>
         </div>
-        <span id="apiStatus" class="count-pill">Not connected</span>
+        <span id="apiStatus" class="count-pill">Not signed in</span>
       </div>
-      <div class="api-grid">
-        <label class="field-label">
-          <span>API key</span>
-          <input id="apiKeyInput" type="password" placeholder="Paste Bungie API key for this browser" autocomplete="off" />
-        </label>
-        <label class="field-label">
-          <span>OAuth client ID</span>
-          <input id="clientIdInput" type="text" value="53180" autocomplete="off" />
-        </label>
+      <div class="login-strip">
+        <div>
+          <strong>Use your Bungie account later for collection import/export.</strong>
+          <p id="oauthNote" class="muted small-note">No setup needed here. Use the site sign-in button; the checklist remains repo-backed.</p>
+        </div>
         <div class="api-actions">
-          <button id="saveApiBtn" class="button ghost" type="button">Save API settings</button>
           <button id="loginBtn" class="button primary" type="button">Login with Bungie</button>
-          <button id="clearApiBtn" class="button danger" type="button">Clear API settings</button>
+          <button id="clearApiBtn" class="button danger" type="button">Clear login</button>
         </div>
       </div>
-      <p id="oauthNote" class="muted small-note">The checklist does not auto-save from the browser. Future API import can create/export data for GPT or a GitHub commit, while this page stays readable on every device.</p>
     </section>
 
     <nav class="toolbar" aria-label="Collection controls">
@@ -57,7 +51,6 @@
         <button class="seg active" data-view="all" type="button">All</button>
         <button class="seg" data-view="missing" type="button">Missing</button>
         <button class="seg" data-view="catalysts" type="button">Catalysts</button>
-        <button class="seg" data-view="equipped" type="button">Equipped</button>
       </div>
       <div class="segmented" role="group" aria-label="Player focus">
         <button class="seg active" data-player="all" type="button">Both</button>
@@ -71,7 +64,7 @@
         <div class="panel-head">
           <div>
             <p class="eyebrow">Weapons</p>
-            <h2>Ownership + catalysts</h2>
+            <h2>Owned + catalyst checklist</h2>
           </div>
           <span id="weaponCount" class="count-pill"></span>
         </div>
@@ -82,7 +75,7 @@
         <div class="panel-head">
           <div>
             <p class="eyebrow">Armor</p>
-            <h2>Corey Warlock / Matt Titan board</h2>
+            <h2>Corey Warlock / Matt Titan checklist</h2>
           </div>
           <span id="armorCount" class="count-pill"></span>
         </div>
