@@ -1,7 +1,7 @@
 window.D2_COLLECTIONS_CHECKLIST = {
   users: {
-    corey: { label: "Corey", short: "C" },
-    matt: { label: "Matt", short: "M" }
+    corey: { label: "🔥 Ares", short: "🔥", handle: "ErebusAres", display: "🔥 Ares", full: "🔥 Ares (ErebusAres)" },
+    matt: { label: "🧊 Icee", short: "🧊", handle: "IceeDedPple", display: "🧊 Icee", full: "🧊 Icee (IceeDedPple)" }
   },
 
   // Edit only the exotics you want to mark true. Missing entries default to false.
