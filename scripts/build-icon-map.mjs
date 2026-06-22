@@ -33,13 +33,18 @@ async function readText(path) {
   return fs.readFile(new URL(path, ROOT), "utf8");
 }
 
+async function runCatalogPatch(context, path) {
+  try {
+    vm.runInContext(await readText(path), context, { filename: path });
+  } catch {}
+}
+
 async function loadCatalog() {
   const context = { window: {} };
   vm.createContext(context);
-  vm.runInContext(await readText("data/catalog.js"), context, { filename: "data/catalog.js" });
-  try {
-    vm.runInContext(await readText("data/hunter-catalog.js"), context, { filename: "data/hunter-catalog.js" });
-  } catch {}
+  await runCatalogPatch(context, "data/catalog.js");
+  await runCatalogPatch(context, "data/hunter-catalog.js");
+  await runCatalogPatch(context, "data/year-8-catalog.js");
   return context.window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
 }
 
