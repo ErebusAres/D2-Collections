@@ -2,6 +2,7 @@
   const CONFIG = window.D2_BUNGIE_CONFIG || {};
   const AUTH_KEY = "d2-collections-auth-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
+  const API_KEY_STORAGE = "d2-collections-bungie-api-key";
   const API_ROOT = "https://www.bungie.net/Platform";
   const EXPECTED_EXOTIC_TOTAL = 1239;
   let refreshPromise = null;
@@ -14,8 +15,23 @@
     localStorage.setItem(key, JSON.stringify(value));
   }
 
+  function storedApiKey() {
+    return localStorage.getItem(API_KEY_STORAGE) || "";
+  }
+
   function apiKey() {
-    return CONFIG.apiKey || localStorage.getItem("d2-collections-bungie-api-key") || "";
+    return CONFIG.apiKey || storedApiKey();
+  }
+
+  function requireApiKey(status) {
+    const existing = apiKey();
+    if (existing) return existing;
+    const entered = window.prompt("Paste your Bungie API key once. It will be saved only in this browser for D2 Collections.");
+    const value = String(entered || "").trim();
+    if (!value) throw new Error("No Bungie API key saved. Paste the key when prompted, then retry Dump logged-in collection.");
+    localStorage.setItem(API_KEY_STORAGE, value);
+    if (status) status.textContent = "Saved Bungie API key locally. Continuing collection dump…";
+    return value;
   }
 
   function clientId() {
@@ -59,10 +75,9 @@
     return saved;
   }
 
-  async function exchangeCodeForToken() {
+  async function exchangeCodeForToken(status) {
     const code = authCode();
-    const key = apiKey();
-    if (!key) throw new Error("No Bungie API key configured. Set localStorage d2-collections-bungie-api-key before dumping collection data.");
+    const key = requireApiKey(status);
     if (!code) throw new Error("No Bungie login code captured. Click Login with Bungie first.");
     const body = new URLSearchParams();
     body.set("grant_type", "authorization_code");
@@ -81,10 +96,9 @@
     return saveToken(data);
   }
 
-  async function refreshToken() {
-    const key = apiKey();
+  async function refreshToken(status) {
+    const key = requireApiKey(status);
     const saved = token();
-    if (!key) throw new Error("No Bungie API key configured. Set localStorage d2-collections-bungie-api-key before dumping collection data.");
     if (!saved.refresh_token) throw new Error("No refresh token found. Login with Bungie again.");
     const body = new URLSearchParams();
     body.set("grant_type", "refresh_token");
@@ -103,20 +117,19 @@
     return saveToken(data);
   }
 
-  async function ensureToken() {
+  async function ensureToken(status) {
     const saved = token();
     if (tokenIsValid(saved)) return saved;
     if (refreshTokenIsValid(saved)) {
-      if (!refreshPromise) refreshPromise = refreshToken().finally(() => { refreshPromise = null; });
+      if (!refreshPromise) refreshPromise = refreshToken(status).finally(() => { refreshPromise = null; });
       return refreshPromise;
     }
-    return exchangeCodeForToken();
+    return exchangeCodeForToken(status);
   }
 
-  async function bungieGet(path) {
-    const key = apiKey();
-    if (!key) throw new Error("No Bungie API key configured. Set localStorage d2-collections-bungie-api-key before dumping collection data.");
-    const currentToken = await ensureToken();
+  async function bungieGet(path, status) {
+    const key = requireApiKey(status);
+    const currentToken = await ensureToken(status);
     const response = await fetch(`${API_ROOT}${path}`, {
       headers: {
         "X-API-Key": key,
@@ -142,15 +155,16 @@
     };
   }
 
-  async function buildCollectionDump() {
-    const memberships = await bungieGet("/User/GetMembershipsForCurrentUser/");
+  async function buildCollectionDump(status) {
+    const memberships = await bungieGet("/User/GetMembershipsForCurrentUser/", status);
     const destinyMemberships = memberships.destinyMemberships || [];
     const profiles = [];
     for (const membership of destinyMemberships) {
       const membershipType = membership.membershipType;
       const membershipId = membership.membershipId;
       if (!membershipType || !membershipId) continue;
-      const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,800,900`);
+      if (status) status.textContent = `Pulling collection/profile data for ${membership.displayName || membershipId}…`;
+      const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,800,900`, status);
       profiles.push({
         membershipType,
         membershipId,
@@ -190,11 +204,17 @@
       button.type = "button";
       button.textContent = "Dump logged-in collection";
       actions.prepend(button);
+      if (!storedApiKey() && !CONFIG.apiKey) {
+        const hint = document.createElement("div");
+        hint.className = "api-handoff-status";
+        hint.textContent = "First dump will ask for your Bungie API key and save it locally in this browser.";
+        actions.insertAdjacentElement("afterend", hint);
+      }
       button.addEventListener("click", async () => {
         button.disabled = true;
         status.textContent = "Pulling logged-in Bungie collection/profile data…";
         try {
-          const dump = await buildCollectionDump();
+          const dump = await buildCollectionDump(status);
           output.value = JSON.stringify(dump, null, 2);
           status.textContent = `Built logged-in collection dump for ${dump.membershipCount} Destiny membership(s). Expected exotic total target: ${dump.expectedFullExoticItemTotal}. Send this here and tell me who it belongs to.`;
         } catch (error) {
