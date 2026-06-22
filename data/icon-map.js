@@ -1,0 +1,1 @@
+window.D2_COLLECTIONS_ICON_MAP = window.D2_COLLECTIONS_ICON_MAP || {};
