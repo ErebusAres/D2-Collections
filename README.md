@@ -9,15 +9,17 @@ The live app is intended to run from `index.html` on GitHub Pages.
 - Manual-first: no Bungie API required for checklist state.
 - Easy to edit: exotic catalog and player checklist are plain JavaScript data files.
 - Dense but readable: weapons show ownership plus catalyst status; armor is split into Warlock and Titan panels.
+- Player-focused armor: Warlock armor is treated as Corey by default, and Titan armor is treated as Matt by default.
 - Future-ready: `index.html` can later become the Bungie OAuth/API entry point without replacing the UI.
 
 ## Files
 
 - `index.html` — main GitHub Pages entry point.
 - `assets/styles.css` — full UI styling.
-- `assets/app.js` — rendering, filters, progress, import/export, and local checklist edits.
+- `assets/app.js` — rendering, filters, progress, import/export, local checklist edits, and Bungie login scaffolding.
 - `data/catalog.js` — exotic weapon and armor catalog.
 - `data/checklist.js` — manually editable Corey/Matt checklist state.
+- `data/bungie-config.js` — public-safe Bungie OAuth/client config. The API key is intentionally not committed.
 
 ## Manual checklist editing
 
@@ -42,3 +44,16 @@ For armor:
 ```
 
 The app also lets you tick boxes in the browser. Those changes are saved to `localStorage` and can be exported as JSON from the page.
+
+## Bungie API setup
+
+The API panel stores the Bungie API key in the browser only, using `localStorage`. This keeps the public repository from publishing the key.
+
+Current public OAuth config:
+
+```js
+clientId: "53180"
+authUrl: "https://www.bungie.net/en/OAuth/Authorize"
+```
+
+The login button currently builds the Bungie OAuth URL and captures the returned `code` locally. Token exchange and automatic collection import are intentionally left as the next implementation step.
