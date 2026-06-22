@@ -18,7 +18,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
       corey: { owned: false, catalyst: false, complete: false, equipped: false },
       matt:  { owned: false, catalyst: false, complete: false, equipped: false }
     },
-    "euphony": {
+    "rufus-fury-placeholder": {
       corey: { owned: false, catalyst: false, complete: false, equipped: false },
       matt:  { owned: false, catalyst: false, complete: false, equipped: false }
     }
