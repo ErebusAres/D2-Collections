@@ -2,7 +2,6 @@
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: { warlock: [], titan: [] } };
   const BASE = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: { warlock: {}, titan: {} } };
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
-  const STORAGE_KEY = "d2-collections-checklist-v1";
   const API_STORAGE_KEY = "d2-collections-api-settings-v1";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
@@ -12,7 +11,7 @@
   const clone = value => JSON.parse(JSON.stringify(value));
 
   let filters = { search: "", view: "all", player: "all" };
-  let state = mergeState(clone(BASE), readLocal());
+  let state = mergeState(clone(BASE));
   let apiSettings = readApiSettings();
 
   const els = {
@@ -25,8 +24,6 @@
     armorCount: document.querySelector("#armorCount"),
     exportBtn: document.querySelector("#exportBtn"),
     exportBox: document.querySelector("#exportBox"),
-    importFile: document.querySelector("#importFile"),
-    resetLocalBtn: document.querySelector("#resetLocalBtn"),
     apiStatus: document.querySelector("#apiStatus"),
     apiKeyInput: document.querySelector("#apiKeyInput"),
     clientIdInput: document.querySelector("#clientIdInput"),
@@ -35,19 +32,6 @@
     clearApiBtn: document.querySelector("#clearApiBtn"),
     oauthNote: document.querySelector("#oauthNote")
   };
-
-  function readLocal() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  function saveLocal() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }
 
   function readApiSettings() {
     try {
@@ -70,30 +54,15 @@
     renderApiPanel();
   }
 
-  function mergeState(base, overlay) {
+  function mergeState(base) {
     const merged = base || {};
     merged.users = merged.users || { corey: { label: "Corey", short: "C" }, matt: { label: "Matt", short: "M" } };
     merged.weapons = merged.weapons || {};
     merged.armor = merged.armor || { warlock: {}, titan: {} };
     merged.armor.warlock = merged.armor.warlock || {};
     merged.armor.titan = merged.armor.titan || {};
-
-    if (overlay) {
-      deepMerge(merged, overlay);
-    }
     hydrateDefaults(merged);
     return merged;
-  }
-
-  function deepMerge(target, source) {
-    for (const [key, value] of Object.entries(source || {})) {
-      if (value && typeof value === "object" && !Array.isArray(value)) {
-        target[key] = target[key] && typeof target[key] === "object" ? target[key] : {};
-        deepMerge(target[key], value);
-      } else {
-        target[key] = value;
-      }
-    }
   }
 
   function hydrateDefaults(next) {
@@ -199,23 +168,26 @@
   function renderWeaponCard(item) {
     const playerRows = playerList().map(player => {
       const s = state.weapons[item.id]?.[player] || blankWeapon();
-      return `<div class="status-grid">
+      return `<div class="status-grid status-row">
         <div class="player-label">${BASE.users[player]?.short || player}</div>
-        ${checkboxCell("weapon", item.id, player, "owned", s.owned, "Own")}
-        ${checkboxCell("weapon", item.id, player, "catalyst", s.catalyst, "Cat")}
-        ${checkboxCell("weapon", item.id, player, "complete", s.complete, "Done")}
-        ${checkboxCell("weapon", item.id, player, "equipped", s.equipped, "Use", s.equipped ? "is-equipped" : "")}
+        ${statusCell(s.owned, "Owned", "Not owned")}
+        ${statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim")}
+        ${statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim")}
+        ${equippedCell(s.equipped)}
       </div>`;
     }).join("");
 
     return `<article class="weapon-card" data-id="${item.id}">
-      <div class="item-meta">
-        <div class="item-name"><h3>${item.name}</h3></div>
-        <div class="badge-row">
-          <span class="badge ${item.slot.toLowerCase()}">${item.slot}</span>
-          <span class="badge slot">${item.type}</span>
-          <span class="badge">${item.element}</span>
-          <span class="badge source">${item.source}</span>
+      <div class="item-meta item-with-icon">
+        ${itemIconMarkup(item)}
+        <div>
+          <div class="item-name"><h3>${item.name}</h3></div>
+          <div class="badge-row">
+            <span class="badge ${item.slot.toLowerCase()}">${item.slot}</span>
+            <span class="badge slot">${item.type}</span>
+            <span class="badge">${item.element}</span>
+            <span class="badge source">${item.source}</span>
+          </div>
         </div>
       </div>
       <div>
@@ -240,20 +212,23 @@
     const playerRows = armorPlayersForClass(className).map(player => {
       const s = state.armor[className]?.[item.id]?.[player] || blankArmor();
       const isFocus = player === focusPlayer;
-      return `<div class="armor-status">
+      return `<div class="armor-status status-row">
         <div class="player-label ${isFocus ? "is-focus" : ""}">${BASE.users[player]?.short || player}</div>
-        ${checkboxCell("armor", item.id, player, "owned", s.owned, "Own", "", className)}
-        ${checkboxCell("armor", item.id, player, "equipped", s.equipped, "Eq", s.equipped ? "is-equipped" : "", className)}
+        ${statusCell(s.owned, "Owned", "Not owned")}
+        ${equippedCell(s.equipped)}
       </div>`;
     }).join("");
 
     return `<article class="armor-card is-focus-card" data-id="${item.id}">
-      <div class="item-meta">
-        <div class="item-name"><h3>${item.name}</h3></div>
-        <div class="badge-row">
-          <span class="badge focus">${focusLabel(className)}</span>
-          <span class="badge slot">${item.slot}</span>
-          <span class="badge source">${item.source}</span>
+      <div class="item-meta item-with-icon">
+        ${itemIconMarkup(item)}
+        <div>
+          <div class="item-name"><h3>${item.name}</h3></div>
+          <div class="badge-row">
+            <span class="badge focus">${focusLabel(className)}</span>
+            <span class="badge slot">${item.slot}</span>
+            <span class="badge source">${item.source}</span>
+          </div>
         </div>
       </div>
       <div class="armor-status header"><span></span><span>Own</span><span>Equipped</span></div>
@@ -261,43 +236,34 @@
     </article>`;
   }
 
-  function checkboxCell(kind, id, player, field, checked, label, extraClass = "", className = "") {
-    const onClass = checked ? "is-on" : "";
-    return `<div class="check-cell ${onClass} ${extraClass}"><label title="${label}"><input type="checkbox" data-kind="${kind}" data-id="${id}" data-player="${player}" data-field="${field}" data-class="${className}" ${checked ? "checked" : ""} /></label></div>`;
+  function statusCell(value, yesTitle, noTitle, extraClass = "") {
+    return `<div class="status-cell ${value ? "yes" : "no"} ${extraClass}" title="${value ? yesTitle : noTitle}">${value ? "✅" : "⛔"}</div>`;
+  }
+
+  function equippedCell(value) {
+    return `<div class="status-cell ${value ? "equipped" : "idle"}" title="${value ? "Marked equipped / in use" : "Not marked equipped"}">${value ? "⭐" : "—"}</div>`;
+  }
+
+  function itemIconMarkup(item) {
+    const raw = item.icon || item.iconUrl || "";
+    if (raw) {
+      const src = raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw;
+      return `<img class="item-icon" src="${src}" alt="${item.name} icon" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'item-icon-fallback',textContent:'${escapeInitials(item.name)}'}))" />`;
+    }
+    return `<div class="item-icon-fallback" aria-hidden="true">${escapeInitials(item.name)}</div>`;
+  }
+
+  function escapeInitials(name) {
+    return String(name || "?")
+      .split(/\s+|-/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => part[0]?.toUpperCase() || "")
+      .join("") || "?";
   }
 
   function emptyState(text) {
     return `<div class="empty-state">${text}</div>`;
-  }
-
-  function handleCheck(event) {
-    const input = event.target.closest("input[type='checkbox'][data-kind]");
-    if (!input) return;
-    const { kind, id, player, field } = input.dataset;
-    if (kind === "weapon") {
-      state.weapons[id] = state.weapons[id] || {};
-      state.weapons[id][player] = { ...blankWeapon(), ...(state.weapons[id][player] || {}) };
-      state.weapons[id][player][field] = input.checked;
-      if (field === "complete" && input.checked) {
-        state.weapons[id][player].owned = true;
-        state.weapons[id][player].catalyst = true;
-      }
-      if (field === "catalyst" && input.checked) state.weapons[id][player].owned = true;
-      if (field === "equipped" && input.checked) state.weapons[id][player].owned = true;
-      if ((field === "catalyst" || field === "owned") && !input.checked) {
-        if (field === "owned") Object.assign(state.weapons[id][player], blankWeapon());
-        if (field === "catalyst") state.weapons[id][player].complete = false;
-      }
-    } else {
-      const className = input.dataset.class;
-      state.armor[className][id] = state.armor[className][id] || {};
-      state.armor[className][id][player] = { ...blankArmor(), ...(state.armor[className][id][player] || {}) };
-      state.armor[className][id][player][field] = input.checked;
-      if (field === "equipped" && input.checked) state.armor[className][id][player].owned = true;
-      if (field === "owned" && !input.checked) state.armor[className][id][player].equipped = false;
-    }
-    saveLocal();
-    render();
   }
 
   function exportState() {
@@ -305,23 +271,6 @@
     const output = JSON.stringify(state, null, 2);
     els.exportBox.value = output;
     navigator.clipboard?.writeText(output).catch(() => {});
-  }
-
-  function importState(file) {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const imported = JSON.parse(String(reader.result || "{}"));
-        state = mergeState(clone(BASE), imported);
-        saveLocal();
-        render();
-        els.exportBox.value = JSON.stringify(state, null, 2);
-      } catch (error) {
-        els.exportBox.value = `Import failed: ${error.message}`;
-      }
-    };
-    reader.readAsText(file);
   }
 
   function renderApiPanel() {
@@ -334,7 +283,7 @@
     if (hasCode) {
       els.oauthNote.textContent = "OAuth returned a code and saved it locally. Token exchange and collection import are scaffolded for the next API pass.";
     } else {
-      els.oauthNote.textContent = "This does not replace manual checkmarks yet. It prepares the app for a later import/sync flow where you can log in, export collection data, and paste it back here for repo updates.";
+      els.oauthNote.textContent = "The checklist does not auto-save from the browser. Future API import can create/export data for GPT or a GitHub commit, while this page stays readable on every device.";
     }
   }
 
@@ -356,7 +305,6 @@
     window.history.replaceState({}, document.title, url.toString());
   }
 
-  document.body.addEventListener("change", handleCheck);
   els.search.addEventListener("input", event => { filters.search = event.target.value; render(); });
   document.querySelectorAll("[data-view]").forEach(btn => btn.addEventListener("click", () => {
     document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active"));
@@ -371,13 +319,6 @@
     render();
   }));
   els.exportBtn.addEventListener("click", exportState);
-  els.importFile.addEventListener("change", event => importState(event.target.files?.[0]));
-  els.resetLocalBtn.addEventListener("click", () => {
-    localStorage.removeItem(STORAGE_KEY);
-    state = mergeState(clone(BASE), null);
-    els.exportBox.value = "Browser overrides reset. Reloading from data/checklist.js.";
-    render();
-  });
   els.saveApiBtn.addEventListener("click", () => {
     saveApiSettings({
       ...apiSettings,
