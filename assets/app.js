@@ -2,17 +2,17 @@
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: { warlock: [], titan: [] } };
   const BASE = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: { warlock: {}, titan: {} } };
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
-  const API_STORAGE_KEY = "d2-collections-api-settings-v1";
+  const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
 
-  const blankWeapon = () => ({ owned: false, catalyst: false, complete: false, equipped: false });
-  const blankArmor = () => ({ owned: false, equipped: false });
+  const blankWeapon = () => ({ owned: false, catalyst: false, complete: false });
+  const blankArmor = () => ({ owned: false });
   const clone = value => JSON.parse(JSON.stringify(value));
 
   let filters = { search: "", view: "all", player: "all" };
   let state = mergeState(clone(BASE));
-  let apiSettings = readApiSettings();
+  let authState = readAuthState();
 
   const els = {
     summary: document.querySelector("#summary"),
@@ -25,33 +25,25 @@
     exportBtn: document.querySelector("#exportBtn"),
     exportBox: document.querySelector("#exportBox"),
     apiStatus: document.querySelector("#apiStatus"),
-    apiKeyInput: document.querySelector("#apiKeyInput"),
-    clientIdInput: document.querySelector("#clientIdInput"),
-    saveApiBtn: document.querySelector("#saveApiBtn"),
     loginBtn: document.querySelector("#loginBtn"),
     clearApiBtn: document.querySelector("#clearApiBtn"),
     oauthNote: document.querySelector("#oauthNote")
   };
 
-  function readApiSettings() {
+  function readAuthState() {
     try {
-      const raw = localStorage.getItem(API_STORAGE_KEY);
+      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
       const saved = raw ? JSON.parse(raw) : {};
-      return {
-        apiKey: saved.apiKey || BUNGIE.apiKey || "",
-        clientId: saved.clientId || BUNGIE.clientId || "53180",
-        oauthCode: saved.oauthCode || "",
-        lastSaved: saved.lastSaved || ""
-      };
+      return { oauthCode: saved.oauthCode || "", lastSaved: saved.lastSaved || "" };
     } catch {
-      return { apiKey: BUNGIE.apiKey || "", clientId: BUNGIE.clientId || "53180", oauthCode: "", lastSaved: "" };
+      return { oauthCode: "", lastSaved: "" };
     }
   }
 
-  function saveApiSettings(next = apiSettings) {
-    apiSettings = next;
-    localStorage.setItem(API_STORAGE_KEY, JSON.stringify(apiSettings));
-    renderApiPanel();
+  function saveAuthState(next = authState) {
+    authState = next;
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
+    renderAuthPanel();
   }
 
   function mergeState(base) {
@@ -107,7 +99,6 @@
     const rows = playerList().map(player => state.weapons[item.id]?.[player] || blankWeapon());
     if (filters.view === "missing") return rows.some(row => !row.owned);
     if (filters.view === "catalysts") return rows.some(row => row.owned && (!row.catalyst || !row.complete));
-    if (filters.view === "equipped") return rows.some(row => row.equipped);
     return true;
   }
 
@@ -115,7 +106,6 @@
     const rows = armorPlayersForClass(className).map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
     if (filters.view === "missing") return rows.some(row => !row.owned);
     if (filters.view === "catalysts") return false;
-    if (filters.view === "equipped") return rows.some(row => row.equipped);
     return true;
   }
 
@@ -124,24 +114,23 @@
     renderWeapons();
     renderArmor("warlock", els.warlock);
     renderArmor("titan", els.titan);
-    renderApiPanel();
+    renderAuthPanel();
   }
 
   function renderSummary() {
     const weaponRows = flattenWeaponRows();
     const armorRows = flattenArmorRows();
     const ownedWeapons = weaponRows.filter(row => row.owned).length;
+    const catalystOwned = weaponRows.filter(row => row.catalyst).length;
     const catalystDone = weaponRows.filter(row => row.complete).length;
     const ownedArmor = armorRows.filter(row => row.owned).length;
-    const equippedTotal = [...weaponRows, ...armorRows].filter(row => row.equipped).length;
 
-    const cards = [
-      metric("Weapons owned", ownedWeapons, weaponRows.length, "Corey + Matt weapon ownership"),
-      metric("Catalysts complete", catalystDone, weaponRows.length, "Finished weapon catalysts"),
-      metric("Armor owned", ownedArmor, armorRows.length, "Corey WL + Matt Titan"),
-      metric("Equipped flags", equippedTotal, [...weaponRows, ...armorRows].length, "Marked in-use")
-    ];
-    els.summary.innerHTML = cards.join("");
+    els.summary.innerHTML = [
+      metric("Weapons owned", ownedWeapons, weaponRows.length, "Corey + Matt"),
+      metric("Catalysts owned", catalystOwned, weaponRows.length, "Obtained catalysts"),
+      metric("Catalysts complete", catalystDone, weaponRows.length, "Finished catalysts"),
+      metric("Armor owned", ownedArmor, armorRows.length, "Corey WL + Matt Titan")
+    ].join("");
   }
 
   function metric(label, value, total, caption) {
@@ -173,7 +162,6 @@
         ${statusCell(s.owned, "Owned", "Not owned")}
         ${statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim")}
         ${statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim")}
-        ${equippedCell(s.equipped)}
       </div>`;
     }).join("");
 
@@ -191,7 +179,7 @@
         </div>
       </div>
       <div>
-        <div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span><span>Use</span></div>
+        <div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>
         ${playerRows}
       </div>
     </article>`;
@@ -215,7 +203,6 @@
       return `<div class="armor-status status-row">
         <div class="player-label ${isFocus ? "is-focus" : ""}">${BASE.users[player]?.short || player}</div>
         ${statusCell(s.owned, "Owned", "Not owned")}
-        ${equippedCell(s.equipped)}
       </div>`;
     }).join("");
 
@@ -231,17 +218,13 @@
           </div>
         </div>
       </div>
-      <div class="armor-status header"><span></span><span>Own</span><span>Equipped</span></div>
+      <div class="armor-status header"><span></span><span>Own</span></div>
       ${playerRows}
     </article>`;
   }
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {
     return `<div class="status-cell ${value ? "yes" : "no"} ${extraClass}" title="${value ? yesTitle : noTitle}">${value ? "✅" : "⛔"}</div>`;
-  }
-
-  function equippedCell(value) {
-    return `<div class="status-cell ${value ? "equipped" : "idle"}" title="${value ? "Marked equipped / in use" : "Not marked equipped"}">${value ? "⭐" : "—"}</div>`;
   }
 
   function itemIconMarkup(item) {
@@ -254,12 +237,7 @@
   }
 
   function escapeInitials(name) {
-    return String(name || "?")
-      .split(/\s+|-/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(part => part[0]?.toUpperCase() || "")
-      .join("") || "?";
+    return String(name || "?").split(/\s+|-/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase() || "").join("") || "?";
   }
 
   function emptyState(text) {
@@ -273,22 +251,19 @@
     navigator.clipboard?.writeText(output).catch(() => {});
   }
 
-  function renderApiPanel() {
+  function renderAuthPanel() {
     if (!els.apiStatus) return;
-    els.apiKeyInput.value = apiSettings.apiKey || "";
-    els.clientIdInput.value = apiSettings.clientId || BUNGIE.clientId || "53180";
-    const hasKey = Boolean(apiSettings.apiKey);
-    const hasCode = Boolean(apiSettings.oauthCode);
-    els.apiStatus.textContent = hasCode ? "OAuth code captured" : hasKey ? "API key saved locally" : "Not connected";
-    if (hasCode) {
-      els.oauthNote.textContent = "OAuth returned a code and saved it locally. Token exchange and collection import are scaffolded for the next API pass.";
-    } else {
-      els.oauthNote.textContent = "The checklist does not auto-save from the browser. Future API import can create/export data for GPT or a GitHub commit, while this page stays readable on every device.";
+    const hasCode = Boolean(authState.oauthCode);
+    els.apiStatus.textContent = hasCode ? "Signed in code captured" : "Not signed in";
+    if (els.oauthNote) {
+      els.oauthNote.textContent = hasCode
+        ? "Sign-in returned a code and saved it locally. Collection import is the next pass."
+        : "No setup needed here. Use the sign-in button; the collection board remains repo-backed.";
     }
   }
 
   function buildAuthUrl() {
-    const clientId = els.clientIdInput.value.trim() || BUNGIE.clientId || "53180";
+    const clientId = BUNGIE.clientId || "53180";
     const redirectUri = `${window.location.origin}${window.location.pathname}`;
     const params = new URLSearchParams({ client_id: clientId, response_type: "code", redirect_uri: redirectUri });
     return `${BUNGIE.authUrl || "https://www.bungie.net/en/OAuth/Authorize"}?${params.toString()}`;
@@ -298,9 +273,9 @@
     const url = new URL(window.location.href);
     const code = url.searchParams.get("code");
     if (!code) return;
-    apiSettings.oauthCode = code;
-    apiSettings.lastSaved = new Date().toISOString();
-    saveApiSettings(apiSettings);
+    authState.oauthCode = code;
+    authState.lastSaved = new Date().toISOString();
+    saveAuthState(authState);
     url.searchParams.delete("code");
     window.history.replaceState({}, document.title, url.toString());
   }
@@ -319,27 +294,11 @@
     render();
   }));
   els.exportBtn.addEventListener("click", exportState);
-  els.saveApiBtn.addEventListener("click", () => {
-    saveApiSettings({
-      ...apiSettings,
-      apiKey: els.apiKeyInput.value.trim(),
-      clientId: els.clientIdInput.value.trim() || BUNGIE.clientId || "53180",
-      lastSaved: new Date().toISOString()
-    });
-  });
-  els.loginBtn.addEventListener("click", () => {
-    saveApiSettings({
-      ...apiSettings,
-      apiKey: els.apiKeyInput.value.trim(),
-      clientId: els.clientIdInput.value.trim() || BUNGIE.clientId || "53180",
-      lastSaved: new Date().toISOString()
-    });
-    window.location.href = buildAuthUrl();
-  });
-  els.clearApiBtn.addEventListener("click", () => {
-    localStorage.removeItem(API_STORAGE_KEY);
-    apiSettings = readApiSettings();
-    renderApiPanel();
+  if (els.loginBtn) els.loginBtn.addEventListener("click", () => { window.location.href = buildAuthUrl(); });
+  if (els.clearApiBtn) els.clearApiBtn.addEventListener("click", () => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    authState = readAuthState();
+    renderAuthPanel();
   });
 
   captureOAuthCode();
