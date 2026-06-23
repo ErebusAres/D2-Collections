@@ -73,6 +73,23 @@
     return saved;
   }
 
+  async function parseResponse(response) {
+    const text = await response.text().catch(() => "");
+    if (!text) return { data: {}, text: "" };
+    try { return { data: JSON.parse(text), text }; } catch { return { data: {}, text }; }
+  }
+
+  function tokenError(prefix, response, data, text) {
+    const parts = [prefix, `HTTP ${response.status}`];
+    const msg = data.error_description || data.Message || data.message || data.error;
+    if (msg) parts.push(msg);
+    if (!msg && text) parts.push(text.slice(0, 600));
+    parts.push(`redirect_uri=${redirectUri()}`);
+    parts.push(`client_id=${clientId()}`);
+    parts.push(`code_present=${Boolean(authCode())}`);
+    return parts.join(" | ");
+  }
+
   async function exchangeCodeForToken(status) {
     const code = authCode();
     const key = requireApiKey(status);
@@ -87,9 +104,10 @@
       headers: { "Content-Type": "application/x-www-form-urlencoded", "X-API-Key": key },
       body
     });
-    const data = await response.json().catch(() => ({}));
+    const { data, text } = await parseResponse(response);
     if (!response.ok || !data.access_token) {
-      throw new Error(data.error_description || data.Message || data.error || `Bungie token exchange failed (${response.status}).`);
+      localStorage.removeItem(SESSION_KEY);
+      throw new Error(tokenError("Bungie token exchange failed", response, data, text));
     }
     return saveToken(data);
   }
@@ -107,10 +125,10 @@
       headers: { "Content-Type": "application/x-www-form-urlencoded", "X-API-Key": key },
       body
     });
-    const data = await response.json().catch(() => ({}));
+    const { data, text } = await parseResponse(response);
     if (!response.ok || !data.access_token) {
       localStorage.removeItem(SESSION_KEY);
-      throw new Error(data.error_description || data.Message || data.error || `Bungie token refresh failed (${response.status}).`);
+      throw new Error(tokenError("Bungie token refresh failed", response, data, text));
     }
     return saveToken(data);
   }
