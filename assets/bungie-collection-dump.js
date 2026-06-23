@@ -84,7 +84,7 @@
     const msg = data.error_description || data.Message || data.message || data.error;
     if (msg) parts.push(msg);
     if (!msg && text) parts.push(text.slice(0, 600));
-    parts.push(`redirect_uri=${redirectUri()}`);
+    parts.push(`auth_redirect_uri=${redirectUri()}`);
     parts.push(`client_id=${clientId()}`);
     parts.push(`code_present=${Boolean(authCode())}`);
     parts.push(`api_key_present=${Boolean(apiKey())}`);
@@ -99,7 +99,7 @@
     body.set("grant_type", "authorization_code");
     body.set("code", code);
     body.set("client_id", clientId());
-    body.set("redirect_uri", redirectUri());
+    // Match current D2AA: token exchange omits redirect_uri and uses client_id + X-API-Key.
     const response = await fetch(CONFIG.tokenUrl || `${API_ROOT}/App/OAuth/Token/`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "X-API-Key": key },
