@@ -92,7 +92,6 @@
 
   async function exchangeCodeForToken(status) {
     const code = authCode();
-    const key = requireApiKey(status);
     if (!code) throw new Error("No Bungie login code captured. Click Login with Bungie first.");
     const body = new URLSearchParams();
     body.set("grant_type", "authorization_code");
@@ -101,7 +100,7 @@
     body.set("redirect_uri", redirectUri());
     const response = await fetch(CONFIG.tokenUrl || `${API_ROOT}/App/OAuth/Token/`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-API-Key": key },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body
     });
     const { data, text } = await parseResponse(response);
@@ -113,7 +112,6 @@
   }
 
   async function refreshToken(status) {
-    const key = requireApiKey(status);
     const saved = token();
     if (!saved.refresh_token) throw new Error("No refresh token found. Login with Bungie again.");
     const body = new URLSearchParams();
@@ -122,7 +120,7 @@
     body.set("client_id", clientId());
     const response = await fetch(CONFIG.tokenUrl || `${API_ROOT}/App/OAuth/Token/`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-API-Key": key },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body
     });
     const { data, text } = await parseResponse(response);
