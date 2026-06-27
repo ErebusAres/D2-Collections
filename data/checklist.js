@@ -27,7 +27,22 @@ window.D2_COLLECTIONS_CHECKLIST = {
       "short": "🧊",
       "handle": "IceeDedPple",
       "display": "🧊 Icee",
-      "full": "🧊 Icee (IceeDedPple)"
+      "full": "🧊 Icee (IceeDedPple)",
+      "bungieGlobalDisplayName": "IceeDedPple#3514",
+      "primaryMembershipId": "4611686018470677739",
+      "membershipType": 3,
+      "membershipId": "4611686018470677739",
+      "displayName": "IceeDedPple",
+      "lastCollectionDumpAt": "2026-06-27T04:58:19.508Z",
+      "collectionStats": {
+        "expectedFullExoticItemTotal": 1239,
+        "returnedCollectibleRecords": 6478,
+        "returnedVisibleCollectibleRecords": 6478,
+        "ownedCollectibleHashes": 892,
+        "matchedCatalogItems": 41,
+        "matchedCatalysts": 0,
+        "matchedCatalystsComplete": 0
+      }
     }
   },
   "weapons": {
@@ -74,7 +89,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": true
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -182,7 +197,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -218,7 +233,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": true
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -242,7 +257,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -338,7 +353,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": true
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -362,7 +377,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -422,7 +437,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -458,7 +473,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -470,7 +485,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": true
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -482,7 +497,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -530,7 +545,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": true
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -602,7 +617,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -674,7 +689,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -686,7 +701,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": true
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -710,7 +725,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": true
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -746,7 +761,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -770,7 +785,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -818,7 +833,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": true
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -830,7 +845,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "complete": false
       },
       "matt": {
-        "owned": false,
+        "owned": true,
         "catalyst": false,
         "complete": false
       }
@@ -891,7 +906,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "fallen-sunstar": {
@@ -915,7 +930,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "the-stag": {
@@ -1003,7 +1018,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "winter-s-guile": {
@@ -1067,7 +1082,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "stormdancer-s-brace": {
@@ -1091,7 +1106,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "boots-of-the-assembler": {
@@ -1165,7 +1180,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "aeon-safe": {
@@ -1173,7 +1188,15 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
+          "owned": true
+        }
+      },
+      "ashen-wake": {
+        "corey": {
           "owned": false
+        },
+        "matt": {
+          "owned": true
         }
       },
       "doom-fang-pauldrons": {
@@ -1181,7 +1204,15 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
+          "owned": true
+        }
+      },
+      "stronghold": {
+        "corey": {
           "owned": false
+        },
+        "matt": {
+          "owned": true
         }
       },
       "synthoceps": {
@@ -1189,10 +1220,18 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "wormgod-caress": {
+        "corey": {
+          "owned": false
+        },
+        "matt": {
+          "owned": true
+        }
+      },
+      "helm-of-saint-14": {
         "corey": {
           "owned": false
         },
@@ -1205,7 +1244,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "actium-war-rig": {
@@ -1213,7 +1252,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "alpha-lupi": {
@@ -1221,7 +1260,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "cuirass-of-the-falling-star": {
@@ -1229,7 +1268,23 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
+          "owned": true
+        }
+      },
+      "heart-of-inmost-light": {
+        "corey": {
           "owned": false
+        },
+        "matt": {
+          "owned": true
+        }
+      },
+      "severance-enclosure": {
+        "corey": {
+          "owned": false
+        },
+        "matt": {
+          "owned": true
         }
       },
       "mk-44-stand-asides": {
@@ -1279,7 +1334,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "oathkeeper": {
@@ -1519,7 +1574,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
           "owned": true
         },
         "matt": {
-          "owned": false
+          "owned": true
         }
       },
       "fr0st-ee5": {
