@@ -7,7 +7,7 @@
   const MAP_CACHE_KEY = "d2-collections-bungie-catalog-map-v1";
   const API_ROOT = "https://www.bungie.net/Platform";
   const EXPECTED_EXOTIC_TOTAL = 1239;
-  const OAUTH_REDIRECT_URI = "https://erebusares.github.io/D2-Collections/index.html";
+  const OAUTH_REDIRECT_URI = "https://erebusares.github.io/D2-Collections/";
   const NOT_ACQUIRED = 1;
   let refreshPromise = null;
 
@@ -86,6 +86,10 @@
     const parts = [prefix, `HTTP ${response.status}`];
     const msg = data.error_description || data.Message || data.message || data.error;
     if (msg) parts.push(msg);
+    if (msg === "OriginHeaderDoesNotMatchKey") {
+      parts.push(`required_origin=${window.location.origin}`);
+      parts.push("Fix this in the Bungie app for client_id 53180 / this API key: set Origin Header to the required_origin value.");
+    }
     if (!msg && text) parts.push(text.slice(0, 600));
     parts.push(`auth_redirect_uri=${redirectUri()}`);
     parts.push(`client_id=${clientId()}`);
@@ -96,6 +100,7 @@
 
   async function exchangeCodeForToken() {
     const code = authCode();
+    const key = requireApiKey();
     if (!code) throw new Error("No Bungie login code captured. Click Login with Bungie first.");
     const body = new URLSearchParams();
     body.set("grant_type", "authorization_code");
@@ -103,7 +108,7 @@
     body.set("client_id", clientId());
     const response = await fetch(CONFIG.tokenUrl || `${API_ROOT}/App/OAuth/Token/`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-API-Key": key },
       body
     });
     const { data, text } = await parseResponse(response);
@@ -115,6 +120,7 @@
   }
 
   async function refreshToken() {
+    const key = requireApiKey();
     const saved = token();
     if (!saved.refresh_token) throw new Error("No refresh token found. Login with Bungie again.");
     const body = new URLSearchParams();
@@ -123,7 +129,7 @@
     body.set("client_id", clientId());
     const response = await fetch(CONFIG.tokenUrl || `${API_ROOT}/App/OAuth/Token/`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-API-Key": key },
       body
     });
     const { data, text } = await parseResponse(response);
