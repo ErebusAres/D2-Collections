@@ -1,6 +1,24 @@
 window.D2_COLLECTIONS_CHECKLIST = {
   users: {
-    corey: { label: "🔥 Ares", short: "🔥", handle: "ErebusAres", display: "🔥 Ares", full: "🔥 Ares (ErebusAres)" },
+    corey: {
+      label: "🔥 Ares",
+      short: "🔥",
+      handle: "ErebusAres",
+      display: "🔥 Ares",
+      full: "🔥 Ares (ErebusAres#0634)",
+      bungieGlobalDisplayName: "ErebusAres#0634",
+      primaryMembershipId: "4611686018470688010",
+      membershipType: 3,
+      membershipId: "4611686018470688010",
+      displayName: "ErebusAres",
+      lastCollectionDumpAt: "2026-06-27T03:28:48.452Z",
+      collectionStats: {
+        expectedFullExoticItemTotal: 1239,
+        returnedCollectibleRecords: 6478,
+        returnedVisibleCollectibleRecords: 6478,
+        ownedCollectibleHashes: 1502
+      }
+    },
     matt: { label: "🧊 Icee", short: "🧊", handle: "IceeDedPple", display: "🧊 Icee", full: "🧊 Icee (IceeDedPple)" }
   },
 
