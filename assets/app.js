@@ -4,6 +4,7 @@
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
   const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
   const LOCAL_OWNERSHIP_KEY = "d2-collections-local-ownership-v1";
+  const SESSION_KEY = "d2-collections-bungie-session-v2";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "corey" };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
@@ -55,6 +56,19 @@
     merged.armor = merged.armor || {};
     hydrateDefaults(merged);
     return merged;
+  }
+
+  function readSessionState() {
+    try {
+      return JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function sessionIsUsable(saved = readSessionState()) {
+    const now = Math.floor(Date.now() / 1000) + 60;
+    return Boolean((saved.access_token && saved.expires_at > now) || (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)));
   }
 
   function readLocalOwnership() {
@@ -341,8 +355,10 @@
 
   function renderAuthPanel() {
     if (!els.apiStatus) return;
+    const hasSession = sessionIsUsable();
     const hasCode = Boolean(authState.oauthCode);
-    els.apiStatus.textContent = hasCode ? "Bungie linked" : "Bungie offline";
+    els.apiStatus.textContent = hasSession ? "Bungie linked" : hasCode ? "Login ready" : "Bungie offline";
+    if (els.loginBtn) els.loginBtn.textContent = hasSession ? "Refresh Bungie login" : hasCode ? "Re-login with Bungie" : "Login with Bungie";
   }
 
   function buildAuthUrl() {
@@ -394,7 +410,7 @@
     render();
   }));
   if (els.exportBtn) els.exportBtn.addEventListener("click", exportState);
-  if (els.loginBtn) els.loginBtn.addEventListener("click", () => { if (!authState.oauthCode) window.location.href = buildAuthUrl(); });
+  if (els.loginBtn) els.loginBtn.addEventListener("click", () => { window.location.href = buildAuthUrl(); });
 
   captureOAuthCode();
   render();

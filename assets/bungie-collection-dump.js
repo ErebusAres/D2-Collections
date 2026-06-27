@@ -51,6 +51,16 @@
     return readJson(AUTH_KEY).oauthCode || "";
   }
 
+  function clearAuthCode(reason = "") {
+    const saved = readJson(AUTH_KEY);
+    writeJson(AUTH_KEY, {
+      ...saved,
+      oauthCode: "",
+      clearedAt: new Date().toISOString(),
+      clearReason: reason
+    });
+  }
+
   function token() {
     return readJson(SESSION_KEY);
   }
@@ -99,6 +109,11 @@
     return parts.join(" | ");
   }
 
+  function isInvalidAuthCode(data) {
+    const msg = data.error_description || data.Message || data.message || data.error || "";
+    return String(msg).toLowerCase().includes("authorizationcodeinvalid");
+  }
+
   async function exchangeCodeForToken() {
     const code = authCode();
     if (!code) throw new Error("No Bungie login code captured. Click Login with Bungie first.");
@@ -114,8 +129,17 @@
     const { data, text } = await parseResponse(response);
     if (!response.ok || !data.access_token) {
       localStorage.removeItem(SESSION_KEY);
+      if (isInvalidAuthCode(data)) {
+        clearAuthCode("authorization_code_invalid");
+        throw new Error([
+          "Bungie login code expired or was already used.",
+          "Click Login with Bungie again, then click Dump logged-in collection immediately after returning.",
+          tokenError("Bungie token exchange failed", response, data, text)
+        ].join(" | "));
+      }
       throw new Error(tokenError("Bungie token exchange failed", response, data, text));
     }
+    clearAuthCode("exchanged_for_token");
     return saveToken(data);
   }
 
@@ -134,6 +158,7 @@
     const { data, text } = await parseResponse(response);
     if (!response.ok || !data.access_token) {
       localStorage.removeItem(SESSION_KEY);
+      if (isInvalidAuthCode(data)) clearAuthCode("refresh_invalidated_auth_code");
       throw new Error(tokenError("Bungie token refresh failed", response, data, text));
     }
     return saveToken(data);
@@ -146,6 +171,7 @@
       if (!refreshPromise) refreshPromise = refreshToken(status).finally(() => { refreshPromise = null; });
       return refreshPromise;
     }
+    if (saved.access_token || saved.refresh_token) localStorage.removeItem(SESSION_KEY);
     return exchangeCodeForToken(status);
   }
 
