@@ -1,5 +1,5 @@
 window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
-  "generatedAt": "2026-06-27T03:42:44.539Z",
+  "generatedAt": "2026-06-27T03:45:04.089Z",
   "manifestVersion": "244164.26.06.16.2053-2-bnet.65465",
   "items": {
     "ace-of-spades": {

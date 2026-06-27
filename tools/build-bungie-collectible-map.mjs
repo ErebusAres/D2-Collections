@@ -5,6 +5,7 @@ const API_KEY = "939b3c127bfc4ab5aa4e68093becbf30";
 const API_ROOT = "https://www.bungie.net/Platform";
 const BUNGIE_ROOT = "https://www.bungie.net";
 const OUT_FILE = "data/bungie-collectible-map.js";
+const OUT_ICON_FILE = "data/icon-map.js";
 const NAME_ALIASES = {
   doomfangpauldrons: "doomfangpauldron"
 };
@@ -74,6 +75,7 @@ async function main() {
       classType: Number(item.classType),
       itemType: Number(item.itemType),
       itemTypeDisplayName: item.itemTypeDisplayName || "",
+      icon: item.displayProperties?.icon || "",
       name
     });
     manifestByName.set(key, list);
@@ -81,6 +83,7 @@ async function main() {
 
   const classTypeForArmor = { titan: 0, hunter: 1, warlock: 2 };
   const output = {};
+  const icons = {};
   const unresolved = [];
   for (const item of loadCatalog()) {
     const normalizedName = normalize(item.name);
@@ -92,6 +95,8 @@ async function main() {
     const collectibleHashes = [...new Set(chosen.flatMap(match => match.collectibleHashes))];
     if (collectibleHashes.length) {
       output[item.id] = { collectibleHashes };
+      const icon = chosen.find(match => match.icon)?.icon || "";
+      if (icon) icons[item.id] = icon;
     } else {
       unresolved.push({ id: item.id, name: item.name, kind: item.kind, className: item.className || "" });
     }
@@ -108,8 +113,15 @@ async function main() {
     ";\n"
   ].join("");
   fs.writeFileSync(OUT_FILE, content);
+  const iconContent = [
+    "window.D2_COLLECTIONS_ICON_MAP = ",
+    JSON.stringify(icons, null, 2),
+    ";\n"
+  ].join("");
+  fs.writeFileSync(OUT_ICON_FILE, iconContent);
   console.log(`Wrote ${OUT_FILE}`);
-  console.log(`mapped=${Object.keys(output).length} unresolved=${unresolved.length}`);
+  console.log(`Wrote ${OUT_ICON_FILE}`);
+  console.log(`mapped=${Object.keys(output).length} icons=${Object.keys(icons).length} unresolved=${unresolved.length}`);
   if (unresolved.length) console.log(JSON.stringify(unresolved.slice(0, 30), null, 2));
 }
 
