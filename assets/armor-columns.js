@@ -8,7 +8,7 @@
   };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const CLASS_MARKS = { warlock: "◆", titan: "◆", hunter: "◆" };
-  const SLOT_ORDER = { Helmet: 1, Gauntlets: 2, Chest: 3, Legs: 4 };
+  const SLOT_ORDER = { Helmet: 1, Gauntlets: 2, Chest: 3, Legs: 4, "Class Item": 5 };
   let config = readConfig();
 
   const css = `

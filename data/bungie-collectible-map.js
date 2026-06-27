@@ -1,5 +1,5 @@
 window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
-  "generatedAt": "2026-06-27T04:26:48.216Z",
+  "generatedAt": "2026-06-27T21:10:33.820Z",
   "manifestVersion": "244164.26.06.16.2053-2-bnet.65465",
   "items": {
     "ace-of-spades": {
@@ -35,6 +35,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Season Pass Reward"
       ]
     },
+    "arbalest": {
+      "collectibleHashes": [
+        "2036397919"
+      ],
+      "catalystRecordHashes": [
+        "3835718947"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
     "bad-juju": {
       "collectibleHashes": [
         "4207100358"
@@ -44,6 +55,18 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic Archive at the Tower"
+      ]
+    },
+    "barrow-dyad": {
+      "collectibleHashes": [
+        "622567281",
+        "2756203682"
+      ],
+      "catalystRecordHashes": [
+        "2371798338"
+      ],
+      "sourceStrings": [
+        "Source: Episode: Heresy Activities"
       ]
     },
     "bastion": {
@@ -90,6 +113,25 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
+    "cryosthesia-77k": {
+      "collectibleHashes": [
+        "2817803243"
+      ],
+      "catalystRecordHashes": [
+        "250211794"
+      ],
+      "sourceStrings": [
+        "Source: Exotic Archive at the Tower"
+      ]
+    },
+    "cull-s-shadow": {
+      "collectibleHashes": [
+        "3331690812"
+      ],
+      "catalystRecordHashes": [
+        "2673930259"
+      ]
+    },
     "dead-man-s-tale": {
       "collectibleHashes": [
         "2143216566",
@@ -101,6 +143,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: \"Presage\" Exotic Quest"
+      ]
+    },
+    "rufus-fury-placeholder": {
+      "collectibleHashes": [
+        "3411864064"
+      ],
+      "catalystRecordHashes": [
+        "590601685"
+      ],
+      "sourceStrings": [
+        "Source: \"Salvation's Edge\" Raid"
       ]
     },
     "final-warning": {
@@ -136,14 +189,6 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Acquired from Xûr"
       ]
     },
-    "huckleberry": {
-      "collectibleHashes": [
-        "564802914"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
     "izanagi-s-burden": {
       "collectibleHashes": [
         "24541428"
@@ -161,6 +206,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exploring the Pale Heart"
+      ]
+    },
+    "lumina": {
+      "collectibleHashes": [
+        "2924632392"
+      ],
+      "catalystRecordHashes": [
+        "3663964046"
+      ],
+      "sourceStrings": [
+        "Source: Exotic Archive at the Tower"
       ]
     },
     "malfeasance": {
@@ -196,15 +252,15 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "necrotic-grip-pair-thorn": {
+    "necrochasm": {
       "collectibleHashes": [
-        "4009683574"
+        "203521123"
       ],
       "catalystRecordHashes": [
-        "1461305554"
+        "503301272"
       ],
       "sourceStrings": [
-        "Source: Exotic Archive at the Tower"
+        "Source: \"Crota's End\" Raid"
       ]
     },
     "new-land-beyond": {
@@ -216,6 +272,28 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Earned as a pre-order bonus."
+      ]
+    },
+    "new-malpais": {
+      "collectibleHashes": [
+        "1714400633"
+      ],
+      "catalystRecordHashes": [
+        "1648672968"
+      ],
+      "sourceStrings": [
+        "Source: Rewards Pass"
+      ]
+    },
+    "no-time-to-explain": {
+      "collectibleHashes": [
+        "2107308931"
+      ],
+      "catalystRecordHashes": [
+        "2708727662"
+      ],
+      "sourceStrings": [
+        "Source: Deluxe Edition Bonus"
       ]
     },
     "osteo-striga": {
@@ -253,6 +331,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Pre-order Bonus"
       ]
     },
+    "rat-king": {
+      "collectibleHashes": [
+        "564802918"
+      ],
+      "catalystRecordHashes": [
+        "209320411"
+      ],
+      "sourceStrings": [
+        "Source: Exotic Archive at the Tower"
+      ]
+    },
     "revision-zero": {
       "collectibleHashes": [
         "760708739",
@@ -265,17 +354,6 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: \"Operation Seraph's Shield\" Mission"
       ]
     },
-    "rufus-fury-placeholder": {
-      "collectibleHashes": [
-        "3411864064"
-      ],
-      "catalystRecordHashes": [
-        "590601685"
-      ],
-      "sourceStrings": [
-        "Source: \"Salvation's Edge\" Raid"
-      ]
-    },
     "sturm": {
       "collectibleHashes": [
         "564802916"
@@ -285,6 +363,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic Archive at the Tower"
+      ]
+    },
+    "suros-regime": {
+      "collectibleHashes": [
+        "564802925"
+      ],
+      "catalystRecordHashes": [
+        "4137195476"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
       ]
     },
     "sweet-business": {
@@ -307,6 +396,14 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: An Exotic quest or challenge."
+      ]
+    },
+    "huckleberry": {
+      "collectibleHashes": [
+        "564802914"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
       ]
     },
     "the-jade-rabbit": {
@@ -339,6 +436,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: \"Ghosts of the Deep\" Dungeon"
       ]
     },
+    "necrotic-grip-pair-thorn": {
+      "collectibleHashes": [
+        "4009683574"
+      ],
+      "catalystRecordHashes": [
+        "1461305554"
+      ],
+      "sourceStrings": [
+        "Source: Exotic Archive at the Tower"
+      ]
+    },
     "touch-of-malice": {
       "collectibleHashes": [
         "192937277"
@@ -361,15 +469,15 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic Archive at the Tower"
       ]
     },
-    "vex-mythoclast": {
+    "verglas-curve": {
       "collectibleHashes": [
-        "2300465938"
+        "1184569884"
       ],
       "catalystRecordHashes": [
-        "507778024"
+        "788492661"
       ],
       "sourceStrings": [
-        "Source: \"Vault of Glass\" Raid"
+        "Source: Season Pass Reward"
       ]
     },
     "vigilance-wing": {
@@ -405,6 +513,18 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: An Exotic quest or challenge."
       ]
     },
+    "wish-keeper": {
+      "collectibleHashes": [
+        "221021254",
+        "3826612761"
+      ],
+      "catalystRecordHashes": [
+        "2395817019"
+      ],
+      "sourceStrings": [
+        "Source: \"Starcrossed\" Mission"
+      ]
+    },
     "witherhoard": {
       "collectibleHashes": [
         "1250332035"
@@ -414,6 +534,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic Archive at the Tower"
+      ]
+    },
+    "borealis": {
+      "collectibleHashes": [
+        "1642951317"
+      ],
+      "catalystRecordHashes": [
+        "663317912"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
       ]
     },
     "buried-bloodline": {
@@ -438,6 +569,18 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Season Pass Reward"
       ]
     },
+    "whispering-slab-placeholder": {
+      "collectibleHashes": [
+        "3866803860",
+        "2176629195"
+      ],
+      "catalystRecordHashes": [
+        "812366033"
+      ],
+      "sourceStrings": [
+        "Source: Exotic Mission Encore"
+      ]
+    },
     "cloudstrike": {
       "collectibleHashes": [
         "396432035"
@@ -447,6 +590,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Higher Difficulty Empire Hunts"
+      ]
+    },
+    "coldheart": {
+      "collectibleHashes": [
+        "1657028070"
+      ],
+      "catalystRecordHashes": [
+        "3802151748"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
       ]
     },
     "collective-obligation": {
@@ -460,12 +614,36 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: \"Vow of the Disciple\" Raid"
       ]
     },
+    "dead-messenger": {
+      "collectibleHashes": [
+        "2097871936",
+        "360554695",
+        "4028619088"
+      ],
+      "catalystRecordHashes": [
+        "1163649614"
+      ],
+      "sourceStrings": [
+        "Source: \"Vox Obscura\" Exotic Quest"
+      ]
+    },
     "delicate-tomb": {
       "collectibleHashes": [
         "1977134032"
       ],
       "catalystRecordHashes": [
         "3318895306"
+      ],
+      "sourceStrings": [
+        "Source: Exotic Archive at the Tower"
+      ]
+    },
+    "devil-s-ruin": {
+      "collectibleHashes": [
+        "2190071629"
+      ],
+      "catalystRecordHashes": [
+        "3068761227"
       ],
       "sourceStrings": [
         "Source: Exotic Archive at the Tower"
@@ -482,15 +660,59 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: An Exotic quest or challenge."
       ]
     },
-    "dual-action-third-iteration": {
+    "duality": {
       "collectibleHashes": [
-        "124359113"
+        "478622552"
       ],
       "catalystRecordHashes": [
-        "1068904235"
+        "2135780490"
       ],
       "sourceStrings": [
-        "Source: Rewards Pass"
+        "Source: Exotic Archive at the Tower"
+      ]
+    },
+    "edge-of-action": {
+      "collectibleHashes": [
+        "3810283242"
+      ],
+      "catalystRecordHashes": [
+        "888259608"
+      ],
+      "sourceStrings": [
+        "Source: \"The Evidence Board\" Exotic Quest"
+      ]
+    },
+    "edge-of-concurrence": {
+      "collectibleHashes": [
+        "328283190"
+      ],
+      "catalystRecordHashes": [
+        "2145973004"
+      ],
+      "sourceStrings": [
+        "Source: \"The Evidence Board\" Exotic Quest"
+      ]
+    },
+    "edge-of-intent": {
+      "collectibleHashes": [
+        "1089205875"
+      ],
+      "catalystRecordHashes": [
+        "1359628777"
+      ],
+      "sourceStrings": [
+        "Source: \"The Evidence Board\" Exotic Quest"
+      ]
+    },
+    "ergo-sum": {
+      "collectibleHashes": [
+        "740275358"
+      ],
+      "catalystRecordHashes": [
+        "3025950752"
+      ],
+      "sourceStrings": [
+        "Source: Exploring the Pale Heart"
       ]
     },
     "eriana-s-vow": {
@@ -560,6 +782,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
+    "heirloom": {
+      "collectibleHashes": [
+        "515926065"
+      ],
+      "catalystRecordHashes": [
+        "1932245887"
+      ],
+      "sourceStrings": [
+        "Source: Equilibrium"
+      ]
+    },
     "hierarchy-of-needs": {
       "collectibleHashes": [
         "3558330464"
@@ -601,6 +834,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic Archive at the Tower"
       ]
     },
+    "lodestar": {
+      "collectibleHashes": [
+        "2521113225"
+      ],
+      "catalystRecordHashes": [
+        "3393121279"
+      ],
+      "sourceStrings": [
+        "Source: Season Pass Reward"
+      ]
+    },
     "lord-of-wolves": {
       "collectibleHashes": [
         "1642951314"
@@ -629,17 +873,6 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "manticore": {
-      "collectibleHashes": [
-        "985132347"
-      ],
-      "catalystRecordHashes": [
-        "1144463862"
-      ],
-      "sourceStrings": [
-        "Source: Season Pass Reward"
       ]
     },
     "polaris-lance": {
@@ -700,6 +933,18 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "slayer-s-fang": {
+      "collectibleHashes": [
+        "2690809637",
+        "2454134342"
+      ],
+      "catalystRecordHashes": [
+        "207103968"
+      ],
+      "sourceStrings": [
+        "Source: Revenant Fortress"
       ]
     },
     "still-hunt": {
@@ -768,6 +1013,39 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Pre-order Bonus"
       ]
     },
+    "the-fourth-horseman": {
+      "collectibleHashes": [
+        "2318862156"
+      ],
+      "catalystRecordHashes": [
+        "1940645774"
+      ],
+      "sourceStrings": [
+        "Source: Exotic Archive at the Tower"
+      ]
+    },
+    "manticore": {
+      "collectibleHashes": [
+        "985132347"
+      ],
+      "catalystRecordHashes": [
+        "1144463862"
+      ],
+      "sourceStrings": [
+        "Source: Season Pass Reward"
+      ]
+    },
+    "dual-action-third-iteration": {
+      "collectibleHashes": [
+        "124359113"
+      ],
+      "catalystRecordHashes": [
+        "1068904235"
+      ],
+      "sourceStrings": [
+        "Source: Rewards Pass"
+      ]
+    },
     "ticuu-s-divination": {
       "collectibleHashes": [
         "882572881"
@@ -790,6 +1068,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic Archive at the Tower"
       ]
     },
+    "trespasser": {
+      "collectibleHashes": [
+        "77226437"
+      ],
+      "catalystRecordHashes": [
+        "3022631571"
+      ],
+      "sourceStrings": [
+        "Source: Season Pass Reward"
+      ]
+    },
     "trinity-ghoul": {
       "collectibleHashes": [
         "1642951312"
@@ -799,6 +1088,25 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "turncoat": {
+      "collectibleHashes": [
+        "3776794515"
+      ],
+      "sourceStrings": [
+        "Source: Rewards Pass"
+      ]
+    },
+    "vex-mythoclast": {
+      "collectibleHashes": [
+        "2300465938"
+      ],
+      "catalystRecordHashes": [
+        "507778024"
+      ],
+      "sourceStrings": [
+        "Source: \"Vault of Glass\" Raid"
       ]
     },
     "vexcalibur": {
@@ -819,18 +1127,6 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "whispering-slab-placeholder": {
-      "collectibleHashes": [
-        "3866803860",
-        "2176629195"
-      ],
-      "catalystRecordHashes": [
-        "812366033"
-      ],
-      "sourceStrings": [
-        "Source: Exotic Mission Encore"
       ]
     },
     "wicked-sister-placeholder": {
@@ -864,9 +1160,12 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "colony": {
+    "d-a-r-c-i": {
       "collectibleHashes": [
-        "199171388"
+        "3695595899"
+      ],
+      "catalystRecordHashes": [
+        "3589295049"
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
@@ -914,6 +1213,25 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: \"Deep Stone Crypt\" Raid"
+      ]
+    },
+    "fafnir": {
+      "collectibleHashes": [
+        "2110601068"
+      ],
+      "sourceStrings": [
+        "Source: Monument of Triumph"
+      ]
+    },
+    "finality-s-auger": {
+      "collectibleHashes": [
+        "1585644854"
+      ],
+      "catalystRecordHashes": [
+        "3396973108"
+      ],
+      "sourceStrings": [
+        "Source: Sundered Doctrine"
       ]
     },
     "gjallarhorn": {
@@ -1009,6 +1327,69 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: \"Of Queens and Worms\" Exotic Quest"
       ]
     },
+    "praxic-blade": {
+      "collectibleHashes": [
+        "3151324440"
+      ],
+      "catalystRecordHashes": [
+        "39338609"
+      ],
+      "sourceStrings": [
+        "Source: Renegades"
+      ]
+    },
+    "salvation-s-grip": {
+      "collectibleHashes": [
+        "2289501267"
+      ],
+      "catalystRecordHashes": [
+        "3381077691"
+      ],
+      "sourceStrings": [
+        "Source: \"The Stasis Prototype\" Quest"
+      ]
+    },
+    "service-of-luzaku": {
+      "collectibleHashes": [
+        "994319042"
+      ],
+      "catalystRecordHashes": [
+        "1094735064"
+      ],
+      "sourceStrings": [
+        "Source: Rewards Pass"
+      ]
+    },
+    "sleeper-simulant": {
+      "collectibleHashes": [
+        "199171386"
+      ],
+      "catalystRecordHashes": [
+        "1547246830"
+      ],
+      "sourceStrings": [
+        "Source: Exotic Archive at the Tower"
+      ]
+    },
+    "colony": {
+      "collectibleHashes": [
+        "199171388"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "the-lament": {
+      "collectibleHashes": [
+        "3935854305"
+      ],
+      "catalystRecordHashes": [
+        "1312984121"
+      ],
+      "sourceStrings": [
+        "Source: \"Lost Lament\" Exotic Quest"
+      ]
+    },
     "prospector": {
       "collectibleHashes": [
         "199171391"
@@ -1028,37 +1409,12 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "salvation-s-grip": {
+    "wardcliff-coil": {
       "collectibleHashes": [
-        "2289501267"
-      ],
-      "catalystRecordHashes": [
-        "3381077691"
+        "199171390"
       ],
       "sourceStrings": [
-        "Source: \"The Stasis Prototype\" Quest"
-      ]
-    },
-    "sleeper-simulant": {
-      "collectibleHashes": [
-        "199171386"
-      ],
-      "catalystRecordHashes": [
-        "1547246830"
-      ],
-      "sourceStrings": [
-        "Source: Exotic Archive at the Tower"
-      ]
-    },
-    "the-lament": {
-      "collectibleHashes": [
-        "3935854305"
-      ],
-      "catalystRecordHashes": [
-        "1312984121"
-      ],
-      "sourceStrings": [
-        "Source: \"Lost Lament\" Exotic Quest"
+        "Source: Exotic engrams; extremely rare world drops."
       ]
     },
     "thunderlord": {
@@ -1100,14 +1456,6 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "catalystRecordHashes": [
         "310266584"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "wardcliff-coil": {
-      "collectibleHashes": [
-        "199171390"
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
@@ -1161,40 +1509,6 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: An Exotic quest or challenge."
       ]
     },
-    "barrow-dyad": {
-      "collectibleHashes": [
-        "622567281",
-        "2756203682"
-      ],
-      "catalystRecordHashes": [
-        "2371798338"
-      ],
-      "sourceStrings": [
-        "Source: Episode: Heresy Activities"
-      ]
-    },
-    "praxic-blade": {
-      "collectibleHashes": [
-        "3151324440"
-      ],
-      "catalystRecordHashes": [
-        "39338609"
-      ],
-      "sourceStrings": [
-        "Source: Renegades"
-      ]
-    },
-    "new-malpais": {
-      "collectibleHashes": [
-        "1714400633"
-      ],
-      "catalystRecordHashes": [
-        "1648672968"
-      ],
-      "sourceStrings": [
-        "Source: Rewards Pass"
-      ]
-    },
     "apotheosis-veil": {
       "collectibleHashes": [
         "846189249"
@@ -1235,6 +1549,14 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Exotic Armor Focusing"
       ]
     },
+    "deimosuffusion": {
+      "collectibleHashes": [
+        "2888548659"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
     "eunoia": {
       "collectibleHashes": [
         "1779728135"
@@ -1267,12 +1589,28 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
+    "nezarec-s-sin": {
+      "collectibleHashes": [
+        "846189252"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
     "skull-of-dire-ahamkara": {
       "collectibleHashes": [
         "846189255"
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "speaker-s-sight": {
+      "collectibleHashes": [
+        "1748245981"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
       ]
     },
     "the-stag": {
@@ -1363,6 +1701,14 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Exotic Armor Focusing"
       ]
     },
+    "ophidian-aspect": {
+      "collectibleHashes": [
+        "3087858762"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
     "osmiomancy-gloves": {
       "collectibleHashes": [
         "1813764890"
@@ -1403,6 +1749,14 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Exotic Armor Focusing"
       ]
     },
+    "mataiodoxia": {
+      "collectibleHashes": [
+        "2691880980"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
     "phoenix-protocol": {
       "collectibleHashes": [
         "860077159"
@@ -1417,14 +1771,6 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Solo Expert and Master Lost Sectors"
-      ]
-    },
-    "robes-of-the-assembler": {
-      "collectibleHashes": [
-        "80672475"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
       ]
     },
     "sanguine-alchemy": {
@@ -1465,6 +1811,14 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "robes-of-the-assembler": {
+      "collectibleHashes": [
+        "80672475"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
       ]
     },
     "boots-of-the-assembler": {
@@ -1531,108 +1885,12 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "acd-0-feedback-fence": {
+    "solipsism": {
       "collectibleHashes": [
-        "1087913271"
+        "3860168553"
       ],
       "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "aeon-safe": {
-      "collectibleHashes": [
-        "1087913268"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "ashen-wake": {
-      "collectibleHashes": [
-        "1087913267"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "citan-s-ramparts": {
-      "collectibleHashes": [
-        "1087913264"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "doom-fang-pauldrons": {
-      "collectibleHashes": [
-        "1087913270"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "icefall-mantle": {
-      "collectibleHashes": [
-        "2705309061"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "no-backup-plans": {
-      "collectibleHashes": [
-        "4259407797"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "point-contact-cannon-brace": {
-      "collectibleHashes": [
-        "3849432554"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "second-chance": {
-      "collectibleHashes": [
-        "2589037677"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "stronghold": {
-      "collectibleHashes": [
-        "1329699549"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "synthoceps": {
-      "collectibleHashes": [
-        "1087913269"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "ursa-furiosa": {
-      "collectibleHashes": [
-        "1087913265"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "wormgod-caress": {
-      "collectibleHashes": [
-        "1087913266"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
+        "Source: Exploring the Pale Heart"
       ]
     },
     "an-insurmountable-skullfort": {
@@ -1707,6 +1965,70 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Exotic Armor Focusing"
       ]
     },
+    "acd-0-feedback-fence": {
+      "collectibleHashes": [
+        "1087913271"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "aeon-safe": {
+      "collectibleHashes": [
+        "1087913268"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "ashen-wake": {
+      "collectibleHashes": [
+        "1087913267"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "citan-s-ramparts": {
+      "collectibleHashes": [
+        "1087913264"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "doom-fang-pauldrons": {
+      "collectibleHashes": [
+        "1087913270"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "icefall-mantle": {
+      "collectibleHashes": [
+        "2705309061"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "no-backup-plans": {
+      "collectibleHashes": [
+        "4259407797"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "point-contact-cannon-brace": {
+      "collectibleHashes": [
+        "3849432554"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
     "pyrogale-gauntlets": {
       "collectibleHashes": [
         "424086589"
@@ -1715,25 +2037,57 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Exotic Armor Focusing"
       ]
     },
+    "second-chance": {
+      "collectibleHashes": [
+        "2589037677"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "stronghold": {
+      "collectibleHashes": [
+        "1329699549"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "synthoceps": {
+      "collectibleHashes": [
+        "1087913269"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "ursa-furiosa": {
+      "collectibleHashes": [
+        "1087913265"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "wishful-ignorance": {
+      "collectibleHashes": [
+        "1261820914"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "wormgod-caress": {
+      "collectibleHashes": [
+        "1087913266"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
     "actium-war-rig": {
       "collectibleHashes": [
         "3934937984"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "alpha-lupi": {
-      "collectibleHashes": [
-        "3934937985"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "armamentarium": {
-      "collectibleHashes": [
-        "3934937986"
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
@@ -1747,12 +2101,20 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Exotic Armor Focusing"
       ]
     },
-    "blastwave-striders": {
+    "armamentarium": {
       "collectibleHashes": [
-        "3693590613"
+        "3934937986"
       ],
       "sourceStrings": [
-        "Source: Solo Expert and Master Lost Sectors"
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "alpha-lupi": {
+      "collectibleHashes": [
+        "3934937985"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
       ]
     },
     "cuirass-of-the-falling-star": {
@@ -1771,6 +2133,14 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
+    "hazardous-propulsion": {
+      "collectibleHashes": [
+        "3000313910"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
     "heart-of-inmost-light": {
       "collectibleHashes": [
         "3934937989"
@@ -1787,17 +2157,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Exotic Armor Focusing"
       ]
     },
-    "hazardous-propulsion": {
+    "melas-panoplia": {
       "collectibleHashes": [
-        "3000313910"
+        "3746134657"
       ],
       "sourceStrings": [
         "Exotic Armor Focusing"
       ]
     },
-    "melas-panoplia": {
+    "praxic-vestment": {
       "collectibleHashes": [
-        "3746134657"
+        "2763096636"
       ],
       "sourceStrings": [
         "Exotic Armor Focusing"
@@ -1825,6 +2195,14 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "blastwave-striders": {
+      "collectibleHashes": [
+        "3693590613"
+      ],
+      "sourceStrings": [
+        "Source: Solo Expert and Master Lost Sectors"
       ]
     },
     "dunemarchers": {
@@ -1883,105 +2261,25 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Exotic Armor Focusing"
       ]
     },
-    "aeon-swift": {
+    "stoicism": {
       "collectibleHashes": [
-        "1240167153"
+        "2371517663"
       ],
       "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
+        "Source: Exploring the Pale Heart"
       ]
     },
-    "sealed-ahamkara-grasps": {
+    "assassin-s-cowl": {
       "collectibleHashes": [
-        "1240167159"
+        "899828456"
       ],
       "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
+        "Source: Shadowkeep Campaign"
       ]
     },
-    "shinobu-s-vow": {
+    "blight-ranger": {
       "collectibleHashes": [
-        "1240167152"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "young-ahamkara-s-spine": {
-      "collectibleHashes": [
-        "1240167155"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "mechaneer-s-tricksleeves": {
-      "collectibleHashes": [
-        "1240167154"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "oathkeeper": {
-      "collectibleHashes": [
-        "1240167157"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "liar-s-handshake": {
-      "collectibleHashes": [
-        "2298909201"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "khepri-s-sting": {
-      "collectibleHashes": [
-        "1173508384"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "athrys-s-embrace": {
-      "collectibleHashes": [
-        "117301517"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "caliban-s-hand": {
-      "collectibleHashes": [
-        "3436952293"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "renewal-grasps": {
-      "collectibleHashes": [
-        "2218977062"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "mothkeeper-s-wraps": {
-      "collectibleHashes": [
-        "63626229"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "triton-vice": {
-      "collectibleHashes": [
-        "3721933916"
+        "2243533023"
       ],
       "sourceStrings": [
         "Exotic Armor Focusing"
@@ -1993,6 +2291,14 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "cyrtarachne-s-facade": {
+      "collectibleHashes": [
+        "1339968002"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
       ]
     },
     "foetracer": {
@@ -2019,41 +2325,9 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "wormhusk-crown": {
-      "collectibleHashes": [
-        "1234605998"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "assassin-s-cowl": {
-      "collectibleHashes": [
-        "899828456"
-      ],
-      "sourceStrings": [
-        "Source: Shadowkeep Campaign"
-      ]
-    },
     "mask-of-bakris": {
       "collectibleHashes": [
         "1244896500"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "blight-ranger": {
-      "collectibleHashes": [
-        "2243533023"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "cyrtarachne-s-facade": {
-      "collectibleHashes": [
-        "1339968002"
       ],
       "sourceStrings": [
         "Exotic Armor Focusing"
@@ -2067,6 +2341,150 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Solo Expert and Master Lost Sectors"
       ]
     },
+    "wormhusk-crown": {
+      "collectibleHashes": [
+        "1234605998"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "aeon-swift": {
+      "collectibleHashes": [
+        "1240167153"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "athrys-s-embrace": {
+      "collectibleHashes": [
+        "117301517"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "caliban-s-hand": {
+      "collectibleHashes": [
+        "3436952293"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "khepri-s-sting": {
+      "collectibleHashes": [
+        "1173508384"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "liar-s-handshake": {
+      "collectibleHashes": [
+        "2298909201"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "mechaneer-s-tricksleeves": {
+      "collectibleHashes": [
+        "1240167154"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "mothkeeper-s-wraps": {
+      "collectibleHashes": [
+        "63626229"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "oathkeeper": {
+      "collectibleHashes": [
+        "1240167157"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "renewal-grasps": {
+      "collectibleHashes": [
+        "2218977062"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "sealed-ahamkara-grasps": {
+      "collectibleHashes": [
+        "1240167159"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "shards-of-galanor": {
+      "collectibleHashes": [
+        "1240167158"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "shinobu-s-vow": {
+      "collectibleHashes": [
+        "1240167152"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "triton-vice": {
+      "collectibleHashes": [
+        "3721933916"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "young-ahamkara-s-spine": {
+      "collectibleHashes": [
+        "1240167155"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "gifted-conviction": {
+      "collectibleHashes": [
+        "4152933652"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
+    "gwisin-vest": {
+      "collectibleHashes": [
+        "3035639832"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "gyrfalcon-s-hauberk": {
+      "collectibleHashes": [
+        "2330682964"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
+      ]
+    },
     "lucky-raspberry": {
       "collectibleHashes": [
         "3035639836"
@@ -2075,12 +2493,20 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "the-dragon-s-shadow": {
+    "moirai": {
       "collectibleHashes": [
-        "3035639839"
+        "3826935031"
       ],
       "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
+        "Exotic Armor Focusing"
+      ]
+    },
+    "omnioculus": {
+      "collectibleHashes": [
+        "1434922082"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
       ]
     },
     "ophidia-spathe": {
@@ -2091,17 +2517,9 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "the-sixth-coyote": {
+    "raiden-flux": {
       "collectibleHashes": [
-        "3035639833"
-      ],
-      "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
-      ]
-    },
-    "gwisin-vest": {
-      "collectibleHashes": [
-        "3035639832"
+        "3035639837"
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
@@ -2115,52 +2533,36 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "omnioculus": {
+    "the-dragon-s-shadow": {
       "collectibleHashes": [
-        "1434922082"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "gyrfalcon-s-hauberk": {
-      "collectibleHashes": [
-        "2330682964"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "gifted-conviction": {
-      "collectibleHashes": [
-        "4152933652"
-      ],
-      "sourceStrings": [
-        "Exotic Armor Focusing"
-      ]
-    },
-    "lucky-pants": {
-      "collectibleHashes": [
-        "975121093"
+        "3035639839"
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "orpheus-rig": {
+    "the-sixth-coyote": {
       "collectibleHashes": [
-        "975121092"
+        "3035639833"
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "st0mp-ee5": {
+    "balance-of-power": {
       "collectibleHashes": [
-        "975121095"
+        "1668262646"
       ],
       "sourceStrings": [
-        "Source: Exotic engrams; extremely rare world drops."
+        "Exotic Armor Focusing"
+      ]
+    },
+    "fortune-s-favor": {
+      "collectibleHashes": [
+        "3516726440"
+      ],
+      "sourceStrings": [
+        "Exotic Armor Focusing"
       ]
     },
     "fr0st-ee5": {
@@ -2179,20 +2581,20 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "the-bombardiers": {
+    "lucky-pants": {
       "collectibleHashes": [
-        "975121088"
+        "975121093"
       ],
       "sourceStrings": [
         "Source: Exotic engrams; extremely rare world drops."
       ]
     },
-    "star-eater-scales": {
+    "orpheus-rig": {
       "collectibleHashes": [
-        "2522582325"
+        "975121092"
       ],
       "sourceStrings": [
-        "Exotic Armor Focusing"
+        "Source: Exotic engrams; extremely rare world drops."
       ]
     },
     "radiant-dance-machines": {
@@ -2211,12 +2613,36 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "Exotic Armor Focusing"
       ]
     },
-    "balance-of-power": {
+    "st0mp-ee5": {
       "collectibleHashes": [
-        "1668262646"
+        "975121095"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "star-eater-scales": {
+      "collectibleHashes": [
+        "2522582325"
       ],
       "sourceStrings": [
         "Exotic Armor Focusing"
+      ]
+    },
+    "the-bombardiers": {
+      "collectibleHashes": [
+        "975121088"
+      ],
+      "sourceStrings": [
+        "Source: Exotic engrams; extremely rare world drops."
+      ]
+    },
+    "relativism": {
+      "collectibleHashes": [
+        "1026253929"
+      ],
+      "sourceStrings": [
+        "Source: Exploring the Pale Heart"
       ]
     }
   },
