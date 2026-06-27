@@ -1,11 +1,14 @@
 (() => {
   const CONFIG = window.D2_BUNGIE_CONFIG || {};
+  const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
   const AUTH_KEY = "d2-collections-auth-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const API_KEY_STORAGE = "d2-collections-bungie-api-key";
+  const MAP_CACHE_KEY = "d2-collections-bungie-catalog-map-v1";
   const API_ROOT = "https://www.bungie.net/Platform";
   const EXPECTED_EXOTIC_TOTAL = 1239;
   const OAUTH_REDIRECT_URI = "https://erebusares.github.io/D2-Collections/index.html";
+  const NOT_ACQUIRED = 1;
   let refreshPromise = null;
 
   function readJson(key) {
@@ -31,7 +34,7 @@
     const value = String(entered || "").trim();
     if (!value) throw new Error("No Bungie API key saved. Paste the key when prompted, then retry Dump logged-in collection.");
     localStorage.setItem(API_KEY_STORAGE, value);
-    if (status) status.textContent = "Saved Bungie API key locally. Continuing collection dump…";
+    if (status) status.textContent = "Saved Bungie API key locally. Continuing collection dump...";
     return value;
   }
 
@@ -99,7 +102,6 @@
     body.set("grant_type", "authorization_code");
     body.set("code", code);
     body.set("client_id", clientId());
-    // Match current D2AA: token exchange omits redirect_uri and uses client_id + X-API-Key.
     const response = await fetch(CONFIG.tokenUrl || `${API_ROOT}/App/OAuth/Token/`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded", "X-API-Key": key },
@@ -160,6 +162,149 @@
     return data.Response || data;
   }
 
+  function normalize(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
+  }
+
+  function catalogItems() {
+    return [
+      ...(CATALOG.weapons || []).map(item => ({ ...item, kind: "weapon" })),
+      ...Object.entries(CATALOG.armor || {}).flatMap(([className, list]) =>
+        (Array.isArray(list) ? list : []).map(item => ({ ...item, kind: "armor", className }))
+      )
+    ];
+  }
+
+  function explicitCollectibleHashes(item) {
+    return [item.collectibleHash, item.bungieCollectibleHash, ...(item.collectibleHashes || [])]
+      .filter(value => value !== undefined && value !== null)
+      .map(String);
+  }
+
+  function cacheKeyForItem(item) {
+    return `${item.kind}:${item.className || ""}:${item.id}`;
+  }
+
+  function readMapCache() {
+    const cached = readJson(MAP_CACHE_KEY);
+    return cached && cached.version === 1 && cached.items ? cached : { version: 1, items: {} };
+  }
+
+  function saveMapCache(cache) {
+    writeJson(MAP_CACHE_KEY, cache);
+  }
+
+  function collectSearchCandidates(value, output = []) {
+    if (!value || typeof value !== "object") return output;
+    const name = value.displayProperties?.name;
+    const collectibleHash = value.collectibleHash || value.inventory?.collectibleHash;
+    if (name && collectibleHash) output.push({ name, collectibleHash: String(collectibleHash), hash: value.hash });
+    if (Array.isArray(value)) {
+      value.forEach(entry => collectSearchCandidates(entry, output));
+      return output;
+    }
+    Object.values(value).forEach(entry => collectSearchCandidates(entry, output));
+    return output;
+  }
+
+  async function resolveCatalogItem(item, cache, status, index, total) {
+    const explicit = explicitCollectibleHashes(item);
+    if (explicit.length) return { name: item.name, collectibleHashes: explicit, source: "catalog" };
+
+    const key = cacheKeyForItem(item);
+    const cached = cache.items[key];
+    if (cached && cached.name === item.name && Array.isArray(cached.collectibleHashes)) return cached;
+
+    if (status && index % 12 === 0) status.textContent = `Resolving Bungie catalog matches ${index + 1}/${total}...`;
+    const searchTerm = encodeURIComponent(item.name || item.id);
+    const response = await bungieGet(`/Destiny2/Armory/Search/DestinyInventoryItemDefinition/${searchTerm}/?lc=en`, status);
+    const target = normalize(item.name);
+    const candidates = collectSearchCandidates(response);
+    const exact = candidates.find(candidate => normalize(candidate.name) === target);
+    const loose = exact || candidates.find(candidate => normalize(candidate.name).includes(target) || target.includes(normalize(candidate.name)));
+    const result = {
+      name: item.name,
+      collectibleHashes: loose ? [String(loose.collectibleHash)] : [],
+      source: loose ? "armory_search" : "unresolved",
+      resolvedAt: new Date().toISOString()
+    };
+    cache.items[key] = result;
+    saveMapCache(cache);
+    return result;
+  }
+
+  async function resolveCatalogMappings(status) {
+    const cache = readMapCache();
+    const items = catalogItems();
+    const mappings = [];
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      try {
+        const match = await resolveCatalogItem(item, cache, status, index, items.length);
+        mappings.push({ item, ...match });
+      } catch (error) {
+        mappings.push({ item, name: item.name, collectibleHashes: [], source: "error", error: error.message || String(error) });
+      }
+    }
+    return mappings;
+  }
+
+  function isCollectedCollectible(entry) {
+    if (!entry || entry.state === undefined) return false;
+    return (Number(entry.state) & NOT_ACQUIRED) === 0;
+  }
+
+  function ownedCollectibleHashes(profile) {
+    const collectibles = profile?.profileCollectibles?.data?.collectibles || {};
+    return new Set(Object.entries(collectibles).filter(([, entry]) => isCollectedCollectible(entry)).map(([hash]) => String(hash)));
+  }
+
+  function profileNames(dump) {
+    const names = [];
+    (dump.memberships || []).forEach(item => {
+      names.push(item.displayName, item.bungieGlobalDisplayName);
+    });
+    (dump.profiles || []).forEach(item => {
+      names.push(item.displayName, item.bungieGlobalDisplayName);
+    });
+    return names.filter(Boolean);
+  }
+
+  function playerForDump(dump) {
+    const haystack = profileNames(dump).map(normalize).join(" ");
+    if (haystack.includes("erebusares")) return "corey";
+    if (haystack.includes("iceededpple")) return "matt";
+    if (haystack.includes("corey") || haystack.includes("ares")) return "corey";
+    if (haystack.includes("matt") || haystack.includes("icee")) return "matt";
+    return "";
+  }
+
+  async function buildLiveSyncPayload(dump, status) {
+    const player = playerForDump(dump);
+    const allOwnedHashes = new Set();
+    (dump.profiles || []).forEach(profileEntry => {
+      ownedCollectibleHashes(profileEntry.profile).forEach(hash => allOwnedHashes.add(hash));
+    });
+
+    if (!player) {
+      return { ok: false, reason: "unknown_player", player: "", itemIds: [], itemNames: [], ownedCollectibleHashes: allOwnedHashes.size };
+    }
+
+    const mappings = await resolveCatalogMappings(status);
+    const matched = mappings.filter(entry => (entry.collectibleHashes || []).some(hash => allOwnedHashes.has(String(hash))));
+    const unresolved = mappings.filter(entry => !(entry.collectibleHashes || []).length).map(entry => ({ id: entry.item.id, name: entry.item.name, kind: entry.item.kind, source: entry.source }));
+    return {
+      ok: true,
+      player,
+      matchedCatalogItems: matched.length,
+      ownedCollectibleHashes: allOwnedHashes.size,
+      itemIds: matched.map(entry => entry.item.id),
+      itemNames: matched.map(entry => entry.item.name),
+      unresolvedCatalogItems: unresolved.slice(0, 40),
+      unresolvedCatalogItemCount: unresolved.length
+    };
+  }
+
   function collectibleStats(profile) {
     const collectibleMap = profile?.profileCollectibles?.data?.collectibles || {};
     const ids = Object.keys(collectibleMap);
@@ -180,7 +325,7 @@
       const membershipType = membership.membershipType;
       const membershipId = membership.membershipId;
       if (!membershipType || !membershipId) continue;
-      if (status) status.textContent = `Pulling collection/profile data for ${membership.displayName || membershipId}…`;
+      if (status) status.textContent = `Pulling collection/profile data for ${membership.displayName || membershipId}...`;
       const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,800,900`, status);
       profiles.push({
         membershipType,
@@ -194,7 +339,7 @@
     return {
       d2CollectionsApiDump: true,
       generatedAt: new Date().toISOString(),
-      note: "Logged-in Bungie account collection/profile dump. Tell ChatGPT whether this dump is for Corey/Ares or Matt/Icee.",
+      note: "Logged-in Bungie account collection/profile dump. The site also attempts to live-apply owned catalog matches for Ares/Corey or Icee/Matt.",
       source: "logged_in_bungie_account",
       expectedFullExoticItemTotal: EXPECTED_EXOTIC_TOTAL,
       membershipCount: destinyMemberships.length,
@@ -229,11 +374,21 @@
       }
       button.addEventListener("click", async () => {
         button.disabled = true;
-        status.textContent = "Pulling logged-in Bungie collection/profile data…";
+        status.textContent = "Pulling logged-in Bungie collection/profile data...";
         try {
           const dump = await buildCollectionDump(status);
+          const liveSync = await buildLiveSyncPayload(dump, status);
+          let applyResult = { ok: false, reason: "app_hook_unavailable" };
+          if (liveSync.ok && window.D2_COLLECTIONS_APP?.applyCollectionOwnership) {
+            applyResult = window.D2_COLLECTIONS_APP.applyCollectionOwnership(liveSync);
+          }
+          dump.liveSync = { ...liveSync, applyResult };
           output.value = JSON.stringify(dump, null, 2);
-          status.textContent = `Built logged-in collection dump for ${dump.membershipCount} Destiny membership(s). Expected exotic total target: ${dump.expectedFullExoticItemTotal}. Send this here and tell me who it belongs to.`;
+          if (liveSync.ok) {
+            status.textContent = `Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor. Copy the dump/export if you want this committed to repo data.`;
+          } else {
+            status.textContent = `Built collection dump, but could not live-sync because ${liveSync.reason}. Copy the dump and tell me whether it is Ares/Corey or Icee/Matt.`;
+          }
         } catch (error) {
           status.textContent = error.message || String(error);
         } finally {
