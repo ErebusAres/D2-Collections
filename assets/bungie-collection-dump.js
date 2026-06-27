@@ -307,6 +307,43 @@
     };
   }
 
+  function compactProfiles(profiles) {
+    return (profiles || []).map(profileEntry => ({
+      membershipType: profileEntry.membershipType,
+      membershipId: profileEntry.membershipId,
+      displayName: profileEntry.displayName,
+      bungieGlobalDisplayName: profileEntry.bungieGlobalDisplayName,
+      collectionStats: profileEntry.collectionStats
+    }));
+  }
+
+  function compactLiveSync(liveSync, applyResult) {
+    if (!liveSync) return undefined;
+    return {
+      ...liveSync,
+      unresolvedCatalogItems: (liveSync.unresolvedCatalogItems || []).slice(0, 20),
+      applyResult
+    };
+  }
+
+  function compactDumpForOutput(dump, liveSync, applyResult) {
+    return {
+      d2CollectionsApiDump: true,
+      compactDump: true,
+      generatedAt: dump.generatedAt,
+      note: "Compact logged-in Bungie collection summary. Raw Bungie profile data is not printed because it can freeze the browser tab.",
+      source: dump.source,
+      expectedFullExoticItemTotal: dump.expectedFullExoticItemTotal,
+      primaryMembershipId: dump.primaryMembershipId,
+      membershipCount: dump.membershipCount,
+      attemptedMembershipCount: dump.attemptedMembershipCount,
+      profileErrors: dump.profileErrors,
+      memberships: dump.memberships,
+      profiles: compactProfiles(dump.profiles),
+      liveSync: compactLiveSync(liveSync, applyResult)
+    };
+  }
+
   function collectibleStats(profile) {
     const collectibleMap = profile?.profileCollectibles?.data?.collectibles || {};
     const ids = Object.keys(collectibleMap);
@@ -407,13 +444,14 @@
         status.textContent = "Pulling logged-in Bungie collection/profile data...";
         try {
           const dump = await buildCollectionDump(status);
+          output.value = JSON.stringify(compactDumpForOutput(dump), null, 2);
+          status.textContent = "Profile pulled. Resolving D2 Collections catalog matches...";
           const liveSync = await buildLiveSyncPayload(dump, status);
           let applyResult = { ok: false, reason: "app_hook_unavailable" };
           if (liveSync.ok && window.D2_COLLECTIONS_APP?.applyCollectionOwnership) {
             applyResult = window.D2_COLLECTIONS_APP.applyCollectionOwnership(liveSync);
           }
-          dump.liveSync = { ...liveSync, applyResult };
-          output.value = JSON.stringify(dump, null, 2);
+          output.value = JSON.stringify(compactDumpForOutput(dump, liveSync, applyResult), null, 2);
           if (liveSync.ok) {
             status.textContent = `Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor. Copy the dump/export if you want this committed to repo data.`;
           } else {
