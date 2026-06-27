@@ -1,6 +1,7 @@
 (() => {
   const CONFIG = window.D2_BUNGIE_CONFIG || {};
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
+  const STATIC_COLLECTIBLES = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
   const AUTH_KEY = "d2-collections-auth-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const API_KEY_STORAGE = "d2-collections-bungie-api-key";
@@ -210,6 +211,9 @@
   }
 
   async function resolveCatalogItem(item, cache, status, index, total) {
+    const staticMatch = STATIC_COLLECTIBLES.items?.[item.id]?.collectibleHashes || [];
+    if (staticMatch.length) return { name: item.name, collectibleHashes: staticMatch.map(String), source: "static_manifest" };
+
     const explicit = explicitCollectibleHashes(item);
     if (explicit.length) return { name: item.name, collectibleHashes: explicit, source: "catalog" };
 
