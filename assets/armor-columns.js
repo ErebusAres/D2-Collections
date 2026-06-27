@@ -69,7 +69,10 @@
     });
   }
 
-  function statusCell(value, itemId) { return `<div class="status-cell ${value ? "yes" : "no"}" data-help-id="${itemId}" title="${value ? "Owned" : "Not owned"} - click for unlock help">${value ? "✅" : "⛔"}</div>`; }
+  function statusCell(value, itemId) {
+    const label = `${value ? "Owned" : "Not owned"} - click for unlock help`;
+    return `<div class="status-cell ${value ? "yes" : "no"}" data-help-id="${itemId}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="status-mark" aria-hidden="true"></span></div>`;
+  }
   function initials(name) { return String(name || "?").split(/\s+|-/).filter(Boolean).slice(0,2).map(p => p[0]?.toUpperCase() || "").join("") || "?"; }
   function iconMarkup(item) {
     const raw = item.icon || item.iconUrl || "";

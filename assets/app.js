@@ -263,7 +263,8 @@
   }
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {
-    return `<div class="status-cell ${value ? "yes" : "no"} ${extraClass}" title="${value ? yesTitle : noTitle}">${value ? "✅" : "⛔"}</div>`;
+    const label = value ? yesTitle : noTitle;
+    return `<div class="status-cell ${value ? "yes" : "no"} ${extraClass}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="status-mark" aria-hidden="true"></span></div>`;
   }
 
   function itemIconMarkup(item) {
