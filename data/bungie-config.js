@@ -1,5 +1,6 @@
 window.D2_BUNGIE_CONFIG = {
-  apiKey: "939b3c127bfc4ab5aa4e68093becbf30",
+  // Public GitHub Pages config only. The API key is entered at runtime and saved in localStorage.
+  apiKey: "",
   authUrl: "https://www.bungie.net/en/OAuth/Authorize",
   clientId: "53180",
   tokenUrl: "https://www.bungie.net/Platform/App/OAuth/Token/",
