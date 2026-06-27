@@ -211,12 +211,17 @@
   }
 
   function renderWeaponCard(item) {
-    const playerRows = playerList().map(player => {
+    const visiblePlayers = playerList();
+    const visibleStates = visiblePlayers.map(player => state.weapons[item.id]?.[player] || blankWeapon());
+    const ownedCount = visibleStates.filter(row => row.owned).length;
+    const cardClass = ownedCount === visibleStates.length ? "is-owned" : ownedCount ? "is-partial" : "is-missing";
+    const source = item.bungieSource || item.source || "";
+    const playerRows = visiblePlayers.map(player => {
       const s = state.weapons[item.id]?.[player] || blankWeapon();
       return `<div class="status-grid status-row"><div class="player-label">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}${statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim")}${statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim")}</div>`;
     }).join("");
 
-    return `<article class="weapon-card" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span><span class="badge">${item.element || ""}</span><span class="badge source">${item.bungieSource || item.source || ""}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
+    return `<article class="weapon-card ${cardClass}" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span><span class="badge">${item.element || ""}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root) {
@@ -230,13 +235,17 @@
 
   function renderArmorCard(className, item) {
     const focusPlayer = CLASS_FOCUS[className] || players[0];
-    const playerRows = armorPlayersForClass(className).map(player => {
+    const visiblePlayers = armorPlayersForClass(className);
+    const visibleStates = visiblePlayers.map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
+    const cardClass = visibleStates.some(row => row.owned) ? "is-owned" : "is-missing";
+    const source = item.bungieSource || item.source || "";
+    const playerRows = visiblePlayers.map(player => {
       const s = state.armor[className]?.[item.id]?.[player] || blankArmor();
       const isFocus = player === focusPlayer;
       return `<div class="armor-status status-row"><div class="player-label ${isFocus ? "is-focus" : ""}">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}</div>`;
     }).join("");
 
-    return `<article class="armor-card is-focus-card" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge focus">${focusLabel(className)}</span><span class="badge slot">${item.slot || ""}</span><span class="badge source">${item.bungieSource || item.source || ""}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
+    return `<article class="armor-card is-focus-card ${cardClass}" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge focus">${focusLabel(className)}</span><span class="badge slot">${item.slot || ""}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
   }
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {
@@ -254,6 +263,10 @@
 
   function escapeInitials(name) {
     return String(name || "?").split(/\s+|-/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase() || "").join("") || "?";
+  }
+
+  function escapeAttr(value) {
+    return String(value || "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
   }
 
   function emptyState(text) {
