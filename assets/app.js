@@ -88,6 +88,10 @@
     return `${user} ${CLASS_LABELS[className] || className}`;
   }
 
+  function normalizeItemName(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
+  }
+
   function matchesText(item) {
     const q = filters.search.trim().toLowerCase();
     if (!q) return true;
@@ -207,6 +211,47 @@
     navigator.clipboard?.writeText(output).catch(() => {});
   }
 
+  function applyCollectionOwnership(payload = {}) {
+    const player = payload.player;
+    if (!player || !players.includes(player)) {
+      return { ok: false, reason: "unknown_player", player, weaponsChanged: 0, armorChanged: 0, matchedItems: 0 };
+    }
+
+    hydrateDefaults(state);
+    const itemIds = new Set([...(payload.itemIds || []), ...(payload.weaponIds || [])].map(String));
+    const itemNames = new Set((payload.itemNames || []).map(normalizeItemName).filter(Boolean));
+    let weaponsChanged = 0;
+    let armorChanged = 0;
+    let matchedItems = 0;
+
+    (CATALOG.weapons || []).forEach(item => {
+      const matched = itemIds.has(item.id) || itemNames.has(normalizeItemName(item.name));
+      if (!matched) return;
+      const row = state.weapons[item.id]?.[player];
+      if (!row) return;
+      matchedItems += 1;
+      if (!row.owned) weaponsChanged += 1;
+      row.owned = true;
+    });
+
+    armorClasses().forEach(className => {
+      (CATALOG.armor[className] || []).forEach(item => {
+        const matched = itemIds.has(item.id) || itemNames.has(normalizeItemName(item.name));
+        if (!matched) return;
+        const row = state.armor[className]?.[item.id]?.[player];
+        if (!row) return;
+        matchedItems += 1;
+        if (!row.owned) armorChanged += 1;
+        row.owned = true;
+      });
+    });
+
+    render();
+    const result = { ok: true, player, weaponsChanged, armorChanged, matchedItems };
+    document.dispatchEvent(new CustomEvent("d2collections:ownership-applied", { detail: result }));
+    return result;
+  }
+
   function renderAuthPanel() {
     if (!els.apiStatus) return;
     const hasCode = Boolean(authState.oauthCode);
@@ -230,6 +275,13 @@
     url.searchParams.delete("code");
     window.history.replaceState({}, document.title, url.toString());
   }
+
+  window.D2_COLLECTIONS_APP = {
+    applyCollectionOwnership,
+    exportState,
+    getState: () => clone(state),
+    render
+  };
 
   if (els.search) els.search.addEventListener("input", event => { filters.search = event.target.value; render(); });
   document.querySelectorAll("[data-view]").forEach(btn => btn.addEventListener("click", () => {
