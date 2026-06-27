@@ -20,7 +20,7 @@ The live app is intended to run from `index.html` on GitHub Pages.
 - `assets/app.js` — rendering, filters, progress, export, static status icons, icon rendering, and Bungie login scaffolding.
 - `data/catalog.js` — exotic weapon and armor catalog.
 - `data/checklist.js` — manually editable Corey/Matt checklist state.
-- `data/bungie-config.js` — public-safe Bungie OAuth/client config. The API key is intentionally not committed.
+- `data/bungie-config.js` — Bungie OAuth/client config, including the API key used by the static GitHub Pages app.
 
 ## Manual checklist editing
 
@@ -63,16 +63,17 @@ Relative Bungie paths starting with `/` are automatically rendered from `https:/
 
 ## Bungie API setup
 
-The API panel stores the Bungie API key in the browser only, using `localStorage`. This keeps the public repository from publishing the key.
+The app bundles the Bungie API key in `data/bungie-config.js` so GitHub Pages can call Bungie without prompting every browser for a key. OAuth still requires each player to sign in with Bungie before dumping account collection data.
 
 Current public OAuth config:
 
 ```js
 clientId: "53180"
 authUrl: "https://www.bungie.net/en/OAuth/Authorize"
+tokenUrl: "https://www.bungie.net/Platform/App/OAuth/Token/"
 ```
 
-The login button currently builds the Bungie OAuth URL and captures the returned `code` locally. Token exchange, manifest icon import, and automatic collection import are the next API implementation steps.
+The login button builds the Bungie OAuth URL and captures the returned `code` locally. The dump flow exchanges that code for a token, pulls the logged-in account memberships/profile collections, and writes the JSON dump into the API handoff box.
 
 ## Cross-device sync options
 
