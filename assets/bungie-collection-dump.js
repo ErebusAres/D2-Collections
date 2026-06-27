@@ -319,24 +319,49 @@
     };
   }
 
+  function orderedDestinyMemberships(memberships) {
+    const list = memberships.destinyMemberships || [];
+    const primary = list.find(item => item.membershipId === memberships.primaryMembershipId);
+    return primary ? [primary, ...list.filter(item => item.membershipId !== primary.membershipId)] : list;
+  }
+
+  function membershipLabel(membership) {
+    return `${membership.displayName || membership.membershipId || "unknown"} (${membership.membershipType || "?"}/${membership.membershipId || "?"})`;
+  }
+
   async function buildCollectionDump(status) {
     const memberships = await bungieGet("/User/GetMembershipsForCurrentUser/", status);
-    const destinyMemberships = memberships.destinyMemberships || [];
+    const allDestinyMemberships = memberships.destinyMemberships || [];
+    const destinyMemberships = orderedDestinyMemberships(memberships);
     const profiles = [];
+    const profileErrors = [];
     for (const membership of destinyMemberships) {
       const membershipType = membership.membershipType;
       const membershipId = membership.membershipId;
       if (!membershipType || !membershipId) continue;
-      if (status) status.textContent = `Pulling collection/profile data for ${membership.displayName || membershipId}...`;
-      const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,800,900`, status);
-      profiles.push({
-        membershipType,
-        membershipId,
-        displayName: membership.displayName || memberships.bungieNetUser?.displayName || "",
-        bungieGlobalDisplayName: memberships.bungieNetUser?.uniqueName || memberships.bungieNetUser?.displayName || "",
-        collectionStats: collectibleStats(profile),
-        profile
-      });
+      try {
+        if (status) status.textContent = `Pulling collection/profile data for ${membership.displayName || membershipId}...`;
+        const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,800,900`, status);
+        profiles.push({
+          membershipType,
+          membershipId,
+          displayName: membership.displayName || memberships.bungieNetUser?.displayName || "",
+          bungieGlobalDisplayName: memberships.bungieNetUser?.uniqueName || memberships.bungieNetUser?.displayName || "",
+          collectionStats: collectibleStats(profile),
+          profile
+        });
+      } catch (error) {
+        profileErrors.push({
+          membershipType,
+          membershipId,
+          displayName: membership.displayName || "",
+          error: error.message || String(error)
+        });
+      }
+    }
+    if (!profiles.length) {
+      const details = profileErrors.map(item => `${membershipLabel(item)}: ${item.error}`).join(" | ");
+      throw new Error(`No readable Destiny profile found for this Bungie login. ${details || "Bungie returned no usable Destiny memberships."}`);
     }
     return {
       d2CollectionsApiDump: true,
@@ -344,8 +369,11 @@
       note: "Logged-in Bungie account collection/profile dump. The site also attempts to live-apply owned catalog matches for Ares/Corey or Icee/Matt.",
       source: "logged_in_bungie_account",
       expectedFullExoticItemTotal: EXPECTED_EXOTIC_TOTAL,
-      membershipCount: destinyMemberships.length,
-      memberships: destinyMemberships.map(item => ({
+      primaryMembershipId: memberships.primaryMembershipId || "",
+      membershipCount: allDestinyMemberships.length,
+      attemptedMembershipCount: destinyMemberships.length,
+      profileErrors,
+      memberships: allDestinyMemberships.map(item => ({
         membershipType: item.membershipType,
         membershipId: item.membershipId,
         displayName: item.displayName,
