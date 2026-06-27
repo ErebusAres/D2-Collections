@@ -77,6 +77,7 @@ async function main() {
       itemType: Number(item.itemType),
       itemTypeDisplayName: item.itemTypeDisplayName || "",
       icon: item.displayProperties?.icon || "",
+      sourceStrings: [...new Set(hashes.map(hash => collectibles[hash]?.sourceString).filter(Boolean))],
       name
     });
     manifestByName.set(key, list);
@@ -112,6 +113,8 @@ async function main() {
     if (collectibleHashes.length) {
       output[item.id] = { collectibleHashes };
       if (catalystRecordHashes[item.id]) output[item.id].catalystRecordHashes = [...new Set(catalystRecordHashes[item.id])];
+      const sourceStrings = [...new Set(chosen.flatMap(match => match.sourceStrings || []))];
+      if (sourceStrings.length) output[item.id].sourceStrings = sourceStrings;
       const icon = chosen.find(match => match.icon)?.icon || "";
       if (icon) icons[item.id] = icon;
     } else {

@@ -151,7 +151,7 @@
   function matchesText(item) {
     const q = filters.search.trim().toLowerCase();
     if (!q) return true;
-    return [item.name, item.slot, item.type, item.element, item.source].filter(Boolean).join(" ").toLowerCase().includes(q);
+    return [item.name, item.slot, item.type, item.element, item.bungieSource, item.source].filter(Boolean).join(" ").toLowerCase().includes(q);
   }
 
   function matchesWeaponView(item) {
@@ -216,7 +216,7 @@
       return `<div class="status-grid status-row"><div class="player-label">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}${statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim")}${statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim")}</div>`;
     }).join("");
 
-    return `<article class="weapon-card" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span><span class="badge">${item.element || ""}</span><span class="badge source">${item.source || ""}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
+    return `<article class="weapon-card" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span><span class="badge">${item.element || ""}</span><span class="badge source">${item.bungieSource || item.source || ""}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root) {
@@ -236,7 +236,7 @@
       return `<div class="armor-status status-row"><div class="player-label ${isFocus ? "is-focus" : ""}">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}</div>`;
     }).join("");
 
-    return `<article class="armor-card is-focus-card" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge focus">${focusLabel(className)}</span><span class="badge slot">${item.slot || ""}</span><span class="badge source">${item.source || ""}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
+    return `<article class="armor-card is-focus-card" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge focus">${focusLabel(className)}</span><span class="badge slot">${item.slot || ""}</span><span class="badge source">${item.bungieSource || item.source || ""}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
   }
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {

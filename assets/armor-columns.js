@@ -99,7 +99,7 @@
     const { search, view } = currentFilters();
     const items = [...(CATALOG.armor?.[className] || [])].sort((a,b) => (SLOT_ORDER[a.slot] || 99) - (SLOT_ORDER[b.slot] || 99) || a.name.localeCompare(b.name));
     const visible = items.filter(item => {
-      const haystack = [item.name, item.slot, item.source].join(" ").toLowerCase();
+      const haystack = [item.name, item.slot, item.bungieSource, item.source].join(" ").toLowerCase();
       const owned = getOwned(className, item.id, player);
       if (search && !haystack.includes(search)) return false;
       if (view === "missing" && owned) return false;
@@ -108,7 +108,7 @@
     });
     root.innerHTML = visible.length ? visible.map(item => {
       const owned = getOwned(className, item.id, player);
-      return `<article class="armor-card is-focus-card" data-id="${item.id}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="How to unlock" data-help-id="${item.id}">?</button></div><div class="badge-row"><span class="badge slot">${item.slot}</span><span class="badge source">${item.source}</span></div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
+      return `<article class="armor-card is-focus-card" data-id="${item.id}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="More info" data-help-id="${item.id}">i</button></div><div class="badge-row"><span class="badge slot">${item.slot}</span><span class="badge source">${item.bungieSource || item.source}</span></div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
     }).join("") : `<div class="empty-state">No ${klass} armor matches this filter.</div>`;
     return visible.length;
   }
