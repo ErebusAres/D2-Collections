@@ -69,7 +69,11 @@
     const saved = readLocalOwnership();
     Object.entries(saved.weapons || {}).forEach(([itemId, playersState]) => {
       Object.entries(playersState || {}).forEach(([player, row]) => {
-        if (row?.owned && next.weapons?.[itemId]?.[player]) next.weapons[itemId][player].owned = true;
+        const target = next.weapons?.[itemId]?.[player];
+        if (!target) return;
+        if (row?.owned) target.owned = true;
+        if (row?.catalyst) target.catalyst = true;
+        if (row?.complete) target.complete = true;
       });
     });
     Object.entries(saved.armor || {}).forEach(([className, items]) => {
@@ -85,9 +89,13 @@
     const saved = { savedAt: new Date().toISOString(), weapons: {}, armor: {} };
     Object.entries(state.weapons || {}).forEach(([itemId, playersState]) => {
       Object.entries(playersState || {}).forEach(([player, row]) => {
-        if (!row?.owned) return;
+        if (!row?.owned && !row?.catalyst && !row?.complete) return;
         saved.weapons[itemId] = saved.weapons[itemId] || {};
-        saved.weapons[itemId][player] = { owned: true };
+        saved.weapons[itemId][player] = {
+          owned: Boolean(row.owned),
+          catalyst: Boolean(row.catalyst),
+          complete: Boolean(row.complete)
+        };
       });
     });
     Object.entries(state.armor || {}).forEach(([className, items]) => {
@@ -267,19 +275,36 @@
 
     hydrateDefaults(state);
     const itemIds = new Set([...(payload.itemIds || []), ...(payload.weaponIds || [])].map(String));
+    const catalystItemIds = new Set([...(payload.catalystItemIds || [])].map(String));
+    const completeItemIds = new Set([...(payload.completeItemIds || [])].map(String));
     const itemNames = new Set((payload.itemNames || []).map(normalizeItemName).filter(Boolean));
     let weaponsChanged = 0;
     let armorChanged = 0;
+    let catalystsChanged = 0;
+    let completedChanged = 0;
     let matchedItems = 0;
 
     (CATALOG.weapons || []).forEach(item => {
       const matched = itemIds.has(item.id) || itemNames.has(normalizeItemName(item.name));
-      if (!matched) return;
       const row = state.weapons[item.id]?.[player];
       if (!row) return;
-      matchedItems += 1;
-      if (!row.owned) weaponsChanged += 1;
-      row.owned = true;
+      if (matched) {
+        matchedItems += 1;
+        if (!row.owned) weaponsChanged += 1;
+        row.owned = true;
+      }
+      if (catalystItemIds.has(item.id) && !row.catalyst) {
+        catalystsChanged += 1;
+        row.catalyst = true;
+      }
+      if (completeItemIds.has(item.id) && !row.complete) {
+        completedChanged += 1;
+        row.complete = true;
+        if (!row.catalyst) {
+          catalystsChanged += 1;
+          row.catalyst = true;
+        }
+      }
     });
 
     armorClasses().forEach(className => {
@@ -294,9 +319,9 @@
       });
     });
 
-    if (weaponsChanged || armorChanged) saveLocalOwnership();
+    if (weaponsChanged || armorChanged || catalystsChanged || completedChanged) saveLocalOwnership();
     render();
-    const result = { ok: true, player, weaponsChanged, armorChanged, matchedItems, savedLocalOwnership: true };
+    const result = { ok: true, player, weaponsChanged, armorChanged, catalystsChanged, completedChanged, matchedItems, savedLocalOwnership: true };
     document.dispatchEvent(new CustomEvent("d2collections:ownership-applied", { detail: result }));
     return result;
   }

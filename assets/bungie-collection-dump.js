@@ -261,8 +261,47 @@
   }
 
   function ownedCollectibleHashes(profile) {
-    const collectibles = profile?.profileCollectibles?.data?.collectibles || {};
-    return new Set(Object.entries(collectibles).filter(([, entry]) => isCollectedCollectible(entry)).map(([hash]) => String(hash)));
+    const owned = new Set();
+    const addOwned = collectibles => {
+      Object.entries(collectibles || {}).forEach(([hash, entry]) => {
+        if (isCollectedCollectible(entry)) owned.add(String(hash));
+      });
+    };
+    addOwned(profile?.profileCollectibles?.data?.collectibles);
+    Object.values(profile?.characterCollectibles?.data || {}).forEach(characterData => {
+      addOwned(characterData?.collectibles);
+    });
+    return owned;
+  }
+
+  function recordIsComplete(entry) {
+    if (!entry || entry.state === undefined) return false;
+    const state = Number(entry.state);
+    const hidden = Boolean(state & 8) || Boolean(state & 16);
+    return Boolean(state & 1) || (!hidden && !Boolean(state & 4));
+  }
+
+  function recordHasProgress(entry) {
+    return (entry?.objectives || []).some(objective => Boolean(objective?.complete) || Number(objective?.progress || 0) > 0);
+  }
+
+  function catalystRecordHashes(profile) {
+    const active = new Set();
+    const complete = new Set();
+    const addRecords = records => {
+      Object.entries(records || {}).forEach(([hash, entry]) => {
+        const key = String(hash);
+        if (recordIsComplete(entry)) {
+          active.add(key);
+          complete.add(key);
+        } else if (recordHasProgress(entry)) {
+          active.add(key);
+        }
+      });
+    };
+    addRecords(profile?.profileRecords?.data?.records);
+    Object.values(profile?.characterRecords?.data || {}).forEach(characterData => addRecords(characterData?.records));
+    return { active, complete };
   }
 
   function profileNames(dump) {
@@ -288,8 +327,13 @@
   async function buildLiveSyncPayload(dump, status) {
     const player = playerForDump(dump);
     const allOwnedHashes = new Set();
+    const activeCatalystRecords = new Set();
+    const completedCatalystRecords = new Set();
     (dump.profiles || []).forEach(profileEntry => {
       ownedCollectibleHashes(profileEntry.profile).forEach(hash => allOwnedHashes.add(hash));
+      const catalystRecords = catalystRecordHashes(profileEntry.profile);
+      catalystRecords.active.forEach(hash => activeCatalystRecords.add(hash));
+      catalystRecords.complete.forEach(hash => completedCatalystRecords.add(hash));
     });
 
     if (!player) {
@@ -298,14 +342,28 @@
 
     const mappings = await resolveCatalogMappings(status);
     const matched = mappings.filter(entry => (entry.collectibleHashes || []).some(hash => allOwnedHashes.has(String(hash))));
+    const catalystActive = mappings.filter(entry =>
+      entry.item.kind === "weapon" &&
+      (STATIC_COLLECTIBLES.items?.[entry.item.id]?.catalystRecordHashes || []).some(hash => activeCatalystRecords.has(String(hash)))
+    );
+    const catalystComplete = mappings.filter(entry =>
+      entry.item.kind === "weapon" &&
+      (STATIC_COLLECTIBLES.items?.[entry.item.id]?.catalystRecordHashes || []).some(hash => completedCatalystRecords.has(String(hash)))
+    );
     const unresolved = mappings.filter(entry => !(entry.collectibleHashes || []).length).map(entry => ({ id: entry.item.id, name: entry.item.name, kind: entry.item.kind, source: entry.source }));
     return {
       ok: true,
       player,
       matchedCatalogItems: matched.length,
+      matchedCatalysts: catalystActive.length,
+      matchedCatalystsComplete: catalystComplete.length,
       ownedCollectibleHashes: allOwnedHashes.size,
+      activeCatalystRecords: activeCatalystRecords.size,
+      completedCatalystRecords: completedCatalystRecords.size,
       itemIds: matched.map(entry => entry.item.id),
       itemNames: matched.map(entry => entry.item.name),
+      catalystItemIds: catalystActive.map(entry => entry.item.id),
+      completeItemIds: catalystComplete.map(entry => entry.item.id),
       unresolvedCatalogItems: unresolved.slice(0, 40),
       unresolvedCatalogItemCount: unresolved.length
     };
@@ -382,7 +440,7 @@
       if (!membershipType || !membershipId) continue;
       try {
         if (status) status.textContent = `Pulling collection/profile data for ${membership.displayName || membershipId}...`;
-        const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,800,900`, status);
+        const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,800,900,1200`, status);
         profiles.push({
           membershipType,
           membershipId,
@@ -457,7 +515,7 @@
           }
           output.value = JSON.stringify(compactDumpForOutput(dump, liveSync, applyResult), null, 2);
           if (liveSync.ok) {
-            status.textContent = `Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor. Copy the dump/export if you want this committed to repo data.`;
+            status.textContent = `Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor, ${applyResult.catalystsChanged || 0} catalysts, ${applyResult.completedChanged || 0} done. Copy the dump/export if you want this committed to repo data.`;
           } else {
             status.textContent = `Built collection dump, but could not live-sync because ${liveSync.reason}. Copy the dump and tell me whether it is Ares/Corey or Icee/Matt.`;
           }

@@ -1,45 +1,69 @@
 window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
-  "generatedAt": "2026-06-27T03:45:04.089Z",
+  "generatedAt": "2026-06-27T03:57:01.855Z",
   "manifestVersion": "244164.26.06.16.2053-2-bnet.65465",
   "items": {
     "ace-of-spades": {
       "collectibleHashes": [
         "1660030046"
+      ],
+      "catalystRecordHashes": [
+        "836516980"
       ]
     },
     "ager-s-scepter": {
       "collectibleHashes": [
         "1969234607"
+      ],
+      "catalystRecordHashes": [
+        "478443982"
       ]
     },
     "alethonym": {
       "collectibleHashes": [
         "2081206839"
+      ],
+      "catalystRecordHashes": [
+        "2744508352"
       ]
     },
     "bad-juju": {
       "collectibleHashes": [
         "4207100358"
+      ],
+      "catalystRecordHashes": [
+        "748675128"
       ]
     },
     "bastion": {
       "collectibleHashes": [
         "3207791447"
+      ],
+      "catalystRecordHashes": [
+        "2660706768"
       ]
     },
     "cerberus-1": {
       "collectibleHashes": [
         "564802924"
+      ],
+      "catalystRecordHashes": [
+        "2761319400"
       ]
     },
     "conditional-finality": {
       "collectibleHashes": [
         "2553509474"
+      ],
+      "catalystRecordHashes": [
+        "3548810755"
       ]
     },
     "crimson": {
       "collectibleHashes": [
         "564802912"
+      ],
+      "catalystRecordHashes": [
+        "1345348453"
       ]
     },
     "dead-man-s-tale": {
@@ -47,21 +71,33 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "2143216566",
         "3324472233",
         "3723101298"
+      ],
+      "catalystRecordHashes": [
+        "15917031"
       ]
     },
     "final-warning": {
       "collectibleHashes": [
         "2843753795"
+      ],
+      "catalystRecordHashes": [
+        "1450844310"
       ]
     },
     "forerunner": {
       "collectibleHashes": [
         "1028725073"
+      ],
+      "catalystRecordHashes": [
+        "3574136388"
       ]
     },
     "hawkmoon": {
       "collectibleHashes": [
         "653763964"
+      ],
+      "catalystRecordHashes": [
+        "1107121513"
       ]
     },
     "huckleberry": {
@@ -72,6 +108,9 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "izanagi-s-burden": {
       "collectibleHashes": [
         "24541428"
+      ],
+      "catalystRecordHashes": [
+        "1233471745"
       ]
     },
     "khvostov-7g-0x": {
@@ -82,31 +121,49 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "malfeasance": {
       "collectibleHashes": [
         "1660030045"
+      ],
+      "catalystRecordHashes": [
+        "2538406461"
       ]
     },
     "mida-multi-tool": {
       "collectibleHashes": [
         "564802913"
+      ],
+      "catalystRecordHashes": [
+        "1071947311"
       ]
     },
     "monte-carlo": {
       "collectibleHashes": [
         "1501322721"
+      ],
+      "catalystRecordHashes": [
+        "639604165"
       ]
     },
     "necrotic-grip-pair-thorn": {
       "collectibleHashes": [
         "4009683574"
+      ],
+      "catalystRecordHashes": [
+        "1461305554"
       ]
     },
     "new-land-beyond": {
       "collectibleHashes": [
         "614512382"
+      ],
+      "catalystRecordHashes": [
+        "2629249101"
       ]
     },
     "osteo-striga": {
       "collectibleHashes": [
         "1100865290"
+      ],
+      "catalystRecordHashes": [
+        "494981303"
       ]
     },
     "outbreak-perfected": {
@@ -114,37 +171,58 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
         "2500286745",
         "449896716",
         "360254771"
+      ],
+      "catalystRecordHashes": [
+        "591600693"
       ]
     },
     "quicksilver-storm": {
       "collectibleHashes": [
         "3709294547"
+      ],
+      "catalystRecordHashes": [
+        "2618920720"
       ]
     },
     "revision-zero": {
       "collectibleHashes": [
         "760708739",
         "1161231112"
+      ],
+      "catalystRecordHashes": [
+        "1439993428"
       ]
     },
     "rufus-fury-placeholder": {
       "collectibleHashes": [
         "3411864064"
+      ],
+      "catalystRecordHashes": [
+        "590601685"
       ]
     },
     "sturm": {
       "collectibleHashes": [
         "564802916"
+      ],
+      "catalystRecordHashes": [
+        "2524364954"
       ]
     },
     "sweet-business": {
       "collectibleHashes": [
         "564802917"
+      ],
+      "catalystRecordHashes": [
+        "1385469960"
       ]
     },
     "the-chaperone": {
       "collectibleHashes": [
         "1660030047"
+      ],
+      "catalystRecordHashes": [
+        "4286234468"
       ]
     },
     "the-jade-rabbit": {
@@ -155,117 +233,186 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "the-last-word": {
       "collectibleHashes": [
         "3074058273"
+      ],
+      "catalystRecordHashes": [
+        "281511019"
       ]
     },
     "the-navigator": {
       "collectibleHashes": [
         "161963863"
+      ],
+      "catalystRecordHashes": [
+        "1169793114"
       ]
     },
     "touch-of-malice": {
       "collectibleHashes": [
         "192937277"
+      ],
+      "catalystRecordHashes": [
+        "773758208"
       ]
     },
     "travelers-chosen": {
       "collectibleHashes": [
         "1370087379"
+      ],
+      "catalystRecordHashes": [
+        "571025162"
       ]
     },
     "vex-mythoclast": {
       "collectibleHashes": [
         "2300465938"
+      ],
+      "catalystRecordHashes": [
+        "507778024"
       ]
     },
     "vigilance-wing": {
       "collectibleHashes": [
         "564802919"
+      ],
+      "catalystRecordHashes": [
+        "2383994221"
       ]
     },
     "wicked-implement": {
       "collectibleHashes": [
         "1832123372"
+      ],
+      "catalystRecordHashes": [
+        "2479567609"
       ]
     },
     "wish-ender": {
       "collectibleHashes": [
         "1660030044"
+      ],
+      "catalystRecordHashes": [
+        "3176275318"
       ]
     },
     "witherhoard": {
       "collectibleHashes": [
         "1250332035"
+      ],
+      "catalystRecordHashes": [
+        "2744473468"
       ]
     },
     "buried-bloodline": {
       "collectibleHashes": [
         "3275654322"
+      ],
+      "catalystRecordHashes": [
+        "3891168900"
       ]
     },
     "centrifuse": {
       "collectibleHashes": [
         "2746608191"
+      ],
+      "catalystRecordHashes": [
+        "1048178161"
       ]
     },
     "cloudstrike": {
       "collectibleHashes": [
         "396432035"
+      ],
+      "catalystRecordHashes": [
+        "1226048594"
       ]
     },
     "collective-obligation": {
       "collectibleHashes": [
         "2817568609"
+      ],
+      "catalystRecordHashes": [
+        "1483034863"
       ]
     },
     "delicate-tomb": {
       "collectibleHashes": [
         "1977134032"
+      ],
+      "catalystRecordHashes": [
+        "3318895306"
       ]
     },
     "divinity": {
       "collectibleHashes": [
         "1988948484"
+      ],
+      "catalystRecordHashes": [
+        "2118520207"
       ]
     },
     "dual-action-third-iteration": {
       "collectibleHashes": [
         "124359113"
+      ],
+      "catalystRecordHashes": [
+        "1068904235"
       ]
     },
     "eriana-s-vow": {
       "collectibleHashes": [
         "2741465947"
+      ],
+      "catalystRecordHashes": [
+        "1107018752"
       ]
     },
     "ex-diris": {
       "collectibleHashes": [
         "2375343865"
+      ],
+      "catalystRecordHashes": [
+        "1605993075"
       ]
     },
     "fighting-lion": {
       "collectibleHashes": [
         "1657028071"
+      ],
+      "catalystRecordHashes": [
+        "3968841949"
       ]
     },
     "graviton-lance": {
       "collectibleHashes": [
         "1657028069"
+      ],
+      "catalystRecordHashes": [
+        "4147054663"
       ]
     },
     "graviton-spike": {
       "collectibleHashes": [
         "1648898126",
         "46560497"
+      ],
+      "catalystRecordHashes": [
+        "4235016462"
       ]
     },
     "hard-light": {
       "collectibleHashes": [
         "1657028064"
+      ],
+      "catalystRecordHashes": [
+        "3784038415"
       ]
     },
     "hierarchy-of-needs": {
       "collectibleHashes": [
         "3558330464"
+      ],
+      "catalystRecordHashes": [
+        "185032465"
       ]
     },
     "ice-breaker": {
@@ -276,16 +423,25 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "jotunn": {
       "collectibleHashes": [
         "3584311877"
+      ],
+      "catalystRecordHashes": [
+        "1060652297"
       ]
     },
     "le-monarque": {
       "collectibleHashes": [
         "3573051804"
+      ],
+      "catalystRecordHashes": [
+        "3628100770"
       ]
     },
     "lord-of-wolves": {
       "collectibleHashes": [
         "1642951314"
+      ],
+      "catalystRecordHashes": [
+        "3531533350"
       ]
     },
     "lorentz-driver": {
@@ -296,16 +452,25 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "merciless": {
       "collectibleHashes": [
         "1657028078"
+      ],
+      "catalystRecordHashes": [
+        "4178028503"
       ]
     },
     "manticore": {
       "collectibleHashes": [
         "985132347"
+      ],
+      "catalystRecordHashes": [
+        "1144463862"
       ]
     },
     "polaris-lance": {
       "collectibleHashes": [
         "1642951318"
+      ],
+      "catalystRecordHashes": [
+        "1390549867"
       ]
     },
     "prometheus-lens": {
@@ -316,16 +481,25 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "red-death-reformed": {
       "collectibleHashes": [
         "173880226"
+      ],
+      "catalystRecordHashes": [
+        "2960086668"
       ]
     },
     "riskrunner": {
       "collectibleHashes": [
         "1657028067"
+      ],
+      "catalystRecordHashes": [
+        "373671280"
       ]
     },
     "ruinous-effigy": {
       "collectibleHashes": [
         "1392294260"
+      ],
+      "catalystRecordHashes": [
+        "3567687058"
       ]
     },
     "skyburner-s-oath": {
@@ -336,46 +510,73 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "still-hunt": {
       "collectibleHashes": [
         "2289185883"
+      ],
+      "catalystRecordHashes": [
+        "3786958609"
       ]
     },
     "sunshot": {
       "collectibleHashes": [
         "1657028068"
+      ],
+      "catalystRecordHashes": [
+        "2940589008"
       ]
     },
     "symmetry": {
       "collectibleHashes": [
         "47014674"
+      ],
+      "catalystRecordHashes": [
+        "3644944303"
       ]
     },
     "tarrabah": {
       "collectibleHashes": [
         "2329697053"
+      ],
+      "catalystRecordHashes": [
+        "2139231909"
       ]
     },
     "telesto": {
       "collectibleHashes": [
         "1642951319"
+      ],
+      "catalystRecordHashes": [
+        "3518287681"
       ]
     },
     "tessellation": {
       "collectibleHashes": [
         "461401987"
+      ],
+      "catalystRecordHashes": [
+        "3095531901"
       ]
     },
     "ticuu-s-divination": {
       "collectibleHashes": [
         "882572881"
+      ],
+      "catalystRecordHashes": [
+        "1833569807"
       ]
     },
     "tommy-s-matchbook": {
       "collectibleHashes": [
         "778561967"
+      ],
+      "catalystRecordHashes": [
+        "1586771061"
       ]
     },
     "trinity-ghoul": {
       "collectibleHashes": [
         "1642951312"
+      ],
+      "catalystRecordHashes": [
+        "436556889"
       ]
     },
     "vexcalibur": {
@@ -387,28 +588,43 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "wavesplitter": {
       "collectibleHashes": [
         "1642951315"
+      ],
+      "catalystRecordHashes": [
+        "642042685"
       ]
     },
     "whispering-slab-placeholder": {
       "collectibleHashes": [
         "3866803860",
         "2176629195"
+      ],
+      "catalystRecordHashes": [
+        "812366033"
       ]
     },
     "wicked-sister-placeholder": {
       "collectibleHashes": [
         "2892857055",
         "1237086548"
+      ],
+      "catalystRecordHashes": [
+        "2249784217"
       ]
     },
     "anarchy": {
       "collectibleHashes": [
         "2220014607"
+      ],
+      "catalystRecordHashes": [
+        "1956344781"
       ]
     },
     "black-talon": {
       "collectibleHashes": [
         "199171383"
+      ],
+      "catalystRecordHashes": [
+        "252263460"
       ]
     },
     "colony": {
@@ -419,41 +635,65 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "deathbringer": {
       "collectibleHashes": [
         "888224289"
+      ],
+      "catalystRecordHashes": [
+        "2254190310"
       ]
     },
     "deterministic-chaos": {
       "collectibleHashes": [
         "4226434173"
+      ],
+      "catalystRecordHashes": [
+        "973174495"
       ]
     },
     "dragon-s-breath": {
       "collectibleHashes": [
         "3019220289"
+      ],
+      "catalystRecordHashes": [
+        "3465971755"
       ]
     },
     "eyes-of-tomorrow": {
       "collectibleHashes": [
         "753200559"
+      ],
+      "catalystRecordHashes": [
+        "3159084201"
       ]
     },
     "gjallarhorn": {
       "collectibleHashes": [
         "4027219968"
+      ],
+      "catalystRecordHashes": [
+        "1855685192"
       ]
     },
     "grand-overture": {
       "collectibleHashes": [
         "1256729926"
+      ],
+      "catalystRecordHashes": [
+        "263158944"
       ]
     },
     "heartshadow": {
       "collectibleHashes": [
         "467760883"
+      ],
+      "catalystRecordHashes": [
+        "1629497825"
       ]
     },
     "heir-apparent": {
       "collectibleHashes": [
         "2842076592"
+      ],
+      "catalystRecordHashes": [
+        "1514331782"
       ]
     },
     "legend-of-acrius": {
@@ -464,11 +704,17 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "leviathan-s-breath": {
       "collectibleHashes": [
         "3552855013"
+      ],
+      "catalystRecordHashes": [
+        "3740374319"
       ]
     },
     "microcosm": {
       "collectibleHashes": [
         "3613141427"
+      ],
+      "catalystRecordHashes": [
+        "953650385"
       ]
     },
     "one-thousand-voices": {
@@ -479,6 +725,9 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "parasite": {
       "collectibleHashes": [
         "4028619089"
+      ],
+      "catalystRecordHashes": [
+        "3391166559"
       ]
     },
     "prospector": {
@@ -489,41 +738,65 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "queenbreaker": {
       "collectibleHashes": [
         "199171382"
+      ],
+      "catalystRecordHashes": [
+        "2880917375"
       ]
     },
     "salvation-s-grip": {
       "collectibleHashes": [
         "2289501267"
+      ],
+      "catalystRecordHashes": [
+        "3381077691"
       ]
     },
     "sleeper-simulant": {
       "collectibleHashes": [
         "199171386"
+      ],
+      "catalystRecordHashes": [
+        "1547246830"
       ]
     },
     "the-lament": {
       "collectibleHashes": [
         "3935854305"
+      ],
+      "catalystRecordHashes": [
+        "1312984121"
       ]
     },
     "thunderlord": {
       "collectibleHashes": [
         "3249389111"
+      ],
+      "catalystRecordHashes": [
+        "2571854597"
       ]
     },
     "tractor-cannon": {
       "collectibleHashes": [
         "2094776121"
+      ],
+      "catalystRecordHashes": [
+        "206322164"
       ]
     },
     "truth": {
       "collectibleHashes": [
         "1763840761"
+      ],
+      "catalystRecordHashes": [
+        "3865040202"
       ]
     },
     "two-tailed-fox": {
       "collectibleHashes": [
         "199171384"
+      ],
+      "catalystRecordHashes": [
+        "310266584"
       ]
     },
     "wardcliff-coil": {
@@ -546,6 +819,9 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "winterbite": {
       "collectibleHashes": [
         "2629609053"
+      ],
+      "catalystRecordHashes": [
+        "3241341815"
       ]
     },
     "worldline-zero": {
@@ -556,22 +832,34 @@ window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES = {
     "xenophage": {
       "collectibleHashes": [
         "1258579677"
+      ],
+      "catalystRecordHashes": [
+        "245022904"
       ]
     },
     "barrow-dyad": {
       "collectibleHashes": [
         "622567281",
         "2756203682"
+      ],
+      "catalystRecordHashes": [
+        "2371798338"
       ]
     },
     "praxic-blade": {
       "collectibleHashes": [
         "3151324440"
+      ],
+      "catalystRecordHashes": [
+        "39338609"
       ]
     },
     "new-malpais": {
       "collectibleHashes": [
         "1714400633"
+      ],
+      "catalystRecordHashes": [
+        "1648672968"
       ]
     },
     "apotheosis-veil": {

@@ -43,9 +43,10 @@ async function bungieJson(url) {
 async function main() {
   const manifest = await bungieJson(`${API_ROOT}/Destiny2/Manifest/`);
   const paths = manifest.Response.jsonWorldComponentContentPaths.en;
-  const [items, collectibles] = await Promise.all([
+  const [items, collectibles, records] = await Promise.all([
     bungieJson(`${BUNGIE_ROOT}${paths.DestinyInventoryItemDefinition}`),
-    bungieJson(`${BUNGIE_ROOT}${paths.DestinyCollectibleDefinition}`)
+    bungieJson(`${BUNGIE_ROOT}${paths.DestinyCollectibleDefinition}`),
+    bungieJson(`${BUNGIE_ROOT}${paths.DestinyRecordDefinition}`)
   ]);
 
   const collectibleByItemHash = new Map();
@@ -85,7 +86,22 @@ async function main() {
   const output = {};
   const icons = {};
   const unresolved = [];
-  for (const item of loadCatalog()) {
+  const catalog = loadCatalog();
+  const catalogByName = new Map(catalog.map(item => [normalize(item.name), item]));
+  const catalystRecordHashes = {};
+
+  for (const [recordHash, record] of Object.entries(records)) {
+    const recordName = record?.displayProperties?.name || "";
+    const normalizedRecord = normalize(recordName);
+    if (!normalizedRecord.endsWith("catalyst")) continue;
+    const itemName = normalizedRecord.slice(0, -"catalyst".length);
+    const item = catalogByName.get(itemName) || catalogByName.get(NAME_ALIASES[itemName]);
+    if (!item || item.kind !== "weapon") continue;
+    catalystRecordHashes[item.id] = catalystRecordHashes[item.id] || [];
+    catalystRecordHashes[item.id].push(String(record.hash || recordHash));
+  }
+
+  for (const item of catalog) {
     const normalizedName = normalize(item.name);
     const matches = manifestByName.get(normalizedName) || manifestByName.get(NAME_ALIASES[normalizedName]) || [];
     const filtered = item.kind === "armor"
@@ -95,6 +111,7 @@ async function main() {
     const collectibleHashes = [...new Set(chosen.flatMap(match => match.collectibleHashes))];
     if (collectibleHashes.length) {
       output[item.id] = { collectibleHashes };
+      if (catalystRecordHashes[item.id]) output[item.id].catalystRecordHashes = [...new Set(catalystRecordHashes[item.id])];
       const icon = chosen.find(match => match.icon)?.icon || "";
       if (icon) icons[item.id] = icon;
     } else {
@@ -121,7 +138,7 @@ async function main() {
   fs.writeFileSync(OUT_ICON_FILE, iconContent);
   console.log(`Wrote ${OUT_FILE}`);
   console.log(`Wrote ${OUT_ICON_FILE}`);
-  console.log(`mapped=${Object.keys(output).length} icons=${Object.keys(icons).length} unresolved=${unresolved.length}`);
+  console.log(`mapped=${Object.keys(output).length} icons=${Object.keys(icons).length} catalystRecords=${Object.keys(catalystRecordHashes).length} unresolved=${unresolved.length}`);
   if (unresolved.length) console.log(JSON.stringify(unresolved.slice(0, 30), null, 2));
 }
 
