@@ -5,16 +5,16 @@
   const css = `
     .weapon-card,.armor-card{position:relative}
     .weapon-card .status-cell,.armor-card .status-cell{cursor:help}
-    .item-help-btn{flex:0 0 auto;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:var(--soft);border-radius:999px;width:24px;height:24px;display:inline-grid;place-items:center;font-size:.78rem;font-weight:900;line-height:1}
+    .item-help-btn{flex:0 0 auto;border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.07);color:var(--soft);border-radius:6px;width:24px;height:24px;display:inline-grid;place-items:center;font-size:.78rem;font-weight:900;line-height:1}
     .item-help-btn:hover,.item-help-btn:focus-visible{border-color:rgba(243,189,79,.45);color:var(--gold);outline:0}
     .item-name{min-width:0}
-    .help-panel{position:fixed;z-index:70;right:16px;top:16px;width:min(430px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;border:1px solid var(--line);border-radius:18px;background:#10151f;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:14px;transform:translateX(calc(100% + 24px));transition:transform .18s ease}
+    .help-panel{position:fixed;z-index:70;right:16px;top:16px;width:min(430px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),#0d1119;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:14px;transform:translateX(calc(100% + 24px));transition:transform .18s ease}
     .help-panel.open{transform:translateX(0)}
     .help-panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
     .help-panel h2{font-size:1.05rem;line-height:1.2;margin:0}
-    .help-close{border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.06);color:var(--text);width:32px;height:32px;flex:0 0 auto}
+    .help-close{border:1px solid var(--line);border-radius:7px;background:rgba(255,255,255,.06);color:var(--text);width:32px;height:32px;flex:0 0 auto}
     .help-grid{display:grid;gap:8px;margin:10px 0}
-    .help-source{border:1px solid rgba(243,189,79,.2);background:rgba(243,189,79,.07);border-radius:12px;padding:9px 10px;color:var(--soft);font-size:.84rem;line-height:1.4}
+    .help-source{border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.07);border-radius:8px;padding:9px 10px;color:var(--soft);font-size:.84rem;line-height:1.4}
     .help-source strong{display:block;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
     .help-steps{margin:8px 0 0;padding-left:20px;color:var(--soft);font-size:.88rem;line-height:1.45}
     .help-steps li{margin:6px 0}
