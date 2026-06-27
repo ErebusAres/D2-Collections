@@ -7,7 +7,7 @@
   const MAP_CACHE_KEY = "d2-collections-bungie-catalog-map-v1";
   const API_ROOT = "https://www.bungie.net/Platform";
   const EXPECTED_EXOTIC_TOTAL = 1239;
-  const OAUTH_REDIRECT_URI = "https://erebusares.github.io/D2-Collections/";
+  const OAUTH_REDIRECT_URI = "https://erebusares.github.io/D2-Collections/index.html";
   const NOT_ACQUIRED = 1;
   let refreshPromise = null;
 

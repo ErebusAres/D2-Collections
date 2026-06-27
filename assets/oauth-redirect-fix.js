@@ -1,6 +1,6 @@
 (() => {
   const AUTH_KEY = "d2-collections-auth-v1";
-  const REDIRECT_URI = "https://erebusares.github.io/D2-Collections/";
+  const REDIRECT_URI = "https://erebusares.github.io/D2-Collections/index.html";
 
   function hasSavedCode() {
     try {

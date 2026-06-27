@@ -260,7 +260,7 @@
 
   function buildAuthUrl() {
     const clientId = BUNGIE.clientId || "53180";
-    const redirectUri = BUNGIE.redirectUri || "https://erebusares.github.io/D2-Collections/";
+    const redirectUri = BUNGIE.redirectUri || "https://erebusares.github.io/D2-Collections/index.html";
     const state = crypto?.randomUUID?.() || String(Date.now());
     localStorage.setItem("d2-collections-oauth-state-v1", state);
     const params = new URLSearchParams({ client_id: clientId, response_type: "code", redirect_uri: redirectUri, state });
