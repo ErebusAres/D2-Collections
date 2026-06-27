@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>D2 Exotic Collections</title>
   <meta name="description" content="Manual Destiny 2 exotic collection tracker for weapons, catalysts, Warlock armor, Titan armor, and Hunter armor." />
-  <link rel="stylesheet" href="assets/styles.css?v=d2-sharp" />
+  <link rel="stylesheet" href="assets/styles.css?v=d2-priority-tags" />
 </head>
 <body>
   <div class="app-shell">
@@ -33,6 +33,8 @@
       </div>
       <div class="segmented" role="group" aria-label="View filter">
         <button class="seg active" data-view="all" type="button">All</button>
+        <button class="seg" data-view="priority" type="button">Priority</button>
+        <button class="seg" data-view="easy" type="button">Easy</button>
         <button class="seg" data-view="missing" type="button">Missing</button>
         <button class="seg" data-view="catalysts" type="button">Catalysts</button>
       </div>
@@ -96,14 +98,15 @@
   <script src="data/icon-map.js?v=244164-icons-283"></script>
   <script src="data/bungie-collectible-map.js?v=244164-sources"></script>
   <script src="assets/static-icons.js?v=manifest-sources"></script>
+  <script src="data/priority-tags.js?v=final-priority"></script>
   <script src="data/checklist.js"></script>
   <script src="assets/oauth-redirect-fix.js?v=53180-index"></script>
-  <script src="assets/app.js?v=53180-d2-sharp"></script>
+  <script src="assets/app.js?v=53180-priority-tags"></script>
   <script src="assets/auth-compact.js"></script>
-  <script src="assets/armor-columns.js?v=d2-class-items"></script>
+  <script src="assets/armor-columns.js?v=d2-priority-tags"></script>
   <script src="assets/help.js?v=d2-polish"></script>
   <script src="assets/icon-audit.js"></script>
   <script src="assets/api-handoff.js"></script>
-  <script src="assets/bungie-collection-dump.js?v=53180-auth-code-reset"></script>
+  <script src="assets/bungie-collection-dump.js?v=53180-rahool-resources"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
   const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
   const LOCAL_OWNERSHIP_KEY = "d2-collections-local-ownership-v1";
+  const RESOURCE_KEY = "d2-collections-player-resources-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "corey" };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
@@ -17,6 +18,7 @@
   let filters = { search: "", view: "all", player: "all" };
   let state = mergeState(clone(BASE));
   applyLocalOwnership(state);
+  let resources = readResources();
   let authState = readAuthState();
 
   const els = {
@@ -77,6 +79,19 @@
     } catch {
       return {};
     }
+  }
+
+  function readResources() {
+    try {
+      return JSON.parse(localStorage.getItem(RESOURCE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function saveResources(next = resources) {
+    resources = next || {};
+    localStorage.setItem(RESOURCE_KEY, JSON.stringify(resources));
   }
 
   function applyLocalOwnership(next) {
@@ -165,13 +180,16 @@
   function matchesText(item) {
     const q = filters.search.trim().toLowerCase();
     if (!q) return true;
-    return [item.name, item.slot, item.type, item.element, item.bungieSource, item.source].filter(Boolean).join(" ").toLowerCase().includes(q);
+    const priority = item.priority || {};
+    return [item.name, item.slot, item.type, item.element, item.bungieSource, item.source, priority.note, ...(priority.tags || []).map(tag => tag.label)].filter(Boolean).join(" ").toLowerCase().includes(q);
   }
 
   function matchesWeaponView(item) {
     const rows = playerList().map(player => state.weapons[item.id]?.[player] || blankWeapon());
     if (filters.view === "missing") return rows.some(row => !row.owned);
     if (filters.view === "catalysts") return rows.some(row => row.owned && (!row.catalyst || !row.complete));
+    if (filters.view === "priority") return Boolean(item.priority?.mustHave);
+    if (filters.view === "easy") return Boolean(item.priority?.easyWin);
     return true;
   }
 
@@ -179,6 +197,8 @@
     const rows = armorPlayersForClass(className).map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
     if (filters.view === "missing") return rows.some(row => !row.owned);
     if (filters.view === "catalysts") return false;
+    if (filters.view === "priority") return Boolean(item.priority?.mustHave);
+    if (filters.view === "easy") return Boolean(item.priority?.easyWin || rahoolReady(item, armorPlayersForClass(className)));
     return true;
   }
 
@@ -230,12 +250,13 @@
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const cardClass = ownedCount === visibleStates.length ? "is-owned" : ownedCount ? "is-partial" : "is-missing";
     const source = item.bungieSource || item.source || "";
+    const metaBadges = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
     const playerRows = visiblePlayers.map(player => {
       const s = state.weapons[item.id]?.[player] || blankWeapon();
       return `<div class="status-grid status-row"><div class="player-label">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}${statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim")}${statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim")}</div>`;
     }).join("");
 
-    return `<article class="weapon-card ${cardClass}" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span><span class="badge">${item.element || ""}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
+    return `<article class="weapon-card ${cardClass}" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span><span class="badge">${item.element || ""}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root) {
@@ -253,13 +274,32 @@
     const visibleStates = visiblePlayers.map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
     const cardClass = visibleStates.some(row => row.owned) ? "is-owned" : "is-missing";
     const source = item.bungieSource || item.source || "";
+    const metaBadges = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
     const playerRows = visiblePlayers.map(player => {
       const s = state.armor[className]?.[item.id]?.[player] || blankArmor();
       const isFocus = player === focusPlayer;
       return `<div class="armor-status status-row"><div class="player-label ${isFocus ? "is-focus" : ""}">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}</div>`;
     }).join("");
 
-    return `<article class="armor-card is-focus-card ${cardClass}" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div><div class="badge-row"><span class="badge focus">${focusLabel(className)}</span><span class="badge slot">${item.slot || ""}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
+    return `<article class="armor-card is-focus-card ${cardClass}" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge focus">${focusLabel(className)}</span><span class="badge slot">${item.slot || ""}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
+  }
+
+  function hasRahoolMaterials(player) {
+    const row = resources?.[player] || {};
+    return Number(row.exoticCiphers || 0) >= 1 && Number(row.exoticEngrams || 0) >= 1;
+  }
+
+  function rahoolReady(item, visiblePlayers = playerList()) {
+    return Boolean(item.priority?.rahool && visiblePlayers.some(player => hasRahoolMaterials(player)));
+  }
+
+  function priorityBadges(item, visiblePlayers, owned = false) {
+    const tags = [...(item.priority?.tags || [])];
+    if (!owned && rahoolReady(item, visiblePlayers)) {
+      tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
+    }
+    if (!tags.length) return "";
+    return `<span class="priority-tags">${tags.slice(0, 4).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${escapeAttr(tag.label)}</span>`).join("")}</span>`;
   }
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {
@@ -311,6 +351,17 @@
     let catalystsChanged = 0;
     let completedChanged = 0;
     let matchedItems = 0;
+
+    if (payload.resourceCounts) {
+      saveResources({
+        ...resources,
+        [player]: {
+          ...(resources?.[player] || {}),
+          ...payload.resourceCounts,
+          updatedAt: new Date().toISOString()
+        }
+      });
+    }
 
     (CATALOG.weapons || []).forEach(item => {
       const matched = itemIds.has(item.id) || itemNames.has(normalizeItemName(item.name));

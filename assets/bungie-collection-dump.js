@@ -10,6 +10,8 @@
   const EXPECTED_EXOTIC_TOTAL = 1239;
   const OAUTH_REDIRECT_URI = "https://erebusares.github.io/D2-Collections/index.html";
   const NOT_ACQUIRED = 1;
+  const EXOTIC_CIPHER_HASHES = new Set(["3467984096", "187236078", "825199458"]);
+  const EXOTIC_ENGRAM_HASHES = new Set(["343863063", "685908770", "761932252", "773306547", "903043774", "935088801", "1010947726", "1425215686", "1728121941", "2122520503", "2176771682", "2370072441", "2564361489", "2685382923", "2762058303", "2778705488", "2907562922", "3290874772", "3484503346", "3670763683", "3875551374", "4003905209", "4106630301", "4111522113"]);
   let refreshPromise = null;
 
   function readJson(key) {
@@ -330,6 +332,28 @@
     return { active, complete };
   }
 
+  function itemQuantity(entry) {
+    return Number(entry?.quantity || entry?.itemInstanceId && 1 || 0);
+  }
+
+  function addResourceCountsFromItems(items, counts) {
+    (items || []).forEach(item => {
+      const hash = String(item?.itemHash || item?.hash || "");
+      if (!hash) return;
+      const quantity = itemQuantity(item) || 1;
+      if (EXOTIC_CIPHER_HASHES.has(hash)) counts.exoticCiphers += quantity;
+      if (EXOTIC_ENGRAM_HASHES.has(hash)) counts.exoticEngrams += quantity;
+    });
+  }
+
+  function profileResourceCounts(profile) {
+    const counts = { exoticCiphers: 0, exoticEngrams: 0 };
+    addResourceCountsFromItems(profile?.profileCurrencies?.data?.items, counts);
+    addResourceCountsFromItems(profile?.profileInventory?.data?.items, counts);
+    Object.values(profile?.characterInventories?.data || {}).forEach(characterData => addResourceCountsFromItems(characterData?.items, counts));
+    return counts;
+  }
+
   function profileNames(dump) {
     const names = [];
     (dump.memberships || []).forEach(item => {
@@ -355,11 +379,15 @@
     const allOwnedHashes = new Set();
     const activeCatalystRecords = new Set();
     const completedCatalystRecords = new Set();
+    const resourceCounts = { exoticCiphers: 0, exoticEngrams: 0 };
     (dump.profiles || []).forEach(profileEntry => {
       ownedCollectibleHashes(profileEntry.profile).forEach(hash => allOwnedHashes.add(hash));
       const catalystRecords = catalystRecordHashes(profileEntry.profile);
       catalystRecords.active.forEach(hash => activeCatalystRecords.add(hash));
       catalystRecords.complete.forEach(hash => completedCatalystRecords.add(hash));
+      const profileResources = profileResourceCounts(profileEntry.profile);
+      resourceCounts.exoticCiphers += profileResources.exoticCiphers;
+      resourceCounts.exoticEngrams += profileResources.exoticEngrams;
     });
 
     if (!player) {
@@ -386,6 +414,7 @@
       ownedCollectibleHashes: allOwnedHashes.size,
       activeCatalystRecords: activeCatalystRecords.size,
       completedCatalystRecords: completedCatalystRecords.size,
+      resourceCounts,
       itemIds: matched.map(entry => entry.item.id),
       itemNames: matched.map(entry => entry.item.name),
       catalystItemIds: catalystActive.map(entry => entry.item.id),
@@ -466,7 +495,7 @@
       if (!membershipType || !membershipId) continue;
       try {
         if (status) status.textContent = `Pulling collection/profile data for ${membership.displayName || membershipId}...`;
-        const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,800,900,1200`, status);
+        const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,102,103,200,201,800,900,1200`, status);
         profiles.push({
           membershipType,
           membershipId,

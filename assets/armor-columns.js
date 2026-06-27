@@ -2,6 +2,7 @@
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { armor: {} };
   const CHECKLIST = window.D2_COLLECTIONS_CHECKLIST || { users: {}, armor: {} };
   const STORAGE_KEY = "d2-collections-armor-columns-v1";
+  const RESOURCE_KEY = "d2-collections-player-resources-v1";
   const DEFAULTS = {
     left: { player: "corey", className: "warlock" },
     right: { player: "matt", className: "titan" }
@@ -91,6 +92,28 @@
     return Boolean(liveState().armor?.[className]?.[itemId]?.[player]?.owned);
   }
 
+  function readResources() {
+    try {
+      return JSON.parse(localStorage.getItem(RESOURCE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function hasRahoolMaterials(player) {
+    const row = readResources()?.[player] || {};
+    return Number(row.exoticCiphers || 0) >= 1 && Number(row.exoticEngrams || 0) >= 1;
+  }
+
+  function priorityBadges(item, player, owned) {
+    const tags = [...(item.priority?.tags || [])];
+    if (!owned && item.priority?.rahool && hasRahoolMaterials(player)) {
+      tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
+    }
+    if (!tags.length) return "";
+    return `<span class="priority-tags">${tags.slice(0, 3).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${escapeAttr(tag.label)}</span>`).join("")}</span>`;
+  }
+
   function renderColumn(side, rootId, titleIndex) {
     const root = document.querySelector(rootId);
     const title = document.querySelectorAll(".class-title")[titleIndex];
@@ -102,17 +125,19 @@
     const { search, view } = currentFilters();
     const items = [...(CATALOG.armor?.[className] || [])].sort((a,b) => (SLOT_ORDER[a.slot] || 99) - (SLOT_ORDER[b.slot] || 99) || a.name.localeCompare(b.name));
     const visible = items.filter(item => {
-      const haystack = [item.name, item.slot, item.bungieSource, item.source].join(" ").toLowerCase();
+      const haystack = [item.name, item.slot, item.bungieSource, item.source, item.priority?.note, ...(item.priority?.tags || []).map(tag => tag.label)].join(" ").toLowerCase();
       const owned = getOwned(className, item.id, player);
       if (search && !haystack.includes(search)) return false;
       if (view === "missing" && owned) return false;
       if (view === "catalysts") return false;
+      if (view === "priority" && !item.priority?.mustHave) return false;
+      if (view === "easy" && !item.priority?.easyWin) return false;
       return true;
     });
     root.innerHTML = visible.length ? visible.map(item => {
       const owned = getOwned(className, item.id, player);
       const source = item.bungieSource || item.source || "";
-      return `<article class="armor-card is-focus-card ${owned ? "is-owned" : "is-missing"}" data-id="${item.id}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="More info" data-help-id="${item.id}">i</button></div><div class="badge-row"><span class="badge slot">${item.slot}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
+      return `<article class="armor-card is-focus-card ${owned ? "is-owned" : "is-missing"}" data-id="${item.id}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3>${priorityBadges(item, player, owned)}<button class="item-help-btn" type="button" title="More info" data-help-id="${item.id}">i</button></div><div class="badge-row"><span class="badge slot">${item.slot}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
     }).join("") : `<div class="empty-state">No ${klass} armor matches this filter.</div>`;
     return visible.length;
   }
