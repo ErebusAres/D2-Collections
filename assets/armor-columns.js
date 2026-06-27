@@ -30,6 +30,10 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   }
 
+  function liveState() {
+    return window.D2_COLLECTIONS_APP?.getState?.() || CHECKLIST;
+  }
+
   function userName(id, mode = "label") {
     const user = CHECKLIST.users?.[id] || {};
     if (mode === "full") return user.full || `${user.label || id}${user.handle ? ` (${user.handle})` : ""}`;
@@ -65,7 +69,7 @@
     });
   }
 
-  function statusCell(value, itemId) { return `<div class="status-cell ${value ? "yes" : "no"}" data-help-id="${itemId}" title="${value ? "Owned" : "Not owned"} — click for unlock help">${value ? "✅" : "⛔"}</div>`; }
+  function statusCell(value, itemId) { return `<div class="status-cell ${value ? "yes" : "no"}" data-help-id="${itemId}" title="${value ? "Owned" : "Not owned"} - click for unlock help">${value ? "✅" : "⛔"}</div>`; }
   function initials(name) { return String(name || "?").split(/\s+|-/).filter(Boolean).slice(0,2).map(p => p[0]?.toUpperCase() || "").join("") || "?"; }
   function iconMarkup(item) {
     const raw = item.icon || item.iconUrl || "";
@@ -81,7 +85,7 @@
   }
 
   function getOwned(className, itemId, player) {
-    return Boolean(CHECKLIST.armor?.[className]?.[itemId]?.[player]?.owned);
+    return Boolean(liveState().armor?.[className]?.[itemId]?.[player]?.owned);
   }
 
   function renderColumn(side, rootId, titleIndex) {
@@ -120,6 +124,7 @@
 
   document.addEventListener("input", event => { if (event.target?.id === "searchInput") setTimeout(renderArmorColumns, 0); });
   document.addEventListener("click", event => { if (event.target.closest("[data-view],[data-player]")) setTimeout(renderArmorColumns, 0); });
+  document.addEventListener("d2collections:ownership-applied", () => setTimeout(renderArmorColumns, 0));
   const observer = new MutationObserver(() => {
     if (!document.querySelector(".armor-column-controls")) renderArmorColumns();
   });
