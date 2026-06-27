@@ -3,6 +3,7 @@
   const BASE = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: {} };
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
   const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
+  const LOCAL_OWNERSHIP_KEY = "d2-collections-local-ownership-v1";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "corey" };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
@@ -14,6 +15,7 @@
 
   let filters = { search: "", view: "all", player: "all" };
   let state = mergeState(clone(BASE));
+  applyLocalOwnership(state);
   let authState = readAuthState();
 
   const els = {
@@ -53,6 +55,52 @@
     merged.armor = merged.armor || {};
     hydrateDefaults(merged);
     return merged;
+  }
+
+  function readLocalOwnership() {
+    try {
+      return JSON.parse(localStorage.getItem(LOCAL_OWNERSHIP_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function applyLocalOwnership(next) {
+    const saved = readLocalOwnership();
+    Object.entries(saved.weapons || {}).forEach(([itemId, playersState]) => {
+      Object.entries(playersState || {}).forEach(([player, row]) => {
+        if (row?.owned && next.weapons?.[itemId]?.[player]) next.weapons[itemId][player].owned = true;
+      });
+    });
+    Object.entries(saved.armor || {}).forEach(([className, items]) => {
+      Object.entries(items || {}).forEach(([itemId, playersState]) => {
+        Object.entries(playersState || {}).forEach(([player, row]) => {
+          if (row?.owned && next.armor?.[className]?.[itemId]?.[player]) next.armor[className][itemId][player].owned = true;
+        });
+      });
+    });
+  }
+
+  function saveLocalOwnership() {
+    const saved = { savedAt: new Date().toISOString(), weapons: {}, armor: {} };
+    Object.entries(state.weapons || {}).forEach(([itemId, playersState]) => {
+      Object.entries(playersState || {}).forEach(([player, row]) => {
+        if (!row?.owned) return;
+        saved.weapons[itemId] = saved.weapons[itemId] || {};
+        saved.weapons[itemId][player] = { owned: true };
+      });
+    });
+    Object.entries(state.armor || {}).forEach(([className, items]) => {
+      Object.entries(items || {}).forEach(([itemId, playersState]) => {
+        Object.entries(playersState || {}).forEach(([player, row]) => {
+          if (!row?.owned) return;
+          saved.armor[className] = saved.armor[className] || {};
+          saved.armor[className][itemId] = saved.armor[className][itemId] || {};
+          saved.armor[className][itemId][player] = { owned: true };
+        });
+      });
+    });
+    localStorage.setItem(LOCAL_OWNERSHIP_KEY, JSON.stringify(saved));
   }
 
   function hydrateDefaults(next) {
@@ -246,8 +294,9 @@
       });
     });
 
+    if (weaponsChanged || armorChanged) saveLocalOwnership();
     render();
-    const result = { ok: true, player, weaponsChanged, armorChanged, matchedItems };
+    const result = { ok: true, player, weaponsChanged, armorChanged, matchedItems, savedLocalOwnership: true };
     document.dispatchEvent(new CustomEvent("d2collections:ownership-applied", { detail: result }));
     return result;
   }
