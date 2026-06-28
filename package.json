@@ -1,0 +1,14 @@
+{
+  "name": "d2-collections",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cf:login": "wrangler login",
+    "cf:d1:create": "wrangler d1 create d2-collections",
+    "cf:d1:migrate": "wrangler d1 migrations apply d2-collections --remote --config worker/wrangler.toml",
+    "cf:deploy": "wrangler deploy --config worker/wrangler.toml"
+  },
+  "devDependencies": {
+    "wrangler": "latest"
+  }
+}

@@ -5,6 +5,8 @@ window.D2_BUNGIE_CONFIG = {
   clientId: "53180",
   redirectUri: "https://erebusares.github.io/D2-Collections/index.html",
   tokenUrl: "https://www.bungie.net/Platform/App/OAuth/Token/",
+  // Optional Cloudflare Worker URL. Leave blank until the D1 sync worker is deployed.
+  cloudSyncApi: "",
   // Disabled for live page load. Runtime manifest scans were too heavy.
   // Use an offline/static icon map instead of fetching Bungie's full manifest in the browser.
   apiRoot: "."

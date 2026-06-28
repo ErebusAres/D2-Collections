@@ -649,7 +649,7 @@
     if (!player || !players.includes(player)) {
       return { ok: false, reason: "unknown_player", player, weaponsChanged: 0, armorChanged: 0, matchedItems: 0 };
     }
-    saveActivePlayer(player);
+    if (!payload.preserveActivePlayer) saveActivePlayer(player);
 
     hydrateDefaults(state);
     const itemIds = new Set([...(payload.itemIds || []), ...(payload.weaponIds || [])].map(String));

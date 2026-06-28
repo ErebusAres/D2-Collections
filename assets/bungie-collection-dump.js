@@ -568,9 +568,19 @@
           if (liveSync.ok && window.D2_COLLECTIONS_APP?.applyCollectionOwnership) {
             applyResult = window.D2_COLLECTIONS_APP.applyCollectionOwnership(liveSync);
           }
-          output.value = JSON.stringify(compactDumpForOutput(dump, liveSync, applyResult), null, 2);
+          const compactDump = compactDumpForOutput(dump, liveSync, applyResult);
+          output.value = JSON.stringify(compactDump, null, 2);
           if (liveSync.ok) {
-            status.textContent = `Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor, ${applyResult.catalystsChanged || 0} catalysts, ${applyResult.completedChanged || 0} done. Copy the dump/export if you want this committed to repo data.`;
+            let cloudText = "";
+            if (window.D2_COLLECTIONS_CLOUD_SYNC?.pushSnapshot) {
+              try {
+                const cloudResult = await window.D2_COLLECTIONS_CLOUD_SYNC.pushSnapshot(liveSync, applyResult, compactDump);
+                cloudText = cloudResult?.ok ? " Cloud snapshot saved." : " Cloud snapshot skipped.";
+              } catch (error) {
+                cloudText = ` Cloud snapshot failed: ${error.message || error}.`;
+              }
+            }
+            status.textContent = `Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor, ${applyResult.catalystsChanged || 0} catalysts, ${applyResult.completedChanged || 0} done.${cloudText} Copy the dump/export if you want this committed to repo data.`;
           } else {
             status.textContent = `Built collection dump, but could not live-sync because ${liveSync.reason}. Copy the dump and tell me whether it is Ares/Corey or Icee/Matt.`;
           }
