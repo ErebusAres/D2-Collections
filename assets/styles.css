@@ -670,6 +670,49 @@ html.layout-simple .armor-list {
   gap: 10px 8px;
   align-items: start;
 }
+html.layout-simple .weapon-list.is-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+html.layout-simple .simple-player-section {
+  min-width: 0;
+}
+html.layout-simple .simple-player-list {
+  --tile-size: 64px;
+  --icon-size: calc(var(--tile-size) - 6px);
+}
+html.layout-simple .weapon-player-title {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border-color: rgba(111,168,220,.2);
+  background:
+    linear-gradient(90deg, rgba(111,168,220,.11), transparent 30%),
+    rgba(0,0,0,.18);
+}
+html.layout-simple .weapon-player-title span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  color: var(--gold-bright);
+  background: rgba(216,177,91,.12);
+  border: 1px solid rgba(216,177,91,.24);
+}
+html.layout-simple .weapon-player-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html.layout-simple .weapon-player-title em {
+  color: var(--soft);
+  font-style: normal;
+  font-size: .72rem;
+  font-weight: 800;
+}
 html.layout-simple .armor-columns {
   grid-template-columns: 1fr;
   gap: 9px;

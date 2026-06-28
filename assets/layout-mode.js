@@ -25,6 +25,7 @@
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {}
+    document.dispatchEvent(new CustomEvent("d2collections:layout-mode-changed", { detail: { mode: next } }));
   }
 
   buttons.forEach(button => {

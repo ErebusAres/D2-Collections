@@ -6,6 +6,7 @@
   const LOCAL_OWNERSHIP_KEY = "d2-collections-local-ownership-v1";
   const RESOURCE_KEY = "d2-collections-player-resources-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
+  const ACTIVE_PLAYER_KEY = "d2-collections-active-player-v1";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "corey" };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
@@ -170,6 +171,30 @@
     return filters.player === "all" ? players : [filters.player];
   }
 
+  function isSimpleMode() {
+    return document.documentElement.classList.contains("layout-simple");
+  }
+
+  function readActivePlayer() {
+    try {
+      const saved = localStorage.getItem(ACTIVE_PLAYER_KEY);
+      return players.includes(saved) ? saved : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function saveActivePlayer(player) {
+    if (!players.includes(player)) return;
+    localStorage.setItem(ACTIVE_PLAYER_KEY, player);
+  }
+
+  function orderedPlayers() {
+    const active = readActivePlayer();
+    const visible = playerList();
+    return active && visible.includes(active) ? [active, ...visible.filter(player => player !== active)] : visible;
+  }
+
   function armorPlayersForClass(className) {
     if (filters.player !== "all") return [filters.player];
     return [CLASS_FOCUS[className] || players[0]];
@@ -193,7 +218,11 @@
   }
 
   function matchesWeaponView(item) {
-    const rows = playerList().map(player => state.weapons[item.id]?.[player] || blankWeapon());
+    return matchesWeaponViewForPlayers(item, playerList());
+  }
+
+  function matchesWeaponViewForPlayers(item, visiblePlayers) {
+    const rows = visiblePlayers.map(player => state.weapons[item.id]?.[player] || blankWeapon());
     if (filters.view === "missing") return rows.some(row => !row.owned);
     if (filters.view === "catalysts") return rows.some(row => row.owned && (!row.catalyst || !row.complete));
     if (filters.view === "priority") return Boolean(item.priority?.mustHave);
@@ -249,13 +278,29 @@
 
   function renderWeapons() {
     if (!els.weapons) return;
-    const visible = (CATALOG.weapons || []).filter(item => matchesText(item) && matchesWeaponView(item));
+    const allWeapons = CATALOG.weapons || [];
+    const visible = allWeapons.filter(item => matchesText(item) && matchesWeaponView(item));
     if (els.weaponCount) els.weaponCount.textContent = `${visible.length} / ${(CATALOG.weapons || []).length}`;
-    els.weapons.innerHTML = visible.length ? visible.map(renderWeaponCard).join("") : emptyState("No weapons match this filter.");
+    const splitSimpleWeapons = isSimpleMode() && filters.player === "all" && players.length > 1;
+    els.weapons.classList.toggle("is-split", splitSimpleWeapons);
+    if (splitSimpleWeapons) {
+      els.weapons.innerHTML = orderedPlayers().map(player => renderWeaponPlayerSection(player, allWeapons)).join("");
+      return;
+    }
+    els.weapons.innerHTML = visible.length ? visible.map(item => renderWeaponCard(item)).join("") : emptyState("No weapons match this filter.");
   }
 
-  function renderWeaponCard(item) {
-    const visiblePlayers = playerList();
+  function renderWeaponPlayerSection(player, allWeapons) {
+    const user = BASE.users[player] || {};
+    const visible = allWeapons.filter(item => matchesText(item) && matchesWeaponViewForPlayers(item, [player]));
+    const owned = visible.filter(item => state.weapons[item.id]?.[player]?.owned).length;
+    const label = user.label || player;
+    const handle = user.handle || user.name || "";
+    const title = handle ? `${label} (${handle})` : label;
+    return `<article class="simple-player-section weapon-player-section" data-player="${escapeAttr(player)}"><div class="class-title weapon-player-title"><span>${escapeAttr(user.short || label[0] || "?")}</span><strong>${escapeAttr(title)} / Weapons</strong><em>${owned}/${visible.length}</em></div><div class="weapon-list simple-player-list">${visible.length ? visible.map(item => renderWeaponCard(item, [player])).join("") : emptyState("No weapons match this filter.")}</div></article>`;
+  }
+
+  function renderWeaponCard(item, visiblePlayers = playerList()) {
     const visibleStates = visiblePlayers.map(player => state.weapons[item.id]?.[player] || blankWeapon());
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const cardClass = ownedCount === visibleStates.length ? "is-owned" : ownedCount ? "is-partial" : "is-missing";
@@ -401,6 +446,7 @@
     if (!player || !players.includes(player)) {
       return { ok: false, reason: "unknown_player", player, weaponsChanged: 0, armorChanged: 0, matchedItems: 0 };
     }
+    saveActivePlayer(player);
 
     hydrateDefaults(state);
     const itemIds = new Set([...(payload.itemIds || []), ...(payload.weaponIds || [])].map(String));
@@ -541,6 +587,7 @@
   if (els.exportBtn) els.exportBtn.addEventListener("click", exportState);
   if (els.loginBtn) els.loginBtn.addEventListener("click", () => { window.location.href = buildAuthUrl(); });
   document.addEventListener("keydown", focusSiteSearch);
+  document.addEventListener("d2collections:layout-mode-changed", render);
 
   captureOAuthCode();
   render();
