@@ -467,6 +467,22 @@
     window.history.replaceState({}, document.title, url.toString());
   }
 
+  function shouldKeepNativeFind(event) {
+    const target = event.target;
+    if (!target) return false;
+    if (target === els.search) return false;
+    const tag = target.tagName?.toLowerCase();
+    return target.isContentEditable || tag === "input" || tag === "textarea" || tag === "select";
+  }
+
+  function focusSiteSearch(event) {
+    if (!els.search || event.key.toLowerCase() !== "f" || (!event.ctrlKey && !event.metaKey) || event.altKey) return;
+    if (shouldKeepNativeFind(event)) return;
+    event.preventDefault();
+    els.search.focus({ preventScroll: true });
+    els.search.select();
+  }
+
   window.D2_COLLECTIONS_APP = {
     applyCollectionOwnership,
     exportState,
@@ -489,6 +505,7 @@
   }));
   if (els.exportBtn) els.exportBtn.addEventListener("click", exportState);
   if (els.loginBtn) els.loginBtn.addEventListener("click", () => { window.location.href = buildAuthUrl(); });
+  document.addEventListener("keydown", focusSiteSearch);
 
   captureOAuthCode();
   render();
