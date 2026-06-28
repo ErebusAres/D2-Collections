@@ -320,8 +320,9 @@
       key.includes("strand") ? "strand" :
       key.includes("kinetic") ? "kinetic" :
       key.includes("variable") ? "variable" : "unknown";
-    const mark = ({ solar: "☀", arc: "⚡", void: "◆", stasis: "❄", strand: "∞", kinetic: "◆", variable: "◇", multi: "◇" })[className] || "•";
-    return `<span class="badge element ${className}" title="${escapeAttr(label)}"><span class="element-mark" aria-hidden="true">${mark}</span>${escapeAttr(label)}</span>`;
+    const parts = ["solar", "arc", "void", "stasis", "strand", "kinetic"].filter(name => key.includes(name));
+    const marks = (parts.length ? parts : [className]).slice(0, 2).map(name => `<span class="element-mark ${escapeAttr(name)}" aria-hidden="true"></span>`).join("");
+    return `<span class="badge element ${className}" title="${escapeAttr(label)}"><span class="element-icons">${marks}</span>${escapeAttr(label)}</span>`;
   }
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {
