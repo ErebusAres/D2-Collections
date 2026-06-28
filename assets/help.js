@@ -1,5 +1,6 @@
 (() => {
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
+  const CHECKLIST = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: {} };
   const BUNGIE = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
 
   const css = `
@@ -23,7 +24,17 @@
     .help-priority{border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.055);border-radius:8px;padding:9px 10px;color:var(--soft);font-size:.84rem;line-height:1.45}
     .help-priority strong{display:block;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
     .help-subhead{color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-top:12px}
+    .help-details{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+    .help-detail{border:1px solid rgba(222,232,255,.105);background:rgba(0,0,0,.18);border-radius:8px;padding:8px 9px;min-width:0}
+    .help-detail span{display:block;color:var(--muted);font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;font-weight:900;margin-bottom:2px}
+    .help-detail strong{display:block;color:var(--soft);font-size:.84rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .help-status-list{display:grid;gap:6px;margin-top:8px}
+    .help-status-row{display:grid;grid-template-columns:minmax(70px,.7fr) repeat(3,minmax(48px,1fr));gap:5px;align-items:center;color:var(--muted);font-size:.76rem}
+    .help-status-row span{border:1px solid var(--line);border-radius:6px;padding:5px 6px;background:rgba(0,0,0,.18);text-align:center}
+    .help-status-row .is-yes{color:#caffdf;border-color:rgba(88,214,154,.3);background:rgba(88,214,154,.08)}
+    .help-status-row .is-no{color:#ffd7dc;border-color:rgba(224,111,120,.22);background:rgba(224,111,120,.06)}
     @media(max-width:780px){.help-panel{left:10px;right:10px;top:auto;bottom:10px;width:auto;max-height:72vh;border-radius:16px;transform:translateY(calc(100% + 24px))}.help-panel.open{transform:translateY(0)}}
+    @media(max-width:780px){.help-details{grid-template-columns:1fr}.help-status-row{grid-template-columns:minmax(58px,.7fr) repeat(3,minmax(44px,1fr))}}
   `;
 
   const style = document.createElement("style");
@@ -174,6 +185,45 @@
     return blocks.join("");
   }
 
+  function detailRows(item, info) {
+    const map = BUNGIE.items?.[item.id] || {};
+    const values = [
+      ["Type", [item.kind, item.className, item.slot, item.type].filter(Boolean).join(" / ")],
+      ["Element", item.element || "None listed"],
+      ["Catalog ID", item.id],
+      ["Collectible", (map.collectibleHashes || []).join(", ") || "Not mapped"],
+      ["Catalyst records", (map.catalystRecordHashes || []).join(", ") || (item.kind === "weapon" ? "None mapped" : "Armor item")],
+      ["Confidence", item.priority?.confidence || info.confidence]
+    ];
+    return `<div class="help-details">${values.map(([label, value]) => `<div class="help-detail"><span>${escapeHtml(label)}</span><strong title="${escapeHtml(value)}">${escapeHtml(value)}</strong></div>`).join("")}</div>`;
+  }
+
+  function statusClass(value) {
+    return value ? "is-yes" : "is-no";
+  }
+
+  function collectionStatus(item) {
+    const state = window.D2_COLLECTIONS_APP?.getState?.() || CHECKLIST;
+    const users = CHECKLIST.users || {};
+    const userIds = Object.keys(users);
+    if (!userIds.length) return "";
+    if (item.kind === "weapon") {
+      const rows = userIds.map(player => {
+        const row = state.weapons?.[item.id]?.[player] || {};
+        const name = users[player]?.short || users[player]?.label || player;
+        return `<div class="help-status-row"><span>${escapeHtml(name)}</span><span class="${statusClass(row.owned)}">Own</span><span class="${statusClass(row.catalyst)}">Cat</span><span class="${statusClass(row.complete)}">Done</span></div>`;
+      }).join("");
+      return `<div class="help-subhead">Collection state</div><div class="help-status-list">${rows}</div>`;
+    }
+    const className = item.className;
+    const rows = userIds.map(player => {
+      const row = state.armor?.[className]?.[item.id]?.[player] || {};
+      const name = users[player]?.short || users[player]?.label || player;
+      return `<div class="help-status-row"><span>${escapeHtml(name)}</span><span class="${statusClass(row.owned)}">Own</span><span></span><span></span></div>`;
+    }).join("");
+    return `<div class="help-subhead">Collection state</div><div class="help-status-list">${rows}</div>`;
+  }
+
   function addHelpButtons() {
     document.querySelectorAll(".weapon-card,.armor-card").forEach(card => {
       const id = card.dataset.id;
@@ -213,6 +263,9 @@
         ${info.localSource && info.localSource !== info.source ? `<div class="help-source"><strong>Catalog tag</strong>${escapeHtml(info.localSource)}</div>` : ""}
         ${priorityBlocks(item)}
       </div>
+      <div class="help-subhead">Item details</div>
+      ${detailRows(item, info)}
+      ${collectionStatus(item)}
       <div class="help-subhead">Route</div>
       <ol class="help-steps">${info.steps.map(step => `<li>${escapeHtml(step)}</li>`).join("")}</ol>
       <div class="help-note">${escapeHtml(info.confidence)}. Bungie can move acquisition paths; this panel uses the latest static manifest data bundled with the site.</div>

@@ -111,11 +111,11 @@
       tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
     }
     if (!tags.length) return "";
-    return `<span class="priority-tags">${tags.slice(0, 3).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${tagSymbol(tag.id)}</span>`).join("")}</span>`;
+    return `<span class="priority-tags">${tags.slice(0, 3).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" data-icon="${tagSymbol(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}"></span>`).join("")}</span>`;
   }
 
   function tagSymbol(id) {
-    return ({ must: "⭐", easy: "✓", final: "✦", rahool: "◎", buy: "↗", confidence: "i" })[id] || "•";
+    return ({ must: "👍", easy: "✓", final: "✦", rahool: "◎", buy: "↗", confidence: "i" })[id] || "•";
   }
 
   function renderColumn(side, rootId, titleIndex) {
