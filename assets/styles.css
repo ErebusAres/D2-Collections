@@ -349,10 +349,21 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
     linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.026));
 }
 .weapon-card.is-owned,
-.armor-card.is-owned { border-left: 3px solid var(--green); border-color: rgba(70,217,141,.24); }
+.armor-card.is-owned {
+  border-left: 4px solid #46d98d;
+  border-color: rgba(70,217,141,.52);
+  box-shadow: inset 0 0 0 1px rgba(70,217,141,.1), 0 0 0 1px rgba(70,217,141,.08);
+}
 .weapon-card.is-missing,
-.armor-card.is-missing { border-left: 3px solid rgba(224,111,120,.72); border-color: rgba(224,111,120,.18); }
-.weapon-card.is-partial { border-left: 3px solid var(--gold); border-color: rgba(216,177,91,.28); }
+.armor-card.is-missing {
+  border-left: 4px solid #e05f6b;
+  border-color: rgba(224,95,107,.42);
+}
+.weapon-card.is-partial {
+  border-left: 4px solid #f3bd4f;
+  border-color: rgba(243,189,79,.52);
+  box-shadow: inset 0 0 0 1px rgba(243,189,79,.1), 0 0 0 1px rgba(243,189,79,.08);
+}
 .weapon-card::before,
 .armor-card::before {
   content: "";
@@ -707,16 +718,21 @@ html.layout-simple .armor-card:hover {
 }
 html.layout-simple .weapon-card.is-owned,
 html.layout-simple .armor-card.is-owned {
-  border-color: rgba(88,214,154,.58);
-  box-shadow: inset 0 0 0 1px rgba(88,214,154,.18);
+  border-color: rgba(88,214,154,.86);
+  box-shadow: inset 0 0 0 2px rgba(88,214,154,.28), 0 0 14px rgba(88,214,154,.13);
 }
 html.layout-simple .weapon-card.is-partial {
-  border-color: rgba(216,177,91,.68);
-  box-shadow: inset 0 0 0 1px rgba(216,177,91,.18);
+  border-color: rgba(243,189,79,.88);
+  box-shadow: inset 0 0 0 2px rgba(243,189,79,.25), 0 0 14px rgba(243,189,79,.12);
 }
 html.layout-simple .weapon-card.is-missing,
 html.layout-simple .armor-card.is-missing {
-  border-color: rgba(224,111,120,.32);
+  border-color: rgba(224,95,107,.58);
+  box-shadow: inset 0 0 0 1px rgba(224,95,107,.16);
+}
+html.layout-simple .armor-card {
+  min-height: calc(var(--icon-size) + 27px);
+  grid-template-rows: var(--icon-size) 21px;
 }
 html.layout-simple .weapon-card::before,
 html.layout-simple .weapon-card::after,
@@ -811,6 +827,9 @@ html.layout-simple .armor-status.status-row {
   gap: 2px;
   justify-content: center;
   pointer-events: none;
+}
+html.layout-simple .armor-card .armor-status.status-row {
+  display: none;
 }
 html.layout-simple .status-row {
   display: flex;
