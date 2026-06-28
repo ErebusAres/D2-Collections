@@ -398,17 +398,16 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   width: 15px;
   height: 15px;
   background: var(--element-icon) center/contain no-repeat;
-  filter: drop-shadow(0 0 4px var(--element-glow, rgba(255,255,255,.18)));
   flex: 0 0 15px;
 }
-.element-mark.solar { --element-icon: url("https://www.bungie.net/img/destiny_content/damage_types/destiny2/thermal_trans.png"); --element-glow: rgba(242,114,27,.5); }
-.element-mark.arc { --element-icon: url("https://www.bungie.net/img/destiny_content/damage_types/destiny2/arc_trans.png"); --element-glow: rgba(133,197,236,.5); }
-.element-mark.void { --element-icon: url("https://www.bungie.net/img/destiny_content/damage_types/destiny2/void_trans.png"); --element-glow: rgba(177,132,197,.55); }
-.element-mark.stasis { --element-icon: url("https://www.bungie.net/img/destiny_content/damage_types/destiny2/stasis-white-96x96.png"); --element-glow: rgba(77,136,255,.55); }
-.element-mark.strand { --element-icon: url("https://www.bungie.net/img/destiny_content/damage_types/destiny2/strand-white-185x185.png"); --element-glow: rgba(53,227,102,.5); }
+.element-mark.solar { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_2a1773e10968f2d088b97c22b22bba9e.png"); }
+.element-mark.arc { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_092d066688b879c807c3b460afdd61e6.png"); }
+.element-mark.void { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_ceb2f6197dccf3958bb31cc783eb97a0.png"); }
+.element-mark.stasis { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_530c4c3e7981dc2aefd24fd3293482bf.png"); }
+.element-mark.strand { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_b2fe51a94f3533f97079dfa0d27a4096.png"); }
 .element-mark.kinetic,
 .element-mark.variable,
-.element-mark.multi { --element-icon: url("https://www.bungie.net/img/destiny_content/damage_types/destiny2/kinetic_trans.png"); --element-glow: rgba(255,255,255,.42); }
+.element-mark.multi { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_3385a924fd3ccb92c343ade19f19a370.png"); }
 
 .status-grid { display: grid; grid-template-columns: 72px repeat(4, minmax(62px, 1fr)); gap: 7px; align-items: center; }
 .status-grid.header { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
