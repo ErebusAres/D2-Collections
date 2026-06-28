@@ -258,7 +258,7 @@
       return `<div class="status-grid status-row"><div class="player-label">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}${statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim")}${statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim")}</div>`;
     }).join("");
 
-    return `<article class="weapon-card ${cardClass}" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span><span class="badge">${item.element || ""}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
+    return `<article class="weapon-card ${cardClass}" data-id="${item.id}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span>${elementBadge(item.element)}<span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root) {
@@ -301,7 +301,27 @@
       tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
     }
     if (!tags.length) return "";
-    return `<span class="priority-tags">${tags.slice(0, 4).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${escapeAttr(tag.label)}</span>`).join("")}</span>`;
+    return `<span class="priority-tags">${tags.slice(0, 4).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${tagSymbol(tag.id)}</span>`).join("")}</span>`;
+  }
+
+  function tagSymbol(id) {
+    return ({ must: "⭐", easy: "✓", final: "✦", rahool: "◎", buy: "↗", confidence: "i" })[id] || "•";
+  }
+
+  function elementBadge(element) {
+    const label = String(element || "").trim();
+    if (!label) return "";
+    const key = label.toLowerCase();
+    const className = key.includes("/") ? "multi" :
+      key.includes("solar") ? "solar" :
+      key.includes("arc") ? "arc" :
+      key.includes("void") ? "void" :
+      key.includes("stasis") ? "stasis" :
+      key.includes("strand") ? "strand" :
+      key.includes("kinetic") ? "kinetic" :
+      key.includes("variable") ? "variable" : "unknown";
+    const mark = ({ solar: "☀", arc: "⚡", void: "◆", stasis: "❄", strand: "∞", kinetic: "◆", variable: "◇", multi: "◇" })[className] || "•";
+    return `<span class="badge element ${className}" title="${escapeAttr(label)}"><span class="element-mark" aria-hidden="true">${mark}</span>${escapeAttr(label)}</span>`;
   }
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {

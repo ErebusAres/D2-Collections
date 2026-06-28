@@ -16,8 +16,6 @@
   --shadow: 0 18px 42px rgba(0,0,0,.38);
   --shadow-soft: 0 10px 22px rgba(0,0,0,.26);
   --radius: 10px;
-  --icon-exotic-engram: url("https://www.bungie.net/common/destiny2_content/icons/3e6a698e1a8a5fb446fdcbf1e63c5269.png");
-  --icon-exotic-cipher: url("https://www.bungie.net/common/destiny2_content/icons/9970631fe1052642c268132dfc30e16b.jpg");
 }
 
 * { box-sizing: border-box; }
@@ -331,50 +329,32 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   position: relative;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 5px;
   color: var(--soft);
   background: rgba(255,255,255,.04);
-  font-size: 0;
+  font-size: .9rem;
+  line-height: 1;
   font-weight: 900;
   text-transform: uppercase;
-  flex: 0 0 22px;
-}
-.priority-chip::before {
-  content: "";
-  width: 14px;
-  height: 14px;
-  border: 1px solid currentColor;
-  border-radius: 3px;
-  background: currentColor;
-  transform: rotate(45deg);
-}
-.priority-chip::after {
-  content: "";
-  position: absolute;
-  inset: 4px;
-  border-radius: 3px;
-  background: var(--priority-icon, var(--icon-exotic-engram)) center/cover no-repeat;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+  flex: 0 0 24px;
 }
 .priority-chip.must {
   color: #090b0f;
   background: linear-gradient(135deg, var(--gold-bright), var(--gold));
   border-color: transparent;
-  --priority-icon: var(--icon-exotic-engram);
 }
-.priority-chip.final { color: var(--purple); border-color: rgba(184,161,242,.34); background: rgba(184,161,242,.08); --priority-icon: var(--icon-exotic-cipher); }
-.priority-chip.easy { color: var(--green); border-color: rgba(88,214,154,.3); background: rgba(88,214,154,.08); --priority-icon: var(--icon-exotic-cipher); }
-.priority-chip.rahool { color: var(--blue); border-color: rgba(111,168,220,.28); background: rgba(111,168,220,.08); --priority-icon: var(--icon-exotic-engram); }
+.priority-chip.final { color: var(--purple); border-color: rgba(184,161,242,.34); background: rgba(184,161,242,.08); }
+.priority-chip.easy { color: var(--green); border-color: rgba(88,214,154,.3); background: rgba(88,214,154,.08); }
+.priority-chip.rahool { color: var(--blue); border-color: rgba(111,168,220,.28); background: rgba(111,168,220,.08); }
 .priority-chip.confidence { color: var(--muted); border-color: rgba(202,209,221,.2); background: rgba(202,209,221,.05); }
 .priority-chip.buy {
   color: #07100b;
   background: linear-gradient(135deg, #b9ffd2, var(--green));
   border-color: transparent;
-  --priority-icon: var(--icon-exotic-cipher);
 }
 .help-meta .priority-chip {
   width: auto;
@@ -383,13 +363,6 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   padding: 0 7px;
   font-size: .66rem;
 }
-.help-meta .priority-chip::before {
-  width: 6px;
-  height: 6px;
-  background: transparent;
-  border-radius: 0;
-}
-.help-meta .priority-chip::after { content: none; }
 .badge-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge {
   display: inline-flex;
@@ -414,6 +387,26 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 .badge.slot { color: var(--purple); border-color: rgba(184,161,242,.22); }
 .badge.source { color: var(--green); border-color: rgba(88,214,154,.2); }
 .badge.focus { color: var(--gold-bright); border-color: rgba(216,177,91,.32); background: rgba(216,177,91,.08); }
+.badge.element { gap: 6px; color: var(--soft); border-color: rgba(202,209,221,.22); }
+.badge.element .element-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  color: #07100b;
+  font-size: .72rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.badge.element.solar .element-mark { background: #ffb84d; }
+.badge.element.arc .element-mark { background: #86dfff; }
+.badge.element.void .element-mark { background: #b38cff; }
+.badge.element.stasis .element-mark { background: #7fb7ff; }
+.badge.element.strand .element-mark { background: #6ef0a1; }
+.badge.element.kinetic .element-mark { background: #d7deea; }
+.badge.element.variable .element-mark,
+.badge.element.multi .element-mark { background: linear-gradient(135deg, #ffb84d, #86dfff 45%, #b38cff); }
 
 .status-grid { display: grid; grid-template-columns: 72px repeat(4, minmax(62px, 1fr)); gap: 7px; align-items: center; }
 .status-grid.header { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
