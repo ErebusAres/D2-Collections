@@ -278,7 +278,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   top: 10px;
   z-index: 10;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 12px;
   align-items: center;
   padding: 10px;
@@ -562,6 +562,237 @@ textarea {
 }
 .empty-state { color: var(--muted); text-align: center; padding: 28px 12px; border: 1px dashed var(--line); border-radius: 16px; }
 
+html.layout-simple .app-shell {
+  width: min(1840px, calc(100% - 20px));
+  padding-top: 58px;
+}
+html.layout-simple .hero {
+  min-height: 0;
+  padding: 12px 16px;
+}
+html.layout-simple h1 {
+  margin-bottom: 0;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+html.layout-simple .hero .eyebrow,
+html.layout-simple .hero-copy {
+  display: none;
+}
+html.layout-simple .summary-grid {
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+html.layout-simple .summary-card {
+  padding: 9px 10px;
+  border-radius: 7px;
+}
+html.layout-simple .summary-card strong {
+  font-size: 1.1rem;
+}
+html.layout-simple .summary-card span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .72rem;
+}
+html.layout-simple .progress-track {
+  height: 4px;
+  margin-top: 7px;
+}
+html.layout-simple .toolbar {
+  grid-template-columns: minmax(220px, 1fr) auto auto auto;
+  gap: 8px;
+  padding: 7px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+}
+html.layout-simple .search-wrap input {
+  padding: 8px 0;
+}
+html.layout-simple .seg {
+  padding: 6px 9px;
+  font-size: .78rem;
+}
+html.layout-simple .content-grid {
+  display: block;
+}
+html.layout-simple .panel {
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+html.layout-simple .panel-head {
+  align-items: center;
+  margin-bottom: 8px;
+}
+html.layout-simple .panel-head .eyebrow {
+  display: none;
+}
+html.layout-simple .panel-head h2 {
+  font-size: .9rem;
+}
+html.layout-simple .panel-head h2::before {
+  height: 14px;
+}
+html.layout-simple .count-pill {
+  padding: 5px 7px;
+  font-size: .72rem;
+}
+html.layout-simple .weapon-list,
+html.layout-simple .armor-list {
+  --tile-size: 50px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile-size), var(--tile-size)));
+  gap: 5px;
+  align-items: start;
+}
+html.layout-simple .armor-columns {
+  grid-template-columns: 1fr;
+  gap: 9px;
+}
+html.layout-simple .armor-column-controls {
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+html.layout-simple .armor-control {
+  padding: 7px;
+  border-radius: 7px;
+}
+html.layout-simple .armor-control label {
+  font-size: .62rem;
+}
+html.layout-simple .armor-control select {
+  padding: 5px 7px;
+  font-size: .75rem;
+}
+html.layout-simple .class-title {
+  margin-bottom: 6px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  font-size: .82rem;
+}
+html.layout-simple .weapon-card,
+html.layout-simple .armor-card {
+  width: var(--tile-size);
+  height: var(--tile-size);
+  min-height: 0;
+  display: block;
+  padding: 3px;
+  border-radius: 5px;
+  cursor: pointer;
+  border-left-width: 1px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.012)),
+    rgba(8,11,16,.92);
+}
+html.layout-simple .weapon-card:hover,
+html.layout-simple .armor-card:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+html.layout-simple .weapon-card.is-owned,
+html.layout-simple .armor-card.is-owned {
+  border-color: rgba(88,214,154,.58);
+  box-shadow: inset 0 0 0 1px rgba(88,214,154,.18);
+}
+html.layout-simple .weapon-card.is-partial {
+  border-color: rgba(216,177,91,.68);
+  box-shadow: inset 0 0 0 1px rgba(216,177,91,.18);
+}
+html.layout-simple .weapon-card.is-missing,
+html.layout-simple .armor-card.is-missing {
+  border-color: rgba(224,111,120,.32);
+}
+html.layout-simple .weapon-card::before,
+html.layout-simple .weapon-card::after,
+html.layout-simple .armor-card::before,
+html.layout-simple .armor-card::after {
+  display: none;
+}
+html.layout-simple .item-with-icon {
+  display: block;
+}
+html.layout-simple .item-icon,
+html.layout-simple .item-icon-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  border-color: rgba(255,255,255,.16);
+}
+html.layout-simple .item-with-icon > div,
+html.layout-simple .item-name {
+  display: contents;
+}
+html.layout-simple .item-name h3,
+html.layout-simple .badge-row,
+html.layout-simple .item-help-btn,
+html.layout-simple .status-grid.header,
+html.layout-simple .armor-status.header,
+html.layout-simple .player-label {
+  display: none;
+}
+html.layout-simple .priority-tags {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+  gap: 1px;
+  max-width: 42px;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+html.layout-simple .priority-chip {
+  width: 13px;
+  height: 13px;
+  flex-basis: 13px;
+  border-radius: 3px;
+  font-size: .52rem;
+  line-height: 1;
+}
+html.layout-simple .weapon-card > div:last-child,
+html.layout-simple .armor-status.status-row {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  pointer-events: none;
+}
+html.layout-simple .status-row {
+  display: flex;
+  gap: 2px;
+  margin-top: 0;
+}
+html.layout-simple .status-cell {
+  width: 7px;
+  min-width: 7px;
+  height: 7px;
+  min-height: 7px;
+  padding: 0;
+  border-radius: 999px;
+  pointer-events: none;
+}
+html.layout-simple .status-mark {
+  display: none;
+}
+html.layout-simple .status-cell.yes {
+  background: var(--green);
+  border-color: rgba(202,255,223,.62);
+  box-shadow: 0 0 6px rgba(88,214,154,.34);
+}
+html.layout-simple .status-cell.no {
+  background: rgba(224,111,120,.34);
+  border-color: rgba(255,215,220,.16);
+}
+html.layout-simple .status-cell.dim {
+  opacity: .28;
+}
+
 @media (max-width: 1180px) {
   .content-grid { grid-template-columns: 1fr; }
   .toolbar { grid-template-columns: 1fr; }
@@ -578,4 +809,12 @@ textarea {
   .armor-columns { grid-template-columns: 1fr; }
   .status-grid { grid-template-columns: 62px repeat(4, minmax(52px, 1fr)); font-size: .82rem; }
   .armor-status { grid-template-columns: 62px repeat(2, minmax(70px, 1fr)); }
+  html.layout-simple .app-shell { width: min(100% - 12px, 1660px); padding-top: 58px; }
+  html.layout-simple h1 { font-size: 1.35rem; }
+  html.layout-simple .summary-grid { grid-template-columns: 1fr 1fr; }
+  html.layout-simple .toolbar { grid-template-columns: 1fr; }
+  html.layout-simple .segmented { overflow-x: auto; }
+  html.layout-simple .weapon-list,
+  html.layout-simple .armor-list { --tile-size: 44px; gap: 4px; }
+  html.layout-simple .armor-column-controls { grid-template-columns: 1fr; }
 }

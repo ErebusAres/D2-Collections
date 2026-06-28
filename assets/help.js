@@ -221,7 +221,8 @@
   }
 
   document.addEventListener("click", event => {
-    const clickable = event.target.closest(".item-help-btn,.status-cell");
+    const clickable = event.target.closest(".item-help-btn,.status-cell") ||
+      (document.documentElement.classList.contains("layout-simple") ? event.target.closest(".weapon-card,.armor-card") : null);
     if (clickable?.dataset.helpId) showHelp(clickable.dataset.helpId);
     if (event.target.closest(".help-close")) panel.classList.remove("open");
   });
