@@ -274,15 +274,30 @@
     panel.classList.add("open");
   }
 
+  function closeHelp() {
+    panel.classList.remove("open");
+  }
+
   document.addEventListener("click", event => {
+    if (event.target.closest(".help-close")) {
+      closeHelp();
+      return;
+    }
+
+    if (event.target.closest(".help-panel")) return;
+
     const clickable = event.target.closest(".item-help-btn,.status-cell") ||
       (document.documentElement.classList.contains("layout-simple") ? event.target.closest(".weapon-card,.armor-card") : null);
-    if (clickable?.dataset.helpId) showHelp(clickable.dataset.helpId);
-    if (event.target.closest(".help-close")) panel.classList.remove("open");
+    if (clickable?.dataset.helpId) {
+      showHelp(clickable.dataset.helpId);
+      return;
+    }
+
+    closeHelp();
   });
 
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape") panel.classList.remove("open");
+    if (event.key === "Escape") closeHelp();
   });
 
   const observer = new MutationObserver(addHelpButtons);
