@@ -675,8 +675,9 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   font-size: .58rem;
   letter-spacing: 0;
 }
-.meta-chip.class-icon.warlock strong { background: var(--purple); }
-.meta-chip.class-icon.titan strong { background: var(--red); color: #130609; }
+.meta-chip.class-icon.warlock { color: var(--purple); border-color: rgba(184,161,242,.28); }
+.meta-chip.class-icon.titan { color: var(--red); border-color: rgba(224,111,120,.3); }
+.meta-chip.class-icon.hunter { color: var(--green); border-color: rgba(88,214,154,.3); }
 .badge.element { gap: 6px; color: var(--soft); border-color: rgba(202,209,221,.22); }
 .badge.element .element-icons {
   display: inline-flex;
@@ -761,8 +762,25 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
     rgba(255,255,255,.04);
   border: 1px solid var(--line-strong);
 }
-.class-title.warlock span { color: var(--purple); }
-.class-title.titan span { color: var(--red); }
+.class-title-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+}
+.class-title-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.class-title.warlock .class-title-icon { color: var(--purple); }
+.class-title.titan .class-title-icon { color: var(--red); }
+.class-title.hunter .class-title-icon { color: var(--green); }
 .section-stat {
   margin-left: auto;
   color: var(--soft);

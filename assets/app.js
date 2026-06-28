@@ -493,7 +493,7 @@
   }
 
   function kindBadge(kind) {
-    const label = kind === "armor" ? "Armor" : "Weapon";
+    const label = titleCase(kind === "armor" ? "Armor" : "Weapon");
     const icon = kind === "armor"
       ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5.5c0 4.2-2.6 7.5-7 9.5-4.4-2-7-5.3-7-9.5V6l7-3Z"/></svg>`
       : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h7l6-6 3 3-6 6v3h-3v-3H4v-3Z"/><path d="m15 6 3 3"/></svg>`;
@@ -501,21 +501,29 @@
   }
 
   function slotBadge(slot) {
-    const label = String(slot || "").trim();
+    const label = titleCase(slot);
     if (!label) return "";
     const key = label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     return `<span class="badge meta-chip slot-icon ${escapeAttr(key)}" title="${escapeAttr(label)}">${slotIcon(label)}${escapeAttr(label)}</span>`;
   }
 
   function weaponTypeBadge(type) {
-    const label = String(type || "").trim();
+    const label = titleCase(type);
     if (!label) return "";
     return `<span class="badge meta-chip type-icon" title="${escapeAttr(label)}"><strong>${escapeAttr(typeAbbrev(label))}</strong>${escapeAttr(label)}</span>`;
   }
 
   function armorClassBadge(className) {
-    const label = CLASS_LABELS[className] || className;
-    return `<span class="badge meta-chip class-icon ${escapeAttr(className)}" title="${escapeAttr(label)}"><strong>${escapeAttr(label[0] || "?")}</strong>${escapeAttr(label)}</span>`;
+    const label = titleCase(CLASS_LABELS[className] || className);
+    return `<span class="badge meta-chip class-icon ${escapeAttr(className)}" title="${escapeAttr(label)}">${classIcon(className)}${escapeAttr(label)}</span>`;
+  }
+
+  function classIcon(className) {
+    const key = String(className || "").toLowerCase();
+    if (key.includes("warlock")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 9l8 12 8-12-8-6Z"/><path d="M12 7v10"/><path d="m8 10 4 7 4-7"/></svg>`;
+    if (key.includes("titan")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v5l-7 9-7-9V5Z"/><path d="M8 8h8"/><path d="M9 11h6"/></svg>`;
+    if (key.includes("hunter")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 8v8l-8 5-8-5V8l8-5Z"/><path d="m8 9 4 8 4-8"/><path d="M8 9h8"/></svg>`;
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 20 12 12 20 4 12 12 4Z"/></svg>`;
   }
 
   function slotIcon(slot) {
@@ -536,6 +544,10 @@
     if (!words.length) return "?";
     if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
     return words.map(word => word[0]).join("").slice(0, 3).toUpperCase();
+  }
+
+  function titleCase(value) {
+    return String(value || "").trim().toLowerCase().replace(/\b[a-z0-9]/g, char => char.toUpperCase());
   }
 
   function damageIconImg(name, label, className = "damage-icon") {

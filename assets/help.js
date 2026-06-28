@@ -37,6 +37,9 @@
     .help-icon-chip.kinetic{color:#d7deea}
     .help-icon-chip.energy{color:var(--blue)}
     .help-icon-chip.power{color:var(--gold-bright)}
+    .help-icon-chip.warlock{color:var(--purple)}
+    .help-icon-chip.titan{color:var(--red)}
+    .help-icon-chip.hunter{color:var(--green)}
     .help-icon-chip.element{color:var(--soft)}
     .help-icon-chip .damage-icon{width:16px;height:16px}
     .help-confidence{display:inline-flex;align-items:center;min-height:28px;border:1px solid rgba(202,209,221,.2);border-radius:6px;padding:5px 8px;color:var(--muted);background:rgba(202,209,221,.05);font-size:.74rem;font-weight:800;line-height:1;white-space:nowrap}
@@ -150,6 +153,14 @@
       : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h7l6-6 3 3-6 6v3h-3v-3H4v-3Z"/><path d="m15 6 3 3"/></svg>`;
   }
 
+  function classIcon(className) {
+    const key = String(className || "").toLowerCase();
+    if (key.includes("warlock")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 9l8 12 8-12-8-6Z"/><path d="M12 7v10"/><path d="m8 10 4 7 4-7"/></svg>`;
+    if (key.includes("titan")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v5l-7 9-7-9V5Z"/><path d="M8 8h8"/><path d="M9 11h6"/></svg>`;
+    if (key.includes("hunter")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 8v8l-8 5-8-5V8l8-5Z"/><path d="m8 9 4 8 4-8"/><path d="M8 9h8"/></svg>`;
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 20 12 12 20 4 12 12 4Z"/></svg>`;
+  }
+
   function damageParts(element) {
     const key = String(element || "").toLowerCase();
     return ["solar", "arc", "void", "stasis", "strand", "kinetic"].filter(name => key.includes(name));
@@ -167,6 +178,10 @@
     return words.map(word => word[0]).join("").slice(0, 3).toUpperCase();
   }
 
+  function titleCase(value) {
+    return String(value || "").trim().toLowerCase().replace(/\b[a-z0-9]/g, char => char.toUpperCase());
+  }
+
   function helpChip(className, icon, label, title = label) {
     return `<span class="help-icon-chip ${escapeHtml(className)}" title="${escapeHtml(title)}">${icon}<span>${escapeHtml(label)}</span></span>`;
   }
@@ -174,13 +189,13 @@
   function metaChips(item) {
     const chips = [];
     chips.push(helpChip(`kind ${item.kind}`, kindIcon(item.kind), item.kind === "armor" ? "Armor" : "Weapon"));
-    if (item.className) chips.push(helpChip(item.className, `<strong>${escapeHtml(item.className[0]?.toUpperCase() || "?")}</strong>`, item.className));
-    if (item.slot) chips.push(helpChip(item.slot.toLowerCase().replace(/[^a-z0-9]+/g, "-"), slotIcon(item.slot), item.slot));
-    if (item.type) chips.push(helpChip("type", `<strong>${escapeHtml(typeAbbrev(item.type))}</strong>`, item.type, `Weapon type: ${item.type}`));
+    if (item.className) chips.push(helpChip(item.className, classIcon(item.className), titleCase(item.className)));
+    if (item.slot) chips.push(helpChip(item.slot.toLowerCase().replace(/[^a-z0-9]+/g, "-"), slotIcon(item.slot), titleCase(item.slot)));
+    if (item.type) chips.push(helpChip("type", `<strong>${escapeHtml(typeAbbrev(item.type))}</strong>`, titleCase(item.type), `Weapon type: ${titleCase(item.type)}`));
     if (item.element) {
       const parts = damageParts(item.element);
       const icons = parts.length ? parts.map(name => damageIcon(name, item.element)).join("") : `<strong>EL</strong>`;
-      chips.push(helpChip("element", icons, item.element, `Damage element: ${item.element}`));
+      chips.push(helpChip("element", icons, titleCase(item.element), `Damage element: ${titleCase(item.element)}`));
     }
     return chips.join("");
   }
