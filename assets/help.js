@@ -30,7 +30,9 @@
     .help-note{color:var(--muted);font-size:.78rem;line-height:1.45;margin-top:10px}
     .help-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
     .help-icon-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid rgba(222,232,255,.105);border-radius:6px;padding:4px 7px;color:var(--muted);background:rgba(0,0,0,.16);font-size:.72rem;font-weight:800;line-height:1}
-    .help-icon-chip svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 16px}
+    .help-icon-chip svg,.help-icon-chip img{width:16px;height:16px;flex:0 0 16px}
+    .help-icon-chip svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .help-icon-chip img{display:block;object-fit:contain;filter:brightness(0) saturate(100%) invert(84%) sepia(12%) saturate(386%) hue-rotate(180deg) brightness(100%) contrast(93%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-icon-chip strong{display:inline-grid;place-items:center;min-width:18px;height:16px;border-radius:4px;padding:0 3px;color:#090b0f;background:var(--soft);font-size:.58rem;letter-spacing:0}
     .help-icon-chip.kind{color:var(--soft)}
     .help-icon-chip.armor{color:var(--gold-bright)}
@@ -42,7 +44,9 @@
     .help-icon-chip.hunter{color:var(--green)}
     .help-icon-chip.type{color:var(--soft)}
     .help-icon-chip.type.sword,.help-icon-chip.type.glaive{color:var(--gold-bright)}
+    .help-icon-chip.type.sword img,.help-icon-chip.type.glaive img,.help-icon-chip.power img{filter:brightness(0) saturate(100%) invert(84%) sepia(58%) saturate(508%) hue-rotate(358deg) brightness(101%) contrast(88%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-icon-chip.type.rocket-launcher,.help-icon-chip.type.grenade-launcher,.help-icon-chip.type.machine-gun,.help-icon-chip.type.linear-fusion-rifle{color:var(--blue)}
+    .help-icon-chip.type.rocket-launcher img,.help-icon-chip.type.grenade-launcher img,.help-icon-chip.type.machine-gun img,.help-icon-chip.type.linear-fusion-rifle img,.help-icon-chip.energy img{filter:brightness(0) saturate(100%) invert(65%) sepia(42%) saturate(772%) hue-rotate(176deg) brightness(91%) contrast(89%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-icon-chip.element{color:var(--soft)}
     .help-icon-chip .damage-icon{width:16px;height:16px}
     .help-confidence{display:inline-flex;align-items:center;min-height:28px;border:1px solid rgba(202,209,221,.2);border-radius:6px;padding:5px 8px;color:var(--muted);background:rgba(202,209,221,.05);font-size:.74rem;font-weight:800;line-height:1;white-space:nowrap}
@@ -144,9 +148,9 @@
 
   function slotIcon(slot) {
     const key = String(slot || "").toLowerCase();
-    if (key.includes("kinetic")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 12 12 21 3 12 12 3Z"/><path d="M12 8v8M8 12h8"/></svg>`;
-    if (key.includes("energy")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 13h6l-1 9 8-12h-6l1-8Z"/></svg>`;
-    if (key.includes("power")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l2 5-8 7-8-7 2-5Z"/><path d="M8.5 10h7"/><path d="M10 13h4"/></svg>`;
+    if (key.includes("kinetic")) return dimIcon("damage_kinetic.svg", "Kinetic weapon slot");
+    if (key.includes("energy")) return dimIcon("energy_weapon.svg", "Energy weapon slot");
+    if (key.includes("power")) return dimIcon("power_weapon.svg", "Power weapon slot");
     return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 20 12 12 20 4 12 12 4Z"/></svg>`;
   }
 
@@ -177,30 +181,35 @@
   function weaponTypeIcon(type) {
     const key = typeKey(type);
     const icons = {
-      "auto-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h9l4-4h3v4h-2l-3 3H4v-3Z"/><path d="M8 17v3"/><path d="M13 14l2 5"/></svg>`,
-      "combat-bow": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c6 3 6 13 0 16"/><path d="M8 4v16"/><path d="M4 12h14"/><path d="m15 9 4 3-4 3"/></svg>`,
-      "fusion-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15h10l5-5h2"/><path d="M7 12h6"/><path d="M9 9h5"/><path d="M10 15v4"/></svg>`,
-      "glaive": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5"/><path d="m15 4 5 5"/><path d="m16 8-3-3"/><path d="M4 20l4-1"/></svg>`,
-      "grenade-launcher": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15h9l5-5h2v4h-3l-3 3H4v-2Z"/><path d="M7 12h5"/><path d="M10 17v3"/><circle cx="17" cy="7" r="2"/></svg>`,
-      "hand-cannon": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h10l3-3h3v3h-4l-3 3H4v-3Z"/><path d="M8 17v3"/><path d="M13 14v4"/></svg>`,
-      "linear-fusion-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14h12l5-5h2"/><path d="M6 11h9"/><path d="M7 17h5"/><path d="m15 14 2 4"/></svg>`,
-      "machine-gun": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14h10l4-4h4v4h-3l-3 3H3v-3Z"/><path d="M6 11h6"/><path d="M7 17v3"/><path d="M12 17v3"/></svg>`,
-      "pulse-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h9l4-4h3v4h-3l-3 3H4v-3Z"/><path d="M7 11h7"/><path d="M9 17v3"/><path d="M13 8h3"/></svg>`,
-      "rocket-launcher": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15h11l5-5v5l-5 3H4v-3Z"/><path d="M7 12h7"/><path d="M10 18v3"/></svg>`,
-      "scout-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h9l4-4h3v3h-3l-3 3H4v-2Z"/><path d="M7 11h5"/><path d="M9 16v4"/><circle cx="14" cy="9" r="1.5"/></svg>`,
-      "shotgun": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15h11l4-4h2v4h-4l-3 3H4v-3Z"/><path d="M6 12h8"/><path d="M8 18v3"/></svg>`,
-      "sidearm": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 14h8l3-3h4v3h-5l-2 3H5v-3Z"/><path d="M8 17v3"/></svg>`,
-      "sniper-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14h11l5-5h3"/><path d="M6 11h7"/><path d="M8 17v3"/><circle cx="15" cy="9" r="2"/></svg>`,
-      "smg": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h8l4-3h4v3h-3l-3 3H4v-3Z"/><path d="M7 17v3"/><path d="M12 14v5"/></svg>`,
-      "submachine-gun": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h8l4-3h4v3h-3l-3 3H4v-3Z"/><path d="M7 17v3"/><path d="M12 14v5"/></svg>`,
-      "sword": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3 21 3 21 10 9 22 2 15 14 3Z"/><path d="m8 16-2 2"/><path d="m10 14 3 3"/></svg>`,
-      "trace-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h10l4-4h3"/><path d="M6 11h8"/><path d="M9 17v3"/><path d="M17 7h4"/><path d="M18 11h3"/></svg>`
+      "auto-rifle": "auto_rifle.svg",
+      "combat-bow": "bow.svg",
+      "fusion-rifle": "fusion_rifle.svg",
+      "glaive": "glaive.svg",
+      "grenade-launcher": "grenade_launcher.svg",
+      "hand-cannon": "hand_cannon.svg",
+      "linear-fusion-rifle": "fusion_rifle.svg",
+      "machine-gun": "machinegun.svg",
+      "pulse-rifle": "pulse_rifle.svg",
+      "rocket-launcher": "rocket_launcher.svg",
+      "scout-rifle": "scout_rifle.svg",
+      "shotgun": "shotgun.svg",
+      "sidearm": "sidearm.svg",
+      "sniper-rifle": "sniper_rifle.svg",
+      "smg": "smg.svg",
+      "submachine-gun": "smg.svg",
+      "sword": "sword_heavy.svg",
+      "trace-rifle": "trace_rifle.svg",
+      "weapon": "vault_weapons.svg"
     };
-    return icons[key] || `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h10l5-5h2"/><path d="M8 17v3"/></svg>`;
+    return dimIcon(icons[key] || "vault_weapons.svg", `${titleCase(type)} icon`);
   }
 
   function typeKey(type) {
     return String(type || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  }
+
+  function dimIcon(filename, label) {
+    return `<img class="dim-icon" src="assets/dim-icons/${escapeHtml(filename)}" alt="" title="${escapeHtml(label)}" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />`;
   }
 
   function titleCase(value) {
