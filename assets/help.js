@@ -2,6 +2,14 @@
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
   const CHECKLIST = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: {} };
   const BUNGIE = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
+  const DAMAGE_ICONS = {
+    solar: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_2a1773e10968f2d088b97c22b22bba9e.png",
+    arc: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_092d066688b879c807c3b460afdd61e6.png",
+    void: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_ceb2f6197dccf3958bb31cc783eb97a0.png",
+    stasis: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_530c4c3e7981dc2aefd24fd3293482bf.png",
+    strand: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_b2fe51a94f3533f97079dfa0d27a4096.png",
+    kinetic: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_3385a924fd3ccb92c343ade19f19a370.png"
+  };
 
   const css = `
     .weapon-card,.armor-card{position:relative}
@@ -21,9 +29,27 @@
     .help-steps li{margin:6px 0}
     .help-note{color:var(--muted);font-size:.78rem;line-height:1.45;margin-top:10px}
     .help-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .help-icon-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid rgba(222,232,255,.105);border-radius:6px;padding:4px 7px;color:var(--muted);background:rgba(0,0,0,.16);font-size:.72rem;font-weight:800;line-height:1}
+    .help-icon-chip svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 16px}
+    .help-icon-chip strong{display:inline-grid;place-items:center;min-width:18px;height:16px;border-radius:4px;padding:0 3px;color:#090b0f;background:var(--soft);font-size:.58rem;letter-spacing:0}
+    .help-icon-chip.kind{color:var(--soft)}
+    .help-icon-chip.armor{color:var(--gold-bright)}
+    .help-icon-chip.kinetic{color:#d7deea}
+    .help-icon-chip.energy{color:var(--blue)}
+    .help-icon-chip.power{color:var(--gold-bright)}
+    .help-icon-chip.element{color:var(--soft)}
+    .help-icon-chip .damage-icon{width:16px;height:16px}
     .help-confidence{display:inline-flex;align-items:center;min-height:28px;border:1px solid rgba(202,209,221,.2);border-radius:6px;padding:5px 8px;color:var(--muted);background:rgba(202,209,221,.05);font-size:.74rem;font-weight:800;line-height:1;white-space:nowrap}
     .help-priority{border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.055);border-radius:8px;padding:9px 10px;color:var(--soft);font-size:.84rem;line-height:1.45}
-    .help-priority strong{display:block;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
+    .help-priority-head{display:flex;align-items:center;gap:7px;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-bottom:4px}
+    .help-priority-symbol{display:inline-grid;place-items:center;width:20px;height:20px;color:var(--gold-bright)}
+    .help-priority-symbol svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+    .help-priority-symbol.must svg,.help-priority-symbol.final svg,.help-priority-symbol.rahool svg{fill:currentColor;stroke:none}
+    .help-priority-symbol.easy{color:var(--green)}
+    .help-priority-symbol.final{color:var(--purple)}
+    .help-priority-symbol.rahool{color:var(--blue)}
+    .help-priority-symbol.buy{color:#07100b;background:var(--green);border-radius:5px}
+    .help-priority-symbol.confidence{color:var(--muted)}
     .help-subhead{color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-top:12px}
     .help-details{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
     .help-detail{border:1px solid rgba(222,232,255,.105);background:rgba(0,0,0,.18);border-radius:8px;padding:8px 9px;min-width:0}
@@ -34,6 +60,7 @@
     .help-status-row span{border:1px solid var(--line);border-radius:6px;padding:5px 6px;background:rgba(0,0,0,.18);text-align:center}
     .help-status-row .is-yes{color:#caffdf;border-color:rgba(88,214,154,.3);background:rgba(88,214,154,.08)}
     .help-status-row .is-no{color:#ffd7dc;border-color:rgba(224,111,120,.22);background:rgba(224,111,120,.06)}
+    .help-status-row .is-neutral{color:var(--muted);border-color:rgba(202,209,221,.16);background:rgba(202,209,221,.06)}
     @media(max-width:780px){.help-panel{left:10px;right:10px;top:auto;bottom:10px;width:auto;max-height:72vh;border-radius:16px;transform:translateY(calc(100% + 24px))}.help-panel.open{transform:translateY(0)}}
     @media(max-width:780px){.help-details{grid-template-columns:1fr}.help-status-row{grid-template-columns:minmax(58px,.7fr) repeat(3,minmax(44px,1fr))}}
   `;
@@ -95,6 +122,75 @@
 
   function displaySource(item) {
     return manifestSource(item) || item.source || "Source pending manual verification";
+  }
+
+  function tagIcon(id) {
+    const icons = {
+      must: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5v9H4v-9h3.5Zm2.5 9V10l4.2-6.2c.4-.6 1.3-.5 1.6.1.3.6.3 1.4 0 2L14.5 9h4.2c1.1 0 1.9 1 1.7 2l-1.1 6.2c-.2 1.3-1.3 2.3-2.7 2.3H10Z"/></svg>`,
+      easy: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19.5 6.5"/></svg>`,
+      final: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 14.2 10l6.3 2-6.3 2L12 20.5 9.8 14l-6.3-2 6.3-2L12 3.5Z"/></svg>`,
+      rahool: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 20.5 12 12 20.5 3.5 12 12 3.5Z"/><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg>`,
+      buy: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>`,
+      confidence: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v7"/><path d="M12 7h.01"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/></svg>`
+    };
+    return icons[id] || `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12h.01"/></svg>`;
+  }
+
+  function slotIcon(slot) {
+    const key = String(slot || "").toLowerCase();
+    if (key.includes("kinetic")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 12 12 21 3 12 12 3Z"/><path d="M12 8v8M8 12h8"/></svg>`;
+    if (key.includes("energy")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 13h6l-1 9 8-12h-6l1-8Z"/></svg>`;
+    if (key.includes("power")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 18H4L12 3Z"/><path d="M12 8v5"/></svg>`;
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 20 12 12 20 4 12 12 4Z"/></svg>`;
+  }
+
+  function kindIcon(kind) {
+    return kind === "armor"
+      ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 19 6v5.5c0 4.2-2.6 7.5-7 9.5-4.4-2-7-5.3-7-9.5V6l7-3Z"/></svg>`
+      : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h7l6-6 3 3-6 6v3h-3v-3H4v-3Z"/><path d="m15 6 3 3"/></svg>`;
+  }
+
+  function damageParts(element) {
+    const key = String(element || "").toLowerCase();
+    return ["solar", "arc", "void", "stasis", "strand", "kinetic"].filter(name => key.includes(name));
+  }
+
+  function damageIcon(name, label) {
+    const src = DAMAGE_ICONS[name];
+    return src ? `<img class="damage-icon ${escapeHtml(name)}" src="${src}" alt="" title="${escapeHtml(label)}" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" />` : "";
+  }
+
+  function typeAbbrev(type) {
+    const words = String(type || "").split(/\s+/).filter(Boolean);
+    if (!words.length) return "?";
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return words.map(word => word[0]).join("").slice(0, 3).toUpperCase();
+  }
+
+  function helpChip(className, icon, label, title = label) {
+    return `<span class="help-icon-chip ${escapeHtml(className)}" title="${escapeHtml(title)}">${icon}<span>${escapeHtml(label)}</span></span>`;
+  }
+
+  function metaChips(item) {
+    const chips = [];
+    chips.push(helpChip(`kind ${item.kind}`, kindIcon(item.kind), item.kind === "armor" ? "Armor" : "Weapon"));
+    if (item.className) chips.push(helpChip(item.className, `<strong>${escapeHtml(item.className[0]?.toUpperCase() || "?")}</strong>`, item.className));
+    if (item.slot) chips.push(helpChip(item.slot.toLowerCase().replace(/[^a-z0-9]+/g, "-"), slotIcon(item.slot), item.slot));
+    if (item.type) chips.push(helpChip("type", `<strong>${escapeHtml(typeAbbrev(item.type))}</strong>`, item.type, `Weapon type: ${item.type}`));
+    if (item.element) {
+      const parts = damageParts(item.element);
+      const icons = parts.length ? parts.map(name => damageIcon(name, item.element)).join("") : `<strong>EL</strong>`;
+      chips.push(helpChip("element", icons, item.element, `Damage element: ${item.element}`));
+    }
+    return chips.join("");
+  }
+
+  function priorityBlock(id, title, body) {
+    return `<div class="help-priority"><div class="help-priority-head"><span class="help-priority-symbol ${escapeHtml(id)}">${tagIcon(id)}</span><span>${escapeHtml(title)}</span></div>${escapeHtml(body)}</div>`;
+  }
+
+  function weaponHasCatalyst(item) {
+    return Boolean((BUNGIE.items?.[item.id]?.catalystRecordHashes || []).length);
   }
 
   const specificRoutes = {
@@ -173,20 +269,20 @@
     const priority = item.priority || {};
     const blocks = [];
     if (priority.mustHave) {
-      blocks.push(`<div class="help-priority"><strong>Priority reason</strong>${escapeHtml(priority.note || "High-priority community PvE pickup after the final update.")}</div>`);
+      blocks.push(priorityBlock("must", "Must have", priority.note || "High-priority community PvE pickup after the final update."));
     }
     if (priority.finalUpdate) {
-      blocks.push(`<div class="help-priority"><strong>Final update</strong>${escapeHtml(priority.finalUpdateLabel || "Post June 9 final update")} catalyst relevance. Track catalyst ownership and completion separately.</div>`);
+      blocks.push(priorityBlock("final", "Final update", `${priority.finalUpdateLabel || "Post June 9 final update"} catalyst relevance. Track catalyst ownership and completion separately.`));
     }
     if (priority.easyWin) {
       const easy = (priority.tags || []).find(tag => tag.id === "easy");
-      blocks.push(`<div class="help-priority"><strong>Easy win</strong>${escapeHtml(easy?.title || "Deterministic or lower-RNG acquisition path compared with random drops.")}</div>`);
+      blocks.push(priorityBlock("easy", "Easy win", easy?.title || "Deterministic or lower-RNG acquisition path compared with random drops."));
     }
     if (priority.rahool) {
-      blocks.push(`<div class="help-priority"><strong>Rahool check</strong>If the logged-in player has 1+ Exotic Cipher and 1+ Exotic Engram, missing eligible armor shows a Buy now chip. The site does not yet verify per-item focusing unlock state.</div>`);
+      blocks.push(priorityBlock("rahool", "Rahool check", "If the logged-in player has 1+ Exotic Cipher and 1+ Exotic Engram, missing eligible armor shows a Buy now chip. The site does not yet verify per-item focusing unlock state."));
     }
     if (priority.confidence) {
-      blocks.push(`<div class="help-priority"><strong>Confidence</strong>${escapeHtml(priority.confidence)} - ${escapeHtml(priority.confidenceNote || "Source confidence not specified.")}</div>`);
+      blocks.push(priorityBlock("confidence", "Confidence", `${priority.confidence} - ${priority.confidenceNote || "Source confidence not specified."}`));
     }
     return blocks.join("");
   }
@@ -198,7 +294,7 @@
       ["Element", item.element || "None listed"],
       ["Catalog ID", item.id],
       ["Collectible", (map.collectibleHashes || []).join(", ") || "Not mapped"],
-      ["Catalyst records", (map.catalystRecordHashes || []).join(", ") || (item.kind === "weapon" ? "None mapped" : "Armor item")],
+      ["Catalyst records", (map.catalystRecordHashes || []).join(", ") || (item.kind === "weapon" ? "No catalyst mapped for this weapon" : "Armor item")],
       ["Confidence", item.priority?.confidence || info.confidence]
     ];
     return `<div class="help-details">${values.map(([label, value]) => `<div class="help-detail"><span>${escapeHtml(label)}</span><strong title="${escapeHtml(value)}">${escapeHtml(value)}</strong></div>`).join("")}</div>`;
@@ -214,10 +310,11 @@
     const userIds = Object.keys(users);
     if (!userIds.length) return "";
     if (item.kind === "weapon") {
+      const hasCat = weaponHasCatalyst(item);
       const rows = userIds.map(player => {
         const row = state.weapons?.[item.id]?.[player] || {};
         const name = users[player]?.short || users[player]?.label || player;
-        return `<div class="help-status-row"><span>${escapeHtml(name)}</span><span class="${statusClass(row.owned)}">Own</span><span class="${statusClass(row.catalyst)}">Cat</span><span class="${statusClass(row.complete)}">Done</span></div>`;
+        return `<div class="help-status-row"><span>${escapeHtml(name)}</span><span class="${statusClass(row.owned)}">Own</span><span class="${hasCat ? statusClass(row.catalyst) : "is-neutral"}">${hasCat ? "Cat" : "No cat"}</span><span class="${hasCat ? statusClass(row.complete) : "is-neutral"}">${hasCat ? "Done" : "None"}</span></div>`;
       }).join("");
       return `<div class="help-subhead">Collection state</div><div class="help-status-list">${rows}</div>`;
     }
@@ -257,10 +354,7 @@
     if (!item) return;
     lastHelpTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const info = routeFor(item);
-    const meta = [item.kind, item.className, item.slot, item.type, item.element]
-      .filter(Boolean)
-      .map(v => `<span class="badge">${escapeHtml(v)}</span>`)
-      .join("");
+    const meta = metaChips(item);
     const priorityMeta = item.priority?.confidence ? `<span class="help-confidence" title="${escapeHtml(item.priority.confidenceNote || "")}">${escapeHtml(item.priority.confidence)}</span>` : "";
     panel.querySelector("#helpTitle").textContent = item.name;
     panel.querySelector("#helpMeta").innerHTML = meta + priorityMeta;
