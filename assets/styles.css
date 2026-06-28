@@ -459,21 +459,24 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   display: grid;
   gap: 12px;
   padding: 10px;
-  border-radius: 9px;
+  border-radius: 8px;
   background:
-    linear-gradient(90deg, rgba(216,177,91,.06), transparent 18%),
-    linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+    linear-gradient(90deg, rgba(216,177,91,.07), transparent 20%),
+    linear-gradient(180deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
+    rgba(9,12,18,.72);
   border: 1px solid var(--line);
-  transition: background .14s ease, border-color .14s ease, transform .14s ease;
+  transition: background .14s ease, border-color .14s ease, transform .14s ease, box-shadow .14s ease;
 }
 .weapon-card { grid-template-columns: minmax(260px, .94fr) minmax(360px, 1.06fr); align-items: center; }
 .weapon-card:hover,
 .armor-card:hover {
   transform: translateY(-1px);
   border-color: rgba(255,255,255,.16);
+  box-shadow: 0 12px 26px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.035);
   background:
     linear-gradient(90deg, rgba(216,177,91,.1), transparent 22%),
-    linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.026));
+    linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.026)),
+    rgba(13,17,24,.82);
 }
 .weapon-card.is-owned,
 .armor-card.is-owned {
@@ -506,10 +509,12 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 .item-icon-fallback {
   width: 48px;
   height: 48px;
-  border-radius: 7px;
-  border: 1px solid rgba(216,177,91,.38);
-  background: linear-gradient(135deg, rgba(216,177,91,.15), rgba(0,0,0,.28));
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+  border-radius: 6px;
+  border: 1px solid rgba(216,177,91,.48);
+  background:
+    radial-gradient(circle at 35% 20%, rgba(216,177,91,.16), transparent 44%),
+    linear-gradient(135deg, rgba(216,177,91,.1), rgba(0,0,0,.38));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.055), 0 0 0 1px rgba(0,0,0,.38);
 }
 .item-icon { object-fit: cover; display: block; }
 .item-icon:hover { filter: brightness(1.08) contrast(1.05); }
@@ -534,22 +539,22 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   position: relative;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: 6px;
   color: var(--soft);
   background: rgba(255,255,255,.04);
   font-size: .9rem;
   line-height: 1;
   font-weight: 900;
   text-transform: uppercase;
-  flex: 0 0 24px;
+  flex: 0 0 26px;
 }
 .priority-chip svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   display: block;
   fill: none;
   stroke: currentColor;
@@ -632,8 +637,8 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 32px;
-  border-radius: 7px;
+  min-height: 34px;
+  border-radius: 8px;
   border: 1px solid rgba(255,255,255,.07);
   background: rgba(0,0,0,.19);
   font-size: 1.05rem;
@@ -647,8 +652,8 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 .status-cell.idle { color: var(--muted); }
 .status-cell.dim { opacity: .5; }
 .status-mark {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   display: inline-block;
   position: relative;
 }
@@ -814,7 +819,7 @@ html.layout-simple .count-pill {
 }
 html.layout-simple .weapon-list,
 html.layout-simple .armor-list {
-  --tile-size: 64px;
+  --tile-size: 68px;
   --icon-size: calc(var(--tile-size) - 6px);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--tile-size), var(--tile-size)));
@@ -830,7 +835,7 @@ html.layout-simple .simple-player-section {
   min-width: 0;
 }
 html.layout-simple .simple-player-list {
-  --tile-size: 64px;
+  --tile-size: 68px;
   --icon-size: calc(var(--tile-size) - 6px);
 }
 html.layout-simple .weapon-player-title {
@@ -893,16 +898,18 @@ html.layout-simple .class-title {
 html.layout-simple .weapon-card,
 html.layout-simple .armor-card {
   width: var(--tile-size);
-  min-height: calc(var(--icon-size) + 39px);
+  min-height: calc(var(--icon-size) + 46px);
   display: grid;
-  grid-template-rows: var(--icon-size) 33px;
+  grid-template-rows: var(--icon-size) 40px;
   gap: 4px;
   padding: 3px;
   border-radius: 7px;
   cursor: pointer;
   border-left-width: 1px;
   overflow: hidden;
-  background: #06080d;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.035), transparent 38%),
+    #06080d;
   border-color: rgba(222,232,255,.2);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.035), 0 8px 16px rgba(0,0,0,.22);
 }
@@ -925,8 +932,8 @@ html.layout-simple .armor-card.is-missing {
   box-shadow: inset 0 0 0 1px rgba(224,95,107,.16);
 }
 html.layout-simple .armor-card {
-  min-height: calc(var(--icon-size) + 27px);
-  grid-template-rows: var(--icon-size) 21px;
+  min-height: calc(var(--icon-size) + 31px);
+  grid-template-rows: var(--icon-size) 25px;
 }
 html.layout-simple .weapon-card::before,
 html.layout-simple .weapon-card::after,
@@ -949,9 +956,12 @@ html.layout-simple .item-icon,
 html.layout-simple .item-icon-fallback {
   width: var(--icon-size);
   height: var(--icon-size);
-  border-radius: 5px;
-  border-color: rgba(255,255,255,.18);
-  box-shadow: none;
+  border-radius: 6px;
+  border-color: rgba(216,177,91,.42);
+  background:
+    radial-gradient(circle at 50% 22%, rgba(216,177,91,.1), transparent 52%),
+    #080b10;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.045);
 }
 html.layout-simple .item-icon-fallback {
   background: rgba(12,15,21,.96);
@@ -985,41 +995,52 @@ html.layout-simple .player-label {
 }
 html.layout-simple .priority-tags {
   position: absolute;
-  left: 4px;
-  right: 4px;
-  top: calc(var(--icon-size) + 6px);
+  left: 5px;
+  right: 5px;
+  top: calc(var(--icon-size) + 7px);
   z-index: 1;
   display: flex;
-  gap: 3px;
+  gap: 2px;
   max-width: 100%;
-  min-height: 15px;
+  min-height: 18px;
   justify-content: center;
   pointer-events: none;
 }
 html.layout-simple .priority-chip {
-  width: 15px;
-  height: 15px;
-  flex-basis: 15px;
+  width: 16px;
+  height: 16px;
+  flex-basis: 16px;
   border-radius: 4px;
   line-height: 1;
   border-color: rgba(222,232,255,.24);
-  background: rgba(13,17,24,.92);
+  background: rgba(13,17,24,.96);
+  box-shadow: 0 1px 4px rgba(0,0,0,.48);
 }
 html.layout-simple .priority-chip svg {
   width: 11px;
   height: 11px;
   stroke-width: 2.4;
 }
+html.layout-simple .priority-chip:nth-child(n+4) {
+  display: none;
+}
 html.layout-simple .weapon-card > div:last-child,
 html.layout-simple .armor-status.status-row {
   position: absolute;
-  left: 2px;
-  right: 2px;
-  bottom: 4px;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
   z-index: 1;
   display: flex;
   gap: 2px;
   justify-content: center;
+  width: max-content;
+  max-width: calc(100% - 10px);
+  margin: 0 auto;
+  padding: 3px 4px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 999px;
+  background: rgba(0,0,0,.38);
   pointer-events: none;
 }
 html.layout-simple .armor-card .armor-status.status-row {
@@ -1027,14 +1048,14 @@ html.layout-simple .armor-card .armor-status.status-row {
 }
 html.layout-simple .status-row {
   display: flex;
-  gap: 2px;
+  gap: 3px;
   margin-top: 0;
 }
 html.layout-simple .status-cell {
-  width: 8px;
-  min-width: 8px;
-  height: 8px;
-  min-height: 8px;
+  width: 10px;
+  min-width: 10px;
+  height: 10px;
+  min-height: 10px;
   padding: 0;
   border-radius: 999px;
   border-width: 1px;
@@ -1046,7 +1067,7 @@ html.layout-simple .status-mark {
 html.layout-simple .status-cell.yes {
   background: var(--green);
   border-color: rgba(202,255,223,.62);
-  box-shadow: 0 0 6px rgba(88,214,154,.34);
+  box-shadow: 0 0 7px rgba(88,214,154,.38);
 }
 html.layout-simple .status-cell.no {
   background: rgba(224,111,120,.34);
@@ -1082,6 +1103,6 @@ html.layout-simple .status-cell.dim {
   html.layout-simple .legend-strip { overflow-x: auto; flex-wrap: nowrap; }
   html.layout-simple .sort-wrap { grid-template-columns: 44px 1fr; }
   html.layout-simple .weapon-list,
-  html.layout-simple .armor-list { --tile-size: 62px; gap: 8px 6px; }
+  html.layout-simple .armor-list { --tile-size: 64px; gap: 8px 6px; }
   html.layout-simple .armor-column-controls { grid-template-columns: 1fr; }
 }
