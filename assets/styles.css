@@ -409,13 +409,26 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   text-transform: uppercase;
   flex: 0 0 24px;
 }
-.priority-chip::before {
-  content: attr(data-icon);
+.priority-chip svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.priority-chip.must svg,
+.priority-chip.rahool svg,
+.priority-chip.final svg {
+  fill: currentColor;
+  stroke: none;
 }
 .priority-chip.must {
-  color: #090b0f;
-  background: linear-gradient(135deg, var(--gold-bright), var(--gold));
-  border-color: transparent;
+  color: var(--gold-bright);
+  background: rgba(216,177,91,.08);
+  border-color: rgba(216,177,91,.34);
 }
 .priority-chip.final { color: var(--purple); border-color: rgba(184,161,242,.34); background: rgba(184,161,242,.08); }
 .priority-chip.easy { color: var(--green); border-color: rgba(88,214,154,.3); background: rgba(88,214,154,.08); }
@@ -463,21 +476,14 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   align-items: center;
   gap: 2px;
 }
-.badge.element .element-mark {
+.damage-icon {
   display: inline-block;
   width: 15px;
   height: 15px;
-  background: var(--element-icon) center/contain no-repeat;
+  object-fit: contain;
   flex: 0 0 15px;
 }
-.element-mark.solar { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_2a1773e10968f2d088b97c22b22bba9e.png"); }
-.element-mark.arc { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_092d066688b879c807c3b460afdd61e6.png"); }
-.element-mark.void { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_ceb2f6197dccf3958bb31cc783eb97a0.png"); }
-.element-mark.stasis { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_530c4c3e7981dc2aefd24fd3293482bf.png"); }
-.element-mark.strand { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_b2fe51a94f3533f97079dfa0d27a4096.png"); }
-.element-mark.kinetic,
-.element-mark.variable,
-.element-mark.multi { --element-icon: url("https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_3385a924fd3ccb92c343ade19f19a370.png"); }
+.simple-damage-icons { display: none; }
 
 .status-grid { display: grid; grid-template-columns: 72px repeat(4, minmax(62px, 1fr)); gap: 7px; align-items: center; }
 .status-grid.header { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
@@ -690,9 +696,7 @@ html.layout-simple .armor-card {
   cursor: pointer;
   border-left-width: 1px;
   overflow: visible;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.012)),
-    rgba(8,11,16,.92);
+  background: rgba(8,11,16,.92);
 }
 html.layout-simple .weapon-card:hover,
 html.layout-simple .armor-card:hover {
@@ -735,6 +739,24 @@ html.layout-simple .item-icon-fallback {
   border-radius: 4px;
   border-color: rgba(255,255,255,.16);
 }
+html.layout-simple .item-icon-fallback {
+  background: rgba(12,15,21,.96);
+}
+html.layout-simple .simple-damage-icons {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 3;
+  display: inline-flex;
+  gap: 1px;
+  pointer-events: none;
+}
+html.layout-simple .simple-damage-icon {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.9));
+}
 html.layout-simple .item-with-icon > div:not(.item-icon-fallback),
 html.layout-simple .item-name {
   display: contents;
@@ -765,8 +787,13 @@ html.layout-simple .priority-chip {
   height: 11px;
   flex-basis: 11px;
   border-radius: 2px;
-  font-size: .46rem;
   line-height: 1;
+  background: rgba(7,9,13,.7);
+}
+html.layout-simple .priority-chip svg {
+  width: 8px;
+  height: 8px;
+  stroke-width: 2.6;
 }
 html.layout-simple .weapon-card > div:last-child,
 html.layout-simple .armor-status.status-row {

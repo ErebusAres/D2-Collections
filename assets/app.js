@@ -10,6 +10,14 @@
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
   const armorClasses = () => Object.keys(CATALOG.armor || {}).filter(className => Array.isArray(CATALOG.armor[className]));
+  const DAMAGE_ICONS = {
+    solar: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_2a1773e10968f2d088b97c22b22bba9e.png",
+    arc: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_092d066688b879c807c3b460afdd61e6.png",
+    void: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_ceb2f6197dccf3958bb31cc783eb97a0.png",
+    stasis: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_530c4c3e7981dc2aefd24fd3293482bf.png",
+    strand: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_b2fe51a94f3533f97079dfa0d27a4096.png",
+    kinetic: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_3385a924fd3ccb92c343ade19f19a370.png"
+  };
 
   const blankWeapon = () => ({ owned: false, catalyst: false, complete: false });
   const blankArmor = () => ({ owned: false });
@@ -259,7 +267,7 @@
     }).join("");
 
     const tileTitle = `${item.name} - ${item.slot || "Weapon"} ${item.type || ""}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
-    return `<article class="weapon-card ${cardClass}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span>${elementBadge(item.element)}<span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
+    return `<article class="weapon-card ${cardClass}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span>${elementBadge(item.element)}<span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root) {
@@ -304,11 +312,30 @@
       tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
     }
     if (!tags.length) return "";
-    return `<span class="priority-tags">${tags.slice(0, 4).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" data-icon="${tagSymbol(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}"></span>`).join("")}</span>`;
+    return `<span class="priority-tags">${tags.slice(0, 4).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${tagIcon(tag.id)}</span>`).join("")}</span>`;
   }
 
-  function tagSymbol(id) {
-    return ({ must: "👍", easy: "✓", final: "✦", rahool: "◎", buy: "↗", confidence: "i" })[id] || "•";
+  function tagIcon(id) {
+    const icons = {
+      must: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5v9H4v-9h3.5Zm2.5 9V10l4.2-6.2c.4-.6 1.3-.5 1.6.1.3.6.3 1.4 0 2L14.5 9h4.2c1.1 0 1.9 1 1.7 2l-1.1 6.2c-.2 1.3-1.3 2.3-2.7 2.3H10Z"/></svg>`,
+      easy: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19.5 6.5"/></svg>`,
+      final: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 14.2 10l6.3 2-6.3 2L12 20.5 9.8 14l-6.3-2 6.3-2L12 3.5Z"/></svg>`,
+      rahool: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 20.5 12 12 20.5 3.5 12 12 3.5Z"/><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg>`,
+      buy: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>`,
+      confidence: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v7"/><path d="M12 7h.01"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/></svg>`
+    };
+    return icons[id] || `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12h.01"/></svg>`;
+  }
+
+  function damageParts(element) {
+    const label = String(element || "").trim();
+    const key = label.toLowerCase();
+    return ["solar", "arc", "void", "stasis", "strand", "kinetic"].filter(name => key.includes(name));
+  }
+
+  function damageIconImg(name, label, className = "damage-icon") {
+    const src = DAMAGE_ICONS[name];
+    return src ? `<img class="${className} ${escapeAttr(name)}" src="${src}" alt="" title="${escapeAttr(label)}" loading="lazy" aria-hidden="true" />` : "";
   }
 
   function elementBadge(element) {
@@ -323,9 +350,17 @@
       key.includes("strand") ? "strand" :
       key.includes("kinetic") ? "kinetic" :
       key.includes("variable") ? "variable" : "unknown";
-    const parts = ["solar", "arc", "void", "stasis", "strand", "kinetic"].filter(name => key.includes(name));
-    const marks = (parts.length ? parts : [className]).slice(0, 2).map(name => `<span class="element-mark ${escapeAttr(name)}" aria-hidden="true"></span>`).join("");
+    const parts = damageParts(label);
+    const marks = (parts.length ? parts : [className]).slice(0, 2).map(name => damageIconImg(name, label)).join("");
     return `<span class="badge element ${className}" title="${escapeAttr(label)}"><span class="element-icons">${marks}</span>${escapeAttr(label)}</span>`;
+  }
+
+  function simpleDamageIcons(element) {
+    const label = String(element || "").trim();
+    if (!label) return "";
+    const parts = damageParts(label).slice(0, 2);
+    if (!parts.length) return "";
+    return `<span class="simple-damage-icons">${parts.map(name => damageIconImg(name, label, "simple-damage-icon")).join("")}</span>`;
   }
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {

@@ -111,11 +111,19 @@
       tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
     }
     if (!tags.length) return "";
-    return `<span class="priority-tags">${tags.slice(0, 3).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" data-icon="${tagSymbol(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}"></span>`).join("")}</span>`;
+    return `<span class="priority-tags">${tags.slice(0, 3).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${tagIcon(tag.id)}</span>`).join("")}</span>`;
   }
 
-  function tagSymbol(id) {
-    return ({ must: "👍", easy: "✓", final: "✦", rahool: "◎", buy: "↗", confidence: "i" })[id] || "•";
+  function tagIcon(id) {
+    const icons = {
+      must: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5v9H4v-9h3.5Zm2.5 9V10l4.2-6.2c.4-.6 1.3-.5 1.6.1.3.6.3 1.4 0 2L14.5 9h4.2c1.1 0 1.9 1 1.7 2l-1.1 6.2c-.2 1.3-1.3 2.3-2.7 2.3H10Z"/></svg>`,
+      easy: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19.5 6.5"/></svg>`,
+      final: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 14.2 10l6.3 2-6.3 2L12 20.5 9.8 14l-6.3-2 6.3-2L12 3.5Z"/></svg>`,
+      rahool: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 20.5 12 12 20.5 3.5 12 12 3.5Z"/><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg>`,
+      buy: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>`,
+      confidence: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v7"/><path d="M12 7h.01"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/></svg>`
+    };
+    return icons[id] || `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12h.01"/></svg>`;
   }
 
   function renderColumn(side, rootId, titleIndex) {
