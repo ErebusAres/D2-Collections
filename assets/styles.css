@@ -652,10 +652,11 @@ html.layout-simple .count-pill {
 }
 html.layout-simple .weapon-list,
 html.layout-simple .armor-list {
-  --tile-size: 52px;
+  --tile-size: 64px;
+  --icon-size: calc(var(--tile-size) - 6px);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--tile-size), var(--tile-size)));
-  gap: 8px 6px;
+  gap: 10px 8px;
   align-items: start;
 }
 html.layout-simple .armor-columns {
@@ -687,16 +688,18 @@ html.layout-simple .class-title {
 html.layout-simple .weapon-card,
 html.layout-simple .armor-card {
   width: var(--tile-size);
-  min-height: calc(var(--tile-size) + 24px);
+  min-height: calc(var(--icon-size) + 39px);
   display: grid;
-  grid-template-rows: var(--tile-size) 20px;
-  gap: 3px;
-  padding: 2px;
-  border-radius: 5px;
+  grid-template-rows: var(--icon-size) 33px;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 7px;
   cursor: pointer;
   border-left-width: 1px;
-  overflow: visible;
-  background: rgba(8,11,16,.92);
+  overflow: hidden;
+  background: #06080d;
+  border-color: rgba(222,232,255,.2);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.035), 0 8px 16px rgba(0,0,0,.22);
 }
 html.layout-simple .weapon-card:hover,
 html.layout-simple .armor-card:hover {
@@ -723,37 +726,38 @@ html.layout-simple .armor-card::after {
 }
 html.layout-simple .item-with-icon {
   display: grid;
-  grid-template-rows: var(--tile-size);
-  width: var(--tile-size);
-  height: var(--tile-size);
+  grid-template-rows: var(--icon-size);
+  width: var(--icon-size);
+  height: var(--icon-size);
   min-width: 0;
 }
 html.layout-simple .item-meta {
-  width: var(--tile-size);
-  height: var(--tile-size);
+  width: var(--icon-size);
+  height: var(--icon-size);
 }
 html.layout-simple .item-icon,
 html.layout-simple .item-icon-fallback {
-  width: var(--tile-size);
-  height: var(--tile-size);
-  border-radius: 4px;
-  border-color: rgba(255,255,255,.16);
+  width: var(--icon-size);
+  height: var(--icon-size);
+  border-radius: 5px;
+  border-color: rgba(255,255,255,.18);
+  box-shadow: none;
 }
 html.layout-simple .item-icon-fallback {
   background: rgba(12,15,21,.96);
 }
 html.layout-simple .simple-damage-icons {
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: 6px;
+  left: 6px;
   z-index: 3;
   display: inline-flex;
   gap: 1px;
   pointer-events: none;
 }
 html.layout-simple .simple-damage-icon {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.9));
 }
@@ -771,36 +775,37 @@ html.layout-simple .player-label {
 }
 html.layout-simple .priority-tags {
   position: absolute;
-  left: 2px;
-  right: 2px;
-  top: calc(var(--tile-size) + 3px);
+  left: 4px;
+  right: 4px;
+  top: calc(var(--icon-size) + 6px);
   z-index: 1;
   display: flex;
-  gap: 2px;
+  gap: 3px;
   max-width: 100%;
-  min-height: 7px;
+  min-height: 15px;
   justify-content: center;
   pointer-events: none;
 }
 html.layout-simple .priority-chip {
-  width: 11px;
-  height: 11px;
-  flex-basis: 11px;
-  border-radius: 2px;
+  width: 15px;
+  height: 15px;
+  flex-basis: 15px;
+  border-radius: 4px;
   line-height: 1;
-  background: rgba(7,9,13,.7);
+  border-color: rgba(222,232,255,.24);
+  background: rgba(13,17,24,.92);
 }
 html.layout-simple .priority-chip svg {
-  width: 8px;
-  height: 8px;
-  stroke-width: 2.6;
+  width: 11px;
+  height: 11px;
+  stroke-width: 2.4;
 }
 html.layout-simple .weapon-card > div:last-child,
 html.layout-simple .armor-status.status-row {
   position: absolute;
   left: 2px;
   right: 2px;
-  bottom: 2px;
+  bottom: 4px;
   z-index: 1;
   display: flex;
   gap: 2px;
@@ -813,12 +818,13 @@ html.layout-simple .status-row {
   margin-top: 0;
 }
 html.layout-simple .status-cell {
-  width: 7px;
-  min-width: 7px;
-  height: 7px;
-  min-height: 7px;
+  width: 8px;
+  min-width: 8px;
+  height: 8px;
+  min-height: 8px;
   padding: 0;
   border-radius: 999px;
+  border-width: 1px;
   pointer-events: none;
 }
 html.layout-simple .status-mark {
@@ -859,6 +865,6 @@ html.layout-simple .status-cell.dim {
   html.layout-simple .toolbar { grid-template-columns: 1fr; }
   html.layout-simple .segmented { overflow-x: auto; }
   html.layout-simple .weapon-list,
-  html.layout-simple .armor-list { --tile-size: 44px; gap: 4px; }
+  html.layout-simple .armor-list { --tile-size: 62px; gap: 8px 6px; }
   html.layout-simple .armor-column-controls { grid-template-columns: 1fr; }
 }
