@@ -40,6 +40,9 @@
     .help-icon-chip.warlock{color:var(--purple)}
     .help-icon-chip.titan{color:var(--red)}
     .help-icon-chip.hunter{color:var(--green)}
+    .help-icon-chip.type{color:var(--soft)}
+    .help-icon-chip.type.sword,.help-icon-chip.type.glaive{color:var(--gold-bright)}
+    .help-icon-chip.type.rocket-launcher,.help-icon-chip.type.grenade-launcher,.help-icon-chip.type.machine-gun,.help-icon-chip.type.linear-fusion-rifle{color:var(--blue)}
     .help-icon-chip.element{color:var(--soft)}
     .help-icon-chip .damage-icon{width:16px;height:16px}
     .help-confidence{display:inline-flex;align-items:center;min-height:28px;border:1px solid rgba(202,209,221,.2);border-radius:6px;padding:5px 8px;color:var(--muted);background:rgba(202,209,221,.05);font-size:.74rem;font-weight:800;line-height:1;white-space:nowrap}
@@ -143,7 +146,7 @@
     const key = String(slot || "").toLowerCase();
     if (key.includes("kinetic")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 21 12 12 21 3 12 12 3Z"/><path d="M12 8v8M8 12h8"/></svg>`;
     if (key.includes("energy")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 13h6l-1 9 8-12h-6l1-8Z"/></svg>`;
-    if (key.includes("power")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 18H4L12 3Z"/><path d="M12 8v5"/></svg>`;
+    if (key.includes("power")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l2 5-8 7-8-7 2-5Z"/><path d="M8.5 10h7"/><path d="M10 13h4"/></svg>`;
     return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 20 12 12 20 4 12 12 4Z"/></svg>`;
   }
 
@@ -171,11 +174,33 @@
     return src ? `<img class="damage-icon ${escapeHtml(name)}" src="${src}" alt="" title="${escapeHtml(label)}" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" />` : "";
   }
 
-  function typeAbbrev(type) {
-    const words = String(type || "").split(/\s+/).filter(Boolean);
-    if (!words.length) return "?";
-    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-    return words.map(word => word[0]).join("").slice(0, 3).toUpperCase();
+  function weaponTypeIcon(type) {
+    const key = typeKey(type);
+    const icons = {
+      "auto-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h9l4-4h3v4h-2l-3 3H4v-3Z"/><path d="M8 17v3"/><path d="M13 14l2 5"/></svg>`,
+      "combat-bow": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4c6 3 6 13 0 16"/><path d="M8 4v16"/><path d="M4 12h14"/><path d="m15 9 4 3-4 3"/></svg>`,
+      "fusion-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15h10l5-5h2"/><path d="M7 12h6"/><path d="M9 9h5"/><path d="M10 15v4"/></svg>`,
+      "glaive": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5"/><path d="m15 4 5 5"/><path d="m16 8-3-3"/><path d="M4 20l4-1"/></svg>`,
+      "grenade-launcher": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15h9l5-5h2v4h-3l-3 3H4v-2Z"/><path d="M7 12h5"/><path d="M10 17v3"/><circle cx="17" cy="7" r="2"/></svg>`,
+      "hand-cannon": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h10l3-3h3v3h-4l-3 3H4v-3Z"/><path d="M8 17v3"/><path d="M13 14v4"/></svg>`,
+      "linear-fusion-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14h12l5-5h2"/><path d="M6 11h9"/><path d="M7 17h5"/><path d="m15 14 2 4"/></svg>`,
+      "machine-gun": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14h10l4-4h4v4h-3l-3 3H3v-3Z"/><path d="M6 11h6"/><path d="M7 17v3"/><path d="M12 17v3"/></svg>`,
+      "pulse-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h9l4-4h3v4h-3l-3 3H4v-3Z"/><path d="M7 11h7"/><path d="M9 17v3"/><path d="M13 8h3"/></svg>`,
+      "rocket-launcher": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15h11l5-5v5l-5 3H4v-3Z"/><path d="M7 12h7"/><path d="M10 18v3"/></svg>`,
+      "scout-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h9l4-4h3v3h-3l-3 3H4v-2Z"/><path d="M7 11h5"/><path d="M9 16v4"/><circle cx="14" cy="9" r="1.5"/></svg>`,
+      "shotgun": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15h11l4-4h2v4h-4l-3 3H4v-3Z"/><path d="M6 12h8"/><path d="M8 18v3"/></svg>`,
+      "sidearm": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 14h8l3-3h4v3h-5l-2 3H5v-3Z"/><path d="M8 17v3"/></svg>`,
+      "sniper-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14h11l5-5h3"/><path d="M6 11h7"/><path d="M8 17v3"/><circle cx="15" cy="9" r="2"/></svg>`,
+      "smg": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h8l4-3h4v3h-3l-3 3H4v-3Z"/><path d="M7 17v3"/><path d="M12 14v5"/></svg>`,
+      "submachine-gun": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h8l4-3h4v3h-3l-3 3H4v-3Z"/><path d="M7 17v3"/><path d="M12 14v5"/></svg>`,
+      "sword": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3 21 3 21 10 9 22 2 15 14 3Z"/><path d="m8 16-2 2"/><path d="m10 14 3 3"/></svg>`,
+      "trace-rifle": `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h10l4-4h3"/><path d="M6 11h8"/><path d="M9 17v3"/><path d="M17 7h4"/><path d="M18 11h3"/></svg>`
+    };
+    return icons[key] || `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h10l5-5h2"/><path d="M8 17v3"/></svg>`;
+  }
+
+  function typeKey(type) {
+    return String(type || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   }
 
   function titleCase(value) {
@@ -191,7 +216,7 @@
     chips.push(helpChip(`kind ${item.kind}`, kindIcon(item.kind), item.kind === "armor" ? "Armor" : "Weapon"));
     if (item.className) chips.push(helpChip(item.className, classIcon(item.className), titleCase(item.className)));
     if (item.slot) chips.push(helpChip(item.slot.toLowerCase().replace(/[^a-z0-9]+/g, "-"), slotIcon(item.slot), titleCase(item.slot)));
-    if (item.type) chips.push(helpChip("type", `<strong>${escapeHtml(typeAbbrev(item.type))}</strong>`, titleCase(item.type), `Weapon type: ${titleCase(item.type)}`));
+    if (item.type) chips.push(helpChip(`type ${typeKey(item.type)}`, weaponTypeIcon(item.type), titleCase(item.type), `Weapon type: ${titleCase(item.type)}`));
     if (item.element) {
       const parts = damageParts(item.element);
       const icons = parts.length ? parts.map(name => damageIcon(name, item.element)).join("") : `<strong>EL</strong>`;
