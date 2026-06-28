@@ -21,6 +21,7 @@
     .help-steps li{margin:6px 0}
     .help-note{color:var(--muted);font-size:.78rem;line-height:1.45;margin-top:10px}
     .help-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .help-confidence{display:inline-flex;align-items:center;min-height:28px;border:1px solid rgba(202,209,221,.2);border-radius:6px;padding:5px 8px;color:var(--muted);background:rgba(202,209,221,.05);font-size:.74rem;font-weight:800;line-height:1;white-space:nowrap}
     .help-priority{border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.055);border-radius:8px;padding:9px 10px;color:var(--soft);font-size:.84rem;line-height:1.45}
     .help-priority strong{display:block;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
     .help-subhead{color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-top:12px}
@@ -254,7 +255,7 @@
       .filter(Boolean)
       .map(v => `<span class="badge">${escapeHtml(v)}</span>`)
       .join("");
-    const priorityMeta = item.priority?.confidence ? `<span class="priority-chip confidence" title="${escapeHtml(item.priority.confidenceNote || "")}">${escapeHtml(item.priority.confidence)}</span>` : "";
+    const priorityMeta = item.priority?.confidence ? `<span class="help-confidence" title="${escapeHtml(item.priority.confidenceNote || "")}">${escapeHtml(item.priority.confidence)}</span>` : "";
     panel.querySelector("#helpTitle").textContent = item.name;
     panel.querySelector("#helpMeta").innerHTML = meta + priorityMeta;
     panel.querySelector("#helpBody").innerHTML = `
