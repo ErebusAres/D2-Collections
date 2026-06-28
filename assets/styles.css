@@ -821,26 +821,6 @@ html.layout-simple .status-cell {
   border-radius: 999px;
   pointer-events: none;
 }
-html.layout-simple .weapon-card.is-owned::after,
-html.layout-simple .armor-card.is-owned::after,
-html.layout-simple .weapon-card.is-partial::after {
-  content: "";
-  position: absolute;
-  right: 3px;
-  bottom: 23px;
-  display: block;
-  width: 12px;
-  height: 12px;
-  border: 1px solid rgba(202,255,223,.72);
-  border-radius: 2px;
-  background: rgba(88,214,154,.88);
-  box-shadow: 0 0 7px rgba(88,214,154,.32);
-}
-html.layout-simple .weapon-card.is-partial::after {
-  border-color: rgba(240,213,135,.72);
-  background: rgba(216,177,91,.9);
-  box-shadow: 0 0 7px rgba(216,177,91,.28);
-}
 html.layout-simple .status-mark {
   display: none;
 }
