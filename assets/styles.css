@@ -46,8 +46,75 @@ code { color: var(--gold); }
 .app-shell {
   width: min(1660px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 18px 0 48px;
+  padding: 64px 0 48px;
 }
+
+.sync-popout {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 80;
+}
+.sync-popout[open] { width: min(520px, calc(100vw - 24px)); }
+.sync-gear {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(216,177,91,.32);
+  border-radius: 8px;
+  color: var(--gold-bright);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.018)),
+    rgba(10,13,19,.94);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  list-style: none;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.sync-gear::-webkit-details-marker { display: none; }
+.sync-popout[open] .sync-gear { border-color: rgba(243,189,79,.62); }
+.sync-popout-panel {
+  margin-top: 8px;
+  max-height: calc(100vh - 72px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
+    rgba(9,12,18,.96);
+  box-shadow: 0 24px 80px rgba(0,0,0,.55);
+}
+.sync-popout-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.sync-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.sync-popout .auth-chip {
+  justify-content: flex-start;
+  width: auto;
+}
+.sync-popout .panel {
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 12px;
+}
+.sync-popout .data-panel { margin-top: 0; }
+.sync-popout textarea { min-height: 150px; border-radius: 10px; }
+.sync-popout #apiHandoffPanel { margin-top: 10px; }
+.sync-popout .panel-head { margin-bottom: 10px; }
+.sync-popout .api-handoff-box { min-height: 160px; }
 
 .hero,
 .panel,
@@ -502,7 +569,8 @@ textarea {
   .api-actions { justify-content: flex-start; }
 }
 @media (max-width: 780px) {
-  .app-shell { width: min(100% - 20px, 1660px); padding-top: 10px; }
+  .app-shell { width: min(100% - 20px, 1660px); padding-top: 64px; }
+  .sync-popout { top: 10px; left: 10px; }
   .hero { align-items: start; flex-direction: column; padding: 20px; }
   h1 { font-size: 2.2rem; }
   .summary-grid { grid-template-columns: 1fr 1fr; }

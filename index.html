@@ -5,22 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>D2 Exotic Collections</title>
   <meta name="description" content="Manual Destiny 2 exotic collection tracker for weapons, catalysts, Warlock armor, Titan armor, and Hunter armor." />
-  <link rel="stylesheet" href="assets/styles.css?v=d2-colored-elements" />
+  <link rel="stylesheet" href="assets/styles.css?v=d2-sync-popout" />
 </head>
 <body>
+  <details class="sync-popout">
+    <summary class="sync-gear" aria-label="Open sync and dump tools" title="Sync and dump tools">&#9881;</summary>
+    <div class="sync-popout-panel">
+      <div class="sync-popout-head">
+        <div>
+          <p class="eyebrow">Sync tools</p>
+          <h2>Bungie + repo handoff</h2>
+        </div>
+      </div>
+      <div class="sync-actions">
+        <div class="auth-chip" aria-label="Bungie account status">
+          <span id="apiStatus" class="count-pill">Not signed in</span>
+          <button id="loginBtn" class="button primary" type="button">Login with Bungie</button>
+        </div>
+        <button id="exportBtn" class="button ghost" type="button">Export repo state</button>
+      </div>
+      <section class="panel data-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Back end</p>
+            <h2>Copy/paste repo state</h2>
+          </div>
+          <span class="count-pill">Read-only display</span>
+        </div>
+        <p class="muted">GitHub Pages cannot persist checklist changes by itself. Edit <code>data/checklist.js</code> in the repo, or export this state and send it here so GPT can update the repo data.</p>
+        <textarea id="exportBox" spellcheck="false" placeholder="Exported checklist JSON appears here..."></textarea>
+      </section>
+    </div>
+  </details>
+
   <div class="app-shell">
     <header class="hero">
       <div>
         <p class="eyebrow">Repo-backed Destiny 2 tracker</p>
         <h1>D2 Exotic Collections</h1>
         <p class="hero-copy">A fast static checklist for Ares and Icee. The page reads from repo data, so the visible owned/missing status is the source of truth across computers.</p>
-      </div>
-      <div class="hero-actions">
-        <div class="auth-chip" aria-label="Bungie account status">
-          <span id="apiStatus" class="count-pill">Not signed in</span>
-          <button id="loginBtn" class="button primary" type="button">Login with Bungie</button>
-        </div>
-        <button id="exportBtn" class="button ghost" type="button">Export repo state</button>
       </div>
     </header>
 
@@ -78,17 +101,6 @@
       </section>
     </main>
 
-    <section class="panel data-panel">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">Back end</p>
-          <h2>Copy/paste repo state</h2>
-        </div>
-        <span class="count-pill">Read-only display</span>
-      </div>
-      <p class="muted">GitHub Pages cannot persist checklist changes by itself. Edit <code>data/checklist.js</code> in the repo, or export this state and send it here so GPT can update the repo data.</p>
-      <textarea id="exportBox" spellcheck="false" placeholder="Exported checklist JSON appears here..."></textarea>
-    </section>
   </div>
 
   <script src="data/bungie-config.js"></script>
