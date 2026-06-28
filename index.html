@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>D2 Exotic Collections</title>
   <meta name="description" content="Manual Destiny 2 exotic collection tracker for weapons, catalysts, Warlock armor, Titan armor, and Hunter armor." />
-  <link rel="stylesheet" href="assets/styles.css?v=d2-simple-split-weapons" />
+  <link rel="stylesheet" href="assets/styles.css?v=d2-ux-nav-legend-sort" />
   <script>
     (() => {
       try {
@@ -31,6 +31,7 @@
         </div>
         <button id="exportBtn" class="button ghost" type="button">Export repo state</button>
       </div>
+      <div id="dataHealth" class="data-health" aria-label="Catalog data health"></div>
       <section class="panel data-panel">
         <div class="panel-head">
           <div>
@@ -73,14 +74,46 @@
         <button class="seg" data-player="corey" type="button">Ares</button>
         <button class="seg" data-player="matt" type="button">Icee</button>
       </div>
+      <label class="sort-wrap">
+        <span>Sort</span>
+        <select id="sortSelect" aria-label="Sort collection">
+          <option value="catalog">Catalog</option>
+          <option value="priority">Priority first</option>
+          <option value="missing">Missing first</option>
+          <option value="easy">Easy wins first</option>
+          <option value="rahool">Rahool-ready first</option>
+          <option value="catalyst">Catalyst gaps first</option>
+          <option value="type">Slot / type</option>
+        </select>
+      </label>
       <div class="segmented layout-toggle" role="group" aria-label="Layout mode">
         <button class="seg active" data-layout-mode="detailed" type="button">Detailed</button>
         <button class="seg" data-layout-mode="simple" type="button">Simple</button>
       </div>
     </nav>
 
+    <section class="at-a-glance" aria-label="At a glance navigation and legend">
+      <nav class="quick-jump" aria-label="Quick jump">
+        <a href="#weaponsPanel">Weapons</a>
+        <a href="#aresWeapons">Ares weapons</a>
+        <a href="#iceeWeapons">Icee weapons</a>
+        <a href="#aresArmor">Ares armor</a>
+        <a href="#iceeArmor">Icee armor</a>
+      </nav>
+      <div class="legend-strip" aria-label="Visual legend">
+        <span id="activePlayerPill" class="identity-pill">Viewing as: not linked</span>
+        <span><i class="legend-swatch owned"></i>Owned</span>
+        <span><i class="legend-swatch partial"></i>Partial</span>
+        <span><i class="legend-swatch missing"></i>Missing</span>
+        <span><i class="legend-dot yes"></i><i class="legend-dot no"></i>Own / Cat / Done</span>
+        <span><i class="legend-chip must"></i>Must</span>
+        <span><i class="legend-chip easy"></i>Easy</span>
+        <span><i class="legend-chip rahool"></i>Rahool</span>
+      </div>
+    </section>
+
     <main class="content-grid">
-      <section class="panel weapons-panel">
+      <section id="weaponsPanel" class="panel weapons-panel">
         <div class="panel-head">
           <div>
             <p class="eyebrow">Weapons</p>
@@ -100,11 +133,11 @@
           <span id="armorCount" class="count-pill"></span>
         </div>
         <div class="armor-columns">
-          <article>
+          <article id="aresArmor">
             <div class="class-title warlock"><span>◆</span><strong>Ares (ErebusAres) / Warlock</strong></div>
             <div id="warlockList" class="armor-list"></div>
           </article>
-          <article>
+          <article id="iceeArmor">
             <div class="class-title titan"><span>◆</span><strong>Icee (IceeDedPple) / Titan</strong></div>
             <div id="titanList" class="armor-list"></div>
           </article>
@@ -124,11 +157,11 @@
   <script src="data/priority-tags.js?v=final-priority-confidence"></script>
   <script src="data/checklist.js"></script>
   <script src="assets/oauth-redirect-fix.js?v=53180-index"></script>
-  <script src="assets/app.js?v=d2-simple-split-weapons"></script>
+  <script src="assets/app.js?v=d2-ux-nav-legend-sort"></script>
   <script src="assets/auth-compact.js"></script>
   <script src="assets/armor-columns.js?v=d2-simple-damage-icons"></script>
-  <script src="assets/help.js?v=d2-help-single-popover"></script>
-  <script src="assets/layout-mode.js?v=d2-simple-split-weapons"></script>
+  <script src="assets/help.js?v=d2-help-accessible-drawer"></script>
+  <script src="assets/layout-mode.js?v=d2-ux-nav-legend-sort"></script>
   <script src="assets/icon-audit.js"></script>
   <script src="assets/api-handoff.js"></script>
   <script src="assets/bungie-collection-dump.js?v=53180-rahool-resources"></script>

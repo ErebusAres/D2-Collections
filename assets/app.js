@@ -2,6 +2,8 @@
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
   const BASE = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: {} };
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
+  const ICON_MAP = window.D2_COLLECTIONS_ICON_MAP || {};
+  const COLLECTIBLES = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
   const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
   const LOCAL_OWNERSHIP_KEY = "d2-collections-local-ownership-v1";
   const RESOURCE_KEY = "d2-collections-player-resources-v1";
@@ -24,7 +26,7 @@
   const blankArmor = () => ({ owned: false });
   const clone = value => JSON.parse(JSON.stringify(value || {}));
 
-  let filters = { search: "", view: "all", player: "all" };
+  let filters = { search: "", view: "all", player: "all", sort: "catalog" };
   let state = mergeState(clone(BASE));
   applyLocalOwnership(state);
   let resources = readResources();
@@ -41,8 +43,15 @@
     exportBtn: document.querySelector("#exportBtn"),
     exportBox: document.querySelector("#exportBox"),
     apiStatus: document.querySelector("#apiStatus"),
-    loginBtn: document.querySelector("#loginBtn")
+    loginBtn: document.querySelector("#loginBtn"),
+    sort: document.querySelector("#sortSelect"),
+    activePlayer: document.querySelector("#activePlayerPill"),
+    dataHealth: document.querySelector("#dataHealth")
   };
+
+  const weaponOrder = new Map((CATALOG.weapons || []).map((item, index) => [item.id, index]));
+  const armorOrder = new Map();
+  armorClasses().forEach(className => (CATALOG.armor[className] || []).forEach((item, index) => armorOrder.set(`${className}:${item.id}`, index)));
 
   function readAuthState() {
     try {
@@ -239,12 +248,89 @@
     return true;
   }
 
+  function rowScore(rows, getter) {
+    return rows.some(getter) ? 0 : 1;
+  }
+
+  function priorityScore(item) {
+    if (item.priority?.mustHave) return 0;
+    if (item.priority?.finalUpdate) return 1;
+    if (item.priority?.easyWin || item.priority?.rahool) return 2;
+    return 3;
+  }
+
+  function compareText(a, b) {
+    return String(a || "").localeCompare(String(b || ""), undefined, { sensitivity: "base" });
+  }
+
+  function compareBySort(a, b, context) {
+    const orderMap = context.kind === "armor" ? armorOrder : weaponOrder;
+    const orderA = context.kind === "armor" ? orderMap.get(`${context.className}:${a.id}`) : orderMap.get(a.id);
+    const orderB = context.kind === "armor" ? orderMap.get(`${context.className}:${b.id}`) : orderMap.get(b.id);
+    const fallback = (orderA ?? 0) - (orderB ?? 0);
+    if (filters.sort === "catalog") return fallback;
+
+    const playersForSort = context.players || playerList();
+    const rowsFor = item => playersForSort.map(player =>
+      context.kind === "armor"
+        ? state.armor[context.className]?.[item.id]?.[player] || blankArmor()
+        : state.weapons[item.id]?.[player] || blankWeapon()
+    );
+    const rowsA = rowsFor(a);
+    const rowsB = rowsFor(b);
+
+    let diff = 0;
+    if (filters.sort === "priority") diff = priorityScore(a) - priorityScore(b);
+    if (filters.sort === "missing") diff = rowScore(rowsA, row => !row.owned) - rowScore(rowsB, row => !row.owned);
+    if (filters.sort === "easy") diff = (a.priority?.easyWin ? 0 : 1) - (b.priority?.easyWin ? 0 : 1);
+    if (filters.sort === "rahool") diff = (rahoolReady(a, playersForSort) ? 0 : 1) - (rahoolReady(b, playersForSort) ? 0 : 1);
+    if (filters.sort === "catalyst") diff = context.kind === "weapon"
+      ? rowScore(rowsA, row => row.owned && (!row.catalyst || !row.complete)) - rowScore(rowsB, row => row.owned && (!row.catalyst || !row.complete))
+      : fallback;
+    if (filters.sort === "type") diff = compareText(`${a.slot || ""} ${a.type || ""}`, `${b.slot || ""} ${b.type || ""}`);
+
+    return diff || priorityScore(a) - priorityScore(b) || compareText(a.name, b.name) || fallback;
+  }
+
+  function sortedItems(items, context) {
+    return [...items].sort((a, b) => compareBySort(a, b, context));
+  }
+
   function render() {
     renderSummary();
+    renderIdentity();
+    renderDataHealth();
     renderWeapons();
     renderArmor("warlock", els.warlock);
     renderArmor("titan", els.titan);
     renderAuthPanel();
+  }
+
+  function renderIdentity() {
+    if (!els.activePlayer) return;
+    const active = readActivePlayer();
+    const user = BASE.users?.[active];
+    const label = user?.display || user?.label || "";
+    els.activePlayer.textContent = label ? `Viewing as: ${label}` : "Viewing as: not linked";
+    els.activePlayer.classList.toggle("is-linked", Boolean(label));
+  }
+
+  function renderDataHealth() {
+    if (!els.dataHealth) return;
+    const weapons = (CATALOG.weapons || []).length;
+    const armor = armorClasses().reduce((sum, className) => sum + (CATALOG.armor[className] || []).length, 0);
+    const catalogItems = weapons + armor;
+    const iconCount = Object.keys(ICON_MAP || {}).length;
+    const collectibleCount = Object.values(COLLECTIBLES.items || {}).filter(item => (item.collectibleHashes || []).length).length;
+    const missingIcons = [...(CATALOG.weapons || []), ...armorClasses().flatMap(className => CATALOG.armor[className] || [])].filter(item => !item.icon && !item.iconUrl && !ICON_MAP[item.id]).length;
+    els.dataHealth.innerHTML = [
+      ["Catalog", catalogItems],
+      ["Weapons", weapons],
+      ["Armor", armor],
+      ["Icons", iconCount],
+      ["Collectibles", collectibleCount],
+      ["Missing icons", missingIcons]
+    ].map(([label, value]) => `<span><strong>${value}</strong>${label}</span>`).join("");
   }
 
   function renderSummary() {
@@ -279,7 +365,7 @@
   function renderWeapons() {
     if (!els.weapons) return;
     const allWeapons = CATALOG.weapons || [];
-    const visible = allWeapons.filter(item => matchesText(item) && matchesWeaponView(item));
+    const visible = sortedItems(allWeapons.filter(item => matchesText(item) && matchesWeaponView(item)), { kind: "weapon", players: playerList() });
     if (els.weaponCount) els.weaponCount.textContent = `${visible.length} / ${(CATALOG.weapons || []).length}`;
     const splitSimpleWeapons = isSimpleMode() && filters.player === "all" && players.length > 1;
     els.weapons.classList.toggle("is-split", splitSimpleWeapons);
@@ -287,20 +373,22 @@
       els.weapons.innerHTML = orderedPlayers().map(player => renderWeaponPlayerSection(player, allWeapons)).join("");
       return;
     }
-    els.weapons.innerHTML = visible.length ? visible.map(item => renderWeaponCard(item)).join("") : emptyState("No weapons match this filter.");
+    const fallbackAnchors = `<span id="aresWeapons" class="jump-anchor"></span><span id="iceeWeapons" class="jump-anchor"></span>`;
+    els.weapons.innerHTML = fallbackAnchors + (visible.length ? visible.map((item, index) => renderWeaponCard(item, playerList(), index < 24)).join("") : emptyState("No weapons match this filter."));
   }
 
   function renderWeaponPlayerSection(player, allWeapons) {
     const user = BASE.users[player] || {};
-    const visible = allWeapons.filter(item => matchesText(item) && matchesWeaponViewForPlayers(item, [player]));
+    const visible = sortedItems(allWeapons.filter(item => matchesText(item) && matchesWeaponViewForPlayers(item, [player])), { kind: "weapon", players: [player] });
     const owned = visible.filter(item => state.weapons[item.id]?.[player]?.owned).length;
     const label = user.label || player;
     const handle = user.handle || user.name || "";
     const title = handle ? `${label} (${handle})` : label;
-    return `<article class="simple-player-section weapon-player-section" data-player="${escapeAttr(player)}"><div class="class-title weapon-player-title"><span>${escapeAttr(user.short || label[0] || "?")}</span><strong>${escapeAttr(title)} / Weapons</strong><em>${owned}/${visible.length}</em></div><div class="weapon-list simple-player-list">${visible.length ? visible.map(item => renderWeaponCard(item, [player])).join("") : emptyState("No weapons match this filter.")}</div></article>`;
+    const anchor = player === "matt" ? "iceeWeapons" : "aresWeapons";
+    return `<article id="${anchor}" class="simple-player-section weapon-player-section" data-player="${escapeAttr(player)}"><div class="class-title weapon-player-title"><span>${escapeAttr(user.short || label[0] || "?")}</span><strong>${escapeAttr(title)} / Weapons</strong><em>${owned}/${visible.length}</em></div><div class="weapon-list simple-player-list">${visible.length ? visible.map((item, index) => renderWeaponCard(item, [player], index < 24)).join("") : emptyState("No weapons match this filter.")}</div></article>`;
   }
 
-  function renderWeaponCard(item, visiblePlayers = playerList()) {
+  function renderWeaponCard(item, visiblePlayers = playerList(), eagerIcon = false) {
     const visibleStates = visiblePlayers.map(player => state.weapons[item.id]?.[player] || blankWeapon());
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const cardClass = ownedCount === visibleStates.length ? "is-owned" : ownedCount ? "is-partial" : "is-missing";
@@ -312,19 +400,20 @@
     }).join("");
 
     const tileTitle = `${item.name} - ${item.slot || "Weapon"} ${item.type || ""}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
-    return `<article class="weapon-card ${cardClass}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span>${elementBadge(item.element)}<span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
+    const actionAttrs = isSimpleMode() ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
+    return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge ${(item.slot || "").toLowerCase()}">${item.slot || ""}</span><span class="badge slot">${item.type || ""}</span>${elementBadge(item.element)}<span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root) {
     if (!root || !CATALOG.armor?.[className]) return;
-    const visible = (CATALOG.armor[className] || []).filter(item => matchesText(item) && matchesArmorView(className, item));
+    const visible = sortedItems((CATALOG.armor[className] || []).filter(item => matchesText(item) && matchesArmorView(className, item)), { kind: "armor", className, players: armorPlayersForClass(className) });
     const totalVisible = armorClasses().reduce((sum, klass) => sum + (CATALOG.armor[klass] || []).filter(item => matchesText(item) && matchesArmorView(klass, item)).length, 0);
     const total = armorClasses().reduce((sum, klass) => sum + (CATALOG.armor[klass] || []).length, 0);
     if (els.armorCount) els.armorCount.textContent = `${totalVisible} / ${total}`;
-    root.innerHTML = visible.length ? visible.map(item => renderArmorCard(className, item)).join("") : emptyState(`No ${className} armor matches this filter.`);
+    root.innerHTML = visible.length ? visible.map((item, index) => renderArmorCard(className, item, index < 16)).join("") : emptyState(`No ${className} armor matches this filter.`);
   }
 
-  function renderArmorCard(className, item) {
+  function renderArmorCard(className, item, eagerIcon = false) {
     const focusPlayer = CLASS_FOCUS[className] || players[0];
     const visiblePlayers = armorPlayersForClass(className);
     const visibleStates = visiblePlayers.map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
@@ -339,7 +428,8 @@
 
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const tileTitle = `${item.name} - ${focusLabel(className)} ${item.slot || "armor"}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
-    return `<article class="armor-card is-focus-card ${cardClass}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge focus">${focusLabel(className)}</span><span class="badge slot">${item.slot || ""}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
+    const actionAttrs = isSimpleMode() ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
+    return `<article class="armor-card is-focus-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row"><span class="badge focus">${focusLabel(className)}</span><span class="badge slot">${item.slot || ""}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
   }
 
   function hasRahoolMaterials(player) {
@@ -380,7 +470,7 @@
 
   function damageIconImg(name, label, className = "damage-icon") {
     const src = DAMAGE_ICONS[name];
-    return src ? `<img class="${className} ${escapeAttr(name)}" src="${src}" alt="" title="${escapeAttr(label)}" loading="lazy" aria-hidden="true" />` : "";
+    return src ? `<img class="${className} ${escapeAttr(name)}" src="${src}" alt="" title="${escapeAttr(label)}" width="17" height="17" loading="lazy" decoding="async" aria-hidden="true" />` : "";
   }
 
   function elementBadge(element) {
@@ -413,11 +503,11 @@
     return `<div class="status-cell ${value ? "yes" : "no"} ${extraClass}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="status-mark" aria-hidden="true"></span></div>`;
   }
 
-  function itemIconMarkup(item) {
+  function itemIconMarkup(item, eager = false) {
     const raw = item.icon || item.iconUrl || "";
     if (raw) {
       const src = raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw;
-      return `<img class="item-icon" src="${src}" alt="${item.name} icon" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'item-icon-fallback',textContent:'${escapeInitials(item.name)}'}))" />`;
+      return `<img class="item-icon" src="${src}" alt="${item.name} icon" width="64" height="64" loading="${eager ? "eager" : "lazy"}" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'item-icon-fallback',textContent:'${escapeInitials(item.name)}'}))" />`;
     }
     return `<div class="item-icon-fallback" aria-hidden="true">${escapeInitials(item.name)}</div>`;
   }
@@ -584,6 +674,7 @@
     filters.player = btn.dataset.player;
     render();
   }));
+  if (els.sort) els.sort.addEventListener("change", event => { filters.sort = event.target.value || "catalog"; render(); });
   if (els.exportBtn) els.exportBtn.addEventListener("click", exportState);
   if (els.loginBtn) els.loginBtn.addEventListener("click", () => { window.location.href = buildAuthUrl(); });
   document.addEventListener("keydown", focusSiteSearch);

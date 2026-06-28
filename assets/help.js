@@ -9,7 +9,7 @@
     .item-help-btn{flex:0 0 auto;border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.07);color:var(--soft);border-radius:6px;width:24px;height:24px;display:inline-grid;place-items:center;font-size:.78rem;font-weight:900;line-height:1}
     .item-help-btn:hover,.item-help-btn:focus-visible{border-color:rgba(243,189,79,.45);color:var(--gold);outline:0}
     .item-name{min-width:0}
-    .help-panel{position:fixed;z-index:70;right:16px;top:16px;width:min(430px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),#0d1119;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:14px;transform:translateX(calc(100% + 24px));transition:transform .18s ease}
+    .help-panel{position:fixed;z-index:70;right:16px;top:16px;width:min(430px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),#0d1119;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:14px;transform:translateX(calc(100% + 24px));transition:transform .18s ease;outline:none}
     .help-panel.open{transform:translateX(0)}
     .help-panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
     .help-panel h2{font-size:1.05rem;line-height:1.2;margin:0}
@@ -45,6 +45,10 @@
   const panel = document.createElement("aside");
   panel.className = "help-panel";
   panel.setAttribute("aria-live", "polite");
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "false");
+  panel.setAttribute("aria-labelledby", "helpTitle");
+  panel.tabIndex = -1;
   panel.innerHTML = `
     <div class="help-panel-head">
       <div>
@@ -57,6 +61,7 @@
     <div id="helpBody"></div>
   `;
   document.body.appendChild(panel);
+  let lastHelpTrigger = null;
 
   function normalize(text) {
     return String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -250,6 +255,7 @@
   function showHelp(id) {
     const item = itemMap.get(id);
     if (!item) return;
+    lastHelpTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const info = routeFor(item);
     const meta = [item.kind, item.className, item.slot, item.type, item.element]
       .filter(Boolean)
@@ -272,15 +278,18 @@
       <div class="help-note">${escapeHtml(info.confidence)}. Bungie can move acquisition paths; this panel uses the latest static manifest data bundled with the site.</div>
     `;
     panel.classList.add("open");
+    panel.focus({ preventScroll: true });
   }
 
-  function closeHelp() {
+  function closeHelp(returnFocus = false) {
+    const wasOpen = panel.classList.contains("open");
     panel.classList.remove("open");
+    if (returnFocus && wasOpen && lastHelpTrigger?.isConnected) lastHelpTrigger.focus({ preventScroll: true });
   }
 
   document.addEventListener("click", event => {
     if (event.target.closest(".help-close")) {
-      closeHelp();
+      closeHelp(true);
       return;
     }
 
@@ -293,11 +302,17 @@
       return;
     }
 
-    closeHelp();
+    closeHelp(false);
   });
 
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape") closeHelp();
+    if (event.key === "Escape") closeHelp(true);
+    if ((event.key === "Enter" || event.key === " ") && event.target.closest?.(".weapon-card,.armor-card")) {
+      const card = event.target.closest(".weapon-card,.armor-card");
+      if (!card?.dataset.helpId) return;
+      event.preventDefault();
+      showHelp(card.dataset.helpId);
+    }
   });
 
   const observer = new MutationObserver(addHelpButtons);
