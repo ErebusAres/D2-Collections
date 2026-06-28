@@ -214,17 +214,19 @@
     if (!els.summary) return;
     const weaponRows = flattenWeaponRows();
     const armorRows = flattenArmorRows();
+    const priorityRows = [...weaponRows, ...armorRows].filter(row => row.item?.priority?.mustHave);
     els.summary.innerHTML = [
       metric("Weapons owned", weaponRows.filter(row => row.owned).length, weaponRows.length, "Ares + Icee"),
       metric("Catalysts owned", weaponRows.filter(row => row.catalyst).length, weaponRows.length, "Obtained catalysts"),
       metric("Catalysts complete", weaponRows.filter(row => row.complete).length, weaponRows.length, "Finished catalysts"),
-      metric("Armor owned", armorRows.filter(row => row.owned).length, armorRows.length, "Configured classes")
+      metric("Armor owned", armorRows.filter(row => row.owned).length, armorRows.length, "Configured classes"),
+      metric("Priority missing", priorityRows.filter(row => !row.owned).length, priorityRows.length, "Must-have gaps")
     ].join("");
   }
 
   function metric(label, value, total, caption) {
     const pct = total ? Math.round((value / total) * 100) : 0;
-    return `<article class="summary-card"><strong>${value}<small>/${total}</small></strong><span>${label} · ${caption}</span><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></article>`;
+    return `<article class="summary-card"><strong>${value}<small>/${total}</small></strong><span>${label} / ${caption}</span><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></article>`;
   }
 
   function flattenWeaponRows() {

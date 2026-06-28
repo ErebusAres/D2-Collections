@@ -121,7 +121,7 @@
     const { player, className } = config[side];
     const klass = CLASS_LABELS[className] || className;
     title.className = `class-title ${className}`;
-    title.innerHTML = `<span>${CLASS_MARKS[className] || "◆"}</span><strong>${userName(player, "full")} · ${klass}</strong>`;
+    title.innerHTML = `<span>${CLASS_MARKS[className] || "◆"}</span><strong>${userName(player, "full")} / ${klass}</strong>`;
     const { search, view } = currentFilters();
     const items = [...(CATALOG.armor?.[className] || [])].sort((a,b) => (SLOT_ORDER[a.slot] || 99) - (SLOT_ORDER[b.slot] || 99) || a.name.localeCompare(b.name));
     const visible = items.filter(item => {

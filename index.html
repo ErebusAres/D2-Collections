@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>D2 Exotic Collections</title>
   <meta name="description" content="Manual Destiny 2 exotic collection tracker for weapons, catalysts, Warlock armor, Titan armor, and Hunter armor." />
-  <link rel="stylesheet" href="assets/styles.css?v=d2-priority-tags" />
+  <link rel="stylesheet" href="assets/styles.css?v=d2-priority-help" />
 </head>
 <body>
   <div class="app-shell">
@@ -13,7 +13,7 @@
       <div>
         <p class="eyebrow">Repo-backed Destiny 2 tracker</p>
         <h1>D2 Exotic Collections</h1>
-        <p class="hero-copy">A fast static checklist for Ares and Icee. The page reads from repo data, so the visible ✅ / ⛔ status is the source of truth across computers.</p>
+        <p class="hero-copy">A fast static checklist for Ares and Icee. The page reads from repo data, so the visible owned/missing status is the source of truth across computers.</p>
       </div>
       <div class="hero-actions">
         <div class="auth-chip" aria-label="Bungie account status">
@@ -28,8 +28,8 @@
 
     <nav class="toolbar" aria-label="Collection controls">
       <div class="search-wrap">
-        <span aria-hidden="true">⌕</span>
-        <input id="searchInput" type="search" placeholder="Search exotics, slots, elements, sources…" autocomplete="off" />
+        <span aria-hidden="true">/</span>
+        <input id="searchInput" type="search" placeholder="Search exotics, slots, elements, sources..." autocomplete="off" />
       </div>
       <div class="segmented" role="group" aria-label="View filter">
         <button class="seg active" data-view="all" type="button">All</button>
@@ -67,11 +67,11 @@
         </div>
         <div class="armor-columns">
           <article>
-            <div class="class-title warlock"><span>◆</span><strong>🔥 Ares (ErebusAres) · Warlock</strong></div>
+            <div class="class-title warlock"><span>◆</span><strong>Ares (ErebusAres) / Warlock</strong></div>
             <div id="warlockList" class="armor-list"></div>
           </article>
           <article>
-            <div class="class-title titan"><span>◆</span><strong>🧊 Icee (IceeDedPple) · Titan</strong></div>
+            <div class="class-title titan"><span>◆</span><strong>Icee (IceeDedPple) / Titan</strong></div>
             <div id="titanList" class="armor-list"></div>
           </article>
         </div>
@@ -87,7 +87,7 @@
         <span class="count-pill">Read-only display</span>
       </div>
       <p class="muted">GitHub Pages cannot persist checklist changes by itself. Edit <code>data/checklist.js</code> in the repo, or export this state and send it here so GPT can update the repo data.</p>
-      <textarea id="exportBox" spellcheck="false" placeholder="Exported checklist JSON appears here…"></textarea>
+      <textarea id="exportBox" spellcheck="false" placeholder="Exported checklist JSON appears here..."></textarea>
     </section>
   </div>
 
@@ -98,13 +98,13 @@
   <script src="data/icon-map.js?v=244164-icons-283"></script>
   <script src="data/bungie-collectible-map.js?v=244164-sources"></script>
   <script src="assets/static-icons.js?v=manifest-sources"></script>
-  <script src="data/priority-tags.js?v=final-priority"></script>
+  <script src="data/priority-tags.js?v=final-priority-confidence"></script>
   <script src="data/checklist.js"></script>
   <script src="assets/oauth-redirect-fix.js?v=53180-index"></script>
-  <script src="assets/app.js?v=53180-priority-tags"></script>
+  <script src="assets/app.js?v=53180-priority-summary"></script>
   <script src="assets/auth-compact.js"></script>
-  <script src="assets/armor-columns.js?v=d2-priority-tags"></script>
-  <script src="assets/help.js?v=d2-polish"></script>
+  <script src="assets/armor-columns.js?v=d2-priority-clean"></script>
+  <script src="assets/help.js?v=d2-priority-help"></script>
   <script src="assets/icon-audit.js"></script>
   <script src="assets/api-handoff.js"></script>
   <script src="assets/bungie-collection-dump.js?v=53180-rahool-resources"></script>

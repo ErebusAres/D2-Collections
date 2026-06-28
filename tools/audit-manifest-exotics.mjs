@@ -113,6 +113,7 @@ async function main() {
     missingCount: missing.length,
     missing
   }, null, 2));
+  if (missing.length) process.exitCode = 1;
 }
 
 main().catch(error => {

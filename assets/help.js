@@ -20,6 +20,8 @@
     .help-steps li{margin:6px 0}
     .help-note{color:var(--muted);font-size:.78rem;line-height:1.45;margin-top:10px}
     .help-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .help-priority{border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.055);border-radius:8px;padding:9px 10px;color:var(--soft);font-size:.84rem;line-height:1.45}
+    .help-priority strong{display:block;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
     .help-subhead{color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-top:12px}
     @media(max-width:780px){.help-panel{left:10px;right:10px;top:auto;bottom:10px;width:auto;max-height:72vh;border-radius:16px;transform:translateY(calc(100% + 24px))}.help-panel.open{transform:translateY(0)}}
   `;
@@ -150,6 +152,28 @@
     return { source, localSource, steps, confidence };
   }
 
+  function priorityBlocks(item) {
+    const priority = item.priority || {};
+    const blocks = [];
+    if (priority.mustHave) {
+      blocks.push(`<div class="help-priority"><strong>Priority reason</strong>${escapeHtml(priority.note || "High-priority community PvE pickup after the final update.")}</div>`);
+    }
+    if (priority.finalUpdate) {
+      blocks.push(`<div class="help-priority"><strong>Final update</strong>${escapeHtml(priority.finalUpdateLabel || "Post June 9 final update")} catalyst relevance. Track catalyst ownership and completion separately.</div>`);
+    }
+    if (priority.easyWin) {
+      const easy = (priority.tags || []).find(tag => tag.id === "easy");
+      blocks.push(`<div class="help-priority"><strong>Easy win</strong>${escapeHtml(easy?.title || "Deterministic or lower-RNG acquisition path compared with random drops.")}</div>`);
+    }
+    if (priority.rahool) {
+      blocks.push(`<div class="help-priority"><strong>Rahool check</strong>If the logged-in player has 1+ Exotic Cipher and 1+ Exotic Engram, missing eligible armor shows a Buy now chip. The site does not yet verify per-item focusing unlock state.</div>`);
+    }
+    if (priority.confidence) {
+      blocks.push(`<div class="help-priority"><strong>Confidence</strong>${escapeHtml(priority.confidence)} - ${escapeHtml(priority.confidenceNote || "Source confidence not specified.")}</div>`);
+    }
+    return blocks.join("");
+  }
+
   function addHelpButtons() {
     document.querySelectorAll(".weapon-card,.armor-card").forEach(card => {
       const id = card.dataset.id;
@@ -180,12 +204,14 @@
       .filter(Boolean)
       .map(v => `<span class="badge">${escapeHtml(v)}</span>`)
       .join("");
+    const priorityMeta = item.priority?.confidence ? `<span class="priority-chip confidence" title="${escapeHtml(item.priority.confidenceNote || "")}">${escapeHtml(item.priority.confidence)}</span>` : "";
     panel.querySelector("#helpTitle").textContent = item.name;
-    panel.querySelector("#helpMeta").innerHTML = meta;
+    panel.querySelector("#helpMeta").innerHTML = meta + priorityMeta;
     panel.querySelector("#helpBody").innerHTML = `
       <div class="help-grid">
         <div class="help-source"><strong>Bungie source</strong>${escapeHtml(info.source)}</div>
         ${info.localSource && info.localSource !== info.source ? `<div class="help-source"><strong>Catalog tag</strong>${escapeHtml(info.localSource)}</div>` : ""}
+        ${priorityBlocks(item)}
       </div>
       <div class="help-subhead">Route</div>
       <ol class="help-steps">${info.steps.map(step => `<li>${escapeHtml(step)}</li>`).join("")}</ol>

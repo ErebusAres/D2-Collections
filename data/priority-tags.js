@@ -1,6 +1,6 @@
 (() => {
   const catalog = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
-  const FINAL_UPDATE_LABEL = "Post Jun 9 final update";
+  const FINAL_UPDATE_LABEL = "Post June 9 final update";
 
   const notes = {
     "riskrunner": "Final update catalyst adds Chain Reaction, making an already strong add-clear weapon a high-value pickup.",
@@ -92,6 +92,17 @@
       note: notes[item.id] || "",
       tags
     };
+    if (source.includes("exotic archive") || source.includes("monument") || source.includes("rahool") || source.includes("focusing")) {
+      item.priority.confidence = "Manifest";
+      item.priority.confidenceNote = "Acquisition source comes from Bungie manifest/source data or deterministic vendor tags.";
+    } else if (mustHave.has(item.id) || finalCatalyst.has(item.id)) {
+      item.priority.confidence = "Community meta";
+      item.priority.confidenceNote = "Priority tag is based on post-final-update community/buildcraft value and should be revisited after sandbox changes.";
+    } else {
+      item.priority.confidence = "Manual";
+      item.priority.confidenceNote = "Fallback catalog/source judgement; verify in game if acquisition changed.";
+    }
+    item.priority.finalUpdateLabel = FINAL_UPDATE_LABEL;
   }
 
   (catalog.weapons || []).forEach(item => apply(item, "weapon"));
