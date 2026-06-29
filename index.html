@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>D2 Exotic Collections</title>
   <meta name="description" content="Manual Destiny 2 exotic collection tracker for weapons, catalysts, Warlock armor, Titan armor, and Hunter armor." />
-  <link rel="stylesheet" href="assets/styles.css?v=d2-real-armor-icons" />
+  <link rel="stylesheet" href="assets/styles.css?v=d2-global-theme-pass" />
   <script>
     (() => {
       try {
@@ -64,6 +64,7 @@
       </div>
       <div class="segmented" role="group" aria-label="View filter">
         <button class="seg active" data-view="all" type="button">All</button>
+        <button class="seg" data-view="needs" type="button">Needs Action</button>
         <button class="seg" data-view="priority" type="button">Priority</button>
         <button class="seg" data-view="easy" type="button">Easy</button>
         <button class="seg" data-view="missing" type="button">Missing</button>
@@ -78,6 +79,7 @@
         <span>Sort</span>
         <select id="sortSelect" aria-label="Sort collection">
           <option value="catalog">Catalog</option>
+          <option value="needs">Needs action first</option>
           <option value="priority">Priority first</option>
           <option value="missing">Missing first</option>
           <option value="easy">Easy wins first</option>
@@ -160,10 +162,10 @@
   <script src="data/priority-tags.js?v=final-priority-confidence"></script>
   <script src="data/checklist.js"></script>
   <script src="assets/oauth-redirect-fix.js?v=53180-index"></script>
-  <script src="assets/app.js?v=d2-real-armor-icons"></script>
+  <script src="assets/app.js?v=d2-global-theme-pass"></script>
   <script src="assets/auth-compact.js"></script>
-  <script src="assets/armor-columns.js?v=d2-real-armor-icons"></script>
-  <script src="assets/help.js?v=d2-real-armor-icons"></script>
+  <script src="assets/armor-columns.js?v=d2-global-theme-pass"></script>
+  <script src="assets/help.js?v=d2-global-theme-pass"></script>
   <script src="assets/layout-mode.js?v=d2-ux-nav-legend-sort"></script>
   <script src="assets/icon-audit.js"></script>
   <script src="assets/api-handoff.js"></script>

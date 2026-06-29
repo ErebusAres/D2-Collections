@@ -113,6 +113,10 @@
     return `<span class="priority-tags">${tags.slice(0, 3).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${tagIcon(tag.id)}</span>`).join("")}</span>`;
   }
 
+  function needsArmorAction(item, player, owned) {
+    return !owned && Boolean(item.priority?.mustHave || item.priority?.easyWin || (item.priority?.rahool && hasRahoolMaterials(player)));
+  }
+
   function tagIcon(id) {
     const icons = {
       must: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5v9H4v-9h3.5Zm2.5 9V10l4.2-6.2c.4-.6 1.3-.5 1.6.1.3.6.3 1.4 0 2L14.5 9h4.2c1.1 0 1.9 1 1.7 2l-1.1 6.2c-.2 1.3-1.3 2.3-2.7 2.3H10Z"/></svg>`,
@@ -163,6 +167,7 @@
       const haystack = [item.name, item.slot, item.bungieSource, item.source, item.priority?.note, ...(item.priority?.tags || []).map(tag => tag.label)].join(" ").toLowerCase();
       const owned = getOwned(className, item.id, player);
       if (search && !haystack.includes(search)) return false;
+      if (view === "needs" && !needsArmorAction(item, player, owned)) return false;
       if (view === "missing" && owned) return false;
       if (view === "catalysts") return false;
       if (view === "priority" && !item.priority?.mustHave) return false;

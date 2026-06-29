@@ -17,11 +17,20 @@
     .item-help-btn{flex:0 0 auto;border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.07);color:var(--soft);border-radius:6px;width:24px;height:24px;display:inline-grid;place-items:center;font-size:.78rem;font-weight:900;line-height:1}
     .item-help-btn:hover,.item-help-btn:focus-visible{border-color:rgba(243,189,79,.45);color:var(--gold);outline:0}
     .item-name{min-width:0}
-    .help-panel{position:fixed;z-index:70;right:16px;top:16px;width:min(430px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),#0d1119;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:14px;transform:translateX(calc(100% + 24px));transition:transform .18s ease;outline:none}
+    .help-panel{position:fixed;z-index:70;right:16px;top:16px;width:min(480px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018)),#0d1119;box-shadow:0 24px 80px rgba(0,0,0,.55);padding:14px;transform:translateX(calc(100% + 24px));transition:transform .18s ease;outline:none}
     .help-panel.open{transform:translateX(0)}
     .help-panel-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
     .help-panel h2{font-size:1.05rem;line-height:1.2;margin:0}
     .help-close{border:1px solid var(--line);border-radius:7px;background:rgba(255,255,255,.06);color:var(--text);width:32px;height:32px;flex:0 0 auto}
+    .help-hero{display:grid;grid-template-columns:74px minmax(0,1fr);gap:12px;align-items:center;border:1px solid rgba(216,177,91,.22);border-radius:10px;padding:10px;background:linear-gradient(90deg,rgba(216,177,91,.1),transparent 40%),rgba(0,0,0,.18);margin-bottom:10px}
+    .help-item-icon,.help-item-fallback{width:74px;height:74px;border-radius:7px;border:1px solid rgba(216,177,91,.5);background:#080b10;object-fit:cover;box-shadow:inset 0 0 0 1px rgba(255,255,255,.055)}
+    .help-item-fallback{display:grid;place-items:center;color:var(--gold);font-weight:900;font-size:1.1rem}
+    .help-hero-title{min-width:0}
+    .help-hero-title h3{margin:0 0 6px;font-size:1.12rem;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .help-hero-title p{margin:0;color:var(--muted);font-size:.8rem;line-height:1.35}
+    .help-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+    .help-action{display:inline-flex;align-items:center;min-height:28px;border:1px solid rgba(216,177,91,.22);border-radius:7px;padding:5px 8px;color:var(--soft);background:rgba(0,0,0,.22);font-size:.72rem;font-weight:800;text-decoration:none}
+    .help-action:hover{color:var(--gold-bright);border-color:rgba(216,177,91,.38)}
     .help-grid{display:grid;gap:8px;margin:10px 0}
     .help-source{border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.07);border-radius:8px;padding:9px 10px;color:var(--soft);font-size:.84rem;line-height:1.4}
     .help-source strong{display:block;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px}
@@ -71,8 +80,11 @@
     .help-status-row .is-yes{color:#caffdf;border-color:rgba(88,214,154,.3);background:rgba(88,214,154,.08)}
     .help-status-row .is-no{color:#ffd7dc;border-color:rgba(224,111,120,.22);background:rgba(224,111,120,.06)}
     .help-status-row .is-neutral{color:var(--muted);border-color:rgba(202,209,221,.16);background:rgba(202,209,221,.06)}
+    .help-state-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+    .help-state-summary span{border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.2);padding:7px;color:var(--muted);font-size:.68rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+    .help-state-summary strong{display:block;color:var(--soft);font-size:1rem;letter-spacing:0;text-transform:none}
     @media(max-width:780px){.help-panel{left:10px;right:10px;top:auto;bottom:10px;width:auto;max-height:72vh;border-radius:16px;transform:translateY(calc(100% + 24px))}.help-panel.open{transform:translateY(0)}}
-    @media(max-width:780px){.help-details{grid-template-columns:1fr}.help-status-row{grid-template-columns:minmax(58px,.7fr) repeat(3,minmax(44px,1fr))}}
+    @media(max-width:780px){.help-details{grid-template-columns:1fr}.help-status-row{grid-template-columns:minmax(58px,.7fr) repeat(3,minmax(44px,1fr))}.help-hero{grid-template-columns:58px minmax(0,1fr)}.help-item-icon,.help-item-fallback{width:58px;height:58px}.help-state-summary{grid-template-columns:1fr}}
   `;
 
   const style = document.createElement("style");
@@ -215,6 +227,14 @@
 
   function dimIcon(filename, label) {
     return `<img class="dim-icon" src="assets/dim-icons/${escapeHtml(filename)}" alt="" title="${escapeHtml(label)}" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />`;
+  }
+
+  function itemIcon(item) {
+    const raw = item.icon || item.iconUrl || "";
+    const src = raw && raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw;
+    if (src) return `<img class="help-item-icon" src="${escapeHtml(src)}" alt="${escapeHtml(item.name)} icon" width="74" height="74" loading="lazy" decoding="async" />`;
+    const initials = String(item.name || "?").split(/\s+|-/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase() || "").join("") || "?";
+    return `<div class="help-item-fallback" aria-hidden="true">${escapeHtml(initials)}</div>`;
   }
 
   function titleCase(value) {
@@ -365,20 +385,32 @@
     if (!userIds.length) return "";
     if (item.kind === "weapon") {
       const hasCat = weaponHasCatalyst(item);
+      const ownedCount = userIds.filter(player => state.weapons?.[item.id]?.[player]?.owned).length;
+      const catCount = hasCat ? userIds.filter(player => state.weapons?.[item.id]?.[player]?.catalyst).length : 0;
+      const doneCount = hasCat ? userIds.filter(player => state.weapons?.[item.id]?.[player]?.complete).length : 0;
       const rows = userIds.map(player => {
         const row = state.weapons?.[item.id]?.[player] || {};
         const name = users[player]?.short || users[player]?.label || player;
         return `<div class="help-status-row"><span>${escapeHtml(name)}</span><span class="${statusClass(row.owned)}">Own</span><span class="${hasCat ? statusClass(row.catalyst) : "is-neutral"}">${hasCat ? "Cat" : "No cat"}</span><span class="${hasCat ? statusClass(row.complete) : "is-neutral"}">${hasCat ? "Done" : "None"}</span></div>`;
       }).join("");
-      return `<div class="help-subhead">Collection state</div><div class="help-status-list">${rows}</div>`;
+      return `<div class="help-subhead">Collection state</div><div class="help-state-summary"><span><strong>${ownedCount}/${userIds.length}</strong>Owned</span><span><strong>${hasCat ? `${catCount}/${userIds.length}` : "none"}</strong>Catalyst</span><span><strong>${hasCat ? `${doneCount}/${userIds.length}` : "none"}</strong>Complete</span></div><div class="help-status-list">${rows}</div>`;
     }
     const className = item.className;
+    const ownedCount = userIds.filter(player => state.armor?.[className]?.[item.id]?.[player]?.owned).length;
     const rows = userIds.map(player => {
       const row = state.armor?.[className]?.[item.id]?.[player] || {};
       const name = users[player]?.short || users[player]?.label || player;
       return `<div class="help-status-row"><span>${escapeHtml(name)}</span><span class="${statusClass(row.owned)}">Own</span><span></span><span></span></div>`;
     }).join("");
-    return `<div class="help-subhead">Collection state</div><div class="help-status-list">${rows}</div>`;
+    return `<div class="help-subhead">Collection state</div><div class="help-state-summary"><span><strong>${ownedCount}/${userIds.length}</strong>Owned</span><span><strong>${titleCase(className)}</strong>Class</span><span><strong>${titleCase(item.slot)}</strong>Slot</span></div><div class="help-status-list">${rows}</div>`;
+  }
+
+  function heroSubtitle(item) {
+    return [item.kind === "armor" ? titleCase(item.className) : "", item.slot, item.type, item.element].filter(Boolean).map(titleCase).join(" / ");
+  }
+
+  function searchUrl(item) {
+    return `https://www.google.com/search?q=${encodeURIComponent(`site:light.gg Destiny 2 ${item.name}`)}`;
   }
 
   function addHelpButtons() {
@@ -413,6 +445,17 @@
     panel.querySelector("#helpTitle").textContent = item.name;
     panel.querySelector("#helpMeta").innerHTML = meta + priorityMeta;
     panel.querySelector("#helpBody").innerHTML = `
+      <div class="help-hero">
+        ${itemIcon(item)}
+        <div class="help-hero-title">
+          <h3>${escapeHtml(item.name)}</h3>
+          <p>${escapeHtml(heroSubtitle(item) || "Destiny 2 exotic")}</p>
+          <div class="help-actions">
+            <a class="help-action" href="${escapeHtml(searchUrl(item))}" target="_blank" rel="noreferrer">Item page search</a>
+            <span class="help-action" title="${escapeHtml(item.id)}">ID: ${escapeHtml(item.id)}</span>
+          </div>
+        </div>
+      </div>
       <div class="help-grid">
         <div class="help-source"><strong>Bungie source</strong>${escapeHtml(info.source)}</div>
         ${info.localSource && info.localSource !== info.source ? `<div class="help-source"><strong>Catalog tag</strong>${escapeHtml(info.localSource)}</div>` : ""}
@@ -443,8 +486,7 @@
 
     if (event.target.closest(".help-panel")) return;
 
-    const clickable = event.target.closest(".item-help-btn,.status-cell") ||
-      (document.documentElement.classList.contains("layout-simple") ? event.target.closest(".weapon-card,.armor-card") : null);
+    const clickable = event.target.closest(".item-help-btn,.status-cell,.weapon-card,.armor-card");
     if (clickable?.dataset.helpId) {
       showHelp(clickable.dataset.helpId);
       return;

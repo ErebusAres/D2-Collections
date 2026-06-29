@@ -234,6 +234,7 @@
 
   function matchesWeaponViewForPlayers(item, visiblePlayers) {
     const rows = visiblePlayers.map(player => state.weapons[item.id]?.[player] || blankWeapon());
+    if (filters.view === "needs") return needsWeaponAction(item, rows, visiblePlayers);
     if (filters.view === "missing") return rows.some(row => !row.owned);
     if (filters.view === "catalysts") return weaponHasCatalyst(item) && rows.some(row => row.owned && (!row.catalyst || !row.complete));
     if (filters.view === "priority") return Boolean(item.priority?.mustHave);
@@ -243,6 +244,7 @@
 
   function matchesArmorView(className, item) {
     const rows = armorPlayersForClass(className).map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
+    if (filters.view === "needs") return needsArmorAction(item, rows, armorPlayersForClass(className));
     if (filters.view === "missing") return rows.some(row => !row.owned);
     if (filters.view === "catalysts") return false;
     if (filters.view === "priority") return Boolean(item.priority?.mustHave);
@@ -252,6 +254,21 @@
 
   function rowScore(rows, getter) {
     return rows.some(getter) ? 0 : 1;
+  }
+
+  function catalystGap(item, rows) {
+    return weaponHasCatalyst(item) && rows.some(row => row.owned && (!row.catalyst || !row.complete));
+  }
+
+  function needsWeaponAction(item, rows, visiblePlayers = playerList()) {
+    const missing = rows.some(row => !row.owned);
+    return catalystGap(item, rows) ||
+      (missing && Boolean(item.priority?.mustHave || item.priority?.easyWin || rahoolReady(item, visiblePlayers)));
+  }
+
+  function needsArmorAction(item, rows, visiblePlayers = playerList()) {
+    const missing = rows.some(row => !row.owned);
+    return missing && Boolean(item.priority?.mustHave || item.priority?.easyWin || rahoolReady(item, visiblePlayers));
   }
 
   function priorityScore(item) {
@@ -283,6 +300,9 @@
 
     let diff = 0;
     if (filters.sort === "priority") diff = priorityScore(a) - priorityScore(b);
+    if (filters.sort === "needs") diff = (context.kind === "weapon"
+      ? rowScore(rowsA, row => needsWeaponAction(a, rowsA, playersForSort)) - rowScore(rowsB, row => needsWeaponAction(b, rowsB, playersForSort))
+      : rowScore(rowsA, row => needsArmorAction(a, rowsA, playersForSort)) - rowScore(rowsB, row => needsArmorAction(b, rowsB, playersForSort)));
     if (filters.sort === "missing") diff = rowScore(rowsA, row => !row.owned) - rowScore(rowsB, row => !row.owned);
     if (filters.sort === "easy") diff = (a.priority?.easyWin ? 0 : 1) - (b.priority?.easyWin ? 0 : 1);
     if (filters.sort === "rahool") diff = (rahoolReady(a, playersForSort) ? 0 : 1) - (rahoolReady(b, playersForSort) ? 0 : 1);
@@ -348,12 +368,17 @@
     const catalystRows = weaponRows.filter(row => weaponHasCatalyst(row.item));
     const armorRows = flattenArmorRows();
     const priorityRows = [...weaponRows, ...armorRows].filter(row => row.item?.priority?.mustHave);
+    const needsRows = [
+      ...(CATALOG.weapons || []).filter(item => needsWeaponAction(item, playerList().map(player => state.weapons[item.id]?.[player] || blankWeapon()), playerList())),
+      ...armorClasses().flatMap(className => (CATALOG.armor[className] || []).filter(item => needsArmorAction(item, armorPlayersForClass(className).map(player => state.armor[className]?.[item.id]?.[player] || blankArmor()), armorPlayersForClass(className))))
+    ];
     els.summary.innerHTML = [
       metric("Weapons owned", weaponRows.filter(row => row.owned).length, weaponRows.length, "Ares + Icee"),
       metric("Catalysts owned", catalystRows.filter(row => row.catalyst).length, catalystRows.length, "Weapons with catalysts"),
       metric("Catalysts complete", catalystRows.filter(row => row.complete).length, catalystRows.length, "Finished catalysts"),
       metric("Armor owned", armorRows.filter(row => row.owned).length, armorRows.length, "Configured classes"),
       metric("Priority missing", priorityRows.filter(row => !row.owned).length, priorityRows.length, "Must-have gaps"),
+      metric("Needs action", needsRows.length, (CATALOG.weapons || []).length + armorClasses().reduce((sum, className) => sum + (CATALOG.armor[className] || []).length, 0), "missing, buyable, catalyst gaps"),
       ...players.map(resourceMetric)
     ].join("");
   }
@@ -776,7 +801,10 @@
   }
 
   function focusSiteSearch(event) {
-    if (!els.search || event.key.toLowerCase() !== "f" || (!event.ctrlKey && !event.metaKey) || event.altKey) return;
+    if (!els.search) return;
+    const isFind = event.key.toLowerCase() === "f" && (event.ctrlKey || event.metaKey) && !event.altKey;
+    const isSlash = event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey;
+    if (!isFind && !isSlash) return;
     if (shouldKeepNativeFind(event)) return;
     event.preventDefault();
     els.search.focus({ preventScroll: true });
