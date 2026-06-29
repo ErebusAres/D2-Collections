@@ -449,10 +449,17 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   background: transparent;
   color: var(--soft);
 }
-.legend-chip svg {
+.legend-chip svg,
+.legend-chip img {
   width: 16px;
   height: 16px;
   display: block;
+}
+.legend-chip img {
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(88%) sepia(10%) saturate(379%) hue-rotate(180deg) brightness(96%) contrast(94%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+}
+.legend-chip svg {
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
@@ -461,6 +468,10 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.72));
 }
 .legend-chip.must { color: var(--gold-bright); }
+.legend-chip.must img,
+.legend-chip.final img {
+  filter: brightness(0) saturate(100%) invert(84%) sepia(58%) saturate(508%) hue-rotate(358deg) brightness(101%) contrast(88%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+}
 .legend-chip.must svg,
 .legend-chip.final svg,
 .legend-chip.rahool svg {
@@ -468,12 +479,19 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   stroke: none;
 }
 .legend-chip.easy { color: var(--green); }
+.legend-chip.easy img {
+  filter: brightness(0) saturate(100%) invert(74%) sepia(46%) saturate(529%) hue-rotate(94deg) brightness(95%) contrast(90%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+}
 .legend-chip.final { color: var(--purple); }
 .legend-chip.rahool { color: var(--blue); }
+.legend-chip.rahool img {
+  filter: brightness(0) saturate(100%) invert(65%) sepia(42%) saturate(772%) hue-rotate(176deg) brightness(91%) contrast(89%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+}
 .legend-chip.buy {
   color: #07100b;
   background: var(--green);
 }
+.legend-chip.buy img { filter: brightness(0) saturate(100%) invert(4%) sepia(14%) saturate(1331%) hue-rotate(89deg) brightness(92%) contrast(96%); }
 
 .content-grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(520px, .92fr); gap: 18px; align-items: start; }
 .panel {
@@ -602,10 +620,17 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   text-transform: uppercase;
   flex: 0 0 24px;
 }
-.priority-chip svg {
+.priority-chip svg,
+.priority-chip img {
   width: 18px;
   height: 18px;
   display: block;
+}
+.priority-chip img {
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(88%) sepia(10%) saturate(379%) hue-rotate(180deg) brightness(96%) contrast(94%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+}
+.priority-chip svg {
   fill: none;
   stroke: currentColor;
   stroke-width: 2.2;
@@ -622,9 +647,19 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 .priority-chip.must {
   color: var(--gold-bright);
 }
+.priority-chip.must img,
+.priority-chip.final img {
+  filter: brightness(0) saturate(100%) invert(84%) sepia(58%) saturate(508%) hue-rotate(358deg) brightness(101%) contrast(88%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+}
 .priority-chip.final { color: var(--purple); }
 .priority-chip.easy { color: var(--green); }
+.priority-chip.easy img {
+  filter: brightness(0) saturate(100%) invert(74%) sepia(46%) saturate(529%) hue-rotate(94deg) brightness(95%) contrast(90%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+}
 .priority-chip.rahool { color: var(--blue); }
+.priority-chip.rahool img {
+  filter: brightness(0) saturate(100%) invert(65%) sepia(42%) saturate(772%) hue-rotate(176deg) brightness(91%) contrast(89%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+}
 .priority-chip.confidence { color: var(--muted); }
 .priority-chip.buy {
   color: #07100b;
@@ -632,6 +667,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   border-radius: 5px;
   border-color: transparent;
 }
+.priority-chip.buy img { filter: brightness(0) saturate(100%) invert(4%) sepia(14%) saturate(1331%) hue-rotate(89deg) brightness(92%) contrast(96%); }
 .help-meta .priority-chip {
   width: auto;
   flex-basis: auto;
@@ -770,36 +806,24 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 .status-cell.idle { color: var(--muted); background: rgba(202,209,221,.07); border-color: rgba(202,209,221,.16); }
 .status-cell.dim { opacity: .5; }
 .status-mark {
-  width: 14px;
-  height: 14px;
-  display: inline-block;
-  position: relative;
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
 }
-.status-cell.yes .status-mark {
-  border: 1px solid rgba(202,255,223,.82);
-  transform: rotate(45deg);
+.status-mark img {
+  width: 15px;
+  height: 15px;
+  display: block;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(89%) sepia(20%) saturate(316%) hue-rotate(88deg) brightness(101%) contrast(91%) drop-shadow(0 1px 2px rgba(0,0,0,.7));
 }
-.status-cell.yes .status-mark::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  background: rgba(202,255,223,.8);
+.status-cell.no .status-mark img {
+  filter: brightness(0) saturate(100%) invert(80%) sepia(18%) saturate(1326%) hue-rotate(303deg) brightness(100%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.7));
 }
-.status-cell.no .status-mark::before,
-.status-cell.no .status-mark::after {
-  content: "";
-  position: absolute;
-  left: 1px;
-  right: 1px;
-  top: 6px;
-  height: 1px;
-  background: rgba(255,215,220,.72);
-}
-.status-cell.no .status-mark::before { transform: rotate(45deg); }
-.status-cell.no .status-mark::after { transform: rotate(-45deg); }
-.status-cell.idle .status-mark {
-  border-radius: 999px;
-  background: rgba(202,209,221,.38);
+.status-cell.idle .status-mark img {
+  filter: brightness(0) saturate(100%) invert(69%) sepia(8%) saturate(497%) hue-rotate(180deg) brightness(89%) contrast(87%) drop-shadow(0 1px 2px rgba(0,0,0,.7));
+  opacity: .72;
 }
 
 .armor-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -1167,11 +1191,17 @@ html.layout-simple .priority-chip {
   background: transparent;
   box-shadow: none;
 }
-html.layout-simple .priority-chip svg {
+html.layout-simple .priority-chip svg,
+html.layout-simple .priority-chip img {
   width: 18px;
   height: 18px;
+}
+html.layout-simple .priority-chip svg {
   stroke-width: 2.4;
   filter: drop-shadow(0 1px 2px rgba(0,0,0,.92));
+}
+html.layout-simple .priority-chip img {
+  object-fit: contain;
 }
 html.layout-simple .priority-chip.buy { background: var(--green); }
 html.layout-simple .priority-chip:nth-child(n+4) {

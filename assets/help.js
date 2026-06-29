@@ -62,12 +62,17 @@
     .help-priority{border:1px solid rgba(216,177,91,.24);background:rgba(216,177,91,.055);border-radius:8px;padding:9px 10px;color:var(--soft);font-size:.84rem;line-height:1.45}
     .help-priority-head{display:flex;align-items:center;gap:7px;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-bottom:4px}
     .help-priority-symbol{display:inline-grid;place-items:center;width:20px;height:20px;color:var(--gold-bright)}
-    .help-priority-symbol svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+    .help-priority-symbol svg,.help-priority-symbol img{width:18px;height:18px;display:block}
+    .help-priority-symbol img{object-fit:contain;filter:brightness(0) saturate(100%) invert(84%) sepia(58%) saturate(508%) hue-rotate(358deg) brightness(101%) contrast(88%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol svg{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
     .help-priority-symbol.must svg,.help-priority-symbol.final svg,.help-priority-symbol.rahool svg{fill:currentColor;stroke:none}
     .help-priority-symbol.easy{color:var(--green)}
+    .help-priority-symbol.easy img{filter:brightness(0) saturate(100%) invert(74%) sepia(46%) saturate(529%) hue-rotate(94deg) brightness(95%) contrast(90%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol.final{color:var(--purple)}
     .help-priority-symbol.rahool{color:var(--blue)}
+    .help-priority-symbol.rahool img{filter:brightness(0) saturate(100%) invert(65%) sepia(42%) saturate(772%) hue-rotate(176deg) brightness(91%) contrast(89%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol.buy{color:#07100b;background:var(--green);border-radius:5px}
+    .help-priority-symbol.buy img{filter:brightness(0) saturate(100%) invert(4%) sepia(14%) saturate(1331%) hue-rotate(89deg) brightness(92%) contrast(96%)}
     .help-priority-symbol.confidence{color:var(--muted)}
     .help-subhead{color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-top:12px}
     .help-details{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
@@ -148,14 +153,14 @@
 
   function tagIcon(id) {
     const icons = {
-      must: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5v9H4v-9h3.5Zm2.5 9V10l4.2-6.2c.4-.6 1.3-.5 1.6.1.3.6.3 1.4 0 2L14.5 9h4.2c1.1 0 1.9 1 1.7 2l-1.1 6.2c-.2 1.3-1.3 2.3-2.7 2.3H10Z"/></svg>`,
-      easy: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.2 4.2L19.5 6.5"/></svg>`,
-      final: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 14.2 10l6.3 2-6.3 2L12 20.5 9.8 14l-6.3-2 6.3-2L12 3.5Z"/></svg>`,
-      rahool: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 20.5 12 12 20.5 3.5 12 12 3.5Z"/><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg>`,
-      buy: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>`,
-      confidence: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 10v7"/><path d="M12 7h.01"/><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"/></svg>`
+      must: dimIcon("dim_thumb_up.svg", "DIM thumbs-up priority icon"),
+      easy: dimIcon("dim_check.svg", "DIM check icon"),
+      final: dimIcon("dim_masterwork_hammer.svg", "DIM masterwork catalyst icon"),
+      rahool: dimIcon("dim_engram.svg", "DIM engram icon"),
+      buy: dimIcon("dim_shopping_cart.svg", "DIM shopping cart icon"),
+      confidence: dimIcon("dim_exclamation_triangle.svg", "DIM warning icon")
     };
-    return icons[id] || `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12h.01"/></svg>`;
+    return icons[id] || dimIcon("dim_bookmark.svg", "DIM marker icon");
   }
 
   function slotIcon(slot) {
