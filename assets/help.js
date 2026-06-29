@@ -363,6 +363,8 @@
   function priorityBlocks(item) {
     const priority = item.priority || {};
     const blocks = [];
+    const xurAvailable = xurHasItem(item.id);
+    const xurPreferredArmor = xurAvailable && item.kind === "armor";
     if (priority.mustHave) {
       blocks.push(priorityBlock("must", "Must have", priority.note || "High-priority community PvE pickup after the final update."));
     }
@@ -373,11 +375,14 @@
       const easy = (priority.tags || []).find(tag => tag.id === "easy");
       blocks.push(priorityBlock("easy", "Easy win", easy?.title || "Deterministic or lower-RNG acquisition path compared with random drops."));
     }
-    if (priority.rahool) {
+    if (priority.rahool && !xurPreferredArmor) {
       blocks.push(priorityBlock("rahool", "Rahool check", "If the logged-in player has 1+ Exotic Cipher and 1+ Exotic Engram, missing eligible armor shows a Buy now chip. The site does not yet verify per-item focusing unlock state."));
     }
-    if (xurHasItem(item.id)) {
-      blocks.push(priorityBlock("xur", "Xur has it", "The latest logged-in Bungie vendor check matched this item in Xur's Tower inventory during the current Friday noon-Monday noon Central window."));
+    if (xurAvailable) {
+      const body = xurPreferredArmor
+        ? "The latest logged-in Bungie vendor check matched this armor in Xur's Tower inventory. Prefer Xur over Rahool when available because it is usually the cheaper, simpler pickup."
+        : "The latest logged-in Bungie vendor check matched this item in Xur's Tower inventory during the current Friday noon-Monday noon Central window.";
+      blocks.push(priorityBlock("xur", "Xur has it", body));
     }
     if (priority.confidence) {
       blocks.push(priorityBlock("confidence", "Confidence", `${priority.confidence} - ${priority.confidenceNote || "Source confidence not specified."}`));

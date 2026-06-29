@@ -556,12 +556,17 @@
   }
 
   function priorityBadges(item, visiblePlayers, owned = false) {
-    const tags = [...(item.priority?.tags || [])];
-    if (xurHasItem(item.id)) {
+    const xurAvailable = xurHasItem(item.id);
+    const isArmor = !item.type && item.slot && !["kinetic", "energy", "power"].includes(String(item.slot).toLowerCase());
+    const tags = [...(item.priority?.tags || [])].filter(tag => !(isArmor && xurAvailable && tag.id === "rahool"));
+    if (xurAvailable) {
       const checkedAt = xurStock?.checkedAt ? ` Checked ${formatShortDate(xurStock.checkedAt)}.` : "";
-      tags.unshift({ id: "xur", label: "Xur", title: `Xur has this item at the Tower during the current weekend visit.${checkedAt}` });
+      const title = isArmor
+        ? `Xur has this armor at the Tower during the current weekend visit. This is preferred over Rahool because it is usually cheaper.${checkedAt}`
+        : `Xur has this item at the Tower during the current weekend visit.${checkedAt}`;
+      tags.unshift({ id: "xur", label: "Xur", title });
     }
-    if (!owned && rahoolReady(item, visiblePlayers)) {
+    if (!owned && rahoolReady(item, visiblePlayers) && !(isArmor && xurAvailable)) {
       tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
     }
     if (!tags.length) return "";
