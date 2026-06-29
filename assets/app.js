@@ -241,6 +241,10 @@
     return [CLASS_FOCUS[className] || players[0]];
   }
 
+  function armorClassVisible(className) {
+    return filters.player === "all" || CLASS_FOCUS[className] === filters.player;
+  }
+
   function focusLabel(className) {
     const player = CLASS_FOCUS[className] || players[0];
     const user = BASE.users?.[player]?.label || player;
@@ -353,8 +357,8 @@
     renderIdentity();
     renderDataHealth();
     renderWeapons();
-    renderArmor("warlock", els.warlock);
-    renderArmor("titan", els.titan);
+    renderArmor("warlock", els.warlock, document.querySelector("#aresArmor"));
+    renderArmor("titan", els.titan, document.querySelector("#iceeArmor"));
     renderAuthPanel();
   }
 
@@ -467,7 +471,9 @@
 
   function flattenArmorRows() {
     return armorClasses().flatMap(className =>
+      armorClassVisible(className) ?
       (CATALOG.armor[className] || []).flatMap(item => armorPlayersForClass(className).map(player => ({ className, item, player, ...(state.armor[className]?.[item.id]?.[player] || blankArmor()) })))
+      : []
     );
   }
 
@@ -514,12 +520,20 @@
     return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}<span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
   }
 
-  function renderArmor(className, root) {
+  function renderArmor(className, root, section) {
     if (!root || !CATALOG.armor?.[className]) return;
+    const visibleClass = armorClassVisible(className);
+    if (section) section.hidden = !visibleClass;
+    if (!visibleClass) {
+      root.innerHTML = "";
+      updateArmorSectionCount(className);
+      return;
+    }
     const visible = sortedItems((CATALOG.armor[className] || []).filter(item => matchesText(item) && matchesArmorView(className, item)), { kind: "armor", className, players: armorPlayersForClass(className) });
     updateArmorSectionCount(className);
-    const totalVisible = armorClasses().reduce((sum, klass) => sum + (CATALOG.armor[klass] || []).filter(item => matchesText(item) && matchesArmorView(klass, item)).length, 0);
-    const total = armorClasses().reduce((sum, klass) => sum + (CATALOG.armor[klass] || []).length, 0);
+    const visibleClasses = armorClasses().filter(armorClassVisible);
+    const totalVisible = visibleClasses.reduce((sum, klass) => sum + (CATALOG.armor[klass] || []).filter(item => matchesText(item) && matchesArmorView(klass, item)).length, 0);
+    const total = visibleClasses.reduce((sum, klass) => sum + (CATALOG.armor[klass] || []).length, 0);
     if (els.armorCount) els.armorCount.textContent = `${totalVisible} / ${total}`;
     root.innerHTML = visible.length ? visible.map((item, index) => renderArmorCard(className, item, index < 16)).join("") : emptyState(`No ${className} armor matches this filter.`);
   }
@@ -548,7 +562,7 @@
     const total = (CATALOG.armor[className] || []).length;
     const owned = (CATALOG.armor[className] || []).filter(item => state.armor[className]?.[item.id]?.[player]?.owned).length;
     const target = className === "warlock" ? els.aresArmorCount : className === "titan" ? els.iceeArmorCount : null;
-    if (target) target.textContent = `${owned}/${total} unlocked`;
+    if (target) target.textContent = armorClassVisible(className) ? `${owned}/${total} unlocked` : "";
   }
 
   function hasRahoolMaterials(player) {

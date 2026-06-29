@@ -86,7 +86,8 @@
   function currentFilters() {
     const search = document.querySelector("#searchInput")?.value?.trim().toLowerCase() || "";
     const view = document.querySelector("[data-view].active")?.dataset.view || "all";
-    return { search, view };
+    const player = document.querySelector("[data-player].active")?.dataset.player || "all";
+    return { search, view, player };
   }
 
   function getOwned(className, itemId, player) {
@@ -182,6 +183,14 @@
     const title = document.querySelectorAll(".class-title")[titleIndex];
     if (!root || !title) return 0;
     const { player, className } = config[side];
+    const playerFilter = currentFilters().player;
+    const section = root.closest("article");
+    const visibleSide = playerFilter === "all" || playerFilter === player;
+    if (section) section.hidden = !visibleSide;
+    if (!visibleSide) {
+      root.innerHTML = "";
+      return 0;
+    }
     const klass = CLASS_LABELS[className] || className;
     title.className = `class-title ${className}`;
     title.innerHTML = `<span class="class-title-icon">${classIcon(className)}</span><strong>${userName(player, "full")} / ${klass}</strong>`;
@@ -215,7 +224,11 @@
     ensureControls();
     const left = renderColumn("left", "#warlockList", 0);
     const right = renderColumn("right", "#titanList", 1);
-    const total = (CATALOG.armor?.[config.left.className]?.length || 0) + (CATALOG.armor?.[config.right.className]?.length || 0);
+    const { player } = currentFilters();
+    const total = ["left", "right"].reduce((sum, side) => {
+      if (player !== "all" && config[side].player !== player) return sum;
+      return sum + (CATALOG.armor?.[config[side].className]?.length || 0);
+    }, 0);
     const count = document.querySelector("#armorCount");
     if (count) count.textContent = `${left + right} / ${total}`;
   }
