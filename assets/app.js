@@ -353,13 +353,29 @@
       metric("Catalysts owned", catalystRows.filter(row => row.catalyst).length, catalystRows.length, "Weapons with catalysts"),
       metric("Catalysts complete", catalystRows.filter(row => row.complete).length, catalystRows.length, "Finished catalysts"),
       metric("Armor owned", armorRows.filter(row => row.owned).length, armorRows.length, "Configured classes"),
-      metric("Priority missing", priorityRows.filter(row => !row.owned).length, priorityRows.length, "Must-have gaps")
+      metric("Priority missing", priorityRows.filter(row => !row.owned).length, priorityRows.length, "Must-have gaps"),
+      ...players.map(resourceMetric)
     ].join("");
   }
 
   function metric(label, value, total, caption) {
     const pct = total ? Math.round((value / total) * 100) : 0;
     return `<article class="summary-card"><strong>${value}<small>/${total}</small></strong><span>${label} / ${caption}</span><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></article>`;
+  }
+
+  function resourceMetric(player) {
+    const row = resources?.[player] || {};
+    const user = BASE.users?.[player]?.display || BASE.users?.[player]?.label || titleCase(player);
+    const ciphers = Number(row.exoticCiphers || 0);
+    const engrams = Number(row.exoticEngrams || 0);
+    const synced = Boolean(row.updatedAt);
+    const ready = ciphers >= 1 && engrams >= 1;
+    const pct = !synced ? 0 : ready ? 100 : ciphers >= 1 || engrams >= 1 ? 50 : 0;
+    const value = synced ? `${ciphers}<small>C</small> ${engrams}<small>E</small>` : `<small>not synced</small>`;
+    const title = synced
+      ? `${user}: ${ciphers} Exotic Cipher(s), ${engrams} Exotic Engram(s). ${ready ? "Rahool buy-now checks are active." : "Needs 1+ of each for Rahool buy-now checks."}`
+      : `${user}: dump this player's Bungie data to show Exotic Cipher and Exotic Engram counts.`;
+    return `<article class="summary-card resource-card ${ready ? "is-ready" : "is-waiting"}" title="${escapeAttr(title)}"><strong>${value}</strong><span>${user} Rahool mats / Cipher + Engram</span><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></article>`;
   }
 
   function flattenWeaponRows() {
