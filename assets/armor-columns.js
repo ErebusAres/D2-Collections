@@ -8,12 +8,11 @@
     right: { player: "matt", className: "titan" }
   };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
-  const CLASS_MARKS = { warlock: "◆", titan: "◆", hunter: "◆" };
   const SLOT_ORDER = { Helmet: 1, Gauntlets: 2, Chest: 3, Legs: 4, "Class Item": 5 };
   let config = readConfig();
 
   const css = `
-    .armor-column-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.armor-control{border:1px solid var(--line-strong);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border-radius:8px;padding:9px;display:grid;grid-template-columns:1fr 1fr;gap:8px}.armor-control label{display:grid;gap:4px;color:var(--muted);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.armor-control select{width:100%;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.28);color:var(--text);padding:7px 8px;outline:none}.armor-card{grid-template-columns:minmax(0,1fr) auto;align-items:center;padding:7px 9px;min-height:54px}.armor-card .item-with-icon{grid-template-columns:34px minmax(0,1fr);gap:8px}.armor-card .item-icon,.armor-card .item-icon-fallback{width:34px;height:34px;border-radius:6px}.armor-card .badge.source,.armor-card .badge.focus{display:none}.armor-card .item-name{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-bottom:3px}.armor-card h3{font-size:.88rem;margin-bottom:0}.armor-card .priority-tags{margin:2px 0 4px}.armor-card .badge.slot{font-size:.68rem;padding:2px 7px}.armor-card .armor-status.header{display:none}.armor-card .status-row{grid-column:2;grid-row:1;margin-top:0;align-self:center}.armor-card .player-label{display:none}.armor-card .status-cell{min-height:32px;min-width:44px;padding:0 8px;cursor:help}.armor-status{grid-template-columns:minmax(44px,58px);gap:0}.class-title.hunter span{color:var(--green)}@media(max-width:780px){.armor-column-controls{grid-template-columns:1fr}.armor-control{grid-template-columns:1fr 1fr}.armor-card{min-height:50px}.armor-status{grid-template-columns:minmax(42px,54px)}}
+    .armor-column-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.armor-control{border:1px solid var(--line-strong);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border-radius:8px;padding:9px;display:grid;grid-template-columns:1fr 1fr;gap:8px}.armor-control label{display:grid;gap:4px;color:var(--muted);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.armor-control select{width:100%;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.28);color:var(--text);padding:7px 8px;outline:none}.armor-card{grid-template-columns:minmax(0,1fr) auto;align-items:center;padding:7px 9px;min-height:54px}.armor-card .item-with-icon{grid-template-columns:34px minmax(0,1fr);gap:8px}.armor-card .item-icon,.armor-card .item-icon-fallback{width:34px;height:34px;border-radius:6px}.armor-card .badge.source,.armor-card .badge.focus{display:none}.armor-card .item-name{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-bottom:3px}.armor-card h3{font-size:.88rem;margin-bottom:0}.armor-card .priority-tags{margin:2px 0 4px}.armor-card .badge.slot{font-size:.68rem;padding:2px 7px;display:inline-flex;align-items:center;gap:4px}.armor-card .badge.slot .dim-icon{width:14px;height:14px}.armor-card .armor-status.header{display:none}.armor-card .status-row{grid-column:2;grid-row:1;margin-top:0;align-self:center}.armor-card .player-label{display:none}.armor-card .status-cell{min-height:32px;min-width:44px;padding:0 8px;cursor:help}.armor-status{grid-template-columns:minmax(44px,58px);gap:0}.class-title.hunter span{color:var(--green)}@media(max-width:780px){.armor-column-controls{grid-template-columns:1fr}.armor-control{grid-template-columns:1fr 1fr}.armor-card{min-height:50px}.armor-status{grid-template-columns:minmax(42px,54px)}}
   `;
   const style = document.createElement("style");
   style.textContent = css;
@@ -126,6 +125,30 @@
     return icons[id] || `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12h.01"/></svg>`;
   }
 
+  function dimIcon(filename, label) {
+    return `<img class="dim-icon" src="assets/dim-icons/${escapeAttr(filename)}" alt="" title="${escapeAttr(label)}" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />`;
+  }
+
+  function classIcon(className) {
+    const icons = {
+      warlock: "class_warlock.png",
+      titan: "class_titan.png",
+      hunter: "class_hunter.png"
+    };
+    const key = String(className || "").toLowerCase();
+    const filename = icons[key];
+    return filename ? dimIcon(filename, `${CLASS_LABELS[key] || className} class`) : "";
+  }
+
+  function slotIcon(slot) {
+    const key = String(slot || "").toLowerCase();
+    if (key.includes("helmet")) return dimIcon("armor_helmet.svg", "Helmet armor slot");
+    if (key.includes("gauntlet") || key.includes("glove") || key.includes("arm")) return dimIcon("armor_gauntlets.svg", "Gauntlets armor slot");
+    if (key.includes("chest")) return dimIcon("armor_chest.svg", "Chest armor slot");
+    if (key.includes("leg") || key.includes("boot")) return dimIcon("armor_legs.svg", "Leg armor slot");
+    if (key.includes("class") || key.includes("bond") || key.includes("cloak") || key.includes("mark")) return dimIcon("armor_class.svg", "Class item armor slot");
+    return "";
+  }
   function renderColumn(side, rootId, titleIndex) {
     const root = document.querySelector(rootId);
     const title = document.querySelectorAll(".class-title")[titleIndex];
@@ -133,7 +156,7 @@
     const { player, className } = config[side];
     const klass = CLASS_LABELS[className] || className;
     title.className = `class-title ${className}`;
-    title.innerHTML = `<span>${CLASS_MARKS[className] || "◆"}</span><strong>${userName(player, "full")} / ${klass}</strong>`;
+    title.innerHTML = `<span class="class-title-icon">${classIcon(className)}</span><strong>${userName(player, "full")} / ${klass}</strong>`;
     const { search, view } = currentFilters();
     const items = [...(CATALOG.armor?.[className] || [])].sort((a,b) => (SLOT_ORDER[a.slot] || 99) - (SLOT_ORDER[b.slot] || 99) || a.name.localeCompare(b.name));
     const visible = items.filter(item => {
@@ -150,7 +173,7 @@
       const owned = getOwned(className, item.id, player);
       const source = item.bungieSource || item.source || "";
       const tileTitle = `${item.name} - ${userName(player, "full")} ${klass} ${item.slot || "armor"}. ${owned ? "Owned" : "Not owned"}. Click for more info.`;
-      return `<article class="armor-card is-focus-card ${owned ? "is-owned" : "is-missing"}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="More info" data-help-id="${item.id}">i</button></div>${priorityBadges(item, player, owned)}<div class="badge-row"><span class="badge slot">${item.slot}</span><span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
+      return `<article class="armor-card is-focus-card ${owned ? "is-owned" : "is-missing"}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="More info" data-help-id="${item.id}">i</button></div>${priorityBadges(item, player, owned)}<div class="badge-row"><span class="badge slot">${slotIcon(item.slot)}${escapeAttr(item.slot)}</span><span class="badge source" title="${escapeAttr(source)}">${escapeAttr(source)}</span></div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
     }).join("") : `<div class="empty-state">No ${klass} armor matches this filter.</div>`;
     return visible.length;
   }

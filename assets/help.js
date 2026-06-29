@@ -151,6 +151,11 @@
     if (key.includes("kinetic")) return dimIcon("damage_kinetic.svg", "Kinetic weapon slot");
     if (key.includes("energy")) return dimIcon("energy_weapon.svg", "Energy weapon slot");
     if (key.includes("power")) return dimIcon("power_weapon.svg", "Power weapon slot");
+    if (key.includes("helmet")) return dimIcon("armor_helmet.svg", "Helmet armor slot");
+    if (key.includes("gauntlet") || key.includes("glove") || key.includes("arm")) return dimIcon("armor_gauntlets.svg", "Gauntlets armor slot");
+    if (key.includes("chest")) return dimIcon("armor_chest.svg", "Chest armor slot");
+    if (key.includes("leg") || key.includes("boot")) return dimIcon("armor_legs.svg", "Leg armor slot");
+    if (key.includes("class") || key.includes("bond") || key.includes("cloak") || key.includes("mark")) return dimIcon("armor_class.svg", "Class item armor slot");
     return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 20 12 12 20 4 12 12 4Z"/></svg>`;
   }
 
@@ -162,9 +167,9 @@
 
   function classIcon(className) {
     const key = String(className || "").toLowerCase();
-    if (key.includes("warlock")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 9l8 12 8-12-8-6Z"/><path d="M12 7v10"/><path d="m8 10 4 7 4-7"/></svg>`;
-    if (key.includes("titan")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v5l-7 9-7-9V5Z"/><path d="M8 8h8"/><path d="M9 11h6"/></svg>`;
-    if (key.includes("hunter")) return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 8v8l-8 5-8-5V8l8-5Z"/><path d="m8 9 4 8 4-8"/><path d="M8 9h8"/></svg>`;
+    if (key.includes("warlock")) return dimIcon("class_warlock.png", "Warlock class icon");
+    if (key.includes("titan")) return dimIcon("class_titan.png", "Titan class icon");
+    if (key.includes("hunter")) return dimIcon("class_hunter.png", "Hunter class icon");
     return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 20 12 12 20 4 12 12 4Z"/></svg>`;
   }
 
