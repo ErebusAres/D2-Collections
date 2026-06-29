@@ -20,4 +20,9 @@ This Worker adds an optional Cloudflare D1 backend for the static GitHub Pages s
 8. Run `npm run cf:deploy`.
 9. Copy the deployed Worker URL into `data/bungie-config.js` as `cloudSyncApi`.
 
+Current deployment:
+
+- D1 database: `d2-collections`
+- Worker URL: `https://d2-collections-sync.erebusares.workers.dev`
+
 Cloudflare D1 is currently included on Workers Free, with daily read/write limits and a 5 GB total D1 storage allowance. If the free daily limits are exceeded, D1 returns errors until the limit resets.
