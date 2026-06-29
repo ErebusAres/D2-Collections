@@ -358,6 +358,15 @@
     renderAuthPanel();
   }
 
+  let scheduledRender = 0;
+  function scheduleRender() {
+    if (scheduledRender) cancelAnimationFrame(scheduledRender);
+    scheduledRender = requestAnimationFrame(() => {
+      scheduledRender = 0;
+      render();
+    });
+  }
+
   function renderIdentity() {
     if (!els.activePlayer) return;
     const active = readActivePlayer();
@@ -949,7 +958,7 @@
     render
   };
 
-  if (els.search) els.search.addEventListener("input", event => { filters.search = event.target.value; render(); });
+  if (els.search) els.search.addEventListener("input", event => { filters.search = event.target.value; scheduleRender(); });
   document.querySelectorAll("[data-view]").forEach(btn => btn.addEventListener("click", () => {
     document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");

@@ -220,12 +220,17 @@
     if (count) count.textContent = `${left + right} / ${total}`;
   }
 
-  document.addEventListener("input", event => { if (event.target?.id === "searchInput") setTimeout(renderArmorColumns, 0); });
-  document.addEventListener("click", event => { if (event.target.closest("[data-view],[data-player]")) setTimeout(renderArmorColumns, 0); });
-  document.addEventListener("d2collections:ownership-applied", () => setTimeout(renderArmorColumns, 0));
-  const observer = new MutationObserver(() => {
-    if (!document.querySelector(".armor-column-controls")) renderArmorColumns();
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-  setTimeout(renderArmorColumns, 0);
+  let scheduledRender = 0;
+  function scheduleArmorRender() {
+    if (scheduledRender) cancelAnimationFrame(scheduledRender);
+    scheduledRender = requestAnimationFrame(() => {
+      scheduledRender = 0;
+      renderArmorColumns();
+    });
+  }
+
+  document.addEventListener("input", event => { if (event.target?.id === "searchInput") scheduleArmorRender(); });
+  document.addEventListener("click", event => { if (event.target.closest("[data-view],[data-player]")) scheduleArmorRender(); });
+  document.addEventListener("d2collections:ownership-applied", scheduleArmorRender);
+  scheduleArmorRender();
 })();

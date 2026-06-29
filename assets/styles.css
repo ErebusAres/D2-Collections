@@ -580,11 +580,18 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 .count-pill { white-space: nowrap; color: var(--soft); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; background: rgba(0,0,0,.24); font-size: .82rem; }
 
 .weapon-list,
-.armor-list { display: grid; gap: 10px; }
+.armor-list {
+  display: grid;
+  gap: 10px;
+  contain: layout style;
+}
 .jump-anchor { position: absolute; width: 1px; height: 1px; overflow: hidden; scroll-margin-top: 120px; pointer-events: none; }
 .weapon-card,
 .armor-card {
   position: relative;
+  contain: layout paint style;
+  content-visibility: auto;
+  contain-intrinsic-block-size: 92px;
   overflow: hidden;
   display: grid;
   gap: 12px;
@@ -1180,6 +1187,7 @@ html.layout-simple .class-title {
 html.layout-simple .weapon-card,
 html.layout-simple .armor-card {
   width: var(--tile-size);
+  contain-intrinsic-block-size: calc(var(--icon-size) + 56px);
   min-height: calc(var(--icon-size) + 56px);
   display: grid;
   grid-template-rows: var(--icon-size) 50px;
@@ -1214,6 +1222,7 @@ html.layout-simple .armor-card.is-missing {
   box-shadow: inset 0 0 0 2px rgba(224,95,107,.18);
 }
 html.layout-simple .armor-card {
+  contain-intrinsic-block-size: calc(var(--icon-size) + 31px);
   min-height: calc(var(--icon-size) + 31px);
   grid-template-rows: var(--icon-size) 25px;
 }
