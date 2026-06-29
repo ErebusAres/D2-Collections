@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 150" role="img" aria-labelledby="title desc">
+  <title id="title">D2 Exotic Collections</title>
+  <desc id="desc">Destiny inspired D2 Exotic Collections title mark.</desc>
+  <defs>
+    <linearGradient id="gold" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#f4dda0"/>
+      <stop offset=".48" stop-color="#d8b15b"/>
+      <stop offset="1" stop-color="#8f6d28"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" x2="1" y1="0" y2="0">
+      <stop stop-color="#6fa8dc"/>
+      <stop offset="1" stop-color="#58d69a"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-30%" width="120%" height="160%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#000" flood-opacity=".45"/>
+    </filter>
+  </defs>
+  <rect x="0" y="0" width="760" height="150" rx="14" fill="#07090d" opacity=".01"/>
+  <g filter="url(#shadow)">
+    <path d="M71 14 119 38v40c0 29-17 49-48 61-31-12-48-32-48-61V38l48-24Z" fill="url(#gold)"/>
+    <path d="M71 25 108 44v32c0 22-13 37-37 47-24-10-37-25-37-47V44l37-19Z" fill="#111722"/>
+    <path d="M71 38 96 51v23c0 14-9 24-25 31-16-7-25-17-25-31V51l25-13Z" fill="#d8b15b"/>
+    <path d="M58 61h27l-9 18h13l-27 25 7-22H53l5-21Z" fill="#07090d"/>
+    <path d="M42 49 12 77l30 8V68L29 59l13-10Zm58 0 30 28-30 8V68l13-9-13-10Z" fill="#f0d587"/>
+  </g>
+  <g filter="url(#shadow)">
+    <text x="154" y="67" fill="#f3f5f0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="48" font-weight="900" letter-spacing="2">D2 EXOTIC</text>
+    <text x="154" y="113" fill="url(#gold)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="44" font-weight="900" letter-spacing="1.5">COLLECTIONS</text>
+    <path d="M155 126h420" stroke="url(#blue)" stroke-width="3" stroke-linecap="round"/>
+    <path d="M590 126h42l16-16h78" stroke="#d8b15b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+    <path d="M676 108h44l-12 12h-44l12-12Z" fill="#d8b15b" opacity=".85"/>
+  </g>
+</svg>

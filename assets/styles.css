@@ -208,6 +208,20 @@ code { color: var(--gold); }
 }
 h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 8px; font-size: 3.1rem; line-height: .94; letter-spacing: 0; }
+.hero-title {
+  width: min(760px, 78vw);
+  max-width: 100%;
+  margin-bottom: 10px;
+  line-height: 0;
+}
+.hero-title img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 150px;
+  object-fit: contain;
+  object-position: left center;
+}
 h2 { margin-bottom: 0; font-size: 1.08rem; letter-spacing: 0; }
 h3 { margin-bottom: 4px; font-size: .98rem; }
 .panel-head h2 {
@@ -989,6 +1003,10 @@ html.layout-simple h1 {
   font-size: 1.7rem;
   line-height: 1;
 }
+html.layout-simple .hero-title {
+  width: min(420px, 88vw);
+  margin-bottom: 0;
+}
 html.layout-simple .hero .eyebrow,
 html.layout-simple .hero-copy {
   display: none;
@@ -1395,6 +1413,7 @@ html.layout-simple .status-cell.dim {
   .sync-popout { top: 10px; left: 10px; }
   .hero { align-items: start; flex-direction: column; padding: 20px; }
   h1 { font-size: 2.2rem; }
+  .hero-title { width: min(560px, 100%); }
   .summary-grid { grid-template-columns: 1fr 1fr; }
   .weapon-card { grid-template-columns: 1fr; }
   .armor-columns { grid-template-columns: 1fr; }
@@ -1402,6 +1421,7 @@ html.layout-simple .status-cell.dim {
   .armor-status { grid-template-columns: 62px repeat(1, minmax(70px, 1fr)); }
   html.layout-simple .app-shell { width: min(100% - 12px, 1660px); padding-top: 58px; }
   html.layout-simple h1 { font-size: 1.35rem; }
+  html.layout-simple .hero-title { width: min(360px, 100%); }
   html.layout-simple .summary-grid { grid-template-columns: 1fr 1fr; }
   html.layout-simple .toolbar { grid-template-columns: 1fr; position: static; }
   html.layout-simple .segmented,
