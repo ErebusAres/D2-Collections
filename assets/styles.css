@@ -1142,9 +1142,9 @@ html.layout-simple .class-title {
 html.layout-simple .weapon-card,
 html.layout-simple .armor-card {
   width: var(--tile-size);
-  min-height: calc(var(--icon-size) + 46px);
+  min-height: calc(var(--icon-size) + 56px);
   display: grid;
-  grid-template-rows: var(--icon-size) 40px;
+  grid-template-rows: var(--icon-size) 50px;
   gap: 4px;
   padding: 3px;
   border-radius: 7px;
@@ -1239,21 +1239,22 @@ html.layout-simple .player-label {
 }
 html.layout-simple .priority-tags {
   position: absolute;
-  left: 5px;
-  right: 5px;
-  top: calc(var(--icon-size) + 6px);
+  left: 4px;
+  right: 4px;
+  top: calc(var(--icon-size) + 5px);
   z-index: 1;
   display: flex;
-  gap: 3px;
+  flex-wrap: nowrap;
+  gap: 2px;
   max-width: 100%;
-  min-height: 20px;
+  min-height: 18px;
   justify-content: center;
   pointer-events: none;
 }
 html.layout-simple .priority-chip {
-  width: 21px;
-  height: 21px;
-  flex-basis: 21px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
   border-radius: 4px;
   line-height: 1;
   border-color: transparent;
@@ -1262,8 +1263,8 @@ html.layout-simple .priority-chip {
 }
 html.layout-simple .priority-chip svg,
 html.layout-simple .priority-chip img {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 html.layout-simple .priority-chip svg {
   stroke-width: 2.4;
