@@ -71,7 +71,7 @@
 
   function statusCell(value, itemId) {
     const label = `${value ? "Owned" : "Not owned"} - click for unlock help`;
-    const icon = value ? dimIcon("dim_check.svg", "DIM check icon") : dimIcon("dim_times.svg", "DIM missing icon");
+    const icon = value ? dimIcon("dim_check.svg", "Owned") : dimIcon("dim_times.svg", "Not owned");
     return `<div class="status-cell ${value ? "yes" : "no"}" data-help-id="${itemId}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="status-mark" aria-hidden="true">${icon}</span></div>`;
   }
   function initials(name) { return String(name || "?").split(/\s+|-/).filter(Boolean).slice(0,2).map(p => p[0]?.toUpperCase() || "").join("") || "?"; }
@@ -120,14 +120,14 @@
 
   function tagIcon(id) {
     const icons = {
-      must: dimIcon("dim_thumb_up.svg", "DIM thumbs-up priority icon"),
-      easy: dimIcon("dim_check.svg", "DIM check icon"),
-      final: dimIcon("dim_masterwork_hammer.svg", "DIM masterwork catalyst icon"),
-      rahool: dimIcon("dim_engram.svg", "DIM engram icon"),
-      buy: dimIcon("dim_shopping_cart.svg", "DIM shopping cart icon"),
-      confidence: dimIcon("dim_exclamation_triangle.svg", "DIM warning icon")
+      must: dimIcon("dim_thumb_up.svg", "Must-have priority"),
+      easy: dimIcon("dim_check.svg", "Easy win"),
+      final: dimIcon("dim_masterwork_hammer.svg", "Final update catalyst priority"),
+      rahool: dimIcon("dim_engram.svg", "Rahool focusing source"),
+      buy: dimIcon("dim_shopping_cart.svg", "Buy now"),
+      confidence: dimIcon("dim_exclamation_triangle.svg", "Lower confidence note")
     };
-    return icons[id] || dimIcon("dim_bookmark.svg", "DIM marker icon");
+    return icons[id] || dimIcon("dim_bookmark.svg", "Tagged item");
   }
 
   function dimIcon(filename, label) {
