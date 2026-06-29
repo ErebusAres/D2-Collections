@@ -38,7 +38,7 @@
     if (existing) return existing;
     const entered = window.prompt("Paste your Bungie API key once. It will be saved only in this browser for D2 Collections.");
     const value = String(entered || "").trim();
-    if (!value) throw new Error("No Bungie API key saved. Paste the key when prompted, then retry Dump logged-in collection.");
+    if (!value) throw new Error("No Bungie API key saved. Paste the key when prompted, then retry sync.");
     localStorage.setItem(API_KEY_STORAGE, value);
     if (status) status.textContent = "Saved Bungie API key locally. Continuing collection dump...";
     return value;
@@ -138,7 +138,7 @@
         clearAuthCode("authorization_code_invalid");
         throw new Error([
           "Bungie login code expired or was already used.",
-          "Click Login with Bungie again, then click Dump logged-in collection immediately after returning.",
+          "Click Login with Bungie again, then click Sync Bungie + cloud immediately after returning.",
           tokenError("Bungie token exchange failed", response, data, text)
         ].join(" | "));
       }
@@ -664,11 +664,19 @@
       const output = panel?.querySelector("#apiOutputBox");
       const status = panel?.querySelector("#apiHandoffStatus");
       if (!panel || !actions || !output || !status || panel.querySelector("#dumpLoggedInCollectionBtn")) return false;
+      const setStatus = text => {
+        status.textContent = text;
+        window.D2_COLLECTIONS_SYNC_DEBUG?.setStatus?.(text);
+      };
+      const setOutput = value => {
+        output.value = value;
+        window.D2_COLLECTIONS_SYNC_DEBUG?.setPayload?.(value);
+      };
       const button = document.createElement("button");
       button.id = "dumpLoggedInCollectionBtn";
       button.className = "button primary";
       button.type = "button";
-      button.textContent = "Dump logged-in collection";
+      button.textContent = "Sync Bungie + cloud";
       actions.prepend(button);
       if (!storedApiKey() && !CONFIG.apiKey) {
         const hint = document.createElement("div");
@@ -678,11 +686,11 @@
       }
       button.addEventListener("click", async () => {
         button.disabled = true;
-        status.textContent = "Pulling logged-in Bungie collection/profile data...";
+        setStatus("Pulling logged-in Bungie collection/profile data...");
         try {
           const dump = await buildCollectionDump(status);
-          output.value = JSON.stringify(compactDumpForOutput(dump), null, 2);
-          status.textContent = "Profile pulled. Resolving D2 Collections catalog matches...";
+          setOutput(JSON.stringify(compactDumpForOutput(dump), null, 2));
+          setStatus("Profile pulled. Resolving D2 Collections catalog matches...");
           const liveSync = await buildLiveSyncPayload(dump, status);
           let applyResult = { ok: false, reason: "app_hook_unavailable" };
           if (liveSync.ok && window.D2_COLLECTIONS_APP?.applyCollectionOwnership) {
@@ -691,7 +699,7 @@
           let xurText = "";
           if (window.D2_COLLECTIONS_APP?.applyXurInventory) {
             try {
-              status.textContent = "Checking Xur Tower stock...";
+              setStatus("Checking Xur Tower stock...");
               const xurInventory = await fetchXurInventory(dump, status);
               window.D2_COLLECTIONS_APP.applyXurInventory(xurInventory);
               if (xurInventory.ok && xurInventory.active) {
@@ -706,7 +714,7 @@
             }
           }
           const compactDump = compactDumpForOutput(dump, liveSync, applyResult);
-          output.value = JSON.stringify(compactDump, null, 2);
+          setOutput(JSON.stringify(compactDump, null, 2));
           if (liveSync.ok) {
             let cloudText = "";
             if (window.D2_COLLECTIONS_CLOUD_SYNC?.pushSnapshot) {
@@ -717,12 +725,12 @@
                 cloudText = ` Cloud snapshot failed: ${error.message || error}.`;
               }
             }
-            status.textContent = `Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor, ${applyResult.catalystsChanged || 0} catalysts, ${applyResult.completedChanged || 0} done.${xurText}${cloudText} Copy the dump/export if you want this committed to repo data.`;
+            setStatus(`Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor, ${applyResult.catalystsChanged || 0} catalysts, ${applyResult.completedChanged || 0} done.${xurText}${cloudText}`);
           } else {
-            status.textContent = `Built collection dump, but could not live-sync because ${liveSync.reason}. Copy the dump and tell me whether it is Ares/Corey or Icee/Matt.`;
+            setStatus(`Built sync debug payload, but could not live-sync because ${liveSync.reason}.`);
           }
         } catch (error) {
-          status.textContent = error.message || String(error);
+          setStatus(error.message || String(error));
         } finally {
           button.disabled = false;
         }

@@ -22,6 +22,7 @@
   function setStatus(text) {
     const el = statusEl();
     if (el) el.textContent = text;
+    window.D2_COLLECTIONS_SYNC_DEBUG?.setStatus?.(text);
   }
 
   function readSession() {
