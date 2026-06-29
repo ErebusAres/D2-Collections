@@ -23,6 +23,10 @@
     strand: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_b2fe51a94f3533f97079dfa0d27a4096.png",
     kinetic: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_3385a924fd3ccb92c343ade19f19a370.png"
   };
+  const RESOURCE_ICONS = {
+    exoticCipher: "https://www.bungie.net/common/destiny2_content/icons/9970631fe1052642c268132dfc30e16b.jpg",
+    exoticEngram: "https://www.bungie.net/common/destiny2_content/icons/3e6a698e1a8a5fb446fdcbf1e63c5269.png"
+  };
 
   const blankWeapon = () => ({ owned: false, catalyst: false, complete: false });
   const blankArmor = () => ({ owned: false });
@@ -443,7 +447,7 @@
     const ready = ciphers >= 1 && engrams >= 1;
     const pct = !synced ? 0 : ready ? 100 : ciphers >= 1 || engrams >= 1 ? 50 : 0;
     const value = synced
-      ? `<span class="resource-count"><img src="assets/dim-icons/dim_bolt.svg" alt="" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${ciphers}<small>Cipher</small></span><span class="resource-count"><img src="assets/dim-icons/dim_engram.svg" alt="" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${engrams}<small>Engram</small></span>`
+      ? `<span class="resource-count"><img src="${RESOURCE_ICONS.exoticCipher}" alt="" title="Exotic Cipher" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${ciphers}<small>Cipher</small></span><span class="resource-count"><img src="${RESOURCE_ICONS.exoticEngram}" alt="" title="Exotic Engram" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${engrams}<small>Engram</small></span>`
       : `<small>not synced</small>`;
     const title = synced
       ? `${user}: ${ciphers} Exotic Cipher(s), ${engrams} Exotic Engram(s). ${ready ? "Rahool buy-now checks are active." : "Needs 1+ of each for Rahool buy-now checks."}`
