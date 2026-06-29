@@ -63,18 +63,21 @@
     .help-priority-head{display:flex;align-items:center;gap:7px;color:var(--gold);font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-bottom:4px}
     .help-priority-symbol{display:inline-grid;place-items:center;width:20px;height:20px;color:var(--gold-bright)}
     .help-priority-symbol svg,.help-priority-symbol img{width:18px;height:18px;display:block}
-    .help-priority-symbol img{object-fit:contain;filter:brightness(0) saturate(100%) invert(84%) sepia(58%) saturate(508%) hue-rotate(358deg) brightness(101%) contrast(88%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol img{object-fit:contain;filter:brightness(0) saturate(100%) invert(82%) sepia(88%) saturate(790%) hue-rotate(344deg) brightness(104%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol svg{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
     .help-priority-symbol.must svg,.help-priority-symbol.final svg,.help-priority-symbol.rahool svg{fill:currentColor;stroke:none}
-    .help-priority-symbol.easy{color:var(--green)}
-    .help-priority-symbol.easy img{filter:brightness(0) saturate(100%) invert(74%) sepia(46%) saturate(529%) hue-rotate(94deg) brightness(95%) contrast(90%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
-    .help-priority-symbol.final{color:var(--purple)}
-    .help-priority-symbol.rahool{color:var(--blue)}
-    .help-priority-symbol.rahool img{filter:brightness(0) saturate(100%) invert(65%) sepia(42%) saturate(772%) hue-rotate(176deg) brightness(91%) contrast(89%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
-    .help-priority-symbol.xur{color:var(--gold-bright)}
-    .help-priority-symbol.xur img{filter:brightness(0) saturate(100%) invert(84%) sepia(58%) saturate(508%) hue-rotate(358deg) brightness(101%) contrast(88%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
-    .help-priority-symbol.buy{color:#07100b;background:var(--green);border-radius:5px}
-    .help-priority-symbol.buy img{filter:brightness(0) saturate(100%) invert(4%) sepia(14%) saturate(1331%) hue-rotate(89deg) brightness(92%) contrast(96%)}
+    .help-priority-symbol.must{color:#ffcf5a}
+    .help-priority-symbol.must img{filter:brightness(0) saturate(100%) invert(82%) sepia(88%) saturate(790%) hue-rotate(344deg) brightness(104%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.easy{color:#52e39c}
+    .help-priority-symbol.easy img{filter:brightness(0) saturate(100%) invert(75%) sepia(75%) saturate(425%) hue-rotate(92deg) brightness(97%) contrast(91%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.final{color:#c8a8ff}
+    .help-priority-symbol.final img{filter:brightness(0) saturate(100%) invert(73%) sepia(37%) saturate(1123%) hue-rotate(218deg) brightness(99%) contrast(94%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.rahool{color:#66b7ff}
+    .help-priority-symbol.rahool img{filter:brightness(0) saturate(100%) invert(68%) sepia(88%) saturate(967%) hue-rotate(178deg) brightness(101%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.xur{color:#ff8a3d}
+    .help-priority-symbol.xur img{filter:brightness(0) saturate(100%) invert(67%) sepia(83%) saturate(1750%) hue-rotate(333deg) brightness(103%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.buy{color:#35f0e0;background:transparent;border-radius:5px}
+    .help-priority-symbol.buy img{filter:brightness(0) saturate(100%) invert(83%) sepia(80%) saturate(953%) hue-rotate(119deg) brightness(101%) contrast(96%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol.confidence{color:var(--muted)}
     .help-subhead{color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-top:12px}
     .help-details{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
