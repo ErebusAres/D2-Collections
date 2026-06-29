@@ -44,10 +44,16 @@
   async function pullSnapshots() {
     try {
       const snapshots = await fetchSnapshots();
+      window.D2_COLLECTIONS_APP?.recordCloudSnapshots?.(snapshots);
       let applied = 0;
       snapshots.forEach(snapshot => {
         if (!snapshot.liveSync?.ok || !window.D2_COLLECTIONS_APP?.applyCollectionOwnership) return;
-        const result = window.D2_COLLECTIONS_APP.applyCollectionOwnership({ ...snapshot.liveSync, preserveActivePlayer: true });
+        const result = window.D2_COLLECTIONS_APP.applyCollectionOwnership({
+          ...snapshot.liveSync,
+          syncedAt: snapshot.syncedAt,
+          cloudSyncedAt: snapshot.syncedAt,
+          preserveActivePlayer: true
+        });
         if (result?.ok) applied += 1;
       });
       setStatus(applied ? `Cloud sync loaded ${applied} saved player snapshot(s).` : "Cloud sync has no saved snapshots yet.");
@@ -72,6 +78,13 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.ok) throw new Error(data.message || data.reason || "Cloud snapshot write failed.");
+    window.D2_COLLECTIONS_APP?.recordCloudSnapshots?.([{
+      player: data.player,
+      syncedAt: data.syncedAt,
+      itemCount: data.itemCount,
+      liveSync,
+      resourceCounts: liveSync.resourceCounts
+    }]);
     setStatus(`Cloud sync saved ${data.player} snapshot at ${new Date(data.syncedAt).toLocaleString()}.`);
     return data;
   }

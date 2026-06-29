@@ -7,6 +7,7 @@
   const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
   const LOCAL_OWNERSHIP_KEY = "d2-collections-local-ownership-v1";
   const RESOURCE_KEY = "d2-collections-player-resources-v1";
+  const CLOUD_META_KEY = "d2-collections-cloud-meta-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const ACTIVE_PLAYER_KEY = "d2-collections-active-player-v1";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "corey" };
@@ -30,6 +31,7 @@
   let state = mergeState(clone(BASE));
   applyLocalOwnership(state);
   let resources = readResources();
+  let cloudMeta = readCloudMeta();
   let authState = readAuthState();
 
   const els = {
@@ -112,6 +114,19 @@
   function saveResources(next = resources) {
     resources = next || {};
     localStorage.setItem(RESOURCE_KEY, JSON.stringify(resources));
+  }
+
+  function readCloudMeta() {
+    try {
+      return JSON.parse(localStorage.getItem(CLOUD_META_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function saveCloudMeta(next = cloudMeta) {
+    cloudMeta = next || {};
+    localStorage.setItem(CLOUD_META_KEY, JSON.stringify(cloudMeta));
   }
 
   function applyLocalOwnership(next) {
@@ -379,7 +394,8 @@
       metric("Armor owned", armorRows.filter(row => row.owned).length, armorRows.length, "Configured classes"),
       metric("Priority missing", priorityRows.filter(row => !row.owned).length, priorityRows.length, "Must-have gaps"),
       metric("Needs action", needsRows.length, (CATALOG.weapons || []).length + armorClasses().reduce((sum, className) => sum + (CATALOG.armor[className] || []).length, 0), "missing, buyable, catalyst gaps"),
-      ...players.map(resourceMetric)
+      ...players.map(resourceMetric),
+      ...players.map(cloudSyncMetric)
     ].join("");
   }
 
@@ -396,11 +412,27 @@
     const synced = Boolean(row.updatedAt);
     const ready = ciphers >= 1 && engrams >= 1;
     const pct = !synced ? 0 : ready ? 100 : ciphers >= 1 || engrams >= 1 ? 50 : 0;
-    const value = synced ? `${ciphers}<small>C</small> ${engrams}<small>E</small>` : `<small>not synced</small>`;
+    const value = synced
+      ? `<span class="resource-count"><img src="assets/dim-icons/dim_bolt.svg" alt="" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${ciphers}<small>Cipher</small></span><span class="resource-count"><img src="assets/dim-icons/dim_engram.svg" alt="" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${engrams}<small>Engram</small></span>`
+      : `<small>not synced</small>`;
     const title = synced
       ? `${user}: ${ciphers} Exotic Cipher(s), ${engrams} Exotic Engram(s). ${ready ? "Rahool buy-now checks are active." : "Needs 1+ of each for Rahool buy-now checks."}`
       : `${user}: dump this player's Bungie data to show Exotic Cipher and Exotic Engram counts.`;
-    return `<article class="summary-card resource-card ${ready ? "is-ready" : "is-waiting"}" title="${escapeAttr(title)}"><strong>${value}</strong><span>${user} Rahool mats / Cipher + Engram</span><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></article>`;
+    return `<article class="summary-card resource-card ${ready ? "is-ready" : "is-waiting"}" title="${escapeAttr(title)}"><strong>${value}</strong><span>${user} Rahool materials</span><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></article>`;
+  }
+
+  function cloudSyncMetric(player) {
+    const row = cloudMeta?.players?.[player] || {};
+    const user = BASE.users?.[player]?.display || BASE.users?.[player]?.label || titleCase(player);
+    const syncedAt = row.syncedAt || resources?.[player]?.cloudSyncedAt || "";
+    const synced = Boolean(syncedAt);
+    const stale = synced && Date.now() - Date.parse(syncedAt) > 7 * 24 * 60 * 60 * 1000;
+    const itemCount = Number(row.itemCount || row.matchedCatalogItems || 0);
+    const title = synced
+      ? `${user}: last database snapshot saved ${formatFullDate(syncedAt)}${itemCount ? ` with ${itemCount} catalog item(s).` : "."}`
+      : `${user}: no cloud database snapshot has been loaded yet.`;
+    const value = synced ? `<small>${formatShortDate(syncedAt)}</small>` : `<small>No DB sync</small>`;
+    return `<article class="summary-card cloud-card ${stale ? "is-stale" : synced ? "is-fresh" : "is-empty"}" title="${escapeAttr(title)}"><strong><img src="assets/dim-icons/dim_sync.svg" alt="" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${value}</strong><span>${user} DB last sync</span><div class="progress-track"><div class="progress-fill" style="width:${synced ? stale ? 55 : 100 : 0}%"></div></div></article>`;
   }
 
   function flattenWeaponRows() {
@@ -618,6 +650,18 @@
     return String(value || "").trim().toLowerCase().replace(/\b[a-z0-9]/g, char => char.toUpperCase());
   }
 
+  function formatShortDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "unknown";
+    return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  function formatFullDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "unknown date";
+    return date.toLocaleString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
   function damageIconImg(name, label, className = "damage-icon") {
     const src = DAMAGE_ICONS[name];
     return src ? `<img class="${className} ${escapeAttr(name)}" src="${src}" alt="" title="${escapeAttr(label)}" width="17" height="17" loading="lazy" decoding="async" aria-hidden="true" />` : "";
@@ -705,12 +749,14 @@
     let matchedItems = 0;
 
     if (payload.resourceCounts) {
+      const resourceSyncedAt = payload.cloudSyncedAt || payload.syncedAt || new Date().toISOString();
       saveResources({
         ...resources,
         [player]: {
           ...(resources?.[player] || {}),
           ...payload.resourceCounts,
-          updatedAt: new Date().toISOString()
+          updatedAt: resourceSyncedAt,
+          cloudSyncedAt: payload.cloudSyncedAt || payload.syncedAt || resources?.[player]?.cloudSyncedAt || ""
         }
       });
     }
@@ -755,6 +801,36 @@
     const result = { ok: true, player, weaponsChanged, armorChanged, catalystsChanged, completedChanged, matchedItems, savedLocalOwnership: true };
     document.dispatchEvent(new CustomEvent("d2collections:ownership-applied", { detail: result }));
     return result;
+  }
+
+  function recordCloudSnapshots(snapshots = []) {
+    const nextResources = { ...resources };
+    const nextCloudMeta = { ...(cloudMeta || {}), players: { ...(cloudMeta?.players || {}) }, loadedAt: new Date().toISOString() };
+    snapshots.forEach(snapshot => {
+      const player = snapshot?.player || snapshot?.liveSync?.player;
+      if (!player || !players.includes(player)) return;
+      const syncedAt = snapshot.syncedAt || snapshot.liveSync?.syncedAt || "";
+      const resourceCounts = snapshot.resourceCounts || snapshot.liveSync?.resourceCounts;
+      nextCloudMeta.players[player] = {
+        ...(nextCloudMeta.players[player] || {}),
+        syncedAt,
+        displayName: snapshot.displayName || snapshot.liveSync?.displayName || "",
+        itemCount: snapshot.itemCount || snapshot.liveSync?.matchedCatalogItems || 0,
+        matchedCatalogItems: snapshot.liveSync?.matchedCatalogItems || 0,
+        source: "cloud"
+      };
+      if (resourceCounts) {
+        nextResources[player] = {
+          ...(nextResources[player] || {}),
+          ...resourceCounts,
+          updatedAt: syncedAt || new Date().toISOString(),
+          cloudSyncedAt: syncedAt
+        };
+      }
+    });
+    saveResources(nextResources);
+    saveCloudMeta(nextCloudMeta);
+    render();
   }
 
   function renderAuthPanel() {
@@ -814,6 +890,7 @@
 
   window.D2_COLLECTIONS_APP = {
     applyCollectionOwnership,
+    recordCloudSnapshots,
     exportState,
     getState: () => clone(state),
     render

@@ -165,7 +165,21 @@ function uniqueIds(...lists) {
 }
 
 async function readSnapshots(db) {
-  const { results } = await db.prepare("SELECT player_id, synced_at, payload_json FROM snapshots ORDER BY player_id").all();
+  const { results } = await db.prepare(`
+    SELECT
+      s.player_id,
+      s.synced_at,
+      s.display_name,
+      s.payload_json,
+      r.exotic_ciphers,
+      r.exotic_engrams,
+      COUNT(o.item_id) AS item_count
+    FROM snapshots s
+    LEFT JOIN resources r ON r.player_id = s.player_id
+    LEFT JOIN ownership o ON o.player_id = s.player_id AND (o.owned = 1 OR o.catalyst = 1 OR o.complete = 1)
+    GROUP BY s.player_id, s.synced_at, s.display_name, s.payload_json, r.exotic_ciphers, r.exotic_engrams
+    ORDER BY s.player_id
+  `).all();
   return {
     ok: true,
     snapshots: (results || []).map(row => {
@@ -173,6 +187,12 @@ async function readSnapshots(db) {
       return {
         player: row.player_id,
         syncedAt: row.synced_at,
+        displayName: row.display_name || payload.displayName || "",
+        itemCount: Number(row.item_count || 0),
+        resourceCounts: {
+          exoticCiphers: Number(row.exotic_ciphers || 0),
+          exoticEngrams: Number(row.exotic_engrams || 0)
+        },
         liveSync: payload.liveSync || null,
         applyResult: payload.applyResult || null
       };
