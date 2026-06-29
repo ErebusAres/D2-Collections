@@ -8,6 +8,7 @@
   const LOCAL_OWNERSHIP_KEY = "d2-collections-local-ownership-v1";
   const RESOURCE_KEY = "d2-collections-player-resources-v1";
   const CLOUD_META_KEY = "d2-collections-cloud-meta-v1";
+  const XUR_STOCK_KEY = "d2-collections-xur-stock-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const ACTIVE_PLAYER_KEY = "d2-collections-active-player-v1";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "corey" };
@@ -32,6 +33,7 @@
   applyLocalOwnership(state);
   let resources = readResources();
   let cloudMeta = readCloudMeta();
+  let xurStock = readXurStock();
   let authState = readAuthState();
 
   const els = {
@@ -127,6 +129,19 @@
   function saveCloudMeta(next = cloudMeta) {
     cloudMeta = next || {};
     localStorage.setItem(CLOUD_META_KEY, JSON.stringify(cloudMeta));
+  }
+
+  function readXurStock() {
+    try {
+      return JSON.parse(localStorage.getItem(XUR_STOCK_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function saveXurStock(next = xurStock) {
+    xurStock = next || {};
+    localStorage.setItem(XUR_STOCK_KEY, JSON.stringify(xurStock));
   }
 
   function applyLocalOwnership(next) {
@@ -367,13 +382,15 @@
     const iconCount = Object.keys(ICON_MAP || {}).length;
     const collectibleCount = Object.values(COLLECTIBLES.items || {}).filter(item => (item.collectibleHashes || []).length).length;
     const missingIcons = [...(CATALOG.weapons || []), ...armorClasses().flatMap(className => CATALOG.armor[className] || [])].filter(item => !item.icon && !item.iconUrl && !ICON_MAP[item.id]).length;
+    const xurCount = xurStock?.active ? (xurStock.itemIds || []).length : "off";
     els.dataHealth.innerHTML = [
       ["Catalog", catalogItems],
       ["Weapons", weapons],
       ["Armor", armor],
       ["Icons", iconCount],
       ["Collectibles", collectibleCount],
-      ["Missing icons", missingIcons]
+      ["Missing icons", missingIcons],
+      ["Xur stock", xurCount]
     ].map(([label, value]) => `<span><strong>${value}</strong>${label}</span>`).join("");
   }
 
@@ -534,8 +551,16 @@
     return Boolean(item.priority?.rahool && visiblePlayers.some(player => hasRahoolMaterials(player)));
   }
 
+  function xurHasItem(itemId) {
+    return Boolean(xurStock?.active && Array.isArray(xurStock.itemIds) && xurStock.itemIds.includes(itemId));
+  }
+
   function priorityBadges(item, visiblePlayers, owned = false) {
     const tags = [...(item.priority?.tags || [])];
+    if (xurHasItem(item.id)) {
+      const checkedAt = xurStock?.checkedAt ? ` Checked ${formatShortDate(xurStock.checkedAt)}.` : "";
+      tags.unshift({ id: "xur", label: "Xur", title: `Xur has this item at the Tower during the current weekend visit.${checkedAt}` });
+    }
     if (!owned && rahoolReady(item, visiblePlayers)) {
       tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
     }
@@ -550,6 +575,7 @@
       final: dimIcon("dim_masterwork_hammer.svg", "Final update catalyst priority"),
       rahool: dimIcon("dim_engram.svg", "Rahool focusing source"),
       buy: dimIcon("dim_shopping_cart.svg", "Buy now"),
+      xur: dimIcon("dim_star.svg", "Xur has this item"),
       confidence: dimIcon("dim_exclamation_triangle.svg", "Lower confidence note")
     };
     return icons[id] || dimIcon("dim_bookmark.svg", "Tagged item");
@@ -833,6 +859,23 @@
     render();
   }
 
+  function applyXurInventory(payload = {}) {
+    const next = {
+      active: Boolean(payload.active && payload.ok),
+      location: payload.location || "Tower",
+      checkedAt: payload.checkedAt || new Date().toISOString(),
+      itemIds: [...new Set((payload.itemIds || []).map(String).filter(Boolean))],
+      itemNames: [...new Set((payload.itemNames || []).map(String).filter(Boolean))],
+      saleItemHashes: [...new Set((payload.saleItemHashes || []).map(String).filter(Boolean))],
+      unmatchedItems: (payload.unmatchedItems || []).slice(0, 20),
+      reason: payload.reason || ""
+    };
+    saveXurStock(next);
+    render();
+    document.dispatchEvent(new CustomEvent("d2collections:xur-updated", { detail: next }));
+    return next;
+  }
+
   function renderAuthPanel() {
     if (!els.apiStatus) return;
     const hasSession = sessionIsUsable();
@@ -891,6 +934,7 @@
   window.D2_COLLECTIONS_APP = {
     applyCollectionOwnership,
     recordCloudSnapshots,
+    applyXurInventory,
     exportState,
     getState: () => clone(state),
     render

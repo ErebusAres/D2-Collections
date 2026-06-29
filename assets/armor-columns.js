@@ -3,6 +3,7 @@
   const CHECKLIST = window.D2_COLLECTIONS_CHECKLIST || { users: {}, armor: {} };
   const STORAGE_KEY = "d2-collections-armor-columns-v1";
   const RESOURCE_KEY = "d2-collections-player-resources-v1";
+  const XUR_STOCK_KEY = "d2-collections-xur-stock-v1";
   const DEFAULTS = {
     left: { player: "corey", className: "warlock" },
     right: { player: "matt", className: "titan" }
@@ -105,8 +106,24 @@
     return Number(row.exoticCiphers || 0) >= 1 && Number(row.exoticEngrams || 0) >= 1;
   }
 
+  function readXurStock() {
+    try {
+      return JSON.parse(localStorage.getItem(XUR_STOCK_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function xurHasItem(itemId) {
+    const stock = readXurStock();
+    return Boolean(stock?.active && Array.isArray(stock.itemIds) && stock.itemIds.includes(itemId));
+  }
+
   function priorityBadges(item, player, owned) {
     const tags = [...(item.priority?.tags || [])];
+    if (xurHasItem(item.id)) {
+      tags.unshift({ id: "xur", label: "Xur", title: "Xur has this item at the Tower during the current weekend visit." });
+    }
     if (!owned && item.priority?.rahool && hasRahoolMaterials(player)) {
       tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
     }
@@ -125,6 +142,7 @@
       final: dimIcon("dim_masterwork_hammer.svg", "Final update catalyst priority"),
       rahool: dimIcon("dim_engram.svg", "Rahool focusing source"),
       buy: dimIcon("dim_shopping_cart.svg", "Buy now"),
+      xur: dimIcon("dim_star.svg", "Xur has this item"),
       confidence: dimIcon("dim_exclamation_triangle.svg", "Lower confidence note")
     };
     return icons[id] || dimIcon("dim_bookmark.svg", "Tagged item");

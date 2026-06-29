@@ -71,6 +71,8 @@
     .help-priority-symbol.final{color:var(--purple)}
     .help-priority-symbol.rahool{color:var(--blue)}
     .help-priority-symbol.rahool img{filter:brightness(0) saturate(100%) invert(65%) sepia(42%) saturate(772%) hue-rotate(176deg) brightness(91%) contrast(89%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.xur{color:var(--gold-bright)}
+    .help-priority-symbol.xur img{filter:brightness(0) saturate(100%) invert(84%) sepia(58%) saturate(508%) hue-rotate(358deg) brightness(101%) contrast(88%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol.buy{color:#07100b;background:var(--green);border-radius:5px}
     .help-priority-symbol.buy img{filter:brightness(0) saturate(100%) invert(4%) sepia(14%) saturate(1331%) hue-rotate(89deg) brightness(92%) contrast(96%)}
     .help-priority-symbol.confidence{color:var(--muted)}
@@ -158,6 +160,7 @@
       final: dimIcon("dim_masterwork_hammer.svg", "Final update catalyst priority"),
       rahool: dimIcon("dim_engram.svg", "Rahool focusing source"),
       buy: dimIcon("dim_shopping_cart.svg", "Buy now"),
+      xur: dimIcon("dim_star.svg", "Xur has this item"),
       confidence: dimIcon("dim_exclamation_triangle.svg", "Lower confidence note")
     };
     return icons[id] || dimIcon("dim_bookmark.svg", "Tagged item");
@@ -268,6 +271,19 @@
     return `<div class="help-priority"><div class="help-priority-head"><span class="help-priority-symbol ${escapeHtml(id)}">${tagIcon(id)}</span><span>${escapeHtml(title)}</span></div>${escapeHtml(body)}</div>`;
   }
 
+  function readXurStock() {
+    try {
+      return JSON.parse(localStorage.getItem("d2-collections-xur-stock-v1") || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function xurHasItem(itemId) {
+    const stock = readXurStock();
+    return Boolean(stock?.active && Array.isArray(stock.itemIds) && stock.itemIds.includes(itemId));
+  }
+
   function weaponHasCatalyst(item) {
     return Boolean((BUNGIE.items?.[item.id]?.catalystRecordHashes || []).length);
   }
@@ -299,7 +315,7 @@
       steps.push("Go to the Exotic Archive kiosk at the Tower.");
       steps.push("Open the matching legacy/expansion section and buy the item with the listed kiosk materials.");
     } else if (!steps.length && s.includes("xur")) {
-      steps.push("Check Xur while he is active from Friday reset through Tuesday reset.");
+      steps.push("Check Xur while the site treats him as active from Friday 12 PM through Monday 12 PM Central.");
       steps.push("Inspect his direct exotic inventory and focusing/quest options for the item.");
     } else if (!steps.length && s.includes("season pass reward")) {
       steps.push("Bungie lists this as a Season Pass reward.");
@@ -359,6 +375,9 @@
     }
     if (priority.rahool) {
       blocks.push(priorityBlock("rahool", "Rahool check", "If the logged-in player has 1+ Exotic Cipher and 1+ Exotic Engram, missing eligible armor shows a Buy now chip. The site does not yet verify per-item focusing unlock state."));
+    }
+    if (xurHasItem(item.id)) {
+      blocks.push(priorityBlock("xur", "Xur has it", "The latest logged-in Bungie vendor check matched this item in Xur's Tower inventory during the current Friday noon-Monday noon Central window."));
     }
     if (priority.confidence) {
       blocks.push(priorityBlock("confidence", "Confidence", `${priority.confidence} - ${priority.confidenceNote || "Source confidence not specified."}`));

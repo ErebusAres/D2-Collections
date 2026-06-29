@@ -10,6 +10,9 @@
   const EXPECTED_EXOTIC_TOTAL = 1239;
   const OAUTH_REDIRECT_URI = "https://erebusares.github.io/D2-Collections/index.html";
   const NOT_ACQUIRED = 1;
+  const XUR_VENDOR_HASH = "2190858386";
+  const VENDOR_SALES_COMPONENT = 402;
+  const ITEM_DEF_CACHE_KEY = "d2-collections-item-def-cache-v1";
   const EXOTIC_CIPHER_HASHES = new Set(["3467984096", "187236078", "825199458"]);
   const EXOTIC_ENGRAM_HASHES = new Set(["343863063", "685908770", "761932252", "773306547", "903043774", "935088801", "1010947726", "1425215686", "1728121941", "2122520503", "2176771682", "2370072441", "2564361489", "2685382923", "2762058303", "2778705488", "2907562922", "3290874772", "3484503346", "3670763683", "3875551374", "4003905209", "4106630301", "4111522113"]);
   let refreshPromise = null;
@@ -197,6 +200,38 @@
     return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
   }
 
+  function centralParts(date = new Date()) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Chicago",
+      weekday: "short",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false
+    }).formatToParts(date).reduce((out, part) => {
+      out[part.type] = part.value;
+      return out;
+    }, {});
+    return { weekday: parts.weekday, hour: Number(parts.hour || 0), minute: Number(parts.minute || 0) };
+  }
+
+  function xurWindowActive(date = new Date()) {
+    const { weekday, hour, minute } = centralParts(date);
+    const minutes = hour * 60 + minute;
+    if (weekday === "Fri") return minutes >= 12 * 60;
+    if (weekday === "Sat" || weekday === "Sun") return true;
+    if (weekday === "Mon") return minutes < 12 * 60;
+    return false;
+  }
+
+  function readItemDefCache() {
+    const cached = readJson(ITEM_DEF_CACHE_KEY);
+    return cached && cached.version === 1 && cached.items ? cached : { version: 1, items: {} };
+  }
+
+  function saveItemDefCache(cache) {
+    writeJson(ITEM_DEF_CACHE_KEY, cache);
+  }
+
   function catalogItems() {
     return [
       ...(CATALOG.weapons || []).map(item => ({ ...item, kind: "weapon" })),
@@ -352,6 +387,91 @@
     addResourceCountsFromItems(profile?.profileInventory?.data?.items, counts);
     Object.values(profile?.characterInventories?.data || {}).forEach(characterData => addResourceCountsFromItems(characterData?.items, counts));
     return counts;
+  }
+
+  function characterIds(profile) {
+    return [
+      ...(profile?.profile?.data?.characterIds || []),
+      ...Object.keys(profile?.characters?.data || {})
+    ].map(String).filter(Boolean);
+  }
+
+  function saleItemHashes(vendorResponse) {
+    const sales = vendorResponse?.sales?.data || vendorResponse?.sales || {};
+    return [...new Set(Object.values(sales).flatMap(sale => [
+      sale?.itemHash,
+      sale?.saleItemHash,
+      sale?.item?.itemHash,
+      sale?.item?.hash
+    ]).filter(value => value !== undefined && value !== null).map(String))];
+  }
+
+  async function inventoryItemName(itemHash, cache, status) {
+    const key = String(itemHash);
+    const cached = cache.items[key];
+    if (cached?.name) return cached.name;
+    const definition = await bungieGet(`/Destiny2/Manifest/DestinyInventoryItemDefinition/${encodeURIComponent(key)}/?lc=en`, status);
+    const name = definition?.displayProperties?.name || definition?.item?.displayProperties?.name || "";
+    cache.items[key] = { name, resolvedAt: new Date().toISOString() };
+    saveItemDefCache(cache);
+    return name;
+  }
+
+  function matchCatalogByNames(names) {
+    const wanted = new Set(names.map(normalize).filter(Boolean));
+    return catalogItems().filter(item => wanted.has(normalize(item.name)));
+  }
+
+  async function fetchXurInventory(dump, status) {
+    const checkedAt = new Date().toISOString();
+    if (!xurWindowActive()) {
+      return { ok: false, active: false, reason: "xur_inactive_window", checkedAt, itemIds: [], itemNames: [], saleItemHashes: [] };
+    }
+
+    const profileEntry = (dump.profiles || [])[0];
+    const ids = characterIds(profileEntry?.profile);
+    if (!profileEntry || !ids.length) {
+      return { ok: false, active: true, reason: "no_character_for_xur_vendor", checkedAt, itemIds: [], itemNames: [], saleItemHashes: [] };
+    }
+
+    let vendorResponse = null;
+    let lastError = "";
+    for (const characterId of ids) {
+      try {
+        vendorResponse = await bungieGet(`/Destiny2/${profileEntry.membershipType}/Profile/${profileEntry.membershipId}/Character/${characterId}/Vendors/${XUR_VENDOR_HASH}/?components=${VENDOR_SALES_COMPONENT}`, status);
+        if (saleItemHashes(vendorResponse).length) break;
+      } catch (error) {
+        lastError = error.message || String(error);
+      }
+    }
+
+    if (!vendorResponse) {
+      return { ok: false, active: true, reason: lastError || "xur_vendor_unavailable", checkedAt, itemIds: [], itemNames: [], saleItemHashes: [] };
+    }
+
+    const hashes = saleItemHashes(vendorResponse);
+    const cache = readItemDefCache();
+    const itemNames = [];
+    for (const hash of hashes) {
+      try {
+        if (status) status.textContent = "Resolving Xur sale item names...";
+        const name = await inventoryItemName(hash, cache, status);
+        if (name) itemNames.push(name);
+      } catch {}
+    }
+
+    const matched = matchCatalogByNames(itemNames);
+    const matchedNames = new Set(matched.map(item => normalize(item.name)));
+    return {
+      ok: true,
+      active: true,
+      location: "Tower",
+      checkedAt,
+      saleItemHashes: hashes,
+      itemIds: matched.map(item => item.id),
+      itemNames: matched.map(item => item.name),
+      unmatchedItems: itemNames.filter(name => !matchedNames.has(normalize(name))).map(name => ({ name }))
+    };
   }
 
   function profileNames(dump) {
@@ -568,6 +688,23 @@
           if (liveSync.ok && window.D2_COLLECTIONS_APP?.applyCollectionOwnership) {
             applyResult = window.D2_COLLECTIONS_APP.applyCollectionOwnership(liveSync);
           }
+          let xurText = "";
+          if (window.D2_COLLECTIONS_APP?.applyXurInventory) {
+            try {
+              status.textContent = "Checking Xur Tower stock...";
+              const xurInventory = await fetchXurInventory(dump, status);
+              window.D2_COLLECTIONS_APP.applyXurInventory(xurInventory);
+              if (xurInventory.ok && xurInventory.active) {
+                xurText = ` Xur Tower stock matched ${xurInventory.itemIds.length} catalog item(s).`;
+              } else if (xurInventory.reason === "xur_inactive_window") {
+                xurText = " Xur check skipped: outside Friday noon-Monday noon Central window.";
+              } else {
+                xurText = ` Xur check unavailable: ${xurInventory.reason || "no vendor data"}.`;
+              }
+            } catch (error) {
+              xurText = ` Xur check failed: ${error.message || error}.`;
+            }
+          }
           const compactDump = compactDumpForOutput(dump, liveSync, applyResult);
           output.value = JSON.stringify(compactDump, null, 2);
           if (liveSync.ok) {
@@ -580,7 +717,7 @@
                 cloudText = ` Cloud snapshot failed: ${error.message || error}.`;
               }
             }
-            status.textContent = `Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor, ${applyResult.catalystsChanged || 0} catalysts, ${applyResult.completedChanged || 0} done.${cloudText} Copy the dump/export if you want this committed to repo data.`;
+            status.textContent = `Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor, ${applyResult.catalystsChanged || 0} catalysts, ${applyResult.completedChanged || 0} done.${xurText}${cloudText} Copy the dump/export if you want this committed to repo data.`;
           } else {
             status.textContent = `Built collection dump, but could not live-sync because ${liveSync.reason}. Copy the dump and tell me whether it is Ares/Corey or Icee/Matt.`;
           }
