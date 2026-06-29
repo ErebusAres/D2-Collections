@@ -570,7 +570,7 @@
       tags.unshift({ id: "buy", label: "Buy now", title: "Logged-in player has at least 1 Exotic Cipher and 1 Exotic Engram for Rahool focusing." });
     }
     if (!tags.length) return "";
-    return `<span class="priority-tags">${tags.slice(0, 4).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${tagIcon(tag.id)}</span>`).join("")}</span>`;
+    return `<span class="priority-tags">${tags.slice(0, 5).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${tagIcon(tag.id)}</span>`).join("")}</span>`;
   }
 
   function tagIcon(id) {
@@ -581,6 +581,10 @@
       rahool: dimIcon("dim_engram.svg", "Rahool focusing source"),
       buy: dimIcon("dim_shopping_cart.svg", "Buy now"),
       xur: dimIcon("dim_star.svg", "Xur has this item"),
+      "difficulty-easy": dimIcon("difficulty_easy.svg", "Easy difficulty"),
+      "difficulty-normal": dimIcon("difficulty_normal.svg", "Normal difficulty"),
+      "difficulty-difficult": dimIcon("difficulty_difficult.svg", "Difficult acquisition"),
+      "difficulty-impossible": dimIcon("difficulty_impossible.svg", "Highest effort acquisition"),
       confidence: dimIcon("dim_exclamation_triangle.svg", "Lower confidence note")
     };
     return icons[id] || dimIcon("dim_bookmark.svg", "Tagged item");

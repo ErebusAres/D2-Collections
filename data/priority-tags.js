@@ -69,12 +69,63 @@
     return [item.source, item.bungieSource].filter(Boolean).join(" ").toLowerCase();
   }
 
+  function difficultyForSource(source) {
+    if (/unavailable|retired|vaulted|not currently|no longer|pending validation|manual-check/.test(source)) {
+      return {
+        id: "difficulty-impossible",
+        label: "Impossible",
+        level: "impossible",
+        title: "Currently unavailable, retired, or not reliably obtainable from the listed source."
+      };
+    }
+    if (/raid|garden of salvation|last wish|root of nightmares|vault of glass|king'?s fall|crotas end|crota|deep stone crypt|vow of the disciple|salvation'?s edge|spire of stars|leviathan/.test(source)) {
+      return {
+        id: "difficulty-impossible",
+        label: "Impossible",
+        level: "impossible",
+        title: "Raid or endgame RNG/quest source. Treat as the highest effort tier unless your group is already farming it."
+      };
+    }
+    if (/dungeon|dual destiny|grandmaster|master|trials|competitive|gambit quest|pit of heresy|warlord|spire of the watcher|ghosts of the deep|duality|grasp of avarice|prophecy/.test(source)) {
+      return {
+        id: "difficulty-difficult",
+        label: "Difficult",
+        level: "difficult",
+        title: "Requires harder activity completion, PvP/Gambit commitment, or a more involved exotic quest."
+      };
+    }
+    if (/world drop|exotic engram|exotic mission|xur|random|drop/.test(source)) {
+      return {
+        id: "difficulty-normal",
+        label: "Normal",
+        level: "normal",
+        title: "Obtainable but not fully deterministic, time-gated, or dependent on vendor/engram availability."
+      };
+    }
+    if (/exotic archive|monument|rahool|focusing|quest|campaign|season pass|reward pass|evidence board|starcrossed|vox obscura|pale heart|renegades/.test(source)) {
+      return {
+        id: "difficulty-easy",
+        label: "Easy",
+        level: "easy",
+        title: "Deterministic or guided source. Materials or quest progress may still be required."
+      };
+    }
+    return {
+      id: "difficulty-normal",
+      label: "Normal",
+      level: "normal",
+      title: "Source needs normal manual follow-up; not marked as deterministic or endgame-only."
+    };
+  }
+
   function apply(item, kind) {
     if (!item) return;
     const source = normalizeSource(item);
     const tags = [];
+    const difficulty = difficultyForSource(source);
     if (mustHave.has(item.id)) tags.push({ id: "must", label: "Must", title: notes[item.id] || "High-priority community PvE pickup after the final update." });
     if (finalCatalyst.has(item.id)) tags.push({ id: "final", label: "Final", title: FINAL_UPDATE_LABEL });
+    tags.push({ id: difficulty.id, label: difficulty.label, title: difficulty.title });
     if (source.includes("exotic archive") || source.includes("monument")) {
       tags.push({ id: "easy", label: "Easy", title: "Deterministic pickup from the Exotic Archive/Monument when you have the materials." });
     } else if (source.includes("rahool") || source.includes("focusing")) {
@@ -89,6 +140,9 @@
       finalUpdate: finalCatalyst.has(item.id),
       easyWin: tags.some(tag => tag.id === "easy"),
       rahool: tags.some(tag => tag.id === "rahool"),
+      difficulty: difficulty.level,
+      difficultyLabel: difficulty.label,
+      difficultyTitle: difficulty.title,
       note: notes[item.id] || "",
       tags
     };

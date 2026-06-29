@@ -78,6 +78,14 @@
     .help-priority-symbol.xur img{filter:brightness(0) saturate(100%) invert(67%) sepia(83%) saturate(1750%) hue-rotate(333deg) brightness(103%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol.buy{color:#35f0e0;background:transparent;border-radius:5px}
     .help-priority-symbol.buy img{filter:brightness(0) saturate(100%) invert(83%) sepia(80%) saturate(953%) hue-rotate(119deg) brightness(101%) contrast(96%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.difficulty-easy{color:#7fffb6}
+    .help-priority-symbol.difficulty-easy img{filter:brightness(0) saturate(100%) invert(87%) sepia(59%) saturate(519%) hue-rotate(78deg) brightness(104%) contrast(103%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.difficulty-normal{color:#8fd1ff}
+    .help-priority-symbol.difficulty-normal img{filter:brightness(0) saturate(100%) invert(76%) sepia(66%) saturate(1107%) hue-rotate(175deg) brightness(103%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.difficulty-difficult{color:#ff9b42}
+    .help-priority-symbol.difficulty-difficult img{filter:brightness(0) saturate(100%) invert(72%) sepia(79%) saturate(2063%) hue-rotate(335deg) brightness(105%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.difficulty-impossible{color:#ff5d72}
+    .help-priority-symbol.difficulty-impossible img{filter:brightness(0) saturate(100%) invert(51%) sepia(77%) saturate(1634%) hue-rotate(315deg) brightness(103%) contrast(103%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol.confidence{color:var(--muted)}
     .help-subhead{color:var(--gold);font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;font-weight:900;margin-top:12px}
     .help-details{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
@@ -164,6 +172,10 @@
       rahool: dimIcon("dim_engram.svg", "Rahool focusing source"),
       buy: dimIcon("dim_shopping_cart.svg", "Buy now"),
       xur: dimIcon("dim_star.svg", "Xur has this item"),
+      "difficulty-easy": dimIcon("difficulty_easy.svg", "Easy difficulty"),
+      "difficulty-normal": dimIcon("difficulty_normal.svg", "Normal difficulty"),
+      "difficulty-difficult": dimIcon("difficulty_difficult.svg", "Difficult acquisition"),
+      "difficulty-impossible": dimIcon("difficulty_impossible.svg", "Highest effort acquisition"),
       confidence: dimIcon("dim_exclamation_triangle.svg", "Lower confidence note")
     };
     return icons[id] || dimIcon("dim_bookmark.svg", "Tagged item");
@@ -387,6 +399,9 @@
         : "The latest logged-in Bungie vendor check matched this item in Xur's Tower inventory during the current Friday noon-Monday noon Central window.";
       blocks.push(priorityBlock("xur", "Xur has it", body));
     }
+    if (priority.difficulty) {
+      blocks.push(priorityBlock(`difficulty-${priority.difficulty}`, `${priority.difficultyLabel || priority.difficulty} difficulty`, priority.difficultyTitle || "Estimated acquisition difficulty based on the listed source."));
+    }
     if (priority.confidence) {
       blocks.push(priorityBlock("confidence", "Confidence", `${priority.confidence} - ${priority.confidenceNote || "Source confidence not specified."}`));
     }
@@ -398,6 +413,7 @@
     const values = [
       ["Type", [item.kind, item.className, item.slot, item.type].filter(Boolean).join(" / ")],
       ["Element", item.element || "None listed"],
+      ["Difficulty", item.priority?.difficultyLabel || "Normal"],
       ["Catalog ID", item.id],
       ["Collectible", (map.collectibleHashes || []).join(", ") || "Not mapped"],
       ["Catalyst records", (map.catalystRecordHashes || []).join(", ") || (item.kind === "weapon" ? "No catalyst mapped for this weapon" : "Armor item")],
