@@ -17,10 +17,10 @@
       confidence: dim("dim_exclamation_triangle.svg"),
       fallback: dim("dim_bookmark.svg"),
       sync: dim("dim_sync.svg"),
-      difficultyEasy: dim("difficulty_easy.svg"),
-      difficultyNormal: dim("difficulty_normal.svg"),
-      difficultyDifficult: dim("difficulty_difficult.svg"),
-      difficultyImpossible: dim("difficulty_impossible.svg")
+      difficultyEasy: `${dim("difficulty_easy.svg")}?v=d2-difficulty-emblems`,
+      difficultyNormal: `${dim("difficulty_normal.svg")}?v=d2-difficulty-emblems`,
+      difficultyDifficult: `${dim("difficulty_difficult.svg")}?v=d2-difficulty-emblems`,
+      difficultyImpossible: `${dim("difficulty_impossible.svg")}?v=d2-difficulty-emblems`
     }
   };
 })();

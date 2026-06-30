@@ -1,14 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
-  <mask id="difficulty-mask">
-    <rect width="96" height="96" fill="#fff"/>
-    <path fill="#000" d="M48 22c-12 0-21 9-21 20 0 7 4 12 9 16v9h24v-9c5-4 9-9 9-16 0-11-9-20-21-20Z"/>
-    <path fill="#fff" d="M36 42c0-4 3-7 7-7 3 0 5 2 5 5 0 4-3 7-7 7-3 0-5-2-5-5Zm24 0c0-4-3-7-7-7-3 0-5 2-5 5 0 4 3 7 7 7 3 0 5-2 5-5Z"/>
-    <path fill="#fff" d="M44 52h8l4 9H40l4-9Z"/>
-    <path d="M36 70c7-5 17-5 24 0" fill="none" stroke="#000" stroke-width="7" stroke-linecap="round"/>
-  </mask>
-  <path d="M23 8h50v53L48 88 23 61V8Z" mask="url(#difficulty-mask)"/>
-  <path d="M31 14h34v6H31z"/>
-  <path d="M22 29 3 44l24 7V38l-5-9Zm52 0 19 15-24 7V38l5-9Z"/>
-  <path d="M20 49 2 64l25 5V56l-7-7Zm56 0 18 15-25 5V56l7-7Z"/>
-  <path d="M21 68 6 86l23-2V73l-8-5Zm54 0 15 18-23-2V73l8-5Z"/>
+  <defs>
+    <mask id="difficulty-impossible-cut">
+      <rect width="96" height="96" fill="#fff"/>
+      <path fill="#000" d="M48 19c-15 0-26 11-26 25 0 9 5 16 11 20v10h30V64c6-4 11-11 11-20 0-14-11-25-26-25Z"/>
+      <path fill="#fff" d="M32 42c0-5 4-9 9-9 4 0 7 3 7 7 0 5-4 9-9 9-4 0-7-3-7-7Zm32 0c0-5-4-9-9-9-4 0-7 3-7 7 0 5 4 9 9 9 4 0 7-3 7-7Zm-21 11h10l5 12H38l5-12Z"/>
+      <path d="M36 76c7-6 17-6 24 0" fill="none" stroke="#000" stroke-width="7" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <path fill="#fff" mask="url(#difficulty-impossible-cut)" d="M48 2 62 13h17v11h-6v36L48 92 23 60V24h-6V13h17L48 2Zm0 10-8 7H30v5h36v-5H56l-8-7ZM33 29v30l15 20 15-20V29H33ZM26 26 1 39l31 10V36l-6-10Zm44 0 25 13-31 10V36l6-10ZM23 47 0 60l32 9V55l-9-8Zm50 0 23 13-32 9V55l9-8ZM22 66 4 88l29-4V72l-11-6Zm52 0 18 22-29-4V72l11-6ZM18 12 3 28l22 6v-9l-7-13Zm60 0 15 16-22 6v-9l7-13ZM31 9 39 0l9 12 9-12 8 9-8 9H39l-8-9Zm11 11h12l5 7H37l5-7Z"/>
 </svg>

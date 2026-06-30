@@ -1,13 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
-  <mask id="difficulty-mask">
-    <rect width="96" height="96" fill="#fff"/>
-    <path fill="#000" d="M48 22c-12 0-21 9-21 20 0 7 4 12 9 16v9h24v-9c5-4 9-9 9-16 0-11-9-20-21-20Z"/>
-    <path fill="#fff" d="M36 42c0-4 3-7 7-7 3 0 5 2 5 5 0 4-3 7-7 7-3 0-5-2-5-5Zm24 0c0-4-3-7-7-7-3 0-5 2-5 5 0 4 3 7 7 7 3 0 5-2 5-5Z"/>
-    <path fill="#fff" d="M44 52h8l4 9H40l4-9Z"/>
-    <path d="M36 70c7-5 17-5 24 0" fill="none" stroke="#000" stroke-width="7" stroke-linecap="round"/>
-  </mask>
-  <path d="M23 8h50v53L48 88 23 61V8Z" mask="url(#difficulty-mask)"/>
-  <path d="M31 14h34v6H31z"/>
-  <path d="M22 34 5 48l22 7v-13l-5-8Zm52 0 17 14-22 7v-13l5-8Z"/>
-  <path d="M20 54 4 68l23 5V60l-7-6Zm56 0 16 14-23 5V60l7-6Z"/>
+  <defs>
+    <mask id="difficulty-difficult-cut">
+      <rect width="96" height="96" fill="#fff"/>
+      <path fill="#000" d="M48 24c-12 0-21 9-21 20 0 7 4 13 9 16v8h24v-8c5-3 9-9 9-16 0-11-9-20-21-20Z"/>
+      <path fill="#fff" d="M35 43c0-4 3-7 7-7 3 0 5 2 5 5 0 4-3 7-7 7-3 0-5-2-5-5Zm26 0c0-4-3-7-7-7-3 0-5 2-5 5 0 4 3 7 7 7 3 0 5-2 5-5Zm-17 9h8l4 9H40l4-9Z"/>
+      <path d="M38 71c6-5 14-5 20 0" fill="none" stroke="#000" stroke-width="6" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <path fill="#fff" mask="url(#difficulty-difficult-cut)" d="M48 3 61 14h17v11h-7v35L48 92 25 60V25h-7V14h17L48 3Zm0 11-8 7H30v4h36v-4H56l-8-7ZM34 30v29l14 20 14-20V30H34ZM28 31 5 43l27 8V39l-4-8Zm40 0 23 12-27 8V39l4-8ZM25 50 3 63l29 7V56l-7-6Zm46 0 22 13-29 7V56l7-6ZM20 16 7 29l18 5v-9l-5-9Zm56 0 13 13-18 5v-9l5-9ZM38 10 48 0l10 10-10 6-10-6Z"/>
 </svg>

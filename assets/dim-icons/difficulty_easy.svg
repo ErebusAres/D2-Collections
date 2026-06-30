@@ -1,11 +1,3 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
-  <mask id="difficulty-mask">
-    <rect width="96" height="96" fill="#fff"/>
-    <path fill="#000" d="M48 22c-12 0-21 9-21 20 0 7 4 12 9 16v9h24v-9c5-4 9-9 9-16 0-11-9-20-21-20Z"/>
-    <path fill="#fff" d="M36 42c0-4 3-7 7-7 3 0 5 2 5 5 0 4-3 7-7 7-3 0-5-2-5-5Zm24 0c0-4-3-7-7-7-3 0-5 2-5 5 0 4 3 7 7 7 3 0 5-2 5-5Z"/>
-    <path fill="#fff" d="M44 52h8l4 9H40l4-9Z"/>
-    <path d="M36 70c7-5 17-5 24 0" fill="none" stroke="#000" stroke-width="7" stroke-linecap="round"/>
-  </mask>
-  <path d="M23 8h50v53L48 88 23 61V8Z" mask="url(#difficulty-mask)"/>
-  <path d="M31 14h34v6H31z"/>
+  <path fill="#fff" d="M48 4 59 15h19v11h-8v34L48 92 26 60V26h-8V15h19L48 4Zm0 11-7 7H29v4h38v-4H55l-7-7ZM34 31v27l14 21 14-21V31H34Zm6 7h16v6H40v-6Zm0 12h16v6H40v-6Z"/>
 </svg>
