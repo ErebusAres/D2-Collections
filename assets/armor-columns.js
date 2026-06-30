@@ -2,6 +2,7 @@
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { armor: {} };
   const CHECKLIST = window.D2_COLLECTIONS_CHECKLIST || { users: {}, armor: {} };
   const COLLECTIBLES = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
+  const UI_ICONS = window.D2_COLLECTIONS_UI_ICONS || { game: {}, dim: {} };
   const STORAGE_KEY = "d2-collections-armor-columns-v1";
   const RESOURCE_KEY = "d2-collections-player-resources-v1";
   const XUR_STOCK_KEY = "d2-collections-xur-stock-v1";
@@ -140,23 +141,31 @@
 
   function tagIcon(id) {
     const icons = {
-      must: dimIcon("dim_thumb_up.svg", "Must-have priority"),
-      easy: dimIcon("dim_check.svg", "Easy win"),
-      final: dimIcon("dim_masterwork_hammer.svg", "Final update catalyst priority"),
-      rahool: dimIcon("dim_engram.svg", "Rahool focusing source"),
-      buy: dimIcon("dim_shopping_cart.svg", "Buy now"),
-      xur: dimIcon("dim_star.svg", "Xur has this item"),
-      "difficulty-easy": dimIcon("difficulty_easy.svg", "Easy difficulty"),
-      "difficulty-normal": dimIcon("difficulty_normal.svg", "Normal difficulty"),
-      "difficulty-difficult": dimIcon("difficulty_difficult.svg", "Difficult acquisition"),
-      "difficulty-impossible": dimIcon("difficulty_impossible.svg", "Highest effort acquisition"),
-      confidence: dimIcon("dim_exclamation_triangle.svg", "Lower confidence note")
+      must: uiGlyph(UI_ICONS.dim?.must, "Must-have priority"),
+      easy: uiGlyph(UI_ICONS.dim?.easy, "Easy win"),
+      final: uiGlyph(UI_ICONS.dim?.final, "Final update catalyst priority"),
+      rahool: gameIcon(UI_ICONS.game?.exoticEngram, "Rahool exotic engram focusing source"),
+      buy: gameIcon(UI_ICONS.game?.exoticCipher, "Buy now: Exotic Cipher and Exotic Engram ready"),
+      xur: gameIcon(UI_ICONS.game?.strangeCoin, "Xur has this item"),
+      "difficulty-easy": uiGlyph(UI_ICONS.dim?.difficultyEasy, "Easy difficulty"),
+      "difficulty-normal": uiGlyph(UI_ICONS.dim?.difficultyNormal, "Normal difficulty"),
+      "difficulty-difficult": uiGlyph(UI_ICONS.dim?.difficultyDifficult, "Difficult acquisition"),
+      "difficulty-impossible": uiGlyph(UI_ICONS.dim?.difficultyImpossible, "Highest effort acquisition"),
+      confidence: uiGlyph(UI_ICONS.dim?.confidence, "Lower confidence note")
     };
-    return icons[id] || dimIcon("dim_bookmark.svg", "Tagged item");
+    return icons[id] || uiGlyph(UI_ICONS.dim?.fallback, "Tagged item");
   }
 
   function dimIcon(filename, label) {
-    return `<img class="dim-icon" src="assets/dim-icons/${escapeAttr(filename)}" alt="" title="${escapeAttr(label)}" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />`;
+    return uiGlyph(`assets/dim-icons/${filename}`, label);
+  }
+
+  function uiGlyph(src, label) {
+    return `<img class="dim-icon ui-glyph" src="${escapeAttr(src || UI_ICONS.dim?.fallback || "assets/dim-icons/dim_bookmark.svg")}" alt="" title="${escapeAttr(label)}" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />`;
+  }
+
+  function gameIcon(src, label) {
+    return `<img class="game-icon real-icon" src="${escapeAttr(src || UI_ICONS.dim?.fallback || "assets/dim-icons/dim_bookmark.svg")}" alt="" title="${escapeAttr(label)}" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />`;
   }
 
   function classIcon(className) {

@@ -4,6 +4,7 @@
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
   const ICON_MAP = window.D2_COLLECTIONS_ICON_MAP || {};
   const COLLECTIBLES = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
+  const UI_ICONS = window.D2_COLLECTIONS_UI_ICONS || { game: {}, dim: {} };
   const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
   const LOCAL_OWNERSHIP_KEY = "d2-collections-local-ownership-v1";
   const RESOURCE_KEY = "d2-collections-player-resources-v1";
@@ -25,8 +26,8 @@
     kinetic: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_3385a924fd3ccb92c343ade19f19a370.png"
   };
   const RESOURCE_ICONS = {
-    exoticCipher: "https://www.bungie.net/common/destiny2_content/icons/9970631fe1052642c268132dfc30e16b.jpg",
-    exoticEngram: "https://www.bungie.net/common/destiny2_content/icons/3e6a698e1a8a5fb446fdcbf1e63c5269.png"
+    exoticCipher: UI_ICONS.game?.exoticCipher || "https://www.bungie.net/common/destiny2_content/icons/9970631fe1052642c268132dfc30e16b.jpg",
+    exoticEngram: UI_ICONS.game?.exoticEngram || "https://www.bungie.net/common/destiny2_content/icons/3e6a698e1a8a5fb446fdcbf1e63c5269.png"
   };
 
   const blankWeapon = () => ({ owned: false, catalyst: false, complete: false });
@@ -519,7 +520,7 @@
     const ready = ciphers >= 1 && engrams >= 1;
     const pct = !synced ? 0 : ready ? 100 : ciphers >= 1 || engrams >= 1 ? 50 : 0;
     const value = synced
-      ? `<span class="resource-count"><img src="${RESOURCE_ICONS.exoticCipher}" alt="" title="Exotic Cipher" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${ciphers}<small>Cipher</small></span><span class="resource-count"><img src="${RESOURCE_ICONS.exoticEngram}" alt="" title="Exotic Engram" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${engrams}<small>Engram</small></span>`
+      ? `<span class="resource-count"><img class="real-icon" src="${RESOURCE_ICONS.exoticCipher}" alt="" title="Exotic Cipher" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${ciphers}<small>Cipher</small></span><span class="resource-count"><img class="real-icon" src="${RESOURCE_ICONS.exoticEngram}" alt="" title="Exotic Engram" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />${engrams}<small>Engram</small></span>`
       : `<small>not synced</small>`;
     const title = synced
       ? `${user}: ${ciphers} Exotic Cipher(s), ${engrams} Exotic Engram(s). ${ready ? "Rahool buy-now checks are active." : "Needs 1+ of each for Rahool buy-now checks."}`
@@ -694,19 +695,19 @@
 
   function tagIcon(id) {
     const icons = {
-      must: dimIcon("dim_thumb_up.svg", "Must-have priority"),
-      easy: dimIcon("dim_check.svg", "Easy win"),
-      final: dimIcon("dim_masterwork_hammer.svg", "Final update catalyst priority"),
-      rahool: dimIcon("dim_engram.svg", "Rahool focusing source"),
-      buy: dimIcon("dim_shopping_cart.svg", "Buy now"),
-      xur: dimIcon("dim_star.svg", "Xur has this item"),
-      "difficulty-easy": dimIcon("difficulty_easy.svg", "Easy difficulty"),
-      "difficulty-normal": dimIcon("difficulty_normal.svg", "Normal difficulty"),
-      "difficulty-difficult": dimIcon("difficulty_difficult.svg", "Difficult acquisition"),
-      "difficulty-impossible": dimIcon("difficulty_impossible.svg", "Highest effort acquisition"),
-      confidence: dimIcon("dim_exclamation_triangle.svg", "Lower confidence note")
+      must: uiGlyph(UI_ICONS.dim?.must, "Must-have priority"),
+      easy: uiGlyph(UI_ICONS.dim?.easy, "Easy win"),
+      final: uiGlyph(UI_ICONS.dim?.final, "Final update catalyst priority"),
+      rahool: gameIcon(UI_ICONS.game?.exoticEngram, "Rahool exotic engram focusing source"),
+      buy: gameIcon(UI_ICONS.game?.exoticCipher, "Buy now: Exotic Cipher and Exotic Engram ready"),
+      xur: gameIcon(UI_ICONS.game?.strangeCoin, "Xur has this item"),
+      "difficulty-easy": uiGlyph(UI_ICONS.dim?.difficultyEasy, "Easy difficulty"),
+      "difficulty-normal": uiGlyph(UI_ICONS.dim?.difficultyNormal, "Normal difficulty"),
+      "difficulty-difficult": uiGlyph(UI_ICONS.dim?.difficultyDifficult, "Difficult acquisition"),
+      "difficulty-impossible": uiGlyph(UI_ICONS.dim?.difficultyImpossible, "Highest effort acquisition"),
+      confidence: uiGlyph(UI_ICONS.dim?.confidence, "Lower confidence note")
     };
-    return icons[id] || dimIcon("dim_bookmark.svg", "Tagged item");
+    return icons[id] || uiGlyph(UI_ICONS.dim?.fallback, "Tagged item");
   }
 
   function damageParts(element) {
@@ -797,7 +798,15 @@
   }
 
   function dimIcon(filename, label) {
-    return `<img class="dim-icon" src="assets/dim-icons/${escapeAttr(filename)}" alt="" title="${escapeAttr(label)}" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />`;
+    return uiGlyph(`assets/dim-icons/${filename}`, label);
+  }
+
+  function uiGlyph(src, label) {
+    return `<img class="dim-icon ui-glyph" src="${escapeAttr(src || UI_ICONS.dim?.fallback || "assets/dim-icons/dim_bookmark.svg")}" alt="" title="${escapeAttr(label)}" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />`;
+  }
+
+  function gameIcon(src, label) {
+    return `<img class="game-icon real-icon" src="${escapeAttr(src || UI_ICONS.dim?.fallback || "assets/dim-icons/dim_bookmark.svg")}" alt="" title="${escapeAttr(label)}" width="18" height="18" loading="lazy" decoding="async" aria-hidden="true" />`;
   }
 
   function titleCase(value) {
