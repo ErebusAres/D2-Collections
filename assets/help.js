@@ -315,8 +315,9 @@
     "khvostov-7g-0x": ["Progress The Pale Heart collectible and quest path.", "Collect the required regional items and finish the final quest step."],
     "barrow-dyad": ["Follow The Taken Path and Derealize questline from Episode: Heresy.", "Finish the quest chain to unlock Barrow-Dyad."],
     "praxic-blade": ["Progress the Renegades campaign/source path listed by Bungie.", "Check the Renegades destination or quest vendor if it is not already claimable."],
-    "new-malpais": ["Bungie maps this item in the manifest, but the catalog source is still pending validation.", "Treat this as a manual-check item until its final acquisition route is confirmed in game."],
-    "wicked-sister-placeholder": ["Bungie does not expose a source string for this catalog entry yet.", "Use the local source tag as a lead, then verify in game before relying on this route."]
+    "cull-s-shadow": ["Complete the Monuments of Triumph exotic mission path.", "Bungie resolves the item but does not publish a collectible source string, so the site marks this as externally verified."],
+    "new-malpais": ["Bungie lists this as a Rewards Pass item.", "Check the current Rewards Pass track first; if the pass has rotated, verify the current legacy path in game."],
+    "wicked-sister-placeholder": ["Bungie resolves this item but does not publish a collectible source string.", "The local catalog lists Heliostat / Ash & Iron as the lead, but this is not externally verified yet."]
   };
 
   function routeFor(item) {

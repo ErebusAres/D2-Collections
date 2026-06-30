@@ -61,7 +61,7 @@
   upsertWeapon({ id: "barrow-dyad", name: "Barrow-Dyad", slot: "Kinetic", type: "SMG", element: "Strand", source: "Episode: Heresy / The Taken Path / Derealize" });
   upsertWeapon({ id: "arbalest", name: "Arbalest", slot: "Kinetic", type: "Linear Fusion Rifle", element: "Kinetic", source: "World drop" });
   upsertWeapon({ id: "cryosthesia-77k", name: "Cryosthesia 77K", slot: "Kinetic", type: "Sidearm", element: "Stasis", source: "Exotic Archive" });
-  upsertWeapon({ id: "cull-s-shadow", name: "Cull's Shadow", slot: "Kinetic", type: "Fusion Rifle", element: "Kinetic", source: "Bungie source not listed" });
+  upsertWeapon({ id: "cull-s-shadow", name: "Cull's Shadow", slot: "Kinetic", type: "Fusion Rifle", element: "Kinetic", source: "Monuments of Triumph exotic mission" });
   upsertWeapon({ id: "lumina", name: "Lumina", slot: "Kinetic", type: "Hand Cannon", element: "Kinetic", source: "Exotic Archive" });
   upsertWeapon({ id: "necrochasm", name: "Necrochasm", slot: "Kinetic", type: "Auto Rifle", element: "Kinetic", source: "Crota's End" });
   upsertWeapon({ id: "no-time-to-explain", name: "No Time to Explain", slot: "Kinetic", type: "Pulse Rifle", element: "Kinetic", source: "Beyond Light / deluxe bonus" });

@@ -66,16 +66,16 @@
     "heirloom"
   ]);
 
+  const externalSourceEvidence = {
+    "cull-s-shadow": "Bungie manifest resolves the item but omits a source string; acquisition route was externally verified as the Monuments of Triumph exotic mission."
+  };
+
   function normalizeSource(item) {
     return [item.source, item.bungieSource, ...(bungie.items?.[item.id]?.sourceStrings || [])].filter(Boolean).join(" ").toLowerCase();
   }
 
   function hasBungieSource(item) {
     return Boolean((bungie.items?.[item.id]?.sourceStrings || []).length);
-  }
-
-  function trustedSourcePattern(source) {
-    return /world drop|exotic engram|exotic archive|monument|rahool|focusing|quest|campaign|season pass|reward pass|rewards pass|episode|exotic mission|xur|dungeon|raid|lost sector|lost sectors|evidence board|starcrossed|vox obscura|pale heart|renegades|edge of fate|final shape|lightfall|witch queen|beyond light|shadowkeep|dares of eternity|empire hunts|zero hour|whisper|avalon|seraph|encore|deep dive|kiosk|guardian games|heliostat|ash & iron|desert perpetual|sundered doctrine|vesper|warlord|spire|ghosts of the deep|duality|grasp of avarice|crotas end|crota|garden of salvation|last wish|vault of glass|king'?s fall|deep stone crypt|vow of the disciple|root of nightmares|salvation'?s edge/.test(source);
   }
 
   function difficultyForSource(source) {
@@ -158,18 +158,15 @@
     if (hasBungieSource(item)) {
       item.priority.confidence = "Bungie";
       item.priority.confidenceNote = "Acquisition source is backed by Bungie collectible/source data bundled with the site.";
-    } else if (source.includes("bungie source not listed")) {
-      item.priority.confidence = "Manual";
-      item.priority.confidenceNote = "Bungie resolves the item, but does not publish a collectible source string for it.";
-    } else if (trustedSourcePattern(source)) {
-      item.priority.confidence = "Manifest";
-      item.priority.confidenceNote = "Acquisition route matches a known Destiny source pattern; no pending/unknown source remains in the catalog.";
+    } else if (externalSourceEvidence[item.id]) {
+      item.priority.confidence = "External";
+      item.priority.confidenceNote = externalSourceEvidence[item.id];
     } else if (mustHave.has(item.id) || finalCatalyst.has(item.id)) {
       item.priority.confidence = "Community meta";
       item.priority.confidenceNote = "Priority tag is based on post-final-update community/buildcraft value and should be revisited after sandbox changes.";
     } else {
-      item.priority.confidence = "Manual";
-      item.priority.confidenceNote = "Fallback catalog/source judgement; verify in game if acquisition changed.";
+      item.priority.confidence = "Catalog";
+      item.priority.confidenceNote = "Source comes from the static catalog, not a Bungie collectible source string. Verify in game if it matters.";
     }
     item.priority.finalUpdateLabel = FINAL_UPDATE_LABEL;
   }
