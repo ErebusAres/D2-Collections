@@ -19,6 +19,10 @@
   --exotic-tile: #b08a2b;
   --director-line: rgba(156,199,255,.22);
   --director-faint: rgba(202,209,221,.07);
+  --difficulty-easy: #cad1dd;
+  --difficulty-normal: #7fffb6;
+  --difficulty-difficult: #f0d587;
+  --difficulty-impossible: #ff5d72;
   --shadow: 0 18px 42px rgba(0,0,0,.38);
   --shadow-soft: 0 10px 22px rgba(0,0,0,.26);
   --radius: 10px;
@@ -826,7 +830,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 }
 .legend-chip.buy img { filter: brightness(0) saturate(100%) invert(83%) sepia(80%) saturate(953%) hue-rotate(119deg) brightness(101%) contrast(96%) drop-shadow(0 1px 2px rgba(0,0,0,.72)); }
 .legend-chip.difficulty-easy,
-.priority-chip.difficulty-easy { color: #7fffb6; }
+.priority-chip.difficulty-easy { color: var(--difficulty-easy); }
 .legend-chip.difficulty-easy img,
 .legend-chip.difficulty-normal img,
 .legend-chip.difficulty-difficult img,
@@ -840,22 +844,22 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 }
 .legend-chip.difficulty-easy img,
 .priority-chip.difficulty-easy img {
-  filter: brightness(0) saturate(100%) invert(87%) sepia(59%) saturate(519%) hue-rotate(78deg) brightness(104%) contrast(103%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+  filter: brightness(0) saturate(100%) invert(90%) sepia(10%) saturate(323%) hue-rotate(180deg) brightness(95%) contrast(93%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
 }
 .legend-chip.difficulty-normal,
-.priority-chip.difficulty-normal { color: #8fd1ff; }
+.priority-chip.difficulty-normal { color: var(--difficulty-normal); }
 .legend-chip.difficulty-normal img,
 .priority-chip.difficulty-normal img {
-  filter: brightness(0) saturate(100%) invert(76%) sepia(66%) saturate(1107%) hue-rotate(175deg) brightness(103%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+  filter: brightness(0) saturate(100%) invert(87%) sepia(59%) saturate(519%) hue-rotate(78deg) brightness(104%) contrast(103%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
 }
 .legend-chip.difficulty-difficult,
-.priority-chip.difficulty-difficult { color: #ff9b42; }
+.priority-chip.difficulty-difficult { color: var(--difficulty-difficult); }
 .legend-chip.difficulty-difficult img,
 .priority-chip.difficulty-difficult img {
-  filter: brightness(0) saturate(100%) invert(72%) sepia(79%) saturate(2063%) hue-rotate(335deg) brightness(105%) contrast(101%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
+  filter: brightness(0) saturate(100%) invert(89%) sepia(30%) saturate(770%) hue-rotate(353deg) brightness(101%) contrast(91%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
 }
 .legend-chip.difficulty-impossible,
-.priority-chip.difficulty-impossible { color: #ff5d72; }
+.priority-chip.difficulty-impossible { color: var(--difficulty-impossible); }
 .legend-chip.difficulty-impossible img,
 .priority-chip.difficulty-impossible img {
   filter: brightness(0) saturate(100%) invert(51%) sepia(77%) saturate(1634%) hue-rotate(315deg) brightness(103%) contrast(103%) drop-shadow(0 1px 2px rgba(0,0,0,.72));
