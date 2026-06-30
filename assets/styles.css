@@ -343,6 +343,130 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 .cloud-card.is-fresh::before { background: linear-gradient(180deg, var(--blue), rgba(92,182,255,.14)); }
 .cloud-card.is-stale::before { background: linear-gradient(180deg, var(--gold), rgba(216,177,91,.12)); }
 .cloud-card.is-empty::before { background: linear-gradient(180deg, var(--muted), rgba(153,164,181,.1)); }
+.claim-feed-popout {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 70;
+}
+.claim-feed-popout[open] .claim-feed-button {
+  border-color: rgba(216,177,91,.6);
+  background: rgba(216,177,91,.13);
+}
+.claim-feed-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 11px;
+  border: 1px solid rgba(216,177,91,.34);
+  border-radius: 8px;
+  color: var(--text);
+  background: rgba(11,14,19,.92);
+  box-shadow: 0 12px 36px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.06);
+  cursor: pointer;
+  list-style: none;
+}
+.claim-feed-button::-webkit-details-marker { display: none; }
+.claim-feed-button strong {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.claim-feed-button em {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #090b0f;
+  background: var(--gold-bright);
+  font-style: normal;
+  font-size: .72rem;
+  font-weight: 900;
+}
+.claim-feed-icon {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--gold-bright);
+  transform: rotate(45deg);
+  box-shadow: 0 0 14px rgba(216,177,91,.32);
+}
+.claim-feed-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  width: min(390px, calc(100vw - 28px));
+  max-height: min(520px, calc(100vh - 120px));
+  overflow: hidden;
+  border: 1px solid rgba(216,177,91,.28);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018)), rgba(10,13,18,.98);
+  box-shadow: 0 22px 60px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.07);
+}
+.claim-feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.claim-feed-head h2 { margin: 2px 0 0; font-size: 1rem; }
+.claim-feed-head .button { min-height: 30px; padding: 6px 9px; font-size: .75rem; }
+.claim-feed-list { max-height: 430px; overflow: auto; padding: 8px; }
+.claim-feed-item {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 28px;
+  gap: 9px;
+  align-items: center;
+  margin-bottom: 7px;
+  padding: 7px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-left: 3px solid var(--gold);
+  border-radius: 8px;
+  background: rgba(255,255,255,.045);
+}
+.claim-feed-item.armor { border-left-color: #8fd1ff; }
+.claim-feed-item img,
+.claim-feed-fallback {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  border: 1px solid rgba(216,177,91,.36);
+  background: #080b10;
+}
+.claim-feed-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--gold-bright);
+  font-size: .75rem;
+  font-weight: 900;
+}
+.claim-feed-item strong,
+.claim-feed-item span,
+.claim-feed-item time {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.claim-feed-item strong { color: var(--text); font-size: .88rem; }
+.claim-feed-item span { color: var(--soft); font-size: .76rem; }
+.claim-feed-item time { color: var(--muted); font-size: .7rem; margin-top: 2px; }
+.claim-feed-dismiss {
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px;
+  color: var(--muted);
+  background: rgba(255,255,255,.04);
+  cursor: pointer;
+}
+.claim-feed-dismiss:hover { color: #fff; border-color: rgba(255,255,255,.22); }
+.claim-feed-empty { padding: 20px 12px; color: var(--muted); text-align: center; }
 .progress-track { height: 8px; margin-top: 12px; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
 .progress-fill { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--blue), var(--green), var(--gold)); box-shadow: 0 0 18px rgba(216,177,91,.22); }
 

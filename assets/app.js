@@ -11,6 +11,7 @@
   const XUR_STOCK_KEY = "d2-collections-xur-stock-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const ACTIVE_PLAYER_KEY = "d2-collections-active-player-v1";
+  const CLAIM_FEED_KEY = "d2-collections-claim-feed-v1";
   const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "corey" };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {} });
@@ -39,6 +40,7 @@
   let cloudMeta = readCloudMeta();
   let xurStock = readXurStock();
   let authState = readAuthState();
+  let claimFeed = readClaimFeed();
 
   const els = {
     summary: document.querySelector("#summary"),
@@ -56,7 +58,10 @@
     activePlayer: document.querySelector("#activePlayerPill"),
     dataHealth: document.querySelector("#dataHealth"),
     aresArmorCount: document.querySelector("#aresArmorCount"),
-    iceeArmorCount: document.querySelector("#iceeArmorCount")
+    iceeArmorCount: document.querySelector("#iceeArmorCount"),
+    claimFeedList: document.querySelector("#claimFeedList"),
+    claimFeedCount: document.querySelector("#claimFeedCount"),
+    clearClaimFeedBtn: document.querySelector("#clearClaimFeedBtn")
   };
 
   const weaponOrder = new Map((CATALOG.weapons || []).map((item, index) => [item.id, index]));
@@ -146,6 +151,20 @@
   function saveXurStock(next = xurStock) {
     xurStock = next || {};
     localStorage.setItem(XUR_STOCK_KEY, JSON.stringify(xurStock));
+  }
+
+  function readClaimFeed() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(CLAIM_FEED_KEY) || "[]");
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveClaimFeed(next = claimFeed) {
+    claimFeed = Array.isArray(next) ? next.slice(0, 80) : [];
+    localStorage.setItem(CLAIM_FEED_KEY, JSON.stringify(claimFeed));
   }
 
   function applyLocalOwnership(next) {
@@ -360,6 +379,7 @@
     renderSummary();
     renderIdentity();
     renderDataHealth();
+    renderClaimFeed();
     renderWeapons();
     renderArmor("warlock", els.warlock, document.querySelector("#aresArmor"));
     renderArmor("titan", els.titan, document.querySelector("#iceeArmor"));
@@ -409,6 +429,28 @@
       ["Missing icons", missingIcons],
       ["Xur stock", xurCount]
     ].map(([label, value]) => `<span><strong>${value}</strong>${label}</span>`).join("");
+  }
+
+  function renderClaimFeed() {
+    if (els.claimFeedCount) els.claimFeedCount.textContent = claimFeed.length;
+    if (!els.claimFeedList) return;
+    els.claimFeedList.innerHTML = claimFeed.length
+      ? claimFeed.slice(0, 24).map(renderClaimFeedItem).join("")
+      : `<div class="claim-feed-empty">No recent claim activity yet.</div>`;
+  }
+
+  function renderClaimFeedItem(entry) {
+    const title = claimFeedTitle(entry);
+    const icon = entry.icon ? `<img src="${escapeAttr(entry.icon)}" alt="" width="38" height="38" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="claim-feed-fallback">${escapeInitials(entry.itemName)}</span>`;
+    return `<article class="claim-feed-item ${escapeAttr(entry.kind || "item")}">
+      ${icon}
+      <div>
+        <strong>${escapeAttr(entry.itemName || "Unknown item")}</strong>
+        <span>${escapeAttr(title)}</span>
+        <time title="${escapeAttr(formatFullDate(entry.at))}">${escapeAttr(formatRelativeTime(entry.at))}</time>
+      </div>
+      <button type="button" class="claim-feed-dismiss" data-feed-dismiss="${escapeAttr(entry.id)}" aria-label="Dismiss ${escapeAttr(entry.itemName || "feed item")}">&times;</button>
+    </article>`;
   }
 
   function renderSummary() {
@@ -718,6 +760,22 @@
     return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
 
+  function formatRelativeTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "recently";
+    const seconds = Math.round((date.getTime() - Date.now()) / 1000);
+    const abs = Math.abs(seconds);
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    if (abs < 60) return rtf.format(seconds, "second");
+    const minutes = Math.round(seconds / 60);
+    if (Math.abs(minutes) < 60) return rtf.format(minutes, "minute");
+    const hours = Math.round(minutes / 60);
+    if (Math.abs(hours) < 24) return rtf.format(hours, "hour");
+    const days = Math.round(hours / 24);
+    if (Math.abs(days) < 30) return rtf.format(days, "day");
+    return formatShortDate(value);
+  }
+
   function formatFullDate(value) {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "unknown date";
@@ -762,6 +820,34 @@
 
   function neutralStatusCell(title) {
     return `<div class="status-cell idle" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><span class="status-mark" aria-hidden="true">${dimIcon("dim_times_circle.svg", title)}</span></div>`;
+  }
+
+  function feedIconForItem(item) {
+    const raw = item?.icon || item?.iconUrl || ICON_MAP?.[item?.id] || "";
+    return raw && raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw;
+  }
+
+  function claimFeedTitle(entry) {
+    const user = BASE.users?.[entry.player]?.display || BASE.users?.[entry.player]?.label || titleCase(entry.player);
+    const action = entry.type === "catalyst"
+      ? "catalyst obtained"
+      : entry.type === "complete"
+        ? "catalyst completed"
+        : entry.kind === "armor"
+          ? "armor claimed"
+          : "weapon claimed";
+    return `${user} ${action}`;
+  }
+
+  function addClaimFeedEvents(events = [], payload = {}) {
+    if (!events.length) return;
+    const at = payload.cloudSyncedAt || payload.syncedAt || new Date().toISOString();
+    const next = events.map((event, index) => ({
+      id: `${Date.now()}-${index}-${event.player}-${event.itemId}-${event.type}`,
+      at,
+      ...event
+    }));
+    saveClaimFeed([...next, ...claimFeed].slice(0, 80));
   }
 
   function itemIconMarkup(item, eager = false) {
@@ -809,6 +895,7 @@
     let catalystsChanged = 0;
     let completedChanged = 0;
     let matchedItems = 0;
+    const feedEvents = [];
 
     if (payload.resourceCounts) {
       const resourceSyncedAt = payload.cloudSyncedAt || payload.syncedAt || new Date().toISOString();
@@ -829,15 +916,20 @@
       if (!row) return;
       if (matched) {
         matchedItems += 1;
-        if (!row.owned) weaponsChanged += 1;
+        if (!row.owned) {
+          weaponsChanged += 1;
+          feedEvents.push({ player, kind: "weapon", type: "owned", itemId: item.id, itemName: item.name, icon: feedIconForItem(item) });
+        }
         row.owned = true;
       }
       if (catalystItemIds.has(item.id) && !row.catalyst) {
         catalystsChanged += 1;
+        feedEvents.push({ player, kind: "weapon", type: "catalyst", itemId: item.id, itemName: item.name, icon: feedIconForItem(item) });
         row.catalyst = true;
       }
       if (completeItemIds.has(item.id) && !row.complete) {
         completedChanged += 1;
+        feedEvents.push({ player, kind: "weapon", type: "complete", itemId: item.id, itemName: item.name, icon: feedIconForItem(item) });
         row.complete = true;
         if (!row.catalyst) {
           catalystsChanged += 1;
@@ -853,12 +945,16 @@
         const row = state.armor[className]?.[item.id]?.[player];
         if (!row) return;
         matchedItems += 1;
-        if (!row.owned) armorChanged += 1;
+        if (!row.owned) {
+          armorChanged += 1;
+          feedEvents.push({ player, kind: "armor", type: "owned", className, itemId: item.id, itemName: item.name, icon: feedIconForItem(item) });
+        }
         row.owned = true;
       });
     });
 
     if (weaponsChanged || armorChanged || catalystsChanged || completedChanged) saveLocalOwnership();
+    addClaimFeedEvents(feedEvents, payload);
     render();
     const result = { ok: true, player, weaponsChanged, armorChanged, catalystsChanged, completedChanged, matchedItems, savedLocalOwnership: true };
     document.dispatchEvent(new CustomEvent("d2collections:ownership-applied", { detail: result }));
@@ -991,10 +1087,22 @@
   }));
   if (els.sort) els.sort.addEventListener("change", event => { filters.sort = event.target.value || "catalog"; render(); });
   if (els.exportBtn) els.exportBtn.addEventListener("click", exportState);
+  if (els.clearClaimFeedBtn) els.clearClaimFeedBtn.addEventListener("click", () => {
+    saveClaimFeed([]);
+    renderClaimFeed();
+  });
+  if (els.claimFeedList) els.claimFeedList.addEventListener("click", event => {
+    const button = event.target?.closest?.("[data-feed-dismiss]");
+    if (!button) return;
+    const id = button.dataset.feedDismiss;
+    saveClaimFeed(claimFeed.filter(entry => entry.id !== id));
+    renderClaimFeed();
+  });
   if (els.loginBtn) els.loginBtn.addEventListener("click", () => { window.location.href = buildAuthUrl(); });
   document.addEventListener("keydown", focusSiteSearch);
   document.addEventListener("d2collections:layout-mode-changed", render);
 
   captureOAuthCode();
   render();
+  setInterval(renderClaimFeed, 60000);
 })();

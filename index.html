@@ -7,7 +7,7 @@
   <meta name="description" content="Manual Destiny 2 exotic collection tracker for weapons, catalysts, Warlock armor, Titan armor, and Hunter armor." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-brand-emblem" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-brand-emblem" />
-  <link rel="stylesheet" href="assets/styles.css?v=d2-difficulty-badges-v2" />
+  <link rel="stylesheet" href="assets/styles.css?v=d2-claim-feed" />
   <script>
     (() => {
       try {
@@ -127,6 +127,24 @@
       </div>
     </section>
 
+    <details id="claimFeedPopout" class="claim-feed-popout">
+      <summary class="claim-feed-button" aria-label="Open recent claims feed" title="Recent claims">
+        <span class="claim-feed-icon" aria-hidden="true"></span>
+        <strong>Recent</strong>
+        <em id="claimFeedCount">0</em>
+      </summary>
+      <section class="claim-feed-panel" aria-label="Recently claimed items">
+        <div class="claim-feed-head">
+          <div>
+            <p class="eyebrow">Activity feed</p>
+            <h2>Recently claimed</h2>
+          </div>
+          <button id="clearClaimFeedBtn" class="button ghost" type="button">Clear</button>
+        </div>
+        <div id="claimFeedList" class="claim-feed-list"></div>
+      </section>
+    </details>
+
     <main class="content-grid">
       <section id="weaponsPanel" class="panel weapons-panel">
         <div class="panel-head">
@@ -172,7 +190,7 @@
   <script src="data/priority-tags.js?v=d2-difficulty-skull-icons"></script>
   <script src="data/checklist.js"></script>
   <script src="assets/oauth-redirect-fix.js?v=53180-index"></script>
-  <script src="assets/app.js?v=d2-resource-icons"></script>
+  <script src="assets/app.js?v=d2-claim-feed"></script>
   <script src="assets/auth-compact.js"></script>
   <script src="assets/armor-columns.js?v=d2-player-filter-scope"></script>
   <script src="assets/help.js?v=d2-difficulty-skull-icons"></script>
