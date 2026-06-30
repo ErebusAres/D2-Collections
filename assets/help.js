@@ -332,8 +332,11 @@
     } else if (!steps.length && s.includes("xur")) {
       steps.push("Check Xur while the site treats him as active from Friday 12 PM through Monday 12 PM Central.");
       steps.push("Inspect his direct exotic inventory and focusing/quest options for the item.");
-    } else if (!steps.length && s.includes("season pass reward")) {
-      steps.push("Bungie lists this as a Season Pass reward.");
+    } else if (!steps.length && s.includes("rewards pass")) {
+      steps.push("Bungie lists this as a Rewards Pass item.");
+      steps.push("Check the current Rewards Pass track first; if the pass has rotated, verify the current legacy path in game.");
+    } else if (!steps.length && (s.includes("season pass reward") || s.includes("season pass"))) {
+      steps.push("Bungie lists this as an older Season Pass reward.");
       steps.push("If that season is no longer active, check the Exotic Archive or current legacy acquisition path.");
     } else if (!steps.length && (s.includes("exotic armor focusing") || s.includes("rahool"))) {
       steps.push("Go to Master Rahool in the Tower.");
