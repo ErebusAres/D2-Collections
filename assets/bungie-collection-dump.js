@@ -13,6 +13,7 @@
   const XUR_VENDOR_HASH = "2190858386";
   const VENDOR_SALES_COMPONENT = 402;
   const ITEM_DEF_CACHE_KEY = "d2-collections-item-def-cache-v1";
+  const RECORD_DEF_CACHE_KEY = "d2-collections-record-def-cache-v1";
   const EXOTIC_CIPHER_HASHES = new Set(["3467984096", "187236078", "825199458"]);
   const EXOTIC_ENGRAM_HASHES = new Set(["343863063", "685908770", "761932252", "773306547", "903043774", "935088801", "1010947726", "1425215686", "1728121941", "2122520503", "2176771682", "2370072441", "2564361489", "2685382923", "2762058303", "2778705488", "2907562922", "3290874772", "3484503346", "3670763683", "3875551374", "4003905209", "4106630301", "4111522113"]);
   let refreshPromise = null;
@@ -232,6 +233,15 @@
     writeJson(ITEM_DEF_CACHE_KEY, cache);
   }
 
+  function readRecordDefCache() {
+    const cached = readJson(RECORD_DEF_CACHE_KEY);
+    return cached && cached.version === 1 && cached.items ? cached : { version: 1, items: {} };
+  }
+
+  function saveRecordDefCache(cache) {
+    writeJson(RECORD_DEF_CACHE_KEY, cache);
+  }
+
   function catalogItems() {
     return [
       ...(CATALOG.weapons || []).map(item => ({ ...item, kind: "weapon" })),
@@ -417,6 +427,21 @@
     return name;
   }
 
+  async function recordDefinitionInfo(recordHash, cache, status) {
+    const key = String(recordHash);
+    const cached = cache.items[key];
+    if (cached?.name || cached?.icon) return cached;
+    const definition = await bungieGet(`/Destiny2/Manifest/DestinyRecordDefinition/${encodeURIComponent(key)}/?lc=en`, status);
+    const info = {
+      name: definition?.displayProperties?.name || "",
+      icon: definition?.displayProperties?.icon || "",
+      resolvedAt: new Date().toISOString()
+    };
+    cache.items[key] = info;
+    saveRecordDefCache(cache);
+    return info;
+  }
+
   function matchCatalogByNames(names) {
     const wanted = new Set(names.map(normalize).filter(Boolean));
     return catalogItems().filter(item => wanted.has(normalize(item.name)));
@@ -524,6 +549,25 @@
       entry.item.kind === "weapon" &&
       (STATIC_COLLECTIBLES.items?.[entry.item.id]?.catalystRecordHashes || []).some(hash => completedCatalystRecords.has(String(hash)))
     );
+    const catalystDetails = {};
+    const recordCache = readRecordDefCache();
+    for (const entry of [...catalystActive, ...catalystComplete]) {
+      const recordHash = (STATIC_COLLECTIBLES.items?.[entry.item.id]?.catalystRecordHashes || [])
+        .map(String)
+        .find(hash => activeCatalystRecords.has(hash) || completedCatalystRecords.has(hash));
+      if (!recordHash || catalystDetails[entry.item.id]) continue;
+      try {
+        if (status) status.textContent = "Resolving catalyst record icons...";
+        const info = await recordDefinitionInfo(recordHash, recordCache, status);
+        catalystDetails[entry.item.id] = {
+          recordHash,
+          name: info.name || `${entry.item.name} Catalyst`,
+          icon: info.icon || ""
+        };
+      } catch {
+        catalystDetails[entry.item.id] = { recordHash, name: `${entry.item.name} Catalyst`, icon: "" };
+      }
+    }
     const unresolved = mappings.filter(entry => !(entry.collectibleHashes || []).length).map(entry => ({ id: entry.item.id, name: entry.item.name, kind: entry.item.kind, source: entry.source }));
     return {
       ok: true,
@@ -539,6 +583,7 @@
       itemNames: matched.map(entry => entry.item.name),
       catalystItemIds: catalystActive.map(entry => entry.item.id),
       completeItemIds: catalystComplete.map(entry => entry.item.id),
+      catalystDetails,
       unresolvedCatalogItems: unresolved.slice(0, 40),
       unresolvedCatalogItemCount: unresolved.length
     };

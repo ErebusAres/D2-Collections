@@ -827,6 +827,15 @@
     return raw && raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw;
   }
 
+  function catalystFeedInfo(item, payload = {}) {
+    const detail = payload.catalystDetails?.[item.id] || {};
+    const raw = detail.icon || "";
+    return {
+      itemName: detail.name || `${item.name} Catalyst`,
+      icon: raw && raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw || feedIconForItem(item)
+    };
+  }
+
   function claimFeedTitle(entry) {
     const user = BASE.users?.[entry.player]?.display || BASE.users?.[entry.player]?.label || titleCase(entry.player);
     const action = entry.type === "catalyst"
@@ -924,12 +933,14 @@
       }
       if (catalystItemIds.has(item.id) && !row.catalyst) {
         catalystsChanged += 1;
-        feedEvents.push({ player, kind: "weapon", type: "catalyst", itemId: item.id, itemName: item.name, icon: feedIconForItem(item) });
+        const catalyst = catalystFeedInfo(item, payload);
+        feedEvents.push({ player, kind: "weapon", type: "catalyst", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
         row.catalyst = true;
       }
       if (completeItemIds.has(item.id) && !row.complete) {
         completedChanged += 1;
-        feedEvents.push({ player, kind: "weapon", type: "complete", itemId: item.id, itemName: item.name, icon: feedIconForItem(item) });
+        const catalyst = catalystFeedInfo(item, payload);
+        feedEvents.push({ player, kind: "weapon", type: "complete", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
         row.complete = true;
         if (!row.catalyst) {
           catalystsChanged += 1;
