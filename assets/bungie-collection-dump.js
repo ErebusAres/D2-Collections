@@ -181,6 +181,15 @@
     return exchangeCodeForToken(status);
   }
 
+  window.D2_COLLECTIONS_AUTH = {
+    ensureAccessToken: async status => (await ensureToken(status)).access_token || "",
+    sessionIsUsable: () => tokenIsValid() || refreshTokenIsValid(),
+    clearSession: () => {
+      localStorage.removeItem(SESSION_KEY);
+      clearAuthCode("manual_logout");
+    }
+  };
+
   async function bungieGet(path, status) {
     const key = requireApiKey(status);
     const currentToken = await ensureToken(status);

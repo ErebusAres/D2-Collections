@@ -10,9 +10,23 @@
     }
   }
 
+  function hasUsableSession() {
+    if (window.D2_COLLECTIONS_AUTH?.sessionIsUsable?.()) return true;
+    try {
+      const saved = JSON.parse(localStorage.getItem("d2-collections-bungie-session-v2") || "{}");
+      const now = Math.floor(Date.now() / 1000) + 60;
+      return Boolean(
+        (saved.access_token && saved.expires_at > now) ||
+        (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
+      );
+    } catch {
+      return false;
+    }
+  }
+
   document.addEventListener("click", event => {
     const button = event.target.closest?.("#loginBtn");
-    if (!button || hasSavedCode()) return;
+    if (!button || hasSavedCode() || hasUsableSession()) return;
     const config = window.D2_BUNGIE_CONFIG || {};
     const authUrl = config.authUrl || "https://www.bungie.net/en/OAuth/Authorize";
     const clientId = config.clientId || "53180";

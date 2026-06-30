@@ -15,11 +15,24 @@
     catch { return {}; }
   }
 
+  function readSession() {
+    try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "{}"); }
+    catch { return {}; }
+  }
+
   function signedIn() {
-    return Boolean(readAuth().oauthCode);
+    if (window.D2_COLLECTIONS_AUTH?.sessionIsUsable?.()) return true;
+    const saved = readSession();
+    const now = Math.floor(Date.now() / 1000) + 60;
+    return Boolean(
+      readAuth().oauthCode ||
+      (saved.access_token && saved.expires_at > now) ||
+      (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
+    );
   }
 
   function clearBungieSession() {
+    window.D2_COLLECTIONS_AUTH?.clearSession?.();
     localStorage.removeItem(AUTH_KEY);
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(API_KEY_STORAGE);

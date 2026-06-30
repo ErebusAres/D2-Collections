@@ -35,6 +35,15 @@
     return saved.access_token && saved.expires_at > now ? saved.access_token : "";
   }
 
+  async function accessTokenForWrite() {
+    const existing = usableAccessToken();
+    if (existing) return existing;
+    if (window.D2_COLLECTIONS_AUTH?.ensureAccessToken) {
+      return window.D2_COLLECTIONS_AUTH.ensureAccessToken(statusEl());
+    }
+    return "";
+  }
+
   async function fetchSnapshots() {
     const response = await fetch(`${API}/api/snapshots`, { headers: { "Accept": "application/json" } });
     const data = await response.json().catch(() => ({}));
@@ -67,7 +76,7 @@
 
   async function pushSnapshot(liveSync, applyResult, compactDump) {
     if (!liveSync?.ok) return { ok: false, reason: "missing_live_sync" };
-    const token = usableAccessToken();
+    const token = await accessTokenForWrite();
     if (!token) return { ok: false, reason: "missing_access_token" };
     const response = await fetch(`${API}/api/snapshots`, {
       method: "POST",
