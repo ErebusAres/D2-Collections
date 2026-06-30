@@ -1,7 +1,7 @@
 :root {
   --bg: #07090d;
-  --panel: rgba(14, 18, 26, .9);
-  --panel-2: rgba(20, 25, 35, .94);
+  --panel: rgba(11, 15, 22, .92);
+  --panel-2: rgba(18, 23, 32, .96);
   --line: rgba(222,232,255,.105);
   --line-strong: rgba(222,232,255,.18);
   --text: #f3f5f0;
@@ -16,6 +16,9 @@
   --hud: rgba(202,209,221,.58);
   --hud-dim: rgba(202,209,221,.18);
   --director-blue: #9cc7ff;
+  --exotic-tile: #b08a2b;
+  --director-line: rgba(156,199,255,.22);
+  --director-faint: rgba(202,209,221,.07);
   --shadow: 0 18px 42px rgba(0,0,0,.38);
   --shadow-soft: 0 10px 22px rgba(0,0,0,.26);
   --radius: 10px;
@@ -30,11 +33,14 @@ body {
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background:
-    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255,255,255,.02) 1px, transparent 1px),
-    linear-gradient(135deg, rgba(80,103,130,.1), transparent 36%),
-    linear-gradient(180deg, #0b0e14 0%, var(--bg) 54%, #040508 100%);
-  background-size: 44px 44px, 44px 44px, auto, auto;
+    linear-gradient(90deg, rgba(156,199,255,.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(156,199,255,.026) 1px, transparent 1px),
+    radial-gradient(circle at 16% 12%, rgba(216,177,91,.12), transparent 18%),
+    radial-gradient(circle at 82% 8%, rgba(111,168,220,.12), transparent 22%),
+    linear-gradient(135deg, rgba(80,103,130,.12), transparent 36%),
+    linear-gradient(180deg, #0d1119 0%, var(--bg) 54%, #040508 100%);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto, auto;
+  background-attachment: fixed;
 }
 body::before {
   content: "";
@@ -43,8 +49,10 @@ body::before {
   pointer-events: none;
   z-index: -1;
   background:
-    radial-gradient(circle at 50% -20%, rgba(156,199,255,.12), transparent 34%),
-    radial-gradient(circle at 80% 10%, rgba(216,177,91,.08), transparent 28%),
+    linear-gradient(115deg, transparent 0 14%, rgba(156,199,255,.09) 14.1% 14.35%, transparent 14.45% 100%),
+    linear-gradient(155deg, transparent 0 68%, rgba(216,177,91,.08) 68.1% 68.35%, transparent 68.45% 100%),
+    radial-gradient(circle at 50% -20%, rgba(156,199,255,.16), transparent 34%),
+    radial-gradient(circle at 80% 10%, rgba(216,177,91,.1), transparent 28%),
     linear-gradient(180deg, transparent 0 58%, rgba(0,0,0,.26) 100%);
 }
 body::after {
@@ -170,9 +178,9 @@ code { color: var(--gold); }
 .panel,
 .toolbar,
 .summary-card {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(202,209,221,.14);
   background: var(--panel);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow), inset 0 0 0 1px rgba(255,255,255,.025);
   backdrop-filter: blur(18px);
 }
 
@@ -186,8 +194,9 @@ code { color: var(--gold); }
   overflow: hidden;
   position: relative;
   background:
-    linear-gradient(135deg, rgba(156,199,255,.08), transparent 30%),
-    linear-gradient(90deg, rgba(216,177,91,.1), transparent 24%),
+    linear-gradient(135deg, rgba(156,199,255,.13), transparent 32%),
+    linear-gradient(90deg, rgba(216,177,91,.14), transparent 26%),
+    radial-gradient(circle at 92% 20%, rgba(216,177,91,.13), transparent 23%),
     linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018)),
     var(--panel);
 }
@@ -209,6 +218,14 @@ code { color: var(--gold); }
   pointer-events: none;
   border-top: 1px solid rgba(255,255,255,.09);
 }
+.hero::before {
+  border-top-color: rgba(240,213,135,.26);
+  background:
+    radial-gradient(circle at 92% 45%, transparent 0 38px, rgba(156,199,255,.16) 39px 40px, transparent 41px 78px, rgba(216,177,91,.18) 79px 80px, transparent 81px),
+    linear-gradient(90deg, transparent 0 74%, rgba(156,199,255,.08) 74.2% 74.45%, transparent 74.65%),
+    linear-gradient(135deg, transparent 0 82%, rgba(216,177,91,.12) 82.15% 82.45%, transparent 82.65%);
+  opacity: .9;
+}
 .panel::after,
 .weapon-card::after,
 .armor-card::after,
@@ -222,6 +239,11 @@ code { color: var(--gold); }
   pointer-events: none;
   border-top: 1px solid rgba(216,177,91,.46);
   border-right: 1px solid rgba(216,177,91,.46);
+}
+.panel::after,
+.summary-card::after {
+  width: 24px;
+  height: 24px;
 }
 .eyebrow {
   margin: 0 0 7px;
@@ -321,6 +343,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   padding: 14px 16px;
   box-shadow: var(--shadow-soft);
   background:
+    linear-gradient(90deg, rgba(216,177,91,.09), transparent 28%),
     linear-gradient(180deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
     rgba(13,17,24,.84);
 }
@@ -332,6 +355,9 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   background: linear-gradient(180deg, var(--gold), rgba(216,177,91,.15));
 }
 .summary-card strong { display: block; font-size: 1.78rem; letter-spacing: 0; }
+.summary-card strong {
+  color: #f7f1df;
+}
 .summary-card small { color: var(--muted); font-size: .95rem; }
 .summary-card span { color: var(--muted); font-size: .87rem; }
 .resource-card strong {
@@ -548,9 +574,11 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   border-radius: 16px;
   margin-bottom: 14px;
   background:
-    linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015)),
+    linear-gradient(90deg, rgba(216,177,91,.11), transparent 16%),
+    linear-gradient(180deg, rgba(255,255,255,.052), rgba(255,255,255,.015)),
     rgba(10, 13, 19, .9);
   position: sticky;
+  border-color: rgba(216,177,91,.22);
 }
 .search-wrap {
   display: flex;
@@ -574,10 +602,10 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 .seg { border-radius: 6px; padding: 8px 12px; color: var(--muted); }
 .seg.active {
   color: #090b0f;
-  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  background: linear-gradient(180deg, #fff0ad, var(--gold));
   border-color: transparent;
   font-weight: 800;
-  box-shadow: inset 0 -1px 0 rgba(0,0,0,.22), 0 0 0 1px rgba(216,177,91,.2);
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,.28), 0 0 0 1px rgba(216,177,91,.24), 0 0 18px rgba(216,177,91,.14);
 }
 .sort-wrap {
   display: grid;
@@ -621,9 +649,11 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   align-items: center;
   min-width: 0;
   padding: 8px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(216,177,91,.16);
   border-radius: 10px;
-  background: rgba(10,13,19,.72);
+  background:
+    linear-gradient(90deg, rgba(156,199,255,.055), transparent 42%),
+    rgba(10,13,19,.78);
   box-shadow: var(--shadow-soft);
 }
 .quick-jump a,
@@ -837,6 +867,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   border-radius: var(--radius);
   padding: 16px;
   background:
+    linear-gradient(90deg, rgba(216,177,91,.075), transparent 18%),
     linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.017)),
     var(--panel);
 }
@@ -847,6 +878,13 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   isolation: isolate;
 }
 .panel-head { display: flex; justify-content: space-between; align-items: start; gap: 16px; margin-bottom: 14px; }
+.panel-head .eyebrow {
+  color: var(--director-blue);
+}
+.panel-head h2 {
+  text-transform: uppercase;
+  letter-spacing: .045em;
+}
 .count-pill { white-space: nowrap; color: var(--soft); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px; background: rgba(0,0,0,.24); font-size: .82rem; }
 
 .weapon-list,
@@ -868,12 +906,17 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   padding: 10px;
   border-radius: 8px;
   background:
-    linear-gradient(90deg, rgba(156,199,255,.045), transparent 34%),
-    linear-gradient(90deg, rgba(216,177,91,.07), transparent 20%),
+    linear-gradient(135deg, rgba(156,199,255,.07), transparent 38%),
+    linear-gradient(90deg, rgba(176,138,43,.11), transparent 22%),
     linear-gradient(180deg, rgba(255,255,255,.052), rgba(255,255,255,.018)),
     rgba(9,12,18,.72);
-  border: 1px solid var(--line);
+  border: 1px solid rgba(202,209,221,.13);
   transition: background .14s ease, border-color .14s ease, transform .14s ease, box-shadow .14s ease;
+}
+.weapon-card::after,
+.armor-card::after {
+  border-top-color: rgba(216,177,91,.62);
+  border-right-color: rgba(216,177,91,.62);
 }
 .weapon-card { grid-template-columns: minmax(260px, .94fr) minmax(360px, 1.06fr); align-items: center; }
 .weapon-card:hover,
@@ -882,8 +925,8 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   border-color: rgba(255,255,255,.16);
   box-shadow: 0 12px 26px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.035);
   background:
-    linear-gradient(90deg, rgba(156,199,255,.08), transparent 34%),
-    linear-gradient(90deg, rgba(216,177,91,.1), transparent 22%),
+    linear-gradient(135deg, rgba(156,199,255,.12), transparent 38%),
+    linear-gradient(90deg, rgba(216,177,91,.16), transparent 24%),
     linear-gradient(180deg, rgba(255,255,255,.065), rgba(255,255,255,.026)),
     rgba(13,17,24,.82);
 }
@@ -895,13 +938,13 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 }
 .weapon-card.is-owned,
 .armor-card.is-owned {
-  border-left: 5px solid #58d69a;
+  border-left: 5px solid #62f0ad;
   border-color: rgba(88,214,154,.7);
-  box-shadow: inset 0 0 0 1px rgba(88,214,154,.18), 0 0 0 1px rgba(88,214,154,.1), 0 0 18px rgba(88,214,154,.08);
+  box-shadow: inset 0 0 0 1px rgba(88,214,154,.22), 0 0 0 1px rgba(88,214,154,.13), 0 0 20px rgba(88,214,154,.1);
 }
 .weapon-card.is-missing,
 .armor-card.is-missing {
-  border-left: 5px solid #e05f6b;
+  border-left: 5px solid #ff6475;
   border-color: rgba(224,95,107,.5);
   box-shadow: inset 0 0 0 1px rgba(224,95,107,.1);
 }
@@ -931,17 +974,17 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   pointer-events: none;
 }
 .item-meta { min-width: 0; }
-.item-with-icon { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 12px; align-items: center; }
+.item-with-icon { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; align-items: center; }
 .item-icon,
 .item-icon-fallback {
-  width: 48px;
-  height: 48px;
-  border-radius: 6px;
-  border: 1px solid rgba(216,177,91,.48);
+  width: 52px;
+  height: 52px;
+  border-radius: 4px;
+  border: 2px solid rgba(216,177,91,.58);
   background:
     radial-gradient(circle at 35% 20%, rgba(216,177,91,.16), transparent 44%),
-    linear-gradient(135deg, rgba(216,177,91,.1), rgba(0,0,0,.38));
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.055), 0 0 0 1px rgba(0,0,0,.38);
+    linear-gradient(135deg, rgba(216,177,91,.18), rgba(0,0,0,.42));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.075), 0 0 0 1px rgba(0,0,0,.42), 0 4px 12px rgba(0,0,0,.28);
 }
 .item-icon,
 .item-icon-fallback,
@@ -965,6 +1008,11 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 }
 .item-name { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .item-name h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+.weapon-card h3,
+.armor-card h3 {
+  color: #f7f1df;
+  text-shadow: 0 1px 2px rgba(0,0,0,.7);
+}
 .priority-tags {
   display: inline-flex;
   align-items: center;
@@ -1254,9 +1302,10 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   padding: 10px 12px;
   border-radius: 8px;
   background:
-    linear-gradient(90deg, rgba(216,177,91,.08), transparent 48%),
+    linear-gradient(90deg, rgba(216,177,91,.16), transparent 48%),
+    linear-gradient(135deg, rgba(156,199,255,.07), transparent 60%),
     rgba(255,255,255,.04);
-  border: 1px solid var(--line-strong);
+  border: 1px solid rgba(216,177,91,.2);
 }
 .class-title::after {
   content: "";
