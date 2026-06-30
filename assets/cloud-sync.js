@@ -22,6 +22,14 @@
   function setStatus(text) {
     const el = statusEl();
     if (el) el.textContent = text;
+    try {
+      const saved = JSON.parse(localStorage.getItem("d2-collections-cloud-meta-v1") || "{}");
+      saved.lastStatus = text;
+      saved.lastStatusAt = new Date().toISOString();
+      if (/failed|error/i.test(text)) saved.lastError = text;
+      localStorage.setItem("d2-collections-cloud-meta-v1", JSON.stringify(saved));
+    } catch {}
+    window.D2_COLLECTIONS_APP?.updateCloudStatus?.(text);
     window.D2_COLLECTIONS_SYNC_DEBUG?.setStatus?.(text);
   }
 

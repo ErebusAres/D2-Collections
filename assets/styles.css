@@ -562,7 +562,8 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   margin-bottom: 14px;
 }
 .quick-jump,
-.legend-strip {
+.legend-strip,
+.sync-health-strip {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -575,7 +576,8 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   box-shadow: var(--shadow-soft);
 }
 .quick-jump a,
-.legend-strip span {
+.legend-strip span,
+.sync-health-strip span {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -589,6 +591,39 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   font-weight: 800;
   text-decoration: none;
   white-space: nowrap;
+}
+.sync-health-strip {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  padding: 7px 8px;
+}
+.sync-health-strip span {
+  min-height: 26px;
+  color: var(--muted);
+}
+.sync-health-strip strong {
+  color: var(--soft);
+  font-size: .66rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.sync-health-strip .is-source.cloud,
+.sync-health-strip .is-good {
+  color: #caffdf;
+  border-color: rgba(88,214,154,.24);
+  background: rgba(88,214,154,.055);
+}
+.sync-health-strip .is-source.local,
+.sync-health-strip .is-warn {
+  color: var(--gold-bright);
+  border-color: rgba(216,177,91,.28);
+  background: rgba(216,177,91,.06);
+}
+.sync-health-strip .is-source.repo,
+.sync-health-strip .is-idle {
+  color: var(--muted);
+  border-color: rgba(202,209,221,.14);
+  background: rgba(202,209,221,.045);
 }
 .quick-jump a:hover { color: var(--gold-bright); border-color: rgba(216,177,91,.34); }
 .identity-pill {
@@ -1271,7 +1306,7 @@ html.layout-simple .count-pill {
 }
 html.layout-simple .weapon-list,
 html.layout-simple .armor-list {
-  --tile-size: 68px;
+  --tile-size: 74px;
   --icon-size: calc(var(--tile-size) - 6px);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--tile-size), var(--tile-size)));
@@ -1287,7 +1322,7 @@ html.layout-simple .simple-player-section {
   min-width: 0;
 }
 html.layout-simple .simple-player-list {
-  --tile-size: 68px;
+  --tile-size: 74px;
   --icon-size: calc(var(--tile-size) - 6px);
 }
 html.layout-simple .weapon-player-title {
@@ -1462,9 +1497,9 @@ html.layout-simple .priority-tags {
   pointer-events: none;
 }
 html.layout-simple .priority-chip {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 18px;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
   border-radius: 4px;
   line-height: 1;
   border-color: transparent;
@@ -1473,8 +1508,8 @@ html.layout-simple .priority-chip {
 }
 html.layout-simple .priority-chip svg,
 html.layout-simple .priority-chip img {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 html.layout-simple .priority-chip svg {
   stroke-width: 2.4;
@@ -1571,9 +1606,10 @@ html.layout-simple .status-cell.dim {
   html.layout-simple .toolbar { grid-template-columns: 1fr; position: static; }
   html.layout-simple .segmented,
   html.layout-simple .quick-jump,
-  html.layout-simple .legend-strip { overflow-x: auto; flex-wrap: nowrap; }
+  html.layout-simple .legend-strip,
+  html.layout-simple .sync-health-strip { overflow-x: auto; flex-wrap: nowrap; }
   html.layout-simple .sort-wrap { grid-template-columns: 44px 1fr; }
   html.layout-simple .weapon-list,
-  html.layout-simple .armor-list { --tile-size: 68px; gap: 8px 6px; }
+  html.layout-simple .armor-list { --tile-size: 70px; gap: 8px 6px; }
   html.layout-simple .armor-column-controls { grid-template-columns: 1fr; }
 }

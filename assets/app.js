@@ -57,6 +57,7 @@
     sort: document.querySelector("#sortSelect"),
     activePlayer: document.querySelector("#activePlayerPill"),
     dataHealth: document.querySelector("#dataHealth"),
+    syncHealth: document.querySelector("#syncHealthStrip"),
     aresArmorCount: document.querySelector("#aresArmorCount"),
     iceeArmorCount: document.querySelector("#iceeArmorCount"),
     claimFeedList: document.querySelector("#claimFeedList"),
@@ -379,6 +380,7 @@
     renderSummary();
     renderIdentity();
     renderDataHealth();
+    renderSyncHealth();
     renderClaimFeed();
     renderWeapons();
     renderArmor("warlock", els.warlock, document.querySelector("#aresArmor"));
@@ -429,6 +431,34 @@
       ["Missing icons", missingIcons],
       ["Xur stock", xurCount]
     ].map(([label, value]) => `<span><strong>${value}</strong>${label}</span>`).join("");
+  }
+
+  function renderSyncHealth() {
+    if (!els.syncHealth) return;
+    const loadedAt = cloudMeta?.loadedAt || "";
+    const localSavedAt = readLocalOwnership()?.savedAt || "";
+    const source = loadedAt ? "Cloud" : localSavedAt ? "Local" : "Repo";
+    const sourceTitle = loadedAt
+      ? `Cloud snapshots loaded ${formatFullDate(loadedAt)}.`
+      : localSavedAt
+        ? `Local ownership fallback saved ${formatFullDate(localSavedAt)}.`
+        : "Using repo fallback data until cloud or local sync loads.";
+    const playerItems = players.map(player => {
+      const user = BASE.users?.[player]?.display || BASE.users?.[player]?.label || titleCase(player);
+      const row = cloudMeta?.players?.[player] || {};
+      const syncedAt = row.syncedAt || resources?.[player]?.cloudSyncedAt || "";
+      const stale = syncedAt && Date.now() - Date.parse(syncedAt) > 7 * 24 * 60 * 60 * 1000;
+      const label = syncedAt ? formatShortDate(syncedAt) : "No DB";
+      const title = syncedAt
+        ? `${user} database snapshot saved ${formatFullDate(syncedAt)}${Number(row.itemCount || 0) ? ` with ${row.itemCount} item(s).` : "."}`
+        : `${user} has no loaded database snapshot.`;
+      return `<span class="${stale ? "is-warn" : syncedAt ? "is-good" : "is-idle"}" title="${escapeAttr(title)}"><strong>${escapeAttr(user)}</strong>${escapeAttr(label)}</span>`;
+    }).join("");
+    const statusText = cloudMeta?.lastStatus || "";
+    const statusChip = statusText
+      ? `<span class="${/failed|error/i.test(statusText) ? "is-warn" : "is-good"}" title="${escapeAttr(statusText)}"><strong>Cloud</strong>${escapeAttr(statusText.replace(/^Cloud sync\s*/i, "").slice(0, 42))}</span>`
+      : "";
+    els.syncHealth.innerHTML = `<span class="is-source ${source.toLowerCase()}" title="${escapeAttr(sourceTitle)}"><strong>State</strong>${source}</span>${playerItems}${statusChip}`;
   }
 
   function renderClaimFeed() {
@@ -1039,6 +1069,17 @@
     return next;
   }
 
+  function updateCloudStatus(text) {
+    cloudMeta = {
+      ...(cloudMeta || {}),
+      lastStatus: text,
+      lastStatusAt: new Date().toISOString(),
+      lastError: /failed|error/i.test(text) ? text : cloudMeta?.lastError || ""
+    };
+    saveCloudMeta(cloudMeta);
+    renderSyncHealth();
+  }
+
   function renderAuthPanel() {
     if (!els.apiStatus) return;
     const hasSession = sessionIsUsable();
@@ -1098,6 +1139,7 @@
     applyCollectionOwnership,
     recordCloudSnapshots,
     applyXurInventory,
+    updateCloudStatus,
     exportState,
     getState: () => clone(state),
     render
