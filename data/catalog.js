@@ -78,7 +78,7 @@ window.D2_COLLECTIONS_CATALOG = {
     { id: "vexcalibur", name: "Vexcalibur", slot: "Energy", type: "Glaive", element: "Void", source: "Avalon" },
     { id: "wavesplitter", name: "Wavesplitter", slot: "Energy", type: "Trace Rifle", element: "Void", source: "World drop" },
     { id: "whispering-slab-placeholder", name: "Choir of One", slot: "Energy", type: "Auto Rifle", element: "Void", source: "Encore" },
-    { id: "wicked-sister-placeholder", name: "Wolfsbane", slot: "Energy", type: "Weapon", element: "Unknown", source: "Heliostat / Ash & Iron" },
+    { id: "wicked-sister-placeholder", name: "Wolfsbane", slot: "Energy", type: "Sword", element: "Solar", source: "Heliostat / Ash & Iron" },
 
     { id: "anarchy", name: "Anarchy", slot: "Power", type: "Grenade Launcher", element: "Arc", source: "Monument / legacy" },
     { id: "black-talon", name: "Black Talon", slot: "Power", type: "Sword", element: "Void", source: "World drop" },

@@ -61,7 +61,7 @@
   upsertWeapon({ id: "barrow-dyad", name: "Barrow-Dyad", slot: "Kinetic", type: "SMG", element: "Strand", source: "Episode: Heresy / The Taken Path / Derealize" });
   upsertWeapon({ id: "arbalest", name: "Arbalest", slot: "Kinetic", type: "Linear Fusion Rifle", element: "Kinetic", source: "World drop" });
   upsertWeapon({ id: "cryosthesia-77k", name: "Cryosthesia 77K", slot: "Kinetic", type: "Sidearm", element: "Stasis", source: "Exotic Archive" });
-  upsertWeapon({ id: "cull-s-shadow", name: "Cull's Shadow", slot: "Kinetic", type: "Fusion Rifle", element: "Kinetic", source: "Source pending manifest validation" });
+  upsertWeapon({ id: "cull-s-shadow", name: "Cull's Shadow", slot: "Kinetic", type: "Fusion Rifle", element: "Kinetic", source: "Bungie source not listed" });
   upsertWeapon({ id: "lumina", name: "Lumina", slot: "Kinetic", type: "Hand Cannon", element: "Kinetic", source: "Exotic Archive" });
   upsertWeapon({ id: "necrochasm", name: "Necrochasm", slot: "Kinetic", type: "Auto Rifle", element: "Kinetic", source: "Crota's End" });
   upsertWeapon({ id: "no-time-to-explain", name: "No Time to Explain", slot: "Kinetic", type: "Pulse Rifle", element: "Kinetic", source: "Beyond Light / deluxe bonus" });
@@ -89,7 +89,7 @@
   upsertWeapon({ id: "finality-s-auger", name: "Finality's Auger", slot: "Power", type: "Linear Fusion Rifle", element: "Solar", source: "Sundered Doctrine" });
   upsertWeapon({ id: "praxic-blade", name: "Praxic Blade", slot: "Power", type: "Sword", element: "Solar", source: "Renegades campaign / Praxic Temple" });
   upsertWeapon({ id: "service-of-luzaku", name: "Service of Luzaku", slot: "Power", type: "Machine Gun", element: "Strand", source: "Rewards Pass" });
-  upsertWeapon({ id: "new-malpais", name: "New Malpais", slot: "Kinetic", type: "Hand Cannon", element: "Kinetic", source: "Renegades / source pending manifest validation" });
+  upsertWeapon({ id: "new-malpais", name: "New Malpais", slot: "Kinetic", type: "Pulse Rifle", element: "Strand", source: "Rewards Pass" });
 
   upsertArmor("warlock", { id: "deimosuffusion", name: "Deimosuffusion", slot: "Helmet", source: "Exotic Armor Focusing" });
   upsertArmor("warlock", { id: "nezarec-s-sin", name: "Nezarec's Sin", slot: "Helmet", source: "World / Rahool" });
