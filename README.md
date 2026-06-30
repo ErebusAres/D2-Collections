@@ -1,86 +1,96 @@
 # D2 Collections
 
-A static Destiny 2 exotic collection tracker for Corey and Matt.
+A Destiny 2 exotic collection tracker for Ares/Corey and Icee/Matt.
 
-The live app is intended to run from `index.html` on GitHub Pages.
+The frontend is a static GitHub Pages site. Bungie login pulls live account collection data, applies owned weapons, armor, catalysts, completion state, Rahool material counts, and weekend Xur matches, then saves a shared snapshot through the Cloudflare Worker/D1 backend.
 
-## Design goals
+## Current Architecture
 
-- Repo-backed truth: the checklist displays from `data/checklist.js`, so every computer sees the same status after the repo updates.
-- No fake sync: GitHub Pages is static, so the visible board uses static status icons instead of browser-only checkboxes.
-- Dense but readable: weapons show ownership plus catalyst status; armor is split into Corey Warlock and Matt Titan panels.
-- Easy to edit: exotic catalog and player checklist are plain JavaScript data files.
-- Icon-ready: catalog entries can include Bungie/CDN icon paths through `icon` or `iconUrl`; fallback initials display when no icon exists.
-- Future-ready: `index.html` can later become the Bungie OAuth/API entry point without replacing the UI.
+- `index.html` is the GitHub Pages entry point.
+- `assets/app.js` renders the collection, filters, summary cards, resource counts, recent claims, and local state merge.
+- `assets/bungie-collection-dump.js` handles Bungie OAuth token use and collection/profile reads.
+- `assets/cloud-sync.js` reads/writes shared player snapshots through the Worker.
+- `worker/src/index.js` verifies Bungie access tokens server-side before writing D1.
+- `data/catalog.js`, `data/hunter-catalog.js`, and `data/year-8-catalog.js` define the item catalog.
+- `data/bungie-collectible-map.js` stores bundled Bungie collectible/source/catalyst mappings.
+- `data/icon-map.js` stores Bungie icon paths for every catalog item.
+- `data/checklist.js` is the repo fallback seed, not the only live source of truth.
 
-## Files
+## Sync Flow
 
-- `index.html` — main GitHub Pages entry point.
-- `assets/styles.css` — full UI styling.
-- `assets/app.js` — rendering, filters, progress, export, static status icons, icon rendering, and Bungie login scaffolding.
-- `data/catalog.js` — exotic weapon and armor catalog.
-- `data/checklist.js` — manually editable Corey/Matt checklist state.
-- `data/bungie-config.js` — Bungie OAuth/client config, including the API key used by the static GitHub Pages app.
+1. Player signs in with Bungie.
+2. The browser exchanges/refreshes the OAuth token locally.
+3. The site reads Bungie profile collections, character inventory, records, catalysts, and resources.
+4. The UI applies the matched catalog ownership locally.
+5. The Worker verifies the Bungie token and saves the snapshot to Cloudflare D1.
+6. Other browsers load the latest saved snapshots on page load.
 
-## Manual checklist editing
+Cloud sync is the normal path. The export/manual tools in the gear panel are fallback/debug tools.
 
-Open `data/checklist.js` and change booleans for each player.
+## Cloudflare Worker
 
-For weapons:
+Worker setup lives in `worker/`.
 
-```js
-"sunshot": {
-  corey: { owned: true, catalyst: true, complete: true, equipped: false },
-  matt:  { owned: true, catalyst: false, complete: false, equipped: false }
-}
+- `worker/wrangler.toml.example` is the tracked template.
+- Local production config should live in `worker/wrangler.toml`.
+- D1 schema is in `worker/schema.sql` and `worker/migrations/0001_initial.sql`.
+
+Useful commands:
+
+```powershell
+npm install
+npm run cf:login
+npm run cf:d1:create
+npm run cf:d1:migrate
+npm run cf:deploy
 ```
 
-For armor:
+The Worker needs the `BUNGIE_API_KEY` secret:
 
-```js
-"hallowfire-heart": {
-  corey: { owned: false, equipped: false },
-  matt:  { owned: true, equipped: true }
-}
+```powershell
+npx wrangler secret put BUNGIE_API_KEY --config worker/wrangler.toml
 ```
 
-Status icons shown by the app:
+## Bungie App
 
-- `✅` — owned / obtained / complete
-- `⛔` — missing / not obtained / incomplete
-- `⭐` — marked equipped or currently used
-- `—` — not marked equipped
+The public static config is in `data/bungie-config.js`.
 
-## Item icons
-
-Add an `icon` or `iconUrl` field to any catalog item.
-
-```js
-{ id: "sunshot", name: "Sunshot", icon: "/common/destiny2_content/icons/example.jpg", slot: "Energy", type: "Hand Cannon", element: "Solar", source: "World drop" }
-```
-
-Relative Bungie paths starting with `/` are automatically rendered from `https://www.bungie.net`. If no icon is available, the app shows a compact initials tile.
-
-## Bungie API setup
-
-The app bundles the Bungie API key in `data/bungie-config.js` so GitHub Pages can call Bungie without prompting every browser for a key. OAuth still requires each player to sign in with Bungie before dumping account collection data.
-
-Current public OAuth config:
+Current OAuth client:
 
 ```js
 clientId: "53180"
-authUrl: "https://www.bungie.net/en/OAuth/Authorize"
-tokenUrl: "https://www.bungie.net/Platform/App/OAuth/Token/"
+redirectUri: "https://erebusares.github.io/D2-Collections/index.html"
+cloudSyncApi: "https://d2-collections-sync.erebusares.workers.dev"
 ```
 
-The login button builds the Bungie OAuth URL and captures the returned `code` locally. The dump flow exchanges that code for a token, pulls the logged-in account memberships/profile collections, and writes the JSON dump into the API handoff box.
+The Bungie application must have its Origin Header set to:
 
-## Cross-device sync options
+```text
+https://erebusares.github.io
+```
 
-GitHub Pages cannot save checklist changes by itself because it serves static files. Possible future sync paths:
+## Validation
 
-1. Manual repo update: export data, send it to GPT, and commit `data/checklist.js` updates.
-2. GitHub write-back: use a GitHub OAuth/PAT flow to commit checklist updates from the browser. This is powerful but should be handled carefully.
-3. Small backend/database: Firebase, Supabase, Cloudflare Worker, or similar.
+Run these after source, icon, sync, or catalog changes:
 
-For now, the app intentionally uses repo data as the shared source of truth.
+```powershell
+node --check assets/app.js
+node --check assets/help.js
+node --check assets/cloud-sync.js
+node --check assets/bungie-collection-dump.js
+node --check worker/src/index.js
+node tools/verify-icons.mjs
+node tools/audit-help-data.mjs
+node tools/audit-manifest-exotics.mjs
+git diff --check
+```
+
+`tools/audit-manifest-exotics.mjs` fetches live Bungie manifest data and requires network access.
+
+## Data Notes
+
+- Bungie source strings are preferred when `data/bungie-collectible-map.js` provides them.
+- Catalog source strings are still useful as friendly/context tags, especially when Bungie does not expose a source string.
+- Items without Bungie source strings should not be marked Bungie-verified unless a real source has been checked.
+- `Cull's Shadow` currently uses externally verified source confidence.
+- `Wolfsbane` currently remains catalog-confidence until a reliable source confirms the Heliostat / Ash & Iron route.

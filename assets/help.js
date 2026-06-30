@@ -160,8 +160,18 @@
     return sourceStrings.length ? sourceStrings.join(" / ") : "";
   }
 
+  function cleanSource(value) {
+    return String(value || "").replace(/^Source:\s*/i, "").trim();
+  }
+
   function displaySource(item) {
-    return manifestSource(item) || item.source || "Source pending manual verification";
+    return cleanSource(manifestSource(item) || item.source || "Source pending manual verification");
+  }
+
+  function sourceHeading(item) {
+    if (manifestSource(item)) return "Bungie source";
+    if (item.priority?.confidence === "External") return "External source";
+    return "Catalog source";
   }
 
   function tagIcon(id) {
@@ -465,8 +475,8 @@
     return `https://www.google.com/search?q=${encodeURIComponent(`site:light.gg Destiny 2 ${item.name}`)}`;
   }
 
-  function addHelpButtons() {
-    document.querySelectorAll(".weapon-card,.armor-card").forEach(card => {
+  function addHelpButtons(root = document) {
+    root.querySelectorAll(".weapon-card,.armor-card").forEach(card => {
       const id = card.dataset.id;
       const title = card.querySelector(".item-name");
       if (!id || !title) return;
@@ -484,6 +494,19 @@
         const base = cell.title || "Status";
         if (!base.includes("more info")) cell.title = `${base} - click for more info`;
       });
+    });
+  }
+
+  let helpScanFrame = 0;
+  const pendingHelpRoots = new Set();
+  function scheduleHelpScan(root = document) {
+    pendingHelpRoots.add(root);
+    if (helpScanFrame) cancelAnimationFrame(helpScanFrame);
+    helpScanFrame = requestAnimationFrame(() => {
+      helpScanFrame = 0;
+      const roots = [...pendingHelpRoots];
+      pendingHelpRoots.clear();
+      roots.forEach(scanRoot => addHelpButtons(scanRoot));
     });
   }
 
@@ -509,7 +532,7 @@
         </div>
       </div>
       <div class="help-grid">
-        <div class="help-source"><strong>Bungie source</strong>${escapeHtml(info.source)}</div>
+        <div class="help-source"><strong>${escapeHtml(sourceHeading(item))}</strong>${escapeHtml(info.source)}</div>
         ${info.localSource && info.localSource !== info.source ? `<div class="help-source"><strong>Catalog tag</strong>${escapeHtml(info.localSource)}</div>` : ""}
         ${priorityBlocks(item)}
       </div>
@@ -557,7 +580,20 @@
     }
   });
 
-  const observer = new MutationObserver(addHelpButtons);
-  observer.observe(document.body, { childList: true, subtree: true });
+  const observer = new MutationObserver(mutations => {
+    const roots = new Set();
+    mutations.forEach(mutation => {
+      if (mutation.target instanceof Element) roots.add(mutation.target);
+    });
+    if (!roots.size) {
+      scheduleHelpScan();
+      return;
+    }
+    roots.forEach(root => scheduleHelpScan(root));
+  });
+  ["#weaponsList", "#warlockList", "#titanList"].forEach(selector => {
+    const root = document.querySelector(selector);
+    if (root) observer.observe(root, { childList: true, subtree: true });
+  });
   addHelpButtons();
 })();

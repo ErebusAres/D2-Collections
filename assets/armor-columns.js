@@ -1,6 +1,7 @@
 (() => {
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { armor: {} };
   const CHECKLIST = window.D2_COLLECTIONS_CHECKLIST || { users: {}, armor: {} };
+  const COLLECTIBLES = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
   const STORAGE_KEY = "d2-collections-armor-columns-v1";
   const RESOURCE_KEY = "d2-collections-player-resources-v1";
   const XUR_STOCK_KEY = "d2-collections-xur-stock-v1";
@@ -197,7 +198,7 @@
     const { search, view } = currentFilters();
     const items = [...(CATALOG.armor?.[className] || [])].sort((a,b) => (SLOT_ORDER[a.slot] || 99) - (SLOT_ORDER[b.slot] || 99) || a.name.localeCompare(b.name));
     const visible = items.filter(item => {
-      const haystack = [item.name, item.slot, item.bungieSource, item.source, item.priority?.note, ...(item.priority?.tags || []).map(tag => tag.label)].join(" ").toLowerCase();
+      const haystack = [item.name, item.slot, manifestSource(item), item.bungieSource, item.source, item.priority?.note, ...(item.priority?.tags || []).map(tag => tag.label)].join(" ").toLowerCase();
       const owned = getOwned(className, item.id, player);
       if (search && !haystack.includes(search)) return false;
       if (view === "needs" && !needsArmorAction(item, player, owned)) return false;
@@ -209,11 +210,32 @@
     });
     root.innerHTML = visible.length ? visible.map(item => {
       const owned = getOwned(className, item.id, player);
-      const source = item.bungieSource || item.source || "";
       const tileTitle = `${item.name} - ${userName(player, "full")} ${klass} ${item.slot || "armor"}. ${owned ? "Owned" : "Not owned"}. Click for more info.`;
-      return `<article class="armor-card is-focus-card ${owned ? "is-owned" : "is-missing"}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="More info" data-help-id="${item.id}">i</button></div>${priorityBadges(item, player, owned)}<div class="badge-row"><span class="badge slot">${slotIcon(item.slot)}${escapeAttr(item.slot)}</span><span class="badge source" title="${escapeAttr(source)}">${escapeAttr(source)}</span></div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
+      return `<article class="armor-card is-focus-card ${owned ? "is-owned" : "is-missing"}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="More info" data-help-id="${item.id}">i</button></div>${priorityBadges(item, player, owned)}<div class="badge-row"><span class="badge slot">${slotIcon(item.slot)}${escapeAttr(item.slot)}</span>${sourceBadge(item)}</div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
     }).join("") : `<div class="empty-state">No ${klass} armor matches this filter.</div>`;
     return visible.length;
+  }
+
+  function manifestSource(item) {
+    const sourceStrings = COLLECTIBLES.items?.[item.id]?.sourceStrings || [];
+    return sourceStrings.length ? sourceStrings.join(" / ") : "";
+  }
+
+  function cleanSource(value) {
+    return String(value || "").replace(/^Source:\s*/i, "").trim();
+  }
+
+  function sourceBadge(item) {
+    const bungie = cleanSource(manifestSource(item) || item.bungieSource || "");
+    const catalog = cleanSource(item.source || "");
+    const label = bungie || catalog;
+    if (!label) return "";
+    const title = bungie && catalog && bungie.toLowerCase() !== catalog.toLowerCase()
+      ? `Bungie: ${bungie} / Catalog: ${catalog}`
+      : bungie
+        ? `Bungie: ${bungie}`
+        : `Catalog: ${catalog}`;
+    return `<span class="badge source ${bungie ? "is-bungie" : "is-catalog"}" title="${escapeAttr(title)}">${escapeAttr(label)}</span>`;
   }
 
   function escapeAttr(value) {

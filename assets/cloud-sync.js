@@ -54,7 +54,7 @@
   async function pullSnapshots() {
     try {
       const snapshots = await fetchSnapshots();
-      window.D2_COLLECTIONS_APP?.recordCloudSnapshots?.(snapshots);
+      window.D2_COLLECTIONS_APP?.recordCloudSnapshots?.(snapshots, { suppressRender: true });
       let applied = 0;
       snapshots.forEach(snapshot => {
         if (!snapshot.liveSync?.ok || !window.D2_COLLECTIONS_APP?.applyCollectionOwnership) return;
@@ -62,10 +62,14 @@
           ...snapshot.liveSync,
           syncedAt: snapshot.syncedAt,
           cloudSyncedAt: snapshot.syncedAt,
-          preserveActivePlayer: true
+          preserveActivePlayer: true,
+          suppressRender: true,
+          suppressEvent: true
         });
         if (result?.ok) applied += 1;
       });
+      window.D2_COLLECTIONS_APP?.render?.();
+      document.dispatchEvent(new CustomEvent("d2collections:ownership-applied", { detail: { ok: true, source: "cloud", applied } }));
       setStatus(applied ? `Cloud sync loaded ${applied} saved player snapshot(s).` : "Cloud sync has no saved snapshots yet.");
       return snapshots;
     } catch (error) {

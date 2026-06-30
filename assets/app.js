@@ -282,7 +282,7 @@
     const q = filters.search.trim().toLowerCase();
     if (!q) return true;
     const priority = item.priority || {};
-    return [item.name, item.slot, item.type, item.element, item.bungieSource, item.source, priority.note, ...(priority.tags || []).map(tag => tag.label)].filter(Boolean).join(" ").toLowerCase().includes(q);
+    return [item.name, item.slot, item.type, item.element, manifestSource(item), item.bungieSource, item.source, priority.note, ...(priority.tags || []).map(tag => tag.label)].filter(Boolean).join(" ").toLowerCase().includes(q);
   }
 
   function matchesWeaponView(item) {
@@ -553,7 +553,6 @@
     const visibleStates = visiblePlayers.map(player => state.weapons[item.id]?.[player] || blankWeapon());
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const cardClass = ownedCount === visibleStates.length ? "is-owned" : ownedCount ? "is-partial" : "is-missing";
-    const source = item.bungieSource || item.source || "";
     const metaBadges = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
     const hasCat = weaponHasCatalyst(item);
     const playerRows = visiblePlayers.map(player => {
@@ -563,7 +562,7 @@
 
     const tileTitle = `${item.name} - ${item.slot || "Weapon"} ${item.type || ""}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
     const actionAttrs = isSimpleMode() ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
-    return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}<span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
+    return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}${sourceBadge(item)}</div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root, section) {
@@ -589,7 +588,6 @@
     const visiblePlayers = armorPlayersForClass(className);
     const visibleStates = visiblePlayers.map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
     const cardClass = visibleStates.some(row => row.owned) ? "is-owned" : "is-missing";
-    const source = item.bungieSource || item.source || "";
     const metaBadges = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
     const playerRows = visiblePlayers.map(player => {
       const s = state.armor[className]?.[item.id]?.[player] || blankArmor();
@@ -600,7 +598,7 @@
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const tileTitle = `${item.name} - ${focusLabel(className)} ${item.slot || "armor"}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
     const actionAttrs = isSimpleMode() ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
-    return `<article class="armor-card is-focus-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("armor")}${armorClassBadge(className)}${slotBadge(item.slot)}<span class="badge source" title="${escapeAttr(source)}">${source}</span></div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
+    return `<article class="armor-card is-focus-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("armor")}${armorClassBadge(className)}${slotBadge(item.slot)}${sourceBadge(item)}</div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
   }
 
   function updateArmorSectionCount(className) {
@@ -640,6 +638,28 @@
     }
     if (!tags.length) return "";
     return `<span class="priority-tags">${tags.slice(0, 5).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${tagIcon(tag.id)}</span>`).join("")}</span>`;
+  }
+
+  function manifestSource(item) {
+    const sourceStrings = COLLECTIBLES.items?.[item.id]?.sourceStrings || [];
+    return sourceStrings.length ? sourceStrings.join(" / ") : "";
+  }
+
+  function cleanSource(value) {
+    return String(value || "").replace(/^Source:\s*/i, "").trim();
+  }
+
+  function sourceBadge(item) {
+    const bungie = cleanSource(manifestSource(item) || item.bungieSource || "");
+    const catalog = cleanSource(item.source || "");
+    const label = bungie || catalog;
+    if (!label) return "";
+    const title = bungie && catalog && bungie.toLowerCase() !== catalog.toLowerCase()
+      ? `Bungie: ${bungie} / Catalog: ${catalog}`
+      : bungie
+        ? `Bungie: ${bungie}`
+        : `Catalog: ${catalog}`;
+    return `<span class="badge source ${bungie ? "is-bungie" : "is-catalog"}" title="${escapeAttr(title)}">${escapeAttr(label)}</span>`;
   }
 
   function tagIcon(id) {
@@ -966,13 +986,13 @@
 
     if (weaponsChanged || armorChanged || catalystsChanged || completedChanged) saveLocalOwnership();
     addClaimFeedEvents(feedEvents, payload);
-    render();
     const result = { ok: true, player, weaponsChanged, armorChanged, catalystsChanged, completedChanged, matchedItems, savedLocalOwnership: true };
-    document.dispatchEvent(new CustomEvent("d2collections:ownership-applied", { detail: result }));
+    if (!payload.suppressRender) render();
+    if (!payload.suppressEvent) document.dispatchEvent(new CustomEvent("d2collections:ownership-applied", { detail: result }));
     return result;
   }
 
-  function recordCloudSnapshots(snapshots = []) {
+  function recordCloudSnapshots(snapshots = [], options = {}) {
     const nextResources = { ...resources };
     const nextCloudMeta = { ...(cloudMeta || {}), players: { ...(cloudMeta?.players || {}) }, loadedAt: new Date().toISOString() };
     snapshots.forEach(snapshot => {
@@ -999,7 +1019,7 @@
     });
     saveResources(nextResources);
     saveCloudMeta(nextCloudMeta);
-    render();
+    if (!options.suppressRender) render();
   }
 
   function applyXurInventory(payload = {}) {
