@@ -250,6 +250,10 @@
     return document.documentElement.classList.contains("layout-simple");
   }
 
+  function isShelfMode() {
+    return document.documentElement.classList.contains("layout-shelf");
+  }
+
   function readActivePlayer() {
     try {
       const saved = localStorage.getItem(ACTIVE_PLAYER_KEY);
@@ -598,6 +602,7 @@
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const cardClass = ownedCount === visibleStates.length ? "is-owned" : ownedCount ? "is-partial" : "is-missing";
     const simple = isSimpleMode();
+    const interactive = simple || isShelfMode();
     const priorityMarkup = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
     const metaBadges = simple ? "" : priorityMarkup;
     const hudBadges = simple ? priorityMarkup : "";
@@ -608,7 +613,7 @@
     }).join("");
 
     const tileTitle = `${item.name} - ${item.slot || "Weapon"} ${item.type || ""}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
-    const actionAttrs = simple ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
+    const actionAttrs = interactive ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
     const statusPanelClass = simple ? "card-status-panel simple-card-hud" : "card-status-panel";
     return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span><span>Extras</span></div>${playerRows}</div></article>`;
   }
@@ -637,6 +642,7 @@
     const visibleStates = visiblePlayers.map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
     const cardClass = visibleStates.some(row => row.owned) ? "is-owned" : "is-missing";
     const simple = isSimpleMode();
+    const interactive = simple || isShelfMode();
     const priorityMarkup = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
     const metaBadges = simple ? "" : priorityMarkup;
     const hudBadges = simple ? priorityMarkup : "";
@@ -648,7 +654,7 @@
 
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const tileTitle = `${item.name} - ${focusLabel(className)} ${item.slot || "armor"}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
-    const actionAttrs = simple ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
+    const actionAttrs = interactive ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
     const statusPanelClass = simple ? "card-status-panel simple-card-hud armor-card-hud" : "card-status-panel";
     return `<article class="armor-card is-focus-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("armor")}${armorClassBadge(className)}${slotBadge(item.slot)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</div></article>`;
   }

@@ -1558,6 +1558,9 @@ html.layout-shelf .item-name {
 html.layout-shelf .item-name h3 {
   font-size: .98rem;
 }
+html.layout-shelf .item-help-btn {
+  display: none;
+}
 html.layout-shelf .priority-tags {
   gap: 2px;
   flex-wrap: nowrap;
