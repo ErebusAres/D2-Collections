@@ -992,10 +992,11 @@
   }
 
   function itemIconMarkup(item, eager = false) {
-    const raw = item.icon || item.iconUrl || "";
+    const raw = item.icon || item.iconUrl || ICON_MAP?.[item.id] || "";
     if (raw) {
       const src = raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw;
-      return `<img class="item-icon" src="${src}" alt="${item.name} icon" width="64" height="64" loading="${eager ? "eager" : "lazy"}" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'item-icon-fallback',textContent:'${escapeInitials(item.name)}'}))" />`;
+      const loading = eager || isSimpleMode() ? "eager" : "lazy";
+      return `<img class="item-icon" src="${src}" alt="${item.name} icon" width="64" height="64" loading="${loading}" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'item-icon-fallback',textContent:'${escapeInitials(item.name)}'}))" />`;
     }
     return `<div class="item-icon-fallback" aria-hidden="true">${escapeInitials(item.name)}</div>`;
   }
