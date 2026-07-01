@@ -17,10 +17,10 @@
       confidence: dim("dim_exclamation_triangle.svg"),
       fallback: dim("dim_bookmark.svg"),
       sync: dim("dim_sync.svg"),
-      difficultyEasy: `${dim("difficulty_easy.svg")}?v=d2-ingame-difficulty-emblems`,
-      difficultyNormal: `${dim("difficulty_normal.svg")}?v=d2-ingame-difficulty-emblems`,
-      difficultyDifficult: `${dim("difficulty_difficult.svg")}?v=d2-ingame-difficulty-emblems`,
-      difficultyImpossible: `${dim("difficulty_impossible.svg")}?v=d2-ingame-difficulty-emblems`
+      difficultyEasy: `${dim("difficulty_easy.svg")}?v=d2-foreground-skull-difficulty`,
+      difficultyNormal: `${dim("difficulty_normal.svg")}?v=d2-foreground-skull-difficulty`,
+      difficultyDifficult: `${dim("difficulty_difficult.svg")}?v=d2-foreground-skull-difficulty`,
+      difficultyImpossible: `${dim("difficulty_impossible.svg")}?v=d2-foreground-skull-difficulty`
     }
   };
 })();
