@@ -558,6 +558,16 @@
       entry.item.kind === "weapon" &&
       (STATIC_COLLECTIBLES.items?.[entry.item.id]?.catalystRecordHashes || []).some(hash => completedCatalystRecords.has(String(hash)))
     );
+    const catalystRecordHashesByItem = {};
+    const completeRecordHashesByItem = {};
+    mappings.forEach(entry => {
+      if (entry.item.kind !== "weapon") return;
+      const hashes = (STATIC_COLLECTIBLES.items?.[entry.item.id]?.catalystRecordHashes || []).map(String);
+      const active = hashes.filter(hash => activeCatalystRecords.has(hash));
+      const complete = hashes.filter(hash => completedCatalystRecords.has(hash));
+      if (active.length) catalystRecordHashesByItem[entry.item.id] = active;
+      if (complete.length) completeRecordHashesByItem[entry.item.id] = complete;
+    });
     const catalystDetails = {};
     const recordCache = readRecordDefCache();
     for (const entry of [...catalystActive, ...catalystComplete]) {
@@ -592,6 +602,8 @@
       itemNames: matched.map(entry => entry.item.name),
       catalystItemIds: catalystActive.map(entry => entry.item.id),
       completeItemIds: catalystComplete.map(entry => entry.item.id),
+      catalystRecordHashesByItem,
+      completeRecordHashesByItem,
       catalystDetails,
       unresolvedCatalogItems: unresolved.slice(0, 40),
       unresolvedCatalogItemCount: unresolved.length

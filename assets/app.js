@@ -4,6 +4,7 @@
   const BUNGIE = window.D2_BUNGIE_CONFIG || {};
   const ICON_MAP = window.D2_COLLECTIONS_ICON_MAP || {};
   const COLLECTIBLES = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
+  const ITEM_UNLOCKS = window.D2_COLLECTIONS_ITEM_UNLOCKS || { items: {} };
   const UI_ICONS = window.D2_COLLECTIONS_UI_ICONS || { game: {}, dim: {} };
   const AUTH_STORAGE_KEY = "d2-collections-auth-v1";
   const LOCAL_OWNERSHIP_KEY = "d2-collections-local-ownership-v1";
@@ -30,7 +31,7 @@
     exoticEngram: UI_ICONS.game?.exoticEngram || "https://www.bungie.net/common/destiny2_content/icons/3e6a698e1a8a5fb446fdcbf1e63c5269.png"
   };
 
-  const blankWeapon = () => ({ owned: false, catalyst: false, complete: false });
+  const blankWeapon = () => ({ owned: false, catalyst: false, complete: false, unlocks: {} });
   const blankArmor = () => ({ owned: false });
   const clone = value => JSON.parse(JSON.stringify(value || {}));
 
@@ -178,6 +179,9 @@
         if (row?.owned) target.owned = true;
         if (row?.catalyst) target.catalyst = true;
         if (row?.complete) target.complete = true;
+        if (row?.unlocks && typeof row.unlocks === "object") {
+          target.unlocks = { ...(target.unlocks || {}), ...clone(row.unlocks) };
+        }
       });
     });
     Object.entries(saved.armor || {}).forEach(([className, items]) => {
@@ -193,12 +197,14 @@
     const saved = { savedAt: new Date().toISOString(), weapons: {}, armor: {} };
     Object.entries(state.weapons || {}).forEach(([itemId, playersState]) => {
       Object.entries(playersState || {}).forEach(([player, row]) => {
-        if (!row?.owned && !row?.catalyst && !row?.complete) return;
+        const unlocks = compactUnlockState(row.unlocks);
+        if (!row?.owned && !row?.catalyst && !row?.complete && !Object.keys(unlocks).length) return;
         saved.weapons[itemId] = saved.weapons[itemId] || {};
         saved.weapons[itemId][player] = {
           owned: Boolean(row.owned),
           catalyst: Boolean(row.catalyst),
-          complete: Boolean(row.complete)
+          complete: Boolean(row.complete),
+          ...(Object.keys(unlocks).length ? { unlocks } : {})
         };
       });
     });
@@ -220,6 +226,9 @@
       next.weapons[item.id] = next.weapons[item.id] || {};
       players.forEach(player => {
         next.weapons[item.id][player] = { ...blankWeapon(), ...(next.weapons[item.id][player] || {}) };
+        if (!next.weapons[item.id][player].unlocks || typeof next.weapons[item.id][player].unlocks !== "object") {
+          next.weapons[item.id][player].unlocks = {};
+        }
       });
     });
     armorClasses().forEach(className => {
@@ -546,6 +555,10 @@
     return (CATALOG.weapons || []).flatMap(item => playerList().map(player => ({ item, player, ...(state.weapons[item.id]?.[player] || blankWeapon()) })));
   }
 
+  function compactUnlockState(unlocks = {}) {
+    return Object.fromEntries(Object.entries(unlocks || {}).filter(([, value]) => Boolean(value?.owned || value?.complete)));
+  }
+
   function flattenArmorRows() {
     return armorClasses().flatMap(className =>
       armorClassVisible(className) ?
@@ -588,12 +601,12 @@
     const hasCat = weaponHasCatalyst(item);
     const playerRows = visiblePlayers.map(player => {
       const s = state.weapons[item.id]?.[player] || blankWeapon();
-      return `<div class="status-grid status-row"><div class="player-label">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}${hasCat ? statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim") : neutralStatusCell("No catalyst for this weapon")}${hasCat ? statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim") : neutralStatusCell("No catalyst completion for this weapon")}</div>`;
+      return `<div class="status-grid status-row"><div class="player-label">${BASE.users[player]?.short || player}</div>${statusCell(s.owned, "Owned", "Not owned")}${hasCat ? statusCell(s.catalyst, "Catalyst obtained", "Catalyst missing", s.owned ? "" : "dim") : neutralStatusCell("No catalyst for this weapon")}${hasCat ? statusCell(s.complete, "Catalyst complete", "Catalyst incomplete", s.owned ? "" : "dim") : neutralStatusCell("No catalyst completion for this weapon")}${unlockSummaryCell(item, s)}</div>`;
     }).join("");
 
     const tileTitle = `${item.name} - ${item.slot || "Weapon"} ${item.type || ""}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
     const actionAttrs = isSimpleMode() ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
-    return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}${sourceBadge(item)}</div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span></div>${playerRows}</div></article>`;
+    return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}${sourceBadge(item)}</div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span><span>Extras</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root, section) {
@@ -717,7 +730,66 @@
   }
 
   function weaponHasCatalyst(item) {
-    return Boolean((COLLECTIBLES.items?.[item.id]?.catalystRecordHashes || []).length);
+    return Boolean(catalystTracks(item).length);
+  }
+
+  function catalystTracks(item) {
+    return unlockTracks(item).filter(track => track.kind === "catalyst");
+  }
+
+  function unlockTracks(item) {
+    const manual = ITEM_UNLOCKS.items?.[item.id]?.unlocks || [];
+    const manualByRecord = new Map(manual.filter(track => track.recordHash).map(track => [String(track.recordHash), track]));
+    const manifestCatalysts = (COLLECTIBLES.items?.[item.id]?.catalystRecordHashes || []).map((hash, index) => {
+      const key = String(hash);
+      const override = manualByRecord.get(key) || {};
+      return {
+        id: override.id || key,
+        kind: "catalyst",
+        label: override.label || `Catalyst ${index + 1}`,
+        recordHash: key,
+        source: override.source || "Bungie record",
+        manual: Boolean(override.manual)
+      };
+    });
+    const manifestIds = new Set(manifestCatalysts.map(track => track.id));
+    const extras = manual.filter(track => !manifestIds.has(track.id) && !(track.recordHash && manifestCatalysts.some(base => base.recordHash === String(track.recordHash))));
+    return [...manifestCatalysts, ...extras].map((track, index) => ({
+      id: String(track.id || track.recordHash || `${item.id}-unlock-${index + 1}`),
+      kind: track.kind || "unlock",
+      label: track.label || `Unlock ${index + 1}`,
+      recordHash: track.recordHash ? String(track.recordHash) : "",
+      source: track.source || "",
+      manual: Boolean(track.manual)
+    }));
+  }
+
+  function unlockSummary(row, item) {
+    const tracks = unlockTracks(item);
+    if (!tracks.length) return { total: 0, owned: 0, complete: 0, manual: false, tracks };
+    const catalystCount = tracks.filter(track => track.kind === "catalyst").length;
+    const owned = tracks.filter(track => {
+      const saved = row.unlocks?.[track.id];
+      if (saved?.owned || saved?.complete) return true;
+      return track.kind === "catalyst" && catalystCount <= 1 && row.catalyst;
+    }).length;
+    const complete = tracks.filter(track => {
+      const saved = row.unlocks?.[track.id];
+      if (saved?.complete) return true;
+      return track.kind === "catalyst" && catalystCount <= 1 && row.complete;
+    }).length;
+    return { total: tracks.length, owned, complete, manual: tracks.some(track => track.manual), tracks };
+  }
+
+  function unlockSummaryCell(item, row) {
+    const summary = unlockSummary(row, item);
+    if (!summary.total) return neutralStatusCell("No extra unlocks mapped for this weapon");
+    if (summary.total === 1 && !summary.manual) return neutralStatusCell("Standard single catalyst");
+    const label = summary.total === 1
+      ? `${summary.owned ? "1/1" : "0/1"} tracked unlock${summary.complete ? "; complete" : ""}`
+      : `${summary.owned}/${summary.total} tracked unlocks${summary.complete ? `; ${summary.complete}/${summary.total} complete` : ""}${summary.manual ? "; some tracks need manual verification" : ""}`;
+    const stateClass = summary.owned === summary.total ? "yes" : summary.owned ? "partial" : "no";
+    return `<div class="status-cell unlock-summary ${stateClass}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="unlock-count">${summary.owned}/${summary.total}</span></div>`;
   }
 
   function kindBadge(kind) {
@@ -957,6 +1029,8 @@
     const itemIds = new Set([...(payload.itemIds || []), ...(payload.weaponIds || [])].map(String));
     const catalystItemIds = new Set([...(payload.catalystItemIds || [])].map(String));
     const completeItemIds = new Set([...(payload.completeItemIds || [])].map(String));
+    const catalystRecordsByItem = normalizeRecordMap(payload.catalystRecordHashesByItem || payload.catalystRecordsByItem);
+    const completeRecordsByItem = normalizeRecordMap(payload.completeRecordHashesByItem || payload.completedCatalystRecordHashesByItem || payload.completeRecordsByItem);
     const itemNames = new Set((payload.itemNames || []).map(normalizeItemName).filter(Boolean));
     let weaponsChanged = 0;
     let armorChanged = 0;
@@ -990,21 +1064,42 @@
         }
         row.owned = true;
       }
+      const hasTrackedCatalysts = catalystTracks(item).length > 0;
       if (catalystItemIds.has(item.id) && !row.catalyst) {
-        catalystsChanged += 1;
-        const catalyst = catalystFeedInfo(item, payload);
-        feedEvents.push({ player, kind: "weapon", type: "catalyst", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
+        if (!hasTrackedCatalysts) {
+          catalystsChanged += 1;
+          const catalyst = catalystFeedInfo(item, payload);
+          feedEvents.push({ player, kind: "weapon", type: "catalyst", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
+        }
         row.catalyst = true;
       }
       if (completeItemIds.has(item.id) && !row.complete) {
-        completedChanged += 1;
-        const catalyst = catalystFeedInfo(item, payload);
-        feedEvents.push({ player, kind: "weapon", type: "complete", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
+        if (!hasTrackedCatalysts) {
+          completedChanged += 1;
+          const catalyst = catalystFeedInfo(item, payload);
+          feedEvents.push({ player, kind: "weapon", type: "complete", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
+        }
         row.complete = true;
         if (!row.catalyst) {
-          catalystsChanged += 1;
+          if (!hasTrackedCatalysts) catalystsChanged += 1;
           row.catalyst = true;
         }
+      }
+      const trackResult = applyWeaponUnlockRecords(item, row, {
+        active: catalystRecordsByItem[item.id],
+        complete: completeRecordsByItem[item.id],
+        legacyCatalyst: catalystItemIds.has(item.id),
+        legacyComplete: completeItemIds.has(item.id)
+      });
+      if (trackResult.catalystsChanged) {
+        catalystsChanged += trackResult.catalystsChanged;
+        const catalyst = catalystFeedInfo(item, payload);
+        feedEvents.push({ player, kind: "weapon", type: "catalyst", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
+      }
+      if (trackResult.completedChanged) {
+        completedChanged += trackResult.completedChanged;
+        const catalyst = catalystFeedInfo(item, payload);
+        feedEvents.push({ player, kind: "weapon", type: "complete", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
       }
     });
 
@@ -1029,6 +1124,38 @@
     if (!payload.suppressRender) render();
     if (!payload.suppressEvent) document.dispatchEvent(new CustomEvent("d2collections:ownership-applied", { detail: result }));
     return result;
+  }
+
+  function normalizeRecordMap(value = {}) {
+    return Object.fromEntries(Object.entries(value || {}).map(([itemId, hashes]) => [String(itemId), new Set([...(hashes || [])].map(String))]));
+  }
+
+  function applyWeaponUnlockRecords(item, row, records = {}) {
+    const tracks = unlockTracks(item).filter(track => track.kind === "catalyst");
+    if (!tracks.length) return { catalystsChanged: 0, completedChanged: 0 };
+    row.unlocks = row.unlocks && typeof row.unlocks === "object" ? row.unlocks : {};
+    let catalystsChanged = 0;
+    let completedChanged = 0;
+    tracks.forEach(track => {
+      const saved = row.unlocks[track.id] || {};
+      const activeMatch = track.recordHash && records.active?.has(track.recordHash);
+      const completeMatch = track.recordHash && records.complete?.has(track.recordHash);
+      const legacySingle = tracks.length === 1 && (records.legacyCatalyst || records.legacyComplete);
+      if ((activeMatch || completeMatch || legacySingle) && !saved.owned) {
+        catalystsChanged += 1;
+        saved.owned = true;
+      }
+      if ((completeMatch || (tracks.length === 1 && records.legacyComplete)) && !saved.complete) {
+        completedChanged += 1;
+        saved.complete = true;
+        saved.owned = true;
+      }
+      if (saved.owned || saved.complete) row.unlocks[track.id] = saved;
+    });
+    const summary = unlockSummary(row, item);
+    if (summary.owned > 0) row.catalyst = true;
+    if (tracks.length && summary.complete >= tracks.length) row.complete = true;
+    return { catalystsChanged, completedChanged };
   }
 
   function recordCloudSnapshots(snapshots = [], options = {}) {

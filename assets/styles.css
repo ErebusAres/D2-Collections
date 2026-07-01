@@ -1242,7 +1242,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 }
 .simple-damage-icons { display: none; }
 
-.status-grid { display: grid; grid-template-columns: 72px repeat(3, minmax(62px, 1fr)); gap: 7px; align-items: center; }
+.status-grid { display: grid; grid-template-columns: 72px repeat(4, minmax(58px, 1fr)); gap: 7px; align-items: center; }
 .status-grid.header { color: var(--muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
 .status-row { margin-top: 6px; }
 .player-label { color: var(--soft); font-weight: 800; }
@@ -1273,9 +1273,28 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 }
 .status-cell.yes { background: rgba(70,217,141,.13); border-color: rgba(70,217,141,.36); color: #caffdf; box-shadow: inset 0 0 0 1px rgba(70,217,141,.06); }
 .status-cell.no { background: rgba(224,111,120,.07); border-color: rgba(224,111,120,.16); color: #ffd7dc; }
+.status-cell.partial { background: rgba(243,189,79,.12); border-color: rgba(243,189,79,.34); color: #ffe2a1; }
 .status-cell.equipped { background: rgba(243,189,79,.14); border-color: rgba(243,189,79,.38); }
 .status-cell.idle { color: var(--muted); background: rgba(202,209,221,.07); border-color: rgba(202,209,221,.16); }
 .status-cell.dim { opacity: .5; }
+.unlock-summary {
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+.unlock-summary::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: .68;
+}
+.unlock-count {
+  min-width: 26px;
+  text-align: center;
+}
 .status-mark {
   width: 16px;
   height: 16px;
@@ -1800,6 +1819,11 @@ html.layout-simple .status-cell.no {
   background: rgba(224,111,120,.34);
   border-color: rgba(255,215,220,.16);
 }
+html.layout-simple .status-cell.partial {
+  background: #f3bd4f;
+  border-color: rgba(255,226,161,.62);
+  box-shadow: 0 0 7px rgba(243,189,79,.34);
+}
 html.layout-simple .status-cell.idle {
   background: rgba(202,209,221,.3);
   border-color: rgba(202,209,221,.16);
@@ -1826,7 +1850,7 @@ html.layout-simple .status-cell.dim {
   .summary-grid { grid-template-columns: 1fr 1fr; }
   .weapon-card { grid-template-columns: 1fr; }
   .armor-columns { grid-template-columns: 1fr; }
-  .status-grid { grid-template-columns: 62px repeat(3, minmax(52px, 1fr)); font-size: .82rem; }
+  .status-grid { grid-template-columns: 62px repeat(4, minmax(46px, 1fr)); font-size: .82rem; }
   .armor-status { grid-template-columns: 62px repeat(1, minmax(70px, 1fr)); }
   html.layout-simple .app-shell { width: min(100% - 12px, 1660px); padding-top: 58px; }
   html.layout-simple h1 { font-size: 1.35rem; }

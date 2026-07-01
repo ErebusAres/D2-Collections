@@ -2,6 +2,7 @@
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
   const CHECKLIST = window.D2_COLLECTIONS_CHECKLIST || { users: {}, weapons: {}, armor: {} };
   const BUNGIE = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
+  const ITEM_UNLOCKS = window.D2_COLLECTIONS_ITEM_UNLOCKS || { items: {} };
   const UI_ICONS = window.D2_COLLECTIONS_UI_ICONS || { game: {}, dim: {} };
   const DAMAGE_ICONS = {
     solar: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_2a1773e10968f2d088b97c22b22bba9e.png",
@@ -93,17 +94,22 @@
     .help-detail{border:1px solid rgba(222,232,255,.105);background:rgba(0,0,0,.18);border-radius:8px;padding:8px 9px;min-width:0}
     .help-detail span{display:block;color:var(--muted);font-size:.66rem;text-transform:uppercase;letter-spacing:.08em;font-weight:900;margin-bottom:2px}
     .help-detail strong{display:block;color:var(--soft);font-size:.84rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .help-unlock-note{margin:7px 0 0;color:var(--muted);font-size:.76rem;line-height:1.45}
+    .help-unlock-list{display:grid;gap:6px;margin-top:8px}
+    .help-unlock-row{display:grid;grid-template-columns:minmax(120px,.75fr) minmax(0,1.25fr);gap:6px;align-items:center;border:1px solid rgba(222,232,255,.105);background:rgba(0,0,0,.18);border-radius:7px;padding:7px 8px}
+    .help-unlock-row span{color:var(--soft);font-size:.8rem;font-weight:900}
+    .help-unlock-row strong{color:var(--muted);font-size:.72rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .help-status-list{display:grid;gap:6px;margin-top:8px}
-    .help-status-row{display:grid;grid-template-columns:minmax(70px,.7fr) repeat(3,minmax(48px,1fr));gap:5px;align-items:center;color:var(--muted);font-size:.76rem}
+    .help-status-row{display:grid;grid-template-columns:minmax(58px,.7fr) repeat(4,minmax(48px,1fr));gap:5px;align-items:center;color:var(--muted);font-size:.76rem}
     .help-status-row span{border:1px solid var(--line);border-radius:6px;padding:5px 6px;background:rgba(0,0,0,.18);text-align:center}
     .help-status-row .is-yes{color:#caffdf;border-color:rgba(88,214,154,.3);background:rgba(88,214,154,.08)}
     .help-status-row .is-no{color:#ffd7dc;border-color:rgba(224,111,120,.22);background:rgba(224,111,120,.06)}
     .help-status-row .is-neutral{color:var(--muted);border-color:rgba(202,209,221,.16);background:rgba(202,209,221,.06)}
-    .help-state-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+    .help-state-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
     .help-state-summary span{border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.2);padding:7px;color:var(--muted);font-size:.68rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
     .help-state-summary strong{display:block;color:var(--soft);font-size:1rem;letter-spacing:0;text-transform:none}
     @media(max-width:780px){.help-panel{left:10px;right:10px;top:auto;bottom:10px;width:auto;max-height:72vh;border-radius:16px;transform:translateY(calc(100% + 24px))}.help-panel.open{transform:translateY(0)}}
-    @media(max-width:780px){.help-details{grid-template-columns:1fr}.help-status-row{grid-template-columns:minmax(58px,.7fr) repeat(3,minmax(44px,1fr))}.help-hero{grid-template-columns:58px minmax(0,1fr)}.help-item-icon,.help-item-fallback{width:58px;height:58px}.help-state-summary{grid-template-columns:1fr}}
+    @media(max-width:780px){.help-details{grid-template-columns:1fr}.help-status-row{grid-template-columns:minmax(58px,.7fr) repeat(4,minmax(40px,1fr));font-size:.68rem}.help-unlock-row{grid-template-columns:1fr}.help-hero{grid-template-columns:58px minmax(0,1fr)}.help-item-icon,.help-item-fallback{width:58px;height:58px}.help-state-summary{grid-template-columns:1fr 1fr}}
   `;
 
   const style = document.createElement("style");
@@ -319,7 +325,67 @@
   }
 
   function weaponHasCatalyst(item) {
-    return Boolean((BUNGIE.items?.[item.id]?.catalystRecordHashes || []).length);
+    return Boolean(catalystTracks(item).length);
+  }
+
+  function catalystTracks(item) {
+    return unlockTracks(item).filter(track => track.kind === "catalyst");
+  }
+
+  function unlockTracks(item) {
+    const manual = ITEM_UNLOCKS.items?.[item.id]?.unlocks || [];
+    const manualByRecord = new Map(manual.filter(track => track.recordHash).map(track => [String(track.recordHash), track]));
+    const manifestCatalysts = (BUNGIE.items?.[item.id]?.catalystRecordHashes || []).map((hash, index) => {
+      const key = String(hash);
+      const override = manualByRecord.get(key) || {};
+      return {
+        id: override.id || key,
+        kind: "catalyst",
+        label: override.label || `Catalyst ${index + 1}`,
+        recordHash: key,
+        source: override.source || "Bungie record",
+        manual: Boolean(override.manual)
+      };
+    });
+    const manifestIds = new Set(manifestCatalysts.map(track => track.id));
+    const extras = manual.filter(track => !manifestIds.has(track.id) && !(track.recordHash && manifestCatalysts.some(base => base.recordHash === String(track.recordHash))));
+    return [...manifestCatalysts, ...extras].map((track, index) => ({
+      id: String(track.id || track.recordHash || `${item.id}-unlock-${index + 1}`),
+      kind: track.kind || "unlock",
+      label: track.label || `Unlock ${index + 1}`,
+      recordHash: track.recordHash ? String(track.recordHash) : "",
+      source: track.source || "",
+      manual: Boolean(track.manual)
+    }));
+  }
+
+  function unlockSummary(row, item) {
+    const tracks = unlockTracks(item);
+    const catalystCount = tracks.filter(track => track.kind === "catalyst").length;
+    const owned = tracks.filter(track => {
+      const saved = row.unlocks?.[track.id];
+      if (saved?.owned || saved?.complete) return true;
+      return track.kind === "catalyst" && catalystCount <= 1 && row.catalyst;
+    }).length;
+    const complete = tracks.filter(track => {
+      const saved = row.unlocks?.[track.id];
+      if (saved?.complete) return true;
+      return track.kind === "catalyst" && catalystCount <= 1 && row.complete;
+    }).length;
+    return { tracks, owned, complete };
+  }
+
+  function unlockDetails(item) {
+    const tracks = unlockTracks(item);
+    if (!tracks.length) return "";
+    const note = ITEM_UNLOCKS.items?.[item.id]?.note
+      ? `<p class="help-unlock-note">${escapeHtml(ITEM_UNLOCKS.items[item.id].note)}</p>`
+      : "";
+    const rows = tracks.map(track => {
+      const meta = [track.kind, track.recordHash ? `Record ${track.recordHash}` : "", track.source, track.manual ? "manual" : ""].filter(Boolean).join(" / ");
+      return `<div class="help-unlock-row"><span>${escapeHtml(track.label)}</span><strong>${escapeHtml(meta)}</strong></div>`;
+    }).join("");
+    return `<div class="help-subhead">Tracked unlocks</div>${note}<div class="help-unlock-list">${rows}</div>`;
   }
 
   const specificRoutes = {
@@ -439,10 +505,10 @@
       ["Difficulty", item.priority?.difficultyLabel || "Normal"],
       ["Catalog ID", item.id],
       ["Collectible", (map.collectibleHashes || []).join(", ") || "Not mapped"],
-      ["Catalyst records", (map.catalystRecordHashes || []).join(", ") || (item.kind === "weapon" ? "No catalyst mapped for this weapon" : "Armor item")],
+      ["Catalyst records", catalystTracks(item).map(track => track.recordHash || track.id).join(", ") || (item.kind === "weapon" ? "No catalyst mapped for this weapon" : "Armor item")],
       ["Confidence", item.priority?.confidence || info.confidence]
     ];
-    return `<div class="help-details">${values.map(([label, value]) => `<div class="help-detail"><span>${escapeHtml(label)}</span><strong title="${escapeHtml(value)}">${escapeHtml(value)}</strong></div>`).join("")}</div>`;
+    return `<div class="help-details">${values.map(([label, value]) => `<div class="help-detail"><span>${escapeHtml(label)}</span><strong title="${escapeHtml(value)}">${escapeHtml(value)}</strong></div>`).join("")}</div>${unlockDetails(item)}`;
   }
 
   function statusClass(value) {
@@ -456,15 +522,19 @@
     if (!userIds.length) return "";
     if (item.kind === "weapon") {
       const hasCat = weaponHasCatalyst(item);
+      const tracks = unlockTracks(item);
       const ownedCount = userIds.filter(player => state.weapons?.[item.id]?.[player]?.owned).length;
       const catCount = hasCat ? userIds.filter(player => state.weapons?.[item.id]?.[player]?.catalyst).length : 0;
       const doneCount = hasCat ? userIds.filter(player => state.weapons?.[item.id]?.[player]?.complete).length : 0;
       const rows = userIds.map(player => {
         const row = state.weapons?.[item.id]?.[player] || {};
         const name = users[player]?.short || users[player]?.label || player;
-        return `<div class="help-status-row"><span>${escapeHtml(name)}</span><span class="${statusClass(row.owned)}">Own</span><span class="${hasCat ? statusClass(row.catalyst) : "is-neutral"}">${hasCat ? "Cat" : "No cat"}</span><span class="${hasCat ? statusClass(row.complete) : "is-neutral"}">${hasCat ? "Done" : "None"}</span></div>`;
+        const summary = unlockSummary(row, item);
+        const extra = tracks.length ? `${summary.owned}/${tracks.length} unlocks` : "No extras";
+        return `<div class="help-status-row"><span>${escapeHtml(name)}</span><span class="${statusClass(row.owned)}">Own</span><span class="${hasCat ? statusClass(row.catalyst) : "is-neutral"}">${hasCat ? "Cat" : "No cat"}</span><span class="${hasCat ? statusClass(row.complete) : "is-neutral"}">${hasCat ? "Done" : "None"}</span><span class="${tracks.length ? statusClass(summary.owned === tracks.length) : "is-neutral"}">${escapeHtml(extra)}</span></div>`;
       }).join("");
-      return `<div class="help-subhead">Collection state</div><div class="help-state-summary"><span><strong>${ownedCount}/${userIds.length}</strong>Owned</span><span><strong>${hasCat ? `${catCount}/${userIds.length}` : "none"}</strong>Catalyst</span><span><strong>${hasCat ? `${doneCount}/${userIds.length}` : "none"}</strong>Complete</span></div><div class="help-status-list">${rows}</div>`;
+      const unlockText = tracks.length ? `${tracks.length} tracked` : "none";
+      return `<div class="help-subhead">Collection state</div><div class="help-state-summary"><span><strong>${ownedCount}/${userIds.length}</strong>Owned</span><span><strong>${hasCat ? `${catCount}/${userIds.length}` : "none"}</strong>Catalyst</span><span><strong>${hasCat ? `${doneCount}/${userIds.length}` : "none"}</strong>Complete</span><span><strong>${unlockText}</strong>Unlocks</span></div><div class="help-status-list">${rows}</div>`;
     }
     const className = item.className;
     const ownedCount = userIds.filter(player => state.armor?.[className]?.[item.id]?.[player]?.owned).length;
