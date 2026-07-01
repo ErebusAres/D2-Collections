@@ -1397,6 +1397,252 @@ textarea {
   transform: rotate(45deg);
 }
 
+html.layout-shelf .app-shell {
+  width: min(1780px, calc(100% - 24px));
+  padding-top: 64px;
+}
+html.layout-shelf .hero {
+  min-height: 0;
+  padding: 14px 18px;
+}
+html.layout-shelf h1 {
+  margin-bottom: 2px;
+  font-size: 1.85rem;
+  line-height: 1;
+}
+html.layout-shelf .hero-title {
+  width: min(520px, 92vw);
+  margin-bottom: 0;
+}
+html.layout-shelf .hero-copy {
+  margin-top: 4px;
+  font-size: .9rem;
+}
+html.layout-shelf .summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+html.layout-shelf .summary-card {
+  min-height: 76px;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+html.layout-shelf .summary-card strong {
+  font-size: 1.35rem;
+}
+html.layout-shelf .progress-track {
+  height: 5px;
+  margin-top: 8px;
+}
+html.layout-shelf .toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 16;
+  grid-template-columns: minmax(260px, 1.15fr) minmax(420px, 2fr) minmax(220px, .9fr) minmax(190px, .7fr) auto;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 9px;
+  background: rgba(8,11,16,.88);
+  backdrop-filter: blur(12px);
+}
+html.layout-shelf .seg {
+  min-height: 30px;
+  padding: 7px 9px;
+}
+html.layout-shelf .at-a-glance {
+  grid-template-columns: minmax(0, .95fr) minmax(0, 1.4fr);
+  gap: 8px;
+}
+html.layout-shelf .sync-health-strip {
+  grid-column: 1 / -1;
+}
+html.layout-shelf .quick-jump,
+html.layout-shelf .legend-strip,
+html.layout-shelf .sync-health-strip {
+  padding: 7px;
+  border-radius: 8px;
+}
+html.layout-shelf .content-grid {
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+html.layout-shelf .panel {
+  padding: 12px;
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(216,177,91,.08), transparent 16%),
+    linear-gradient(180deg, rgba(255,255,255,.044), rgba(255,255,255,.014)),
+    rgba(11,14,20,.86);
+}
+html.layout-shelf .panel-head {
+  align-items: center;
+  margin-bottom: 10px;
+}
+html.layout-shelf .panel-head h2 {
+  font-size: 1.02rem;
+}
+html.layout-shelf .count-pill {
+  padding: 6px 9px;
+  border-radius: 7px;
+}
+html.layout-shelf .weapon-list,
+html.layout-shelf .armor-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+  gap: 8px;
+}
+html.layout-shelf .weapon-list.is-split {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+html.layout-shelf .simple-player-section {
+  min-width: 0;
+}
+html.layout-shelf .simple-player-list {
+  grid-template-columns: repeat(auto-fill, minmax(390px, 1fr));
+}
+html.layout-shelf .weapon-player-title {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+}
+html.layout-shelf .armor-columns {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+html.layout-shelf .class-title {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 7px;
+}
+html.layout-shelf .weapon-card,
+html.layout-shelf .armor-card {
+  contain-intrinsic-block-size: 82px;
+  min-height: 82px;
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(190px, .82fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border-left-width: 4px;
+  background:
+    linear-gradient(135deg, rgba(156,199,255,.065), transparent 36%),
+    linear-gradient(90deg, rgba(216,177,91,.095), transparent 24%),
+    linear-gradient(180deg, rgba(255,255,255,.047), rgba(255,255,255,.016)),
+    rgba(7,10,15,.82);
+}
+html.layout-shelf .weapon-card:hover,
+html.layout-shelf .armor-card:hover {
+  transform: translateY(-1px);
+}
+html.layout-shelf .weapon-card::after,
+html.layout-shelf .armor-card::after {
+  width: 18px;
+  height: 18px;
+}
+html.layout-shelf .item-with-icon {
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 10px;
+}
+html.layout-shelf .item-icon,
+html.layout-shelf .item-icon-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 5px;
+}
+html.layout-shelf .item-name {
+  gap: 7px;
+  margin-bottom: 5px;
+}
+html.layout-shelf .item-name h3 {
+  font-size: .98rem;
+}
+html.layout-shelf .priority-tags {
+  gap: 2px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+html.layout-shelf .priority-chip {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+}
+html.layout-shelf .priority-chip img,
+html.layout-shelf .priority-chip svg {
+  width: 16px;
+  height: 16px;
+}
+html.layout-shelf .badge-row {
+  flex-wrap: nowrap;
+  gap: 4px;
+  overflow: hidden;
+}
+html.layout-shelf .badge {
+  max-width: 150px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: .68rem;
+  white-space: nowrap;
+}
+html.layout-shelf .badge.source {
+  max-width: 150px;
+}
+html.layout-shelf .meta-chip svg,
+html.layout-shelf .meta-chip img,
+html.layout-shelf .meta-chip strong {
+  width: 15px;
+  height: 15px;
+  flex-basis: 15px;
+}
+html.layout-shelf .card-status-panel {
+  min-width: 0;
+}
+html.layout-shelf .status-grid {
+  grid-template-columns: 42px repeat(4, minmax(28px, 1fr));
+  gap: 4px;
+}
+html.layout-shelf .status-grid.header {
+  font-size: .58rem;
+  letter-spacing: .04em;
+}
+html.layout-shelf .status-row {
+  margin-top: 4px;
+}
+html.layout-shelf .player-label {
+  font-size: .72rem;
+}
+html.layout-shelf .status-cell {
+  min-height: 24px;
+  border-radius: 6px;
+}
+html.layout-shelf .status-cell::before {
+  width: 4px;
+  height: 4px;
+  margin-right: 4px;
+}
+html.layout-shelf .status-mark {
+  width: 14px;
+  height: 14px;
+}
+html.layout-shelf .status-mark img {
+  width: 13px;
+  height: 13px;
+}
+html.layout-shelf .unlock-summary {
+  font-size: .68rem;
+}
+html.layout-shelf .unlock-count {
+  min-width: 22px;
+}
+html.layout-shelf .armor-card {
+  grid-template-columns: minmax(190px, 1fr) minmax(88px, .32fr);
+}
+html.layout-shelf .armor-status {
+  grid-template-columns: 42px minmax(36px, 1fr);
+  gap: 4px;
+}
+
 html.layout-simple .app-shell {
   width: min(1840px, calc(100% - 20px));
   padding-top: 58px;
@@ -1903,6 +2149,17 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   .at-a-glance { grid-template-columns: 1fr; }
   .api-grid { grid-template-columns: 1fr; }
   .api-actions { justify-content: flex-start; }
+  html.layout-shelf .toolbar,
+  html.layout-shelf .at-a-glance,
+  html.layout-shelf .weapon-list.is-split,
+  html.layout-shelf .armor-columns {
+    grid-template-columns: 1fr;
+  }
+  html.layout-shelf .weapon-list,
+  html.layout-shelf .armor-list,
+  html.layout-shelf .simple-player-list {
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  }
 }
 @media (max-width: 780px) {
   .app-shell { width: min(100% - 20px, 1660px); padding-top: 64px; }
@@ -1928,6 +2185,30 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   html.layout-simple .weapon-list,
   html.layout-simple .armor-list { --tile-size: 70px; gap: 8px 6px; }
   html.layout-simple .armor-column-controls { grid-template-columns: 1fr; }
+  html.layout-shelf .app-shell { width: min(100% - 12px, 1660px); padding-top: 58px; }
+  html.layout-shelf h1 { font-size: 1.45rem; }
+  html.layout-shelf .hero-title { width: min(380px, 100%); }
+  html.layout-shelf .summary-grid { grid-template-columns: 1fr 1fr; }
+  html.layout-shelf .toolbar { grid-template-columns: 1fr; position: static; }
+  html.layout-shelf .segmented,
+  html.layout-shelf .quick-jump,
+  html.layout-shelf .legend-strip,
+  html.layout-shelf .sync-health-strip { overflow-x: auto; flex-wrap: nowrap; }
+  html.layout-shelf .weapon-list,
+  html.layout-shelf .armor-list,
+  html.layout-shelf .simple-player-list { grid-template-columns: 1fr; }
+  html.layout-shelf .weapon-card,
+  html.layout-shelf .armor-card {
+    grid-template-columns: 1fr;
+    contain-intrinsic-block-size: 152px;
+    min-height: 152px;
+  }
+  html.layout-shelf .armor-card {
+    contain-intrinsic-block-size: 112px;
+    min-height: 112px;
+  }
+  html.layout-shelf .status-grid { grid-template-columns: 42px repeat(4, minmax(34px, 1fr)); }
+  html.layout-shelf .armor-status { grid-template-columns: 42px minmax(42px, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

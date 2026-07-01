@@ -7,11 +7,13 @@
   <meta name="description" content="Destiny 2 exotic collection tracker with Bungie login, Cloudflare sync, catalyst tracking, armor checks, and quick acquisition help." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=simple-hud-grid" />
+  <link rel="stylesheet" href="assets/styles.css?v=shelf-layout" />
   <script>
     (() => {
       try {
-        if (localStorage.getItem("d2-collections-layout-mode-v1") === "simple") document.documentElement.classList.add("layout-simple");
+        const mode = localStorage.getItem("d2-collections-layout-mode-v1");
+        if (mode === "simple") document.documentElement.classList.add("layout-simple");
+        if (mode === "shelf") document.documentElement.classList.add("layout-shelf");
       } catch {}
     })();
   </script>
@@ -95,6 +97,7 @@
       </label>
       <div class="segmented layout-toggle" role="group" aria-label="Layout mode">
         <button class="seg active" data-layout-mode="detailed" type="button">Detailed</button>
+        <button class="seg" data-layout-mode="shelf" type="button">Shelf</button>
         <button class="seg" data-layout-mode="simple" type="button">Simple</button>
       </div>
     </nav>
@@ -197,7 +200,7 @@
   <script src="assets/auth-compact.js?v=refresh-not-logout"></script>
   <script src="assets/armor-columns.js?v=d2-real-ui-icons"></script>
   <script src="assets/help.js?v=multi-unlock-help"></script>
-  <script src="assets/layout-mode.js?v=d2-ux-nav-legend-sort"></script>
+  <script src="assets/layout-mode.js?v=shelf-layout"></script>
   <script src="assets/icon-audit.js"></script>
   <script src="assets/api-handoff.js?v=auth-refresh-diagnostics"></script>
   <script src="assets/cloud-sync.js?v=d2-polish-sync-health"></script>

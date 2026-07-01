@@ -1,6 +1,6 @@
 (() => {
   const STORAGE_KEY = "d2-collections-layout-mode-v1";
-  const MODES = new Set(["detailed", "simple"]);
+  const MODES = new Set(["detailed", "shelf", "simple"]);
   const root = document.documentElement;
   const buttons = [...document.querySelectorAll("[data-layout-mode]")];
 
@@ -16,7 +16,8 @@
   function applyMode(mode) {
     const next = MODES.has(mode) ? mode : "detailed";
     root.classList.toggle("layout-simple", next === "simple");
-    root.classList.toggle("layout-detailed", next !== "simple");
+    root.classList.toggle("layout-shelf", next === "shelf");
+    root.classList.toggle("layout-detailed", next === "detailed");
     buttons.forEach(button => {
       const active = button.dataset.layoutMode === next;
       button.classList.toggle("active", active);
