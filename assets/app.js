@@ -597,7 +597,10 @@
     const visibleStates = visiblePlayers.map(player => state.weapons[item.id]?.[player] || blankWeapon());
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const cardClass = ownedCount === visibleStates.length ? "is-owned" : ownedCount ? "is-partial" : "is-missing";
-    const metaBadges = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
+    const simple = isSimpleMode();
+    const priorityMarkup = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
+    const metaBadges = simple ? "" : priorityMarkup;
+    const hudBadges = simple ? priorityMarkup : "";
     const hasCat = weaponHasCatalyst(item);
     const playerRows = visiblePlayers.map(player => {
       const s = state.weapons[item.id]?.[player] || blankWeapon();
@@ -605,8 +608,9 @@
     }).join("");
 
     const tileTitle = `${item.name} - ${item.slot || "Weapon"} ${item.type || ""}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
-    const actionAttrs = isSimpleMode() ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
-    return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}${sourceBadge(item)}</div></div></div><div><div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span><span>Extras</span></div>${playerRows}</div></article>`;
+    const actionAttrs = simple ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
+    const statusPanelClass = simple ? "card-status-panel simple-card-hud" : "card-status-panel";
+    return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span><span>Extras</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root, section) {
@@ -632,7 +636,10 @@
     const visiblePlayers = armorPlayersForClass(className);
     const visibleStates = visiblePlayers.map(player => state.armor[className]?.[item.id]?.[player] || blankArmor());
     const cardClass = visibleStates.some(row => row.owned) ? "is-owned" : "is-missing";
-    const metaBadges = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
+    const simple = isSimpleMode();
+    const priorityMarkup = priorityBadges(item, visiblePlayers, visibleStates.every(row => row.owned));
+    const metaBadges = simple ? "" : priorityMarkup;
+    const hudBadges = simple ? priorityMarkup : "";
     const playerRows = visiblePlayers.map(player => {
       const s = state.armor[className]?.[item.id]?.[player] || blankArmor();
       const isFocus = player === focusPlayer;
@@ -641,8 +648,9 @@
 
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const tileTitle = `${item.name} - ${focusLabel(className)} ${item.slot || "armor"}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
-    const actionAttrs = isSimpleMode() ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
-    return `<article class="armor-card is-focus-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("armor")}${armorClassBadge(className)}${slotBadge(item.slot)}${sourceBadge(item)}</div></div></div><div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</article>`;
+    const actionAttrs = simple ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
+    const statusPanelClass = simple ? "card-status-panel simple-card-hud armor-card-hud" : "card-status-panel";
+    return `<article class="armor-card is-focus-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("armor")}${armorClassBadge(className)}${slotBadge(item.slot)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</div></article>`;
   }
 
   function updateArmorSectionCount(className) {

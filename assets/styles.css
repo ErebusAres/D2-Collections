@@ -1535,7 +1535,7 @@ html.layout-simple .count-pill {
 }
 html.layout-simple .weapon-list,
 html.layout-simple .armor-list {
-  --tile-size: 96px;
+  --tile-size: 92px;
   --icon-size: calc(var(--tile-size) - 12px);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--tile-size), var(--tile-size)));
@@ -1551,7 +1551,7 @@ html.layout-simple .simple-player-section {
   min-width: 0;
 }
 html.layout-simple .simple-player-list {
-  --tile-size: 96px;
+  --tile-size: 92px;
   --icon-size: calc(var(--tile-size) - 12px);
 }
 html.layout-simple .weapon-player-title {
@@ -1614,11 +1614,12 @@ html.layout-simple .class-title {
 html.layout-simple .weapon-card,
 html.layout-simple .armor-card {
   width: var(--tile-size);
-  contain-intrinsic-block-size: calc(var(--icon-size) + 58px);
-  min-height: calc(var(--icon-size) + 58px);
+  contain-intrinsic-block-size: 132px;
+  min-height: 132px;
   display: grid;
-  grid-template-rows: var(--icon-size) 52px;
-  gap: 5px;
+  grid-template-columns: 1fr;
+  grid-template-rows: var(--icon-size) 40px;
+  gap: 4px;
   padding: 6px;
   border-radius: 7px;
   cursor: pointer;
@@ -1654,9 +1655,9 @@ html.layout-simple .armor-card.is-missing {
   box-shadow: inset 0 0 0 2px rgba(224,95,107,.18);
 }
 html.layout-simple .armor-card {
-  contain-intrinsic-block-size: calc(var(--icon-size) + 58px);
-  min-height: calc(var(--icon-size) + 58px);
-  grid-template-rows: var(--icon-size) 52px;
+  contain-intrinsic-block-size: 132px;
+  min-height: 132px;
+  grid-template-rows: var(--icon-size) 40px;
 }
 html.layout-simple .weapon-card::before,
 html.layout-simple .weapon-card::after,
@@ -1665,23 +1666,33 @@ html.layout-simple .armor-card::after {
   display: none;
 }
 html.layout-simple .item-with-icon {
-  display: grid;
-  grid-template-rows: var(--icon-size);
+  display: block;
+  position: relative;
   width: var(--icon-size);
   height: var(--icon-size);
   min-width: 0;
   margin: 0 auto;
+  overflow: hidden;
+  border-radius: 6px;
 }
 html.layout-simple .item-meta {
+  position: relative;
+  display: block;
   width: var(--icon-size);
   height: var(--icon-size);
   margin: 0 auto;
+  min-width: 0;
 }
 html.layout-simple .item-icon,
 html.layout-simple .item-icon-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
   width: var(--icon-size);
   height: var(--icon-size);
   border-radius: 6px;
+  object-fit: cover;
   border-color: rgba(216,177,91,.42);
   background:
     radial-gradient(circle at 50% 22%, rgba(216,177,91,.1), transparent 52%),
@@ -1700,12 +1711,18 @@ html.layout-simple .armor-card.is-missing .item-icon {
   filter: saturate(.72) brightness(.86);
 }
 html.layout-simple .item-icon-fallback {
+  display: grid;
+  place-items: center;
+  z-index: 1;
   background: rgba(12,15,21,.96);
+  color: var(--gold-bright);
+  font-size: 1rem;
+  font-weight: 900;
 }
 html.layout-simple .simple-damage-icons {
   position: absolute;
-  top: calc(var(--icon-size) + 37px);
-  left: 12px;
+  left: 4px;
+  bottom: 4px;
   z-index: 3;
   display: inline-flex;
   gap: 1px;
@@ -1730,17 +1747,16 @@ html.layout-simple .player-label {
   display: none;
 }
 html.layout-simple .priority-tags {
-  position: absolute;
-  left: 33px;
-  right: 8px;
-  top: calc(var(--icon-size) + 36px);
-  z-index: 3;
+  position: static;
+  z-index: 1;
   display: flex;
   flex-wrap: nowrap;
-  gap: 1px;
+  gap: 2px;
+  width: 100%;
   max-width: 100%;
   min-height: 17px;
-  justify-content: flex-end;
+  overflow: hidden;
+  justify-content: flex-start;
   pointer-events: none;
 }
 html.layout-simple .priority-chip {
@@ -1769,27 +1785,35 @@ html.layout-simple .priority-chip.buy { background: transparent; }
 html.layout-simple .priority-chip:nth-child(n+4) {
   display: none;
 }
-html.layout-simple .weapon-card > div:last-child,
-html.layout-simple .armor-status.status-row {
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: 6px;
+html.layout-simple .card-status-panel {
+  min-width: 0;
+}
+html.layout-simple .simple-card-hud {
+  position: relative;
   z-index: 2;
-  display: flex;
+  display: grid;
+  grid-template-rows: 17px 13px;
   gap: 2px;
-  justify-content: center;
-  width: auto;
-  max-width: none;
-  height: 45px;
+  width: 100%;
+  height: 40px;
   margin: 0 auto;
-  padding: 8px 7px 6px;
+  padding: 4px 5px;
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 5px;
   background:
     linear-gradient(180deg, rgba(255,255,255,.035), transparent 45%),
     rgba(12,17,25,.9);
   pointer-events: none;
+}
+html.layout-simple .simple-card-hud .priority-tags:empty {
+  min-height: 0;
+}
+html.layout-simple .simple-card-hud:not(:has(.priority-tags:not(:empty))) {
+  grid-template-rows: 0 1fr;
+}
+html.layout-simple .armor-card-hud {
+  grid-template-rows: 1fr;
+  align-items: center;
 }
 html.layout-simple .armor-card .armor-status.status-row {
   display: none;
@@ -1801,9 +1825,11 @@ html.layout-simple .status-row {
   position: relative;
   width: 100%;
   justify-content: flex-start;
-  align-self: start;
-  padding-right: 34px;
-  padding-left: 2px;
+  align-self: center;
+  padding-right: 30px;
+  padding-left: 0;
+  min-width: 0;
+  overflow: visible;
 }
 html.layout-simple .status-cell {
   width: 10px;
@@ -1847,12 +1873,13 @@ html.layout-simple .status-cell.dim {
 html.layout-simple .status-cell.unlock-summary {
   position: absolute;
   right: 2px;
-  top: -2px;
+  top: 50%;
+  transform: translateY(-50%);
   width: auto;
-  min-width: 28px;
+  min-width: 25px;
   height: 16px;
   min-height: 16px;
-  padding: 0 5px;
+  padding: 0 4px;
   border-radius: 4px;
   font-size: .58rem;
   line-height: 16px;
