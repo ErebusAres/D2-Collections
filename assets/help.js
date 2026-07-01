@@ -83,8 +83,8 @@
     .help-priority-symbol.difficulty-easy img{filter:brightness(0) saturate(100%) invert(90%) sepia(10%) saturate(323%) hue-rotate(180deg) brightness(95%) contrast(93%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol.difficulty-normal{color:var(--difficulty-normal,#7fffb6)}
     .help-priority-symbol.difficulty-normal img{filter:brightness(0) saturate(100%) invert(87%) sepia(59%) saturate(519%) hue-rotate(78deg) brightness(104%) contrast(103%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
-    .help-priority-symbol.difficulty-difficult{color:var(--difficulty-difficult,#f0d587)}
-    .help-priority-symbol.difficulty-difficult img{filter:brightness(0) saturate(100%) invert(89%) sepia(30%) saturate(770%) hue-rotate(353deg) brightness(101%) contrast(91%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
+    .help-priority-symbol.difficulty-difficult{color:var(--difficulty-difficult,#d99b4a)}
+    .help-priority-symbol.difficulty-difficult img{filter:brightness(0) saturate(100%) invert(67%) sepia(72%) saturate(529%) hue-rotate(354deg) brightness(95%) contrast(92%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol.difficulty-impossible{color:var(--difficulty-impossible,#ff5d72)}
     .help-priority-symbol.difficulty-impossible img{filter:brightness(0) saturate(100%) invert(51%) sepia(77%) saturate(1634%) hue-rotate(315deg) brightness(103%) contrast(103%) drop-shadow(0 1px 2px rgba(0,0,0,.72))}
     .help-priority-symbol.confidence{color:var(--muted)}
