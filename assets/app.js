@@ -759,6 +759,7 @@
       kind: track.kind || "unlock",
       label: track.label || `Unlock ${index + 1}`,
       recordHash: track.recordHash ? String(track.recordHash) : "",
+      collectibleHash: track.collectibleHash ? String(track.collectibleHash) : "",
       source: track.source || "",
       manual: Boolean(track.manual)
     }));
@@ -1031,6 +1032,7 @@
     const completeItemIds = new Set([...(payload.completeItemIds || [])].map(String));
     const catalystRecordsByItem = normalizeRecordMap(payload.catalystRecordHashesByItem || payload.catalystRecordsByItem);
     const completeRecordsByItem = normalizeRecordMap(payload.completeRecordHashesByItem || payload.completedCatalystRecordHashesByItem || payload.completeRecordsByItem);
+    const unlockCollectiblesByItem = normalizeRecordMap(payload.unlockCollectibleHashesByItem || payload.extraCollectibleHashesByItem);
     const itemNames = new Set((payload.itemNames || []).map(normalizeItemName).filter(Boolean));
     let weaponsChanged = 0;
     let armorChanged = 0;
@@ -1088,6 +1090,7 @@
       const trackResult = applyWeaponUnlockRecords(item, row, {
         active: catalystRecordsByItem[item.id],
         complete: completeRecordsByItem[item.id],
+        collectible: unlockCollectiblesByItem[item.id],
         legacyCatalyst: catalystItemIds.has(item.id),
         legacyComplete: completeItemIds.has(item.id)
       });
@@ -1131,30 +1134,33 @@
   }
 
   function applyWeaponUnlockRecords(item, row, records = {}) {
-    const tracks = unlockTracks(item).filter(track => track.kind === "catalyst");
+    const tracks = unlockTracks(item);
     if (!tracks.length) return { catalystsChanged: 0, completedChanged: 0 };
     row.unlocks = row.unlocks && typeof row.unlocks === "object" ? row.unlocks : {};
+    const catalystTracks = tracks.filter(entry => entry.kind === "catalyst");
     let catalystsChanged = 0;
     let completedChanged = 0;
     tracks.forEach(track => {
       const saved = row.unlocks[track.id] || {};
       const activeMatch = track.recordHash && records.active?.has(track.recordHash);
       const completeMatch = track.recordHash && records.complete?.has(track.recordHash);
-      const legacySingle = tracks.length === 1 && (records.legacyCatalyst || records.legacyComplete);
-      if ((activeMatch || completeMatch || legacySingle) && !saved.owned) {
-        catalystsChanged += 1;
+      const collectibleMatch = track.collectibleHash && records.collectible?.has(track.collectibleHash);
+      const legacySingle = track.kind === "catalyst" && catalystTracks.length === 1 && (records.legacyCatalyst || records.legacyComplete);
+      if ((activeMatch || completeMatch || collectibleMatch || legacySingle) && !saved.owned) {
+        if (track.kind === "catalyst") catalystsChanged += 1;
         saved.owned = true;
       }
-      if ((completeMatch || (tracks.length === 1 && records.legacyComplete)) && !saved.complete) {
-        completedChanged += 1;
+      if ((completeMatch || (track.kind === "catalyst" && catalystTracks.length === 1 && records.legacyComplete)) && !saved.complete) {
+        if (track.kind === "catalyst") completedChanged += 1;
         saved.complete = true;
         saved.owned = true;
       }
       if (saved.owned || saved.complete) row.unlocks[track.id] = saved;
     });
-    const summary = unlockSummary(row, item);
-    if (summary.owned > 0) row.catalyst = true;
-    if (tracks.length && summary.complete >= tracks.length) row.complete = true;
+    const ownedCatalysts = catalystTracks.filter(track => row.unlocks?.[track.id]?.owned || row.unlocks?.[track.id]?.complete || (catalystTracks.length === 1 && row.catalyst)).length;
+    const completeCatalysts = catalystTracks.filter(track => row.unlocks?.[track.id]?.complete || (catalystTracks.length === 1 && row.complete)).length;
+    if (ownedCatalysts > 0) row.catalyst = true;
+    if (catalystTracks.length && completeCatalysts >= catalystTracks.length) row.complete = true;
     return { catalystsChanged, completedChanged };
   }
 

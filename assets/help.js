@@ -354,6 +354,7 @@
       kind: track.kind || "unlock",
       label: track.label || `Unlock ${index + 1}`,
       recordHash: track.recordHash ? String(track.recordHash) : "",
+      collectibleHash: track.collectibleHash ? String(track.collectibleHash) : "",
       source: track.source || "",
       manual: Boolean(track.manual)
     }));
@@ -382,7 +383,7 @@
       ? `<p class="help-unlock-note">${escapeHtml(ITEM_UNLOCKS.items[item.id].note)}</p>`
       : "";
     const rows = tracks.map(track => {
-      const meta = [track.kind, track.recordHash ? `Record ${track.recordHash}` : "", track.source, track.manual ? "manual" : ""].filter(Boolean).join(" / ");
+      const meta = [track.kind, track.recordHash ? `Record ${track.recordHash}` : "", track.collectibleHash ? `Collectible ${track.collectibleHash}` : "", track.source, track.manual ? "manual" : ""].filter(Boolean).join(" / ");
       return `<div class="help-unlock-row"><span>${escapeHtml(track.label)}</span><strong>${escapeHtml(meta)}</strong></div>`;
     }).join("");
     return `<div class="help-subhead">Tracked unlocks</div>${note}<div class="help-unlock-list">${rows}</div>`;

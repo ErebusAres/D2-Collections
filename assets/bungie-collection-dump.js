@@ -2,6 +2,7 @@
   const CONFIG = window.D2_BUNGIE_CONFIG || {};
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { weapons: [], armor: {} };
   const STATIC_COLLECTIBLES = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };
+  const ITEM_UNLOCKS = window.D2_COLLECTIONS_ITEM_UNLOCKS || { items: {} };
   const AUTH_KEY = "d2-collections-auth-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const API_KEY_STORAGE = "d2-collections-bungie-api-key";
@@ -560,6 +561,7 @@
     );
     const catalystRecordHashesByItem = {};
     const completeRecordHashesByItem = {};
+    const unlockCollectibleHashesByItem = {};
     mappings.forEach(entry => {
       if (entry.item.kind !== "weapon") return;
       const hashes = (STATIC_COLLECTIBLES.items?.[entry.item.id]?.catalystRecordHashes || []).map(String);
@@ -567,6 +569,10 @@
       const complete = hashes.filter(hash => completedCatalystRecords.has(hash));
       if (active.length) catalystRecordHashesByItem[entry.item.id] = active;
       if (complete.length) completeRecordHashesByItem[entry.item.id] = complete;
+      const unlockCollectibles = (ITEM_UNLOCKS.items?.[entry.item.id]?.unlocks || [])
+        .map(unlock => String(unlock.collectibleHash || ""))
+        .filter(hash => hash && allOwnedHashes.has(hash));
+      if (unlockCollectibles.length) unlockCollectibleHashesByItem[entry.item.id] = [...new Set(unlockCollectibles)];
     });
     const catalystDetails = {};
     const recordCache = readRecordDefCache();
@@ -604,6 +610,7 @@
       completeItemIds: catalystComplete.map(entry => entry.item.id),
       catalystRecordHashesByItem,
       completeRecordHashesByItem,
+      unlockCollectibleHashesByItem,
       catalystDetails,
       unresolvedCatalogItems: unresolved.slice(0, 40),
       unresolvedCatalogItemCount: unresolved.length
