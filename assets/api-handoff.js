@@ -98,6 +98,18 @@
     const debugLast = panel.querySelector("#debugLastStatus");
     const debugLog = panel.querySelector("#syncDebugLog");
     const setDebug = (target, text) => { if (target) target.textContent = text; };
+    const authSummary = () => {
+      try {
+        const auth = JSON.parse(localStorage.getItem("d2-collections-auth-v1") || "{}");
+        const saved = JSON.parse(localStorage.getItem("d2-collections-bungie-session-v2") || "{}");
+        const now = Math.floor(Date.now() / 1000) + 60;
+        if (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)) return "Refresh OK";
+        if (saved.access_token && saved.expires_at > now) return "Access OK";
+        if (auth.oauthCode) return "Login code";
+      } catch {}
+      return "Offline";
+    };
+    const renderAuthSummary = () => setDebug(debugBungie, authSummary());
     const pushLog = text => {
       if (!debugLog || !text) return;
       const entry = document.createElement("code");
@@ -110,7 +122,7 @@
       setStatus(text = "") {
         if (status) status.textContent = text || "Ready.";
         setDebug(debugLast, text ? text.split(".")[0].slice(0, 48) : "Ready");
-        if (/bungie linked|profile pulled|synced|pulling logged-in/i.test(text)) setDebug(debugBungie, "Linked");
+        if (/bungie linked|profile pulled|synced|pulling logged-in/i.test(text)) renderAuthSummary();
         if (/cloud snapshot saved|cloud sync saved/i.test(text)) setDebug(debugCloud, "Saved");
         if (/cloud snapshot failed|cloud sync read failed/i.test(text)) setDebug(debugCloud, "Error");
         if (/xur tower stock matched/i.test(text)) setDebug(debugXur, "Matched");
@@ -122,6 +134,8 @@
         if (output) output.value = typeof value === "string" ? value : JSON.stringify(value, null, 2);
       }
     };
+    renderAuthSummary();
+    setInterval(renderAuthSummary, 30000);
 
     panel.querySelector("#buildHandoffBtn").addEventListener("click", () => {
       const parsed = input.value.trim() ? tryParseJson(input.value.trim()) : null;

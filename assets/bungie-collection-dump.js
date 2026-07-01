@@ -121,6 +121,11 @@
     return String(msg).toLowerCase().includes("authorizationcodeinvalid");
   }
 
+  function isInvalidRefreshToken(data) {
+    const msg = String(data.error_description || data.Message || data.message || data.error || "").toLowerCase();
+    return msg.includes("refreshtoken") || msg.includes("refresh_token") || msg.includes("invalid_grant") || msg.includes("authorizationcodeinvalid");
+  }
+
   async function exchangeCodeForToken() {
     const code = authCode();
     if (!code) throw new Error("No Bungie login code captured. Click Login with Bungie first.");
@@ -135,8 +140,8 @@
     });
     const { data, text } = await parseResponse(response);
     if (!response.ok || !data.access_token) {
-      localStorage.removeItem(SESSION_KEY);
       if (isInvalidAuthCode(data)) {
+        localStorage.removeItem(SESSION_KEY);
         clearAuthCode("authorization_code_invalid");
         throw new Error([
           "Bungie login code expired or was already used.",
@@ -164,7 +169,7 @@
     });
     const { data, text } = await parseResponse(response);
     if (!response.ok || !data.access_token) {
-      localStorage.removeItem(SESSION_KEY);
+      if (isInvalidRefreshToken(data)) localStorage.removeItem(SESSION_KEY);
       if (isInvalidAuthCode(data)) clearAuthCode("refresh_invalidated_auth_code");
       throw new Error(tokenError("Bungie token refresh failed", response, data, text));
     }
