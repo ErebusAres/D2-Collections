@@ -580,22 +580,30 @@
       if (unlockCollectibles.length) unlockCollectibleHashesByItem[entry.item.id] = [...new Set(unlockCollectibles)];
     });
     const catalystDetails = {};
+    const catalystDetailsByRecordHash = {};
     const recordCache = readRecordDefCache();
-    for (const entry of [...catalystActive, ...catalystComplete]) {
-      const recordHash = (STATIC_COLLECTIBLES.items?.[entry.item.id]?.catalystRecordHashes || [])
+    const catalystDetailEntries = [...catalystActive, ...catalystComplete].flatMap(entry =>
+      (STATIC_COLLECTIBLES.items?.[entry.item.id]?.catalystRecordHashes || [])
         .map(String)
-        .find(hash => activeCatalystRecords.has(hash) || completedCatalystRecords.has(hash));
-      if (!recordHash || catalystDetails[entry.item.id]) continue;
+        .filter(hash => activeCatalystRecords.has(hash) || completedCatalystRecords.has(hash))
+        .map(recordHash => ({ entry, recordHash }))
+    );
+    for (const { entry, recordHash } of catalystDetailEntries) {
+      if (!recordHash || catalystDetailsByRecordHash[recordHash]) continue;
       try {
         if (status) status.textContent = "Resolving catalyst record icons...";
         const info = await recordDefinitionInfo(recordHash, recordCache, status);
-        catalystDetails[entry.item.id] = {
+        const detail = {
           recordHash,
           name: info.name || `${entry.item.name} Catalyst`,
           icon: info.icon || ""
         };
+        catalystDetailsByRecordHash[recordHash] = detail;
+        if (!catalystDetails[entry.item.id]) catalystDetails[entry.item.id] = detail;
       } catch {
-        catalystDetails[entry.item.id] = { recordHash, name: `${entry.item.name} Catalyst`, icon: "" };
+        const detail = { recordHash, name: `${entry.item.name} Catalyst`, icon: "" };
+        catalystDetailsByRecordHash[recordHash] = detail;
+        if (!catalystDetails[entry.item.id]) catalystDetails[entry.item.id] = detail;
       }
     }
     const unresolved = mappings.filter(entry => !(entry.collectibleHashes || []).length).map(entry => ({ id: entry.item.id, name: entry.item.name, kind: entry.item.kind, source: entry.source }));
@@ -617,6 +625,7 @@
       completeRecordHashesByItem,
       unlockCollectibleHashesByItem,
       catalystDetails,
+      catalystDetailsByRecordHash,
       unresolvedCatalogItems: unresolved.slice(0, 40),
       unresolvedCatalogItemCount: unresolved.length
     };

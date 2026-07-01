@@ -964,16 +964,25 @@
 
   function feedIconForItem(item) {
     const raw = item?.icon || item?.iconUrl || ICON_MAP?.[item?.id] || "";
-    return raw && raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw;
+    return normalizeBungieIcon(raw);
   }
 
-  function catalystFeedInfo(item, payload = {}) {
-    const detail = payload.catalystDetails?.[item.id] || {};
-    const raw = detail.icon || "";
+  function catalystFeedInfo(item, payload = {}, track = null) {
+    const recordHash = String(track?.recordHash || "");
+    const byRecord = recordHash ? payload.catalystDetailsByRecordHash?.[recordHash] : null;
+    const byItem = payload.catalystDetails?.[item.id] || {};
+    const detail = byRecord || byItem || {};
+    const raw = detail.icon || track?.icon || "";
     return {
-      itemName: detail.name || `${item.name} Catalyst`,
-      icon: raw && raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw || feedIconForItem(item)
+      itemName: detail.name || track?.label || `${item.name} Catalyst`,
+      icon: normalizeBungieIcon(raw) || feedIconForItem(item)
     };
+  }
+
+  function normalizeBungieIcon(raw) {
+    const value = String(raw || "").trim();
+    if (!value) return "";
+    return value.startsWith("/") ? `https://www.bungie.net${value}` : value;
   }
 
   function claimFeedTitle(entry) {
@@ -1105,13 +1114,19 @@
       });
       if (trackResult.catalystsChanged) {
         catalystsChanged += trackResult.catalystsChanged;
-        const catalyst = catalystFeedInfo(item, payload);
-        feedEvents.push({ player, kind: "weapon", type: "catalyst", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
+        const tracks = trackResult.changedCatalysts?.length ? trackResult.changedCatalysts : [null];
+        tracks.forEach(track => {
+          const catalyst = catalystFeedInfo(item, payload, track);
+          feedEvents.push({ player, kind: "weapon", type: "catalyst", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
+        });
       }
       if (trackResult.completedChanged) {
         completedChanged += trackResult.completedChanged;
-        const catalyst = catalystFeedInfo(item, payload);
-        feedEvents.push({ player, kind: "weapon", type: "complete", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
+        const tracks = trackResult.completedCatalysts?.length ? trackResult.completedCatalysts : [null];
+        tracks.forEach(track => {
+          const catalyst = catalystFeedInfo(item, payload, track);
+          feedEvents.push({ player, kind: "weapon", type: "complete", itemId: item.id, itemName: catalyst.itemName, icon: catalyst.icon });
+        });
       }
     });
 
@@ -1144,11 +1159,13 @@
 
   function applyWeaponUnlockRecords(item, row, records = {}) {
     const tracks = unlockTracks(item);
-    if (!tracks.length) return { catalystsChanged: 0, completedChanged: 0 };
+    if (!tracks.length) return { catalystsChanged: 0, completedChanged: 0, changedCatalysts: [], completedCatalysts: [] };
     row.unlocks = row.unlocks && typeof row.unlocks === "object" ? row.unlocks : {};
     const catalystTracks = tracks.filter(entry => entry.kind === "catalyst");
     let catalystsChanged = 0;
     let completedChanged = 0;
+    const changedCatalysts = [];
+    const completedCatalysts = [];
     tracks.forEach(track => {
       const saved = row.unlocks[track.id] || {};
       const activeMatch = track.recordHash && records.active?.has(track.recordHash);
@@ -1156,11 +1173,17 @@
       const collectibleMatch = track.collectibleHash && records.collectible?.has(track.collectibleHash);
       const legacySingle = track.kind === "catalyst" && catalystTracks.length === 1 && (records.legacyCatalyst || records.legacyComplete);
       if ((activeMatch || completeMatch || collectibleMatch || legacySingle) && !saved.owned) {
-        if (track.kind === "catalyst") catalystsChanged += 1;
+        if (track.kind === "catalyst") {
+          catalystsChanged += 1;
+          changedCatalysts.push(track);
+        }
         saved.owned = true;
       }
       if ((completeMatch || (track.kind === "catalyst" && catalystTracks.length === 1 && records.legacyComplete)) && !saved.complete) {
-        if (track.kind === "catalyst") completedChanged += 1;
+        if (track.kind === "catalyst") {
+          completedChanged += 1;
+          completedCatalysts.push(track);
+        }
         saved.complete = true;
         saved.owned = true;
       }
@@ -1170,7 +1193,7 @@
     const completeCatalysts = catalystTracks.filter(track => row.unlocks?.[track.id]?.complete || (catalystTracks.length === 1 && row.complete)).length;
     if (ownedCatalysts > 0) row.catalyst = true;
     if (catalystTracks.length && completeCatalysts >= catalystTracks.length) row.complete = true;
-    return { catalystsChanged, completedChanged };
+    return { catalystsChanged, completedChanged, changedCatalysts, completedCatalysts };
   }
 
   function recordCloudSnapshots(snapshots = [], options = {}) {
