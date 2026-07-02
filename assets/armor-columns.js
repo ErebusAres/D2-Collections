@@ -1,4 +1,5 @@
 (() => {
+  window.D2_COLLECTIONS_ARMOR_COLUMNS_ACTIVE = true;
   const CATALOG = window.D2_COLLECTIONS_CATALOG || { armor: {} };
   const CHECKLIST = window.D2_COLLECTIONS_CHECKLIST || { users: {}, armor: {} };
   const COLLECTIBLES = window.D2_COLLECTIONS_BUNGIE_COLLECTIBLES || { items: {} };

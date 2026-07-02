@@ -555,41 +555,6 @@
     return `https://www.google.com/search?q=${encodeURIComponent(`site:light.gg Destiny 2 ${item.name}`)}`;
   }
 
-  function addHelpButtons(root = document) {
-    root.querySelectorAll(".weapon-card,.armor-card").forEach(card => {
-      const id = card.dataset.id;
-      const title = card.querySelector(".item-name");
-      if (!id || !title) return;
-      if (!card.querySelector(".item-help-btn")) {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "item-help-btn";
-        btn.textContent = "i";
-        btn.title = "More info";
-        btn.dataset.helpId = id;
-        title.appendChild(btn);
-      }
-      card.querySelectorAll(".status-cell").forEach(cell => {
-        cell.dataset.helpId = id;
-        const base = cell.title || "Status";
-        if (!base.includes("more info")) cell.title = `${base} - click for more info`;
-      });
-    });
-  }
-
-  let helpScanFrame = 0;
-  const pendingHelpRoots = new Set();
-  function scheduleHelpScan(root = document) {
-    pendingHelpRoots.add(root);
-    if (helpScanFrame) cancelAnimationFrame(helpScanFrame);
-    helpScanFrame = requestAnimationFrame(() => {
-      helpScanFrame = 0;
-      const roots = [...pendingHelpRoots];
-      pendingHelpRoots.clear();
-      roots.forEach(scanRoot => addHelpButtons(scanRoot));
-    });
-  }
-
   function showHelp(id) {
     const item = itemMap.get(id);
     if (!item) return;
@@ -641,9 +606,11 @@
 
     if (event.target.closest(".help-panel")) return;
 
-    const clickable = event.target.closest(".item-help-btn,.status-cell,.weapon-card,.armor-card");
-    if (clickable?.dataset.helpId) {
-      showHelp(clickable.dataset.helpId);
+    const direct = event.target.closest(".item-help-btn");
+    const card = event.target.closest(".weapon-card,.armor-card");
+    const helpId = direct?.dataset.helpId || card?.dataset.helpId;
+    if (helpId) {
+      showHelp(helpId);
       return;
     }
 
@@ -660,20 +627,4 @@
     }
   });
 
-  const observer = new MutationObserver(mutations => {
-    const roots = new Set();
-    mutations.forEach(mutation => {
-      if (mutation.target instanceof Element) roots.add(mutation.target);
-    });
-    if (!roots.size) {
-      scheduleHelpScan();
-      return;
-    }
-    roots.forEach(root => scheduleHelpScan(root));
-  });
-  ["#weaponsList", "#warlockList", "#titanList"].forEach(selector => {
-    const root = document.querySelector(selector);
-    if (root) observer.observe(root, { childList: true, subtree: true });
-  });
-  addHelpButtons();
 })();

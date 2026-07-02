@@ -397,8 +397,10 @@
     renderSyncHealth();
     renderClaimFeed();
     renderWeapons();
-    renderArmor("warlock", els.warlock, document.querySelector("#aresArmor"));
-    renderArmor("titan", els.titan, document.querySelector("#iceeArmor"));
+    if (!window.D2_COLLECTIONS_ARMOR_COLUMNS_ACTIVE) {
+      renderArmor("warlock", els.warlock, document.querySelector("#aresArmor"));
+      renderArmor("titan", els.titan, document.querySelector("#iceeArmor"));
+    }
     renderAuthPanel();
   }
 
@@ -615,7 +617,7 @@
     const tileTitle = `${item.name} - ${item.slot || "Weapon"} ${item.type || ""}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
     const actionAttrs = interactive ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
     const statusPanelClass = simple ? "card-status-panel simple-card-hud" : "card-status-panel";
-    return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span><span>Extras</span></div>${playerRows}</div></article>`;
+    return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}${itemHelpButton(item.id)}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span><span>Extras</span></div>${playerRows}</div></article>`;
   }
 
   function renderArmor(className, root, section) {
@@ -656,7 +658,7 @@
     const tileTitle = `${item.name} - ${focusLabel(className)} ${item.slot || "armor"}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
     const actionAttrs = interactive ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
     const statusPanelClass = simple ? "card-status-panel simple-card-hud armor-card-hud" : "card-status-panel";
-    return `<article class="armor-card is-focus-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}</div><div class="badge-row">${kindBadge("armor")}${armorClassBadge(className)}${slotBadge(item.slot)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</div></article>`;
+    return `<article class="armor-card is-focus-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}${itemHelpButton(item.id)}</div><div class="badge-row">${kindBadge("armor")}${armorClassBadge(className)}${slotBadge(item.slot)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</div></article>`;
   }
 
   function updateArmorSectionCount(className) {
@@ -696,6 +698,10 @@
     }
     if (!tags.length) return "";
     return `<span class="priority-tags">${tags.slice(0, 5).map(tag => `<span class="priority-chip ${escapeAttr(tag.id)}" title="${escapeAttr(tag.title || tag.label)}" aria-label="${escapeAttr(tag.title || tag.label)}">${tagIcon(tag.id)}</span>`).join("")}</span>`;
+  }
+
+  function itemHelpButton(itemId) {
+    return `<button class="item-help-btn" type="button" title="More info" data-help-id="${escapeAttr(itemId)}">i</button>`;
   }
 
   function manifestSource(item) {
