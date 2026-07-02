@@ -70,6 +70,7 @@
   const weaponOrder = new Map((CATALOG.weapons || []).map((item, index) => [item.id, index]));
   const armorOrder = new Map();
   armorClasses().forEach(className => (CATALOG.armor[className] || []).forEach((item, index) => armorOrder.set(`${className}:${item.id}`, index)));
+  const itemSearchTextCache = new WeakMap();
 
   function readAuthState() {
     try {
@@ -296,8 +297,15 @@
   function matchesText(item) {
     const q = filters.search.trim().toLowerCase();
     if (!q) return true;
+    return itemSearchText(item).includes(q);
+  }
+
+  function itemSearchText(item) {
+    if (itemSearchTextCache.has(item)) return itemSearchTextCache.get(item);
     const priority = item.priority || {};
-    return [item.name, item.slot, item.type, item.element, manifestSource(item), item.bungieSource, item.source, priority.note, ...(priority.tags || []).map(tag => tag.label)].filter(Boolean).join(" ").toLowerCase().includes(q);
+    const text = [item.name, item.slot, item.type, item.element, manifestSource(item), item.bungieSource, item.source, priority.note, ...(priority.tags || []).map(tag => tag.label)].filter(Boolean).join(" ").toLowerCase();
+    itemSearchTextCache.set(item, text);
+    return text;
   }
 
   function matchesWeaponView(item) {
@@ -396,21 +404,34 @@
     renderDataHealth();
     renderSyncHealth();
     renderClaimFeed();
+    renderCollections();
+    renderAuthPanel();
+  }
+
+  function renderCollections() {
     renderWeapons();
     if (!window.D2_COLLECTIONS_ARMOR_COLUMNS_ACTIVE) {
       renderArmor("warlock", els.warlock, document.querySelector("#aresArmor"));
       renderArmor("titan", els.titan, document.querySelector("#iceeArmor"));
     }
-    renderAuthPanel();
   }
 
   let scheduledRender = 0;
+  let scheduledSearchRender = 0;
   function scheduleRender() {
     if (scheduledRender) cancelAnimationFrame(scheduledRender);
     scheduledRender = requestAnimationFrame(() => {
       scheduledRender = 0;
       render();
     });
+  }
+
+  function scheduleSearchRender() {
+    if (scheduledSearchRender) clearTimeout(scheduledSearchRender);
+    scheduledSearchRender = setTimeout(() => {
+      scheduledSearchRender = 0;
+      renderCollections();
+    }, 140);
   }
 
   function renderIdentity() {
@@ -1331,7 +1352,7 @@
     render
   };
 
-  if (els.search) els.search.addEventListener("input", event => { filters.search = event.target.value; scheduleRender(); });
+  if (els.search) els.search.addEventListener("input", event => { filters.search = event.target.value; scheduleSearchRender(); });
   document.querySelectorAll("[data-view]").forEach(btn => btn.addEventListener("click", () => {
     document.querySelectorAll("[data-view]").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");

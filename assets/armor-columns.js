@@ -14,6 +14,8 @@
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const SLOT_ORDER = { Helmet: 1, Gauntlets: 2, Chest: 3, Legs: 4, "Class Item": 5 };
   let config = readConfig();
+  const sortedArmorCache = new Map();
+  const itemSearchTextCache = new WeakMap();
 
   const css = `
     .armor-column-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.armor-column-controls.is-single-player{grid-template-columns:1fr}.armor-control{border:1px solid var(--line-strong);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border-radius:8px;padding:9px;display:grid;grid-template-columns:1fr 1fr;gap:8px}.armor-control[hidden]{display:none}.armor-control label{display:grid;gap:4px;color:var(--muted);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.armor-control select{width:100%;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.28);color:var(--text);padding:7px 8px;outline:none}.armor-columns.is-single-player,html.layout-shelf .armor-columns.is-single-player,html.layout-simple .armor-columns.is-single-player{grid-template-columns:1fr}.armor-columns.is-single-player .armor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px}.armor-card{grid-template-columns:minmax(0,1fr) auto;align-items:center;padding:7px 9px;min-height:54px}.armor-card .item-with-icon{grid-template-columns:34px minmax(0,1fr);gap:8px}.armor-card .item-icon,.armor-card .item-icon-fallback{width:34px;height:34px;border-radius:6px}.armor-card .badge.source,.armor-card .badge.focus{display:none}.armor-card .item-name{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-bottom:3px}.armor-card h3{font-size:.88rem;margin-bottom:0}.armor-card .priority-tags{margin:2px 0 4px}.armor-card .badge.slot{font-size:.68rem;padding:2px 7px;display:inline-flex;align-items:center;gap:4px}.armor-card .badge.slot .dim-icon{width:14px;height:14px}.armor-card .armor-status.header{display:none}.armor-card .status-row{grid-column:2;grid-row:1;margin-top:0;align-self:center}.armor-card .player-label{display:none}.armor-card .status-cell{min-height:32px;min-width:44px;padding:0 8px;cursor:help}.armor-status{grid-template-columns:minmax(44px,58px);gap:0}.armor-columns.is-single-player .armor-card{grid-template-columns:minmax(0,1fr) minmax(58px,auto);min-height:64px;padding:9px 10px}.armor-columns.is-single-player .armor-card .item-with-icon{grid-template-columns:44px minmax(0,1fr);gap:10px}.armor-columns.is-single-player .armor-card .item-icon,.armor-columns.is-single-player .armor-card .item-icon-fallback{width:44px;height:44px}.armor-columns.is-single-player .armor-card h3{font-size:.95rem}.armor-columns.is-single-player .armor-card .badge.source{display:inline-flex;max-width:190px}.armor-columns.is-single-player .armor-card .badge-row{flex-wrap:nowrap;overflow:hidden}.class-title.hunter span{color:var(--green)}@media(max-width:1180px){.armor-columns.is-single-player .armor-list{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}}@media(max-width:780px){.armor-column-controls{grid-template-columns:1fr}.armor-control{grid-template-columns:1fr 1fr}.armor-card{min-height:50px}.armor-status{grid-template-columns:minmax(42px,54px)}.armor-columns.is-single-player .armor-list{grid-template-columns:1fr}.armor-columns.is-single-player .armor-card{min-height:58px}.armor-columns.is-single-player .armor-card .badge.source{display:none}}
@@ -84,6 +86,25 @@
     if (!raw) return `<div class="item-icon-fallback" aria-hidden="true">${initials(item.name)}</div>`;
     const src = raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw;
     return `<img class="item-icon" src="${src}" alt="${item.name} icon" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'item-icon-fallback',textContent:'${initials(item.name)}'}))" />`;
+  }
+
+  function sortedArmorItems(className) {
+    if (!sortedArmorCache.has(className)) {
+      const sorted = [...(CATALOG.armor?.[className] || [])]
+        .sort((a,b) => (SLOT_ORDER[a.slot] || 99) - (SLOT_ORDER[b.slot] || 99) || a.name.localeCompare(b.name));
+      sortedArmorCache.set(className, sorted);
+    }
+    return sortedArmorCache.get(className);
+  }
+
+  function itemSearchText(item) {
+    if (itemSearchTextCache.has(item)) return itemSearchTextCache.get(item);
+    const text = [item.name, item.slot, manifestSource(item), item.bungieSource, item.source, item.priority?.note, ...(item.priority?.tags || []).map(tag => tag.label)]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    itemSearchTextCache.set(item, text);
+    return text;
   }
 
   function currentFilters() {
@@ -206,11 +227,10 @@
     title.className = `class-title ${className}`;
     title.innerHTML = `<span class="class-title-icon">${classIcon(className)}</span><strong>${userName(player, "full")} / ${klass}</strong>`;
     const { search, view } = currentFilters();
-    const items = [...(CATALOG.armor?.[className] || [])].sort((a,b) => (SLOT_ORDER[a.slot] || 99) - (SLOT_ORDER[b.slot] || 99) || a.name.localeCompare(b.name));
+    const items = sortedArmorItems(className);
     const visible = items.filter(item => {
-      const haystack = [item.name, item.slot, manifestSource(item), item.bungieSource, item.source, item.priority?.note, ...(item.priority?.tags || []).map(tag => tag.label)].join(" ").toLowerCase();
       const owned = getOwned(className, item.id, player);
-      if (search && !haystack.includes(search)) return false;
+      if (search && !itemSearchText(item).includes(search)) return false;
       if (view === "needs" && !needsArmorAction(item, player, owned)) return false;
       if (view === "missing" && owned) return false;
       if (view === "catalysts") return false;
@@ -279,6 +299,7 @@
   }
 
   let scheduledRender = 0;
+  let scheduledSearchRender = 0;
   function scheduleArmorRender() {
     if (scheduledRender) cancelAnimationFrame(scheduledRender);
     scheduledRender = requestAnimationFrame(() => {
@@ -287,7 +308,15 @@
     });
   }
 
-  document.addEventListener("input", event => { if (event.target?.id === "searchInput") scheduleArmorRender(); });
+  function scheduleArmorSearchRender() {
+    if (scheduledSearchRender) clearTimeout(scheduledSearchRender);
+    scheduledSearchRender = setTimeout(() => {
+      scheduledSearchRender = 0;
+      renderArmorColumns();
+    }, 140);
+  }
+
+  document.addEventListener("input", event => { if (event.target?.id === "searchInput") scheduleArmorSearchRender(); });
   document.addEventListener("click", event => { if (event.target.closest("[data-view],[data-player]")) scheduleArmorRender(); });
   document.addEventListener("d2collections:ownership-applied", scheduleArmorRender);
   scheduleArmorRender();
