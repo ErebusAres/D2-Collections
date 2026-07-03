@@ -44,6 +44,8 @@
     questList: document.querySelector("#questList"),
     questCount: document.querySelector("#questCount"),
     questTabs: document.querySelector("#questTabs"),
+    questRailCount: document.querySelector("#questRailCount"),
+    questRailLabel: document.querySelector(".fireteam-vertical-label span"),
     manualTrackList: document.querySelector("#manualTrackList"),
     manualTrackCount: document.querySelector("#manualTrackCount"),
     activityList: document.querySelector("#activityList"),
@@ -748,6 +750,11 @@
       return quest.kind === questFilter;
     });
     if (els.questCount) els.questCount.textContent = `${visible.length} / ${quests.length}`;
+    if (els.questRailCount) els.questRailCount.textContent = `${visible.length} / ${quests.length}`;
+    if (els.questRailLabel) {
+      const active = [...(els.questTabs?.querySelectorAll("[data-quest-filter]") || [])].find(button => button.dataset.questFilter === questFilter);
+      els.questRailLabel.textContent = active?.dataset.label || "All quests";
+    }
     if (!els.questList) return;
     if (!visible.length) {
       els.questList.innerHTML = emptyState(quests.length ? "No items match this tab." : "No quest, bounty, pursuit, or objective records found in the current profile response.");

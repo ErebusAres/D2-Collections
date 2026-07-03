@@ -2174,7 +2174,16 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 }
 
 .fireteam-shell {
-  width: min(100% - 28px, 1480px);
+  width: min(100% - 28px, 1680px);
+}
+.fireteam-shell .panel {
+  border-radius: 0;
+}
+.fireteam-shell .hero,
+.fireteam-shell .panel {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.025), transparent 34%),
+    rgba(6,8,8,.88);
 }
 .fireteam-hero h1 {
   margin: 0;
@@ -2190,8 +2199,8 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 }
 .fireteam-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 16px;
   margin-top: 14px;
   align-items: start;
 }
@@ -2260,21 +2269,113 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 }
 .fireteam-quest-panel {
   overflow: visible;
+  min-height: 620px;
+}
+.fireteam-quest-layout {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 62px;
+  gap: 12px;
+  align-items: start;
 }
 .fireteam-quest-panel .fireteam-card-grid {
-  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   align-items: start;
   overflow: visible;
+  gap: 9px;
+}
+.fireteam-vertical-label {
+  position: sticky;
+  top: 12px;
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  min-height: 190px;
+  color: var(--muted);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.fireteam-vertical-label span {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: .05em;
+  font-size: .72rem;
+}
+.fireteam-vertical-label strong {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  color: var(--soft);
+  font-size: .7rem;
 }
 .fireteam-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: -2px 0 12px;
+  position: sticky;
+  top: 12px;
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  overflow: visible;
 }
 .fireteam-tabs .seg {
-  min-height: 30px;
-  padding: 7px 10px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  min-height: 58px;
+  padding: 0;
+  border: 1px solid rgba(202,209,221,.22);
+  border-radius: 0;
+  background: rgba(30,33,33,.82);
+  color: rgba(220,224,226,.78);
+  font-size: 1rem;
+  font-weight: 900;
+}
+.fireteam-tabs .seg img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  opacity: .72;
+  filter: grayscale(1) brightness(1.8);
+}
+.fireteam-tabs .seg:hover,
+.fireteam-tabs .seg.active {
+  border-color: rgba(235,238,239,.82);
+  background: rgba(98,101,101,.86);
+  color: #f2f2f2;
+  box-shadow: 0 0 0 3px rgba(235,238,239,.18);
+}
+.fireteam-tabs .seg:hover img,
+.fireteam-tabs .seg.active img {
+  opacity: .96;
+  filter: grayscale(1) brightness(2.35);
+}
+.fireteam-tabs .seg::after {
+  content: attr(data-label) "\A" attr(data-copy);
+  white-space: pre-line;
+  position: absolute;
+  z-index: 40;
+  top: 8px;
+  right: calc(100% - 4px);
+  width: 390px;
+  min-height: 92px;
+  border-top: 4px solid rgba(235,238,239,.86);
+  background: linear-gradient(90deg, rgba(0,0,0,.96), rgba(0,0,0,.82), rgba(0,0,0,.18));
+  color: var(--soft);
+  padding: 18px 18px 14px;
+  font-size: 1.08rem;
+  line-height: 2.35;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: 0 14px 28px rgba(0,0,0,.44);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(12px);
+  transition: opacity .12s ease, transform .12s ease;
+}
+.fireteam-tabs .seg:hover::after,
+.fireteam-tabs .seg:focus::after {
+  opacity: 1;
+  transform: translateX(0);
 }
 .fireteam-mini-card,
 .fireteam-progress-card,
@@ -2336,9 +2437,15 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 10px;
   align-items: start;
-  min-height: 112px;
+  min-height: 90px;
   overflow: visible;
   outline: 0;
+  border-radius: 0;
+  border-color: rgba(202,209,221,.18);
+  background:
+    linear-gradient(90deg, rgba(149,139,69,.32), transparent 72%),
+    rgba(28,31,29,.9);
+  box-shadow: inset 0 -4px 0 rgba(202,209,221,.42);
 }
 .manual-track-toggle {
   position: absolute;
@@ -2384,8 +2491,8 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 .fireteam-progress-card.is-unresolved {
   border-color: rgba(243,189,79,.22);
   background:
-    linear-gradient(135deg, rgba(243,189,79,.075), transparent 34%),
-    rgba(9,12,18,.72);
+    linear-gradient(90deg, rgba(60,62,59,.5), transparent 72%),
+    rgba(30,32,31,.9);
 }
 .fireteam-progress-card.is-unresolved strong {
   color: var(--soft);
@@ -2414,11 +2521,11 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   box-shadow: inset 3px 0 0 rgba(255,120,73,.58);
 }
 .fireteam-progress-card.is-bounty {
-  border-color: rgba(156,199,255,.26);
+  border-color: rgba(202,209,221,.2);
 }
 .fireteam-progress-card.is-quest,
 .fireteam-progress-card.is-pursuit {
-  border-color: rgba(216,177,91,.26);
+  border-color: rgba(216,177,91,.22);
 }
 .fireteam-tracked-badge {
   display: none;
@@ -2439,7 +2546,7 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   font-weight: 900;
 }
 .quest-kind-chip {
-  display: inline-flex;
+  display: none;
   margin-right: 7px;
   color: var(--gold-bright);
   font-style: normal;
@@ -2468,9 +2575,9 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 }
 .fireteam-progress-card img,
 .fireteam-icon-fallback {
-  width: 36px;
-  height: 36px;
-  border-radius: 7px;
+  width: 38px;
+  height: 38px;
+  border-radius: 0;
   object-fit: cover;
   background: rgba(216,177,91,.14);
 }
@@ -2481,8 +2588,10 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   font-weight: 900;
 }
 .fireteam-progress-card .progress-track {
-  height: 6px;
-  margin-top: 8px;
+  height: 4px;
+  margin-top: 10px;
+  border-radius: 0;
+  background: rgba(0,0,0,.36);
 }
 .quest-step-list {
   position: absolute;
@@ -2716,6 +2825,13 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   .fireteam-top-grid,
   .fireteam-grid { grid-template-columns: 1fr; }
   .fireteam-pinned-panel { position: static; }
+  .fireteam-quest-layout {
+    grid-template-columns: 32px minmax(0, 1fr) 58px;
+  }
+  .fireteam-tabs .seg::after {
+    right: 100%;
+    width: min(330px, 70vw);
+  }
   .toolbar { grid-template-columns: 1fr; }
   .at-a-glance { grid-template-columns: 1fr; }
   .api-grid { grid-template-columns: 1fr; }
@@ -2739,6 +2855,35 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   .site-nav { width: 100%; justify-content: stretch; }
   .site-nav a { flex: 1; text-align: center; }
   .fireteam-meta-list { grid-template-columns: 1fr; }
+  .fireteam-quest-layout {
+    grid-template-columns: 1fr;
+  }
+  .fireteam-vertical-label {
+    position: static;
+    display: flex;
+    justify-content: space-between;
+    min-height: 0;
+  }
+  .fireteam-vertical-label span,
+  .fireteam-vertical-label strong {
+    writing-mode: horizontal-tb;
+  }
+  .fireteam-tabs {
+    position: static;
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    order: -1;
+  }
+  .fireteam-tabs .seg {
+    flex: 0 0 52px;
+    width: 52px;
+    height: 48px;
+    min-height: 48px;
+  }
+  .fireteam-tabs .seg::after {
+    display: none;
+  }
   .fireteam-quest-panel .fireteam-card-grid { grid-template-columns: 1fr; }
   .fireteam-progress-card { min-height: auto; }
   .quest-step-list {
