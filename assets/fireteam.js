@@ -58,6 +58,7 @@
   let refreshing = false;
   let autoRefreshTimer = 0;
   let questFilter = "all";
+  let classFilter = "";
   let manualTracked = readManualTracked();
   let manualRenderSeq = 0;
 
@@ -94,6 +95,12 @@
 
   function questKey(quest) {
     return String(quest?.instanceId || quest?.itemHash || quest?.hash || "");
+  }
+
+  function classFilterMatches(quest) {
+    if (!classFilter) return true;
+    const confidentClass = quest?.character?.className || (["Warlock", "Hunter", "Titan"].includes(quest?.source) ? quest.source : "");
+    return !confidentClass || confidentClass === classFilter;
   }
 
   function nowSeconds() {
@@ -739,21 +746,26 @@
 
   function renderCharacterPill(character) {
     const icon = character.emblemPath ? `<img src="${escapeHtml(iconUrl(character.emblemPath))}" alt="" width="28" height="28" loading="lazy" decoding="async" aria-hidden="true" />` : "";
-    return `<span class="character-pill">${icon}<strong>${escapeHtml(character.className || "Guardian")}</strong><em>${Number(character.light || 0)}</em></span>`;
+    const className = character.className || "Guardian";
+    const active = classFilter && className === classFilter;
+    const buttonAttr = className !== "Guardian" ? ` type="button" data-class-filter="${escapeHtml(className)}" aria-pressed="${active ? "true" : "false"}" title="${active ? "Clear class filter" : `Show ${className} quests`}"` : "";
+    return `<button class="character-pill ${active ? "active" : ""}"${buttonAttr}>${icon}<strong>${escapeHtml(className)}</strong><em>${Number(character.light || 0)}</em></button>`;
   }
 
   function renderQuests(quests = []) {
-    const visible = quests.filter(quest => {
+    const classScoped = quests.filter(classFilterMatches);
+    const visible = classScoped.filter(quest => {
       if (questFilter === "all") return true;
       if (questFilter === "tracked") return Boolean(quest.inGameTracked);
       if (questFilter === "inventory") return Boolean(quest.inInventory);
       return quest.kind === questFilter;
     });
-    if (els.questCount) els.questCount.textContent = `${visible.length} / ${quests.length}`;
-    if (els.questRailCount) els.questRailCount.textContent = `${visible.length} / ${quests.length}`;
+    if (els.questCount) els.questCount.textContent = `${visible.length} / ${classScoped.length}`;
+    if (els.questRailCount) els.questRailCount.textContent = `${visible.length} / ${classScoped.length}`;
     if (els.questRailLabel) {
       const active = [...(els.questTabs?.querySelectorAll("[data-quest-filter]") || [])].find(button => button.dataset.questFilter === questFilter);
-      els.questRailLabel.textContent = active?.dataset.label || "All quests";
+      const filterLabel = active?.dataset.label || "All quests";
+      els.questRailLabel.textContent = classFilter ? `${classFilter} / ${filterLabel}` : filterLabel;
     }
     if (!els.questList) return;
     if (!visible.length) {
@@ -803,7 +815,7 @@
 
   async function renderManualTracker(quests = latestSnapshot?.trackedQuestProgress || []) {
     const renderSeq = ++manualRenderSeq;
-    const pinned = pinnedQuests(quests);
+    const pinned = pinnedQuests(quests).filter(classFilterMatches);
     if (els.manualTrackCount) els.manualTrackCount.textContent = `${pinned.length} pinned`;
     if (!els.manualTrackList) return;
     if (!pinned.length) {
@@ -1025,6 +1037,17 @@
       renderQuests(latestSnapshot?.trackedQuestProgress || []);
     });
     document.addEventListener("click", event => {
+      const classButton = event.target.closest("[data-class-filter]");
+      if (classButton) {
+        event.preventDefault();
+        const nextClass = String(classButton.dataset.classFilter || "");
+        classFilter = classFilter === nextClass ? "" : nextClass;
+        renderMembers(savedSnapshots);
+        renderQuests(latestSnapshot?.trackedQuestProgress || []);
+        renderManualTracker(latestSnapshot?.trackedQuestProgress || []);
+        return;
+      }
+
       const button = event.target.closest("[data-manual-track]");
       if (!button) return;
       event.preventDefault();
