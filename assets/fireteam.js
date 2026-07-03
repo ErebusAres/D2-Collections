@@ -309,6 +309,8 @@
           hash: String(item.itemHash || ""),
           itemHash: String(item.itemHash || ""),
           instanceId,
+          bucketHash: String(item.bucketHash || ""),
+          expirationDate: item.expirationDate || "",
           source,
           characterId: characterId || "",
           objectives: objectiveData[instanceId].objectives || []
@@ -320,13 +322,14 @@
     return items.filter(item => item.itemHash).slice(0, MAX_QUEST_ITEMS);
   }
 
-  function classifyQuestItem(definition = {}) {
+  function classifyQuestItem(definition = {}, item = {}) {
     const text = [
       definition.itemTypeDisplayName,
       definition.itemTypeAndTierDisplayName,
       definition.name,
       definition.description
     ].join(" ").toLowerCase();
+    if (item.expirationDate) return "bounty";
     if (text.includes("bounty")) return "bounty";
     if (text.includes("quest")) return "quest";
     if (text.includes("pursuit")) return "quest";
@@ -347,9 +350,11 @@
         hash: item.itemHash,
         itemHash: item.itemHash,
         instanceId: item.instanceId,
+        bucketHash: item.bucketHash,
+        expirationDate: item.expirationDate,
         source: item.source,
         characterId: item.characterId,
-        kind: classifyQuestItem(definition),
+        kind: classifyQuestItem(definition, item),
         complete,
         inGameTracked: true,
         activeObjectiveCount: summary.active || summary.total,
@@ -461,11 +466,12 @@
     }
 
     setStatus(`Reading profile for ${displayName(memberships, membership)}...`, "loading");
-    const components = "100,102,103,200,201,202,204,800,900,1200";
+    const components = "100,102,103,200,201,202,204,301,800,900,1200";
     const profile = await bungieGet(`/Destiny2/${membership.membershipType}/Profile/${membership.membershipId}/?components=${components}`);
     const characters = characterSummaries(profile);
     const quests = await trackedQuestProgress(profile);
     const activities = suggestedActivities(quests);
+    const activeQuestItemCount = quests.filter(item => item.kind !== "record").length;
     const updatedAt = new Date().toISOString();
     return {
       ok: true,
@@ -482,6 +488,7 @@
       },
       membershipCount: (memberships.destinyMemberships || []).length,
       characterSummaries: characters,
+      activeQuestItemCount,
       trackedQuestProgress: quests,
       suggestedActivities: activities
     };
@@ -506,7 +513,7 @@
         metaLine("Membership", `${snapshot.membership?.membershipTypeLabel || "Destiny"} / ${snapshot.membership?.membershipId || "unknown"}`),
         metaLine("Bungie", snapshot.bungieGlobalDisplayName || "Unknown"),
         metaLine("Characters", `${snapshot.characterSummaries?.length || 0} loaded`),
-        metaLine("Quests", `${snapshot.trackedQuestProgress?.length || 0} tracked item(s)`)
+        metaLine("Quests", `${snapshot.activeQuestItemCount || 0} active / ${snapshot.trackedQuestProgress?.length || 0} total`)
       ].join("");
     }
   }
