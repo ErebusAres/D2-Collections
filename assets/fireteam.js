@@ -8,6 +8,7 @@
   const STATE_KEY = "d2-collections-oauth-state-v1";
   const RECORD_CACHE_KEY = "d2-fireteam-record-def-cache-v1";
   const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v1";
+  const OBJECTIVE_CACHE_KEY = "d2-fireteam-objective-def-cache-v1";
   const AUTO_REFRESH_MS = 90 * 1000;
   const MAX_QUEST_ITEMS = 120;
   const CLASS_LABELS = {
@@ -229,6 +230,14 @@
     writeJson(ITEM_CACHE_KEY, cache);
   }
 
+  function objectiveCache() {
+    return readJson(OBJECTIVE_CACHE_KEY);
+  }
+
+  function saveObjectiveCache(cache) {
+    writeJson(OBJECTIVE_CACHE_KEY, cache);
+  }
+
   async function recordDefinition(hash, cache) {
     const key = String(hash);
     if (cache[key]) return cache[key];
@@ -273,6 +282,45 @@
     return cache[key];
   }
 
+  async function objectiveDefinition(hash, cache) {
+    const key = String(hash || "");
+    if (!key) return { name: "Objective", description: "" };
+    if (cache[key]) return cache[key];
+    try {
+      const def = await bungieGet(`/Destiny2/Manifest/DestinyObjectiveDefinition/${encodeURIComponent(key)}/?lc=en`);
+      const display = def?.displayProperties || {};
+      cache[key] = {
+        name: display.name || `Objective ${key}`,
+        description: display.description || "",
+        progressDescription: def?.progressDescription || "",
+        resolvedAt: new Date().toISOString()
+      };
+    } catch {
+      cache[key] = { name: `Objective ${key}`, description: "", progressDescription: "", unresolved: true, resolvedAt: new Date().toISOString() };
+    }
+    saveObjectiveCache(cache);
+    return cache[key];
+  }
+
+  async function resolveObjectiveRows(items) {
+    const cache = objectiveCache();
+    const hashes = [...new Set(items.flatMap(item => item.objectives || []).map(row => row.objectiveHash).filter(Boolean))];
+    for (const hash of hashes) {
+      await objectiveDefinition(hash, cache);
+    }
+    items.forEach(item => {
+      item.objectives = (item.objectives || []).map(row => {
+        const def = cache[row.objectiveHash] || {};
+        return {
+          ...row,
+          name: def.progressDescription || def.name || `Objective ${row.objectiveHash}`,
+          description: def.description || ""
+        };
+      });
+    });
+    return items;
+  }
+
   function activeObjectiveHashes(profile) {
     const hashes = new Set();
     Object.values(profile?.itemComponents?.objectives?.data || {}).forEach(item => {
@@ -314,17 +362,27 @@
     const addItems = (source, characterId, entries = []) => {
       (entries || []).forEach(item => {
         const instanceId = String(item?.itemInstanceId || "");
-        if (!instanceId || !objectiveData[instanceId]?.objectives?.length) return;
+        const objectiveComponent = objectiveData[instanceId] || {};
+        if (!instanceId || !objectiveComponent.objectives?.length) return;
+        const tracked = Boolean(
+          item.tracked ||
+          item.isTracked ||
+          item.tracking ||
+          objectiveComponent.tracked ||
+          objectiveComponent.isTracked ||
+          objectiveComponent.tracking
+        );
         items.push({
           hash: String(item.itemHash || ""),
           itemHash: String(item.itemHash || ""),
           instanceId,
           bucketHash: String(item.bucketHash || ""),
           expirationDate: item.expirationDate || "",
+          tracked,
           source: characterId ? characterLabel(characterId, characters) : source,
           characterId: characterId || "",
           character: characters.get(String(characterId)) || null,
-          objectives: objectiveData[instanceId].objectives || []
+          objectives: objectiveComponent.objectives || []
         });
       });
     };
@@ -368,7 +426,8 @@
         character: item.character,
         kind: classifyQuestItem(definition, item),
         complete,
-        inGameTracked: true,
+        inInventory: true,
+        inGameTracked: Boolean(item.tracked),
         activeObjectiveCount: summary.active || summary.total,
         objectives: summary.rows,
         objectiveComplete: summary.complete,
@@ -395,7 +454,7 @@
         const summary = objectiveSummary(objectives, activeHashes);
         const hasProgress = summary.rows.some(row => row.progress > 0 || row.complete);
         const complete = summary.rows.length > 0 && summary.rows.every(row => row.complete);
-        const inGameTracked = Boolean(entry?.tracked || entry?.tracking || entry?.isTracked || summary.active > 0);
+        const inGameTracked = Boolean(entry?.tracked || entry?.tracking || entry?.isTracked);
         if (!hasProgress && complete) return;
         records.push({
           hash: String(hash),
@@ -431,9 +490,10 @@
       icon: item.definition?.icon || "",
       unresolved: Boolean(item.definition?.unresolved)
     }));
-    return [...activeItems, ...recordItems]
-      .sort((a, b) => Number(b.inGameTracked) - Number(a.inGameTracked) || Number(a.complete) - Number(b.complete) || b.pct - a.pct)
+    const combined = [...activeItems, ...recordItems]
+      .sort((a, b) => Number(b.inGameTracked) - Number(a.inGameTracked) || Number(b.inInventory) - Number(a.inInventory) || Number(a.complete) - Number(b.complete) || b.pct - a.pct)
       .slice(0, 80);
+    return resolveObjectiveRows(combined);
   }
 
   function suggestionMatches(quest, suggestion) {
@@ -459,7 +519,7 @@
       suggestions.push({
         id: "review",
         label: "Review tracked objectives",
-        activity: quests.length ? "Open the highest-progress incomplete records in game and confirm current quest steps." : "Refresh from Bungie after picking up active quests or progressing objectives.",
+        activity: quests.length ? "Open the highest-progress incomplete records in game and confirm current quest steps." : "Refresh from Bungie after picking up quests, bounties, or progressing objectives.",
         priority: "Baseline",
         count: quests.length,
         sample: quests[0]?.name || ""
@@ -486,7 +546,8 @@
     const characters = characterSummaries(profile);
     const quests = await trackedQuestProgress(profile);
     const activities = suggestedActivities(quests);
-    const activeQuestItemCount = quests.filter(item => item.kind !== "record").length;
+    const inventoryQuestItemCount = quests.filter(item => item.inInventory).length;
+    const trackedQuestItemCount = quests.filter(item => item.inGameTracked).length;
     const updatedAt = new Date().toISOString();
     return {
       ok: true,
@@ -503,7 +564,9 @@
       },
       membershipCount: (memberships.destinyMemberships || []).length,
       characterSummaries: characters,
-      activeQuestItemCount,
+      activeQuestItemCount: inventoryQuestItemCount,
+      inventoryQuestItemCount,
+      trackedQuestItemCount,
       trackedQuestProgress: quests,
       suggestedActivities: activities
     };
@@ -524,11 +587,13 @@
     if (els.playerName) els.playerName.textContent = snapshot.playerDisplayName || "Unknown Guardian";
     if (els.lastUpdated) els.lastUpdated.textContent = formatShort(snapshot.updatedAt);
     if (els.playerMeta) {
+      const inventoryCount = snapshot.inventoryQuestItemCount ?? snapshot.activeQuestItemCount ?? 0;
+      const trackedCount = snapshot.trackedQuestItemCount ?? (snapshot.trackedQuestProgress || []).filter(item => item.inGameTracked).length;
       els.playerMeta.innerHTML = [
         metaLine("Membership", `${snapshot.membership?.membershipTypeLabel || "Destiny"} / ${snapshot.membership?.membershipId || "unknown"}`),
         metaLine("Bungie", snapshot.bungieGlobalDisplayName || "Unknown"),
         metaLine("Characters", `${snapshot.characterSummaries?.length || 0} loaded`),
-        metaLine("Quests", `${snapshot.activeQuestItemCount || 0} active / ${snapshot.trackedQuestProgress?.length || 0} total`)
+        metaLine("Quests", `${trackedCount} tracked / ${inventoryCount} inventory`)
       ].join("");
     }
   }
@@ -567,13 +632,14 @@
   function renderQuests(quests = []) {
     const visible = quests.filter(quest => {
       if (questFilter === "all") return true;
-      if (questFilter === "active") return Boolean(quest.inGameTracked);
+      if (questFilter === "tracked") return Boolean(quest.inGameTracked);
+      if (questFilter === "inventory") return Boolean(quest.inInventory);
       return quest.kind === questFilter;
     });
     if (els.questCount) els.questCount.textContent = `${visible.length} / ${quests.length}`;
     if (!els.questList) return;
     if (!visible.length) {
-      els.questList.innerHTML = emptyState(quests.length ? "No tracked items match this tab." : "No quest, bounty, pursuit, or objective records found in the current profile response.");
+      els.questList.innerHTML = emptyState(quests.length ? "No items match this tab." : "No quest, bounty, pursuit, or objective records found in the current profile response.");
       return;
     }
     els.questList.innerHTML = visible.map(quest => {
@@ -584,16 +650,38 @@
       const hash = unresolved ? ` <span class="record-hash">Hash ${escapeHtml(quest.hash)}</span>` : "";
       const trackedBadge = quest.inGameTracked ? `<span class="fireteam-tracked-badge">Tracked in game</span>` : "";
       const sourceChip = questSourceChip(quest);
+      const objectiveRows = renderObjectiveSteps(quest.objectives || []);
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
-      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}">
+      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0">
         ${icon}
         <div>
           <strong>${escapeHtml(title)}${trackedBadge}</strong>
           <span><em class="quest-kind-chip">${escapeHtml(titleCase(quest.kind || "record"))}</em>${escapeHtml(quest.objectiveComplete || 0)}/${escapeHtml(quest.objectiveTotal || 0)} objectives ${sourceChip}${hash}</span>
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+          ${objectiveRows}
         </div>
       </article>`;
     }).join("");
+  }
+
+  function renderObjectiveSteps(objectives = []) {
+    if (!objectives.length) return "";
+    const visible = objectives.slice(0, 6);
+    const hidden = Math.max(0, objectives.length - visible.length);
+    return `<div class="quest-step-list">${visible.map(row => {
+      const total = Number(row.total || 0);
+      const progress = Number(row.progress || 0);
+      const pct = total ? Math.max(0, Math.min(100, Math.round((progress / total) * 100))) : row.complete ? 100 : 0;
+      const value = total ? `${progress}/${total}` : row.complete ? "100%" : `${progress}`;
+      return `<div class="quest-step ${row.complete ? "is-complete" : ""}">
+        <span class="quest-step-check" aria-hidden="true"></span>
+        <div>
+          <strong>${escapeHtml(row.name || `Objective ${row.objectiveHash || ""}`)}</strong>
+          <em>${escapeHtml(value)}</em>
+          <div class="quest-step-track"><i style="width:${pct}%"></i></div>
+        </div>
+      </div>`;
+    }).join("")}${hidden ? `<div class="quest-step-more">+${hidden} more objective(s)</div>` : ""}</div>`;
   }
 
   function questSourceChip(quest) {
@@ -615,7 +703,7 @@
       <span class="badge focus">${escapeHtml(activity.priority || "Next")}</span>
       <strong>${escapeHtml(activity.label || "Next activity")}</strong>
       <p>${escapeHtml(activity.activity || "")}</p>
-      <em>${escapeHtml(activity.count || 0)} matching tracked item(s)${activity.sample ? ` - ${escapeHtml(activity.sample)}` : ""}</em>
+      <em>${escapeHtml(activity.count || 0)} matching item(s)${activity.sample ? ` - ${escapeHtml(activity.sample)}` : ""}</em>
     </article>`).join("");
   }
 
