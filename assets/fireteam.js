@@ -227,15 +227,29 @@
     return cache[key];
   }
 
-  function objectiveSummary(objectives = []) {
+  function activeObjectiveHashes(profile) {
+    const hashes = new Set();
+    Object.values(profile?.itemComponents?.objectives?.data || {}).forEach(item => {
+      (item?.objectives || []).forEach(objective => {
+        if (objective?.objectiveHash !== undefined && objective?.objectiveHash !== null) {
+          hashes.add(String(objective.objectiveHash));
+        }
+      });
+    });
+    return hashes;
+  }
+
+  function objectiveSummary(objectives = [], activeHashes = new Set()) {
     const rows = objectives.map(objective => {
       const progress = Number(objective.progress || 0);
       const total = Number(objective.completionValue || 0);
+      const objectiveHash = String(objective.objectiveHash || "");
       return {
         progress,
         total,
         complete: Boolean(objective.complete) || (total > 0 && progress >= total),
-        objectiveHash: String(objective.objectiveHash || "")
+        objectiveHash,
+        active: objectiveHash ? activeHashes.has(objectiveHash) : false
       };
     });
     const complete = rows.filter(row => row.complete).length;
@@ -243,25 +257,30 @@
       rows,
       complete,
       total: rows.length,
+      active: rows.filter(row => row.active).length,
       pct: rows.length ? Math.round((complete / rows.length) * 100) : 0
     };
   }
 
   async function trackedQuestProgress(profile) {
     const records = [];
+    const activeHashes = activeObjectiveHashes(profile);
     const addRecords = (source, entries = {}) => {
       Object.entries(entries || {}).forEach(([hash, entry]) => {
         const objectives = entry?.objectives || [];
         if (!objectives.length) return;
-        const summary = objectiveSummary(objectives);
+        const summary = objectiveSummary(objectives, activeHashes);
         const hasProgress = summary.rows.some(row => row.progress > 0 || row.complete);
         const complete = summary.rows.length > 0 && summary.rows.every(row => row.complete);
+        const inGameTracked = Boolean(entry?.tracked || entry?.tracking || entry?.isTracked || summary.active > 0);
         if (!hasProgress && complete) return;
         records.push({
           hash: String(hash),
           source,
           complete,
           state: Number(entry.state || 0),
+          inGameTracked,
+          activeObjectiveCount: summary.active,
           objectives: summary.rows,
           objectiveComplete: summary.complete,
           objectiveTotal: summary.total,
@@ -274,7 +293,7 @@
 
     const cache = recordCache();
     const top = records
-      .sort((a, b) => Number(a.complete) - Number(b.complete) || b.pct - a.pct)
+      .sort((a, b) => Number(b.inGameTracked) - Number(a.inGameTracked) || Number(a.complete) - Number(b.complete) || b.pct - a.pct)
       .slice(0, 18);
     for (const item of top.slice(0, 12)) {
       item.definition = await recordDefinition(item.hash, cache);
@@ -426,11 +445,12 @@
       const unresolved = quest.unresolved || /^Record\s+\d+$/i.test(String(quest.name || ""));
       const title = unresolved ? "Unmapped Bungie record" : quest.name || `Record ${quest.hash}`;
       const hash = unresolved ? ` <span class="record-hash">Hash ${escapeHtml(quest.hash)}</span>` : "";
+      const trackedBadge = quest.inGameTracked ? `<span class="fireteam-tracked-badge">Tracked in game</span>` : "";
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
-      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""}">
+      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""}">
         ${icon}
         <div>
-          <strong>${escapeHtml(title)}</strong>
+          <strong>${escapeHtml(title)}${trackedBadge}</strong>
           <span>${escapeHtml(quest.objectiveComplete || 0)}/${escapeHtml(quest.objectiveTotal || 0)} objectives - ${escapeHtml(quest.source || "Profile")}${hash}</span>
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
         </div>

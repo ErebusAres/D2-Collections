@@ -2323,6 +2323,24 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 .fireteam-progress-card.is-unresolved strong {
   color: var(--soft);
 }
+.fireteam-progress-card.is-tracked {
+  border-color: rgba(88,214,154,.48);
+  box-shadow: inset 3px 0 0 rgba(88,214,154,.75);
+}
+.fireteam-tracked-badge {
+  display: inline-flex;
+  margin-left: 8px;
+  vertical-align: middle;
+  border: 1px solid rgba(88,214,154,.35);
+  border-radius: 999px;
+  background: rgba(88,214,154,.12);
+  color: #caffdf;
+  padding: 2px 7px;
+  font-size: .64rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
 .fireteam-progress-card .record-hash {
   color: var(--gold-bright);
   font-weight: 900;
