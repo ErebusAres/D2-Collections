@@ -2209,6 +2209,11 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   gap: 14px;
   align-content: start;
 }
+.fireteam-main-column {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
 .fireteam-debug-panel {
   margin-top: 0;
 }
@@ -2270,6 +2275,18 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 .fireteam-quest-panel {
   overflow: visible;
   min-height: 620px;
+}
+.fireteam-triumph-panel {
+  overflow: visible;
+}
+.fireteam-record-grid {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+.fireteam-record-grid .fireteam-progress-card {
+  min-height: 82px;
+  background:
+    linear-gradient(90deg, rgba(95,99,107,.24), transparent 72%),
+    rgba(27,29,31,.9);
 }
 .fireteam-quest-layout {
   display: grid;

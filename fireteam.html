@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=fireteam-class-filter" />
+  <link rel="stylesheet" href="assets/styles.css?v=fireteam-triumph-section" />
 </head>
 <body>
   <div class="app-shell fireteam-shell">
@@ -53,27 +53,39 @@
     </section>
 
     <main class="fireteam-grid">
-      <section class="panel fireteam-quest-panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Objectives</p>
-            <h2>Quest Progress</h2>
+      <div class="fireteam-main-column">
+        <section class="panel fireteam-quest-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Objectives</p>
+              <h2>Quest Progress</h2>
+            </div>
+            <span id="questCount" class="count-pill">0 items</span>
           </div>
-          <span id="questCount" class="count-pill">0 items</span>
-        </div>
-        <div class="fireteam-quest-layout">
-          <div class="fireteam-vertical-label"><span>All quests</span><strong id="questRailCount">0 / 0</strong></div>
-          <div id="questList" class="fireteam-card-grid"></div>
-          <div class="fireteam-tabs" id="questTabs" role="group" aria-label="Quest progress filter">
-            <button class="seg active" type="button" data-quest-filter="all" data-label="All quests" data-copy="All discovered quests, bounties, pursuits, and records."><img src="assets/dim-icons/dim_pursuit_complete.svg" alt="" aria-hidden="true" /></button>
-            <button class="seg" type="button" data-quest-filter="tracked" data-label="Tracked" data-copy="Items actively tracked in game or manually pinned on this site."><img src="assets/dim-icons/dim_tracked.svg" alt="" aria-hidden="true" /></button>
-            <button class="seg" type="button" data-quest-filter="inventory" data-label="Inventory" data-copy="Quest and bounty items currently in the selected Guardian inventory."><img src="assets/dim-icons/dim_bookmark.svg" alt="" aria-hidden="true" /></button>
-            <button class="seg" type="button" data-quest-filter="quest" data-label="Quests" data-copy="Quest and pursuit items with objective progress."><img src="assets/dim-icons/dim_engram_outline.svg" alt="" aria-hidden="true" /></button>
-            <button class="seg" type="button" data-quest-filter="bounty" data-label="Bounties" data-copy="Bounty-style objective items."><img src="assets/dim-icons/dim_exclamation_triangle.svg" alt="" aria-hidden="true" /></button>
-            <button class="seg" type="button" data-quest-filter="record" data-label="Records" data-copy="Triumph and record objective progress exposed by Bungie."><img src="assets/dim-icons/dim_star.svg" alt="" aria-hidden="true" /></button>
+          <div class="fireteam-quest-layout">
+            <div class="fireteam-vertical-label"><span>All quests</span><strong id="questRailCount">0 / 0</strong></div>
+            <div id="questList" class="fireteam-card-grid"></div>
+            <div class="fireteam-tabs" id="questTabs" role="group" aria-label="Quest progress filter">
+              <button class="seg active" type="button" data-quest-filter="all" data-label="All quests" data-copy="Quest, bounty, and pursuit objective items."><img src="assets/dim-icons/dim_pursuit_complete.svg" alt="" aria-hidden="true" /></button>
+              <button class="seg" type="button" data-quest-filter="tracked" data-label="Tracked" data-copy="Quest items actively tracked in game or manually pinned on this site."><img src="assets/dim-icons/dim_tracked.svg" alt="" aria-hidden="true" /></button>
+              <button class="seg" type="button" data-quest-filter="inventory" data-label="Inventory" data-copy="Quest and bounty items currently in the selected Guardian inventory."><img src="assets/dim-icons/dim_bookmark.svg" alt="" aria-hidden="true" /></button>
+              <button class="seg" type="button" data-quest-filter="quest" data-label="Quests" data-copy="Quest and pursuit items with objective progress."><img src="assets/dim-icons/dim_engram_outline.svg" alt="" aria-hidden="true" /></button>
+              <button class="seg" type="button" data-quest-filter="bounty" data-label="Bounties" data-copy="Bounty-style objective items."><img src="assets/dim-icons/dim_exclamation_triangle.svg" alt="" aria-hidden="true" /></button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+
+        <section class="panel fireteam-triumph-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Triumphs</p>
+              <h2>Records</h2>
+            </div>
+            <span id="triumphCount" class="count-pill">0 records</span>
+          </div>
+          <div id="triumphList" class="fireteam-card-grid fireteam-record-grid"></div>
+        </section>
+      </div>
 
       <aside class="fireteam-side-column">
         <section class="panel">
@@ -130,6 +142,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=fireteam-auth-reuse"></script>
-  <script src="assets/fireteam.js?v=fireteam-class-filter"></script>
+  <script src="assets/fireteam.js?v=fireteam-triumph-section"></script>
 </body>
 </html>

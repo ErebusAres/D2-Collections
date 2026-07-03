@@ -46,6 +46,8 @@
     questTabs: document.querySelector("#questTabs"),
     questRailCount: document.querySelector("#questRailCount"),
     questRailLabel: document.querySelector(".fireteam-vertical-label span"),
+    triumphList: document.querySelector("#triumphList"),
+    triumphCount: document.querySelector("#triumphCount"),
     manualTrackList: document.querySelector("#manualTrackList"),
     manualTrackCount: document.querySelector("#manualTrackCount"),
     activityList: document.querySelector("#activityList"),
@@ -665,9 +667,10 @@
     const profile = await bungieGet(`/Destiny2/${membership.membershipType}/Profile/${membership.membershipId}/?components=${components}`);
     const characters = characterSummaries(profile);
     const quests = await trackedQuestProgress(profile);
-    const activities = suggestedActivities(quests);
+    const questItems = quests.filter(item => item.kind !== "record");
+    const activities = suggestedActivities(questItems);
     const inventoryQuestItemCount = quests.filter(item => item.inInventory).length;
-    const trackedQuestItemCount = quests.filter(item => item.inGameTracked).length;
+    const trackedQuestItemCount = questItems.filter(item => item.inGameTracked).length;
     const updatedAt = new Date().toISOString();
     return {
       ok: true,
@@ -753,7 +756,7 @@
   }
 
   function renderQuests(quests = []) {
-    const classScoped = quests.filter(classFilterMatches);
+    const classScoped = quests.filter(quest => quest.kind !== "record").filter(classFilterMatches);
     const visible = classScoped.filter(quest => {
       if (questFilter === "all") return true;
       if (questFilter === "tracked") return Boolean(quest.inGameTracked);
@@ -769,10 +772,24 @@
     }
     if (!els.questList) return;
     if (!visible.length) {
-      els.questList.innerHTML = emptyState(quests.length ? "No items match this tab." : "No quest, bounty, pursuit, or objective records found in the current profile response.");
+      els.questList.innerHTML = emptyState(quests.length ? "No quest items match this tab." : "No quest, bounty, or pursuit items found in the current profile response.");
       return;
     }
-    els.questList.innerHTML = visible.map(quest => {
+    els.questList.innerHTML = visible.map(quest => progressCardMarkup(quest, { allowPin: true })).join("");
+  }
+
+  function renderTriumphs(quests = []) {
+    const records = quests.filter(quest => quest.kind === "record").filter(classFilterMatches);
+    if (els.triumphCount) els.triumphCount.textContent = `${records.length} records`;
+    if (!els.triumphList) return;
+    if (!records.length) {
+      els.triumphList.innerHTML = emptyState("No active triumph or record objective progress found.");
+      return;
+    }
+    els.triumphList.innerHTML = records.map(quest => progressCardMarkup(quest, { allowPin: false })).join("");
+  }
+
+  function progressCardMarkup(quest, { allowPin = true } = {}) {
       const pct = Math.max(0, Math.min(100, Number(quest.pct || 0)));
       const isRecord = quest.kind === "record";
       const unresolved = quest.unresolved || (isRecord && /^Record\s+\d+$/i.test(String(quest.name || "")));
@@ -783,7 +800,7 @@
       const objectiveRows = renderObjectiveSteps(quest.objectives || []);
       const key = questKey(quest);
       const isPinned = manualTracked.has(key);
-      const pinButton = key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin from site tracker" : "Pin to site tracker"}"><span aria-hidden="true"></span></button>` : "";
+      const pinButton = allowPin && key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin from site tracker" : "Pin to site tracker"}"><span aria-hidden="true"></span></button>` : "";
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
       return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.highlightedObjective ? "is-highlighted-objective" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0">
         ${pinButton}
@@ -795,11 +812,10 @@
           ${objectiveRows}
         </div>
       </article>`;
-    }).join("");
   }
 
   function pinnedQuests(quests = []) {
-    const byKey = new Map(quests.map(quest => [questKey(quest), quest]).filter(([key]) => key));
+    const byKey = new Map(quests.filter(quest => quest.kind !== "record").map(quest => [questKey(quest), quest]).filter(([key]) => key));
     return [...manualTracked].map(key => byKey.get(key)).filter(Boolean);
   }
 
@@ -939,6 +955,7 @@
     renderPlayer(snapshot);
     renderMembers(savedSnapshots);
     renderQuests(snapshot?.trackedQuestProgress || []);
+    renderTriumphs(snapshot?.trackedQuestProgress || []);
     renderManualTracker(snapshot?.trackedQuestProgress || []);
     renderActivities(snapshot?.suggestedActivities || []);
     renderCloudStatus();
@@ -1044,6 +1061,7 @@
         classFilter = classFilter === nextClass ? "" : nextClass;
         renderMembers(savedSnapshots);
         renderQuests(latestSnapshot?.trackedQuestProgress || []);
+        renderTriumphs(latestSnapshot?.trackedQuestProgress || []);
         renderManualTracker(latestSnapshot?.trackedQuestProgress || []);
         return;
       }
@@ -1058,6 +1076,7 @@
       else manualTracked.add(key);
       saveManualTracked();
       renderQuests(latestSnapshot?.trackedQuestProgress || []);
+      renderTriumphs(latestSnapshot?.trackedQuestProgress || []);
       renderManualTracker(latestSnapshot?.trackedQuestProgress || []);
     });
     if (sessionIsUsable() || hasSavedCode()) refreshFromBungie({ silent: true });
