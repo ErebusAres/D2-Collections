@@ -7,7 +7,9 @@
   const RETURN_KEY = "d2-collections-oauth-return-v1";
   const STATE_KEY = "d2-collections-oauth-state-v1";
   const RECORD_CACHE_KEY = "d2-fireteam-record-def-cache-v1";
+  const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v1";
   const AUTO_REFRESH_MS = 90 * 1000;
+  const MAX_QUEST_ITEMS = 120;
   const CLASS_LABELS = {
     "2271682572": "Warlock",
     "3655393761": "Titan",
@@ -37,6 +39,7 @@
     memberCount: document.querySelector("#memberCount"),
     questList: document.querySelector("#questList"),
     questCount: document.querySelector("#questCount"),
+    questTabs: document.querySelector("#questTabs"),
     activityList: document.querySelector("#activityList"),
     activityCount: document.querySelector("#activityCount"),
     debugBox: document.querySelector("#debugBox")
@@ -46,6 +49,7 @@
   let savedSnapshots = [];
   let refreshing = false;
   let autoRefreshTimer = 0;
+  let questFilter = "all";
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -207,6 +211,14 @@
     writeJson(RECORD_CACHE_KEY, cache);
   }
 
+  function itemCache() {
+    return readJson(ITEM_CACHE_KEY);
+  }
+
+  function saveItemCache(cache) {
+    writeJson(ITEM_CACHE_KEY, cache);
+  }
+
   async function recordDefinition(hash, cache) {
     const key = String(hash);
     if (cache[key]) return cache[key];
@@ -224,6 +236,30 @@
       cache[key] = { name: `Record ${key}`, description: "", icon: "", resolvedAt: new Date().toISOString(), unresolved: true };
     }
     saveRecordCache(cache);
+    return cache[key];
+  }
+
+  async function itemDefinition(hash, cache) {
+    const key = String(hash);
+    if (cache[key]) return cache[key];
+    try {
+      const def = await bungieGet(`/Destiny2/Manifest/DestinyInventoryItemDefinition/${encodeURIComponent(key)}/?lc=en`);
+      const display = def?.displayProperties || {};
+      cache[key] = {
+        name: display.name || `Item ${key}`,
+        description: display.description || "",
+        icon: display.icon || "",
+        itemType: Number(def?.itemType || 0),
+        itemTypeDisplayName: def?.itemTypeDisplayName || "",
+        itemTypeAndTierDisplayName: def?.itemTypeAndTierDisplayName || "",
+        itemCategoryHashes: def?.itemCategoryHashes || [],
+        inventoryBucketHash: def?.inventory?.bucketTypeHash || "",
+        resolvedAt: new Date().toISOString()
+      };
+    } catch {
+      cache[key] = { name: `Item ${key}`, description: "", icon: "", itemType: 0, itemTypeDisplayName: "", unresolved: true, resolvedAt: new Date().toISOString() };
+    }
+    saveItemCache(cache);
     return cache[key];
   }
 
@@ -262,9 +298,78 @@
     };
   }
 
+  function inventoryObjectiveItems(profile) {
+    const objectiveData = profile?.itemComponents?.objectives?.data || {};
+    const items = [];
+    const addItems = (source, characterId, entries = []) => {
+      (entries || []).forEach(item => {
+        const instanceId = String(item?.itemInstanceId || "");
+        if (!instanceId || !objectiveData[instanceId]?.objectives?.length) return;
+        items.push({
+          hash: String(item.itemHash || ""),
+          itemHash: String(item.itemHash || ""),
+          instanceId,
+          source,
+          characterId: characterId || "",
+          objectives: objectiveData[instanceId].objectives || []
+        });
+      });
+    };
+    addItems("Profile inventory", "", profile?.profileInventory?.data?.items);
+    Object.entries(profile?.characterInventories?.data || {}).forEach(([characterId, data]) => addItems(`Character ${characterId}`, characterId, data?.items));
+    return items.filter(item => item.itemHash).slice(0, MAX_QUEST_ITEMS);
+  }
+
+  function classifyQuestItem(definition = {}) {
+    const text = [
+      definition.itemTypeDisplayName,
+      definition.itemTypeAndTierDisplayName,
+      definition.name,
+      definition.description
+    ].join(" ").toLowerCase();
+    if (text.includes("bounty")) return "bounty";
+    if (text.includes("quest")) return "quest";
+    if (text.includes("pursuit")) return "quest";
+    if (Number(definition.itemType) === 26) return "bounty";
+    if (Number(definition.itemType) === 12) return "quest";
+    return "pursuit";
+  }
+
+  async function activeQuestItems(profile, activeHashes) {
+    const cache = itemCache();
+    const items = inventoryObjectiveItems(profile);
+    const resolved = [];
+    for (const item of items) {
+      const definition = await itemDefinition(item.itemHash, cache);
+      const summary = objectiveSummary(item.objectives, activeHashes);
+      const complete = summary.rows.length > 0 && summary.rows.every(row => row.complete);
+      resolved.push({
+        hash: item.itemHash,
+        itemHash: item.itemHash,
+        instanceId: item.instanceId,
+        source: item.source,
+        characterId: item.characterId,
+        kind: classifyQuestItem(definition),
+        complete,
+        inGameTracked: true,
+        activeObjectiveCount: summary.active || summary.total,
+        objectives: summary.rows,
+        objectiveComplete: summary.complete,
+        objectiveTotal: summary.total,
+        pct: summary.pct,
+        name: definition.name || `Item ${item.itemHash}`,
+        description: definition.description || "",
+        icon: definition.icon || "",
+        unresolved: Boolean(definition.unresolved)
+      });
+    }
+    return resolved;
+  }
+
   async function trackedQuestProgress(profile) {
-    const records = [];
     const activeHashes = activeObjectiveHashes(profile);
+    const activeItems = await activeQuestItems(profile, activeHashes);
+    const records = [];
     const addRecords = (source, entries = {}) => {
       Object.entries(entries || {}).forEach(([hash, entry]) => {
         const objectives = entry?.objectives || [];
@@ -277,6 +382,7 @@
         records.push({
           hash: String(hash),
           source,
+          kind: "record",
           complete,
           state: Number(entry.state || 0),
           inGameTracked,
@@ -298,13 +404,16 @@
     for (const item of top.slice(0, 12)) {
       item.definition = await recordDefinition(item.hash, cache);
     }
-    return top.map(item => ({
+    const recordItems = top.map(item => ({
       ...item,
       name: item.definition?.name || `Record ${item.hash}`,
       description: item.definition?.description || "",
       icon: item.definition?.icon || "",
       unresolved: Boolean(item.definition?.unresolved)
     }));
+    return [...activeItems, ...recordItems]
+      .sort((a, b) => Number(b.inGameTracked) - Number(a.inGameTracked) || Number(a.complete) - Number(b.complete) || b.pct - a.pct)
+      .slice(0, 80);
   }
 
   function suggestionMatches(quest, suggestion) {
@@ -397,7 +506,7 @@
         metaLine("Membership", `${snapshot.membership?.membershipTypeLabel || "Destiny"} / ${snapshot.membership?.membershipId || "unknown"}`),
         metaLine("Bungie", snapshot.bungieGlobalDisplayName || "Unknown"),
         metaLine("Characters", `${snapshot.characterSummaries?.length || 0} loaded`),
-        metaLine("Tracked", `${snapshot.trackedQuestProgress?.length || 0} objective records`)
+        metaLine("Quests", `${snapshot.trackedQuestProgress?.length || 0} tracked item(s)`)
       ].join("");
     }
   }
@@ -434,24 +543,30 @@
   }
 
   function renderQuests(quests = []) {
-    if (els.questCount) els.questCount.textContent = `${quests.length} tracked`;
+    const visible = quests.filter(quest => {
+      if (questFilter === "all") return true;
+      if (questFilter === "active") return Boolean(quest.inGameTracked);
+      return quest.kind === questFilter;
+    });
+    if (els.questCount) els.questCount.textContent = `${visible.length} / ${quests.length}`;
     if (!els.questList) return;
-    if (!quests.length) {
-      els.questList.innerHTML = emptyState("No objective records found in the current profile response.");
+    if (!visible.length) {
+      els.questList.innerHTML = emptyState(quests.length ? "No tracked items match this tab." : "No quest, bounty, pursuit, or objective records found in the current profile response.");
       return;
     }
-    els.questList.innerHTML = quests.map(quest => {
+    els.questList.innerHTML = visible.map(quest => {
       const pct = Math.max(0, Math.min(100, Number(quest.pct || 0)));
-      const unresolved = quest.unresolved || /^Record\s+\d+$/i.test(String(quest.name || ""));
+      const isRecord = quest.kind === "record";
+      const unresolved = quest.unresolved || (isRecord && /^Record\s+\d+$/i.test(String(quest.name || "")));
       const title = unresolved ? "Unmapped Bungie record" : quest.name || `Record ${quest.hash}`;
       const hash = unresolved ? ` <span class="record-hash">Hash ${escapeHtml(quest.hash)}</span>` : "";
       const trackedBadge = quest.inGameTracked ? `<span class="fireteam-tracked-badge">Tracked in game</span>` : "";
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
-      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""}">
+      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}">
         ${icon}
         <div>
           <strong>${escapeHtml(title)}${trackedBadge}</strong>
-          <span>${escapeHtml(quest.objectiveComplete || 0)}/${escapeHtml(quest.objectiveTotal || 0)} objectives - ${escapeHtml(quest.source || "Profile")}${hash}</span>
+          <span><em class="quest-kind-chip">${escapeHtml(titleCase(quest.kind || "record"))}</em>${escapeHtml(quest.objectiveComplete || 0)}/${escapeHtml(quest.objectiveTotal || 0)} objectives - ${escapeHtml(quest.source || "Profile")}${hash}</span>
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
         </div>
       </article>`;
@@ -495,6 +610,10 @@
     renderActivities(snapshot?.suggestedActivities || []);
     renderCloudStatus();
     if (els.debugBox) els.debugBox.value = snapshot ? JSON.stringify(snapshot, null, 2) : "";
+  }
+
+  function titleCase(value) {
+    return String(value || "").replace(/[-_]+/g, " ").replace(/\b\w/g, char => char.toUpperCase());
   }
 
   async function loadCloudSnapshots() {
@@ -577,6 +696,13 @@
       window.location.assign(buildAuthUrl());
     });
     els.refreshBtn?.addEventListener("click", () => refreshFromBungie());
+    els.questTabs?.addEventListener("click", event => {
+      const button = event.target.closest("[data-quest-filter]");
+      if (!button) return;
+      questFilter = button.dataset.questFilter || "all";
+      els.questTabs.querySelectorAll("[data-quest-filter]").forEach(item => item.classList.toggle("active", item === button));
+      renderQuests(latestSnapshot?.trackedQuestProgress || []);
+    });
     if (sessionIsUsable() || hasSavedCode()) refreshFromBungie({ silent: true });
   }
 

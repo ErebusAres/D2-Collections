@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=fireteam-tracked-quests" />
+  <link rel="stylesheet" href="assets/styles.css?v=fireteam-quest-tabs" />
 </head>
 <body>
   <div class="app-shell fireteam-shell">
@@ -99,6 +99,13 @@
           </div>
           <span id="questCount" class="count-pill">0 tracked</span>
         </div>
+        <div class="fireteam-tabs" id="questTabs" role="group" aria-label="Quest progress filter">
+          <button class="seg active" type="button" data-quest-filter="all">All</button>
+          <button class="seg" type="button" data-quest-filter="active">Active</button>
+          <button class="seg" type="button" data-quest-filter="quest">Quests</button>
+          <button class="seg" type="button" data-quest-filter="bounty">Bounties</button>
+          <button class="seg" type="button" data-quest-filter="record">Records</button>
+        </div>
         <div id="questList" class="fireteam-card-grid"></div>
       </section>
     </main>
@@ -107,6 +114,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=fireteam-auth-reuse"></script>
-  <script src="assets/fireteam.js?v=fireteam-tracked-quests"></script>
+  <script src="assets/fireteam.js?v=fireteam-quest-tabs"></script>
 </body>
 </html>
