@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=fireteam-dashboard-001" />
+  <link rel="stylesheet" href="assets/styles.css?v=fireteam-layout-002" />
 </head>
 <body>
   <div class="app-shell fireteam-shell">
@@ -52,19 +52,46 @@
       </article>
     </section>
 
-    <main class="content-grid fireteam-grid">
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Profile</p>
-            <h2>Fireteam Members</h2>
+    <main class="fireteam-grid">
+      <aside class="fireteam-side-column">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Profile</p>
+              <h2>Fireteam Members</h2>
+            </div>
+            <span id="memberCount" class="count-pill">0 saved</span>
           </div>
-          <span id="memberCount" class="count-pill">0 saved</span>
-        </div>
-        <div id="membersList" class="fireteam-card-grid"></div>
-      </section>
+          <div id="membersList" class="fireteam-card-grid"></div>
+        </section>
 
-      <section class="panel">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Director</p>
+              <h2>Suggested Next Activities</h2>
+            </div>
+            <span id="activityCount" class="count-pill">0 ideas</span>
+          </div>
+          <div id="activityList" class="fireteam-card-grid"></div>
+        </section>
+
+        <section class="panel data-panel fireteam-debug-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Diagnostics</p>
+              <h2>Fireteam debug</h2>
+            </div>
+            <span class="count-pill">Advanced</span>
+          </div>
+          <details class="debug-details">
+            <summary>Show latest fireteam snapshot JSON</summary>
+            <textarea id="debugBox" spellcheck="false" readonly placeholder="Refresh from Bungie to generate a fireteam snapshot..."></textarea>
+          </details>
+        </section>
+      </aside>
+
+      <section class="panel fireteam-quest-panel">
         <div class="panel-head">
           <div>
             <p class="eyebrow">Objectives</p>
@@ -74,37 +101,12 @@
         </div>
         <div id="questList" class="fireteam-card-grid"></div>
       </section>
-
-      <section class="panel">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Director</p>
-            <h2>Suggested Next Activities</h2>
-          </div>
-          <span id="activityCount" class="count-pill">0 ideas</span>
-        </div>
-        <div id="activityList" class="fireteam-card-grid"></div>
-      </section>
     </main>
-
-    <section class="panel data-panel">
-      <div class="panel-head">
-        <div>
-          <p class="eyebrow">Diagnostics</p>
-          <h2>Fireteam debug</h2>
-        </div>
-        <span class="count-pill">Advanced</span>
-      </div>
-      <details class="debug-details">
-        <summary>Show latest fireteam snapshot JSON</summary>
-        <textarea id="debugBox" spellcheck="false" readonly placeholder="Refresh from Bungie to generate a fireteam snapshot..."></textarea>
-      </details>
-    </section>
   </div>
 
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=fireteam-auth-reuse"></script>
-  <script src="assets/fireteam.js?v=001"></script>
+  <script src="assets/fireteam.js?v=fireteam-layout-002"></script>
 </body>
 </html>

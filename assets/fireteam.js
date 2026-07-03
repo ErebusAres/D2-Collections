@@ -212,10 +212,12 @@
     if (cache[key]) return cache[key];
     try {
       const def = await bungieGet(`/Destiny2/Manifest/DestinyRecordDefinition/${encodeURIComponent(key)}/?lc=en`);
+      const name = def?.displayProperties?.name || "";
       cache[key] = {
-        name: def?.displayProperties?.name || `Record ${key}`,
+        name: name || `Record ${key}`,
         description: def?.displayProperties?.description || "",
         icon: def?.displayProperties?.icon || "",
+        unresolved: !name,
         resolvedAt: new Date().toISOString()
       };
     } catch {
@@ -281,7 +283,8 @@
       ...item,
       name: item.definition?.name || `Record ${item.hash}`,
       description: item.definition?.description || "",
-      icon: item.definition?.icon || ""
+      icon: item.definition?.icon || "",
+      unresolved: Boolean(item.definition?.unresolved)
     }));
   }
 
@@ -420,12 +423,15 @@
     }
     els.questList.innerHTML = quests.map(quest => {
       const pct = Math.max(0, Math.min(100, Number(quest.pct || 0)));
-      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">Q</span>`;
-      return `<article class="fireteam-progress-card">
+      const unresolved = quest.unresolved || /^Record\s+\d+$/i.test(String(quest.name || ""));
+      const title = unresolved ? "Unmapped Bungie record" : quest.name || `Record ${quest.hash}`;
+      const hash = unresolved ? ` <span class="record-hash">Hash ${escapeHtml(quest.hash)}</span>` : "";
+      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
+      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""}">
         ${icon}
         <div>
-          <strong>${escapeHtml(quest.name || `Record ${quest.hash}`)}</strong>
-          <span>${escapeHtml(quest.objectiveComplete || 0)}/${escapeHtml(quest.objectiveTotal || 0)} objectives - ${escapeHtml(quest.source || "Profile")}</span>
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(quest.objectiveComplete || 0)}/${escapeHtml(quest.objectiveTotal || 0)} objectives - ${escapeHtml(quest.source || "Profile")}${hash}</span>
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
         </div>
       </article>`;
