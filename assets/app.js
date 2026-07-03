@@ -637,7 +637,7 @@
 
     const tileTitle = `${item.name} - ${item.slot || "Weapon"} ${item.type || ""}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
     const actionAttrs = interactive ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
-    const statusPanelClass = simple ? "card-status-panel simple-card-hud" : "card-status-panel";
+    const statusPanelClass = simple ? `card-status-panel simple-card-hud ${hudBadges ? "has-tags" : "no-tags"}` : "card-status-panel";
     return `<article class="weapon-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}${simpleDamageIcons(item.element)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}${itemHelpButton(item.id)}</div><div class="badge-row">${kindBadge("weapon")}${slotBadge(item.slot)}${weaponTypeBadge(item.type)}${elementBadge(item.element)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="status-grid header"><span></span><span>Own</span><span>Cat</span><span>Done</span><span>Extras</span></div>${playerRows}</div></article>`;
   }
 
@@ -678,7 +678,7 @@
     const ownedCount = visibleStates.filter(row => row.owned).length;
     const tileTitle = `${item.name} - ${focusLabel(className)} ${item.slot || "armor"}. ${ownedCount}/${visibleStates.length} selected player(s) own it. Click for more info.`;
     const actionAttrs = interactive ? ` tabindex="0" role="button" aria-label="${escapeAttr(tileTitle)}"` : "";
-    const statusPanelClass = simple ? "card-status-panel simple-card-hud armor-card-hud" : "card-status-panel";
+    const statusPanelClass = simple ? `card-status-panel simple-card-hud armor-card-hud ${hudBadges ? "has-tags" : "no-tags"}` : "card-status-panel";
     return `<article class="armor-card is-focus-card ${cardClass}"${actionAttrs} data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${itemIconMarkup(item, eagerIcon)}<div><div class="item-name"><h3>${item.name}</h3>${metaBadges}${itemHelpButton(item.id)}</div><div class="badge-row">${kindBadge("armor")}${armorClassBadge(className)}${slotBadge(item.slot)}${sourceBadge(item)}</div></div></div><div class="${statusPanelClass}">${hudBadges}<div class="armor-status header"><span></span><span>Own</span></div>${playerRows}</div></article>`;
   }
 
