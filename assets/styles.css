@@ -2373,6 +2373,10 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   box-shadow: 0 0 0 1px rgba(99,215,132,.45), 0 5px 12px rgba(0,0,0,.32);
   transform: rotate(45deg);
 }
+.fireteam-progress-card.is-highlighted-objective:not(.is-tracked) {
+  border-color: rgba(255,120,73,.34);
+  box-shadow: inset 3px 0 0 rgba(255,120,73,.58);
+}
 .fireteam-progress-card.is-bounty {
   border-color: rgba(156,199,255,.26);
 }

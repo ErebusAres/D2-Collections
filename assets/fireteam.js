@@ -11,6 +11,8 @@
   const OBJECTIVE_CACHE_KEY = "d2-fireteam-objective-def-cache-v1";
   const AUTO_REFRESH_MS = 90 * 1000;
   const MAX_QUEST_ITEMS = 120;
+  const ITEM_STATE_TRACKED = 2;
+  const ITEM_STATE_HIGHLIGHTED_OBJECTIVE = 16;
   const CLASS_LABELS = {
     "2271682572": "Warlock",
     "3655393761": "Titan",
@@ -364,7 +366,9 @@
         const instanceId = String(item?.itemInstanceId || "");
         const objectiveComponent = objectiveData[instanceId] || {};
         if (!instanceId || !objectiveComponent.objectives?.length) return;
+        const itemState = Number(item.state || 0);
         const tracked = Boolean(
+          itemState & ITEM_STATE_TRACKED ||
           item.tracked ||
           item.isTracked ||
           item.tracking ||
@@ -378,7 +382,9 @@
           instanceId,
           bucketHash: String(item.bucketHash || ""),
           expirationDate: item.expirationDate || "",
+          itemState,
           tracked,
+          highlightedObjective: Boolean(itemState & ITEM_STATE_HIGHLIGHTED_OBJECTIVE),
           source: characterId ? characterLabel(characterId, characters) : source,
           characterId: characterId || "",
           character: characters.get(String(characterId)) || null,
@@ -428,6 +434,8 @@
         complete,
         inInventory: true,
         inGameTracked: Boolean(item.tracked),
+        highlightedObjective: Boolean(item.highlightedObjective),
+        itemState: item.itemState,
         activeObjectiveCount: summary.active || summary.total,
         objectives: summary.rows,
         objectiveComplete: summary.complete,
@@ -652,7 +660,7 @@
       const sourceChip = questSourceChip(quest);
       const objectiveRows = renderObjectiveSteps(quest.objectives || []);
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
-      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0">
+      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.highlightedObjective ? "is-highlighted-objective" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0">
         ${icon}
         <div>
           <strong>${escapeHtml(title)}${trackedBadge}</strong>
