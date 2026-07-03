@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>D2 Fireteam Progress</title>
+  <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
+  <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
+  <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
+  <link rel="stylesheet" href="assets/styles.css?v=fireteam-dashboard-001" />
+</head>
+<body>
+  <div class="app-shell fireteam-shell">
+    <header class="hero fireteam-hero">
+      <div>
+        <p class="eyebrow">Cloud-synced Destiny 2 tracker</p>
+        <h1>Fireteam Progress</h1>
+        <p class="hero-copy">A compact read-only dashboard for quest progress, character summaries, and shared fireteam snapshots.</p>
+      </div>
+      <nav class="site-nav" aria-label="Site navigation">
+        <a href="index.html">Collections</a>
+        <a href="fireteam.html" aria-current="page">Fireteam</a>
+      </nav>
+    </header>
+
+    <section class="fireteam-top-grid">
+      <article class="panel fireteam-player-card">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Signed-in player</p>
+            <h2 id="playerName">Not linked</h2>
+          </div>
+          <span id="authState" class="count-pill">Bungie offline</span>
+        </div>
+        <div id="playerMeta" class="fireteam-meta-list"></div>
+        <div class="fireteam-actions">
+          <button id="loginBtn" class="button primary" type="button">Sign in with Bungie</button>
+          <button id="refreshBtn" class="button ghost" type="button">Refresh from Bungie</button>
+        </div>
+      </article>
+
+      <article class="panel fireteam-status-card">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Sync status</p>
+            <h2>Fireteam cloud</h2>
+          </div>
+          <span id="lastUpdated" class="count-pill">Never</span>
+        </div>
+        <div id="statusBox" class="fireteam-status">Ready.</div>
+        <div id="cloudStatus" class="sync-health-strip fireteam-cloud-strip"></div>
+      </article>
+    </section>
+
+    <main class="content-grid fireteam-grid">
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Profile</p>
+            <h2>Fireteam Members</h2>
+          </div>
+          <span id="memberCount" class="count-pill">0 saved</span>
+        </div>
+        <div id="membersList" class="fireteam-card-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Objectives</p>
+            <h2>Tracked Quest Progress</h2>
+          </div>
+          <span id="questCount" class="count-pill">0 tracked</span>
+        </div>
+        <div id="questList" class="fireteam-card-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Director</p>
+            <h2>Suggested Next Activities</h2>
+          </div>
+          <span id="activityCount" class="count-pill">0 ideas</span>
+        </div>
+        <div id="activityList" class="fireteam-card-grid"></div>
+      </section>
+    </main>
+
+    <section class="panel data-panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">Diagnostics</p>
+          <h2>Fireteam debug</h2>
+        </div>
+        <span class="count-pill">Advanced</span>
+      </div>
+      <details class="debug-details">
+        <summary>Show latest fireteam snapshot JSON</summary>
+        <textarea id="debugBox" spellcheck="false" readonly placeholder="Refresh from Bungie to generate a fireteam snapshot..."></textarea>
+      </details>
+    </section>
+  </div>
+
+  <script src="data/bungie-config.js"></script>
+  <script src="data/fireteam-activity-map.js?v=001"></script>
+  <script src="assets/bungie-collection-dump.js?v=fireteam-auth-reuse"></script>
+  <script src="assets/fireteam.js?v=001"></script>
+</body>
+</html>

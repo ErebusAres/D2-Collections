@@ -1321,6 +1321,16 @@
     url.searchParams.delete("code");
     url.searchParams.delete("state");
     window.history.replaceState({}, document.title, url.toString());
+    const returnTarget = localStorage.getItem("d2-collections-oauth-return-v1") || "";
+    if (returnTarget) {
+      try {
+        const target = new URL(returnTarget, window.location.href);
+        if (target.origin === window.location.origin && target.pathname.startsWith("/D2-Collections/")) {
+          localStorage.removeItem("d2-collections-oauth-return-v1");
+          window.location.assign(target.toString());
+        }
+      } catch {}
+    }
   }
 
   function shouldKeepNativeFind(event) {

@@ -25,6 +25,13 @@ export default {
       if (url.pathname === "/api/snapshots" && request.method === "POST") {
         return json(await writeSnapshot(request, env), cors);
       }
+      // Fireteam snapshots are separate from exotic collection snapshots so quest/progress data can evolve independently.
+      if (url.pathname === "/api/fireteam-snapshots" && request.method === "GET") {
+        return json(await readFireteamSnapshots(env.DB), cors);
+      }
+      if (url.pathname === "/api/fireteam-snapshots" && request.method === "POST") {
+        return json(await writeFireteamSnapshot(request, env), cors);
+      }
       return json({ ok: false, reason: "not_found" }, cors, 404);
     } catch (error) {
       return json({ ok: false, reason: error.code || "server_error", message: error.message || String(error) }, cors, error.status || 500);
@@ -195,6 +202,72 @@ async function readSnapshots(db) {
         },
         liveSync: payload.liveSync || null,
         applyResult: payload.applyResult || null
+      };
+    })
+  };
+}
+
+async function writeFireteamSnapshot(request, env) {
+  const { player, memberships } = await verifyBungieToken(request, env);
+  const body = await request.json().catch(() => null);
+  const fireteamSnapshot = body?.fireteamSnapshot || body?.payload;
+  if (!fireteamSnapshot?.ok || fireteamSnapshot.kind !== "fireteam") {
+    throw httpError(400, "missing_fireteam_snapshot", "Request must include a successful fireteam snapshot payload.");
+  }
+
+  const syncedAt = new Date().toISOString();
+  const displayName = fireteamSnapshot.playerDisplayName || memberships.bungieNetUser?.uniqueName || player;
+  const membershipId = String(fireteamSnapshot.primaryMembershipId || memberships.primaryMembershipId || "");
+  const snapshot = {
+    ...fireteamSnapshot,
+    player,
+    syncedAt,
+    updatedAt: fireteamSnapshot.updatedAt || syncedAt
+  };
+
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO players (id, display_name, bungie_membership_id, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET display_name = excluded.display_name, bungie_membership_id = excluded.bungie_membership_id, updated_at = excluded.updated_at
+    `).bind(player, displayName, membershipId, syncedAt),
+    env.DB.prepare(`
+      INSERT INTO fireteam_snapshots (player_id, synced_at, membership_id, display_name, payload_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(player_id) DO UPDATE SET synced_at = excluded.synced_at, membership_id = excluded.membership_id, display_name = excluded.display_name, payload_json = excluded.payload_json
+    `).bind(player, syncedAt, membershipId, displayName, JSON.stringify(snapshot))
+  ]);
+
+  return {
+    ok: true,
+    player,
+    syncedAt,
+    displayName,
+    questCount: Array.isArray(snapshot.trackedQuestProgress) ? snapshot.trackedQuestProgress.length : 0,
+    characterCount: Array.isArray(snapshot.characterSummaries) ? snapshot.characterSummaries.length : 0
+  };
+}
+
+async function readFireteamSnapshots(db) {
+  const { results } = await db.prepare(`
+    SELECT player_id, synced_at, membership_id, display_name, payload_json
+    FROM fireteam_snapshots
+    ORDER BY player_id
+  `).all();
+  return {
+    ok: true,
+    snapshots: (results || []).map(row => {
+      const payload = safeJson(row.payload_json);
+      return {
+        player: row.player_id,
+        syncedAt: row.synced_at,
+        membershipId: row.membership_id || payload.primaryMembershipId || "",
+        displayName: row.display_name || payload.playerDisplayName || "",
+        updatedAt: payload.updatedAt || row.synced_at,
+        characterSummaries: payload.characterSummaries || [],
+        trackedQuestProgress: payload.trackedQuestProgress || [],
+        suggestedActivities: payload.suggestedActivities || [],
+        fireteamSnapshot: payload
       };
     })
   };
