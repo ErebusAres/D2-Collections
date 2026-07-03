@@ -7,8 +7,9 @@
   const RETURN_KEY = "d2-collections-oauth-return-v1";
   const STATE_KEY = "d2-collections-oauth-state-v1";
   const RECORD_CACHE_KEY = "d2-fireteam-record-def-cache-v1";
-  const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v1";
+  const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v2";
   const OBJECTIVE_CACHE_KEY = "d2-fireteam-objective-def-cache-v1";
+  const MANUAL_TRACK_KEY = "d2-fireteam-manual-track-v1";
   const AUTO_REFRESH_MS = 90 * 1000;
   const MAX_QUEST_ITEMS = 120;
   const ITEM_STATE_TRACKED = 2;
@@ -43,6 +44,8 @@
     questList: document.querySelector("#questList"),
     questCount: document.querySelector("#questCount"),
     questTabs: document.querySelector("#questTabs"),
+    manualTrackList: document.querySelector("#manualTrackList"),
+    manualTrackCount: document.querySelector("#manualTrackCount"),
     activityList: document.querySelector("#activityList"),
     activityCount: document.querySelector("#activityCount"),
     debugBox: document.querySelector("#debugBox")
@@ -53,6 +56,8 @@
   let refreshing = false;
   let autoRefreshTimer = 0;
   let questFilter = "all";
+  let manualTracked = readManualTracked();
+  let manualRenderSeq = 0;
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -70,6 +75,23 @@
 
   function writeJson(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function readManualTracked() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MANUAL_TRACK_KEY) || "[]");
+      return new Set(Array.isArray(saved) ? saved.map(String) : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function saveManualTracked() {
+    localStorage.setItem(MANUAL_TRACK_KEY, JSON.stringify([...manualTracked]));
+  }
+
+  function questKey(quest) {
+    return String(quest?.instanceId || quest?.itemHash || quest?.hash || "");
   }
 
   function nowSeconds() {
@@ -275,6 +297,17 @@
         itemTypeAndTierDisplayName: def?.itemTypeAndTierDisplayName || "",
         itemCategoryHashes: def?.itemCategoryHashes || [],
         inventoryBucketHash: def?.inventory?.bucketTypeHash || "",
+        objectiveHashes: def?.objectives?.objectiveHashes || [],
+        setData: def?.setData ? {
+          questLineName: def.setData.questLineName || "",
+          questLineDescription: def.setData.questLineDescription || "",
+          questStepSummary: def.setData.questStepSummary || "",
+          setType: def.setData.setType || "",
+          itemList: (def.setData.itemList || []).map(entry => ({
+            itemHash: String(entry.itemHash || entry.hash || ""),
+            trackingValue: entry.trackingValue || 0
+          })).filter(entry => entry.itemHash)
+        } : null,
         resolvedAt: new Date().toISOString()
       };
     } catch {
@@ -321,6 +354,73 @@
       });
     });
     return items;
+  }
+
+  async function questTimelineForItem(definition, currentHash, liveObjectives = []) {
+    const liveObjectiveCache = objectiveCache();
+    for (const row of liveObjectives) {
+      if (row.objectiveHash) await objectiveDefinition(row.objectiveHash, liveObjectiveCache);
+    }
+    const liveRows = liveObjectives.map(row => {
+      const def = liveObjectiveCache[row.objectiveHash] || {};
+      return {
+        ...row,
+        name: row.name || def.progressDescription || def.name || `Objective ${row.objectiveHash || ""}`,
+        description: row.description || def.description || ""
+      };
+    });
+    const chain = definition?.setData?.itemList || [];
+    if (!chain.length) {
+      return [{
+        hash: String(currentHash || ""),
+        name: definition?.name || "Current step",
+        description: definition?.description || "",
+        status: "current",
+        objectives: liveRows
+      }];
+    }
+
+    const cache = itemCache();
+    const objectiveDefs = objectiveCache();
+    const current = String(currentHash || "");
+    const steps = [];
+    for (const entry of chain.slice(0, 24)) {
+      const hash = String(entry.itemHash || "");
+      const stepDef = await itemDefinition(hash, cache);
+      const objectiveHashes = stepDef.objectiveHashes || [];
+      for (const objectiveHash of objectiveHashes) {
+        await objectiveDefinition(objectiveHash, objectiveDefs);
+      }
+      steps.push({
+        hash,
+        name: stepDef.name || definition?.setData?.questLineName || definition?.name || "Quest step",
+        description: stepDef.description || stepDef.setData?.questStepSummary || "",
+        icon: stepDef.icon || "",
+        objectives: objectiveHashes.map(objectiveHash => {
+          const def = objectiveDefs[objectiveHash] || {};
+          return {
+            objectiveHash,
+            name: def.progressDescription || def.name || `Objective ${objectiveHash}`,
+            description: def.description || "",
+            progress: 0,
+            total: 0,
+            complete: false
+          };
+        })
+      });
+    }
+
+    const currentIndex = Math.max(0, steps.findIndex(step => step.hash === current));
+    steps.forEach((step, index) => {
+      step.status = index < currentIndex ? "past" : index === currentIndex ? "current" : "future";
+      if (step.status === "past") {
+        step.objectives = step.objectives.map(row => ({ ...row, complete: true }));
+      }
+      if (step.status === "current" && liveRows.length) {
+        step.objectives = liveRows;
+      }
+    });
+    return steps;
   }
 
   function activeObjectiveHashes(profile) {
@@ -440,6 +540,9 @@
         objectives: summary.rows,
         objectiveComplete: summary.complete,
         objectiveTotal: summary.total,
+        questLineName: definition.setData?.questLineName || definition.name || "",
+        questLineDescription: definition.setData?.questLineDescription || "",
+        setData: definition.setData || null,
         pct: summary.pct,
         name: definition.name || `Item ${item.itemHash}`,
         description: definition.description || "",
@@ -659,8 +762,12 @@
       const trackedBadge = quest.inGameTracked ? `<span class="fireteam-tracked-badge">Tracked in game</span>` : "";
       const sourceChip = questSourceChip(quest);
       const objectiveRows = renderObjectiveSteps(quest.objectives || []);
+      const key = questKey(quest);
+      const isPinned = manualTracked.has(key);
+      const pinButton = key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin from site tracker" : "Pin to site tracker"}"><span aria-hidden="true"></span></button>` : "";
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
       return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.highlightedObjective ? "is-highlighted-objective" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0">
+        ${pinButton}
         ${icon}
         <div>
           <strong>${escapeHtml(title)}${trackedBadge}</strong>
@@ -670,6 +777,85 @@
         </div>
       </article>`;
     }).join("");
+  }
+
+  function pinnedQuests(quests = []) {
+    const byKey = new Map(quests.map(quest => [questKey(quest), quest]).filter(([key]) => key));
+    return [...manualTracked].map(key => byKey.get(key)).filter(Boolean);
+  }
+
+  async function ensureQuestTimeline(quest) {
+    if (!quest || quest.questSteps?.length || !quest.itemHash) return quest;
+    const cache = itemCache();
+    const definition = await itemDefinition(quest.itemHash, cache);
+    quest.questLineName = quest.questLineName || definition.setData?.questLineName || definition.name || "";
+    quest.questLineDescription = quest.questLineDescription || definition.setData?.questLineDescription || "";
+    quest.questSteps = await questTimelineForItem(definition, quest.itemHash, quest.objectives || []);
+    return quest;
+  }
+
+  async function renderManualTracker(quests = latestSnapshot?.trackedQuestProgress || []) {
+    const renderSeq = ++manualRenderSeq;
+    const pinned = pinnedQuests(quests);
+    if (els.manualTrackCount) els.manualTrackCount.textContent = `${pinned.length} pinned`;
+    if (!els.manualTrackList) return;
+    if (!pinned.length) {
+      els.manualTrackList.innerHTML = emptyState("Click a green marker on any quest card to pin it here.");
+      return;
+    }
+    await Promise.all(pinned.map(ensureQuestTimeline));
+    if (renderSeq !== manualRenderSeq) return;
+    els.manualTrackList.innerHTML = pinned.map(quest => {
+      const steps = quest.questSteps?.length ? quest.questSteps : [{
+        hash: quest.hash,
+        name: quest.name,
+        description: quest.description,
+        status: "current",
+        objectives: quest.objectives || []
+      }];
+      const currentIndex = Math.max(0, steps.findIndex(step => step.status === "current"));
+      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">Q</span>`;
+      return `<article class="manual-track-card">
+        <div class="manual-track-head">
+          ${icon}
+          <div>
+            <strong>${escapeHtml(quest.questLineName || quest.name || "Pinned quest")}</strong>
+            <span>${escapeHtml(titleCase(quest.kind || "quest"))} / Step ${currentIndex + 1} of ${steps.length}</span>
+          </div>
+          <button class="manual-track-remove" type="button" data-manual-track="${escapeHtml(questKey(quest))}" title="Unpin from site tracker">x</button>
+        </div>
+        <div class="manual-step-list">${steps.map((step, index) => renderTimelineStep(step, index, steps.length)).join("")}</div>
+      </article>`;
+    }).join("");
+  }
+
+  function renderTimelineStep(step, index, total) {
+    const objectives = step.objectives || [];
+    const current = step.status === "current";
+    return `<section class="manual-step is-${escapeHtml(step.status || "future")}">
+      <div class="manual-step-title">
+        <span>${index + 1}</span>
+        <strong>${escapeHtml(step.name || `Step ${index + 1}`)}</strong>
+        <em>${escapeHtml(step.status || (index + 1 === total ? "future" : "step"))}</em>
+      </div>
+      ${step.description ? `<p>${escapeHtml(step.description)}</p>` : ""}
+      <div class="manual-step-objectives">${objectives.length ? objectives.map(row => renderManualObjective(row, current)).join("") : `<span class="manual-step-empty">No objective rows exposed for this step.</span>`}</div>
+    </section>`;
+  }
+
+  function renderManualObjective(row, showValue) {
+    const total = Number(row.total || 0);
+    const progress = Number(row.progress || 0);
+    const pct = total ? Math.max(0, Math.min(100, Math.round((progress / total) * 100))) : row.complete ? 100 : 0;
+    const value = showValue && total ? `${progress}/${total}` : row.complete ? "Complete" : "";
+    return `<div class="manual-objective ${row.complete ? "is-complete" : ""}">
+      <span class="quest-step-check" aria-hidden="true"></span>
+      <div>
+        <strong>${escapeHtml(row.name || `Objective ${row.objectiveHash || ""}`)}</strong>
+        ${value ? `<em>${escapeHtml(value)}</em>` : ""}
+        <div class="quest-step-track"><i style="width:${pct}%"></i></div>
+      </div>
+    </div>`;
   }
 
   function renderObjectiveSteps(objectives = []) {
@@ -734,6 +920,7 @@
     renderPlayer(snapshot);
     renderMembers(savedSnapshots);
     renderQuests(snapshot?.trackedQuestProgress || []);
+    renderManualTracker(snapshot?.trackedQuestProgress || []);
     renderActivities(snapshot?.suggestedActivities || []);
     renderCloudStatus();
     if (els.debugBox) els.debugBox.value = snapshot ? JSON.stringify(snapshot, null, 2) : "";
@@ -829,6 +1016,19 @@
       questFilter = button.dataset.questFilter || "all";
       els.questTabs.querySelectorAll("[data-quest-filter]").forEach(item => item.classList.toggle("active", item === button));
       renderQuests(latestSnapshot?.trackedQuestProgress || []);
+    });
+    document.addEventListener("click", event => {
+      const button = event.target.closest("[data-manual-track]");
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const key = String(button.dataset.manualTrack || "");
+      if (!key) return;
+      if (manualTracked.has(key)) manualTracked.delete(key);
+      else manualTracked.add(key);
+      saveManualTracked();
+      renderQuests(latestSnapshot?.trackedQuestProgress || []);
+      renderManualTracker(latestSnapshot?.trackedQuestProgress || []);
     });
     if (sessionIsUsable() || hasSavedCode()) refreshFromBungie({ silent: true });
   }

@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=fireteam-item-state-tracking" />
+  <link rel="stylesheet" href="assets/styles.css?v=fireteam-manual-pin-tracker" />
 </head>
 <body>
   <div class="app-shell fireteam-shell">
@@ -76,6 +76,17 @@
           <div id="activityList" class="fireteam-card-grid"></div>
         </section>
 
+        <section class="panel fireteam-pinned-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Quest steps</p>
+              <h2>Manual Tracker</h2>
+            </div>
+            <span id="manualTrackCount" class="count-pill">0 pinned</span>
+          </div>
+          <div id="manualTrackList" class="fireteam-card-grid"></div>
+        </section>
+
         <section class="panel data-panel fireteam-debug-panel">
           <div class="panel-head">
             <div>
@@ -115,6 +126,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=fireteam-auth-reuse"></script>
-  <script src="assets/fireteam.js?v=fireteam-item-state-tracking"></script>
+  <script src="assets/fireteam.js?v=fireteam-manual-pin-tracker"></script>
 </body>
 </html>
