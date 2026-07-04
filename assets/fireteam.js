@@ -10,6 +10,7 @@
   const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v2";
   const OBJECTIVE_CACHE_KEY = "d2-fireteam-objective-def-cache-v1";
   const MANUAL_TRACK_KEY = "d2-fireteam-manual-track-v1";
+  const MANUAL_TRACK_CACHE_KEY = "d2-fireteam-manual-track-cache-v1";
   const MANUAL_DRAWER_KEY = "d2-fireteam-manual-drawer-minimized-v1";
   const AUTO_REFRESH_MS = 90 * 1000;
   const MAX_QUEST_ITEMS = 120;
@@ -74,6 +75,7 @@
   let questFilter = "all";
   let classFilter = "";
   let manualTracked = readManualTracked();
+  let manualTrackCache = readManualTrackCache();
   let manualRenderSeq = 0;
 
   function escapeHtml(value) {
@@ -103,12 +105,54 @@
     }
   }
 
+  function readManualTrackCache() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MANUAL_TRACK_CACHE_KEY) || "{}");
+      return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+    } catch {
+      return {};
+    }
+  }
+
   function saveManualTracked() {
     localStorage.setItem(MANUAL_TRACK_KEY, JSON.stringify([...manualTracked]));
+    const nextCache = {};
+    [...manualTracked].forEach(key => {
+      if (manualTrackCache[key]) nextCache[key] = manualTrackCache[key];
+    });
+    manualTrackCache = nextCache;
+    localStorage.setItem(MANUAL_TRACK_CACHE_KEY, JSON.stringify(manualTrackCache));
   }
 
   function questKey(quest) {
     return String(quest?.instanceId || quest?.itemHash || quest?.hash || "");
+  }
+
+  function rememberManualQuest(quest) {
+    const key = questKey(quest);
+    if (!key) return;
+    manualTrackCache[key] = {
+      hash: quest.hash,
+      itemHash: quest.itemHash,
+      instanceId: quest.instanceId,
+      kind: quest.kind,
+      name: quest.name,
+      description: quest.description,
+      icon: quest.icon,
+      source: quest.source,
+      fireteamOwner: quest.fireteamOwner,
+      questLineName: quest.questLineName,
+      questLineDescription: quest.questLineDescription,
+      objectiveComplete: quest.objectiveComplete,
+      objectiveTotal: quest.objectiveTotal,
+      pct: quest.pct,
+      character: quest.character ? {
+        className: quest.character.className,
+        emblemPath: quest.character.emblemPath
+      } : null,
+      objectives: quest.objectives || [],
+      questSteps: quest.questSteps || []
+    };
   }
 
   function snapshotPayload(snapshot) {
@@ -142,7 +186,9 @@
       (snapshotPayload(snapshot)?.trackedQuestProgress || []).filter(quest => quest.kind !== "record").forEach(quest => {
         const key = questKey(quest);
         if (!key || byKey.has(key)) return;
-        byKey.set(key, { ...quest, fireteamOwner: owner });
+        const remembered = { ...quest, fireteamOwner: owner };
+        byKey.set(key, remembered);
+        if (manualTracked.has(key)) rememberManualQuest(remembered);
       });
     });
     return [...byKey.values()];
@@ -955,7 +1001,11 @@
 
   function pinnedQuests(quests = allFireteamQuestItems()) {
     const byKey = new Map(quests.filter(quest => quest.kind !== "record").map(quest => [questKey(quest), quest]).filter(([key]) => key));
-    return [...manualTracked].map(key => byKey.get(key)).filter(Boolean);
+    return [...manualTracked].map(key => {
+      const quest = byKey.get(key) || manualTrackCache[key];
+      if (quest && byKey.has(key)) rememberManualQuest(quest);
+      return quest;
+    }).filter(Boolean);
   }
 
   async function ensureQuestTimeline(quest) {
@@ -1328,8 +1378,14 @@
       event.stopPropagation();
       const key = String(button.dataset.manualTrack || "");
       if (!key) return;
-      if (manualTracked.has(key)) manualTracked.delete(key);
-      else manualTracked.add(key);
+      if (manualTracked.has(key)) {
+        manualTracked.delete(key);
+        delete manualTrackCache[key];
+      } else {
+        const quest = allFireteamQuestItems().find(item => questKey(item) === key) || activeSnapshot()?.trackedQuestProgress?.find(item => questKey(item) === key);
+        if (quest) rememberManualQuest(quest);
+        manualTracked.add(key);
+      }
       saveManualTracked();
       renderQuests(activeSnapshot()?.trackedQuestProgress || []);
       renderTriumphs(activeSnapshot()?.trackedQuestProgress || []);
