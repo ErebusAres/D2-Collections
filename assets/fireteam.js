@@ -60,6 +60,7 @@
 
   let latestSnapshot = null;
   let savedSnapshots = [];
+  let selectedSnapshotKey = "";
   let refreshing = false;
   let autoRefreshTimer = 0;
   let questFilter = "all";
@@ -100,6 +101,28 @@
 
   function questKey(quest) {
     return String(quest?.instanceId || quest?.itemHash || quest?.hash || "");
+  }
+
+  function snapshotPayload(snapshot) {
+    return snapshot?.fireteamSnapshot || snapshot || null;
+  }
+
+  function snapshotKey(snapshot) {
+    const payload = snapshotPayload(snapshot) || {};
+    return String(payload.primaryMembershipId || snapshot?.membershipId || snapshot?.player || payload.player || snapshot?.displayName || payload.playerDisplayName || "");
+  }
+
+  function activeSnapshot() {
+    if (selectedSnapshotKey) {
+      const saved = savedSnapshots.find(snapshot => snapshotKey(snapshot) === selectedSnapshotKey);
+      if (saved) return snapshotPayload(saved);
+    }
+    return latestSnapshot || snapshotPayload(savedSnapshots[0]);
+  }
+
+  function setSelectedSnapshot(key) {
+    selectedSnapshotKey = key || "";
+    renderSnapshot(activeSnapshot());
   }
 
   function setManualDrawerMinimized(minimized) {
@@ -745,14 +768,20 @@
       els.membersList.innerHTML = emptyState("No known fireteam snapshots yet. Refresh from Bungie to save the first one.");
       return;
     }
+    const activeKey = snapshotKey(activeSnapshot());
     els.membersList.innerHTML = list.map(snapshot => {
-      const chars = snapshot.characterSummaries || snapshot.fireteamSnapshot?.characterSummaries || [];
-      const display = snapshot.playerDisplayName || snapshot.displayName || snapshot.fireteamSnapshot?.playerDisplayName || "Unknown Guardian";
-      const updatedAt = snapshot.updatedAt || snapshot.syncedAt || snapshot.fireteamSnapshot?.updatedAt || "";
-      return `<article class="fireteam-mini-card">
+      const payload = snapshotPayload(snapshot) || {};
+      const key = snapshotKey(snapshot);
+      const chars = payload.characterSummaries || [];
+      const display = payload.playerDisplayName || snapshot.displayName || "Unknown Guardian";
+      const updatedAt = snapshot.syncedAt || payload.updatedAt || "";
+      const questItems = (payload.trackedQuestProgress || []).filter(item => item.kind !== "record");
+      const trackedCount = payload.trackedQuestItemCount ?? questItems.filter(item => item.inGameTracked).length;
+      const active = key && key === activeKey;
+      return `<article class="fireteam-mini-card fireteam-member-card ${active ? "active" : ""}" role="button" tabindex="0" data-view-snapshot="${escapeHtml(key)}" aria-pressed="${active ? "true" : "false"}">
         <div>
           <strong>${escapeHtml(display)}</strong>
-          <span>${escapeHtml(formatShort(updatedAt))}</span>
+          <span>${escapeHtml(formatShort(updatedAt))} / ${escapeHtml(trackedCount)} tracked / ${escapeHtml(questItems.length)} quests</span>
         </div>
         <div class="fireteam-character-row">${chars.slice(0, 3).map(renderCharacterPill).join("") || `<span class="badge">No characters</span>`}</div>
       </article>`;
@@ -963,15 +992,16 @@
     return `<div class="empty-state">${escapeHtml(text)}</div>`;
   }
 
-  function renderSnapshot(snapshot = latestSnapshot) {
-    renderPlayer(snapshot);
+  function renderSnapshot(snapshot = activeSnapshot()) {
+    const payload = snapshotPayload(snapshot);
+    renderPlayer(payload);
     renderMembers(savedSnapshots);
-    renderQuests(snapshot?.trackedQuestProgress || []);
-    renderTriumphs(snapshot?.trackedQuestProgress || []);
-    renderManualTracker(snapshot?.trackedQuestProgress || []);
-    renderActivities(snapshot?.suggestedActivities || []);
+    renderQuests(payload?.trackedQuestProgress || []);
+    renderTriumphs(payload?.trackedQuestProgress || []);
+    renderManualTracker(payload?.trackedQuestProgress || []);
+    renderActivities(payload?.suggestedActivities || []);
     renderCloudStatus();
-    if (els.debugBox) els.debugBox.value = snapshot ? JSON.stringify(snapshot, null, 2) : "";
+    if (els.debugBox) els.debugBox.value = payload ? JSON.stringify(payload, null, 2) : "";
   }
 
   function titleCase(value) {
@@ -988,7 +1018,10 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.message || data.reason || "Fireteam cloud read failed.");
       savedSnapshots = data.snapshots || [];
+      if (!selectedSnapshotKey && !latestSnapshot && savedSnapshots.length) selectedSnapshotKey = snapshotKey(savedSnapshots[0]);
+      if (selectedSnapshotKey && !savedSnapshots.some(snapshot => snapshotKey(snapshot) === selectedSnapshotKey)) selectedSnapshotKey = "";
       renderMembers(savedSnapshots);
+      renderSnapshot(activeSnapshot());
       renderCloudStatus(savedSnapshots);
       return savedSnapshots;
     } catch (error) {
@@ -1025,6 +1058,7 @@
         return;
       }
       latestSnapshot = await buildFireteamSnapshot();
+      selectedSnapshotKey = snapshotKey(latestSnapshot);
       renderSnapshot(latestSnapshot);
       try {
         const saved = await saveCloudSnapshot(latestSnapshot);
@@ -1067,7 +1101,7 @@
       if (!button) return;
       questFilter = button.dataset.questFilter || "all";
       els.questTabs.querySelectorAll("[data-quest-filter]").forEach(item => item.classList.toggle("active", item === button));
-      renderQuests(latestSnapshot?.trackedQuestProgress || []);
+      renderQuests(activeSnapshot()?.trackedQuestProgress || []);
     });
     document.addEventListener("click", event => {
       const classButton = event.target.closest("[data-class-filter]");
@@ -1076,9 +1110,16 @@
         const nextClass = String(classButton.dataset.classFilter || "");
         classFilter = classFilter === nextClass ? "" : nextClass;
         renderMembers(savedSnapshots);
-        renderQuests(latestSnapshot?.trackedQuestProgress || []);
-        renderTriumphs(latestSnapshot?.trackedQuestProgress || []);
-        renderManualTracker(latestSnapshot?.trackedQuestProgress || []);
+        renderQuests(activeSnapshot()?.trackedQuestProgress || []);
+        renderTriumphs(activeSnapshot()?.trackedQuestProgress || []);
+        renderManualTracker(activeSnapshot()?.trackedQuestProgress || []);
+        return;
+      }
+
+      const snapshotButton = event.target.closest("[data-view-snapshot]");
+      if (snapshotButton) {
+        event.preventDefault();
+        setSelectedSnapshot(String(snapshotButton.dataset.viewSnapshot || ""));
         return;
       }
 
@@ -1091,9 +1132,16 @@
       if (manualTracked.has(key)) manualTracked.delete(key);
       else manualTracked.add(key);
       saveManualTracked();
-      renderQuests(latestSnapshot?.trackedQuestProgress || []);
-      renderTriumphs(latestSnapshot?.trackedQuestProgress || []);
-      renderManualTracker(latestSnapshot?.trackedQuestProgress || []);
+      renderQuests(activeSnapshot()?.trackedQuestProgress || []);
+      renderTriumphs(activeSnapshot()?.trackedQuestProgress || []);
+      renderManualTracker(activeSnapshot()?.trackedQuestProgress || []);
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const snapshotCard = event.target.closest("[data-view-snapshot]");
+      if (!snapshotCard || event.target.closest("[data-class-filter]")) return;
+      event.preventDefault();
+      setSelectedSnapshot(String(snapshotCard.dataset.viewSnapshot || ""));
     });
     if (sessionIsUsable() || hasSavedCode()) refreshFromBungie({ silent: true });
   }
