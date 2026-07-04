@@ -2196,8 +2196,8 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 }
 @media (min-width: 1181px) {
   .fireteam-shell {
-    width: min(calc(100% - 462px), 1260px);
-    margin-left: 14px;
+    width: min(calc(100vw - 462px), 1260px);
+    margin-left: max(14px, calc((100vw - 462px - 1260px) / 2));
     margin-right: auto;
   }
 }
