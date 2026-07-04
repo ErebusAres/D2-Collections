@@ -70,6 +70,25 @@ body::after {
   mix-blend-mode: overlay;
 }
 
+body.fireteam-page {
+  background:
+    linear-gradient(90deg, rgba(202,209,221,.026) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(202,209,221,.02) 1px, transparent 1px),
+    linear-gradient(115deg, transparent 0 17%, rgba(126,18,31,.16) 17.1% 17.35%, transparent 17.45%),
+    linear-gradient(152deg, transparent 0 69%, rgba(216,177,91,.09) 69.1% 69.3%, transparent 69.4%),
+    radial-gradient(circle at 52% -12%, rgba(126,18,31,.34), transparent 34%),
+    linear-gradient(180deg, #101613 0%, #070a08 48%, #030403 100%);
+  background-size: 44px 44px, 44px 44px, auto, auto, auto, auto;
+}
+
+body.fireteam-page::before {
+  background:
+    repeating-linear-gradient(118deg, transparent 0 92px, rgba(0,0,0,.22) 93px 99px, transparent 100px 170px),
+    linear-gradient(115deg, transparent 0 12%, rgba(202,209,221,.07) 12.1% 12.28%, transparent 12.42%),
+    linear-gradient(155deg, transparent 0 74%, rgba(216,177,91,.07) 74.1% 74.3%, transparent 74.4%),
+    linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.34));
+}
+
 button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible,
@@ -2194,14 +2213,15 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   --bt-olive: rgba(72, 68, 28, .66);
   --bt-line: rgba(196, 202, 202, .24);
   --bt-panel: rgba(7, 10, 10, .91);
-  width: min(100% - 28px, 1680px);
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding-top: 0;
 }
 @media (min-width: 1181px) {
   .fireteam-shell {
-    width: min(calc(100vw - 462px), 1260px);
-    margin-left: max(14px, calc((100vw - 462px - 1260px) / 2));
-    margin-right: auto;
+    width: 100%;
+    margin: 0;
   }
 }
 .fireteam-shell .panel {
@@ -2217,12 +2237,12 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 .fireteam-bray-header {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(202,209,221,.16);
+  border: 0;
   border-radius: 0;
   background:
     linear-gradient(180deg, rgba(255,255,255,.06), transparent 22%),
     rgba(6,8,8,.94);
-  box-shadow: 0 20px 42px rgba(0,0,0,.38), inset 0 0 0 1px rgba(255,255,255,.025);
+  box-shadow: none;
 }
 .fireteam-appbar {
   display: flex;
@@ -2288,7 +2308,7 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   gap: 16px;
   align-items: end;
   min-height: 126px;
-  padding: 28px 24px 18px;
+  padding: 28px max(22px, calc((100vw - 1480px) / 2)) 18px;
   background:
     linear-gradient(110deg, rgba(126,18,31,.78), rgba(126,18,31,.36) 34%, rgba(7,9,9,.76) 70%),
     repeating-linear-gradient(155deg, transparent 0 62px, rgba(0,0,0,.36) 63px 68px, transparent 69px 112px),
@@ -2381,12 +2401,15 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   display: grid;
   grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
   gap: 14px;
+  width: min(calc(100vw - 462px), 1260px);
+  margin: 18px auto 0 max(18px, calc((100vw - 462px - 1260px) / 2));
 }
 .fireteam-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
   gap: 16px;
-  margin-top: 14px;
+  width: min(calc(100vw - 462px), 1260px);
+  margin: 14px auto 0 max(18px, calc((100vw - 462px - 1260px) / 2));
   align-items: start;
 }
 .fireteam-side-column {
@@ -2646,11 +2669,32 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   z-index: 5;
   overflow: visible;
   min-height: 620px;
-  border-top: 3px solid rgba(202,209,221,.4);
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0;
 }
 .fireteam-triumph-panel {
   overflow: visible;
-  border-top: 3px solid rgba(126,18,31,.45);
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0;
+}
+.fireteam-quest-panel .panel-head,
+.fireteam-triumph-panel .panel-head {
+  min-height: 42px;
+  margin-bottom: 10px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid rgba(202,209,221,.18);
+}
+.fireteam-quest-panel .panel-head h2,
+.fireteam-triumph-panel .panel-head h2 {
+  font-size: 1rem;
+}
+.fireteam-quest-panel .count-pill,
+.fireteam-triumph-panel .count-pill {
+  background: rgba(0,0,0,.42);
 }
 .fireteam-record-grid {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -3320,6 +3364,12 @@ body.manual-tracker-minimized .manual-drawer-toggle {
 
 @media (max-width: 1180px) {
   .content-grid { grid-template-columns: 1fr; }
+  .fireteam-top-grid,
+  .fireteam-grid {
+    width: min(100% - 28px, 980px);
+    margin-left: auto;
+    margin-right: auto;
+  }
   .fireteam-top-grid,
   .fireteam-grid { grid-template-columns: 1fr; }
   .fireteam-profile-banner {
