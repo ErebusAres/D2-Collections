@@ -2693,17 +2693,20 @@ body.manual-tracker-minimized .manual-drawer-toggle {
 }
 .fireteam-character-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  overflow: hidden;
 }
 .character-pill {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  min-width: 0;
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 7px;
   background: rgba(0,0,0,.2);
-  padding: 4px 7px 4px 4px;
+  padding: 4px 6px 4px 4px;
   color: inherit;
   cursor: pointer;
   font: inherit;
@@ -2718,12 +2721,19 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   box-shadow: inset 0 -2px 0 rgba(99,215,132,.72);
 }
 .character-pill img {
+  flex: 0 0 28px;
   width: 28px;
   height: 28px;
   border-radius: 5px;
   object-fit: cover;
 }
+.character-pill .character-class-icon {
+  border-radius: 0;
+  object-fit: contain;
+  filter: grayscale(1) brightness(1.85);
+}
 .character-pill em {
+  flex: 0 0 auto;
   color: var(--gold-bright);
   font-style: normal;
   font-weight: 900;

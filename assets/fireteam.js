@@ -800,8 +800,21 @@
     const icon = character.emblemPath ? `<img src="${escapeHtml(iconUrl(character.emblemPath))}" alt="" width="28" height="28" loading="lazy" decoding="async" aria-hidden="true" />` : "";
     const className = character.className || "Guardian";
     const active = classFilter && className === classFilter;
-    const buttonAttr = className !== "Guardian" ? ` type="button" data-class-filter="${escapeHtml(className)}" aria-pressed="${active ? "true" : "false"}" title="${active ? "Clear class filter" : `Show ${className} quests`}"` : "";
-    return `<button class="character-pill ${active ? "active" : ""}"${buttonAttr}>${icon}<strong>${escapeHtml(className)}</strong><em>${Number(character.light || 0)}</em></button>`;
+    const classIcon = classIconPath(className);
+    const classMarkup = classIcon
+      ? `<img class="character-class-icon" src="${escapeHtml(classIcon)}" alt="${escapeHtml(className)}" width="28" height="28" loading="lazy" decoding="async" />`
+      : `<strong>${escapeHtml(className)}</strong>`;
+    const title = active ? `Clear ${className} filter` : `Show ${className} quests`;
+    const buttonAttr = className !== "Guardian" ? ` type="button" data-class-filter="${escapeHtml(className)}" aria-pressed="${active ? "true" : "false"}" aria-label="${escapeHtml(title)}" title="${escapeHtml(title)}"` : "";
+    return `<button class="character-pill ${active ? "active" : ""}"${buttonAttr}>${icon}${classMarkup}<em>${Number(character.light || 0)}</em></button>`;
+  }
+
+  function classIconPath(className) {
+    const key = String(className || "").toLowerCase();
+    if (key === "warlock") return "assets/dim-icons/class_warlock.png";
+    if (key === "hunter") return "assets/dim-icons/class_hunter.png";
+    if (key === "titan") return "assets/dim-icons/class_titan.png";
+    return "";
   }
 
   function questSearchText(quest) {
