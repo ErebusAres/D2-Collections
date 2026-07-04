@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=bray-fireteam-013" />
+  <link rel="stylesheet" href="assets/styles.css?v=bray-fireteam-014" />
 </head>
 <body class="fireteam-page">
   <div class="app-shell fireteam-shell">
@@ -36,7 +36,10 @@
         <div class="fireteam-profile-copy">
           <p class="eyebrow">Cloud-synced Destiny 2 tracker</p>
           <div id="profileSelectorToggle" class="fireteam-profile-select" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
-            <h1 id="profileGuardianName">Fireteam Progress</h1>
+            <div class="fireteam-profile-title-row">
+              <h1 id="profileGuardianName">Fireteam Progress</h1>
+              <div id="profileTopStats" class="fireteam-profile-stats"></div>
+            </div>
             <div id="profileGuardianMeta" class="fireteam-profile-meta">Quest progress, character summaries, and shared fireteam snapshots.</div>
           </div>
           <div id="profileCharacterSelector" class="fireteam-character-selector" hidden></div>
@@ -187,6 +190,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=cross-tab-refresh-lock"></script>
-  <script src="assets/fireteam.js?v=fireteam-social-drawer"></script>
+  <script src="assets/fireteam.js?v=fireteam-rank-power"></script>
 </body>
 </html>

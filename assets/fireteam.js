@@ -45,6 +45,7 @@
     playerName: document.querySelector("#playerName"),
     profileGuardianName: document.querySelector("#profileGuardianName"),
     profileGuardianMeta: document.querySelector("#profileGuardianMeta"),
+    profileTopStats: document.querySelector("#profileTopStats"),
     profileEmblem: document.querySelector("#profileEmblem"),
     profileSelectorToggle: document.querySelector("#profileSelectorToggle"),
     profileCharacterSelector: document.querySelector("#profileCharacterSelector"),
@@ -406,6 +407,34 @@
       lastPlayed: character.dateLastPlayed || "",
       minutesPlayedTotal: Number(character.minutesPlayedTotal || 0)
     })).sort((a, b) => b.light - a.light || a.className.localeCompare(b.className));
+  }
+
+  function progressionPct(progression) {
+    const progress = Number(progression?.progressToNextLevel || progression?.progress || 0);
+    const next = Number(progression?.nextLevelAt || progression?.completionValue || 0);
+    return next > 0 ? Math.max(0, Math.min(100, Math.round((progress / next) * 100))) : 0;
+  }
+
+  function seasonProgressSummary(profile) {
+    const data = profile?.profileProgression?.data || {};
+    const artifact = data.seasonalArtifact || {};
+    const candidates = [
+      artifact.pointProgression,
+      artifact.powerBonusProgression,
+      data.seasonPassProgression,
+      data.seasonalRankProgression
+    ].filter(Boolean);
+    const progression = candidates.find(item => Number(item?.nextLevelAt || item?.completionValue || 0) > 0) || candidates[0] || null;
+    const rank = Number(data.seasonRank || data.currentSeasonRank || artifact.seasonRank || progression?.level || artifact.pointsAcquired || 0);
+    const progress = Number(progression?.progressToNextLevel || progression?.progress || 0);
+    const next = Number(progression?.nextLevelAt || progression?.completionValue || 0);
+    return {
+      rank,
+      progress,
+      next,
+      pct: progressionPct(progression),
+      label: rank ? "Season Rank" : "Season Progress"
+    };
   }
 
   function characterMap(profile) {
@@ -832,7 +861,7 @@
     }
 
     setStatus(`Reading profile for ${displayName(memberships, membership)}...`, "loading");
-    const components = "100,102,103,200,201,202,204,301,800,900,1200";
+    const components = "100,102,103,104,200,201,202,204,301,800,900,1200";
     const profile = await bungieGet(`/Destiny2/${membership.membershipType}/Profile/${membership.membershipId}/?components=${components}`);
     const characters = characterSummaries(profile);
     const quests = await trackedQuestProgress(profile);
@@ -856,6 +885,7 @@
       },
       membershipCount: (memberships.destinyMemberships || []).length,
       characterSummaries: characters,
+      seasonProgress: seasonProgressSummary(profile),
       activeQuestItemCount: inventoryQuestItemCount,
       inventoryQuestItemCount,
       trackedQuestItemCount,
@@ -874,6 +904,8 @@
       if (els.playerName) els.playerName.textContent = "Not linked";
       if (els.profileGuardianName) els.profileGuardianName.textContent = "Fireteam Progress";
       if (els.profileGuardianMeta) els.profileGuardianMeta.textContent = "Quest progress, character summaries, and shared fireteam snapshots.";
+      if (els.profileGuardianMeta) els.profileGuardianMeta.style.setProperty("--season-progress", "0%");
+      if (els.profileTopStats) els.profileTopStats.innerHTML = "";
       if (els.profileEmblem) els.profileEmblem.src = "assets/d2-collections-mark.svg";
       renderProfileCharacterSelector(null);
       if (els.playerMeta) els.playerMeta.innerHTML = `<span>Sign in to read your Bungie profile and save a fireteam snapshot.</span>`;
@@ -882,8 +914,21 @@
     }
     if (els.playerName) els.playerName.textContent = snapshot.playerDisplayName || "Unknown Guardian";
     if (els.profileGuardianName) els.profileGuardianName.textContent = snapshot.playerDisplayName || "Unknown Guardian";
+    const selectedCharacter = classFilter
+      ? snapshot.characterSummaries?.find(character => character.className === classFilter)
+      : snapshot.characterSummaries?.[0];
+    const maxLight = snapshot.characterSummaries?.length ? Math.max(...snapshot.characterSummaries.map(character => Number(character.light || 0))) : 0;
+    const displayLight = Number(selectedCharacter?.light || maxLight || 0);
+    const season = snapshot.seasonProgress || {};
+    if (els.profileTopStats) {
+      els.profileTopStats.innerHTML = [
+        displayLight ? `<span class="is-power"><em>Light</em><strong>${escapeHtml(displayLight)}</strong></span>` : "",
+        season.rank ? `<span><em>Season</em><strong>${escapeHtml(season.rank)}</strong></span>` : "",
+        classFilter ? `<span><em>Class</em><strong>${escapeHtml(classFilter)}</strong></span>` : ""
+      ].filter(Boolean).join("");
+    }
     if (els.profileEmblem) {
-      const emblem = snapshot.characterSummaries?.find(character => character.emblemPath)?.emblemPath || "";
+      const emblem = selectedCharacter?.emblemPath || snapshot.characterSummaries?.find(character => character.emblemPath)?.emblemPath || "";
       els.profileEmblem.src = emblem ? iconUrl(emblem) : "assets/d2-collections-mark.svg";
     }
     if (els.lastUpdated) els.lastUpdated.textContent = formatShort(snapshot.updatedAt);
@@ -891,7 +936,13 @@
       const inventoryCount = snapshot.inventoryQuestItemCount ?? snapshot.activeQuestItemCount ?? 0;
       const trackedCount = snapshot.trackedQuestItemCount ?? (snapshot.trackedQuestProgress || []).filter(item => item.inGameTracked).length;
       if (els.profileGuardianMeta) {
-        els.profileGuardianMeta.textContent = `${trackedCount} tracked / ${inventoryCount} quest items / ${snapshot.characterSummaries?.length || 0} characters`;
+        const progress = Number(season.progress || 0);
+        const next = Number(season.next || 0);
+        const pct = Number(season.pct || 0);
+        els.profileGuardianMeta.style.setProperty("--season-progress", `${pct}%`);
+        els.profileGuardianMeta.innerHTML = next
+          ? `<span>${escapeHtml(season.label || "Season Progress")}</span><strong>${escapeHtml(progress.toLocaleString())}/${escapeHtml(next.toLocaleString())}</strong>`
+          : `<span>Season Progress</span><strong>${escapeHtml(trackedCount)} tracked / ${escapeHtml(inventoryCount)} quest items</strong>`;
       }
       els.playerMeta.innerHTML = [
         metaLine("Membership", `${snapshot.membership?.membershipTypeLabel || "Destiny"} / ${snapshot.membership?.membershipId || "unknown"}`),
