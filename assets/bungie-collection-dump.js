@@ -18,8 +18,8 @@
   const EXOTIC_CIPHER_HASHES = new Set(["3467984096", "187236078", "825199458"]);
   const EXOTIC_ENGRAM_HASHES = new Set(["343863063", "685908770", "761932252", "773306547", "903043774", "935088801", "1010947726", "1425215686", "1728121941", "2122520503", "2176771682", "2370072441", "2564361489", "2685382923", "2762058303", "2778705488", "2907562922", "3290874772", "3484503346", "3670763683", "3875551374", "4003905209", "4106630301", "4111522113"]);
   const REFRESH_LOCK_KEY = "d2-collections-bungie-refresh-lock-v1";
-  const REFRESH_LOCK_TTL_MS = 15000;
-  const REFRESH_WAIT_MS = 22000;
+  const REFRESH_LOCK_TTL_MS = 60000;
+  const REFRESH_WAIT_MS = 65000;
   const TAB_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let refreshPromise = null;
 
@@ -77,11 +77,11 @@
   }
 
   function tokenIsValid(saved = token()) {
-    return Boolean(saved.access_token && saved.expires_at && saved.expires_at > Math.floor(Date.now() / 1000) + 60);
+    return Boolean(!saved.auth_error && saved.access_token && saved.expires_at && saved.expires_at > Math.floor(Date.now() / 1000) + 60);
   }
 
   function refreshTokenIsValid(saved = token()) {
-    return Boolean(saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > Math.floor(Date.now() / 1000) + 60));
+    return Boolean(!saved.auth_error && saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > Math.floor(Date.now() / 1000) + 60));
   }
 
   function sleep(ms) {
@@ -111,12 +111,64 @@
     const saved = {
       ...previous,
       ...nextToken,
+      auth_error_at: "",
+      auth_error: "",
       saved_at: now,
       expires_at: nextToken.expires_in ? now + Number(nextToken.expires_in) : nextToken.expires_at || previous.expires_at,
       refresh_expires_at: nextToken.refresh_expires_in ? now + Number(nextToken.refresh_expires_in) : nextToken.refresh_expires_at || previous.refresh_expires_at
     };
     writeJson(SESSION_KEY, saved);
     return saved;
+  }
+
+  function markAuthRefreshError(error) {
+    const saved = token();
+    if (!saved.access_token && !saved.refresh_token) return saved;
+    const next = {
+      ...saved,
+      auth_error_at: new Date().toISOString(),
+      auth_error: String(error || "Bungie refresh failed")
+    };
+    writeJson(SESSION_KEY, next);
+    return next;
+  }
+
+  function waitForTokenRotation(usedRefreshToken, timeoutMs = 3000) {
+    return new Promise(resolve => {
+      let done = false;
+      let timer = 0;
+      let poll = 0;
+      const finish = value => {
+        if (done) return;
+        done = true;
+        window.removeEventListener("storage", onStorage);
+        clearTimeout(timer);
+        clearInterval(poll);
+        resolve(value);
+      };
+      const check = () => {
+        const current = token();
+        if (current.refresh_token && current.refresh_token !== usedRefreshToken && (tokenIsValid(current) || refreshTokenIsValid(current))) {
+          finish(current);
+          return true;
+        }
+        if (tokenIsValid(current)) {
+          finish(current);
+          return true;
+        }
+        return false;
+      };
+      const onStorage = event => {
+        if (event.key === SESSION_KEY) check();
+      };
+      if (check()) return;
+      window.addEventListener("storage", onStorage);
+      poll = setInterval(check, 250);
+      timer = setTimeout(() => {
+        clearInterval(poll);
+        finish(null);
+      }, timeoutMs);
+    });
   }
 
   async function parseResponse(response) {
@@ -196,9 +248,11 @@
     const { data, text } = await parseResponse(response);
     if (!response.ok || !data.access_token) {
       if (isInvalidRefreshToken(data)) {
+        const rotated = await waitForTokenRotation(usedRefreshToken);
+        if (rotated) return rotated;
         const current = token();
         if (current.refresh_token && current.refresh_token !== usedRefreshToken && (tokenIsValid(current) || refreshTokenIsValid(current))) return current;
-        localStorage.removeItem(SESSION_KEY);
+        markAuthRefreshError(tokenError("Bungie token refresh failed", response, data, text));
       }
       if (isInvalidAuthCode(data)) clearAuthCode("refresh_invalidated_auth_code");
       throw new Error(tokenError("Bungie token refresh failed", response, data, text));
@@ -241,12 +295,16 @@
 
   async function ensureToken(status) {
     const saved = token();
+    if (authCode()) return exchangeCodeForToken(status);
     if (tokenIsValid(saved)) return saved;
     if (refreshTokenIsValid(saved)) {
       if (!refreshPromise) refreshPromise = refreshTokenAcrossTabs(status).finally(() => { refreshPromise = null; });
       return refreshPromise;
     }
-    if (saved.access_token || saved.refresh_token) localStorage.removeItem(SESSION_KEY);
+    if (saved.access_token || saved.refresh_token) {
+      markAuthRefreshError("Bungie session needs a fresh login.");
+      throw new Error("Bungie session needs a fresh login. Click Refresh Bungie login.");
+    }
     return exchangeCodeForToken(status);
   }
 
