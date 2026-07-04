@@ -43,6 +43,9 @@
     refreshBtn: document.querySelector("#refreshBtn"),
     authState: document.querySelector("#authState"),
     playerName: document.querySelector("#playerName"),
+    profileGuardianName: document.querySelector("#profileGuardianName"),
+    profileGuardianMeta: document.querySelector("#profileGuardianMeta"),
+    profileEmblem: document.querySelector("#profileEmblem"),
     playerMeta: document.querySelector("#playerMeta"),
     lastUpdated: document.querySelector("#lastUpdated"),
     statusBox: document.querySelector("#statusBox"),
@@ -857,15 +860,26 @@
   function renderPlayer(snapshot) {
     if (!snapshot) {
       if (els.playerName) els.playerName.textContent = "Not linked";
+      if (els.profileGuardianName) els.profileGuardianName.textContent = "Fireteam Progress";
+      if (els.profileGuardianMeta) els.profileGuardianMeta.textContent = "Quest progress, character summaries, and shared fireteam snapshots.";
+      if (els.profileEmblem) els.profileEmblem.src = "assets/d2-collections-mark.svg";
       if (els.playerMeta) els.playerMeta.innerHTML = `<span>Sign in to read your Bungie profile and save a fireteam snapshot.</span>`;
       if (els.lastUpdated) els.lastUpdated.textContent = "Never";
       return;
     }
     if (els.playerName) els.playerName.textContent = snapshot.playerDisplayName || "Unknown Guardian";
+    if (els.profileGuardianName) els.profileGuardianName.textContent = snapshot.playerDisplayName || "Unknown Guardian";
+    if (els.profileEmblem) {
+      const emblem = snapshot.characterSummaries?.find(character => character.emblemPath)?.emblemPath || "";
+      els.profileEmblem.src = emblem ? iconUrl(emblem) : "assets/d2-collections-mark.svg";
+    }
     if (els.lastUpdated) els.lastUpdated.textContent = formatShort(snapshot.updatedAt);
     if (els.playerMeta) {
       const inventoryCount = snapshot.inventoryQuestItemCount ?? snapshot.activeQuestItemCount ?? 0;
       const trackedCount = snapshot.trackedQuestItemCount ?? (snapshot.trackedQuestProgress || []).filter(item => item.inGameTracked).length;
+      if (els.profileGuardianMeta) {
+        els.profileGuardianMeta.textContent = `${trackedCount} tracked / ${inventoryCount} quest items / ${snapshot.characterSummaries?.length || 0} characters`;
+      }
       els.playerMeta.innerHTML = [
         metaLine("Membership", `${snapshot.membership?.membershipTypeLabel || "Destiny"} / ${snapshot.membership?.membershipId || "unknown"}`),
         metaLine("Bungie", snapshot.bungieGlobalDisplayName || "Unknown"),

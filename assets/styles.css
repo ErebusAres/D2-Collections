@@ -2189,10 +2189,13 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 
 .fireteam-shell {
   --bt-red: rgba(126, 18, 31, .42);
+  --bt-red-solid: #6e0f1d;
+  --bt-red-deep: #250509;
   --bt-olive: rgba(72, 68, 28, .66);
   --bt-line: rgba(196, 202, 202, .24);
   --bt-panel: rgba(7, 10, 10, .91);
   width: min(100% - 28px, 1680px);
+  padding-top: 0;
 }
 @media (min-width: 1181px) {
   .fireteam-shell {
@@ -2210,6 +2213,153 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   background:
     linear-gradient(180deg, rgba(255,255,255,.025), transparent 34%),
     var(--bt-panel);
+}
+.fireteam-bray-header {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(202,209,221,.16);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.06), transparent 22%),
+    rgba(6,8,8,.94);
+  box-shadow: 0 20px 42px rgba(0,0,0,.38), inset 0 0 0 1px rgba(255,255,255,.025);
+}
+.fireteam-appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  background:
+    linear-gradient(90deg, rgba(110,15,29,.9), rgba(110,15,29,.5) 42%, rgba(202,209,221,.28)),
+    rgba(10,12,12,.98);
+}
+.fireteam-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(235,238,239,.82);
+  text-decoration: none;
+  font-size: .76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.fireteam-brand img {
+  width: 18px;
+  height: 18px;
+}
+.fireteam-bray-header .site-nav {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  gap: 0;
+}
+.fireteam-bray-header .site-nav a {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  padding: 10px 12px 9px;
+  color: rgba(235,238,239,.68);
+  background: transparent;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.fireteam-bray-header .site-nav a:hover,
+.fireteam-bray-header .site-nav a[aria-current="page"] {
+  color: #f4f7f5;
+  background: rgba(255,255,255,.08);
+}
+.fireteam-bray-header .site-nav a[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 3px;
+  background: rgba(235,238,239,.86);
+}
+.fireteam-profile-banner {
+  position: relative;
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+  min-height: 126px;
+  padding: 28px 24px 18px;
+  background:
+    linear-gradient(110deg, rgba(126,18,31,.78), rgba(126,18,31,.36) 34%, rgba(7,9,9,.76) 70%),
+    repeating-linear-gradient(155deg, transparent 0 62px, rgba(0,0,0,.36) 63px 68px, transparent 69px 112px),
+    linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.36)),
+    var(--bt-red-deep);
+}
+.fireteam-profile-banner::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(202,209,221,.68), rgba(216,177,91,.42), transparent);
+}
+.fireteam-profile-mark {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 66px;
+  height: 66px;
+  border: 1px solid rgba(235,238,239,.18);
+  background: rgba(0,0,0,.28);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+}
+.fireteam-profile-mark img {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+}
+.fireteam-profile-copy {
+  min-width: 0;
+}
+.fireteam-profile-copy h1 {
+  margin: 2px 0 4px;
+  color: rgba(235,238,239,.94);
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: .95;
+  letter-spacing: -.01em;
+}
+.fireteam-profile-meta {
+  position: relative;
+  width: min(520px, 100%);
+  min-height: 28px;
+  padding-top: 14px;
+  color: rgba(235,238,239,.72);
+  font-size: .76rem;
+  font-weight: 800;
+  overflow: hidden;
+}
+.fireteam-profile-meta::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 9px;
+  border: 1px solid rgba(235,238,239,.18);
+  background:
+    linear-gradient(90deg, rgba(202,209,221,.72) 0 52%, rgba(216,177,91,.55) 52% 53%, rgba(0,0,0,.28) 53%),
+    rgba(0,0,0,.22);
+}
+.fireteam-section-nav {
+  display: flex;
+  align-self: end;
+  gap: 18px;
+  color: rgba(235,238,239,.62);
+  font-size: .82rem;
+  font-weight: 900;
+}
+.fireteam-section-nav span:nth-child(2) {
+  color: #f0f2f1;
+  border-bottom: 3px solid rgba(235,238,239,.88);
+  padding-bottom: 13px;
 }
 .fireteam-hero {
   min-height: 172px;
@@ -3172,6 +3322,26 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   .content-grid { grid-template-columns: 1fr; }
   .fireteam-top-grid,
   .fireteam-grid { grid-template-columns: 1fr; }
+  .fireteam-profile-banner {
+    grid-template-columns: 58px minmax(0, 1fr);
+    align-items: center;
+    min-height: 116px;
+    padding: 22px 18px 16px;
+  }
+  .fireteam-profile-mark {
+    width: 54px;
+    height: 54px;
+  }
+  .fireteam-profile-mark img {
+    width: 42px;
+    height: 42px;
+  }
+  .fireteam-section-nav {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    gap: 14px;
+    overflow-x: auto;
+  }
   .fireteam-pinned-panel {
     top: 78px;
     width: min(360px, calc(100vw - 62px));
@@ -3202,6 +3372,29 @@ body.manual-tracker-minimized .manual-drawer-toggle {
 }
 @media (max-width: 780px) {
   .app-shell { width: min(100% - 20px, 1660px); padding-top: 64px; }
+  .fireteam-shell { padding-top: 0; }
+  .fireteam-appbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px 0;
+  }
+  .fireteam-bray-header .site-nav {
+    width: 100%;
+  }
+  .fireteam-bray-header .site-nav a {
+    flex: 1;
+    text-align: center;
+  }
+  .fireteam-profile-banner {
+    grid-template-columns: 1fr;
+  }
+  .fireteam-profile-mark {
+    display: none;
+  }
+  .fireteam-profile-copy h1 {
+    font-size: clamp(1.8rem, 13vw, 2.7rem);
+  }
   .sync-popout { position: absolute; top: 10px; left: 10px; }
   .hero { align-items: start; flex-direction: column; padding: 20px; }
   .site-nav { width: 100%; justify-content: stretch; }
