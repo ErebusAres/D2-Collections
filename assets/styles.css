@@ -3044,8 +3044,17 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   gap: 8px;
   opacity: .7;
 }
+.manual-step.is-past {
+  border-left: 2px solid rgba(99,215,132,.34);
+  padding-left: 7px;
+  opacity: .82;
+}
 .manual-step.is-current {
   opacity: 1;
+}
+.manual-step.is-future {
+  opacity: .48;
+  filter: grayscale(.55);
 }
 .manual-step-title {
   display: grid;
@@ -3087,6 +3096,24 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   background: rgba(99,215,132,.28);
   color: #d9ffe5;
 }
+.manual-step.is-past .manual-step-title {
+  background: rgba(99,215,132,.085);
+}
+.manual-step.is-past .manual-step-title span {
+  background: rgba(99,215,132,.18);
+  color: #bff8cf;
+}
+.manual-step.is-future .manual-step-title {
+  background: rgba(202,209,221,.025);
+}
+.manual-step.is-future .manual-step-title span {
+  background: rgba(202,209,221,.045);
+  color: rgba(202,209,221,.72);
+}
+.manual-step.is-future .manual-step-title em,
+.manual-objective.is-unavailable em {
+  color: rgba(202,209,221,.52);
+}
 .manual-step p {
   margin: 0;
   color: var(--soft);
@@ -3115,6 +3142,17 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   font-style: normal;
   font-weight: 900;
   margin-left: 8px;
+}
+.manual-objective.is-complete .quest-step-check {
+  border-color: rgba(99,215,132,.72);
+  background: rgba(99,215,132,.26);
+}
+.manual-objective.is-unavailable .quest-step-check {
+  border-color: rgba(202,209,221,.25);
+  background: rgba(202,209,221,.04);
+}
+.manual-objective.is-unavailable .quest-step-track i {
+  background: rgba(202,209,221,.24);
 }
 .manual-step-empty {
   color: var(--muted);

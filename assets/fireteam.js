@@ -155,6 +155,38 @@
     };
   }
 
+  function questStepHashes(quest) {
+    const hashes = new Set();
+    [quest?.hash, quest?.itemHash].forEach(hash => {
+      if (hash !== undefined && hash !== null && hash !== "") hashes.add(String(hash));
+    });
+    (quest?.questSteps || []).forEach(step => {
+      if (step?.hash !== undefined && step.hash !== null && step.hash !== "") hashes.add(String(step.hash));
+    });
+    return hashes;
+  }
+
+  function sameQuestLine(a, b) {
+    const aOwner = String(a?.fireteamOwner || "").toLowerCase();
+    const bOwner = String(b?.fireteamOwner || "").toLowerCase();
+    if (aOwner && bOwner && aOwner !== bOwner) return false;
+    const aLine = String(a?.questLineName || a?.name || "").toLowerCase();
+    const bLine = String(b?.questLineName || b?.name || "").toLowerCase();
+    if (!aLine || !bLine) return false;
+    return aLine === bLine || aLine.includes(bLine) || bLine.includes(aLine);
+  }
+
+  function findAdvancedPinnedQuest(cachedQuest, questPool) {
+    if (!cachedQuest) return null;
+    const stepHashes = questStepHashes(cachedQuest);
+    return questPool.find(quest => {
+      const liveKey = questKey(quest);
+      if (!liveKey || liveKey === questKey(cachedQuest)) return false;
+      if (stepHashes.has(String(quest.itemHash || quest.hash || liveKey))) return true;
+      return sameQuestLine(cachedQuest, quest);
+    }) || null;
+  }
+
   function snapshotPayload(snapshot) {
     return snapshot?.fireteamSnapshot || snapshot || null;
   }
@@ -964,7 +996,10 @@
   }
 
   function renderTriumphs(quests = []) {
-    const records = quests.filter(quest => quest.kind === "record").filter(classFilterMatches);
+    const records = quests
+      .filter(quest => quest.kind === "record")
+      .filter(quest => !(quest.unresolved || /^Record\s+\d+$/i.test(String(quest.name || ""))))
+      .filter(classFilterMatches);
     if (els.triumphCount) els.triumphCount.textContent = `${records.length} records`;
     if (!els.triumphList) return;
     if (!records.length) {
@@ -1000,12 +1035,25 @@
   }
 
   function pinnedQuests(quests = allFireteamQuestItems()) {
-    const byKey = new Map(quests.filter(quest => quest.kind !== "record").map(quest => [questKey(quest), quest]).filter(([key]) => key));
-    return [...manualTracked].map(key => {
-      const quest = byKey.get(key) || manualTrackCache[key];
-      if (quest && byKey.has(key)) rememberManualQuest(quest);
+    const questPool = quests.filter(quest => quest.kind !== "record");
+    const byKey = new Map(questPool.map(quest => [questKey(quest), quest]).filter(([key]) => key));
+    let changed = false;
+    const pinned = [...manualTracked].map(key => {
+      let quest = byKey.get(key) || manualTrackCache[key];
+      const advancedQuest = !byKey.has(key) ? findAdvancedPinnedQuest(manualTrackCache[key], questPool) : null;
+      if (advancedQuest) {
+        const nextKey = questKey(advancedQuest);
+        manualTracked.delete(key);
+        delete manualTrackCache[key];
+        manualTracked.add(nextKey);
+        quest = advancedQuest;
+        changed = true;
+      }
+      if (quest && byKey.has(questKey(quest))) rememberManualQuest(quest);
       return quest;
     }).filter(Boolean);
+    if (changed) saveManualTracked();
+    return pinned;
   }
 
   async function ensureQuestTimeline(quest) {
@@ -1028,6 +1076,7 @@
       return;
     }
     await Promise.all(pinned.map(ensureQuestTimeline));
+    pinned.forEach(rememberManualQuest);
     if (renderSeq !== manualRenderSeq) return;
     els.manualTrackList.innerHTML = pinned.map(quest => {
       const steps = quest.questSteps?.length ? quest.questSteps : [{
@@ -1051,28 +1100,35 @@
         <div class="manual-step-list">${steps.map((step, index) => renderTimelineStep(step, index, steps.length)).join("")}</div>
       </article>`;
     }).join("");
+    requestAnimationFrame(() => {
+      els.manualTrackList?.querySelector(".manual-step.is-current")?.scrollIntoView({ block: "center", inline: "nearest" });
+    });
   }
 
   function renderTimelineStep(step, index, total) {
     const objectives = step.objectives || [];
-    const current = step.status === "current";
+    const status = step.status || "future";
+    const statusLabel = status === "future" ? "Unavailable right now" : status === "past" ? "Done" : "Current";
     return `<section class="manual-step is-${escapeHtml(step.status || "future")}">
       <div class="manual-step-title">
         <span>${index + 1}</span>
         <strong>${escapeHtml(step.name || `Step ${index + 1}`)}</strong>
-        <em>${escapeHtml(step.status || (index + 1 === total ? "future" : "step"))}</em>
+        <em>${escapeHtml(statusLabel)}</em>
       </div>
       ${step.description ? `<p>${escapeHtml(step.description)}</p>` : ""}
-      <div class="manual-step-objectives">${objectives.length ? objectives.map(row => renderManualObjective(row, current)).join("") : `<span class="manual-step-empty">No objective rows exposed for this step.</span>`}</div>
+      <div class="manual-step-objectives">${objectives.length ? objectives.map(row => renderManualObjective(row, status)).join("") : `<span class="manual-step-empty">No objective rows exposed for this step.</span>`}</div>
     </section>`;
   }
 
-  function renderManualObjective(row, showValue) {
+  function renderManualObjective(row, status) {
     const total = Number(row.total || 0);
     const progress = Number(row.progress || 0);
-    const pct = total ? Math.max(0, Math.min(100, Math.round((progress / total) * 100))) : row.complete ? 100 : 0;
-    const value = showValue && total ? `${progress}/${total}` : row.complete ? "Complete" : "";
-    return `<div class="manual-objective ${row.complete ? "is-complete" : ""}">
+    const isPast = status === "past";
+    const isFuture = status === "future";
+    const complete = Boolean(row.complete || isPast);
+    const pct = isPast ? 100 : isFuture ? 0 : total ? Math.max(0, Math.min(100, Math.round((progress / total) * 100))) : complete ? 100 : 0;
+    const value = isFuture ? "Unavailable" : status === "current" && total ? `${progress}/${total}` : complete ? "Complete" : "";
+    return `<div class="manual-objective ${complete ? "is-complete" : ""} ${isFuture ? "is-unavailable" : ""}">
       <span class="quest-step-check" aria-hidden="true"></span>
       <div>
         <strong>${escapeHtml(row.name || `Objective ${row.objectiveHash || ""}`)}</strong>
