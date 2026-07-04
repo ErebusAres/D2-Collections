@@ -120,6 +120,34 @@
     return String(payload.primaryMembershipId || snapshot?.membershipId || snapshot?.player || payload.player || snapshot?.displayName || payload.playerDisplayName || "");
   }
 
+  function snapshotDisplayName(snapshot) {
+    const payload = snapshotPayload(snapshot) || {};
+    return payload.playerDisplayName || snapshot?.displayName || snapshot?.player || "Unknown Guardian";
+  }
+
+  function fireteamSnapshotList() {
+    const seen = new Set();
+    return [latestSnapshot, ...savedSnapshots].filter(Boolean).filter(snapshot => {
+      const key = snapshotKey(snapshot);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function allFireteamQuestItems() {
+    const byKey = new Map();
+    fireteamSnapshotList().forEach(snapshot => {
+      const owner = snapshotDisplayName(snapshot);
+      (snapshotPayload(snapshot)?.trackedQuestProgress || []).filter(quest => quest.kind !== "record").forEach(quest => {
+        const key = questKey(quest);
+        if (!key || byKey.has(key)) return;
+        byKey.set(key, { ...quest, fireteamOwner: owner });
+      });
+    });
+    return [...byKey.values()];
+  }
+
   function hasLocalAuth() {
     return sessionIsUsable() || hasSavedCode();
   }
@@ -925,7 +953,7 @@
       </article>`;
   }
 
-  function pinnedQuests(quests = []) {
+  function pinnedQuests(quests = allFireteamQuestItems()) {
     const byKey = new Map(quests.filter(quest => quest.kind !== "record").map(quest => [questKey(quest), quest]).filter(([key]) => key));
     return [...manualTracked].map(key => byKey.get(key)).filter(Boolean);
   }
@@ -940,7 +968,7 @@
     return quest;
   }
 
-  async function renderManualTracker(quests = latestSnapshot?.trackedQuestProgress || []) {
+  async function renderManualTracker(quests = allFireteamQuestItems()) {
     const renderSeq = ++manualRenderSeq;
     const pinned = pinnedQuests(quests).filter(classFilterMatches);
     if (els.manualTrackCount) els.manualTrackCount.textContent = `${pinned.length} pinned`;
@@ -966,7 +994,7 @@
           ${icon}
           <div>
             <strong>${escapeHtml(quest.questLineName || quest.name || "Pinned quest")}</strong>
-            <span>${escapeHtml(titleCase(quest.kind || "quest"))} / Step ${currentIndex + 1} of ${steps.length}</span>
+            <span>${escapeHtml(quest.fireteamOwner || "Fireteam")} / ${escapeHtml(titleCase(quest.kind || "quest"))} / Step ${currentIndex + 1} of ${steps.length}</span>
           </div>
           <button class="manual-track-remove" type="button" data-manual-track="${escapeHtml(questKey(quest))}" title="Unpin from site tracker">x</button>
         </div>
@@ -1167,7 +1195,7 @@
     renderMembers(savedSnapshots);
     renderQuests(payload?.trackedQuestProgress || []);
     renderTriumphs(payload?.trackedQuestProgress || []);
-    renderManualTracker(payload?.trackedQuestProgress || []);
+    renderManualTracker();
     renderSideTracker(payload?.trackedQuestProgress || [], payload?.suggestedActivities || []);
     renderActivities(payload?.suggestedActivities || []);
     renderCloudStatus();
@@ -1282,7 +1310,7 @@
         renderMembers(savedSnapshots);
         renderQuests(activeSnapshot()?.trackedQuestProgress || []);
         renderTriumphs(activeSnapshot()?.trackedQuestProgress || []);
-        renderManualTracker(activeSnapshot()?.trackedQuestProgress || []);
+        renderManualTracker();
         renderSideTracker(activeSnapshot()?.trackedQuestProgress || [], activeSnapshot()?.suggestedActivities || []);
         return;
       }
@@ -1305,7 +1333,7 @@
       saveManualTracked();
       renderQuests(activeSnapshot()?.trackedQuestProgress || []);
       renderTriumphs(activeSnapshot()?.trackedQuestProgress || []);
-      renderManualTracker(activeSnapshot()?.trackedQuestProgress || []);
+      renderManualTracker();
     });
     document.addEventListener("keydown", event => {
       if (event.key !== "Enter" && event.key !== " ") return;
