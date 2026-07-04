@@ -689,6 +689,18 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
     rgba(10,13,19,.78);
   box-shadow: var(--shadow-soft);
 }
+.segmented,
+.quick-jump,
+.legend-strip,
+.sync-health-strip {
+  scrollbar-width: none;
+}
+.segmented::-webkit-scrollbar,
+.quick-jump::-webkit-scrollbar,
+.legend-strip::-webkit-scrollbar,
+.sync-health-strip::-webkit-scrollbar {
+  display: none;
+}
 .quick-jump a,
 .legend-strip span,
 .sync-health-strip span {
@@ -2175,6 +2187,13 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 
 .fireteam-shell {
   width: min(100% - 28px, 1680px);
+}
+@media (min-width: 1181px) {
+  .fireteam-shell {
+    width: min(calc(100% - 462px), 1260px);
+    margin-left: 14px;
+    margin-right: auto;
+  }
 }
 .fireteam-shell .panel {
   border-radius: 0;
