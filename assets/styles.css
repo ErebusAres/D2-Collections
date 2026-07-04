@@ -599,8 +599,8 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   position: sticky;
   top: 10px;
   z-index: 10;
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto auto minmax(150px, 190px) auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
   padding: 10px;
@@ -615,6 +615,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 }
 .search-wrap {
   display: flex;
+  flex: 1 1 260px;
   align-items: center;
   gap: 10px;
   min-width: 240px;
@@ -631,7 +632,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
   background: transparent;
   padding: 12px 0;
 }
-.segmented { display: flex; gap: 4px; padding: 4px; border-radius: 8px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.055); }
+.segmented { display: flex; flex: 0 1 auto; gap: 4px; padding: 4px; border-radius: 8px; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.055); }
 .seg { border-radius: 6px; padding: 8px 12px; color: var(--muted); }
 .seg.active {
   color: #090b0f;
@@ -642,6 +643,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 }
 .sort-wrap {
   display: grid;
+  flex: 0 1 190px;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 7px;
   align-items: center;
@@ -2975,7 +2977,7 @@ body.manual-tracker-minimized .manual-drawer-toggle {
 }
 @media (max-width: 780px) {
   .app-shell { width: min(100% - 20px, 1660px); padding-top: 64px; }
-  .sync-popout { top: 10px; left: 10px; }
+  .sync-popout { position: absolute; top: 10px; left: 10px; }
   .hero { align-items: start; flex-direction: column; padding: 20px; }
   .site-nav { width: 100%; justify-content: stretch; }
   .site-nav a { flex: 1; text-align: center; }
