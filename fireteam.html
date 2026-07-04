@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=fireteam-triumph-section" />
+  <link rel="stylesheet" href="assets/styles.css?v=fireteam-manual-drawer" />
 </head>
 <body>
   <div class="app-shell fireteam-shell">
@@ -110,7 +110,10 @@
           <div id="activityList" class="fireteam-card-grid"></div>
         </section>
 
-        <section class="panel fireteam-pinned-panel">
+        <section class="panel fireteam-pinned-panel" id="manualTrackerPanel">
+          <button id="manualTrackDrawerToggle" class="manual-drawer-toggle" type="button" aria-expanded="true" title="Minimize manual tracker">
+            <span aria-hidden="true">Tracker</span>
+          </button>
           <div class="panel-head">
             <div>
               <p class="eyebrow">Quest steps</p>
@@ -142,6 +145,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=fireteam-auth-reuse"></script>
-  <script src="assets/fireteam.js?v=fireteam-triumph-section"></script>
+  <script src="assets/fireteam.js?v=fireteam-manual-drawer"></script>
 </body>
 </html>

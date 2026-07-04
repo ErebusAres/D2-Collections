@@ -2218,8 +2218,62 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   margin-top: 0;
 }
 .fireteam-pinned-panel {
-  position: sticky;
-  top: 12px;
+  position: fixed;
+  z-index: 80;
+  top: 96px;
+  right: 14px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(390px, calc(100vw - 72px));
+  max-height: calc(100vh - 118px);
+  border-color: rgba(99,215,132,.2);
+  box-shadow: 0 22px 48px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.035);
+  transition: transform .18s ease, opacity .18s ease;
+}
+.fireteam-pinned-panel .panel-head {
+  padding-right: 42px;
+}
+.fireteam-pinned-panel #manualTrackList {
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+.manual-drawer-toggle {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 132px;
+  border: 1px solid rgba(99,215,132,.26);
+  border-right: 0;
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(99,215,132,.14), transparent 44%),
+    rgba(9,12,12,.94);
+  color: var(--soft);
+  cursor: pointer;
+  box-shadow: -10px 14px 26px rgba(0,0,0,.32);
+}
+.manual-drawer-toggle span {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  color: var(--soft);
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.manual-drawer-toggle:hover {
+  border-color: rgba(99,215,132,.55);
+  background: rgba(24,48,37,.96);
+}
+body.manual-tracker-minimized .fireteam-pinned-panel {
+  transform: translateX(calc(100% + 14px));
+}
+body.manual-tracker-minimized .manual-drawer-toggle {
+  border-right: 1px solid rgba(99,215,132,.26);
 }
 .fireteam-debug-panel textarea {
   min-height: 180px;
@@ -2853,7 +2907,11 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   .content-grid { grid-template-columns: 1fr; }
   .fireteam-top-grid,
   .fireteam-grid { grid-template-columns: 1fr; }
-  .fireteam-pinned-panel { position: static; }
+  .fireteam-pinned-panel {
+    top: 78px;
+    width: min(360px, calc(100vw - 62px));
+    max-height: calc(100vh - 96px);
+  }
   .fireteam-quest-layout {
     grid-template-columns: 32px minmax(0, 1fr) 58px;
   }
@@ -2966,6 +3024,26 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   }
   html.layout-shelf .status-grid { grid-template-columns: 42px repeat(4, minmax(34px, 1fr)); }
   html.layout-shelf .armor-status { grid-template-columns: 42px minmax(42px, 1fr); }
+  .fireteam-pinned-panel {
+    position: static;
+    width: auto;
+    max-height: none;
+    transform: none !important;
+  }
+  .manual-drawer-toggle {
+    position: static;
+    width: 100%;
+    height: 34px;
+    border: 1px solid rgba(99,215,132,.26);
+    margin-bottom: 8px;
+  }
+  .manual-drawer-toggle span {
+    writing-mode: horizontal-tb;
+  }
+  body.manual-tracker-minimized .fireteam-pinned-panel #manualTrackList,
+  body.manual-tracker-minimized .fireteam-pinned-panel .panel-head {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

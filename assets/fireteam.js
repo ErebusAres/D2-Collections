@@ -10,6 +10,7 @@
   const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v2";
   const OBJECTIVE_CACHE_KEY = "d2-fireteam-objective-def-cache-v1";
   const MANUAL_TRACK_KEY = "d2-fireteam-manual-track-v1";
+  const MANUAL_DRAWER_KEY = "d2-fireteam-manual-drawer-minimized-v1";
   const AUTO_REFRESH_MS = 90 * 1000;
   const MAX_QUEST_ITEMS = 120;
   const ITEM_STATE_TRACKED = 2;
@@ -48,6 +49,8 @@
     questRailLabel: document.querySelector(".fireteam-vertical-label span"),
     triumphList: document.querySelector("#triumphList"),
     triumphCount: document.querySelector("#triumphCount"),
+    manualTrackerPanel: document.querySelector("#manualTrackerPanel"),
+    manualTrackDrawerToggle: document.querySelector("#manualTrackDrawerToggle"),
     manualTrackList: document.querySelector("#manualTrackList"),
     manualTrackCount: document.querySelector("#manualTrackCount"),
     activityList: document.querySelector("#activityList"),
@@ -97,6 +100,15 @@
 
   function questKey(quest) {
     return String(quest?.instanceId || quest?.itemHash || quest?.hash || "");
+  }
+
+  function setManualDrawerMinimized(minimized) {
+    document.body.classList.toggle("manual-tracker-minimized", minimized);
+    localStorage.setItem(MANUAL_DRAWER_KEY, minimized ? "1" : "0");
+    if (els.manualTrackDrawerToggle) {
+      els.manualTrackDrawerToggle.setAttribute("aria-expanded", minimized ? "false" : "true");
+      els.manualTrackDrawerToggle.title = minimized ? "Open manual tracker" : "Minimize manual tracker";
+    }
   }
 
   function classFilterMatches(quest) {
@@ -1046,6 +1058,10 @@
       window.location.assign(buildAuthUrl());
     });
     els.refreshBtn?.addEventListener("click", () => refreshFromBungie());
+    setManualDrawerMinimized(localStorage.getItem(MANUAL_DRAWER_KEY) === "1");
+    els.manualTrackDrawerToggle?.addEventListener("click", () => {
+      setManualDrawerMinimized(!document.body.classList.contains("manual-tracker-minimized"));
+    });
     els.questTabs?.addEventListener("click", event => {
       const button = event.target.closest("[data-quest-filter]");
       if (!button) return;
