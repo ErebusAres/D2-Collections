@@ -17,6 +17,10 @@
   const RECORD_DEF_CACHE_KEY = "d2-collections-record-def-cache-v1";
   const EXOTIC_CIPHER_HASHES = new Set(["3467984096", "187236078", "825199458"]);
   const EXOTIC_ENGRAM_HASHES = new Set(["343863063", "685908770", "761932252", "773306547", "903043774", "935088801", "1010947726", "1425215686", "1728121941", "2122520503", "2176771682", "2370072441", "2564361489", "2685382923", "2762058303", "2778705488", "2907562922", "3290874772", "3484503346", "3670763683", "3875551374", "4003905209", "4106630301", "4111522113"]);
+  const REFRESH_LOCK_KEY = "d2-collections-bungie-refresh-lock-v1";
+  const REFRESH_LOCK_TTL_MS = 15000;
+  const REFRESH_WAIT_MS = 22000;
+  const TAB_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let refreshPromise = null;
 
   function readJson(key) {
@@ -78,6 +82,27 @@
 
   function refreshTokenIsValid(saved = token()) {
     return Boolean(saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > Math.floor(Date.now() / 1000) + 60));
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function refreshLock() {
+    try { return JSON.parse(localStorage.getItem(REFRESH_LOCK_KEY) || "{}"); } catch { return {}; }
+  }
+
+  function acquireRefreshLock() {
+    const now = Date.now();
+    const lock = refreshLock();
+    if (lock.owner && lock.expiresAt && lock.expiresAt > now && lock.owner !== TAB_ID) return false;
+    const next = { owner: TAB_ID, expiresAt: now + REFRESH_LOCK_TTL_MS };
+    localStorage.setItem(REFRESH_LOCK_KEY, JSON.stringify(next));
+    return refreshLock().owner === TAB_ID;
+  }
+
+  function releaseRefreshLock() {
+    if (refreshLock().owner === TAB_ID) localStorage.removeItem(REFRESH_LOCK_KEY);
   }
 
   function saveToken(nextToken) {
@@ -158,9 +183,10 @@
   async function refreshToken() {
     const saved = token();
     if (!saved.refresh_token) throw new Error("No refresh token found. Login with Bungie again.");
+    const usedRefreshToken = saved.refresh_token;
     const body = new URLSearchParams();
     body.set("grant_type", "refresh_token");
-    body.set("refresh_token", saved.refresh_token);
+    body.set("refresh_token", usedRefreshToken);
     body.set("client_id", clientId());
     const response = await fetch(CONFIG.tokenUrl || `${API_ROOT}/App/OAuth/Token/`, {
       method: "POST",
@@ -169,18 +195,55 @@
     });
     const { data, text } = await parseResponse(response);
     if (!response.ok || !data.access_token) {
-      if (isInvalidRefreshToken(data)) localStorage.removeItem(SESSION_KEY);
+      if (isInvalidRefreshToken(data)) {
+        const current = token();
+        if (current.refresh_token && current.refresh_token !== usedRefreshToken && (tokenIsValid(current) || refreshTokenIsValid(current))) return current;
+        localStorage.removeItem(SESSION_KEY);
+      }
       if (isInvalidAuthCode(data)) clearAuthCode("refresh_invalidated_auth_code");
       throw new Error(tokenError("Bungie token refresh failed", response, data, text));
     }
     return saveToken(data);
   }
 
+  async function refreshTokenAcrossTabs(status) {
+    const started = Date.now();
+    while (Date.now() - started < REFRESH_WAIT_MS) {
+      const current = token();
+      if (tokenIsValid(current)) return current;
+      if (!refreshTokenIsValid(current)) break;
+      if (acquireRefreshLock()) {
+        try {
+          const latest = token();
+          if (tokenIsValid(latest)) return latest;
+          if (!refreshTokenIsValid(latest)) break;
+          return await refreshToken(status);
+        } finally {
+          releaseRefreshLock();
+        }
+      }
+      if (status) status.textContent = "Bungie login refresh is already running in another tab...";
+      await sleep(350 + Math.floor(Math.random() * 250));
+    }
+    const finalToken = token();
+    if (tokenIsValid(finalToken)) return finalToken;
+    if (refreshTokenIsValid(finalToken) && acquireRefreshLock()) {
+      try {
+        const latest = token();
+        if (tokenIsValid(latest)) return latest;
+        return await refreshToken(status);
+      } finally {
+        releaseRefreshLock();
+      }
+    }
+    throw new Error("Bungie login refresh timed out. Click Login with Bungie again if this continues.");
+  }
+
   async function ensureToken(status) {
     const saved = token();
     if (tokenIsValid(saved)) return saved;
     if (refreshTokenIsValid(saved)) {
-      if (!refreshPromise) refreshPromise = refreshToken(status).finally(() => { refreshPromise = null; });
+      if (!refreshPromise) refreshPromise = refreshTokenAcrossTabs(status).finally(() => { refreshPromise = null; });
       return refreshPromise;
     }
     if (saved.access_token || saved.refresh_token) localStorage.removeItem(SESSION_KEY);
