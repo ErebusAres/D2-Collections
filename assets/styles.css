@@ -2563,6 +2563,29 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   font-size: 1rem;
   font-weight: 900;
 }
+.fireteam-tabs .seg::before {
+  content: attr(data-count);
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+  z-index: 2;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(202,209,221,.36);
+  background: rgba(8,10,10,.96);
+  color: var(--soft);
+  font-size: .62rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.fireteam-tabs .seg.is-empty:not(.active) {
+  opacity: .46;
+}
+.fireteam-tabs .seg.is-empty:not(.active)::before {
+  color: rgba(202,209,221,.55);
+}
 .fireteam-tabs .seg img {
   width: 30px;
   height: 30px;

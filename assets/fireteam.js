@@ -804,14 +804,55 @@
     return `<button class="character-pill ${active ? "active" : ""}"${buttonAttr}>${icon}<strong>${escapeHtml(className)}</strong><em>${Number(character.light || 0)}</em></button>`;
   }
 
+  function questSearchText(quest) {
+    return [
+      quest?.kind,
+      quest?.name,
+      quest?.description,
+      quest?.source,
+      quest?.questLineName,
+      quest?.questLineDescription,
+      quest?.setData?.questLineName,
+      quest?.setData?.questLineDescription,
+      quest?.character?.className
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  function questCategory(quest) {
+    const text = questSearchText(quest);
+    if (quest.kind === "bounty" || /\bbount(y|ies)\b/.test(text)) return "bounty";
+    if (/pathfinder/.test(text)) return "pathfinder";
+    if (/new light|guardian rank|guardian ranks|tutorial|introduct|cosmodrome|shaw han/.test(text)) return "new-light";
+    if (/edge of fate|kepler|altar of relativity|world tier|portal|seasonal hub|the portal|matterspark|fabled|mythic/.test(text)) return "edge-of-fate";
+    if (/exotic|catalyst|banshee|xur|rahool/.test(text)) return "exotics";
+    if (/vanguard|crucible|gambit|playlist|ritual|strike|nightfall|gunsmith|shaxx|zavala|drifter|iron banner|trials/.test(text)) return "playlists";
+    if (/shadowkeep|moon|essence|europa|beyond light|stasis|throne world|witch queen|neomuna|lightfall|pale heart|final shape|legacy|past|forsaken|dreaming city/.test(text)) return "past";
+    return "quest";
+  }
+
+  function questMatchesFilter(quest, filter) {
+    if (filter === "all") return true;
+    if (filter === "tracked") return Boolean(quest.inGameTracked || manualTracked.has(questKey(quest)));
+    if (filter === "inventory") return Boolean(quest.inInventory);
+    if (filter === "quest") return quest.kind === "quest" || quest.kind === "pursuit";
+    if (filter === "bounty") return quest.kind === "bounty";
+    return questCategory(quest) === filter;
+  }
+
+  function updateQuestTabCounts(quests = []) {
+    if (!els.questTabs) return;
+    const tabs = [...els.questTabs.querySelectorAll("[data-quest-filter]")];
+    tabs.forEach(button => {
+      const count = quests.filter(quest => questMatchesFilter(quest, button.dataset.questFilter || "all")).length;
+      button.dataset.count = String(count);
+      button.classList.toggle("is-empty", count === 0);
+    });
+  }
+
   function renderQuests(quests = []) {
     const classScoped = quests.filter(quest => quest.kind !== "record").filter(classFilterMatches);
-    const visible = classScoped.filter(quest => {
-      if (questFilter === "all") return true;
-      if (questFilter === "tracked") return Boolean(quest.inGameTracked);
-      if (questFilter === "inventory") return Boolean(quest.inInventory);
-      return quest.kind === questFilter;
-    });
+    updateQuestTabCounts(classScoped);
+    const visible = classScoped.filter(quest => questMatchesFilter(quest, questFilter));
     if (els.questCount) els.questCount.textContent = `${visible.length} / ${classScoped.length}`;
     if (els.questRailCount) els.questRailCount.textContent = `${visible.length} / ${classScoped.length}`;
     if (els.questRailLabel) {
@@ -990,14 +1031,8 @@
   }
 
   function isSeasonalHubQuest(quest) {
-    const text = [
-      quest?.name,
-      quest?.description,
-      quest?.source,
-      quest?.questLineName,
-      quest?.questLineDescription,
-      quest?.character?.className
-    ].filter(Boolean).join(" ").toLowerCase();
+    if (questCategory(quest) === "edge-of-fate" || questCategory(quest) === "pathfinder") return true;
+    const text = questSearchText(quest);
     return /(season|seasonal|episode|hub|pathfinder|portal|edge of fate|renegades|pale heart|kepler|altar|world tier|event|vendor|playlist|weekly)/i.test(text);
   }
 
