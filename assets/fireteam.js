@@ -46,6 +46,8 @@
     profileGuardianName: document.querySelector("#profileGuardianName"),
     profileGuardianMeta: document.querySelector("#profileGuardianMeta"),
     profileEmblem: document.querySelector("#profileEmblem"),
+    profileSelectorToggle: document.querySelector("#profileSelectorToggle"),
+    profileCharacterSelector: document.querySelector("#profileCharacterSelector"),
     playerMeta: document.querySelector("#playerMeta"),
     lastUpdated: document.querySelector("#lastUpdated"),
     statusBox: document.querySelector("#statusBox"),
@@ -863,6 +865,7 @@
       if (els.profileGuardianName) els.profileGuardianName.textContent = "Fireteam Progress";
       if (els.profileGuardianMeta) els.profileGuardianMeta.textContent = "Quest progress, character summaries, and shared fireteam snapshots.";
       if (els.profileEmblem) els.profileEmblem.src = "assets/d2-collections-mark.svg";
+      renderProfileCharacterSelector(null);
       if (els.playerMeta) els.playerMeta.innerHTML = `<span>Sign in to read your Bungie profile and save a fireteam snapshot.</span>`;
       if (els.lastUpdated) els.lastUpdated.textContent = "Never";
       return;
@@ -887,10 +890,57 @@
         metaLine("Quests", `${trackedCount} tracked / ${inventoryCount} inventory`)
       ].join("");
     }
+    renderProfileCharacterSelector(snapshot);
   }
 
   function metaLine(label, value) {
     return `<span><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</span>`;
+  }
+
+  function setProfileSelectorOpen(open) {
+    if (!els.profileCharacterSelector || !els.profileSelectorToggle) return;
+    els.profileCharacterSelector.hidden = !open;
+    els.profileSelectorToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    document.body.classList.toggle("fireteam-character-selector-open", open);
+  }
+
+  function renderProfileCharacterSelector(snapshot) {
+    if (!els.profileCharacterSelector) return;
+    const characters = snapshot?.characterSummaries || [];
+    if (!characters.length) {
+      els.profileCharacterSelector.innerHTML = `<div class="fireteam-selector-empty">Sign in or refresh to load characters.</div>`;
+      setProfileSelectorOpen(false);
+      return;
+    }
+    const account = snapshot?.bungieGlobalDisplayName || snapshot?.playerDisplayName || "Guardian";
+    els.profileCharacterSelector.innerHTML = `
+      <div class="fireteam-selector-account">
+        <strong>${escapeHtml(account)}</strong>
+        <span>${escapeHtml(characters.length)} character(s)</span>
+      </div>
+      <div class="fireteam-selector-list">
+        ${characters.map(character => renderProfileCharacterOption(character)).join("")}
+      </div>
+      <button class="fireteam-selector-clear" type="button" data-class-filter="" ${classFilter ? "" : "disabled"}>All classes</button>`;
+  }
+
+  function renderProfileCharacterOption(character) {
+    const className = character.className || "Guardian";
+    const classIcon = classIconPath(className);
+    const emblem = character.emblemPath ? iconUrl(character.emblemPath) : "";
+    const active = classFilter && className === classFilter;
+    const emblemMarkup = emblem
+      ? `<img class="selector-emblem" src="${escapeHtml(emblem)}" alt="" width="48" height="48" loading="lazy" decoding="async" aria-hidden="true" />`
+      : `<span class="fireteam-icon-fallback">G</span>`;
+    const classMarkup = classIcon
+      ? `<img class="selector-class" src="${escapeHtml(classIcon)}" alt="" width="34" height="34" loading="lazy" decoding="async" aria-hidden="true" />`
+      : "";
+    return `<button class="fireteam-selector-character ${active ? "active" : ""}" type="button" data-class-filter="${escapeHtml(className)}" aria-pressed="${active ? "true" : "false"}">
+      ${emblemMarkup}
+      <span><strong>${escapeHtml(className)}</strong><em>${active ? "Filtering" : "Show quests"}</em></span>
+      ${classMarkup}
+      <b>${Number(character.light || 0)}</b>
+    </button>`;
   }
 
   function renderMembers(snapshots = []) {
@@ -1422,17 +1472,30 @@
       renderQuests(activeSnapshot()?.trackedQuestProgress || []);
     });
     document.addEventListener("click", event => {
+      const profileToggle = event.target.closest("#profileSelectorToggle");
+      if (profileToggle) {
+        event.preventDefault();
+        setProfileSelectorOpen(els.profileCharacterSelector?.hidden !== false);
+        return;
+      }
+
       const classButton = event.target.closest("[data-class-filter]");
       if (classButton) {
         event.preventDefault();
         const nextClass = String(classButton.dataset.classFilter || "");
         classFilter = classFilter === nextClass ? "" : nextClass;
+        setProfileSelectorOpen(false);
+        renderPlayer(activeSnapshot());
         renderMembers(savedSnapshots);
         renderQuests(activeSnapshot()?.trackedQuestProgress || []);
         renderTriumphs(activeSnapshot()?.trackedQuestProgress || []);
         renderManualTracker();
         renderSideTracker(activeSnapshot()?.trackedQuestProgress || [], activeSnapshot()?.suggestedActivities || []);
         return;
+      }
+
+      if (!event.target.closest("#profileCharacterSelector")) {
+        setProfileSelectorOpen(false);
       }
 
       const snapshotButton = event.target.closest("[data-view-snapshot]");
@@ -1462,6 +1525,15 @@
       renderManualTracker();
     });
     document.addEventListener("keydown", event => {
+      if ((event.key === "Enter" || event.key === " ") && event.target.closest("#profileSelectorToggle")) {
+        event.preventDefault();
+        setProfileSelectorOpen(els.profileCharacterSelector?.hidden !== false);
+        return;
+      }
+      if (event.key === "Escape") {
+        setProfileSelectorOpen(false);
+        return;
+      }
       if (event.key !== "Enter" && event.key !== " ") return;
       const snapshotCard = event.target.closest("[data-view-snapshot]");
       if (!snapshotCard || event.target.closest("[data-class-filter]")) return;

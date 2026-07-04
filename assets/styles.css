@@ -2358,6 +2358,38 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   z-index: 1;
   min-width: 0;
 }
+.fireteam-profile-select {
+  position: relative;
+  width: min(760px, 100%);
+  border: 2px solid rgba(235,238,239,.86);
+  background:
+    linear-gradient(90deg, rgba(235,238,239,.5), rgba(235,238,239,.22) 62%, rgba(0,0,0,.08)),
+    rgba(0,0,0,.18);
+  padding: 8px 11px 11px;
+  color: inherit;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.62), 0 10px 26px rgba(0,0,0,.22);
+  transition: background .14s ease, border-color .14s ease;
+}
+.fireteam-profile-select:hover,
+.fireteam-profile-select:focus-visible,
+.fireteam-character-selector-open .fireteam-profile-select {
+  border-color: #f5f5f5;
+  background:
+    linear-gradient(90deg, rgba(235,238,239,.62), rgba(235,238,239,.28) 62%, rgba(0,0,0,.12)),
+    rgba(0,0,0,.22);
+}
+.fireteam-profile-select::after {
+  content: "";
+  position: absolute;
+  right: 13px;
+  bottom: 12px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid rgba(255,255,255,.85);
+  border-bottom: 2px solid rgba(255,255,255,.85);
+  transform: rotate(45deg);
+}
 .fireteam-profile-copy h1 {
   margin: 2px 0 4px;
   color: rgba(235,238,239,.94);
@@ -2367,7 +2399,7 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 }
 .fireteam-profile-meta {
   position: relative;
-  width: min(520px, 100%);
+  width: min(520px, calc(100% - 28px));
   min-height: 28px;
   padding-top: 14px;
   color: rgba(235,238,239,.72);
@@ -2385,6 +2417,111 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   background:
     linear-gradient(90deg, rgba(202,209,221,.72) 0 52%, rgba(216,177,91,.55) 52% 53%, rgba(0,0,0,.28) 53%),
     rgba(0,0,0,.22);
+}
+.fireteam-character-selector {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 10px);
+  left: 0;
+  width: min(540px, calc(100vw - 36px));
+  border-top: 4px solid rgba(235,238,239,.86);
+  background:
+    linear-gradient(128deg, rgba(126,18,31,.45), transparent 44%),
+    linear-gradient(180deg, rgba(9,10,10,.97), rgba(9,10,10,.9));
+  box-shadow: 0 28px 54px rgba(0,0,0,.68), 0 0 0 1px rgba(202,209,221,.16);
+  padding: 14px;
+}
+.fireteam-selector-account {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: var(--soft);
+  font-size: .8rem;
+  font-weight: 900;
+}
+.fireteam-selector-account strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+.fireteam-selector-account span {
+  color: var(--director-blue);
+}
+.fireteam-selector-list {
+  display: grid;
+  gap: 6px;
+}
+.fireteam-selector-character {
+  position: relative;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 42px auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 72px;
+  border: 1px solid rgba(202,209,221,.12);
+  background:
+    linear-gradient(90deg, rgba(235,238,239,.3), rgba(235,238,239,.14) 58%, rgba(216,177,91,.18) 58%, rgba(0,0,0,.18)),
+    rgba(20,22,20,.88);
+  color: inherit;
+  padding: 8px 10px;
+  text-align: left;
+}
+.fireteam-selector-character:hover,
+.fireteam-selector-character:focus-visible,
+.fireteam-selector-character.active {
+  border-color: rgba(245,245,245,.92);
+  background:
+    linear-gradient(90deg, rgba(235,238,239,.5), rgba(235,238,239,.2) 58%, rgba(216,177,91,.28) 58%, rgba(0,0,0,.18)),
+    rgba(42,44,40,.95);
+}
+.fireteam-selector-character .selector-emblem,
+.fireteam-selector-character .fireteam-icon-fallback {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+}
+.fireteam-selector-character strong {
+  display: block;
+  color: var(--text);
+  font-size: .98rem;
+}
+.fireteam-selector-character em {
+  color: var(--muted);
+  font-size: .82rem;
+  font-style: normal;
+  font-weight: 800;
+}
+.fireteam-selector-character .selector-class {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  filter: grayscale(1) brightness(1.8);
+}
+.fireteam-selector-character b {
+  color: var(--gold-bright);
+  font-size: 1.35rem;
+}
+.fireteam-selector-clear {
+  justify-self: end;
+  margin-top: 10px;
+  border: 1px solid rgba(202,209,221,.2);
+  background: rgba(235,238,239,.08);
+  color: var(--soft);
+  padding: 8px 12px;
+  font-weight: 900;
+}
+.fireteam-selector-clear:hover:not(:disabled) {
+  border-color: rgba(235,238,239,.6);
+  color: var(--text);
+}
+.fireteam-selector-clear:disabled {
+  opacity: .42;
+  cursor: default;
+}
+.fireteam-selector-empty {
+  color: var(--muted);
+  font-size: .84rem;
+  font-weight: 800;
 }
 .fireteam-banner-meta {
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3448,6 +3585,11 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   .fireteam-banner-meta {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .fireteam-character-selector {
+    position: static;
+    width: 100%;
+    margin-top: 10px;
+  }
   .fireteam-pinned-panel {
     top: 78px;
     width: min(360px, calc(100vw - 62px));
@@ -3500,6 +3642,20 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   }
   .fireteam-profile-copy h1 {
     font-size: clamp(1.8rem, 13vw, 2.7rem);
+  }
+  .fireteam-profile-select {
+    padding: 8px 10px 10px;
+  }
+  .fireteam-selector-character {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+  }
+  .fireteam-selector-character .selector-class {
+    display: none;
+  }
+  .fireteam-selector-character .selector-emblem,
+  .fireteam-selector-character .fireteam-icon-fallback {
+    width: 40px;
+    height: 40px;
   }
   .fireteam-banner-meta,
   .fireteam-meta-list.fireteam-banner-meta {
