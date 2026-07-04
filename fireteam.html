@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=bray-fireteam-010" />
+  <link rel="stylesheet" href="assets/styles.css?v=bray-fireteam-011" />
 </head>
 <body class="fireteam-page">
   <div class="app-shell fireteam-shell">
@@ -31,44 +31,23 @@
           <p class="eyebrow">Cloud-synced Destiny 2 tracker</p>
           <h1 id="profileGuardianName">Fireteam Progress</h1>
           <div id="profileGuardianMeta" class="fireteam-profile-meta">Quest progress, character summaries, and shared fireteam snapshots.</div>
+          <div id="playerMeta" class="fireteam-meta-list fireteam-banner-meta"></div>
         </div>
-        <div class="fireteam-section-nav" aria-label="Dashboard sections">
-          <span>Quests</span>
-          <span>Fireteam</span>
-          <span>Tracker</span>
-          <span>Sync</span>
+        <div class="fireteam-banner-status">
+          <div class="fireteam-banner-status-head">
+            <span id="playerName">Not linked</span>
+            <em id="authState">Bungie offline</em>
+          </div>
+          <div id="statusBox" class="fireteam-status">Ready.</div>
+          <div id="cloudStatus" class="sync-health-strip fireteam-cloud-strip"></div>
+          <div class="fireteam-banner-actions">
+            <button id="loginBtn" class="button primary" type="button">Sign in with Bungie</button>
+            <button id="refreshBtn" class="button ghost" type="button">Refresh from Bungie</button>
+            <span id="lastUpdated" class="count-pill">Never</span>
+          </div>
         </div>
       </section>
     </header>
-
-    <section class="fireteam-top-grid">
-      <article class="panel fireteam-player-card">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Signed-in player</p>
-            <h2 id="playerName">Not linked</h2>
-          </div>
-          <span id="authState" class="count-pill">Bungie offline</span>
-        </div>
-        <div id="playerMeta" class="fireteam-meta-list"></div>
-        <div class="fireteam-actions">
-          <button id="loginBtn" class="button primary" type="button">Sign in with Bungie</button>
-          <button id="refreshBtn" class="button ghost" type="button">Refresh from Bungie</button>
-        </div>
-      </article>
-
-      <article class="panel fireteam-status-card">
-        <div class="panel-head">
-          <div>
-            <p class="eyebrow">Sync status</p>
-            <h2>Fireteam cloud</h2>
-          </div>
-          <span id="lastUpdated" class="count-pill">Never</span>
-        </div>
-        <div id="statusBox" class="fireteam-status">Ready.</div>
-        <div id="cloudStatus" class="sync-health-strip fireteam-cloud-strip"></div>
-      </article>
-    </section>
 
     <main class="fireteam-grid">
       <div class="fireteam-main-column">
@@ -179,6 +158,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=cross-tab-refresh-lock"></script>
-  <script src="assets/fireteam.js?v=fireteam-freefloat"></script>
+  <script src="assets/fireteam.js?v=fireteam-banner-status"></script>
 </body>
 </html>
