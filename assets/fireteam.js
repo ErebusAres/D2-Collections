@@ -120,12 +120,17 @@
     return String(payload.primaryMembershipId || snapshot?.membershipId || snapshot?.player || payload.player || snapshot?.displayName || payload.playerDisplayName || "");
   }
 
+  function hasLocalAuth() {
+    return sessionIsUsable() || hasSavedCode();
+  }
+
   function activeSnapshot() {
     if (selectedSnapshotKey) {
       const saved = savedSnapshots.find(snapshot => snapshotKey(snapshot) === selectedSnapshotKey);
       if (saved) return snapshotPayload(saved);
     }
-    return latestSnapshot || snapshotPayload(savedSnapshots[0]);
+    if (latestSnapshot) return latestSnapshot;
+    return hasLocalAuth() ? null : snapshotPayload(savedSnapshots[0]);
   }
 
   function setSelectedSnapshot(key) {
@@ -769,7 +774,10 @@
   }
 
   function renderMembers(snapshots = []) {
-    const list = snapshots.length ? snapshots : latestSnapshot ? [latestSnapshot] : [];
+    const latestKey = snapshotKey(latestSnapshot);
+    const list = latestSnapshot
+      ? [latestSnapshot, ...snapshots.filter(snapshot => snapshotKey(snapshot) !== latestKey)]
+      : snapshots;
     if (els.memberCount) els.memberCount.textContent = `${list.length} saved`;
     if (!els.membersList) return;
     if (!list.length) {
@@ -1180,7 +1188,7 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.message || data.reason || "Fireteam cloud read failed.");
       savedSnapshots = data.snapshots || [];
-      if (!selectedSnapshotKey && !latestSnapshot && savedSnapshots.length) selectedSnapshotKey = snapshotKey(savedSnapshots[0]);
+      if (!selectedSnapshotKey && !latestSnapshot && savedSnapshots.length && !hasLocalAuth()) selectedSnapshotKey = snapshotKey(savedSnapshots[0]);
       if (selectedSnapshotKey && !savedSnapshots.some(snapshot => snapshotKey(snapshot) === selectedSnapshotKey)) selectedSnapshotKey = "";
       renderMembers(savedSnapshots);
       renderSnapshot(activeSnapshot());
