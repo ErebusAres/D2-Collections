@@ -15,6 +15,12 @@
   const MAX_QUEST_ITEMS = 120;
   const ITEM_STATE_TRACKED = 2;
   const ITEM_STATE_HIGHLIGHTED_OBJECTIVE = 16;
+  const SIDE_TRACKER_LIMIT = 12;
+  const SIDE_TRACKER_ICONS = {
+    bounty: "assets/dim-icons/dim_exclamation_triangle.svg",
+    seasonal: "assets/dim-icons/dim_pursuit_complete.svg",
+    tracked: "assets/dim-icons/dim_tracked.svg"
+  };
   const CLASS_LABELS = {
     "2271682572": "Warlock",
     "3655393761": "Titan",
@@ -42,6 +48,8 @@
     cloudStatus: document.querySelector("#cloudStatus"),
     membersList: document.querySelector("#membersList"),
     memberCount: document.querySelector("#memberCount"),
+    sideTrackerList: document.querySelector("#sideTrackerList"),
+    sideTrackerCount: document.querySelector("#sideTrackerCount"),
     questList: document.querySelector("#questList"),
     questCount: document.querySelector("#questCount"),
     questTabs: document.querySelector("#questTabs"),
@@ -977,6 +985,111 @@
     </article>`).join("");
   }
 
+  function questPct(quest) {
+    return Math.max(0, Math.min(100, Math.round(Number(quest?.pct || 0))));
+  }
+
+  function isSeasonalHubQuest(quest) {
+    const text = [
+      quest?.name,
+      quest?.description,
+      quest?.source,
+      quest?.questLineName,
+      quest?.questLineDescription,
+      quest?.character?.className
+    ].filter(Boolean).join(" ").toLowerCase();
+    return /(season|seasonal|episode|hub|pathfinder|portal|edge of fate|renegades|pale heart|kepler|altar|world tier|event|vendor|playlist|weekly)/i.test(text);
+  }
+
+  function sideTrackerKind(item) {
+    if (item?.kind === "bounty") return "bounty";
+    if (item?.sourceType === "activity") return "activity";
+    return "seasonal";
+  }
+
+  function sideTrackerLabel(item) {
+    const kind = sideTrackerKind(item);
+    if (kind === "bounty") return "Bounty";
+    if (kind === "activity") return "Director";
+    return "Seasonal hub";
+  }
+
+  function sideTrackerIcon(item) {
+    const kind = sideTrackerKind(item);
+    if (item?.icon) {
+      return `<img src="${escapeHtml(iconUrl(item.icon))}" alt="" width="28" height="28" loading="lazy" decoding="async" aria-hidden="true" />`;
+    }
+    const fallback = kind === "bounty" ? SIDE_TRACKER_ICONS.bounty : SIDE_TRACKER_ICONS.seasonal;
+    return `<img class="side-track-category-icon" src="${escapeHtml(fallback)}" alt="" width="28" height="28" loading="lazy" decoding="async" aria-hidden="true" />`;
+  }
+
+  function sideTrackerMeta(item) {
+    const parts = [sideTrackerLabel(item)];
+    if (item?.inGameTracked) parts.push("Tracked");
+    if (item?.highlightedObjective) parts.push("Highlighted");
+    if (item?.character?.className) parts.push(item.character.className);
+    else if (item?.source) parts.push(item.source);
+    return parts.join(" / ");
+  }
+
+  function suggestedActivityTrackerItem(activity) {
+    return {
+      sourceType: "activity",
+      name: activity.label || "Suggested activity",
+      description: activity.activity || "",
+      pct: 0,
+      count: activity.count || 0,
+      priority: activity.priority || "Next",
+      sample: activity.sample || ""
+    };
+  }
+
+  function renderSideTracker(quests = [], activities = []) {
+    if (!els.sideTrackerList) return;
+    const questItems = quests
+      .filter(quest => quest.kind !== "record")
+      .filter(classFilterMatches)
+      .filter(quest => quest.kind === "bounty" || isSeasonalHubQuest(quest));
+    const ranked = questItems
+      .sort((a, b) => {
+        const aTracked = Number(Boolean(a.inGameTracked || a.highlightedObjective));
+        const bTracked = Number(Boolean(b.inGameTracked || b.highlightedObjective));
+        if (aTracked !== bTracked) return bTracked - aTracked;
+        const aDone = questPct(a) >= 100;
+        const bDone = questPct(b) >= 100;
+        if (aDone !== bDone) return Number(aDone) - Number(bDone);
+        if (questPct(a) !== questPct(b)) return questPct(b) - questPct(a);
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      })
+      .slice(0, SIDE_TRACKER_LIMIT);
+    const fallback = ranked.length ? [] : activities.slice(0, 5).map(suggestedActivityTrackerItem);
+    const items = [...ranked, ...fallback];
+    if (els.sideTrackerCount) els.sideTrackerCount.textContent = ranked.length ? `${ranked.length} focus` : `${fallback.length} ideas`;
+    if (!items.length) {
+      els.sideTrackerList.innerHTML = emptyState("No bounty or seasonal hub objectives found for this Guardian.");
+      return;
+    }
+    els.sideTrackerList.innerHTML = items.map(item => {
+      const pct = questPct(item);
+      const kind = sideTrackerKind(item);
+      const categoryIcon = kind === "bounty" ? SIDE_TRACKER_ICONS.bounty : SIDE_TRACKER_ICONS.seasonal;
+      const trackedIcon = item.inGameTracked || item.highlightedObjective
+        ? `<img src="${SIDE_TRACKER_ICONS.tracked}" alt="" width="14" height="14" loading="lazy" decoding="async" aria-hidden="true" />`
+        : "";
+      const count = item.count ? `<em>${escapeHtml(item.count)} item(s)</em>` : "";
+      return `<article class="side-track-row is-${escapeHtml(kind)} ${item.inGameTracked ? "is-tracked" : ""} ${item.highlightedObjective ? "is-highlighted-objective" : ""}" title="${escapeHtml(item.description || item.activity || item.name || "")}">
+        <span class="side-track-icon">${sideTrackerIcon(item)}</span>
+        <div class="side-track-main">
+          <div class="side-track-bar" style="--pct:${pct}%">
+            <strong>${escapeHtml(item.name || "Objective")}</strong>
+            <em>${pct}%</em>
+          </div>
+          <span><img src="${escapeHtml(categoryIcon)}" alt="" width="14" height="14" loading="lazy" decoding="async" aria-hidden="true" />${trackedIcon}${escapeHtml(sideTrackerMeta(item))}${count}</span>
+        </div>
+      </article>`;
+    }).join("");
+  }
+
   function renderCloudStatus(snapshots = savedSnapshots) {
     if (!els.cloudStatus) return;
     if (!apiBase()) {
@@ -999,6 +1112,7 @@
     renderQuests(payload?.trackedQuestProgress || []);
     renderTriumphs(payload?.trackedQuestProgress || []);
     renderManualTracker(payload?.trackedQuestProgress || []);
+    renderSideTracker(payload?.trackedQuestProgress || [], payload?.suggestedActivities || []);
     renderActivities(payload?.suggestedActivities || []);
     renderCloudStatus();
     if (els.debugBox) els.debugBox.value = payload ? JSON.stringify(payload, null, 2) : "";
@@ -1113,6 +1227,7 @@
         renderQuests(activeSnapshot()?.trackedQuestProgress || []);
         renderTriumphs(activeSnapshot()?.trackedQuestProgress || []);
         renderManualTracker(activeSnapshot()?.trackedQuestProgress || []);
+        renderSideTracker(activeSnapshot()?.trackedQuestProgress || [], activeSnapshot()?.suggestedActivities || []);
         return;
       }
 
