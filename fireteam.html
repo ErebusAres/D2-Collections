@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=bray-fireteam-012" />
+  <link rel="stylesheet" href="assets/styles.css?v=bray-fireteam-013" />
 </head>
 <body class="fireteam-page">
   <div class="app-shell fireteam-shell">
@@ -17,10 +17,16 @@
           <img src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" />
           <span>D2 Collections</span>
         </a>
-        <nav class="site-nav" aria-label="Site navigation">
-          <a href="index.html">Collections</a>
-          <a href="fireteam.html" aria-current="page">Fireteam</a>
-        </nav>
+        <div class="fireteam-appbar-actions">
+          <nav class="site-nav" aria-label="Site navigation">
+            <a href="index.html">Collections</a>
+            <a href="fireteam.html" aria-current="page">Fireteam</a>
+          </nav>
+          <button id="socialDrawerToggle" class="fireteam-social-button" type="button" aria-expanded="false" aria-controls="socialDrawer" title="Fireteam and friends">
+            <span aria-hidden="true"></span>
+            <em id="socialCount">0</em>
+          </button>
+        </div>
       </div>
 
       <section class="fireteam-profile-banner" aria-label="Fireteam dashboard header">
@@ -51,6 +57,26 @@
         </div>
       </section>
     </header>
+
+    <aside id="socialDrawer" class="fireteam-social-drawer" aria-label="Fireteam and friends" hidden>
+      <div class="fireteam-social-head">
+        <div>
+          <strong id="socialPlayerName">Fireteam</strong>
+          <span id="socialPlayerMeta">Synced Guardians</span>
+        </div>
+        <button id="socialDrawerClose" type="button" title="Dismiss">x</button>
+      </div>
+      <div class="fireteam-social-tabs" role="tablist" aria-label="Social list type">
+        <button class="active" type="button" data-social-tab="fireteam">Fireteam</button>
+        <button type="button" data-social-tab="friends">Friends</button>
+        <button type="button" data-social-tab="clan">Clan</button>
+      </div>
+      <div id="socialList" class="fireteam-social-list"></div>
+      <div class="fireteam-social-foot">
+        <button id="socialPrev" type="button" title="Previous">‹</button>
+        <button id="socialNext" type="button" title="Next">›</button>
+      </div>
+    </aside>
 
     <main class="fireteam-grid">
       <div class="fireteam-main-column">
@@ -161,6 +187,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=cross-tab-refresh-lock"></script>
-  <script src="assets/fireteam.js?v=fireteam-character-selector"></script>
+  <script src="assets/fireteam.js?v=fireteam-social-drawer"></script>
 </body>
 </html>

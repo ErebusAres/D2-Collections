@@ -2255,6 +2255,11 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
     linear-gradient(90deg, rgba(110,15,29,.9), rgba(110,15,29,.5) 42%, rgba(202,209,221,.28)),
     rgba(10,12,12,.98);
 }
+.fireteam-appbar-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+}
 .fireteam-brand {
   display: inline-flex;
   align-items: center;
@@ -2300,6 +2305,209 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
   bottom: 0;
   height: 3px;
   background: rgba(235,238,239,.86);
+}
+.fireteam-social-button {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 22px auto;
+  gap: 3px;
+  align-items: center;
+  min-width: 54px;
+  border: 0;
+  background: transparent;
+  color: rgba(235,238,239,.78);
+  padding: 0 8px;
+}
+.fireteam-social-button:hover,
+.fireteam-social-button[aria-expanded="true"] {
+  background: rgba(255,255,255,.1);
+  color: #fff;
+}
+.fireteam-social-button span {
+  position: relative;
+  width: 22px;
+  height: 18px;
+}
+.fireteam-social-button span::before,
+.fireteam-social-button span::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px 999px 3px 3px;
+  background: currentColor;
+}
+.fireteam-social-button span::before {
+  left: 8px;
+  top: 1px;
+  width: 7px;
+  height: 7px;
+  box-shadow: -7px 1px 0 -1px currentColor, 7px 1px 0 -1px currentColor;
+}
+.fireteam-social-button span::after {
+  left: 2px;
+  bottom: 1px;
+  width: 18px;
+  height: 8px;
+  clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%);
+}
+.fireteam-social-button em {
+  color: var(--director-blue);
+  font-size: .95rem;
+  font-style: normal;
+  font-weight: 900;
+}
+.fireteam-social-drawer {
+  position: fixed;
+  z-index: 78;
+  top: 0;
+  right: 0;
+  width: min(360px, 100vw);
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  border-left: 1px solid rgba(202,209,221,.16);
+  background:
+    linear-gradient(130deg, rgba(126,18,31,.26), transparent 42%),
+    linear-gradient(180deg, rgba(35,36,36,.96), rgba(8,10,10,.97));
+  box-shadow: -28px 0 56px rgba(0,0,0,.55);
+  padding: 22px 18px 18px;
+}
+.fireteam-social-drawer[hidden] {
+  display: none;
+}
+.fireteam-social-drawer::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  right: 22px;
+  width: 150px;
+  height: 150px;
+  border: 5px solid rgba(111,168,220,.42);
+  clip-path: polygon(0 0, 100% 5%, 100% 88%, 52% 100%, 0 86%);
+  opacity: .55;
+  pointer-events: none;
+}
+.fireteam-social-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 54px;
+  margin-bottom: 10px;
+}
+.fireteam-social-head strong {
+  display: block;
+  color: var(--text);
+  font-size: .95rem;
+}
+.fireteam-social-head span {
+  color: var(--muted);
+  font-size: .74rem;
+  font-weight: 800;
+}
+.fireteam-social-head button {
+  align-self: start;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(202,209,221,.16);
+  background: rgba(0,0,0,.28);
+  color: var(--soft);
+  font-weight: 900;
+}
+.fireteam-social-tabs {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 20px;
+}
+.fireteam-social-tabs button {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: rgba(202,209,221,.62);
+  padding: 10px 4px;
+  font-size: .78rem;
+  font-weight: 900;
+}
+.fireteam-social-tabs button.active {
+  color: #f2f4f2;
+}
+.fireteam-social-tabs button.active::after {
+  content: "";
+  position: absolute;
+  left: 25%;
+  right: 25%;
+  bottom: 0;
+  height: 3px;
+  background: rgba(235,238,239,.88);
+}
+.fireteam-social-list {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-height: 0;
+  overflow: auto;
+}
+.fireteam-social-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  gap: 9px;
+  align-items: center;
+  min-height: 34px;
+  border: 0;
+  border-left: 30px solid rgba(202,209,221,.2);
+  background: rgba(202,209,221,.16);
+  color: var(--soft);
+  padding: 3px 8px 3px 0;
+  text-align: left;
+}
+.fireteam-social-row:hover,
+.fireteam-social-row.active {
+  background: rgba(235,238,239,.28);
+  color: #fff;
+}
+.fireteam-social-row img,
+.fireteam-social-row > span {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  margin-left: -27px;
+}
+.fireteam-social-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .82rem;
+}
+.fireteam-social-row em {
+  color: rgba(202,209,221,.62);
+  font-size: .68rem;
+  font-style: normal;
+}
+.fireteam-social-row b {
+  color: var(--director-blue);
+  font-size: 1rem;
+}
+.fireteam-social-foot {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid rgba(202,209,221,.16);
+  margin-top: 18px;
+  padding-top: 14px;
+}
+.fireteam-social-foot button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(202,209,221,.16);
+  background: rgba(255,255,255,.05);
+  color: var(--soft);
+  font-size: 1.5rem;
 }
 .fireteam-profile-banner {
   position: relative;
@@ -3627,12 +3835,21 @@ body.manual-tracker-minimized .manual-drawer-toggle {
     gap: 6px;
     padding: 8px 12px 0;
   }
+  .fireteam-appbar-actions {
+    width: 100%;
+  }
   .fireteam-bray-header .site-nav {
     width: 100%;
   }
   .fireteam-bray-header .site-nav a {
     flex: 1;
     text-align: center;
+  }
+  .fireteam-social-button {
+    min-width: 48px;
+  }
+  .fireteam-social-drawer {
+    width: min(340px, 100vw);
   }
   .fireteam-profile-banner {
     grid-template-columns: 1fr;

@@ -52,6 +52,15 @@
     lastUpdated: document.querySelector("#lastUpdated"),
     statusBox: document.querySelector("#statusBox"),
     cloudStatus: document.querySelector("#cloudStatus"),
+    socialDrawerToggle: document.querySelector("#socialDrawerToggle"),
+    socialDrawerClose: document.querySelector("#socialDrawerClose"),
+    socialDrawer: document.querySelector("#socialDrawer"),
+    socialCount: document.querySelector("#socialCount"),
+    socialPlayerName: document.querySelector("#socialPlayerName"),
+    socialPlayerMeta: document.querySelector("#socialPlayerMeta"),
+    socialList: document.querySelector("#socialList"),
+    socialPrev: document.querySelector("#socialPrev"),
+    socialNext: document.querySelector("#socialNext"),
     membersList: document.querySelector("#membersList"),
     memberCount: document.querySelector("#memberCount"),
     sideTrackerList: document.querySelector("#sideTrackerList"),
@@ -79,6 +88,7 @@
   let autoRefreshTimer = 0;
   let questFilter = "all";
   let classFilter = "";
+  let socialTab = "fireteam";
   let manualTracked = readManualTracked();
   let manualTrackCache = readManualTrackCache();
   let manualRenderSeq = 0;
@@ -974,6 +984,56 @@
     }).join("");
   }
 
+  function socialSnapshotList() {
+    const latestKey = snapshotKey(latestSnapshot);
+    return latestSnapshot
+      ? [latestSnapshot, ...savedSnapshots.filter(snapshot => snapshotKey(snapshot) !== latestKey)]
+      : savedSnapshots;
+  }
+
+  function setSocialDrawerOpen(open) {
+    if (!els.socialDrawer || !els.socialDrawerToggle) return;
+    els.socialDrawer.hidden = !open;
+    els.socialDrawerToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    document.body.classList.toggle("fireteam-social-open", open);
+  }
+
+  function renderSocialDrawer() {
+    const list = socialSnapshotList();
+    if (els.socialCount) els.socialCount.textContent = String(list.length);
+    if (els.socialPlayerName) els.socialPlayerName.textContent = activeSnapshot()?.playerDisplayName || snapshotDisplayName(activeSnapshot()) || "Fireteam";
+    if (els.socialPlayerMeta) els.socialPlayerMeta.textContent = `${list.length} synced Guardian${list.length === 1 ? "" : "s"}`;
+    if (!els.socialList) return;
+
+    const activeKey = snapshotKey(activeSnapshot());
+    const visible = socialTab === "clan" ? [] : list;
+    if (!visible.length) {
+      const message = socialTab === "clan"
+        ? "Clan roster sync is not wired yet. Use Fireteam for saved cloud snapshots."
+        : "No synced Guardians yet. Refresh from Bungie or wait for a fireteam member snapshot.";
+      els.socialList.innerHTML = emptyState(message);
+      return;
+    }
+
+    els.socialList.innerHTML = visible.map(snapshot => {
+      const payload = snapshotPayload(snapshot) || {};
+      const key = snapshotKey(snapshot);
+      const active = key && key === activeKey;
+      const chars = payload.characterSummaries || [];
+      const primary = chars[0] || {};
+      const emblem = primary.emblemPath ? `<img src="${escapeHtml(iconUrl(primary.emblemPath))}" alt="" width="28" height="28" loading="lazy" decoding="async" aria-hidden="true" />` : `<span></span>`;
+      const display = payload.playerDisplayName || snapshot.displayName || snapshot.player || "Unknown Guardian";
+      const quests = (payload.trackedQuestProgress || []).filter(item => item.kind !== "record");
+      const power = chars.length ? Math.max(...chars.map(character => Number(character.light || 0))) : 0;
+      return `<button class="fireteam-social-row ${active ? "active" : ""}" type="button" data-view-snapshot="${escapeHtml(key)}" aria-pressed="${active ? "true" : "false"}">
+        ${emblem}
+        <strong>${escapeHtml(display)}</strong>
+        <em>${escapeHtml(formatShort(snapshot.syncedAt || payload.updatedAt || ""))}</em>
+        <b>${power || quests.length}</b>
+      </button>`;
+    }).join("");
+  }
+
   function renderCharacterPill(character) {
     const icon = character.emblemPath ? `<img src="${escapeHtml(iconUrl(character.emblemPath))}" alt="" width="28" height="28" loading="lazy" decoding="async" aria-hidden="true" />` : "";
     const className = character.className || "Guardian";
@@ -1369,6 +1429,7 @@
     renderSideTracker(payload?.trackedQuestProgress || [], payload?.suggestedActivities || []);
     renderActivities(payload?.suggestedActivities || []);
     renderCloudStatus();
+    renderSocialDrawer();
     if (els.debugBox) els.debugBox.value = payload ? JSON.stringify(payload, null, 2) : "";
   }
 
@@ -1460,6 +1521,21 @@
       window.location.assign(buildAuthUrl());
     });
     els.refreshBtn?.addEventListener("click", () => refreshFromBungie());
+    els.socialDrawerToggle?.addEventListener("click", () => {
+      renderSocialDrawer();
+      setSocialDrawerOpen(els.socialDrawer?.hidden !== false);
+    });
+    els.socialDrawerClose?.addEventListener("click", () => setSocialDrawerOpen(false));
+    els.socialPrev?.addEventListener("click", () => {
+      socialTab = socialTab === "clan" ? "friends" : socialTab === "friends" ? "fireteam" : "clan";
+      document.querySelectorAll("[data-social-tab]").forEach(item => item.classList.toggle("active", item.dataset.socialTab === socialTab));
+      renderSocialDrawer();
+    });
+    els.socialNext?.addEventListener("click", () => {
+      socialTab = socialTab === "fireteam" ? "friends" : socialTab === "friends" ? "clan" : "fireteam";
+      document.querySelectorAll("[data-social-tab]").forEach(item => item.classList.toggle("active", item.dataset.socialTab === socialTab));
+      renderSocialDrawer();
+    });
     setManualDrawerMinimized(localStorage.getItem(MANUAL_DRAWER_KEY) === "1");
     els.manualTrackDrawerToggle?.addEventListener("click", () => {
       setManualDrawerMinimized(!document.body.classList.contains("manual-tracker-minimized"));
@@ -1472,6 +1548,15 @@
       renderQuests(activeSnapshot()?.trackedQuestProgress || []);
     });
     document.addEventListener("click", event => {
+      const socialTabButton = event.target.closest("[data-social-tab]");
+      if (socialTabButton) {
+        event.preventDefault();
+        socialTab = socialTabButton.dataset.socialTab || "fireteam";
+        document.querySelectorAll("[data-social-tab]").forEach(item => item.classList.toggle("active", item === socialTabButton));
+        renderSocialDrawer();
+        return;
+      }
+
       const profileToggle = event.target.closest("#profileSelectorToggle");
       if (profileToggle) {
         event.preventDefault();
@@ -1502,6 +1587,7 @@
       if (snapshotButton) {
         event.preventDefault();
         setSelectedSnapshot(String(snapshotButton.dataset.viewSnapshot || ""));
+        if (snapshotButton.closest("#socialDrawer")) setSocialDrawerOpen(false);
         return;
       }
 
@@ -1532,6 +1618,7 @@
       }
       if (event.key === "Escape") {
         setProfileSelectorOpen(false);
+        setSocialDrawerOpen(false);
         return;
       }
       if (event.key !== "Enter" && event.key !== " ") return;
