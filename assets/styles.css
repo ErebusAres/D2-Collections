@@ -2227,12 +2227,26 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 .fireteam-shell .panel {
   border-radius: 0;
   border-color: var(--bt-line);
+  padding: 12px;
 }
 .fireteam-shell .hero,
 .fireteam-shell .panel {
   background:
     linear-gradient(180deg, rgba(255,255,255,.025), transparent 34%),
     var(--bt-panel);
+}
+.fireteam-shell .panel-head {
+  min-height: 34px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(202,209,221,.14);
+}
+.fireteam-shell .panel-head h2 {
+  font-size: .92rem;
+  letter-spacing: .035em;
+}
+.fireteam-shell .panel-head .eyebrow {
+  font-size: .64rem;
 }
 .fireteam-bray-header {
   position: relative;
@@ -2833,9 +2847,9 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 }
 .fireteam-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 318px);
   gap: 16px;
-  width: min(calc(100vw - 520px), 1360px);
+  width: min(calc(100vw - 444px), 1460px);
   margin: 14px auto 0 max(18px, calc((100vw - 1480px) / 2));
   align-items: start;
 }
@@ -2855,6 +2869,24 @@ html.layout-simple .status-cell.unlock-summary .unlock-count {
 }
 .fireteam-debug-panel {
   margin-top: 0;
+  padding: 0;
+  border-color: rgba(202,209,221,.1);
+  background: transparent !important;
+}
+.fireteam-debug-panel > .panel-head {
+  display: none;
+}
+.fireteam-debug-panel .debug-details {
+  border: 1px solid rgba(202,209,221,.12);
+  background: rgba(0,0,0,.24);
+  padding: 9px 10px;
+}
+.fireteam-debug-panel summary {
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .05em;
 }
 .fireteam-pinned-panel {
   position: fixed;
@@ -3139,7 +3171,7 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   align-items: start;
 }
 .fireteam-quest-panel .fireteam-card-grid {
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(292px, 1fr));
   align-items: start;
   overflow: visible;
   gap: 9px;
