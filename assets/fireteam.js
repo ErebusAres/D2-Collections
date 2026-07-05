@@ -47,6 +47,7 @@
     profileGuardianMeta: document.querySelector("#profileGuardianMeta"),
     profileTopStats: document.querySelector("#profileTopStats"),
     profileEmblem: document.querySelector("#profileEmblem"),
+    profileBannerImage: document.querySelector("#profileBannerImage"),
     profileSelectorToggle: document.querySelector("#profileSelectorToggle"),
     profileCharacterSelector: document.querySelector("#profileCharacterSelector"),
     playerMeta: document.querySelector("#playerMeta"),
@@ -923,6 +924,7 @@
       if (els.profileGuardianMeta) els.profileGuardianMeta.style.setProperty("--season-progress", "0%");
       if (els.profileTopStats) els.profileTopStats.innerHTML = "";
       if (els.profileEmblem) els.profileEmblem.src = "assets/d2-collections-mark.svg";
+      if (els.profileBannerImage) els.profileBannerImage.style.removeProperty("background-image");
       document.documentElement.style.removeProperty("--fireteam-profile-banner-image");
       renderProfileCharacterSelector(null);
       if (els.playerMeta) els.playerMeta.innerHTML = `<span>Sign in to read your Bungie profile and save a fireteam snapshot.</span>`;
@@ -950,8 +952,11 @@
     }
     const banner = selectedCharacter?.emblemBackgroundPath || snapshot.characterSummaries?.find(character => character.emblemBackgroundPath)?.emblemBackgroundPath || "";
     if (banner) {
-      document.documentElement.style.setProperty("--fireteam-profile-banner-image", `url("${iconUrl(banner)}")`);
+      const bannerUrl = iconUrl(banner);
+      if (els.profileBannerImage) els.profileBannerImage.style.backgroundImage = `url("${bannerUrl}")`;
+      document.documentElement.style.setProperty("--fireteam-profile-banner-image", `url("${bannerUrl}")`);
     } else {
+      if (els.profileBannerImage) els.profileBannerImage.style.removeProperty("background-image");
       document.documentElement.style.removeProperty("--fireteam-profile-banner-image");
     }
     if (els.lastUpdated) els.lastUpdated.textContent = formatShort(snapshot.updatedAt);
