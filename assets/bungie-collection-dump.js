@@ -218,7 +218,6 @@
     const { data, text } = await parseResponse(response);
     if (!response.ok || !data.access_token) {
       if (isInvalidAuthCode(data)) {
-        localStorage.removeItem(SESSION_KEY);
         clearAuthCode("authorization_code_invalid");
         throw new Error([
           "Bungie login code expired or was already used.",
@@ -295,12 +294,16 @@
 
   async function ensureToken(status) {
     const saved = token();
-    if (authCode()) return exchangeCodeForToken(status);
-    if (tokenIsValid(saved)) return saved;
+    if (tokenIsValid(saved)) {
+      if (authCode()) clearAuthCode("ignored_stale_code_session_valid");
+      return saved;
+    }
     if (refreshTokenIsValid(saved)) {
+      if (authCode()) clearAuthCode("ignored_stale_code_refresh_valid");
       if (!refreshPromise) refreshPromise = refreshTokenAcrossTabs(status).finally(() => { refreshPromise = null; });
       return refreshPromise;
     }
+    if (authCode()) return exchangeCodeForToken(status);
     if (saved.access_token || saved.refresh_token) {
       markAuthRefreshError("Bungie session needs a fresh login.");
       throw new Error("Bungie session needs a fresh login. Click Refresh Bungie login.");

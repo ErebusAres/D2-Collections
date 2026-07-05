@@ -404,6 +404,7 @@
       className: CLASS_LABELS[String(character.classHash)] || "Guardian",
       light: Number(character.light || 0),
       emblemPath: character.emblemPath || "",
+      emblemBackgroundPath: character.emblemBackgroundPath || "",
       lastPlayed: character.dateLastPlayed || "",
       minutesPlayedTotal: Number(character.minutesPlayedTotal || 0)
     })).sort((a, b) => b.light - a.light || a.className.localeCompare(b.className));
@@ -722,6 +723,19 @@
     return "pursuit";
   }
 
+  function isCatalystQuest(definition = {}) {
+    const text = [
+      definition.itemTypeDisplayName,
+      definition.itemTypeAndTierDisplayName,
+      definition.name,
+      definition.description,
+      definition.setData?.questLineName,
+      definition.setData?.questLineDescription,
+      definition.setData?.questStepSummary
+    ].join(" ").toLowerCase();
+    return /\bcatalyst\b/.test(text);
+  }
+
   async function activeQuestItems(profile, activeHashes, characters) {
     const cache = itemCache();
     const items = inventoryObjectiveItems(profile, characters);
@@ -730,6 +744,7 @@
       const definition = await itemDefinition(item.itemHash, cache);
       const summary = objectiveSummary(item.objectives, activeHashes);
       const complete = summary.rows.length > 0 && summary.rows.every(row => row.complete);
+      const catalystQuest = isCatalystQuest(definition);
       resolved.push({
         hash: item.itemHash,
         itemHash: item.itemHash,
@@ -740,6 +755,7 @@
         characterId: item.characterId,
         character: item.character,
         kind: classifyQuestItem(definition, item),
+        catalystQuest,
         complete,
         inInventory: true,
         inGameTracked: Boolean(item.tracked),
@@ -907,6 +923,7 @@
       if (els.profileGuardianMeta) els.profileGuardianMeta.style.setProperty("--season-progress", "0%");
       if (els.profileTopStats) els.profileTopStats.innerHTML = "";
       if (els.profileEmblem) els.profileEmblem.src = "assets/d2-collections-mark.svg";
+      document.documentElement.style.removeProperty("--fireteam-profile-banner-image");
       renderProfileCharacterSelector(null);
       if (els.playerMeta) els.playerMeta.innerHTML = `<span>Sign in to read your Bungie profile and save a fireteam snapshot.</span>`;
       if (els.lastUpdated) els.lastUpdated.textContent = "Never";
@@ -930,6 +947,12 @@
     if (els.profileEmblem) {
       const emblem = selectedCharacter?.emblemPath || snapshot.characterSummaries?.find(character => character.emblemPath)?.emblemPath || "";
       els.profileEmblem.src = emblem ? iconUrl(emblem) : "assets/d2-collections-mark.svg";
+    }
+    const banner = selectedCharacter?.emblemBackgroundPath || snapshot.characterSummaries?.find(character => character.emblemBackgroundPath)?.emblemBackgroundPath || "";
+    if (banner) {
+      document.documentElement.style.setProperty("--fireteam-profile-banner-image", `url("${iconUrl(banner)}")`);
+    } else {
+      document.documentElement.style.removeProperty("--fireteam-profile-banner-image");
     }
     if (els.lastUpdated) els.lastUpdated.textContent = formatShort(snapshot.updatedAt);
     if (els.playerMeta) {
@@ -1126,7 +1149,7 @@
     if (/pathfinder/.test(text)) return "pathfinder";
     if (/new light|guardian rank|guardian ranks|tutorial|introduct|cosmodrome|shaw han/.test(text)) return "new-light";
     if (/edge of fate|kepler|altar of relativity|world tier|portal|seasonal hub|the portal|matterspark|fabled|mythic/.test(text)) return "edge-of-fate";
-    if (/exotic|catalyst|banshee|xur|rahool/.test(text)) return "exotics";
+    if (quest.catalystQuest || /exotic|catalyst|banshee|xur|rahool/.test(text)) return "exotics";
     if (/vanguard|crucible|gambit|playlist|ritual|strike|nightfall|gunsmith|shaxx|zavala|drifter|iron banner|trials/.test(text)) return "playlists";
     if (/shadowkeep|moon|essence|europa|beyond light|stasis|throne world|witch queen|neomuna|lightfall|pale heart|final shape|legacy|past|forsaken|dreaming city/.test(text)) return "past";
     return "quest";
@@ -1191,6 +1214,7 @@
       const title = unresolved ? "Unmapped Bungie record" : quest.name || `Record ${quest.hash}`;
       const hash = unresolved ? ` <span class="record-hash">Hash ${escapeHtml(quest.hash)}</span>` : "";
       const trackedBadge = quest.inGameTracked ? `<span class="fireteam-tracked-badge">Tracked in game</span>` : "";
+      const catalystBadge = quest.catalystQuest ? `<span class="fireteam-catalyst-badge">Catalyst quest</span>` : "";
       const sourceChip = questSourceChip(quest);
       const objectiveRows = renderObjectiveSteps(quest.objectives || []);
       const key = questKey(quest);
@@ -1201,7 +1225,7 @@
         ${pinButton}
         ${icon}
         <div>
-          <strong>${escapeHtml(title)}${trackedBadge}</strong>
+          <strong>${escapeHtml(title)}${trackedBadge}${catalystBadge}</strong>
           <span><em class="quest-kind-chip">${escapeHtml(titleCase(quest.kind || "record"))}</em>${escapeHtml(quest.objectiveComplete || 0)}/${escapeHtml(quest.objectiveTotal || 0)} objectives ${sourceChip}${hash}</span>
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
           ${objectiveRows}
