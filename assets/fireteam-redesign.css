@@ -1,10 +1,191 @@
 /* Fireteam reset: Braytech-inspired page shell without touching collection layouts. */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+  background: #050706;
+}
+
+body.fireteam-page {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: #eef2f0;
+}
+
+body.fireteam-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+body.fireteam-page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+  opacity: .12;
+  background: repeating-linear-gradient(180deg, rgba(255,255,255,.04) 0 1px, transparent 1px 5px);
+  mix-blend-mode: overlay;
+}
+
+body.fireteam-page button,
+body.fireteam-page input,
+body.fireteam-page textarea {
+  font: inherit;
+}
+
+body.fireteam-page button {
+  cursor: pointer;
+}
+
+body.fireteam-page button:focus-visible,
+body.fireteam-page [tabindex]:focus-visible {
+  outline: 2px solid rgba(231,200,92,.78);
+  outline-offset: 2px;
+}
+
+.fireteam-shell .panel {
+  padding: 12px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-head h2,
+.panel-head p {
+  margin: 0;
+}
+
+.eyebrow {
+  margin: 0 0 3px;
+  color: #9ec5ff;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 6px 10px;
+  border: 1px solid rgba(202,209,221,.16);
+  color: rgba(238,242,240,.82);
+  font-size: .76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid rgba(202,209,221,.2);
+  border-radius: 5px;
+  background: rgba(255,255,255,.055);
+  color: #eef2f0;
+  font-weight: 900;
+}
+
+.button.primary {
+  border-color: rgba(231,200,92,.72);
+  background: linear-gradient(180deg, #f3d876, #c79c35);
+  color: #090b0b;
+}
+
+.button.ghost {
+  background: rgba(255,255,255,.055);
+}
+
+.empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 128px;
+  padding: 24px;
+  border: 1px dashed rgba(202,209,221,.16);
+  color: #aeb8c6;
+  text-align: center;
+  line-height: 1.35;
+  background: rgba(0,0,0,.2);
+}
+
+.progress-track {
+  height: 5px;
+  margin-top: 8px;
+  background: rgba(0,0,0,.42);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8fc7ec, #70e0ad, #e4c45d);
+}
+
+.badge,
+.quest-kind-chip,
+.quest-source-chip,
+.fireteam-tracked-badge,
+.fireteam-catalyst-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 18px;
+  padding: 1px 5px;
+  border: 1px solid rgba(202,209,221,.14);
+  background: rgba(0,0,0,.22);
+  color: rgba(238,242,240,.74);
+  font-size: .68rem;
+  font-weight: 900;
+}
+
+.fireteam-tracked-badge {
+  color: #9ff0ba;
+}
+
+.fireteam-catalyst-badge {
+  color: #e7c85c;
+}
+
+.manual-track-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(87,222,143,.72);
+  border-radius: 3px;
+  background: rgba(8,36,23,.82);
+}
+
+.manual-track-toggle span {
+  display: block;
+  width: 9px;
+  height: 9px;
+  margin: auto;
+  border: 2px solid #58de8f;
+  transform: rotate(45deg);
+}
+
+.manual-track-toggle.is-pinned {
+  background: rgba(87,222,143,.22);
+}
+
 body.fireteam-page {
   --ft-topbar: 40px;
   --ft-header: 176px;
-  --ft-left: max(24px, calc((100vw - 1480px) / 2));
-  --ft-reserved-right: 820px;
-  --ft-main-width: min(calc(100vw - var(--ft-reserved-right)), 1360px);
+  --ft-left: max(24px, calc((100vw - 1760px) / 2));
+  --ft-tracker-lane: 430px;
+  --ft-main-width: min(calc(100vw - var(--ft-left) - var(--ft-tracker-lane)), 1360px);
   --ft-panel: rgba(7, 10, 10, .72);
   --ft-panel-solid: rgba(10, 12, 12, .9);
   --ft-line: rgba(202, 209, 221, .22);
@@ -73,10 +254,16 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding-left: var(--ft-left);
   color: rgba(244,247,246,.85);
   font-size: .74rem;
+  font-weight: 900;
   letter-spacing: .08em;
+  text-transform: uppercase;
+  text-decoration: none;
 }
 
 .fireteam-brand img {
@@ -111,6 +298,7 @@ body.fireteam-page .app-shell.fireteam-shell {
   font-weight: 900;
   text-transform: none;
   letter-spacing: 0;
+  text-decoration: none;
 }
 
 .fireteam-bray-header .site-nav a:hover,
@@ -127,11 +315,45 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-social-button {
+  display: inline-grid;
+  grid-template-columns: 22px auto;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
   min-width: 56px;
   padding: 0 8px;
   border: 0;
   border-radius: 0;
   background: transparent;
+}
+
+.fireteam-social-button span {
+  position: relative;
+  width: 22px;
+  height: 18px;
+}
+
+.fireteam-social-button span::before,
+.fireteam-social-button span::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px 999px 3px 3px;
+  background: currentColor;
+}
+
+.fireteam-social-button span::before {
+  left: 8px;
+  top: 1px;
+  width: 7px;
+  height: 7px;
+  box-shadow: -7px 1px 0 -1px currentColor, 7px 1px 0 -1px currentColor;
+}
+
+.fireteam-social-button span::after {
+  left: 2px;
+  bottom: 1px;
+  width: 18px;
+  height: 8px;
 }
 
 .fireteam-social-button:hover,
@@ -316,6 +538,15 @@ body.fireteam-page .app-shell.fireteam-shell {
   background: linear-gradient(90deg, rgba(202,209,221,.82), rgba(216,177,91,.64));
 }
 
+.fireteam-profile-meta span,
+.fireteam-profile-meta strong {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
 .fireteam-character-selector {
   position: absolute;
   z-index: 360;
@@ -333,10 +564,10 @@ body.fireteam-page .app-shell.fireteam-shell {
   position: relative;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(720px, 1fr) 410px;
+  grid-template-columns: minmax(840px, 1fr) 410px;
   gap: 18px;
   width: var(--ft-main-width);
-  min-width: 1060px;
+  min-width: 1260px;
   margin: 24px 0 0 var(--ft-left);
   align-items: start;
 }
@@ -376,14 +607,20 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-shell .panel-head h2 {
+  margin: 0;
+  color: #eef2f0;
   font-size: .96rem;
+  font-weight: 900;
   letter-spacing: .035em;
+  text-transform: none;
 }
 
 .fireteam-shell .panel-head .eyebrow {
   color: #9ec5ff;
   font-size: .64rem;
+  font-weight: 900;
   letter-spacing: .13em;
+  text-transform: uppercase;
 }
 
 .count-pill {
@@ -400,25 +637,59 @@ body.fireteam-page .app-shell.fireteam-shell {
 
 .fireteam-quest-layout {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 64px;
-  gap: 12px;
+  grid-template-columns: 42px minmax(0, 1fr) 58px;
+  gap: 14px;
   align-items: start;
+}
+
+.fireteam-quest-layout > #questList {
+  min-width: 0;
 }
 
 .fireteam-quest-panel .fireteam-card-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(210px, 1fr));
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
   gap: 10px;
 }
 
 .fireteam-progress-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-width: 0;
   min-height: 92px;
+  padding: 10px 34px 12px 10px;
   border: 1px solid rgba(202,209,221,.22);
   border-radius: 0;
   background:
     linear-gradient(90deg, rgba(78,72,30,.74), rgba(78,72,30,.36) 68%, rgba(18,22,20,.82)),
     rgba(13,16,15,.92);
   box-shadow: inset 0 -4px 0 rgba(202,209,221,.52);
+}
+
+.fireteam-progress-card strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: #eef2f0;
+  font-size: .86rem;
+  font-weight: 900;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fireteam-progress-card span {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin-top: 4px;
+  color: rgba(238,242,240,.62);
+  font-size: .72rem;
+  font-weight: 800;
 }
 
 .fireteam-progress-card:hover,
@@ -436,9 +707,18 @@ body.fireteam-page .app-shell.fireteam-shell {
 
 .fireteam-progress-card img,
 .fireteam-icon-fallback {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
   width: 42px;
   height: 42px;
   border-radius: 0;
+  object-fit: cover;
+  background: rgba(231,200,92,.18);
+}
+
+.fireteam-progress-card > div {
+  min-width: 0;
 }
 
 .fireteam-tabs {
@@ -447,14 +727,26 @@ body.fireteam-page .app-shell.fireteam-shell {
   z-index: 70;
   display: grid;
   gap: 6px;
+  width: 58px;
+  justify-items: stretch;
 }
 
 .fireteam-tabs .seg {
-  width: 56px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 58px;
   height: 56px;
   border-radius: 0;
   border: 1px solid rgba(202,209,221,.24);
   background: rgba(18,20,20,.88);
+}
+
+.fireteam-tabs .seg img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  filter: grayscale(1) brightness(1.9);
 }
 
 .fireteam-tabs .seg:hover,
@@ -476,12 +768,24 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-vertical-label {
+  position: sticky;
   top: 56px;
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  min-height: 176px;
 }
 
 .fireteam-vertical-label span,
 .fireteam-vertical-label strong {
+  display: block;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
   color: rgba(244,247,246,.68);
+  font-size: .76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
 }
 
 .fireteam-sync-panel,
@@ -493,11 +797,188 @@ body.fireteam-page .app-shell.fireteam-shell {
     rgba(6,9,9,.78) !important;
 }
 
+.fireteam-status {
+  padding: 12px;
+  border: 1px solid rgba(202,209,221,.14);
+  background: rgba(0,0,0,.22);
+  color: rgba(238,242,240,.9);
+  font-weight: 900;
+}
+
+.sync-health-strip,
+.fireteam-cloud-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.sync-health-strip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid rgba(202,209,221,.14);
+  border-radius: 6px;
+  background: rgba(10,13,18,.78);
+  color: rgba(238,242,240,.72);
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.sync-health-strip strong {
+  color: rgba(238,242,240,.9);
+  text-transform: uppercase;
+}
+
+.fireteam-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.fireteam-meta-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.fireteam-meta-list span {
+  display: grid;
+  gap: 2px;
+  min-height: 42px;
+  padding: 8px;
+  border: 1px solid rgba(202,209,221,.12);
+  background: rgba(0,0,0,.16);
+  color: rgba(238,242,240,.66);
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.fireteam-meta-list strong {
+  color: #e7c85c;
+  font-size: .66rem;
+  text-transform: uppercase;
+}
+
 .fireteam-member-card,
 .fireteam-mini-card,
 .fireteam-activity-card {
   border-radius: 0;
   background: rgba(15,18,17,.76);
+}
+
+.fireteam-mini-card,
+.fireteam-activity-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(202,209,221,.14);
+}
+
+.fireteam-mini-card strong,
+.fireteam-activity-card strong {
+  color: #eef2f0;
+  font-weight: 900;
+}
+
+.fireteam-mini-card span,
+.fireteam-activity-card em,
+.fireteam-activity-card p {
+  color: rgba(238,242,240,.64);
+  font-size: .78rem;
+}
+
+.fireteam-character-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.character-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 3px 7px;
+  border: 1px solid rgba(202,209,221,.14);
+  border-radius: 5px;
+  background: rgba(0,0,0,.2);
+  color: #eef2f0;
+  font-weight: 900;
+}
+
+.character-pill img {
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+}
+
+.character-pill em {
+  color: #e7c85c;
+  font-style: normal;
+}
+
+.side-track-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(202,209,221,.14);
+  background: rgba(0,0,0,.24);
+}
+
+.side-track-icon,
+.side-track-icon img {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+}
+
+.side-track-main {
+  min-width: 0;
+}
+
+.side-track-bar {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 6px;
+  overflow: hidden;
+  background: rgba(255,255,255,.06);
+}
+
+.side-track-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--pct, 0%);
+  background: rgba(87,222,143,.36);
+}
+
+.side-track-bar strong,
+.side-track-bar em {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-track-main > span {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 4px;
+  color: rgba(238,242,240,.58);
+  font-size: .68rem;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .fireteam-pinned-panel {
@@ -513,6 +994,7 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-pinned-panel .manual-drawer-toggle {
+  position: absolute;
   left: -46px;
   top: -4px;
   width: 46px;
@@ -521,6 +1003,111 @@ body.fireteam-page .app-shell.fireteam-shell {
   border: 1px solid rgba(202,209,221,.35);
   border-right: 0;
   background: rgba(28,32,32,.86);
+  color: #eef2f0;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  writing-mode: vertical-rl;
+}
+
+.fireteam-pinned-panel #manualTrackList {
+  max-height: calc(100vh - var(--ft-topbar) - var(--ft-header) - 122px);
+  overflow: auto;
+}
+
+.manual-track-card,
+.manual-step {
+  display: grid;
+  gap: 8px;
+}
+
+.manual-track-card {
+  padding: 10px;
+  border: 1px solid rgba(202,209,221,.14);
+  background: rgba(0,0,0,.24);
+}
+
+.manual-track-head {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 28px;
+  gap: 8px;
+  align-items: center;
+}
+
+.manual-track-head img,
+.manual-track-head .fireteam-icon-fallback {
+  width: 40px;
+  height: 40px;
+}
+
+.manual-track-head strong {
+  color: #eef2f0;
+}
+
+.manual-track-head span {
+  color: rgba(238,242,240,.6);
+  font-size: .72rem;
+  font-weight: 800;
+}
+
+.manual-track-remove {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(202,209,221,.18);
+  background: rgba(0,0,0,.28);
+  color: #eef2f0;
+}
+
+.manual-step-list {
+  display: grid;
+  gap: 8px;
+}
+
+.manual-step {
+  padding: 8px;
+  background: rgba(255,255,255,.035);
+}
+
+.manual-step.is-past {
+  background: rgba(87,222,143,.08);
+}
+
+.manual-step.is-current {
+  background: rgba(87,222,143,.14);
+}
+
+.manual-step.is-future {
+  opacity: .58;
+}
+
+.manual-step-title {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.manual-step-title span {
+  display: grid;
+  place-items: center;
+  height: 24px;
+  background: rgba(87,222,143,.18);
+  color: #bde8c8;
+  font-weight: 900;
+}
+
+.manual-step-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.manual-step-title em {
+  color: rgba(238,242,240,.62);
+  font-size: .66rem;
+  font-style: normal;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 body.manual-tracker-minimized .fireteam-pinned-panel {
@@ -544,8 +1131,8 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
 @media (max-width: 1500px) {
   body.fireteam-page {
     --ft-left: 24px;
-    --ft-reserved-right: 460px;
-    --ft-main-width: min(calc(100vw - var(--ft-reserved-right)), 1180px);
+    --ft-tracker-lane: 392px;
+    --ft-main-width: min(calc(100vw - var(--ft-left) - var(--ft-tracker-lane)), 1180px);
   }
 
   .fireteam-brand {
@@ -553,7 +1140,7 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
   }
 
   .fireteam-grid {
-    grid-template-columns: minmax(620px, 1fr) 360px;
+    grid-template-columns: minmax(600px, 1fr) 360px;
     min-width: 980px;
   }
 
@@ -566,7 +1153,7 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
   body.fireteam-page {
     min-width: 0;
     --ft-left: 14px;
-    --ft-reserved-right: 28px;
+    --ft-tracker-lane: 28px;
     --ft-main-width: calc(100vw - 28px);
   }
 
