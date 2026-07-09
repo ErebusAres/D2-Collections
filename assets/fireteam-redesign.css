@@ -637,12 +637,14 @@ body.fireteam-page .app-shell.fireteam-shell {
 
 .fireteam-quest-layout {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) 58px;
-  gap: 14px;
+  grid-template-columns: 58px 42px minmax(0, 1fr);
+  grid-template-areas: "tabs label list";
+  gap: 12px;
   align-items: start;
 }
 
 .fireteam-quest-layout > #questList {
+  grid-area: list;
   min-width: 0;
 }
 
@@ -722,6 +724,7 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-tabs {
+  grid-area: tabs;
   position: sticky;
   top: 56px;
   z-index: 70;
@@ -756,8 +759,8 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-tabs .seg::after {
-  left: auto;
-  right: calc(100% + 10px);
+  left: calc(100% + 10px);
+  right: auto;
   width: 360px;
   border-top: 4px solid rgba(244,247,246,.88);
   border-radius: 0;
@@ -768,6 +771,7 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-vertical-label {
+  grid-area: label;
   position: sticky;
   top: 56px;
   display: grid;
