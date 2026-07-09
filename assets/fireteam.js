@@ -1240,7 +1240,7 @@
         ${icon}
         <div>
           <strong>${escapeHtml(title)}${trackedBadge}${catalystBadge}</strong>
-          <span><em class="quest-kind-chip">${escapeHtml(titleCase(quest.kind || "record"))}</em>${escapeHtml(quest.objectiveComplete || 0)}/${escapeHtml(quest.objectiveTotal || 0)} objectives ${sourceChip}${hash}</span>
+          <p class="fireteam-card-summary">${escapeHtml(quest.description || quest.questLineDescription || quest.activity || `${quest.objectiveComplete || 0}/${quest.objectiveTotal || 0} objectives`)}</p>
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
         </div>
         ${tooltip}
@@ -1259,12 +1259,17 @@
       quest.inInventory ? "In inventory" : "",
       quest.catalystQuest ? "Catalyst quest" : ""
     ].filter(Boolean);
+    const rarityLabel = quest.catalystQuest || questCategory(quest) === "exotics" ? "Exotic" : kind;
     return `<div class="fireteam-quest-tooltip" role="tooltip">
       <div class="fireteam-quest-tooltip-head">
-        <strong>${escapeHtml(title || quest.name || "Quest item")}</strong>
-        <em>${escapeHtml(kind)}${quest.catalystQuest ? " / Catalyst" : ""}</em>
+        <div>
+          <strong>${escapeHtml(title || quest.name || "Quest item")}</strong>
+          <span>Quest Step</span>
+        </div>
+        <em>${escapeHtml(rarityLabel)}</em>
       </div>
       ${description ? `<p>${escapeHtml(description)}</p>` : ""}
+      ${quest.questLineDescription && quest.questLineDescription !== description ? `<p>${escapeHtml(quest.questLineDescription)}</p>` : ""}
       <div class="fireteam-quest-tooltip-meta">
         ${sourceChip || ""}
         ${stepInfo}
