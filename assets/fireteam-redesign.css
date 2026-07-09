@@ -1,4 +1,28 @@
 /* Fireteam reset: Braytech-inspired page shell without touching collection layouts. */
+@font-face {
+  font-family: "BT Haas Text";
+  src: url("fonts/NHaasGroteskTXPro-55Rg-BPs-uVRv.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "BT Haas Text";
+  src: url("fonts/NHaasGroteskTXPro-65Md-VMYclGbC.woff2") format("woff2");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "BT Symbols";
+  src: url("fonts/Braytech-Symbols-CcGAOcpB.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -9,7 +33,7 @@ html {
 }
 
 body.fireteam-page {
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "BT Haas Text", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   color: #eef2f0;
 }
 
@@ -365,15 +389,16 @@ body.fireteam-page .app-shell.fireteam-shell {
   position: relative;
   z-index: 230;
   display: grid;
-  grid-template-columns: 96px minmax(360px, 536px) minmax(0, 1fr);
-  gap: 28px;
+  grid-template-columns: minmax(474px, 536px) minmax(0, 1fr);
+  gap: 0;
   align-items: center;
   height: var(--ft-header);
   min-height: var(--ft-header);
   padding: 0 64px 0 var(--ft-left);
   background:
-    linear-gradient(90deg, rgba(96,5,18,.96), rgba(96,5,18,.48) 48%, rgba(13,13,14,.82)),
+    linear-gradient(90deg, rgba(96,5,18,.9), rgba(96,5,18,.42) 48%, rgba(13,13,14,.82)),
     rgba(8, 10, 10, .94);
+  overflow: visible;
 }
 
 .fireteam-profile-background {
@@ -394,8 +419,8 @@ body.fireteam-page .app-shell.fireteam-shell {
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
-  opacity: .86;
-  filter: brightness(.72) saturate(1.08);
+  opacity: .72;
+  filter: brightness(.58) saturate(1.12);
   transform: none;
 }
 
@@ -417,8 +442,11 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-profile-mark {
-  position: relative;
-  z-index: 2;
+  position: absolute;
+  left: var(--ft-left);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
   width: 96px;
   height: 96px;
   border: 0;
@@ -430,7 +458,7 @@ body.fireteam-page .app-shell.fireteam-shell {
   width: 96px;
   height: 96px;
   object-fit: cover;
-  filter: grayscale(1) brightness(2.15) contrast(1.08) drop-shadow(0 7px 14px rgba(0,0,0,.65));
+  filter: grayscale(1) brightness(2.1) contrast(1.1) drop-shadow(0 8px 16px rgba(0,0,0,.65));
 }
 
 .fireteam-profile-copy {
@@ -438,21 +466,30 @@ body.fireteam-page .app-shell.fireteam-shell {
   z-index: 4;
   align-self: center;
   min-width: 0;
+  grid-column: 1;
+  margin-left: 0;
 }
 
 .fireteam-profile-select {
   position: relative;
   z-index: 4;
   display: block;
+  aspect-ratio: 474 / 96;
   width: min(536px, calc(100vw - 740px));
+  min-width: 474px;
   max-width: 536px;
-  min-height: 96px;
   padding: 0;
   border: 2px solid transparent;
-  background: transparent;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.05), rgba(0,0,0,.14)),
+    var(--fireteam-profile-banner-image, linear-gradient(90deg, rgba(72,12,20,.86), rgba(116,21,33,.48))),
+    linear-gradient(90deg, rgba(72,12,20,.86), rgba(116,21,33,.48));
+  background-size: cover;
+  background-position: center;
   box-shadow: none;
   color: inherit;
   isolation: auto;
+  overflow: hidden;
 }
 
 .fireteam-profile-select::before,
@@ -464,8 +501,13 @@ body.fireteam-page .app-shell.fireteam-shell {
 .fireteam-profile-select:focus-visible,
 .fireteam-profile-select[aria-expanded="true"] {
   border-color: rgba(245,245,245,.95);
-  background: rgba(235,238,239,.28);
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.76);
+  background:
+    linear-gradient(90deg, rgba(235,238,239,.24), rgba(235,238,239,.1)),
+    var(--fireteam-profile-banner-image, linear-gradient(90deg, rgba(72,12,20,.86), rgba(116,21,33,.48))),
+    linear-gradient(90deg, rgba(72,12,20,.86), rgba(116,21,33,.48));
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.76), 0 18px 36px rgba(0,0,0,.36);
 }
 
 .fireteam-profile-select[aria-expanded="true"] {
@@ -479,52 +521,119 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-profile-select .fireteam-profile-title-row {
+  position: absolute;
+  top: 12%;
+  left: 20%;
+  right: 18%;
+  display: block;
   padding: 0;
 }
 
 .fireteam-profile-copy h1 {
-  margin: 0 0 8px -3px;
+  margin: 0 0 5px;
   color: rgba(244,247,246,.96);
-  font-size: 36px;
+  font-size: clamp(1.75rem, 2.2vw, 2.28rem);
   font-weight: 900;
-  line-height: 40px;
-  letter-spacing: .01em;
+  line-height: 1;
+  letter-spacing: 0;
   text-shadow: 1px 2px 1px rgba(0,0,0,.12), 1px 1px rgba(0,0,0,.28);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .fireteam-profile-stats {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
   min-height: 15px;
-  color: rgba(244,247,246,.78);
-  font-size: .72rem;
-  font-weight: 900;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  color: rgba(244,247,246,.72);
+  font-size: .8rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .fireteam-profile-stats span {
   display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  text-shadow: 0 1px 1px rgba(0,0,0,.4);
+}
+
+.fireteam-profile-stats i {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: rgba(244,247,246,.72);
+}
+
+.fireteam-profile-stats i::before,
+.fireteam-profile-stats i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+}
+
+.fireteam-profile-stats .stat-rank i::before {
+  clip-path: polygon(50% 0, 88% 14%, 82% 66%, 50% 100%, 18% 66%, 12% 14%);
+}
+
+.fireteam-profile-stats .stat-rank i::after {
+  inset: 4px;
+  background: #101314;
+  clip-path: polygon(50% 0, 82% 18%, 74% 63%, 50% 88%, 26% 63%, 18% 18%);
+}
+
+.fireteam-profile-stats .stat-score i::before {
+  clip-path: polygon(24% 4%, 76% 4%, 76% 40%, 62% 40%, 58% 58%, 70% 70%, 70% 82%, 30% 82%, 30% 70%, 42% 58%, 38% 40%, 24% 40%);
+}
+
+.fireteam-profile-stats .stat-score i::after {
+  inset: auto 3px 0;
+  height: 3px;
+}
+
+.fireteam-profile-stats .stat-season i::before {
+  clip-path: polygon(50% 0, 92% 92%, 8% 92%);
+}
+
+.fireteam-profile-stats .is-power i::before {
+  clip-path: polygon(50% 0, 96% 100%, 4% 100%);
+}
+
+.fireteam-profile-stats .is-power i::after {
+  inset: 6px 0 auto;
+  height: 4px;
+  background: #101314;
+  clip-path: polygon(50% 0, 82% 100%, 18% 100%);
 }
 
 .fireteam-profile-stats em {
-  color: rgba(244,247,246,.58);
-  font-size: .62rem;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
 }
 
 .fireteam-profile-stats .is-power strong {
   color: var(--ft-gold);
-  font-size: 1.05rem;
+  font-size: .95rem;
 }
 
-.fireteam-profile-meta {
-  width: min(410px, calc(100% - 2px));
+.fireteam-profile-select .fireteam-profile-meta {
+  position: absolute;
+  left: 20%;
+  right: 18%;
+  bottom: 10%;
+  width: auto;
   height: 12px;
   min-height: 12px;
-  margin-top: 20px;
+  margin: 0;
 }
 
 .fireteam-profile-meta::before {
@@ -1368,14 +1477,19 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
   }
 
   .fireteam-profile-banner {
-    grid-template-columns: 72px minmax(0, 1fr);
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
     height: auto;
     min-height: 136px;
     padding: 58px 14px 18px;
   }
 
-  .fireteam-profile-mark,
+  .fireteam-profile-mark {
+    left: 14px;
+    width: 72px;
+    height: 72px;
+  }
+
   .fireteam-profile-mark img {
     width: 72px;
     height: 72px;
@@ -1383,6 +1497,12 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
 
   .fireteam-profile-select {
     width: 100%;
+    min-width: 0;
+    max-width: 536px;
+  }
+
+  .fireteam-profile-copy h1 {
+    font-size: clamp(1.35rem, 8vw, 2rem);
   }
 
   .fireteam-grid {

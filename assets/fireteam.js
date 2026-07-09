@@ -314,6 +314,14 @@
     return date.toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }
 
+  function formatCompactNumber(value) {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number) || number <= 0) return "";
+    if (number >= 1000000) return `${Math.round(number / 100000) / 10}m`;
+    if (number >= 10000) return `${Math.round(number / 1000)}k`;
+    return String(number);
+  }
+
   function apiBase() {
     return String(CONFIG.cloudSyncApi || "").replace(/\/+$/, "");
   }
@@ -435,6 +443,27 @@
       pct: progressionPct(progression),
       label: rank ? "Season Rank" : "Season Progress"
     };
+  }
+
+  function profileStatSummary(profile) {
+    const progression = profile?.profileProgression?.data || {};
+    const profileData = profile?.profile?.data || {};
+    const records = profile?.profileRecords?.data || {};
+    const guardianRank = Number(
+      progression.currentGuardianRank ||
+      progression.lifetimeHighestGuardianRank ||
+      profileData.currentGuardianRank ||
+      profileData.lifetimeHighestGuardianRank ||
+      0
+    );
+    const recordScore = Number(
+      records.score ||
+      records.activeScore ||
+      records.legacyScore ||
+      profileData.triumphScore ||
+      0
+    );
+    return { guardianRank, recordScore };
   }
 
   function characterMap(profile) {
@@ -901,6 +930,7 @@
       membershipCount: (memberships.destinyMemberships || []).length,
       characterSummaries: characters,
       seasonProgress: seasonProgressSummary(profile),
+      profileStats: profileStatSummary(profile),
       activeQuestItemCount: inventoryQuestItemCount,
       inventoryQuestItemCount,
       trackedQuestItemCount,
@@ -940,14 +970,14 @@
     const displayLight = Number(selectedCharacter?.light || maxLight || 0);
     const season = snapshot.seasonProgress || {};
     if (els.profileTopStats) {
-      const inventoryCount = snapshot.inventoryQuestItemCount ?? snapshot.activeQuestItemCount ?? 0;
-      const trackedCount = snapshot.trackedQuestItemCount ?? (snapshot.trackedQuestProgress || []).filter(item => item.inGameTracked).length;
+      const stats = snapshot.profileStats || {};
+      const guardianRank = Number(stats.guardianRank || 0);
+      const recordScore = formatCompactNumber(stats.recordScore || 0);
       els.profileTopStats.innerHTML = [
-        displayLight ? `<span class="is-power"><em>Light</em><strong>${escapeHtml(displayLight)}</strong></span>` : "",
-        season.rank ? `<span><em>Season</em><strong>${escapeHtml(season.rank)}</strong></span>` : "",
-        classFilter ? `<span><em>Class</em><strong>${escapeHtml(classFilter)}</strong></span>` : "",
-        inventoryCount ? `<span><em>Quests</em><strong>${escapeHtml(trackedCount)}/${escapeHtml(inventoryCount)}</strong></span>` : "",
-        snapshot.updatedAt ? `<span><em>Sync</em><strong>${escapeHtml(formatShort(snapshot.updatedAt))}</strong></span>` : ""
+        guardianRank ? `<span class="stat-rank"><i aria-hidden="true"></i><em>Guardian Rank</em><strong>${escapeHtml(guardianRank)}</strong></span>` : "",
+        recordScore ? `<span class="stat-score"><i aria-hidden="true"></i><em>Record Score</em><strong>${escapeHtml(recordScore)}</strong></span>` : "",
+        displayLight ? `<span class="is-power"><i aria-hidden="true"></i><em>Light</em><strong>${escapeHtml(displayLight)}</strong></span>` : "",
+        season.rank ? `<span class="stat-season"><i aria-hidden="true"></i><em>Season</em><strong>${escapeHtml(season.rank)}</strong></span>` : ""
       ].filter(Boolean).join("");
     }
     if (els.profileEmblem) {
