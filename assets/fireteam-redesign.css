@@ -495,7 +495,7 @@ body.fireteam-page .app-shell.fireteam-shell {
 .fireteam-profile-stats {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   min-height: 15px;
   color: rgba(244,247,246,.78);
   font-size: .72rem;
@@ -505,6 +505,8 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-profile-stats span {
+  display: inline-flex;
+  align-items: baseline;
   gap: 4px;
 }
 
@@ -665,7 +667,7 @@ body.fireteam-page .app-shell.fireteam-shell {
   gap: 10px;
   align-items: start;
   min-width: 0;
-  min-height: 92px;
+  min-height: 86px;
   padding: 10px 34px 12px 10px;
   border: 1px solid rgba(202,209,221,.22);
   border-radius: 0;
@@ -676,7 +678,9 @@ body.fireteam-page .app-shell.fireteam-shell {
 }
 
 .fireteam-progress-card strong {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
   overflow: hidden;
   color: #eef2f0;
@@ -687,7 +691,7 @@ body.fireteam-page .app-shell.fireteam-shell {
   white-space: nowrap;
 }
 
-.fireteam-progress-card span {
+.fireteam-progress-card > div > span {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -701,6 +705,7 @@ body.fireteam-page .app-shell.fireteam-shell {
 .fireteam-progress-card:hover,
 .fireteam-progress-card:focus,
 .fireteam-progress-card:focus-within {
+  z-index: 320;
   border-color: rgba(244,247,246,.68);
   background:
     linear-gradient(90deg, rgba(98,91,38,.86), rgba(78,72,30,.46) 68%, rgba(22,26,23,.88)),
@@ -725,6 +730,161 @@ body.fireteam-page .app-shell.fireteam-shell {
 
 .fireteam-progress-card > div {
   min-width: 0;
+}
+
+.fireteam-quest-tooltip {
+  position: absolute;
+  left: 52px;
+  top: calc(100% - 4px);
+  z-index: 360;
+  width: min(430px, calc(100vw - 96px));
+  max-height: min(520px, calc(100vh - 120px));
+  overflow: auto;
+  padding: 0 0 12px;
+  border-top: 4px solid rgba(231,200,92,.88);
+  background:
+    linear-gradient(180deg, rgba(149,126,35,.84), rgba(17,15,7,.88) 76px, rgba(5,5,4,.96) 77px),
+    rgba(5,5,4,.96);
+  box-shadow: 0 24px 60px rgba(0,0,0,.74), 0 0 0 1px rgba(202,209,221,.2);
+  color: rgba(238,242,240,.86);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+.fireteam-progress-card:hover .fireteam-quest-tooltip,
+.fireteam-progress-card:focus .fireteam-quest-tooltip,
+.fireteam-progress-card:focus-within .fireteam-quest-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fireteam-quest-tooltip-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px 10px;
+}
+
+.fireteam-quest-tooltip-head strong {
+  display: block;
+  color: rgba(255,255,255,.96);
+  font-size: 1.08rem;
+  line-height: 1.08;
+  text-transform: uppercase;
+  white-space: normal;
+}
+
+.fireteam-quest-tooltip-head em {
+  color: rgba(255,248,196,.72);
+  font-size: .78rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.fireteam-quest-tooltip p {
+  margin: 0;
+  padding: 10px 14px 12px;
+  color: rgba(238,242,240,.82);
+  font-size: .82rem;
+  line-height: 1.38;
+}
+
+.fireteam-quest-tooltip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 14px 10px;
+}
+
+.fireteam-quest-tooltip-meta > span,
+.fireteam-quest-tooltip-meta .quest-source-chip,
+.fireteam-quest-tooltip-meta .record-hash {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
+  padding: 2px 6px;
+  border: 1px solid rgba(202,209,221,.15);
+  background: rgba(0,0,0,.28);
+  color: rgba(238,242,240,.75);
+  font-size: .68rem;
+  font-weight: 900;
+}
+
+.fireteam-quest-tooltip .quest-step-list {
+  display: grid;
+  gap: 5px;
+  margin: 0 14px;
+}
+
+.quest-step {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+  padding: 5px 0;
+  color: rgba(238,242,240,.78);
+}
+
+.quest-step-check {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(202,209,221,.6);
+  background: rgba(0,0,0,.22);
+}
+
+.quest-step.is-complete .quest-step-check {
+  border-color: rgba(118,224,157,.86);
+  background: rgba(118,224,157,.38);
+}
+
+.quest-step > div {
+  min-width: 0;
+}
+
+.quest-step strong {
+  display: block;
+  overflow: hidden;
+  color: rgba(238,242,240,.9);
+  font-size: .78rem;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-step em {
+  float: right;
+  margin-left: 8px;
+  color: rgba(238,242,240,.74);
+  font-size: .74rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.quest-step-track {
+  height: 4px;
+  margin-top: 4px;
+  background: rgba(0,0,0,.44);
+  overflow: hidden;
+}
+
+.quest-step-track i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #82bfe8, #72dba4, #d9be5d);
+}
+
+.quest-step-more {
+  padding: 7px 8px;
+  border: 1px solid rgba(202,209,221,.12);
+  background: rgba(0,0,0,.22);
+  color: rgba(238,242,240,.66);
+  font-size: .75rem;
+  font-weight: 900;
 }
 
 .fireteam-tabs {

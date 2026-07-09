@@ -942,10 +942,14 @@
     const displayLight = Number(selectedCharacter?.light || maxLight || 0);
     const season = snapshot.seasonProgress || {};
     if (els.profileTopStats) {
+      const inventoryCount = snapshot.inventoryQuestItemCount ?? snapshot.activeQuestItemCount ?? 0;
+      const trackedCount = snapshot.trackedQuestItemCount ?? (snapshot.trackedQuestProgress || []).filter(item => item.inGameTracked).length;
       els.profileTopStats.innerHTML = [
         displayLight ? `<span class="is-power"><em>Light</em><strong>${escapeHtml(displayLight)}</strong></span>` : "",
         season.rank ? `<span><em>Season</em><strong>${escapeHtml(season.rank)}</strong></span>` : "",
-        classFilter ? `<span><em>Class</em><strong>${escapeHtml(classFilter)}</strong></span>` : ""
+        classFilter ? `<span><em>Class</em><strong>${escapeHtml(classFilter)}</strong></span>` : "",
+        inventoryCount ? `<span><em>Quests</em><strong>${escapeHtml(trackedCount)}/${escapeHtml(inventoryCount)}</strong></span>` : "",
+        snapshot.updatedAt ? `<span><em>Sync</em><strong>${escapeHtml(formatShort(snapshot.updatedAt))}</strong></span>` : ""
       ].filter(Boolean).join("");
     }
     if (els.profileEmblem) {
@@ -1233,6 +1237,7 @@
       const isPinned = manualTracked.has(key);
       const pinButton = allowPin && key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin from site tracker" : "Pin to site tracker"}"><span aria-hidden="true"></span></button>` : "";
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
+      const tooltip = questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash });
       return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.highlightedObjective ? "is-highlighted-objective" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0">
         ${pinButton}
         ${icon}
@@ -1240,9 +1245,38 @@
           <strong>${escapeHtml(title)}${trackedBadge}${catalystBadge}</strong>
           <span><em class="quest-kind-chip">${escapeHtml(titleCase(quest.kind || "record"))}</em>${escapeHtml(quest.objectiveComplete || 0)}/${escapeHtml(quest.objectiveTotal || 0)} objectives ${sourceChip}${hash}</span>
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-          ${objectiveRows}
         </div>
+        ${tooltip}
       </article>`;
+  }
+
+  function questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash } = {}) {
+    const kind = titleCase(quest.kind || "quest");
+    const stepInfo = quest.questLineName
+      ? `<span>${escapeHtml(quest.questLineName)}</span>`
+      : "";
+    const description = quest.description || quest.questLineDescription || quest.activity || "";
+    const trackerState = [
+      quest.inGameTracked ? "Tracked in game" : "",
+      quest.highlightedObjective ? "Highlighted objective" : "",
+      quest.inInventory ? "In inventory" : "",
+      quest.catalystQuest ? "Catalyst quest" : ""
+    ].filter(Boolean);
+    return `<div class="fireteam-quest-tooltip" role="tooltip">
+      <div class="fireteam-quest-tooltip-head">
+        <strong>${escapeHtml(title || quest.name || "Quest item")}</strong>
+        <em>${escapeHtml(kind)}${quest.catalystQuest ? " / Catalyst" : ""}</em>
+      </div>
+      ${description ? `<p>${escapeHtml(description)}</p>` : ""}
+      <div class="fireteam-quest-tooltip-meta">
+        ${sourceChip || ""}
+        ${stepInfo}
+        ${hash || ""}
+        <span>${escapeHtml(Math.round(Number(pct || 0)))}%</span>
+        ${trackerState.map(state => `<span>${escapeHtml(state)}</span>`).join("")}
+      </div>
+      ${objectiveRows || `<div class="quest-step-list"><div class="quest-step-more">No objective rows exposed by Bungie for this item.</div></div>`}
+    </div>`;
   }
 
   function pinnedQuests(quests = allFireteamQuestItems()) {
