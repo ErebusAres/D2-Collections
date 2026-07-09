@@ -564,10 +564,11 @@ body.fireteam-page .app-shell.fireteam-shell {
   position: relative;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(840px, 1fr) 410px;
+  grid-template-columns: minmax(0, 1fr) 410px;
   gap: 18px;
   width: var(--ft-main-width);
-  min-width: 1260px;
+  max-width: calc(100vw - var(--ft-left) - var(--ft-tracker-lane));
+  min-width: 0;
   margin: 24px 0 0 var(--ft-left);
   align-items: start;
 }
@@ -582,12 +583,14 @@ body.fireteam-page .app-shell.fireteam-shell {
   display: grid;
   gap: 18px;
   min-width: 0;
+  overflow: visible;
 }
 
 .fireteam-side-column {
   display: grid;
   gap: 14px;
   align-content: start;
+  min-width: 0;
 }
 
 .fireteam-shell .panel {
@@ -631,6 +634,7 @@ body.fireteam-page .app-shell.fireteam-shell {
 
 .fireteam-quest-panel,
 .fireteam-triumph-panel {
+  min-width: 0;
   border-color: rgba(202,209,221,.18);
   background: transparent !important;
 }
@@ -650,7 +654,7 @@ body.fireteam-page .app-shell.fireteam-shell {
 
 .fireteam-quest-panel .fireteam-card-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 10px;
 }
 
@@ -1157,7 +1161,7 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
 @media (max-width: 1500px) {
   body.fireteam-page {
     --ft-left: 24px;
-    --ft-tracker-lane: 392px;
+    --ft-tracker-lane: 430px;
     --ft-main-width: min(calc(100vw - var(--ft-left) - var(--ft-tracker-lane)), 1180px);
   }
 
@@ -1166,8 +1170,8 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
   }
 
   .fireteam-grid {
-    grid-template-columns: minmax(600px, 1fr) 360px;
-    min-width: 980px;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    min-width: 0;
   }
 
   .fireteam-quest-panel .fireteam-card-grid {
