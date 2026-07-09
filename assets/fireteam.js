@@ -920,8 +920,10 @@
     if (!snapshot) {
       if (els.playerName) els.playerName.textContent = "Not linked";
       if (els.profileGuardianName) els.profileGuardianName.textContent = "Fireteam Progress";
-      if (els.profileGuardianMeta) els.profileGuardianMeta.textContent = "Quest progress, character summaries, and shared fireteam snapshots.";
-      if (els.profileGuardianMeta) els.profileGuardianMeta.style.setProperty("--season-progress", "0%");
+      if (els.profileGuardianMeta) {
+        els.profileGuardianMeta.style.setProperty("--season-progress", "0%");
+        els.profileGuardianMeta.innerHTML = `<span>Season Progress</span><strong>Sign in to load Guardian data</strong>`;
+      }
       if (els.profileTopStats) els.profileTopStats.innerHTML = "";
       if (els.profileEmblem) els.profileEmblem.src = "assets/d2-collections-mark.svg";
       if (els.profileBannerImage) els.profileBannerImage.style.removeProperty("background-image");
