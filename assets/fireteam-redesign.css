@@ -1,0 +1,611 @@
+/* Fireteam reset: Braytech-inspired page shell without touching collection layouts. */
+body.fireteam-page {
+  --ft-topbar: 40px;
+  --ft-header: 176px;
+  --ft-left: max(24px, calc((100vw - 1480px) / 2));
+  --ft-reserved-right: 820px;
+  --ft-main-width: min(calc(100vw - var(--ft-reserved-right)), 1360px);
+  --ft-panel: rgba(7, 10, 10, .72);
+  --ft-panel-solid: rgba(10, 12, 12, .9);
+  --ft-line: rgba(202, 209, 221, .22);
+  --ft-line-strong: rgba(226, 232, 233, .42);
+  --ft-olive: rgba(78, 72, 30, .74);
+  --ft-gold: #e7c85c;
+  --ft-red: #700d1c;
+  margin: 0;
+  min-width: 1180px;
+  background:
+    linear-gradient(90deg, rgba(202,209,221,.03) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(202,209,221,.022) 1px, transparent 1px),
+    linear-gradient(118deg, transparent 0 17%, rgba(126,18,31,.16) 17.08% 17.28%, transparent 17.38%),
+    linear-gradient(154deg, transparent 0 72%, rgba(216,177,91,.09) 72.06% 72.24%, transparent 72.34%),
+    radial-gradient(circle at 42% -12%, rgba(126,18,31,.22), transparent 34%),
+    #050706;
+  background-size: 44px 44px, 44px 44px, auto, auto, auto, auto;
+  overflow-x: hidden;
+}
+
+body.fireteam-page::before {
+  opacity: .72;
+  background:
+    repeating-linear-gradient(118deg, transparent 0 92px, rgba(0,0,0,.26) 93px 100px, transparent 101px 172px),
+    linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.45));
+}
+
+body.fireteam-page .app-shell.fireteam-shell {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 72px;
+}
+
+.fireteam-bray-header {
+  position: relative;
+  z-index: 220;
+  height: calc(var(--ft-topbar) + var(--ft-header));
+  min-height: calc(var(--ft-topbar) + var(--ft-header));
+  overflow: visible;
+  background: #090b0b;
+}
+
+.fireteam-appbar {
+  position: relative;
+  z-index: 260;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  height: var(--ft-topbar);
+  min-height: var(--ft-topbar);
+  padding: 0 max(18px, calc((100vw - 1920px) / 2 + 18px));
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  background:
+    radial-gradient(circle at 100% 50%, rgba(184,162,175,.76), rgba(184,162,175,.12) 38%, transparent 54%),
+    linear-gradient(90deg, rgba(108,10,24,.94), rgba(108,10,24,.62) 46%, rgba(206,211,221,.28)),
+    rgba(12, 9, 12, .92);
+}
+
+.fireteam-brand,
+.fireteam-appbar-actions,
+.fireteam-bray-header .site-nav,
+.fireteam-social-button {
+  height: var(--ft-topbar);
+}
+
+.fireteam-brand {
+  padding-left: var(--ft-left);
+  color: rgba(244,247,246,.85);
+  font-size: .74rem;
+  letter-spacing: .08em;
+}
+
+.fireteam-brand img {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+}
+
+.fireteam-appbar-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  padding-right: 66px;
+}
+
+.fireteam-bray-header .site-nav {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.fireteam-bray-header .site-nav a {
+  display: grid;
+  place-items: center;
+  min-width: 82px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(244,247,246,.7);
+  font-size: .72rem;
+  font-weight: 900;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.fireteam-bray-header .site-nav a:hover,
+.fireteam-bray-header .site-nav a[aria-current="page"] {
+  color: #fff;
+  background: rgba(255,255,255,.09);
+}
+
+.fireteam-bray-header .site-nav a[aria-current="page"]::after {
+  left: 14px;
+  right: 14px;
+  height: 3px;
+  background: rgba(244,247,246,.9);
+}
+
+.fireteam-social-button {
+  min-width: 56px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.fireteam-social-button:hover,
+.fireteam-social-button[aria-expanded="true"] {
+  background: rgba(255,255,255,.1);
+}
+
+.fireteam-profile-banner {
+  position: relative;
+  z-index: 230;
+  display: grid;
+  grid-template-columns: 96px minmax(360px, 536px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+  height: var(--ft-header);
+  min-height: var(--ft-header);
+  padding: 0 64px 0 var(--ft-left);
+  background:
+    linear-gradient(90deg, rgba(96,5,18,.96), rgba(96,5,18,.48) 48%, rgba(13,13,14,.82)),
+    rgba(8, 10, 10, .94);
+}
+
+.fireteam-profile-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(96,5,18,.98), rgba(96,5,18,.58) 48%, rgba(10,10,11,.88)),
+    rgba(8, 10, 10, .94);
+}
+
+.fireteam-profile-background-image {
+  position: absolute;
+  inset: 0;
+  background-image: var(--fireteam-profile-banner-image);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: .86;
+  filter: brightness(.72) saturate(1.08);
+  transform: none;
+}
+
+.fireteam-profile-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.1), rgba(0,0,0,.05) 40%, rgba(0,0,0,.48)),
+    linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.36));
+}
+
+.fireteam-profile-banner::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(202,209,221,.58), rgba(216,177,91,.34), transparent);
+}
+
+.fireteam-profile-mark {
+  position: relative;
+  z-index: 2;
+  width: 96px;
+  height: 96px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.fireteam-profile-mark img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  filter: grayscale(1) brightness(2.15) contrast(1.08) drop-shadow(0 7px 14px rgba(0,0,0,.65));
+}
+
+.fireteam-profile-copy {
+  position: relative;
+  z-index: 4;
+  align-self: center;
+  min-width: 0;
+}
+
+.fireteam-profile-select {
+  position: relative;
+  z-index: 4;
+  display: block;
+  width: min(536px, calc(100vw - 740px));
+  max-width: 536px;
+  min-height: 96px;
+  padding: 0;
+  border: 2px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  isolation: auto;
+}
+
+.fireteam-profile-select::before,
+.fireteam-profile-select::after {
+  display: none;
+}
+
+.fireteam-profile-select:hover,
+.fireteam-profile-select:focus-visible,
+.fireteam-profile-select[aria-expanded="true"] {
+  border-color: rgba(245,245,245,.95);
+  background: rgba(235,238,239,.28);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.76);
+}
+
+.fireteam-profile-select[aria-expanded="true"] {
+  z-index: 310;
+}
+
+.fireteam-profile-select .fireteam-profile-title-row,
+.fireteam-profile-select .fireteam-profile-meta {
+  position: relative;
+  z-index: 2;
+}
+
+.fireteam-profile-select .fireteam-profile-title-row {
+  padding: 0;
+}
+
+.fireteam-profile-copy h1 {
+  margin: 0 0 8px -3px;
+  color: rgba(244,247,246,.96);
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 40px;
+  letter-spacing: .01em;
+  text-shadow: 1px 2px 1px rgba(0,0,0,.12), 1px 1px rgba(0,0,0,.28);
+}
+
+.fireteam-profile-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 15px;
+  color: rgba(244,247,246,.78);
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.fireteam-profile-stats span {
+  gap: 4px;
+}
+
+.fireteam-profile-stats em {
+  color: rgba(244,247,246,.58);
+  font-size: .62rem;
+}
+
+.fireteam-profile-stats .is-power strong {
+  color: var(--ft-gold);
+  font-size: 1.05rem;
+}
+
+.fireteam-profile-meta {
+  width: min(410px, calc(100% - 2px));
+  height: 12px;
+  min-height: 12px;
+  margin-top: 20px;
+}
+
+.fireteam-profile-meta::before {
+  inset: 1px auto auto 0;
+  height: 10px;
+  border: 1px solid rgba(244,247,246,.2);
+  background: rgba(0,0,0,.48);
+}
+
+.fireteam-profile-meta::after {
+  inset: 2px auto auto 1px;
+  height: 8px;
+  background: linear-gradient(90deg, rgba(202,209,221,.82), rgba(216,177,91,.64));
+}
+
+.fireteam-character-selector {
+  position: absolute;
+  z-index: 360;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(560px, calc(100vw - 760px));
+  border-top: 4px solid rgba(244,247,246,.86);
+  background:
+    linear-gradient(128deg, rgba(126,18,31,.46), transparent 44%),
+    linear-gradient(180deg, rgba(7,8,8,.98), rgba(7,8,8,.91));
+  box-shadow: 0 32px 70px rgba(0,0,0,.72), 0 0 0 1px rgba(202,209,221,.18);
+}
+
+.fireteam-grid {
+  position: relative;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(720px, 1fr) 410px;
+  gap: 18px;
+  width: var(--ft-main-width);
+  min-width: 1060px;
+  margin: 24px 0 0 var(--ft-left);
+  align-items: start;
+}
+
+.fireteam-main-column,
+.fireteam-side-column {
+  position: relative;
+  z-index: 20;
+}
+
+.fireteam-main-column {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.fireteam-side-column {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.fireteam-shell .panel {
+  border: 1px solid var(--ft-line);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.024), transparent 35%),
+    rgba(6,9,9,.68);
+  box-shadow: none;
+}
+
+.fireteam-shell .panel-head {
+  min-height: 36px;
+  margin-bottom: 10px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(202,209,221,.14);
+}
+
+.fireteam-shell .panel-head h2 {
+  font-size: .96rem;
+  letter-spacing: .035em;
+}
+
+.fireteam-shell .panel-head .eyebrow {
+  color: #9ec5ff;
+  font-size: .64rem;
+  letter-spacing: .13em;
+}
+
+.count-pill {
+  border-radius: 4px;
+  border-color: rgba(202,209,221,.16);
+  background: rgba(4,5,5,.64);
+}
+
+.fireteam-quest-panel,
+.fireteam-triumph-panel {
+  border-color: rgba(202,209,221,.18);
+  background: transparent !important;
+}
+
+.fireteam-quest-layout {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 64px;
+  gap: 12px;
+  align-items: start;
+}
+
+.fireteam-quest-panel .fireteam-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.fireteam-progress-card {
+  min-height: 92px;
+  border: 1px solid rgba(202,209,221,.22);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(78,72,30,.74), rgba(78,72,30,.36) 68%, rgba(18,22,20,.82)),
+    rgba(13,16,15,.92);
+  box-shadow: inset 0 -4px 0 rgba(202,209,221,.52);
+}
+
+.fireteam-progress-card:hover,
+.fireteam-progress-card:focus,
+.fireteam-progress-card:focus-within {
+  border-color: rgba(244,247,246,.68);
+  background:
+    linear-gradient(90deg, rgba(98,91,38,.86), rgba(78,72,30,.46) 68%, rgba(22,26,23,.88)),
+    rgba(13,16,15,.95);
+}
+
+.fireteam-progress-card.is-tracked {
+  border-color: rgba(86,220,140,.7);
+}
+
+.fireteam-progress-card img,
+.fireteam-icon-fallback {
+  width: 42px;
+  height: 42px;
+  border-radius: 0;
+}
+
+.fireteam-tabs {
+  position: sticky;
+  top: 56px;
+  z-index: 70;
+  display: grid;
+  gap: 6px;
+}
+
+.fireteam-tabs .seg {
+  width: 56px;
+  height: 56px;
+  border-radius: 0;
+  border: 1px solid rgba(202,209,221,.24);
+  background: rgba(18,20,20,.88);
+}
+
+.fireteam-tabs .seg:hover,
+.fireteam-tabs .seg.active {
+  border-color: rgba(244,247,246,.78);
+  background: rgba(202,209,221,.32);
+}
+
+.fireteam-tabs .seg::after {
+  left: auto;
+  right: calc(100% + 10px);
+  width: 360px;
+  border-top: 4px solid rgba(244,247,246,.88);
+  border-radius: 0;
+  background: rgba(0,0,0,.94);
+  color: rgba(244,247,246,.86);
+  text-align: left;
+  box-shadow: 0 22px 48px rgba(0,0,0,.62);
+}
+
+.fireteam-vertical-label {
+  top: 56px;
+}
+
+.fireteam-vertical-label span,
+.fireteam-vertical-label strong {
+  color: rgba(244,247,246,.68);
+}
+
+.fireteam-sync-panel,
+.fireteam-focus-panel,
+.fireteam-side-column > .panel {
+  border-color: rgba(202,209,221,.18);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.026), transparent 36%),
+    rgba(6,9,9,.78) !important;
+}
+
+.fireteam-member-card,
+.fireteam-mini-card,
+.fireteam-activity-card {
+  border-radius: 0;
+  background: rgba(15,18,17,.76);
+}
+
+.fireteam-pinned-panel {
+  position: fixed;
+  z-index: 180;
+  top: calc(var(--ft-topbar) + var(--ft-header) + 24px);
+  right: 20px;
+  width: 360px;
+  max-height: calc(100vh - var(--ft-topbar) - 150px);
+  border-top: 4px solid rgba(202,209,221,.66);
+  background: rgba(4,6,6,.91) !important;
+  box-shadow: 0 28px 70px rgba(0,0,0,.62);
+}
+
+.fireteam-pinned-panel .manual-drawer-toggle {
+  left: -46px;
+  top: -4px;
+  width: 46px;
+  height: 108px;
+  border-radius: 0;
+  border: 1px solid rgba(202,209,221,.35);
+  border-right: 0;
+  background: rgba(28,32,32,.86);
+}
+
+body.manual-tracker-minimized .fireteam-pinned-panel {
+  transform: translateX(calc(100% - 18px));
+}
+
+.fireteam-social-drawer {
+  z-index: 420;
+  top: var(--ft-topbar);
+  right: 0;
+  width: 360px;
+  height: calc(100vh - var(--ft-topbar));
+  border-radius: 0;
+  border: 0;
+  border-left: 1px solid rgba(202,209,221,.18);
+  background:
+    linear-gradient(145deg, rgba(126,18,31,.22), transparent 42%),
+    rgba(8,9,9,.94);
+}
+
+@media (max-width: 1500px) {
+  body.fireteam-page {
+    --ft-left: 24px;
+    --ft-reserved-right: 460px;
+    --ft-main-width: min(calc(100vw - var(--ft-reserved-right)), 1180px);
+  }
+
+  .fireteam-brand {
+    padding-left: 0;
+  }
+
+  .fireteam-grid {
+    grid-template-columns: minmax(620px, 1fr) 360px;
+    min-width: 980px;
+  }
+
+  .fireteam-quest-panel .fireteam-card-grid {
+    grid-template-columns: repeat(2, minmax(230px, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  body.fireteam-page {
+    min-width: 0;
+    --ft-left: 14px;
+    --ft-reserved-right: 28px;
+    --ft-main-width: calc(100vw - 28px);
+  }
+
+  .fireteam-appbar {
+    height: auto;
+    min-height: var(--ft-topbar);
+  }
+
+  .fireteam-profile-banner {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 14px;
+    height: auto;
+    min-height: 136px;
+    padding: 58px 14px 18px;
+  }
+
+  .fireteam-profile-mark,
+  .fireteam-profile-mark img {
+    width: 72px;
+    height: 72px;
+  }
+
+  .fireteam-profile-select {
+    width: 100%;
+  }
+
+  .fireteam-grid {
+    grid-template-columns: 1fr;
+    width: var(--ft-main-width);
+    min-width: 0;
+    margin: 18px auto 0;
+  }
+
+  .fireteam-pinned-panel {
+    right: 14px;
+    width: min(360px, calc(100vw - 60px));
+  }
+
+  .fireteam-quest-panel .fireteam-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
