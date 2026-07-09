@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/fireteam-redesign.css?v=bt-reset-008" />
+  <link rel="stylesheet" href="assets/fireteam-redesign.css?v=bt-reset-009" />
 </head>
 <body class="fireteam-page">
   <div class="app-shell fireteam-shell">
@@ -77,10 +77,9 @@
               <p class="eyebrow">Objectives</p>
               <h2>Quest Progress</h2>
             </div>
-            <span id="questCount" class="count-pill">0 items</span>
+            <span id="questCount" class="count-pill">All quests 0 / 0</span>
           </div>
           <div class="fireteam-quest-layout">
-            <div class="fireteam-vertical-label"><span>All quests</span><strong id="questRailCount">0 / 0</strong></div>
             <div id="questList" class="fireteam-card-grid"></div>
             <div class="fireteam-tabs" id="questTabs" role="group" aria-label="Quest progress filter">
               <button class="seg active" type="button" data-quest-filter="all" data-label="All quests" data-copy="Quest, bounty, and pursuit objective items."><img src="assets/dim-icons/dim_pursuit_complete.svg" alt="" aria-hidden="true" /></button>
@@ -196,6 +195,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=stale-code-safe-session"></script>
-  <script src="assets/fireteam.js?v=bt-quest-tooltips"></script>
+  <script src="assets/fireteam.js?v=bt-quest-header-count"></script>
 </body>
 </html>

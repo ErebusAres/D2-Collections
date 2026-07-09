@@ -70,8 +70,6 @@
     questList: document.querySelector("#questList"),
     questCount: document.querySelector("#questCount"),
     questTabs: document.querySelector("#questTabs"),
-    questRailCount: document.querySelector("#questRailCount"),
-    questRailLabel: document.querySelector(".fireteam-vertical-label span"),
     triumphList: document.querySelector("#triumphList"),
     triumphCount: document.querySelector("#triumphCount"),
     manualTrackerPanel: document.querySelector("#manualTrackerPanel"),
@@ -1194,12 +1192,11 @@
     const classScoped = quests.filter(quest => quest.kind !== "record").filter(classFilterMatches);
     updateQuestTabCounts(classScoped);
     const visible = classScoped.filter(quest => questMatchesFilter(quest, questFilter));
-    if (els.questCount) els.questCount.textContent = `${visible.length} / ${classScoped.length}`;
-    if (els.questRailCount) els.questRailCount.textContent = `${visible.length} / ${classScoped.length}`;
-    if (els.questRailLabel) {
+    if (els.questCount) {
       const active = [...(els.questTabs?.querySelectorAll("[data-quest-filter]") || [])].find(button => button.dataset.questFilter === questFilter);
       const filterLabel = active?.dataset.label || "All quests";
-      els.questRailLabel.textContent = classFilter ? `${classFilter} / ${filterLabel}` : filterLabel;
+      const label = classFilter ? `${classFilter} / ${filterLabel}` : filterLabel;
+      els.questCount.textContent = `${label} ${visible.length} / ${classScoped.length}`;
     }
     if (!els.questList) return;
     if (!visible.length) {
