@@ -1176,8 +1176,13 @@
     const tabs = [...els.questTabs.querySelectorAll("[data-quest-filter]")];
     tabs.forEach(button => {
       const count = quests.filter(quest => questMatchesFilter(quest, button.dataset.questFilter || "all")).length;
+      const label = button.dataset.label || button.dataset.questFilter || "Filter";
+      const copy = button.dataset.copy || "";
+      const tooltip = copy ? `${label}: ${copy}` : label;
       button.dataset.count = String(count);
       button.classList.toggle("is-empty", count === 0);
+      button.title = tooltip;
+      button.setAttribute("aria-label", tooltip);
     });
   }
 

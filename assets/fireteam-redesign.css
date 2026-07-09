@@ -745,6 +745,40 @@ body.fireteam-page .app-shell.fireteam-shell {
   background: rgba(18,20,20,.88);
 }
 
+.fireteam-tabs .seg::after {
+  content: attr(data-label) "\A" attr(data-copy);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  z-index: 260;
+  width: 360px;
+  min-height: 84px;
+  padding: 17px 18px 16px;
+  border-top: 4px solid rgba(244,247,246,.88);
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.98), rgba(0,0,0,.9) 78%, rgba(0,0,0,.58)),
+    rgba(0,0,0,.94);
+  color: rgba(244,247,246,.86);
+  font-size: .82rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+  white-space: pre-line;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: 0 22px 48px rgba(0,0,0,.62);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(-8px);
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+.fireteam-tabs .seg:hover::after,
+.fireteam-tabs .seg:focus-visible::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
 .fireteam-tabs .seg img {
   width: 30px;
   height: 30px;
@@ -756,18 +790,6 @@ body.fireteam-page .app-shell.fireteam-shell {
 .fireteam-tabs .seg.active {
   border-color: rgba(244,247,246,.78);
   background: rgba(202,209,221,.32);
-}
-
-.fireteam-tabs .seg::after {
-  left: calc(100% + 10px);
-  right: auto;
-  width: 360px;
-  border-top: 4px solid rgba(244,247,246,.88);
-  border-radius: 0;
-  background: rgba(0,0,0,.94);
-  color: rgba(244,247,246,.86);
-  text-align: left;
-  box-shadow: 0 22px 48px rgba(0,0,0,.62);
 }
 
 .fireteam-vertical-label {
