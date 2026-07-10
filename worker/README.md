@@ -4,8 +4,8 @@ This Worker adds an optional Cloudflare D1 backend for the static GitHub Pages s
 
 ## What It Does
 
-- `GET /api/snapshots` returns saved Ares/Icee collection snapshots.
-- `POST /api/snapshots` verifies the current Bungie access token, maps the login to Ares/Corey or Icee/Matt, then saves ownership, catalyst, completion, and Rahool resource data.
+- `GET /api/snapshots` returns saved Ares/Icee/Fears collection snapshots.
+- `POST /api/snapshots` verifies the current Bungie access token, maps the login to Ares/Corey, Icee/Matt, or Fears/Chris, then saves ownership, catalyst, completion, and Rahool resource data.
 - The browser never receives D1 credentials or a DB write secret.
 
 ## Deploy Steps

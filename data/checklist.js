@@ -43,6 +43,27 @@ window.D2_COLLECTIONS_CHECKLIST = {
         "matchedCatalysts": 0,
         "matchedCatalystsComplete": 0
       }
+    },
+    "chris": {
+      "label": "Fears",
+      "short": "Fears",
+      "handle": "Fears",
+      "display": "Fears",
+      "full": "Fears (Chris)",
+      "bungieGlobalDisplayName": "Fears",
+      "primaryMembershipId": "4611686018470990353",
+      "membershipType": 3,
+      "membershipId": "4611686018470990353",
+      "displayName": "Fears",
+      "collectionStats": {
+        "expectedFullExoticItemTotal": 1239,
+        "returnedCollectibleRecords": 0,
+        "returnedVisibleCollectibleRecords": 0,
+        "ownedCollectibleHashes": 0,
+        "matchedCatalogItems": 0,
+        "matchedCatalysts": 0,
+        "matchedCatalystsComplete": 0
+      }
     }
   },
   "weapons": {

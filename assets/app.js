@@ -14,9 +14,9 @@
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const ACTIVE_PLAYER_KEY = "d2-collections-active-player-v1";
   const CLAIM_FEED_KEY = "d2-collections-claim-feed-v1";
-  const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "corey" };
+  const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "chris" };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
-  const players = Object.keys(BASE.users || { corey: {}, matt: {} });
+  const players = Object.keys(BASE.users || { corey: {}, matt: {}, chris: {} });
   const armorClasses = () => Object.keys(CATALOG.armor || {}).filter(className => Array.isArray(CATALOG.armor[className]));
   const DAMAGE_ICONS = {
     solar: "https://www.bungie.net/common/destiny2_content/icons/DestinyDamageTypeDefinition_2a1773e10968f2d088b97c22b22bba9e.png",
@@ -50,6 +50,7 @@
     weapons: document.querySelector("#weaponsList"),
     warlock: document.querySelector("#warlockList"),
     titan: document.querySelector("#titanList"),
+    hunter: document.querySelector("#hunterList"),
     weaponCount: document.querySelector("#weaponCount"),
     armorCount: document.querySelector("#armorCount"),
     exportBtn: document.querySelector("#exportBtn"),
@@ -62,6 +63,7 @@
     syncHealth: document.querySelector("#syncHealthStrip"),
     aresArmorCount: document.querySelector("#aresArmorCount"),
     iceeArmorCount: document.querySelector("#iceeArmorCount"),
+    fearsArmorCount: document.querySelector("#fearsArmorCount"),
     claimFeedList: document.querySelector("#claimFeedList"),
     claimFeedCount: document.querySelector("#claimFeedCount"),
     clearClaimFeedBtn: document.querySelector("#clearClaimFeedBtn")
@@ -90,7 +92,7 @@
 
   function mergeState(base) {
     const merged = base || {};
-    merged.users = merged.users || { corey: { label: "Corey", short: "C" }, matt: { label: "Matt", short: "M" } };
+    merged.users = merged.users || { corey: { label: "Corey", short: "C" }, matt: { label: "Matt", short: "M" }, chris: { label: "Fears", short: "Fears" } };
     merged.weapons = merged.weapons || {};
     merged.armor = merged.armor || {};
     hydrateDefaults(merged);
@@ -275,6 +277,17 @@
     return active && visible.includes(active) ? [active, ...visible.filter(player => player !== active)] : visible;
   }
 
+  function playerSlug(player) {
+    if (player === "corey") return "ares";
+    if (player === "matt") return "icee";
+    const user = BASE.users?.[player] || {};
+    return String(user.handle || user.display || user.label || player).toLowerCase().replace(/[^a-z0-9]+/g, "") || player;
+  }
+
+  function playerAnchor(player, suffix) {
+    return `${playerSlug(player)}${suffix}`;
+  }
+
   function armorPlayersForClass(className) {
     if (filters.player !== "all") return [filters.player];
     return [CLASS_FOCUS[className] || players[0]];
@@ -413,6 +426,7 @@
     if (!window.D2_COLLECTIONS_ARMOR_COLUMNS_ACTIVE) {
       renderArmor("warlock", els.warlock, document.querySelector("#aresArmor"));
       renderArmor("titan", els.titan, document.querySelector("#iceeArmor"));
+      renderArmor("hunter", els.hunter, document.querySelector("#fearsArmor"));
     }
   }
 
@@ -531,7 +545,7 @@
       ...armorClasses().flatMap(className => (CATALOG.armor[className] || []).filter(item => needsArmorAction(item, armorPlayersForClass(className).map(player => state.armor[className]?.[item.id]?.[player] || blankArmor()), armorPlayersForClass(className))))
     ];
     els.summary.innerHTML = [
-      metric("Weapons owned", weaponRows.filter(row => row.owned).length, weaponRows.length, "Ares + Icee"),
+      metric("Weapons owned", weaponRows.filter(row => row.owned).length, weaponRows.length, "Fireteam"),
       metric("Catalysts owned", catalystRows.filter(row => row.catalyst).length, catalystRows.length, "Weapons with catalysts"),
       metric("Catalysts complete", catalystRows.filter(row => row.complete).length, catalystRows.length, "Finished catalysts"),
       metric("Armor owned", armorRows.filter(row => row.owned).length, armorRows.length, "Configured classes"),
@@ -605,7 +619,7 @@
       els.weapons.innerHTML = orderedPlayers().map(player => renderWeaponPlayerSection(player, allWeapons)).join("");
       return;
     }
-    const fallbackAnchors = `<span id="aresWeapons" class="jump-anchor"></span><span id="iceeWeapons" class="jump-anchor"></span>`;
+    const fallbackAnchors = players.map(player => `<span id="${playerAnchor(player, "Weapons")}" class="jump-anchor"></span>`).join("");
     els.weapons.innerHTML = fallbackAnchors + (visible.length ? visible.map((item, index) => renderWeaponCard(item, playerList(), index < 24)).join("") : emptyState("No weapons match this filter."));
   }
 
@@ -616,7 +630,7 @@
     const label = user.label || player;
     const handle = user.handle || user.name || "";
     const title = handle ? `${label} (${handle})` : label;
-    const anchor = player === "matt" ? "iceeWeapons" : "aresWeapons";
+    const anchor = playerAnchor(player, "Weapons");
     return `<article id="${anchor}" class="simple-player-section weapon-player-section" data-player="${escapeAttr(player)}"><div class="class-title weapon-player-title"><span>${escapeAttr(user.short || label[0] || "?")}</span><strong>${escapeAttr(title)} / Weapons</strong><em>${owned}/${visible.length} unlocked</em></div><div class="weapon-list simple-player-list">${visible.length ? visible.map((item, index) => renderWeaponCard(item, [player], index < 24)).join("") : emptyState("No weapons match this filter.")}</div></article>`;
   }
 
@@ -686,7 +700,7 @@
     const player = CLASS_FOCUS[className] || players[0];
     const total = (CATALOG.armor[className] || []).length;
     const owned = (CATALOG.armor[className] || []).filter(item => state.armor[className]?.[item.id]?.[player]?.owned).length;
-    const target = className === "warlock" ? els.aresArmorCount : className === "titan" ? els.iceeArmorCount : null;
+    const target = player === "corey" ? els.aresArmorCount : player === "matt" ? els.iceeArmorCount : player === "chris" ? els.fearsArmorCount : null;
     if (target) target.textContent = armorClassVisible(className) ? `${owned}/${total} unlocked` : "";
   }
 

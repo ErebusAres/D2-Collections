@@ -58,7 +58,7 @@
       <div>
         <p class="eyebrow">Cloud-synced Destiny 2 tracker</p>
         <h1 class="hero-title"><img src="assets/d2-collections-title.svg?v=d2-exotic-tile-mark" alt="D2 Exotic Collections" width="760" height="150" decoding="async" /></h1>
-        <p class="hero-copy">A fast exotic checklist for Ares and Icee. Bungie login updates local ownership, catalysts, Rahool materials, Xur checks, and the shared cloud snapshot.</p>
+        <p class="hero-copy">A fast exotic checklist for Ares, Icee, and Fears. Bungie login updates local ownership, catalysts, Rahool materials, Xur checks, and the shared cloud snapshot.</p>
       </div>
       <nav class="site-nav" aria-label="Site navigation">
         <a href="index.html" aria-current="page">Collections</a>
@@ -82,9 +82,10 @@
         <button class="seg" data-view="catalysts" type="button">Catalysts</button>
       </div>
       <div class="segmented" role="group" aria-label="Player focus">
-        <button class="seg active" data-player="all" type="button">Both</button>
+        <button class="seg active" data-player="all" type="button">Fireteam</button>
         <button class="seg" data-player="corey" type="button">Ares</button>
         <button class="seg" data-player="matt" type="button">Icee</button>
+        <button class="seg" data-player="chris" type="button">Fears</button>
       </div>
       <label class="sort-wrap">
         <span>Sort</span>
@@ -111,8 +112,10 @@
         <a href="#weaponsPanel">Weapons</a>
         <a href="#aresWeapons">Ares weapons</a>
         <a href="#iceeWeapons">Icee weapons</a>
+        <a href="#fearsWeapons">Fears weapons</a>
         <a href="#aresArmor">Ares armor</a>
         <a href="#iceeArmor">Icee armor</a>
+        <a href="#fearsArmor">Fears armor</a>
       </nav>
       <div class="legend-strip" aria-label="Visual legend">
         <span id="activePlayerPill" class="identity-pill">Viewing as: not linked</span>
@@ -169,7 +172,7 @@
         <div class="panel-head">
           <div>
             <p class="eyebrow">Armor</p>
-            <h2>Two-column class checklist</h2>
+            <h2>Fireteam class checklist</h2>
           </div>
           <span id="armorCount" class="count-pill"></span>
         </div>
@@ -181,6 +184,10 @@
           <article id="iceeArmor">
             <div class="class-title titan"><span class="class-title-icon"><img src="assets/dim-icons/class_titan.png" alt="" width="22" height="22" loading="lazy" decoding="async" aria-hidden="true" /></span><strong>Icee (IceeDedPple) / Titan</strong><em id="iceeArmorCount" class="section-stat"></em></div>
             <div id="titanList" class="armor-list"></div>
+          </article>
+          <article id="fearsArmor">
+            <div class="class-title hunter"><span class="class-title-icon"><img src="assets/dim-icons/class_hunter.png" alt="" width="22" height="22" loading="lazy" decoding="async" aria-hidden="true" /></span><strong>Fears (Chris) / Hunter</strong><em id="fearsArmorCount" class="section-stat"></em></div>
+            <div id="hunterList" class="armor-list"></div>
           </article>
         </div>
       </section>
@@ -201,9 +208,9 @@
   <script src="data/checklist.js"></script>
   <script src="assets/oauth-redirect-fix.js?v=d2-persistent-login"></script>
   <script>window.D2_COLLECTIONS_ARMOR_COLUMNS_ACTIVE = true;</script>
-  <script src="assets/app.js?v=fireteam-oauth-handoff"></script>
+  <script src="assets/app.js?v=chris-fears-tracking"></script>
   <script src="assets/auth-compact.js?v=refresh-not-logout"></script>
-  <script src="assets/armor-columns.js?v=render-perf-filter-cache"></script>
+  <script src="assets/armor-columns.js?v=chris-fears-tracking"></script>
   <script src="assets/help.js?v=render-perf-help-inline"></script>
   <script src="assets/layout-mode.js?v=shelf-layout"></script>
   <script src="assets/icon-audit.js"></script>

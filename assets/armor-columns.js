@@ -7,9 +7,11 @@
   const STORAGE_KEY = "d2-collections-armor-columns-v1";
   const RESOURCE_KEY = "d2-collections-player-resources-v1";
   const XUR_STOCK_KEY = "d2-collections-xur-stock-v1";
+  const COLUMN_SIDES = ["left", "middle", "right"];
   const DEFAULTS = {
     left: { player: "corey", className: "warlock" },
-    right: { player: "matt", className: "titan" }
+    middle: { player: "matt", className: "titan" },
+    right: { player: "chris", className: "hunter" }
   };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const SLOT_ORDER = { Helmet: 1, Gauntlets: 2, Chest: 3, Legs: 4, "Class Item": 5 };
@@ -18,7 +20,7 @@
   const itemSearchTextCache = new WeakMap();
 
   const css = `
-    .armor-column-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.armor-column-controls.is-single-player{grid-template-columns:1fr}.armor-control{border:1px solid var(--line-strong);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border-radius:8px;padding:9px;display:grid;grid-template-columns:1fr 1fr;gap:8px}.armor-control[hidden]{display:none}.armor-control label{display:grid;gap:4px;color:var(--muted);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.armor-control select{width:100%;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.28);color:var(--text);padding:7px 8px;outline:none}.armor-columns.is-single-player,html.layout-shelf .armor-columns.is-single-player,html.layout-simple .armor-columns.is-single-player{grid-template-columns:1fr}.armor-columns.is-single-player .armor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px}.armor-card{grid-template-columns:minmax(0,1fr) auto;align-items:center;padding:7px 9px;min-height:54px}.armor-card .item-with-icon{grid-template-columns:34px minmax(0,1fr);gap:8px}.armor-card .item-icon,.armor-card .item-icon-fallback{width:34px;height:34px;border-radius:6px}.armor-card .badge.source,.armor-card .badge.focus{display:none}.armor-card .item-name{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-bottom:3px}.armor-card h3{font-size:.88rem;margin-bottom:0}.armor-card .priority-tags{margin:2px 0 4px}.armor-card .badge.slot{font-size:.68rem;padding:2px 7px;display:inline-flex;align-items:center;gap:4px}.armor-card .badge.slot .dim-icon{width:14px;height:14px}.armor-card .armor-status.header{display:none}.armor-card .status-row{grid-column:2;grid-row:1;margin-top:0;align-self:center}.armor-card .player-label{display:none}.armor-card .status-cell{min-height:32px;min-width:44px;padding:0 8px;cursor:help}.armor-status{grid-template-columns:minmax(44px,58px);gap:0}.armor-columns.is-single-player .armor-card{grid-template-columns:minmax(0,1fr) minmax(58px,auto);min-height:64px;padding:9px 10px}.armor-columns.is-single-player .armor-card .item-with-icon{grid-template-columns:44px minmax(0,1fr);gap:10px}.armor-columns.is-single-player .armor-card .item-icon,.armor-columns.is-single-player .armor-card .item-icon-fallback{width:44px;height:44px}.armor-columns.is-single-player .armor-card h3{font-size:.95rem}.armor-columns.is-single-player .armor-card .badge.source{display:inline-flex;max-width:190px}.armor-columns.is-single-player .armor-card .badge-row{flex-wrap:nowrap;overflow:hidden}.class-title.hunter span{color:var(--green)}@media(max-width:1180px){.armor-columns.is-single-player .armor-list{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}}@media(max-width:780px){.armor-column-controls{grid-template-columns:1fr}.armor-control{grid-template-columns:1fr 1fr}.armor-card{min-height:50px}.armor-status{grid-template-columns:minmax(42px,54px)}.armor-columns.is-single-player .armor-list{grid-template-columns:1fr}.armor-columns.is-single-player .armor-card{min-height:58px}.armor-columns.is-single-player .armor-card .badge.source{display:none}}
+    .armor-column-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}.armor-column-controls.is-single-player{grid-template-columns:1fr}.armor-columns{grid-template-columns:repeat(3,minmax(0,1fr))}.armor-control{border:1px solid var(--line-strong);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));border-radius:8px;padding:9px;display:grid;grid-template-columns:1fr 1fr;gap:8px}.armor-control[hidden]{display:none}.armor-control label{display:grid;gap:4px;color:var(--muted);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.armor-control select{width:100%;border:1px solid var(--line);border-radius:7px;background:rgba(0,0,0,.28);color:var(--text);padding:7px 8px;outline:none}.armor-columns.is-single-player,html.layout-shelf .armor-columns.is-single-player,html.layout-simple .armor-columns.is-single-player{grid-template-columns:1fr}.armor-columns.is-single-player .armor-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px}.armor-card{grid-template-columns:minmax(0,1fr) auto;align-items:center;padding:7px 9px;min-height:54px}.armor-card .item-with-icon{grid-template-columns:34px minmax(0,1fr);gap:8px}.armor-card .item-icon,.armor-card .item-icon-fallback{width:34px;height:34px;border-radius:6px}.armor-card .badge.source,.armor-card .badge.focus{display:none}.armor-card .item-name{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;margin-bottom:3px}.armor-card h3{font-size:.88rem;margin-bottom:0}.armor-card .priority-tags{margin:2px 0 4px}.armor-card .badge.slot{font-size:.68rem;padding:2px 7px;display:inline-flex;align-items:center;gap:4px}.armor-card .badge.slot .dim-icon{width:14px;height:14px}.armor-card .armor-status.header{display:none}.armor-card .status-row{grid-column:2;grid-row:1;margin-top:0;align-self:center}.armor-card .player-label{display:none}.armor-card .status-cell{min-height:32px;min-width:44px;padding:0 8px;cursor:help}.armor-status{grid-template-columns:minmax(44px,58px);gap:0}.armor-columns.is-single-player .armor-card{grid-template-columns:minmax(0,1fr) minmax(58px,auto);min-height:64px;padding:9px 10px}.armor-columns.is-single-player .armor-card .item-with-icon{grid-template-columns:44px minmax(0,1fr);gap:10px}.armor-columns.is-single-player .armor-card .item-icon,.armor-columns.is-single-player .armor-card .item-icon-fallback{width:44px;height:44px}.armor-columns.is-single-player .armor-card h3{font-size:.95rem}.armor-columns.is-single-player .armor-card .badge.source{display:inline-flex;max-width:190px}.armor-columns.is-single-player .armor-card .badge-row{flex-wrap:nowrap;overflow:hidden}.class-title.hunter span{color:var(--green)}@media(max-width:1280px){.armor-columns,.armor-column-controls{grid-template-columns:1fr 1fr}}@media(max-width:1180px){.armor-columns.is-single-player .armor-list{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}}@media(max-width:780px){.armor-columns,.armor-column-controls{grid-template-columns:1fr}.armor-control{grid-template-columns:1fr 1fr}.armor-card{min-height:50px}.armor-status{grid-template-columns:minmax(42px,54px)}.armor-columns.is-single-player .armor-list{grid-template-columns:1fr}.armor-columns.is-single-player .armor-card{min-height:58px}.armor-columns.is-single-player .armor-card .badge.source{display:none}}
   `;
   const style = document.createElement("style");
   style.textContent = css;
@@ -26,7 +28,11 @@
 
   function readConfig() {
     try {
-      return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")) };
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      const next = { ...JSON.parse(JSON.stringify(DEFAULTS)), ...saved };
+      if (!saved.middle && saved.right?.player === "matt") next.middle = { ...saved.right };
+      if (!saved.right || saved.right?.player === "matt") next.right = { player: "chris", className: "hunter" };
+      return next;
     } catch {
       return structuredClone(DEFAULTS);
     }
@@ -48,7 +54,7 @@
   }
 
   function playerOptions(selected) {
-    return Object.keys(CHECKLIST.users || { corey: {}, matt: {} })
+    return Object.keys(CHECKLIST.users || { corey: {}, matt: {}, chris: {} })
       .map(id => `<option value="${id}" ${id === selected ? "selected" : ""}>${userName(id, "full")}</option>`).join("");
   }
 
@@ -62,7 +68,7 @@
     if (!columns || document.querySelector(".armor-column-controls")) return;
     const controls = document.createElement("div");
     controls.className = "armor-column-controls";
-    controls.innerHTML = ["left", "right"].map(side => `<div class="armor-control" data-side="${side}"><label>${side} player<select data-field="player">${playerOptions(config[side].player)}</select></label><label>${side} class<select data-field="className">${classOptions(config[side].className)}</select></label></div>`).join("");
+    controls.innerHTML = COLUMN_SIDES.map(side => `<div class="armor-control" data-side="${side}"><label>${side} player<select data-field="player">${playerOptions(config[side].player)}</select></label><label>${side} class<select data-field="className">${classOptions(config[side].className)}</select></label></div>`).join("");
     columns.parentElement.insertBefore(controls, columns);
     controls.addEventListener("change", event => {
       const control = event.target.closest(".armor-control");
@@ -286,16 +292,16 @@
       control.hidden = singlePlayer && config[side]?.player !== player;
     });
     if (heading) {
-      heading.textContent = singlePlayer ? `${CHECKLIST.users?.[player]?.label || player} armor checklist` : "Two-column class checklist";
+      heading.textContent = singlePlayer ? `${CHECKLIST.users?.[player]?.label || player} armor checklist` : "Fireteam class checklist";
     }
-    const left = renderColumn("left", "#warlockList", 0);
-    const right = renderColumn("right", "#titanList", 1);
-    const total = ["left", "right"].reduce((sum, side) => {
+    const roots = ["#warlockList", "#titanList", "#hunterList"];
+    const visibleCounts = COLUMN_SIDES.map((side, index) => renderColumn(side, roots[index], index));
+    const total = COLUMN_SIDES.reduce((sum, side) => {
       if (player !== "all" && config[side].player !== player) return sum;
       return sum + (CATALOG.armor?.[config[side].className]?.length || 0);
     }, 0);
     const count = document.querySelector("#armorCount");
-    if (count) count.textContent = `${left + right} / ${total}`;
+    if (count) count.textContent = `${visibleCounts.reduce((sum, value) => sum + value, 0)} / ${total}`;
   }
 
   let scheduledRender = 0;

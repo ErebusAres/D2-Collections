@@ -653,8 +653,11 @@
     const haystack = profileNames(dump).map(normalize).join(" ");
     if (haystack.includes("erebusares")) return "corey";
     if (haystack.includes("iceededpple")) return "matt";
+    if (haystack.includes("fears")) return "chris";
+    if (haystack.includes("4611686018470990353")) return "chris";
     if (haystack.includes("corey") || haystack.includes("ares")) return "corey";
     if (haystack.includes("matt") || haystack.includes("icee")) return "matt";
+    if (haystack.includes("chris")) return "chris";
     return "";
   }
 
@@ -851,7 +854,7 @@
     return {
       d2CollectionsApiDump: true,
       generatedAt: new Date().toISOString(),
-      note: "Logged-in Bungie account collection/profile dump. The site also attempts to live-apply owned catalog matches for Ares/Corey or Icee/Matt.",
+      note: "Logged-in Bungie account collection/profile dump. The site also attempts to live-apply owned catalog matches for Ares/Corey, Icee/Matt, or Fears/Chris.",
       source: "logged_in_bungie_account",
       expectedFullExoticItemTotal: EXPECTED_EXOTIC_TOTAL,
       primaryMembershipId: memberships.primaryMembershipId || "",

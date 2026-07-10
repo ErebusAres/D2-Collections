@@ -1,7 +1,8 @@
 const BUNGIE_API_ROOT = "https://www.bungie.net/Platform";
 const PLAYER_MATCHERS = {
   corey: ["erebusares", "corey", "ares", "4611686018470688010"],
-  matt: ["iceededpple", "matt", "icee", "4611686018470677739"]
+  matt: ["iceededpple", "matt", "icee", "4611686018470677739"],
+  chris: ["fears", "chris", "4611686018470990353"]
 };
 
 const jsonHeaders = {
@@ -80,7 +81,7 @@ async function verifyBungieToken(request, env) {
 
   const names = identityStrings(body.Response || {});
   const player = playerFromIdentity(names);
-  if (!player) throw httpError(403, "unknown_player", "This Bungie account is not mapped to Ares/Corey or Icee/Matt.");
+  if (!player) throw httpError(403, "unknown_player", "This Bungie account is not mapped to Ares/Corey, Icee/Matt, or Fears/Chris.");
   return { player, memberships: body.Response || {}, names };
 }
 
