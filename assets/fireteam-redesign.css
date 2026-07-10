@@ -206,8 +206,8 @@ body.fireteam-page [tabindex]:focus-visible {
 
 body.fireteam-page {
   --ft-topbar: 40px;
-  --ft-header: 176px;
-  --ft-left: max(24px, calc((100vw - 1760px) / 2));
+  --ft-header: 184px;
+  --ft-left: max(28px, calc((100vw - 1480px) / 2));
   --ft-tracker-lane: 430px;
   --ft-main-width: min(calc(100vw - var(--ft-left) - var(--ft-tracker-lane)), 1360px);
   --ft-panel: rgba(7, 10, 10, .72);
@@ -396,7 +396,7 @@ body.fireteam-page .app-shell.fireteam-shell {
   min-height: var(--ft-header);
   padding: 0 64px 0 var(--ft-left);
   background:
-    linear-gradient(90deg, rgba(96,5,18,.9), rgba(96,5,18,.42) 48%, rgba(13,13,14,.82)),
+    linear-gradient(90deg, rgba(96,5,18,.82), rgba(96,5,18,.34) 48%, rgba(13,13,14,.84)),
     rgba(8, 10, 10, .94);
   overflow: visible;
 }
@@ -408,7 +408,7 @@ body.fireteam-page .app-shell.fireteam-shell {
   overflow: hidden;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(96,5,18,.98), rgba(96,5,18,.58) 48%, rgba(10,10,11,.88)),
+    linear-gradient(90deg, rgba(96,5,18,.9), rgba(96,5,18,.38) 48%, rgba(10,10,11,.86)),
     rgba(8, 10, 10, .94);
 }
 
@@ -419,8 +419,8 @@ body.fireteam-page .app-shell.fireteam-shell {
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
-  opacity: .72;
-  filter: brightness(.58) saturate(1.12);
+  opacity: .9;
+  filter: brightness(.55) saturate(1.16);
   transform: none;
 }
 
@@ -429,8 +429,8 @@ body.fireteam-page .app-shell.fireteam-shell {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(0,0,0,.1), rgba(0,0,0,.05) 40%, rgba(0,0,0,.48)),
-    linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.36));
+    linear-gradient(90deg, rgba(0,0,0,.12), rgba(0,0,0,.02) 38%, rgba(0,0,0,.6)),
+    linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,.48));
 }
 
 .fireteam-profile-banner::after {
@@ -480,12 +480,7 @@ body.fireteam-page .app-shell.fireteam-shell {
   max-width: 536px;
   padding: 0;
   border: 2px solid transparent;
-  background:
-    linear-gradient(90deg, rgba(0,0,0,.05), rgba(0,0,0,.14)),
-    var(--fireteam-profile-banner-image, linear-gradient(90deg, rgba(72,12,20,.86), rgba(116,21,33,.48))),
-    linear-gradient(90deg, rgba(72,12,20,.86), rgba(116,21,33,.48));
-  background-size: cover;
-  background-position: center;
+  background: transparent;
   box-shadow: none;
   color: inherit;
   isolation: auto;
@@ -502,11 +497,7 @@ body.fireteam-page .app-shell.fireteam-shell {
 .fireteam-profile-select[aria-expanded="true"] {
   border-color: rgba(245,245,245,.95);
   background:
-    linear-gradient(90deg, rgba(235,238,239,.24), rgba(235,238,239,.1)),
-    var(--fireteam-profile-banner-image, linear-gradient(90deg, rgba(72,12,20,.86), rgba(116,21,33,.48))),
-    linear-gradient(90deg, rgba(72,12,20,.86), rgba(116,21,33,.48));
-  background-size: cover;
-  background-position: center;
+    linear-gradient(90deg, rgba(235,238,239,.24), rgba(235,238,239,.1));
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.76), 0 18px 36px rgba(0,0,0,.36);
 }
 
