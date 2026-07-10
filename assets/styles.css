@@ -964,7 +964,7 @@ h3 { margin-bottom: 4px; font-size: .98rem; }
 .armor-card {
   position: relative;
   contain: layout paint;
-  content-visibility: visible;
+  content-visibility: auto;
   contain-intrinsic-block-size: 92px;
   overflow: hidden;
   display: grid;
@@ -1571,7 +1571,7 @@ html.layout-shelf .class-title {
 html.layout-shelf .weapon-card,
 html.layout-shelf .armor-card {
   contain-intrinsic-block-size: 82px;
-  content-visibility: visible;
+  content-visibility: auto;
   min-height: 82px;
   display: grid;
   grid-template-columns: minmax(190px, 1fr) minmax(190px, .82fr);
@@ -1614,9 +1614,6 @@ html.layout-shelf .weapon-card .item-name {
 }
 html.layout-shelf .item-name h3 {
   font-size: .98rem;
-}
-html.layout-shelf .item-help-btn {
-  display: none;
 }
 html.layout-shelf .priority-tags {
   gap: 2px;
@@ -2049,7 +2046,6 @@ html.layout-simple .item-name {
 }
 html.layout-simple .item-name h3,
 html.layout-simple .badge-row,
-html.layout-simple .item-help-btn,
 html.layout-simple .status-grid.header,
 html.layout-simple .armor-status.header,
 html.layout-simple .player-label {

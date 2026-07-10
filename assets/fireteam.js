@@ -1622,7 +1622,7 @@
       return;
     }
     els.cloudStatus.innerHTML = snapshots.length
-      ? snapshots.slice(0, 4).map(snapshot => `<span class="is-good"><strong>${escapeHtml(snapshot.player || snapshot.displayName || "Saved")}</strong>${escapeHtml(formatShort(snapshot.syncedAt || snapshot.updatedAt))}</span>`).join("")
+      ? snapshots.slice(0, 4).map(snapshot => `<span class="is-good"><strong>${escapeHtml(snapshotDisplayName(snapshot) || "Saved")}</strong>${escapeHtml(formatShort(snapshot.syncedAt || snapshot.updatedAt))}</span>`).join("")
       : `<span class="is-idle"><strong>Cloud</strong>No fireteam snapshots</span>`;
   }
 

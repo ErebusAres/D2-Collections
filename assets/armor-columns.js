@@ -91,7 +91,7 @@
     const raw = item.icon || item.iconUrl || "";
     if (!raw) return `<div class="item-icon-fallback" aria-hidden="true">${initials(item.name)}</div>`;
     const src = raw.startsWith("/") ? `https://www.bungie.net${raw}` : raw;
-    return `<img class="item-icon" src="${src}" alt="${item.name} icon" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'item-icon-fallback',textContent:'${initials(item.name)}'}))" />`;
+    return `<img class="item-icon" src="${src}" alt="${item.name} icon" loading="lazy" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'item-icon-fallback',textContent:'${initials(item.name)}'}))" />`;
   }
 
   function sortedArmorItems(className) {
