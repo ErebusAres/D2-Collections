@@ -48,7 +48,7 @@
 
   function userName(id, mode = "label") {
     const user = CHECKLIST.users?.[id] || {};
-    if (mode === "full") return user.full || `${user.label || id}${user.handle ? ` (${user.handle})` : ""}`;
+    if (mode === "full") return user.display || user.label || id;
     if (mode === "short") return user.short || user.label || id;
     return user.display || user.label || id;
   }

@@ -854,7 +854,7 @@
     return {
       d2CollectionsApiDump: true,
       generatedAt: new Date().toISOString(),
-      note: "Logged-in Bungie account collection/profile dump. The site also attempts to live-apply owned catalog matches for Ares/Corey, Icee/Matt, or Fears/Chris.",
+      note: "Logged-in Bungie account collection/profile dump. The site also attempts to live-apply owned catalog matches for Ares, Icee, or Fears.",
       source: "logged_in_bungie_account",
       expectedFullExoticItemTotal: EXPECTED_EXOTIC_TOTAL,
       primaryMembershipId: memberships.primaryMembershipId || "",

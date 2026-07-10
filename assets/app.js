@@ -92,7 +92,7 @@
 
   function mergeState(base) {
     const merged = base || {};
-    merged.users = merged.users || { corey: { label: "Corey", short: "C" }, matt: { label: "Matt", short: "M" }, chris: { label: "Fears", short: "Fears" } };
+    merged.users = merged.users || { corey: { label: "Ares", short: "🔥" }, matt: { label: "Icee", short: "🧊" }, chris: { label: "Fears", short: "Fears" } };
     merged.weapons = merged.weapons || {};
     merged.armor = merged.armor || {};
     hydrateDefaults(merged);
@@ -628,8 +628,7 @@
     const visible = sortedItems(allWeapons.filter(item => matchesText(item) && matchesWeaponViewForPlayers(item, [player])), { kind: "weapon", players: [player] });
     const owned = visible.filter(item => state.weapons[item.id]?.[player]?.owned).length;
     const label = user.label || player;
-    const handle = user.handle || user.name || "";
-    const title = handle ? `${label} (${handle})` : label;
+    const title = user.display || user.label || label;
     const anchor = playerAnchor(player, "Weapons");
     return `<article id="${anchor}" class="simple-player-section weapon-player-section" data-player="${escapeAttr(player)}"><div class="class-title weapon-player-title"><span>${escapeAttr(user.short || label[0] || "?")}</span><strong>${escapeAttr(title)} / Weapons</strong><em>${owned}/${visible.length} unlocked</em></div><div class="weapon-list simple-player-list">${visible.length ? visible.map((item, index) => renderWeaponCard(item, [player], index < 24)).join("") : emptyState("No weapons match this filter.")}</div></article>`;
   }

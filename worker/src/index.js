@@ -81,7 +81,7 @@ async function verifyBungieToken(request, env) {
 
   const names = identityStrings(body.Response || {});
   const player = playerFromIdentity(names);
-  if (!player) throw httpError(403, "unknown_player", "This Bungie account is not mapped to Ares/Corey, Icee/Matt, or Fears/Chris.");
+  if (!player) throw httpError(403, "unknown_player", "This Bungie account is not mapped to Ares, Icee, or Fears.");
   return { player, memberships: body.Response || {}, names };
 }
 

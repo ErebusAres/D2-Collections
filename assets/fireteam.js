@@ -37,6 +37,11 @@
     10: "Demon",
     254: "Bungie"
   };
+  const PLAYER_SHORT_NAMES = [
+    { id: "corey", label: "Ares", needles: ["4611686018470688010", "erebusares", "corey", "ares"] },
+    { id: "matt", label: "Icee", needles: ["4611686018470677739", "iceededpple", "matt", "icee"] },
+    { id: "chris", label: "Fears", needles: ["4611686018470990353", "fears", "chris"] }
+  ];
 
   const els = {
     loginBtn: document.querySelector("#loginBtn"),
@@ -213,7 +218,21 @@
 
   function snapshotDisplayName(snapshot) {
     const payload = snapshotPayload(snapshot) || {};
-    return payload.playerDisplayName || snapshot?.displayName || snapshot?.player || "Unknown Guardian";
+    return shortPlayerName(payload) || payload.playerDisplayName || snapshot?.displayName || snapshot?.player || "Unknown Guardian";
+  }
+
+  function shortPlayerName(payload = {}) {
+    const haystack = [
+      payload.player,
+      payload.playerDisplayName,
+      payload.displayName,
+      payload.bungieGlobalDisplayName,
+      payload.primaryMembershipId,
+      payload.membershipId,
+      payload.membership?.membershipId,
+      payload.membership?.displayName
+    ].filter(Boolean).join(" ").toLowerCase();
+    return PLAYER_SHORT_NAMES.find(player => player.needles.some(needle => haystack.includes(needle)))?.label || "";
   }
 
   function fireteamSnapshotList() {
@@ -961,8 +980,9 @@
       if (els.lastUpdated) els.lastUpdated.textContent = "Never";
       return;
     }
-    if (els.playerName) els.playerName.textContent = snapshot.playerDisplayName || "Unknown Guardian";
-    if (els.profileGuardianName) els.profileGuardianName.textContent = snapshot.playerDisplayName || "Unknown Guardian";
+    const visiblePlayerName = snapshotDisplayName(snapshot);
+    if (els.playerName) els.playerName.textContent = visiblePlayerName;
+    if (els.profileGuardianName) els.profileGuardianName.textContent = visiblePlayerName;
     const selectedCharacter = classFilter
       ? snapshot.characterSummaries?.find(character => character.className === classFilter)
       : snapshot.characterSummaries?.[0];
@@ -1007,8 +1027,7 @@
           : `<span>Season Progress</span><strong>${escapeHtml(trackedCount)} tracked / ${escapeHtml(inventoryCount)} quest items</strong>`;
       }
       els.playerMeta.innerHTML = [
-        metaLine("Membership", `${snapshot.membership?.membershipTypeLabel || "Destiny"} / ${snapshot.membership?.membershipId || "unknown"}`),
-        metaLine("Bungie", snapshot.bungieGlobalDisplayName || "Unknown"),
+        metaLine("Player", visiblePlayerName),
         metaLine("Characters", `${snapshot.characterSummaries?.length || 0} loaded`),
         metaLine("Quests", `${trackedCount} tracked / ${inventoryCount} inventory`)
       ].join("");
@@ -1035,7 +1054,7 @@
       setProfileSelectorOpen(false);
       return;
     }
-    const account = snapshot?.bungieGlobalDisplayName || snapshot?.playerDisplayName || "Guardian";
+    const account = snapshotDisplayName(snapshot);
     els.profileCharacterSelector.innerHTML = `
       <div class="fireteam-selector-account">
         <strong>${escapeHtml(account)}</strong>
@@ -1082,7 +1101,7 @@
       const payload = snapshotPayload(snapshot) || {};
       const key = snapshotKey(snapshot);
       const chars = payload.characterSummaries || [];
-      const display = payload.playerDisplayName || snapshot.displayName || "Unknown Guardian";
+      const display = snapshotDisplayName(snapshot);
       const updatedAt = snapshot.syncedAt || payload.updatedAt || "";
       const questItems = (payload.trackedQuestProgress || []).filter(item => item.kind !== "record");
       const trackedCount = payload.trackedQuestItemCount ?? questItems.filter(item => item.inGameTracked).length;
@@ -1114,7 +1133,7 @@
   function renderSocialDrawer() {
     const list = socialSnapshotList();
     if (els.socialCount) els.socialCount.textContent = String(list.length);
-    if (els.socialPlayerName) els.socialPlayerName.textContent = activeSnapshot()?.playerDisplayName || snapshotDisplayName(activeSnapshot()) || "Fireteam";
+    if (els.socialPlayerName) els.socialPlayerName.textContent = snapshotDisplayName(activeSnapshot()) || "Fireteam";
     if (els.socialPlayerMeta) els.socialPlayerMeta.textContent = `${list.length} synced Guardian${list.length === 1 ? "" : "s"}`;
     if (!els.socialList) return;
 
@@ -1135,7 +1154,7 @@
       const chars = payload.characterSummaries || [];
       const primary = chars[0] || {};
       const emblem = primary.emblemPath ? `<img src="${escapeHtml(iconUrl(primary.emblemPath))}" alt="" width="28" height="28" loading="lazy" decoding="async" aria-hidden="true" />` : `<span></span>`;
-      const display = payload.playerDisplayName || snapshot.displayName || snapshot.player || "Unknown Guardian";
+      const display = snapshotDisplayName(snapshot);
       const quests = (payload.trackedQuestProgress || []).filter(item => item.kind !== "record");
       const power = chars.length ? Math.max(...chars.map(character => Number(character.light || 0))) : 0;
       return `<button class="fireteam-social-row ${active ? "active" : ""}" type="button" data-view-snapshot="${escapeHtml(key)}" aria-pressed="${active ? "true" : "false"}">
@@ -1683,7 +1702,7 @@
       renderSnapshot(latestSnapshot);
       try {
         const saved = await saveCloudSnapshot(latestSnapshot);
-        setStatus(`Fireteam snapshot saved for ${saved.player || latestSnapshot.playerDisplayName} at ${formatDate(saved.syncedAt || latestSnapshot.updatedAt)}.`, "good");
+        setStatus(`Fireteam snapshot saved for ${snapshotDisplayName(latestSnapshot)} at ${formatDate(saved.syncedAt || latestSnapshot.updatedAt)}.`, "good");
         await loadCloudSnapshots();
       } catch (error) {
         setStatus(`Bungie refresh worked, but cloud save failed: ${error.message || error}`, "warn");

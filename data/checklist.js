@@ -1,11 +1,11 @@
 window.D2_COLLECTIONS_CHECKLIST = {
   "users": {
     "corey": {
-      "label": "🔥 Ares",
+      "label": "Ares",
       "short": "🔥",
       "handle": "ErebusAres",
-      "display": "🔥 Ares",
-      "full": "🔥 Ares (ErebusAres#0634)",
+      "display": "Ares",
+      "full": "Ares",
       "bungieGlobalDisplayName": "ErebusAres#0634",
       "primaryMembershipId": "4611686018470688010",
       "membershipType": 3,
@@ -23,11 +23,11 @@ window.D2_COLLECTIONS_CHECKLIST = {
       }
     },
     "matt": {
-      "label": "🧊 Icee",
+      "label": "Icee",
       "short": "🧊",
       "handle": "IceeDedPple",
-      "display": "🧊 Icee",
-      "full": "🧊 Icee (IceeDedPple)",
+      "display": "Icee",
+      "full": "Icee",
       "bungieGlobalDisplayName": "IceeDedPple#3514",
       "primaryMembershipId": "4611686018470677739",
       "membershipType": 3,
@@ -49,7 +49,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
       "short": "Fears",
       "handle": "Fears",
       "display": "Fears",
-      "full": "Fears (Chris)",
+      "full": "Fears",
       "bungieGlobalDisplayName": "Fears",
       "primaryMembershipId": "4611686018470990353",
       "membershipType": 3,
