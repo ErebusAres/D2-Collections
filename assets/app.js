@@ -92,7 +92,7 @@
 
   function mergeState(base) {
     const merged = base || {};
-    merged.users = merged.users || { corey: { label: "Ares", short: "🔥" }, matt: { label: "Icee", short: "🧊" }, chris: { label: "Fears", short: "Fears" } };
+    merged.users = merged.users || { corey: { label: "Ares", short: "🔥" }, matt: { label: "Icee", short: "🧊" }, chris: { label: "Fears", short: "⚡" } };
     merged.weapons = merged.weapons || {};
     merged.armor = merged.armor || {};
     hydrateDefaults(merged);

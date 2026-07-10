@@ -46,7 +46,7 @@ window.D2_COLLECTIONS_CHECKLIST = {
     },
     "chris": {
       "label": "Fears",
-      "short": "Fears",
+      "short": "⚡",
       "handle": "Fears",
       "display": "Fears",
       "full": "Fears",
