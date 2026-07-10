@@ -247,7 +247,7 @@
     root.innerHTML = visible.length ? visible.map(item => {
       const owned = getOwned(className, item.id, player);
       const tileTitle = `${item.name} - ${userName(player, "full")} ${klass} ${item.slot || "armor"}. ${owned ? "Owned" : "Not owned"}. Click for more info.`;
-      return `<article class="armor-card is-focus-card ${owned ? "is-owned" : "is-missing"}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3><button class="item-help-btn" type="button" title="More info" data-help-id="${item.id}">i</button></div>${priorityBadges(item, player, owned)}<div class="badge-row"><span class="badge slot">${slotIcon(item.slot)}${escapeAttr(item.slot)}</span>${sourceBadge(item)}</div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
+      return `<article class="armor-card is-focus-card ${owned ? "is-owned" : "is-missing"}" data-id="${item.id}" data-help-id="${item.id}" title="${escapeAttr(tileTitle)}"><div class="item-meta item-with-icon">${iconMarkup(item)}<div><div class="item-name"><h3>${item.name}</h3></div>${priorityBadges(item, player, owned)}<div class="badge-row"><span class="badge slot">${slotIcon(item.slot)}${escapeAttr(item.slot)}</span>${sourceBadge(item)}</div></div></div><div class="armor-status status-row"><div class="player-label">${userName(player, "short")}</div>${statusCell(owned, item.id)}</div></article>`;
     }).join("") : `<div class="empty-state">No ${klass} armor matches this filter.</div>`;
     return visible.length;
   }
