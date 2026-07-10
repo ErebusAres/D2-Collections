@@ -1264,7 +1264,8 @@
       const isPinned = manualTracked.has(key);
       const pinButton = allowPin && key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin from site tracker" : "Pin to site tracker"}"><span aria-hidden="true"></span></button>` : "";
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
-      const tooltip = questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash });
+      const cardVisuals = cardVisualMarkup(quest, pct, { isPinned });
+      const tooltip = questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash, icon });
       return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.highlightedObjective ? "is-highlighted-objective" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0">
         ${pinButton}
         ${icon}
@@ -1272,12 +1273,39 @@
           <strong>${escapeHtml(title)}${trackedBadge}${catalystBadge}</strong>
           <p class="fireteam-card-summary">${escapeHtml(quest.description || quest.questLineDescription || quest.activity || `${quest.objectiveComplete || 0}/${quest.objectiveTotal || 0} objectives`)}</p>
           <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+          ${cardVisuals}
         </div>
         ${tooltip}
       </article>`;
   }
 
-  function questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash } = {}) {
+  function cardVisualMarkup(quest, pct, { isPinned = false } = {}) {
+    const objectives = (quest.objectives || []).slice(0, 3);
+    const statusItems = [
+      quest.inGameTracked ? ["Tracked in game", "tracked"] : null,
+      isPinned ? ["Pinned here", "pinned"] : null,
+      quest.inInventory ? ["In inventory", "inventory"] : null,
+      quest.catalystQuest ? ["Catalyst", "catalyst"] : null
+    ].filter(Boolean);
+    const status = statusItems.length
+      ? `<div class="fireteam-card-status">${statusItems.map(([label, key]) => `<span class="is-${escapeHtml(key)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></span>`).join("")}</div>`
+      : "";
+    const objectiveBars = objectives.length
+      ? `<div class="fireteam-card-objectives">${objectives.map(row => {
+        const total = Number(row.total || 0);
+        const progress = Number(row.progress || 0);
+        const rowPct = total ? Math.max(0, Math.min(100, Math.round((progress / total) * 100))) : row.complete ? 100 : 0;
+        const label = `${row.name || "Objective"} ${total ? `${progress}/${total}` : row.complete ? "Complete" : progress}`;
+        return `<span title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"><i style="width:${rowPct}%"></i></span>`;
+      }).join("")}</div>`
+      : "";
+    return `<div class="fireteam-card-visuals">
+      ${objectiveBars || `<span class="fireteam-card-percent">${escapeHtml(Math.round(Number(pct || 0)))}%</span>`}
+      ${status}
+    </div>`;
+  }
+
+  function questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash, icon } = {}) {
     const kind = titleCase(quest.kind || "quest");
     const stepInfo = quest.questLineName
       ? `<span>${escapeHtml(quest.questLineName)}</span>`
@@ -1289,14 +1317,25 @@
       quest.inInventory ? "In inventory" : "",
       quest.catalystQuest ? "Catalyst quest" : ""
     ].filter(Boolean);
+    const contextRows = [
+      quest.fireteamOwner ? ["Owner", quest.fireteamOwner] : null,
+      quest.character?.className ? ["Class", quest.character.className] : null,
+      quest.source ? ["Source", quest.source] : null,
+      quest.objectives?.length ? ["Objectives", `${quest.objectives.filter(row => row.complete).length}/${quest.objectives.length}`] : null
+    ].filter(Boolean);
     const rarityLabel = quest.catalystQuest || questCategory(quest) === "exotics" ? "Exotic" : kind;
     return `<div class="fireteam-quest-tooltip" role="tooltip">
       <div class="fireteam-quest-tooltip-head">
+        <div class="fireteam-tooltip-icon">${icon || `<span class="fireteam-icon-fallback">Q</span>`}</div>
         <div>
           <strong>${escapeHtml(title || quest.name || "Quest item")}</strong>
           <span>Quest Step</span>
         </div>
         <em>${escapeHtml(rarityLabel)}</em>
+      </div>
+      <div class="fireteam-quest-tooltip-progress" aria-label="${escapeHtml(Math.round(Number(pct || 0)))} percent complete">
+        <i style="width:${Math.max(0, Math.min(100, Number(pct || 0)))}%"></i>
+        <span>${escapeHtml(Math.round(Number(pct || 0)))}%</span>
       </div>
       ${description ? `<p>${escapeHtml(description)}</p>` : ""}
       ${quest.questLineDescription && quest.questLineDescription !== description ? `<p>${escapeHtml(quest.questLineDescription)}</p>` : ""}
@@ -1304,7 +1343,7 @@
         ${sourceChip || ""}
         ${stepInfo}
         ${hash || ""}
-        <span>${escapeHtml(Math.round(Number(pct || 0)))}%</span>
+        ${contextRows.map(([label, value]) => `<span><b>${escapeHtml(label)}</b>${escapeHtml(value)}</span>`).join("")}
         ${trackerState.map(state => `<span>${escapeHtml(state)}</span>`).join("")}
       </div>
       ${objectiveRows || `<div class="quest-step-list"><div class="quest-step-more">No objective rows exposed by Bungie for this item.</div></div>`}
