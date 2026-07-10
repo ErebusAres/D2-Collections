@@ -145,6 +145,12 @@
   }
 
   function questKey(quest) {
+    const base = String(quest?.instanceId || quest?.itemHash || quest?.hash || "");
+    const owner = String(quest?.fireteamOwnerKey || quest?.ownerKey || "");
+    return owner && base ? `${owner}:${base}` : base;
+  }
+
+  function legacyQuestKey(quest) {
     return String(quest?.instanceId || quest?.itemHash || quest?.hash || "");
   }
 
@@ -161,6 +167,7 @@
       icon: quest.icon,
       source: quest.source,
       fireteamOwner: quest.fireteamOwner,
+      fireteamOwnerKey: quest.fireteamOwnerKey,
       questLineName: quest.questLineName,
       questLineDescription: quest.questLineDescription,
       objectiveComplete: quest.objectiveComplete,
@@ -249,15 +256,27 @@
     const byKey = new Map();
     fireteamSnapshotList().forEach(snapshot => {
       const owner = snapshotDisplayName(snapshot);
+      const ownerKey = snapshotKey(snapshot);
       (snapshotPayload(snapshot)?.trackedQuestProgress || []).filter(quest => quest.kind !== "record").forEach(quest => {
-        const key = questKey(quest);
+        const remembered = { ...quest, fireteamOwner: owner, fireteamOwnerKey: ownerKey };
+        const key = questKey(remembered);
         if (!key || byKey.has(key)) return;
-        const remembered = { ...quest, fireteamOwner: owner };
         byKey.set(key, remembered);
-        if (manualTracked.has(key)) rememberManualQuest(remembered);
+        if (manualTracked.has(key) || manualTracked.has(legacyQuestKey(remembered))) rememberManualQuest(remembered);
       });
     });
     return [...byKey.values()];
+  }
+
+  function ownerScopedQuests(snapshot) {
+    const payload = snapshotPayload(snapshot);
+    const owner = snapshotDisplayName(payload);
+    const ownerKey = snapshotKey(payload);
+    return (payload?.trackedQuestProgress || []).map(quest => ({
+      ...quest,
+      fireteamOwner: quest.fireteamOwner || owner,
+      fireteamOwnerKey: quest.fireteamOwnerKey || ownerKey
+    }));
   }
 
   function hasLocalAuth() {
@@ -270,7 +289,7 @@
       if (saved) return snapshotPayload(saved);
     }
     if (latestSnapshot) return latestSnapshot;
-    return hasLocalAuth() ? null : snapshotPayload(savedSnapshots[0]);
+    return snapshotPayload(savedSnapshots[0]);
   }
 
   function setSelectedSnapshot(key) {
@@ -1403,7 +1422,7 @@
 
   async function renderManualTracker(quests = allFireteamQuestItems()) {
     const renderSeq = ++manualRenderSeq;
-    const pinned = pinnedQuests(quests).filter(classFilterMatches);
+    const pinned = pinnedQuests(quests);
     if (els.manualTrackCount) els.manualTrackCount.textContent = `${pinned.length} pinned`;
     if (!els.manualTrackList) return;
     if (!pinned.length) {
@@ -1632,12 +1651,13 @@
 
   function renderSnapshot(snapshot = activeSnapshot()) {
     const payload = snapshotPayload(snapshot);
+    const quests = ownerScopedQuests(payload);
     renderPlayer(payload);
     renderMembers(savedSnapshots);
-    renderQuests(payload?.trackedQuestProgress || []);
-    renderTriumphs(payload?.trackedQuestProgress || []);
+    renderQuests(quests);
+    renderTriumphs(quests);
     renderManualTracker();
-    renderSideTracker(payload?.trackedQuestProgress || [], payload?.suggestedActivities || []);
+    renderSideTracker(quests, payload?.suggestedActivities || []);
     renderActivities(payload?.suggestedActivities || []);
     renderCloudStatus();
     renderSocialDrawer();
@@ -1756,7 +1776,7 @@
       if (!button) return;
       questFilter = button.dataset.questFilter || "all";
       els.questTabs.querySelectorAll("[data-quest-filter]").forEach(item => item.classList.toggle("active", item === button));
-      renderQuests(activeSnapshot()?.trackedQuestProgress || []);
+      renderSnapshot(activeSnapshot());
     });
     document.addEventListener("click", event => {
       const socialTabButton = event.target.closest("[data-social-tab]");
@@ -1781,12 +1801,7 @@
         const nextClass = String(classButton.dataset.classFilter || "");
         classFilter = classFilter === nextClass ? "" : nextClass;
         setProfileSelectorOpen(false);
-        renderPlayer(activeSnapshot());
-        renderMembers(savedSnapshots);
-        renderQuests(activeSnapshot()?.trackedQuestProgress || []);
-        renderTriumphs(activeSnapshot()?.trackedQuestProgress || []);
-        renderManualTracker();
-        renderSideTracker(activeSnapshot()?.trackedQuestProgress || [], activeSnapshot()?.suggestedActivities || []);
+        renderSnapshot(activeSnapshot());
         return;
       }
 
@@ -1812,14 +1827,12 @@
         manualTracked.delete(key);
         delete manualTrackCache[key];
       } else {
-        const quest = allFireteamQuestItems().find(item => questKey(item) === key) || activeSnapshot()?.trackedQuestProgress?.find(item => questKey(item) === key);
+        const quest = allFireteamQuestItems().find(item => questKey(item) === key) || ownerScopedQuests(activeSnapshot()).find(item => questKey(item) === key);
         if (quest) rememberManualQuest(quest);
         manualTracked.add(key);
       }
       saveManualTracked();
-      renderQuests(activeSnapshot()?.trackedQuestProgress || []);
-      renderTriumphs(activeSnapshot()?.trackedQuestProgress || []);
-      renderManualTracker();
+      renderSnapshot(activeSnapshot());
     });
     document.addEventListener("keydown", event => {
       if ((event.key === "Enter" || event.key === " ") && event.target.closest("#profileSelectorToggle")) {
