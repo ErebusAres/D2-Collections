@@ -996,12 +996,11 @@
 
   function statusCell(value, yesTitle, noTitle, extraClass = "") {
     const label = value ? yesTitle : noTitle;
-    const icon = value ? dimIcon("dim_check.svg", label) : dimIcon("dim_times.svg", label);
-    return `<div class="status-cell ${value ? "yes" : "no"} ${extraClass}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="status-mark" aria-hidden="true">${icon}</span></div>`;
+    return `<div class="status-cell ${value ? "yes" : "no"} ${extraClass}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="status-mark" aria-hidden="true"></span></div>`;
   }
 
   function neutralStatusCell(title) {
-    return `<div class="status-cell idle" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><span class="status-mark" aria-hidden="true">${dimIcon("dim_times_circle.svg", title)}</span></div>`;
+    return `<div class="status-cell idle" title="${escapeAttr(title)}" aria-label="${escapeAttr(title)}"><span class="status-mark" aria-hidden="true"></span></div>`;
   }
 
   function feedIconForItem(item) {

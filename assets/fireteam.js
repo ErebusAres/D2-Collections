@@ -631,9 +631,30 @@
     writeJson(OBJECTIVE_CACHE_KEY, cache);
   }
 
+  function reusableDefinition(entry) {
+    if (!entry) return false;
+    if (!entry.unresolved) return true;
+    const resolvedAt = Date.parse(entry.resolvedAt || "");
+    return Number.isFinite(resolvedAt) && Date.now() - resolvedAt < 10 * 60 * 1000;
+  }
+
+  async function mapWithConcurrency(values, limit, mapper) {
+    const items = Array.from(values || []);
+    const results = new Array(items.length);
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(Math.max(1, limit), items.length) }, async () => {
+      while (cursor < items.length) {
+        const index = cursor++;
+        results[index] = await mapper(items[index], index);
+      }
+    });
+    await Promise.all(workers);
+    return results;
+  }
+
   async function recordDefinition(hash, cache) {
     const key = String(hash);
-    if (cache[key]) return cache[key];
+    if (reusableDefinition(cache[key])) return cache[key];
     try {
       const def = await bungieGet(`/Destiny2/Manifest/DestinyRecordDefinition/${encodeURIComponent(key)}/?lc=en`);
       const name = def?.displayProperties?.name || "";
@@ -653,7 +674,7 @@
 
   async function itemDefinition(hash, cache) {
     const key = String(hash);
-    if (cache[key]) return cache[key];
+    if (reusableDefinition(cache[key])) return cache[key];
     try {
       const def = await bungieGet(`/Destiny2/Manifest/DestinyInventoryItemDefinition/${encodeURIComponent(key)}/?lc=en`);
       const display = def?.displayProperties || {};
@@ -694,7 +715,7 @@
   async function objectiveDefinition(hash, cache) {
     const key = String(hash || "");
     if (!key) return { name: "Objective", description: "" };
-    if (cache[key]) return cache[key];
+    if (reusableDefinition(cache[key])) return cache[key];
     try {
       const def = await bungieGet(`/Destiny2/Manifest/DestinyObjectiveDefinition/${encodeURIComponent(key)}/?lc=en`);
       const display = def?.displayProperties || {};
@@ -718,9 +739,7 @@
   async function resolveObjectiveRows(items) {
     const cache = objectiveCache();
     const hashes = [...new Set(items.flatMap(item => item.objectives || []).map(row => row.objectiveHash).filter(Boolean))];
-    for (const hash of hashes) {
-      await objectiveDefinition(hash, cache);
-    }
+    await mapWithConcurrency(hashes, 6, hash => objectiveDefinition(hash, cache));
     items.forEach(item => {
       item.objectives = (item.objectives || []).map(row => {
         const def = cache[row.objectiveHash] || {};
@@ -736,9 +755,11 @@
 
   async function questTimelineForItem(definition, currentHash, liveObjectives = [], fallbackQuest = null) {
     const liveObjectiveCache = objectiveCache();
-    for (const row of liveObjectives) {
-      if (row.objectiveHash) await objectiveDefinition(row.objectiveHash, liveObjectiveCache);
-    }
+    await mapWithConcurrency(
+      [...new Set(liveObjectives.map(row => row.objectiveHash).filter(Boolean))],
+      6,
+      hash => objectiveDefinition(hash, liveObjectiveCache)
+    );
     const liveRows = liveObjectives.map(row => {
       const def = liveObjectiveCache[row.objectiveHash] || {};
       return {
@@ -761,18 +782,18 @@
     const cache = itemCache();
     const objectiveDefs = objectiveCache();
     const current = String(currentHash || "");
-    const steps = [];
-    for (const entry of chain.slice(0, 24)) {
+    const chainEntries = chain.slice(0, 24);
+    const stepDefinitions = await mapWithConcurrency(chainEntries, 6, entry => itemDefinition(String(entry.itemHash || ""), cache));
+    const allObjectiveHashes = [...new Set(stepDefinitions.flatMap(step => step.objectiveHashes || []).filter(Boolean))];
+    await mapWithConcurrency(allObjectiveHashes, 6, hash => objectiveDefinition(hash, objectiveDefs));
+    const steps = chainEntries.map((entry, index) => {
       const hash = String(entry.itemHash || "");
-      const stepDef = await itemDefinition(hash, cache);
+      const stepDef = stepDefinitions[index] || {};
       const objectiveHashes = stepDef.objectiveHashes || [];
-      for (const objectiveHash of objectiveHashes) {
-        await objectiveDefinition(objectiveHash, objectiveDefs);
-      }
-      steps.push({
+      return {
         hash,
         name: isGeneratedHashLabel(stepDef.name)
-          ? (definition?.setData?.questLineName || fallbackQuest?.questLineName || fallbackQuest?.name || `Step ${steps.length + 1}`)
+          ? (definition?.setData?.questLineName || fallbackQuest?.questLineName || fallbackQuest?.name || `Step ${index + 1}`)
           : (stepDef.name || definition?.setData?.questLineName || fallbackQuest?.name || "Quest step"),
         description: stepDef.description || stepDef.setData?.questStepSummary || "",
         icon: stepDef.icon || "",
@@ -787,8 +808,8 @@
             complete: false
           };
         })
-      });
-    }
+      };
+    });
 
     const currentIndex = Math.max(0, steps.findIndex(step => step.hash === current));
     steps.forEach((step, index) => {
@@ -908,31 +929,29 @@
 
   async function rewardItemsForDefinition(definition = {}, cache) {
     const hashes = [...new Set(definition.rewardItemHashes || [])].filter(hash => hash && hash !== String(definition.hash || ""));
-    const rewards = [];
-    for (const hash of hashes.slice(0, 4)) {
+    const rewards = await mapWithConcurrency(hashes.slice(0, 4), 4, async hash => {
       const reward = await itemDefinition(hash, cache);
-      if (!reward?.name || reward.unresolved) continue;
-      rewards.push({
+      if (!reward?.name || reward.unresolved) return null;
+      return {
         hash,
         name: reward.name,
         icon: reward.icon || "",
         itemTypeDisplayName: reward.itemTypeDisplayName || ""
-      });
-    }
-    return rewards;
+      };
+    });
+    return rewards.filter(Boolean);
   }
 
   async function activeQuestItems(profile, activeHashes, characters) {
     const cache = itemCache();
     const items = inventoryObjectiveItems(profile, characters);
-    const resolved = [];
-    for (const item of items) {
+    return mapWithConcurrency(items, 6, async item => {
       const definition = await itemDefinition(item.itemHash, cache);
       const summary = objectiveSummary(item.objectives, activeHashes);
       const complete = summary.rows.length > 0 && summary.rows.every(row => row.complete);
       const catalystQuest = isCatalystQuest(definition);
       const rewards = await rewardItemsForDefinition(definition, cache);
-      resolved.push({
+      return {
         hash: item.itemHash,
         itemHash: item.itemHash,
         instanceId: item.instanceId,
@@ -962,9 +981,8 @@
         description: definition.description || "",
         icon: definition.icon || "",
         unresolved: Boolean(definition.unresolved)
-      });
-    }
-    return resolved;
+      };
+    });
   }
 
   async function trackedQuestProgress(profile) {
@@ -1005,9 +1023,9 @@
     const top = records
       .sort((a, b) => Number(b.inGameTracked) - Number(a.inGameTracked) || Number(a.complete) - Number(b.complete) || b.pct - a.pct)
       .slice(0, MAX_RECORD_ITEMS);
-    for (const item of top.slice(0, 12)) {
+    await mapWithConcurrency(top.slice(0, 12), 6, async item => {
       item.definition = await recordDefinition(item.hash, cache);
-    }
+    });
     const recordItems = top.map(item => ({
       ...item,
       name: item.definition?.name || `Record ${item.hash}`,
@@ -1410,7 +1428,10 @@
   }
 
   function renderQuests(quests = []) {
-    const classScoped = quests.filter(quest => quest.kind !== "record").filter(classFilterMatches);
+    const classScoped = quests
+      .filter(quest => quest.kind !== "record")
+      .filter(quest => !(quest.unresolved || /^Item\s+\d+$/i.test(String(quest.name || ""))))
+      .filter(classFilterMatches);
     updateQuestTabCounts(classScoped);
     const visible = classScoped.filter(quest => questMatchesFilter(quest, questFilter));
     if (els.questCount) {

@@ -2033,4 +2033,12 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
   .fireteam-quest-panel .fireteam-card-grid {
     grid-template-columns: 1fr;
   }
+
+  .fireteam-tabs .seg::after {
+    width: min(360px, calc(100vw - 110px));
+  }
+
+  .fireteam-social-drawer {
+    width: min(360px, 100vw);
+  }
 }

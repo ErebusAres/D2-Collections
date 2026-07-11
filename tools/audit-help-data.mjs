@@ -24,9 +24,14 @@ const allItems = [
 
 const missingBungieSource = [];
 const mismatchedSource = [];
+const historicalManifestSource = [];
 
 function normalize(value) {
   return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isHistoricalSource(value) {
+  return /\b(season pass|pre order|episode|season of|earned during|previous season)\b/.test(normalize(value));
 }
 
 for (const item of allItems) {
@@ -38,6 +43,14 @@ for (const item of allItems) {
 
   const catalogSource = normalize(item.source);
   const manifestSource = normalize(sourceStrings.join(" "));
+  if (isHistoricalSource(manifestSource)) {
+    historicalManifestSource.push({
+      id: item.id,
+      name: item.name,
+      catalogSource: item.source,
+      bungieSource: sourceStrings.join(" | ")
+    });
+  }
   const importantTokens = catalogSource.split(" ").filter(token => token.length >= 5);
   const overlap = importantTokens.some(token => manifestSource.includes(token));
   if (importantTokens.length && !overlap) {
@@ -54,6 +67,8 @@ const result = {
   totalItems: allItems.length,
   missingBungieSource: missingBungieSource.length,
   mismatchedSource: mismatchedSource.length,
+  historicalManifestSource: historicalManifestSource.length,
+  historicalManifestSample: historicalManifestSource.slice(0, 30),
   mismatchedSample: mismatchedSource.slice(0, 30)
 };
 

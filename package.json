@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "audit": "node tools/audit-runtime-regressions.mjs && node tools/verify-icons.mjs && node tools/audit-help-data.mjs",
     "cf:login": "wrangler login",
     "cf:d1:create": "wrangler d1 create d2-collections",
     "cf:d1:migrate": "wrangler d1 migrations apply d2-collections --remote --config worker/wrangler.toml",

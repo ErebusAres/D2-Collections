@@ -133,7 +133,7 @@
     return next;
   }
 
-  function waitForTokenRotation(usedRefreshToken, timeoutMs = 3000) {
+  function waitForTokenRotation(usedRefreshToken, timeoutMs = 10000) {
     return new Promise(resolve => {
       let done = false;
       let timer = 0;
@@ -260,6 +260,18 @@
   }
 
   async function refreshTokenAcrossTabs(status) {
+    if (navigator.locks?.request) {
+      if (status) status.textContent = "Checking Bungie login session...";
+      return navigator.locks.request(REFRESH_LOCK_KEY, { mode: "exclusive" }, async () => {
+        const latest = token();
+        if (tokenIsValid(latest)) return latest;
+        if (!refreshTokenIsValid(latest)) {
+          throw new Error("Bungie login refresh expired. Click Login with Bungie again.");
+        }
+        return refreshToken(status);
+      });
+    }
+
     const started = Date.now();
     while (Date.now() - started < REFRESH_WAIT_MS) {
       const current = token();

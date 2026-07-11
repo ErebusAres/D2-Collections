@@ -83,8 +83,7 @@
 
   function statusCell(value, itemId) {
     const label = `${value ? "Owned" : "Not owned"} - click for unlock help`;
-    const icon = value ? dimIcon("dim_check.svg", "Owned") : dimIcon("dim_times.svg", "Not owned");
-    return `<div class="status-cell ${value ? "yes" : "no"}" data-help-id="${itemId}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="status-mark" aria-hidden="true">${icon}</span></div>`;
+    return `<div class="status-cell ${value ? "yes" : "no"}" data-help-id="${itemId}" title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><span class="status-mark" aria-hidden="true"></span></div>`;
   }
   function initials(name) { return String(name || "?").split(/\s+|-/).filter(Boolean).slice(0,2).map(p => p[0]?.toUpperCase() || "").join("") || "?"; }
   function iconMarkup(item) {
