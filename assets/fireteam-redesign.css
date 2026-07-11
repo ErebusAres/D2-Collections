@@ -812,31 +812,12 @@ body.fireteam-page .app-shell.fireteam-shell {
   margin-top: 6px;
 }
 
-.fireteam-card-objectives {
-  display: flex;
-  gap: 4px;
-  min-width: 0;
-}
-
-.fireteam-card-objectives span {
-  position: relative;
-  flex: 1 1 0;
-  height: 6px;
-  min-width: 26px;
-  overflow: hidden;
-  background: rgba(0,0,0,.32);
-}
-
-.fireteam-card-objectives i {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, #7ec5ef, #64d8a2 58%, #e7c85c);
-}
-
 .fireteam-card-percent {
   color: rgba(226,229,220,.7);
   font-size: .72rem;
   font-weight: 900;
+  letter-spacing: .03em;
+  text-transform: uppercase;
 }
 
 .fireteam-card-status {

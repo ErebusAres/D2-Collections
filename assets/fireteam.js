@@ -1407,7 +1407,6 @@
   }
 
   function cardVisualMarkup(quest, pct, { isPinned = false } = {}) {
-    const objectives = (quest.objectives || []).slice(0, 3);
     const statusItems = [
       quest.inGameTracked ? ["Tracked in game", "tracked"] : null,
       isPinned ? ["Pinned here", "pinned"] : null,
@@ -1417,17 +1416,8 @@
     const status = statusItems.length
       ? `<div class="fireteam-card-status">${statusItems.map(([label, key]) => `<span class="is-${escapeHtml(key)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></span>`).join("")}</div>`
       : "";
-    const objectiveBars = objectives.length
-      ? `<div class="fireteam-card-objectives">${objectives.map(row => {
-        const total = Number(row.total || 0);
-        const progress = Number(row.progress || 0);
-        const rowPct = total ? Math.max(0, Math.min(100, Math.round((progress / total) * 100))) : row.complete ? 100 : 0;
-        const label = `${row.name || "Objective"} ${total ? `${progress}/${total}` : row.complete ? "Complete" : progress}`;
-        return `<span title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"><i style="width:${rowPct}%"></i></span>`;
-      }).join("")}</div>`
-      : "";
     return `<div class="fireteam-card-visuals">
-      ${objectiveBars || `<span class="fireteam-card-percent">${escapeHtml(Math.round(Number(pct || 0)))}%</span>`}
+      <span class="fireteam-card-percent">${escapeHtml(Math.round(Number(pct || 0)))}% total</span>
       ${status}
     </div>`;
   }
