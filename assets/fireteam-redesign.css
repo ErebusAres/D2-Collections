@@ -553,27 +553,21 @@ body.fireteam-page .app-shell.fireteam-shell {
   text-shadow: 0 1px 1px rgba(0,0,0,.4);
 }
 
-.fireteam-profile-stats img,
-.fireteam-profile-stats i {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 15px;
+.fireteam-profile-stats .stat-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
   object-fit: contain;
-  opacity: .82;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.62));
+  opacity: .86;
+  filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0,0,0,.62));
 }
 
-.fireteam-profile-stats .stat-class img {
-  width: 18px;
-  height: 18px;
-  flex-basis: 18px;
-  opacity: .95;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,.7));
-}
-
-.fireteam-profile-stats .stat-rank img,
-.fireteam-profile-stats .stat-season img {
-  filter: grayscale(1) brightness(1.8) drop-shadow(0 1px 1px rgba(0,0,0,.62));
+.fireteam-profile-stats .stat-class .stat-icon {
+  width: 16px;
+  height: 16px;
+  flex-basis: 16px;
+  opacity: .9;
 }
 
 .fireteam-profile-stats em {
@@ -589,8 +583,8 @@ body.fireteam-page .app-shell.fireteam-shell {
   font-size: .95rem;
 }
 
-.fireteam-profile-stats .stat-season strong {
-  color: #f1e28e;
+.fireteam-profile-stats .is-power strong {
+  color: var(--ft-gold);
 }
 
 .fireteam-profile-select .fireteam-profile-meta {

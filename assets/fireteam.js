@@ -423,9 +423,14 @@
   function headerStatMarkup(className, icon, label, value) {
     if (!value && value !== 0) return "";
     const iconMarkup = icon
-      ? `<img src="${escapeHtml(icon)}" alt="" width="15" height="15" loading="lazy" decoding="async" aria-hidden="true" />`
-      : `<i aria-hidden="true"></i>`;
+      ? `<img class="stat-icon" src="${escapeHtml(icon)}" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" />`
+      : `<i class="stat-icon" aria-hidden="true"></i>`;
     return `<span class="${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}">${iconMarkup}<em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
+  }
+
+  function headerClassStatMarkup(className, icon) {
+    if (!className || !icon) return "";
+    return `<span class="stat-class" title="${escapeHtml(`Class: ${className}`)}"><img class="stat-icon" src="${escapeHtml(icon)}" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /><em>${escapeHtml(className)}</em></span>`;
   }
 
   function apiBase() {
@@ -531,15 +536,29 @@
 
   function seasonProgressSummary(profile) {
     const data = profile?.profileProgression?.data || {};
+    const profileData = profile?.profile?.data || {};
     const artifact = data.seasonalArtifact || {};
+    const seasonPass = data.seasonPassProgression || data.currentSeasonPassProgression || {};
     const candidates = [
-      artifact.pointProgression,
-      artifact.powerBonusProgression,
       data.seasonPassProgression,
+      data.currentSeasonPassProgression,
       data.seasonalRankProgression
     ].filter(Boolean);
     const progression = candidates.find(item => Number(item?.nextLevelAt || item?.completionValue || 0) > 0) || candidates[0] || null;
-    const rank = Number(data.seasonRank || data.currentSeasonRank || artifact.seasonRank || progression?.level || artifact.pointsAcquired || 0);
+    const rank = Number(
+      seasonPass.level ||
+      seasonPass.rank ||
+      seasonPass.currentLevel ||
+      data.seasonPassRank ||
+      data.currentSeasonPassRank ||
+      data.seasonRank ||
+      data.currentSeasonRank ||
+      profileData.seasonPassRank ||
+      profileData.currentSeasonPassRank ||
+      profileData.seasonRank ||
+      profileData.currentSeasonRank ||
+      0
+    );
     const progress = Number(progression?.progressToNextLevel || progression?.progress || 0);
     const next = Number(progression?.nextLevelAt || progression?.completionValue || 0);
     return {
@@ -1111,10 +1130,10 @@
       const selectedClass = selectedCharacter?.className || classFilter || "";
       const selectedClassIcon = classIconPath(selectedClass);
       els.profileTopStats.innerHTML = [
-        selectedClass && selectedClassIcon ? headerStatMarkup("stat-class", selectedClassIcon, "Class", selectedClass) : "",
-        guardianRank ? headerStatMarkup("stat-rank", "assets/dim-icons/fireteam_filter_new_light.svg", "Guardian Rank", guardianRank) : "",
-        season.rank ? headerStatMarkup("stat-season", "assets/dim-icons/dim_pursuit_complete.svg", "Season Rank", season.rank) : "",
-        displayLight ? headerStatMarkup("is-power", "assets/dim-icons/dim_power_alt.svg", "Light", displayLight) : ""
+        season.rank ? headerStatMarkup("stat-season", "assets/dim-icons/bt_season_rank.svg", "Season Pass Rank", season.rank) : "",
+        guardianRank ? headerStatMarkup("stat-rank", "assets/dim-icons/bt_guardian_rank.svg", "Guardian Rank", guardianRank) : "",
+        selectedClass && selectedClassIcon ? headerClassStatMarkup(selectedClass, selectedClassIcon) : "",
+        displayLight ? headerStatMarkup("is-power", "assets/dim-icons/bt_light_level.svg", "Light", `+${displayLight}`) : ""
       ].filter(Boolean).join("");
     }
     if (els.profileEmblem) {
