@@ -97,6 +97,8 @@
   let manualTracked = readManualTracked();
   let manualTrackCache = readManualTrackCache();
   let manualRenderSeq = 0;
+  let floatingTooltip = null;
+  let floatingTooltipCard = null;
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -306,6 +308,52 @@
       els.manualTrackDrawerToggle.setAttribute("aria-expanded", minimized ? "false" : "true");
       els.manualTrackDrawerToggle.title = minimized ? "Open manual tracker" : "Minimize manual tracker";
     }
+  }
+
+  function ensureFloatingTooltip() {
+    if (floatingTooltip) return floatingTooltip;
+    floatingTooltip = document.createElement("div");
+    floatingTooltip.className = "fireteam-quest-tooltip is-floating";
+    floatingTooltip.setAttribute("role", "tooltip");
+    floatingTooltip.hidden = true;
+    document.body.appendChild(floatingTooltip);
+    return floatingTooltip;
+  }
+
+  function positionFloatingTooltip(card) {
+    if (!floatingTooltip || !card || floatingTooltip.hidden) return;
+    const rect = card.getBoundingClientRect();
+    const width = Math.min(440, Math.max(300, window.innerWidth - 32));
+    const sideRect = document.querySelector(".fireteam-side-column")?.getBoundingClientRect();
+    const rightLimit = sideRect && sideRect.left > rect.left ? Math.min(window.innerWidth - 16, sideRect.left - 14) : window.innerWidth - 16;
+    let left = rect.left + 34;
+    if (left + width > rightLimit) left = rightLimit - width;
+    if (left < 16) left = Math.max(16, Math.min(rect.left, window.innerWidth - width - 16));
+
+    floatingTooltip.style.width = `${width}px`;
+    const height = Math.min(floatingTooltip.scrollHeight || 520, window.innerHeight - 24);
+    let top = rect.bottom - 66;
+    if (top + height > window.innerHeight - 12) top = window.innerHeight - height - 12;
+    if (top < 12) top = 12;
+
+    floatingTooltip.style.setProperty("--tooltip-left", `${Math.round(left)}px`);
+    floatingTooltip.style.setProperty("--tooltip-top", `${Math.round(top)}px`);
+  }
+
+  function showFloatingTooltip(card) {
+    const source = card?.querySelector(".fireteam-quest-tooltip");
+    if (!source) return;
+    const tooltip = ensureFloatingTooltip();
+    floatingTooltipCard = card;
+    tooltip.innerHTML = source.innerHTML;
+    tooltip.hidden = false;
+    positionFloatingTooltip(card);
+  }
+
+  function hideFloatingTooltip(card = null) {
+    if (card && floatingTooltipCard !== card) return;
+    floatingTooltipCard = null;
+    if (floatingTooltip) floatingTooltip.hidden = true;
   }
 
   function classFilterMatches(quest) {
@@ -1679,6 +1727,7 @@
   }
 
   function renderSnapshot(snapshot = activeSnapshot()) {
+    hideFloatingTooltip();
     const payload = snapshotPayload(snapshot);
     const quests = ownerScopedQuests(payload);
     renderPlayer(payload);
@@ -1807,6 +1856,29 @@
       els.questTabs.querySelectorAll("[data-quest-filter]").forEach(item => item.classList.toggle("active", item === button));
       renderSnapshot(activeSnapshot());
     });
+    document.addEventListener("pointerover", event => {
+      const card = event.target.closest(".fireteam-progress-card");
+      if (!card || !card.contains(event.target) || card.contains(event.relatedTarget)) return;
+      showFloatingTooltip(card);
+    });
+    document.addEventListener("pointerout", event => {
+      const card = event.target.closest(".fireteam-progress-card");
+      if (!card || card.contains(event.relatedTarget)) return;
+      hideFloatingTooltip(card);
+    });
+    document.addEventListener("focusin", event => {
+      const card = event.target.closest(".fireteam-progress-card");
+      if (card) showFloatingTooltip(card);
+    });
+    document.addEventListener("focusout", event => {
+      const card = event.target.closest(".fireteam-progress-card");
+      if (!card) return;
+      requestAnimationFrame(() => {
+        if (!card.contains(document.activeElement)) hideFloatingTooltip(card);
+      });
+    });
+    window.addEventListener("scroll", () => positionFloatingTooltip(floatingTooltipCard), { passive: true });
+    window.addEventListener("resize", () => positionFloatingTooltip(floatingTooltipCard), { passive: true });
     document.addEventListener("click", event => {
       const socialTabButton = event.target.closest("[data-social-tab]");
       if (socialTabButton) {
