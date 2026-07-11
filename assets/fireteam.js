@@ -27,6 +27,11 @@
     "3655393761": "Titan",
     "671679327": "Hunter"
   };
+  const RACE_LABELS = {
+    "3887404748": "Human",
+    "2803282938": "Awoken",
+    "898834093": "Exo"
+  };
   const MEMBERSHIP_LABELS = {
     1: "Xbox",
     2: "PlayStation",
@@ -520,6 +525,7 @@
     return Object.values(profile?.characters?.data || {}).map(character => ({
       characterId: String(character.characterId || ""),
       className: CLASS_LABELS[String(character.classHash)] || "Guardian",
+      raceName: RACE_LABELS[String(character.raceHash)] || "",
       light: Number(character.light || 0),
       emblemPath: character.emblemPath || "",
       emblemBackgroundPath: character.emblemBackgroundPath || "",
@@ -1190,22 +1196,40 @@
       setProfileSelectorOpen(false);
       return;
     }
-    const account = snapshotDisplayName(snapshot);
+    const account = profileAccountName(snapshot);
+    const subtitle = snapshot.clanName || snapshot.clan?.name || snapshot.membership?.displayName || snapshot.membership?.membershipTypeLabel || "Guardian profile";
+    const season = snapshot.seasonProgress || {};
+    const progress = Number(season.progress || 0);
+    const next = Number(season.next || 0);
+    const pct = next ? Math.max(0, Math.min(100, Math.round((progress / next) * 100))) : Number(season.pct || 0);
+    const seasonRank = Number(season.rank || 0);
     els.profileCharacterSelector.innerHTML = `
       <div class="fireteam-selector-account">
-        <strong>${escapeHtml(account)}</strong>
-        <span>${escapeHtml(characters.length)} character(s)</span>
+        <div>
+          <strong>${profileNameMarkup(account)}</strong>
+          <span>${escapeHtml(String(subtitle).toUpperCase())}</span>
+        </div>
+        ${seasonRank ? `<span class="fireteam-selector-rank">${headerStatMarkup("stat-season", "assets/dim-icons/bt_season_rank.svg", "Season Pass Rank", seasonRank)}</span>` : ""}
+      </div>
+      <div class="fireteam-selector-xp">
+        <span>Experience</span>
+        <strong>${next ? `${escapeHtml(progress.toLocaleString())}/${escapeHtml(next.toLocaleString())}` : "No season progress"}</strong>
+        <i style="width:${pct}%"></i>
       </div>
       <div class="fireteam-selector-list">
         ${characters.map(character => renderProfileCharacterOption(character)).join("")}
       </div>
-      <button class="fireteam-selector-clear" type="button" data-class-filter="" ${classFilter ? "" : "disabled"}>All classes</button>`;
+      <div class="fireteam-selector-actions">
+        ${classFilter ? `<button class="fireteam-selector-clear" type="button" data-class-filter="">All classes</button>` : ""}
+        <button class="fireteam-selector-search" type="button" data-profile-search>Profile Search</button>
+      </div>`;
   }
 
   function renderProfileCharacterOption(character) {
     const className = character.className || "Guardian";
     const classIcon = classIconPath(className);
     const emblem = character.emblemPath ? iconUrl(character.emblemPath) : "";
+    const banner = character.emblemBackgroundPath ? iconUrl(character.emblemBackgroundPath) : "";
     const active = classFilter && className === classFilter;
     const emblemMarkup = emblem
       ? `<img class="selector-emblem" src="${escapeHtml(emblem)}" alt="" width="48" height="48" loading="lazy" decoding="async" aria-hidden="true" />`
@@ -1213,12 +1237,24 @@
     const classMarkup = classIcon
       ? `<img class="selector-class" src="${escapeHtml(classIcon)}" alt="" width="34" height="34" loading="lazy" decoding="async" aria-hidden="true" />`
       : "";
-    return `<button class="fireteam-selector-character ${active ? "active" : ""}" type="button" data-class-filter="${escapeHtml(className)}" aria-pressed="${active ? "true" : "false"}">
+    const race = character.raceName || "Guardian";
+    return `<button class="fireteam-selector-character ${active ? "active" : ""}" type="button" data-class-filter="${escapeHtml(className)}" aria-pressed="${active ? "true" : "false"}" ${banner ? `style="--character-banner:url('${escapeHtml(banner)}')"` : ""}>
       ${emblemMarkup}
-      <span><strong>${escapeHtml(className)}</strong><em>${active ? "Filtering" : "Show quests"}</em></span>
+      <span><strong>${escapeHtml(className)}</strong><em>${escapeHtml(race)}</em></span>
       ${classMarkup}
-      <b>${Number(character.light || 0)}</b>
+      <b>+${Number(character.light || 0)}</b>
     </button>`;
+  }
+
+  function profileAccountName(snapshot = {}) {
+    return snapshot.bungieGlobalDisplayName || snapshot.playerDisplayName || snapshot.displayName || snapshot.membership?.displayName || snapshotDisplayName(snapshot);
+  }
+
+  function profileNameMarkup(name) {
+    const value = String(name || "Guardian");
+    const match = value.match(/^(.*?)(#\d+)$/);
+    if (!match) return escapeHtml(value);
+    return `${escapeHtml(match[1])}<em>${escapeHtml(match[2])}</em>`;
   }
 
   function renderMembers(snapshots = []) {
