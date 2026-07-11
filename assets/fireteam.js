@@ -1868,7 +1868,11 @@
     });
     document.addEventListener("pointerover", event => {
       const card = event.target.closest(".fireteam-progress-card");
-      if (!card || !card.contains(event.target) || card.contains(event.relatedTarget)) return;
+      if (!card) {
+        hideFloatingTooltip();
+        return;
+      }
+      if (!card.contains(event.target) || card.contains(event.relatedTarget)) return;
       showFloatingTooltip(card);
     });
     document.addEventListener("pointerout", event => {
