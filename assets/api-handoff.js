@@ -103,6 +103,7 @@
         const auth = JSON.parse(localStorage.getItem("d2-collections-auth-v1") || "{}");
         const saved = JSON.parse(localStorage.getItem("d2-collections-bungie-session-v2") || "{}");
         const now = Math.floor(Date.now() / 1000) + 60;
+        if (saved.server_session_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)) return "Worker session OK";
         if (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)) return "Refresh OK";
         if (saved.access_token && saved.expires_at > now) return "Access OK";
         if (auth.oauthCode) return "Login code";

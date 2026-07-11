@@ -8,6 +8,7 @@
   const API_KEY_STORAGE = "d2-collections-bungie-api-key";
   const MAP_CACHE_KEY = "d2-collections-bungie-catalog-map-v1";
   const API_ROOT = "https://www.bungie.net/Platform";
+  const CLOUD_API = String(CONFIG.cloudSyncApi || "").replace(/\/+$/, "");
   const EXPECTED_EXOTIC_TOTAL = 1239;
   const OAUTH_REDIRECT_URI = "https://erebusares.github.io/D2-Collections/index.html";
   const NOT_ACQUIRED = 1;
@@ -22,6 +23,7 @@
   const REFRESH_WAIT_MS = 65000;
   const TAB_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let refreshPromise = null;
+  let autoExchangeStarted = false;
 
   function readJson(key) {
     try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
@@ -81,7 +83,11 @@
   }
 
   function refreshTokenIsValid(saved = token()) {
-    return Boolean(!saved.auth_error && saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > Math.floor(Date.now() / 1000) + 60));
+    const now = Math.floor(Date.now() / 1000) + 60;
+    return Boolean(!saved.auth_error && (
+      (saved.server_session_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)) ||
+      (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
+    ));
   }
 
   function sleep(ms) {
@@ -206,6 +212,11 @@
   async function exchangeCodeForToken() {
     const code = authCode();
     if (!code) throw new Error("No Bungie login code captured. Click Login with Bungie first.");
+    const persistent = await exchangeCodeWithWorker(code);
+    if (persistent) {
+      clearAuthCode("exchanged_for_persistent_session");
+      return persistent;
+    }
     const body = new URLSearchParams();
     body.set("grant_type", "authorization_code");
     body.set("code", code);
@@ -233,6 +244,7 @@
 
   async function refreshToken() {
     const saved = token();
+    if (saved.server_session_token) return refreshTokenWithWorker(saved.server_session_token);
     if (!saved.refresh_token) throw new Error("No refresh token found. Login with Bungie again.");
     const usedRefreshToken = saved.refresh_token;
     const body = new URLSearchParams();
@@ -257,6 +269,53 @@
       throw new Error(tokenError("Bungie token refresh failed", response, data, text));
     }
     return saveToken(data);
+  }
+
+  async function exchangeCodeWithWorker(code) {
+    if (!CLOUD_API) return null;
+    const response = await fetch(`${CLOUD_API}/api/auth/exchange`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 404 || (response.status === 503 && ["missing_client_secret", "missing_encryption_key"].includes(data.reason))) return null;
+    if (!response.ok || !data.ok || !data.sessionToken || !data.accessToken) {
+      throw new Error(data.message || data.reason || "Persistent Bungie login exchange failed.");
+    }
+    return savePersistentToken(data);
+  }
+
+  async function refreshTokenWithWorker(sessionToken) {
+    if (!CLOUD_API) throw new Error("Persistent login Worker is not configured.");
+    const response = await fetch(`${CLOUD_API}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Authorization": `D2Session ${sessionToken}` }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok || !data.accessToken) {
+      if (response.status === 401) {
+        const saved = token();
+        writeJson(SESSION_KEY, { ...saved, server_session_token: "", access_token: "", expires_at: 0 });
+      }
+      throw new Error(data.message || data.reason || "Persistent Bungie login refresh failed.");
+    }
+    return savePersistentToken(data);
+  }
+
+  function savePersistentToken(data) {
+    return saveToken({
+      access_token: data.accessToken,
+      expires_at: Number(data.accessExpiresAt || 0),
+      expires_in: 0,
+      refresh_token: "",
+      refresh_expires_at: Number(data.refreshExpiresAt || 0),
+      refresh_expires_in: 0,
+      server_session_token: data.sessionToken,
+      persistent: true,
+      player: data.player || "",
+      membership_id: data.membershipId || ""
+    });
   }
 
   async function refreshTokenAcrossTabs(status) {
@@ -327,6 +386,13 @@
     ensureAccessToken: async status => (await ensureToken(status)).access_token || "",
     sessionIsUsable: () => tokenIsValid() || refreshTokenIsValid(),
     clearSession: () => {
+      const saved = token();
+      if (CLOUD_API && saved.server_session_token) {
+        fetch(`${CLOUD_API}/api/auth/session`, {
+          method: "DELETE",
+          headers: { "Authorization": `D2Session ${saved.server_session_token}` }
+        }).catch(() => {});
+      }
       localStorage.removeItem(SESSION_KEY);
       clearAuthCode("manual_logout");
     }
@@ -884,6 +950,20 @@
   }
 
   function init() {
+    if (!autoExchangeStarted && authCode() && !tokenIsValid() && !refreshTokenIsValid()) {
+      autoExchangeStarted = true;
+      const status = document.querySelector("#apiHandoffStatus") || document.querySelector("#statusBox");
+      if (status) status.textContent = "Securing Bungie login session...";
+      ensureToken(status).then(() => {
+        if (status) status.textContent = "Bungie login secured. Ready to sync.";
+        window.D2_RENDER_COMPACT_AUTH?.();
+        document.dispatchEvent(new CustomEvent("d2collections:auth-changed", { detail: { signedIn: true, persistent: Boolean(token().server_session_token) } }));
+      }).catch(error => {
+        if (status) status.textContent = error.message || String(error);
+        document.dispatchEvent(new CustomEvent("d2collections:auth-changed", { detail: { signedIn: false, error: error.message || String(error) } }));
+      });
+    }
+
     const attach = () => {
       const panel = document.querySelector("#apiHandoffPanel");
       const actions = panel?.querySelector(".api-handoff-actions");

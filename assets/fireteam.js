@@ -385,7 +385,11 @@
     if (window.D2_COLLECTIONS_AUTH?.sessionIsUsable?.()) return true;
     const saved = readJson(SESSION_KEY);
     const now = nowSeconds() + 60;
-    return Boolean(!saved.auth_error && ((saved.access_token && saved.expires_at > now) || (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))));
+    return Boolean(!saved.auth_error && (
+      (saved.access_token && saved.expires_at > now) ||
+      (saved.server_session_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)) ||
+      (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
+    ));
   }
 
   function hasSavedCode() {

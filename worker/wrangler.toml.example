@@ -6,6 +6,7 @@ preview_urls = true
 
 [vars]
 ALLOWED_ORIGIN = "https://erebusares.github.io"
+BUNGIE_CLIENT_ID = "53180"
 
 [[d1_databases]]
 binding = "DB"
