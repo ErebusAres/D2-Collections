@@ -19,6 +19,7 @@ assert.match(fireteam, /function reusableDefinition\(entry\)/, "Unresolved manif
 assert.match(fireteam, /function mapWithConcurrency\(values, limit, mapper\)/, "Fireteam manifest loading must use bounded concurrency.");
 assert.match(fireteam, /mapWithConcurrency\(items, 6, async item/, "Quest items must resolve with the bounded loader.");
 assert.match(fireteam, /quest\.unresolved \|\| \/\^Item/, "Hash-only unresolved quest cards must stay hidden.");
+assert.match(fireteam, /secondarySpecial/, "Fireteam title identity must resolve Bungie's emblem overlay artwork.");
 assert.match(auth, /\/api\/auth\/exchange/, "Browser OAuth must prefer the persistent Worker exchange.");
 assert.match(auth, /server_session_token/, "Browser session storage must support opaque Worker sessions.");
 assert.match(worker, /AES-GCM/, "Stored Bungie refresh tokens must be encrypted.");

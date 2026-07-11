@@ -419,8 +419,8 @@ body.fireteam-page .app-shell.fireteam-shell {
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
-  opacity: .9;
-  filter: brightness(.55) saturate(1.16);
+  opacity: .94;
+  filter: brightness(.7) saturate(1.12) contrast(1.04);
   transform: none;
 }
 
@@ -429,8 +429,8 @@ body.fireteam-page .app-shell.fireteam-shell {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, rgba(0,0,0,.12), rgba(0,0,0,.02) 38%, rgba(0,0,0,.6)),
-    linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,.48));
+    linear-gradient(90deg, rgba(0,0,0,.08), transparent 38%, rgba(0,0,0,.56)),
+    linear-gradient(180deg, rgba(0,0,0,.01), rgba(0,0,0,.38));
 }
 
 .fireteam-profile-banner::after {
@@ -457,8 +457,13 @@ body.fireteam-page .app-shell.fireteam-shell {
 .fireteam-profile-mark img {
   width: 96px;
   height: 96px;
-  object-fit: cover;
+  object-fit: contain;
   filter: grayscale(1) brightness(2.1) contrast(1.1) drop-shadow(0 8px 16px rgba(0,0,0,.65));
+}
+
+.fireteam-profile-mark img.is-game-emblem {
+  transform: scale(1.1);
+  filter: grayscale(1) brightness(2.35) contrast(1.16) drop-shadow(0 8px 16px rgba(0,0,0,.68));
 }
 
 .fireteam-profile-copy {
@@ -527,7 +532,7 @@ body.fireteam-page .app-shell.fireteam-shell {
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0;
-  text-shadow: 1px 2px 1px rgba(0,0,0,.12), 1px 1px rgba(0,0,0,.28);
+  text-shadow: 0 2px 2px rgba(0,0,0,.72);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

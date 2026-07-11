@@ -7,7 +7,7 @@
   const RETURN_KEY = "d2-collections-oauth-return-v1";
   const STATE_KEY = "d2-collections-oauth-state-v1";
   const RECORD_CACHE_KEY = "d2-fireteam-record-def-cache-v1";
-  const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v3";
+  const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v4";
   const OBJECTIVE_CACHE_KEY = "d2-fireteam-objective-def-cache-v1";
   const MANUAL_TRACK_KEY = "d2-fireteam-manual-track-v1";
   const MANUAL_TRACK_CACHE_KEY = "d2-fireteam-manual-track-cache-v1";
@@ -528,6 +528,7 @@
   function characterSummaries(profile) {
     return Object.values(profile?.characters?.data || {}).map(character => ({
       characterId: String(character.characterId || ""),
+      emblemHash: String(character.emblemHash || ""),
       className: CLASS_LABELS[String(character.classHash)] || "Guardian",
       raceName: RACE_LABELS[String(character.raceHash)] || "",
       light: Number(character.light || 0),
@@ -687,6 +688,9 @@
         name: display.name || `Item ${key}`,
         description: display.description || "",
         icon: display.icon || "",
+        secondaryIcon: def?.secondaryIcon || display.secondaryIcon || "",
+        secondaryOverlay: def?.secondaryOverlay || display.secondaryOverlay || "",
+        secondarySpecial: def?.secondarySpecial || display.secondarySpecial || "",
         flavorText: def?.flavorText || "",
         itemType: Number(def?.itemType || 0),
         itemTypeDisplayName: def?.itemTypeDisplayName || "",
@@ -989,6 +993,16 @@
     });
   }
 
+  async function enrichCharacterEmblems(characters = []) {
+    const cache = itemCache();
+    await mapWithConcurrency(characters, 3, async character => {
+      if (!character.emblemHash) return;
+      const definition = await itemDefinition(character.emblemHash, cache);
+      character.emblemIconPath = definition.secondarySpecial || definition.secondaryOverlay || definition.secondaryIcon || character.emblemPath || "";
+    });
+    return characters;
+  }
+
   async function trackedQuestProgress(profile) {
     const activeHashes = activeObjectiveHashes(profile);
     const characters = characterMap(profile);
@@ -1089,7 +1103,7 @@
     setStatus(`Reading profile for ${displayName(memberships, membership)}...`, "loading");
     const components = "100,102,103,104,200,201,202,204,301,800,900,1200";
     const profile = await bungieGet(`/Destiny2/${membership.membershipType}/Profile/${membership.membershipId}/?components=${components}`);
-    const characters = characterSummaries(profile);
+    const characters = await enrichCharacterEmblems(characterSummaries(profile));
     const quests = await trackedQuestProgress(profile);
     const questItems = quests.filter(item => item.kind !== "record");
     const activities = suggestedActivities(questItems);
@@ -1135,7 +1149,10 @@
         els.profileGuardianMeta.innerHTML = `<span>Season Progress</span><strong>Sign in to load Guardian data</strong>`;
       }
       if (els.profileTopStats) els.profileTopStats.innerHTML = "";
-      if (els.profileEmblem) els.profileEmblem.src = "assets/d2-collections-mark.svg";
+      if (els.profileEmblem) {
+        els.profileEmblem.src = "assets/d2-collections-mark.svg";
+        els.profileEmblem.classList.remove("is-game-emblem");
+      }
       if (els.profileBannerImage) els.profileBannerImage.style.removeProperty("background-image");
       document.documentElement.style.removeProperty("--fireteam-profile-banner-image");
       renderProfileCharacterSelector(null);
@@ -1165,8 +1182,9 @@
       ].filter(Boolean).join("");
     }
     if (els.profileEmblem) {
-      const emblem = selectedCharacter?.emblemPath || snapshot.characterSummaries?.find(character => character.emblemPath)?.emblemPath || "";
+      const emblem = selectedCharacter?.emblemIconPath || selectedCharacter?.emblemPath || snapshot.characterSummaries?.find(character => character.emblemIconPath || character.emblemPath)?.emblemIconPath || snapshot.characterSummaries?.find(character => character.emblemPath)?.emblemPath || "";
       els.profileEmblem.src = emblem ? iconUrl(emblem) : "assets/d2-collections-mark.svg";
+      els.profileEmblem.classList.toggle("is-game-emblem", Boolean(emblem));
     }
     const banner = selectedCharacter?.emblemBackgroundPath || snapshot.characterSummaries?.find(character => character.emblemBackgroundPath)?.emblemBackgroundPath || "";
     if (banner) {
