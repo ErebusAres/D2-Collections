@@ -678,6 +678,10 @@
     return cache[key];
   }
 
+  function isGeneratedHashLabel(value, prefix = "Item") {
+    return new RegExp(`^${prefix}\\s+\\d+$`, "i").test(String(value || "").trim());
+  }
+
   async function resolveObjectiveRows(items) {
     const cache = objectiveCache();
     const hashes = [...new Set(items.flatMap(item => item.objectives || []).map(row => row.objectiveHash).filter(Boolean))];
@@ -697,7 +701,7 @@
     return items;
   }
 
-  async function questTimelineForItem(definition, currentHash, liveObjectives = []) {
+  async function questTimelineForItem(definition, currentHash, liveObjectives = [], fallbackQuest = null) {
     const liveObjectiveCache = objectiveCache();
     for (const row of liveObjectives) {
       if (row.objectiveHash) await objectiveDefinition(row.objectiveHash, liveObjectiveCache);
@@ -714,8 +718,8 @@
     if (!chain.length) {
       return [{
         hash: String(currentHash || ""),
-        name: definition?.name || "Current step",
-        description: definition?.description || "",
+        name: isGeneratedHashLabel(definition?.name) ? (fallbackQuest?.name || "Current step") : (definition?.name || fallbackQuest?.name || "Current step"),
+        description: definition?.description || fallbackQuest?.description || "",
         status: "current",
         objectives: liveRows
       }];
@@ -734,7 +738,9 @@
       }
       steps.push({
         hash,
-        name: stepDef.name || definition?.setData?.questLineName || definition?.name || "Quest step",
+        name: isGeneratedHashLabel(stepDef.name)
+          ? (definition?.setData?.questLineName || fallbackQuest?.questLineName || fallbackQuest?.name || `Step ${steps.length + 1}`)
+          : (stepDef.name || definition?.setData?.questLineName || fallbackQuest?.name || "Quest step"),
         description: stepDef.description || stepDef.setData?.questStepSummary || "",
         icon: stepDef.icon || "",
         objectives: objectiveHashes.map(objectiveHash => {
@@ -1501,9 +1507,10 @@
     if (!quest || quest.questSteps?.length || !quest.itemHash) return quest;
     const cache = itemCache();
     const definition = await itemDefinition(quest.itemHash, cache);
-    quest.questLineName = quest.questLineName || definition.setData?.questLineName || definition.name || "";
+    const resolvedLineName = definition.setData?.questLineName || (isGeneratedHashLabel(definition.name) ? "" : definition.name) || "";
+    quest.questLineName = quest.questLineName || resolvedLineName;
     quest.questLineDescription = quest.questLineDescription || definition.setData?.questLineDescription || "";
-    quest.questSteps = await questTimelineForItem(definition, quest.itemHash, quest.objectives || []);
+    quest.questSteps = await questTimelineForItem(definition, quest.itemHash, quest.objectives || [], quest);
     return quest;
   }
 

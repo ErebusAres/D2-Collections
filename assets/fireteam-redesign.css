@@ -1490,8 +1490,24 @@ body.fireteam-page > .fireteam-quest-tooltip.is-floating[hidden] {
   width: 360px;
   max-height: calc(100vh - var(--ft-topbar) - 150px);
   border-top: 4px solid rgba(202,209,221,.66);
-  background: rgba(4,6,6,.91) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.025), transparent 42%),
+    rgba(4,6,6,.94) !important;
   box-shadow: 0 28px 70px rgba(0,0,0,.62);
+  filter: none;
+  mix-blend-mode: normal;
+  opacity: 1;
+  isolation: isolate;
+}
+
+.fireteam-pinned-panel::before,
+.fireteam-pinned-panel::after {
+  content: none !important;
+  display: none !important;
+}
+
+.fireteam-pinned-panel * {
+  mix-blend-mode: normal;
 }
 
 .fireteam-pinned-panel .manual-drawer-toggle {
@@ -1525,7 +1541,7 @@ body.fireteam-page > .fireteam-quest-tooltip.is-floating[hidden] {
 .manual-track-card {
   padding: 10px;
   border: 1px solid rgba(202,209,221,.14);
-  background: rgba(0,0,0,.24);
+  background: rgba(0,0,0,.48);
 }
 
 .manual-track-head {
@@ -1572,12 +1588,12 @@ body.fireteam-page > .fireteam-quest-tooltip.is-floating[hidden] {
 
 .manual-step.is-past {
   border-left-color: rgba(87,222,143,.72);
-  background: rgba(87,222,143,.08);
+  background: rgba(35,52,42,.26);
 }
 
 .manual-step.is-current {
   border-left-color: rgba(231,200,92,.86);
-  background: linear-gradient(90deg, rgba(231,200,92,.16), rgba(0,0,0,.04));
+  background: linear-gradient(90deg, rgba(80,70,28,.34), rgba(0,0,0,.08));
 }
 
 .manual-step.is-future {
