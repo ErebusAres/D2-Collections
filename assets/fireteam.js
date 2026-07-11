@@ -298,6 +298,9 @@
       if (saved) return snapshotPayload(saved);
     }
     if (latestSnapshot) return latestSnapshot;
+    // Do not flash another Guardian's cloud snapshot while the signed-in
+    // account is still loading its own live profile.
+    if (hasLocalAuth()) return null;
     return snapshotPayload(savedSnapshots[0]);
   }
 
@@ -1672,7 +1675,7 @@
     const isFuture = status === "future";
     const complete = Boolean(row.complete || isPast);
     const pct = isPast ? 100 : isFuture ? 0 : total ? Math.max(0, Math.min(100, Math.round((progress / total) * 100))) : complete ? 100 : 0;
-    const value = isFuture ? "Unavailable" : status === "current" && total ? `${progress}/${total}` : complete ? "Complete" : "";
+    const value = isFuture ? "Unavailable" : status === "current" && total && !complete ? `${progress}/${total}` : "";
     return `<div class="manual-objective ${complete ? "is-complete" : ""} ${isFuture ? "is-unavailable" : ""}">
       <span class="quest-step-check" aria-hidden="true"></span>
       <div>

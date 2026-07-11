@@ -1364,9 +1364,24 @@ body.fireteam-page > .fireteam-quest-tooltip.is-floating[hidden] {
   background: rgba(0,0,0,.28);
 }
 
-.quest-step.is-complete .quest-step-check {
+.quest-step.is-complete .quest-step-check,
+.manual-objective.is-complete .quest-step-check {
+  position: relative;
   border-color: rgba(118,224,157,.86);
   background: rgba(118,224,157,.38);
+}
+
+.quest-step.is-complete .quest-step-check::after,
+.manual-objective.is-complete .quest-step-check::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #e4ffec;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .quest-step > div {

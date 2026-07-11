@@ -3879,8 +3879,20 @@ body.manual-tracker-minimized .manual-drawer-toggle {
   margin-left: 8px;
 }
 .manual-objective.is-complete .quest-step-check {
+  position: relative;
   border-color: rgba(99,215,132,.72);
   background: rgba(99,215,132,.26);
+}
+.manual-objective.is-complete .quest-step-check::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 4px;
+  height: 8px;
+  border: solid #d9ffe5;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 .manual-objective.is-unavailable .quest-step-check {
   border-color: rgba(202,209,221,.25);
