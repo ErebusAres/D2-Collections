@@ -1561,19 +1561,24 @@ body.fireteam-page > .fireteam-quest-tooltip.is-floating {
 
 .manual-step {
   padding: 8px;
+  border-left: 2px solid rgba(202,209,221,.22);
   background: rgba(255,255,255,.035);
 }
 
 .manual-step.is-past {
+  border-left-color: rgba(87,222,143,.72);
   background: rgba(87,222,143,.08);
 }
 
 .manual-step.is-current {
-  background: rgba(87,222,143,.14);
+  border-left-color: rgba(231,200,92,.86);
+  background: linear-gradient(90deg, rgba(231,200,92,.15), rgba(87,222,143,.08));
 }
 
 .manual-step.is-future {
-  opacity: .58;
+  border-left-color: rgba(202,209,221,.16);
+  background: rgba(255,255,255,.022);
+  opacity: .66;
 }
 
 .manual-step-title {
@@ -1587,9 +1592,32 @@ body.fireteam-page > .fireteam-quest-tooltip.is-floating {
   display: grid;
   place-items: center;
   height: 24px;
+  background: rgba(202,209,221,.12);
+  color: rgba(238,242,240,.64);
+  font-weight: 900;
+}
+
+.manual-step.is-past .manual-step-title span {
   background: rgba(87,222,143,.18);
   color: #bde8c8;
-  font-weight: 900;
+}
+
+.manual-step.is-current .manual-step-title span {
+  background: rgba(231,200,92,.2);
+  color: #f1e28e;
+}
+
+.manual-step.is-future .manual-step-title span {
+  background: rgba(202,209,221,.08);
+  color: rgba(238,242,240,.45);
+}
+
+.manual-step.is-future .manual-step-title strong,
+.manual-step.is-future .manual-step-title em,
+.manual-step.is-future p,
+.manual-step.is-future .manual-step-empty,
+.manual-step.is-future .manual-objective {
+  color: rgba(238,242,240,.48);
 }
 
 .manual-step-title strong {

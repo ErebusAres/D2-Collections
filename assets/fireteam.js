@@ -356,6 +356,16 @@
     if (floatingTooltip) floatingTooltip.hidden = true;
   }
 
+  function syncFloatingTooltipTarget(event) {
+    if (!floatingTooltipCard) return;
+    const card = event.target.closest?.(".fireteam-progress-card") || null;
+    if (!card) {
+      hideFloatingTooltip();
+      return;
+    }
+    if (card !== floatingTooltipCard) showFloatingTooltip(card);
+  }
+
   function classFilterMatches(quest) {
     if (!classFilter) return true;
     const confidentClass = quest?.character?.className || (["Warlock", "Hunter", "Titan"].includes(quest?.source) ? quest.source : "");
@@ -1866,6 +1876,8 @@
       if (!card || card.contains(event.relatedTarget)) return;
       hideFloatingTooltip(card);
     });
+    document.addEventListener("pointermove", syncFloatingTooltipTarget, { passive: true });
+    document.addEventListener("pointerleave", () => hideFloatingTooltip());
     document.addEventListener("focusin", event => {
       const card = event.target.closest(".fireteam-progress-card");
       if (card) showFloatingTooltip(card);
@@ -1879,6 +1891,10 @@
     });
     window.addEventListener("scroll", () => positionFloatingTooltip(floatingTooltipCard), { passive: true });
     window.addEventListener("resize", () => positionFloatingTooltip(floatingTooltipCard), { passive: true });
+    window.addEventListener("blur", () => hideFloatingTooltip());
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) hideFloatingTooltip();
+    });
     document.addEventListener("click", event => {
       const socialTabButton = event.target.closest("[data-social-tab]");
       if (socialTabButton) {
