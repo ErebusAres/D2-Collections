@@ -1989,6 +1989,22 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
     min-height: var(--ft-topbar);
   }
 
+  .fireteam-appbar-actions {
+    gap: 0;
+    padding-right: 0;
+  }
+
+  .fireteam-bray-header .site-nav a {
+    min-width: 64px;
+    padding: 0 6px;
+    font-size: .68rem;
+  }
+
+  .fireteam-social-button {
+    min-width: 48px;
+    padding-inline: 4px;
+  }
+
   .fireteam-profile-banner {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
