@@ -2046,7 +2046,7 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
     width: min(360px, calc(100vw - 60px));
   }
 
-  .manual-drawer-toggle {
+  .fireteam-pinned-panel .manual-drawer-toggle {
     left: 0;
     top: -42px;
     width: 108px;
