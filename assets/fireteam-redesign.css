@@ -2046,6 +2046,16 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
     width: min(360px, calc(100vw - 60px));
   }
 
+  .manual-drawer-toggle {
+    left: 0;
+    top: -42px;
+    width: 108px;
+    height: 42px;
+    border-right: 1px solid rgba(202,209,221,.35);
+    border-bottom: 0;
+    writing-mode: horizontal-tb;
+  }
+
   .fireteam-quest-panel .fireteam-card-grid {
     grid-template-columns: 1fr;
   }
