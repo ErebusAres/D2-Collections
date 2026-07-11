@@ -553,54 +553,27 @@ body.fireteam-page .app-shell.fireteam-shell {
   text-shadow: 0 1px 1px rgba(0,0,0,.4);
 }
 
+.fireteam-profile-stats img,
 .fireteam-profile-stats i {
-  position: relative;
-  width: 14px;
-  height: 14px;
-  flex: 0 0 14px;
-  color: rgba(244,247,246,.72);
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  object-fit: contain;
+  opacity: .82;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.62));
 }
 
-.fireteam-profile-stats i::before,
-.fireteam-profile-stats i::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: currentColor;
+.fireteam-profile-stats .stat-class img {
+  width: 18px;
+  height: 18px;
+  flex-basis: 18px;
+  opacity: .95;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.7));
 }
 
-.fireteam-profile-stats .stat-rank i::before {
-  clip-path: polygon(50% 0, 88% 14%, 82% 66%, 50% 100%, 18% 66%, 12% 14%);
-}
-
-.fireteam-profile-stats .stat-rank i::after {
-  inset: 4px;
-  background: #101314;
-  clip-path: polygon(50% 0, 82% 18%, 74% 63%, 50% 88%, 26% 63%, 18% 18%);
-}
-
-.fireteam-profile-stats .stat-score i::before {
-  clip-path: polygon(24% 4%, 76% 4%, 76% 40%, 62% 40%, 58% 58%, 70% 70%, 70% 82%, 30% 82%, 30% 70%, 42% 58%, 38% 40%, 24% 40%);
-}
-
-.fireteam-profile-stats .stat-score i::after {
-  inset: auto 3px 0;
-  height: 3px;
-}
-
-.fireteam-profile-stats .stat-season i::before {
-  clip-path: polygon(50% 0, 92% 92%, 8% 92%);
-}
-
-.fireteam-profile-stats .is-power i::before {
-  clip-path: polygon(50% 0, 96% 100%, 4% 100%);
-}
-
-.fireteam-profile-stats .is-power i::after {
-  inset: 6px 0 auto;
-  height: 4px;
-  background: #101314;
-  clip-path: polygon(50% 0, 82% 100%, 18% 100%);
+.fireteam-profile-stats .stat-rank img,
+.fireteam-profile-stats .stat-season img {
+  filter: grayscale(1) brightness(1.8) drop-shadow(0 1px 1px rgba(0,0,0,.62));
 }
 
 .fireteam-profile-stats em {
@@ -614,6 +587,10 @@ body.fireteam-page .app-shell.fireteam-shell {
 .fireteam-profile-stats .is-power strong {
   color: var(--ft-gold);
   font-size: .95rem;
+}
+
+.fireteam-profile-stats .stat-season strong {
+  color: #f1e28e;
 }
 
 .fireteam-profile-select .fireteam-profile-meta {

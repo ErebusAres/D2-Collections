@@ -420,6 +420,14 @@
     return String(number);
   }
 
+  function headerStatMarkup(className, icon, label, value) {
+    if (!value && value !== 0) return "";
+    const iconMarkup = icon
+      ? `<img src="${escapeHtml(icon)}" alt="" width="15" height="15" loading="lazy" decoding="async" aria-hidden="true" />`
+      : `<i aria-hidden="true"></i>`;
+    return `<span class="${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}">${iconMarkup}<em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
+  }
+
   function apiBase() {
     return String(CONFIG.cloudSyncApi || "").replace(/\/+$/, "");
   }
@@ -1100,12 +1108,13 @@
     if (els.profileTopStats) {
       const stats = snapshot.profileStats || {};
       const guardianRank = Number(stats.guardianRank || 0);
-      const recordScore = formatCompactNumber(stats.recordScore || 0);
+      const selectedClass = selectedCharacter?.className || classFilter || "";
+      const selectedClassIcon = classIconPath(selectedClass);
       els.profileTopStats.innerHTML = [
-        guardianRank ? `<span class="stat-rank"><i aria-hidden="true"></i><em>Guardian Rank</em><strong>${escapeHtml(guardianRank)}</strong></span>` : "",
-        recordScore ? `<span class="stat-score"><i aria-hidden="true"></i><em>Record Score</em><strong>${escapeHtml(recordScore)}</strong></span>` : "",
-        displayLight ? `<span class="is-power"><i aria-hidden="true"></i><em>Light</em><strong>${escapeHtml(displayLight)}</strong></span>` : "",
-        season.rank ? `<span class="stat-season"><i aria-hidden="true"></i><em>Season</em><strong>${escapeHtml(season.rank)}</strong></span>` : ""
+        selectedClass && selectedClassIcon ? headerStatMarkup("stat-class", selectedClassIcon, "Class", selectedClass) : "",
+        guardianRank ? headerStatMarkup("stat-rank", "assets/dim-icons/fireteam_filter_new_light.svg", "Guardian Rank", guardianRank) : "",
+        season.rank ? headerStatMarkup("stat-season", "assets/dim-icons/dim_pursuit_complete.svg", "Season Rank", season.rank) : "",
+        displayLight ? headerStatMarkup("is-power", "assets/dim-icons/dim_power_alt.svg", "Light", displayLight) : ""
       ].filter(Boolean).join("");
     }
     if (els.profileEmblem) {
