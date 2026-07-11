@@ -1046,6 +1046,57 @@ body.fireteam-page .app-shell.fireteam-shell {
   margin: 14px 16px 0;
 }
 
+.fireteam-quest-flavor {
+  margin: 14px 0 0;
+  padding: 13px 16px 0;
+  border-top: 1px solid rgba(207,211,203,.18);
+  color: rgba(223,225,217,.78);
+  font-size: .9rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.fireteam-quest-rewards {
+  display: grid;
+  gap: 7px;
+  margin: 14px 16px 0;
+}
+
+.fireteam-quest-rewards > strong {
+  color: #65d690;
+  font-size: .82rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.fireteam-quest-rewards span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: rgba(229,231,222,.86);
+  font-size: .88rem;
+  font-weight: 900;
+}
+
+.fireteam-quest-rewards img,
+.fireteam-quest-rewards i {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border: 1px solid rgba(202,209,221,.2);
+  object-fit: cover;
+}
+
+.fireteam-quest-rewards em {
+  overflow: hidden;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .quest-step {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);

@@ -7,13 +7,13 @@
   const RETURN_KEY = "d2-collections-oauth-return-v1";
   const STATE_KEY = "d2-collections-oauth-state-v1";
   const RECORD_CACHE_KEY = "d2-fireteam-record-def-cache-v1";
-  const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v2";
+  const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v3";
   const OBJECTIVE_CACHE_KEY = "d2-fireteam-objective-def-cache-v1";
   const MANUAL_TRACK_KEY = "d2-fireteam-manual-track-v1";
   const MANUAL_TRACK_CACHE_KEY = "d2-fireteam-manual-track-cache-v1";
   const MANUAL_DRAWER_KEY = "d2-fireteam-manual-drawer-minimized-v1";
   const AUTO_REFRESH_MS = 90 * 1000;
-  const MAX_QUEST_ITEMS = 120;
+  const MAX_RECORD_ITEMS = 18;
   const ITEM_STATE_TRACKED = 2;
   const ITEM_STATE_HIGHLIGHTED_OBJECTIVE = 16;
   const SIDE_TRACKER_LIMIT = 12;
@@ -170,6 +170,8 @@
       fireteamOwnerKey: quest.fireteamOwnerKey,
       questLineName: quest.questLineName,
       questLineDescription: quest.questLineDescription,
+      flavorText: quest.flavorText,
+      rewards: quest.rewards || [],
       objectiveComplete: quest.objectiveComplete,
       objectiveTotal: quest.objectiveTotal,
       pct: quest.pct,
@@ -565,15 +567,20 @@
       const def = await bungieGet(`/Destiny2/Manifest/DestinyInventoryItemDefinition/${encodeURIComponent(key)}/?lc=en`);
       const display = def?.displayProperties || {};
       cache[key] = {
+        hash: key,
         name: display.name || `Item ${key}`,
         description: display.description || "",
         icon: display.icon || "",
+        flavorText: def?.flavorText || "",
         itemType: Number(def?.itemType || 0),
         itemTypeDisplayName: def?.itemTypeDisplayName || "",
         itemTypeAndTierDisplayName: def?.itemTypeAndTierDisplayName || "",
         itemCategoryHashes: def?.itemCategoryHashes || [],
         inventoryBucketHash: def?.inventory?.bucketTypeHash || "",
         objectiveHashes: def?.objectives?.objectiveHashes || [],
+        rewardItemHashes: (def?.value?.itemValue || def?.value?.items || def?.rewardItems || [])
+          .map(entry => String(entry.itemHash || entry.hash || entry.item || ""))
+          .filter(Boolean),
         setData: def?.setData ? {
           questLineName: def.setData.questLineName || "",
           questLineDescription: def.setData.questLineDescription || "",
@@ -587,7 +594,7 @@
         resolvedAt: new Date().toISOString()
       };
     } catch {
-      cache[key] = { name: `Item ${key}`, description: "", icon: "", itemType: 0, itemTypeDisplayName: "", unresolved: true, resolvedAt: new Date().toISOString() };
+      cache[key] = { hash: key, name: `Item ${key}`, description: "", icon: "", flavorText: "", itemType: 0, itemTypeDisplayName: "", rewardItemHashes: [], unresolved: true, resolvedAt: new Date().toISOString() };
     }
     saveItemCache(cache);
     return cache[key];
@@ -770,7 +777,7 @@
     };
     addItems("Profile inventory", "", profile?.profileInventory?.data?.items);
     Object.entries(profile?.characterInventories?.data || {}).forEach(([characterId, data]) => addItems(`Character ${characterId}`, characterId, data?.items));
-    return items.filter(item => item.itemHash).slice(0, MAX_QUEST_ITEMS);
+    return items.filter(item => item.itemHash);
   }
 
   function classifyQuestItem(definition = {}, item = {}) {
@@ -802,6 +809,22 @@
     return /\bcatalyst\b/.test(text);
   }
 
+  async function rewardItemsForDefinition(definition = {}, cache) {
+    const hashes = [...new Set(definition.rewardItemHashes || [])].filter(hash => hash && hash !== String(definition.hash || ""));
+    const rewards = [];
+    for (const hash of hashes.slice(0, 4)) {
+      const reward = await itemDefinition(hash, cache);
+      if (!reward?.name || reward.unresolved) continue;
+      rewards.push({
+        hash,
+        name: reward.name,
+        icon: reward.icon || "",
+        itemTypeDisplayName: reward.itemTypeDisplayName || ""
+      });
+    }
+    return rewards;
+  }
+
   async function activeQuestItems(profile, activeHashes, characters) {
     const cache = itemCache();
     const items = inventoryObjectiveItems(profile, characters);
@@ -811,6 +834,7 @@
       const summary = objectiveSummary(item.objectives, activeHashes);
       const complete = summary.rows.length > 0 && summary.rows.every(row => row.complete);
       const catalystQuest = isCatalystQuest(definition);
+      const rewards = await rewardItemsForDefinition(definition, cache);
       resolved.push({
         hash: item.itemHash,
         itemHash: item.itemHash,
@@ -833,6 +857,8 @@
         objectiveTotal: summary.total,
         questLineName: definition.setData?.questLineName || definition.name || "",
         questLineDescription: definition.setData?.questLineDescription || "",
+        flavorText: definition.flavorText || "",
+        rewards,
         setData: definition.setData || null,
         pct: summary.pct,
         name: definition.name || `Item ${item.itemHash}`,
@@ -881,7 +907,7 @@
     const cache = recordCache();
     const top = records
       .sort((a, b) => Number(b.inGameTracked) - Number(a.inGameTracked) || Number(a.complete) - Number(b.complete) || b.pct - a.pct)
-      .slice(0, 18);
+      .slice(0, MAX_RECORD_ITEMS);
     for (const item of top.slice(0, 12)) {
       item.definition = await recordDefinition(item.hash, cache);
     }
@@ -893,8 +919,7 @@
       unresolved: Boolean(item.definition?.unresolved)
     }));
     const combined = [...activeItems, ...recordItems]
-      .sort((a, b) => Number(b.inGameTracked) - Number(a.inGameTracked) || Number(b.inInventory) - Number(a.inInventory) || Number(a.complete) - Number(b.complete) || b.pct - a.pct)
-      .slice(0, 80);
+      .sort((a, b) => Number(b.inGameTracked) - Number(a.inGameTracked) || Number(b.inInventory) - Number(a.inInventory) || Number(a.complete) - Number(b.complete) || b.pct - a.pct);
     return resolveObjectiveRows(combined);
   }
 
@@ -1349,6 +1374,8 @@
       ? `<span>${escapeHtml(quest.questLineName)}</span>`
       : "";
     const description = quest.description || quest.questLineDescription || quest.activity || "";
+    const flavor = quest.flavorText || "";
+    const rewards = Array.isArray(quest.rewards) ? quest.rewards.filter(reward => reward?.name) : [];
     const trackerState = [
       quest.inGameTracked ? "Tracked in game" : "",
       quest.highlightedObjective ? "Highlighted objective" : "",
@@ -1377,6 +1404,9 @@
       </div>
       ${description ? `<p>${escapeHtml(description)}</p>` : ""}
       ${quest.questLineDescription && quest.questLineDescription !== description ? `<p>${escapeHtml(quest.questLineDescription)}</p>` : ""}
+      ${objectiveRows || `<div class="quest-step-list"><div class="quest-step-more">No objective rows exposed by Bungie for this item.</div></div>`}
+      ${flavor ? `<blockquote class="fireteam-quest-flavor">${escapeHtml(flavor)}</blockquote>` : ""}
+      ${rewards.length ? `<div class="fireteam-quest-rewards"><strong>Rewards</strong>${rewards.map(reward => `<span>${reward.icon ? `<img src="${escapeHtml(iconUrl(reward.icon))}" alt="" width="24" height="24" loading="lazy" decoding="async" aria-hidden="true" />` : `<i class="fireteam-icon-fallback">R</i>`}<em>${escapeHtml(reward.name)}</em></span>`).join("")}</div>` : ""}
       <div class="fireteam-quest-tooltip-meta">
         ${sourceChip || ""}
         ${stepInfo}
@@ -1384,7 +1414,6 @@
         ${contextRows.map(([label, value]) => `<span><b>${escapeHtml(label)}</b>${escapeHtml(value)}</span>`).join("")}
         ${trackerState.map(state => `<span>${escapeHtml(state)}</span>`).join("")}
       </div>
-      ${objectiveRows || `<div class="quest-step-list"><div class="quest-step-more">No objective rows exposed by Bungie for this item.</div></div>`}
     </div>`;
   }
 
