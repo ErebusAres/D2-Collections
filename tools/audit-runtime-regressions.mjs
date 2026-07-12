@@ -20,6 +20,9 @@ assert.match(fireteam, /function mapWithConcurrency\(values, limit, mapper\)/, "
 assert.match(fireteam, /mapWithConcurrency\(items, 6, async item/, "Quest items must resolve with the bounded loader.");
 assert.match(fireteam, /quest\.unresolved \|\| \/\^Item/, "Hash-only unresolved quest cards must stay hidden.");
 assert.match(fireteam, /secondarySpecial/, "Fireteam title identity must resolve Bungie's emblem overlay artwork.");
+assert.match(fireteam, /function cleanBungieText\(value\)/, "Fireteam text must sanitize unresolved Bungie display tokens.");
+assert.match(fireteam, /\\\{var:\\d\+\\\}/, "Fireteam text must remove unresolved Bungie variable placeholders.");
+assert.match(fireteam, /profileGuardianMeta\.style\.setProperty\("--season-progress"/, "The title bar must expose Rewards Pass progress to CSS.");
 assert.match(auth, /\/api\/auth\/exchange/, "Browser OAuth must prefer the persistent Worker exchange.");
 assert.match(auth, /server_session_token/, "Browser session storage must support opaque Worker sessions.");
 assert.match(worker, /AES-GCM/, "Stored Bungie refresh tokens must be encrypted.");

@@ -117,6 +117,16 @@
     })[char]);
   }
 
+  function cleanBungieText(value) {
+    return String(value ?? "")
+      .replace(/\[\s*([^\]]+?)\s*\]\s*(?=\1\b)/gi, "")
+      .replace(/\s+x\s*\{var:\d+\}/gi, "")
+      .replace(/\{var:\d+\}/gi, "")
+      .replace(/[ \t]+([,.;:!?])/g, "$1")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
+  }
+
   function readJson(key) {
     try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
   }
@@ -968,7 +978,7 @@
       if (!reward?.name || reward.unresolved) return null;
       return {
         hash,
-        name: reward.name,
+        name: cleanBungieText(reward.name),
         icon: reward.icon || "",
         itemTypeDisplayName: reward.itemTypeDisplayName || ""
       };
@@ -1234,6 +1244,10 @@
         const next = Number(season.next || 0);
         const pct = Number(season.pct || 0);
         els.profileGuardianMeta.style.setProperty("--season-progress", `${pct}%`);
+        els.profileGuardianMeta.title = next
+          ? `${season.label || "Rewards Pass"}: ${pct}% (${progress.toLocaleString()}/${next.toLocaleString()})`
+          : "Rewards Pass progress unavailable";
+        els.profileGuardianMeta.setAttribute("aria-label", els.profileGuardianMeta.title);
         els.profileGuardianMeta.innerHTML = next
           ? `<span>${escapeHtml(season.label || "Season Progress")}</span><strong>${escapeHtml(progress.toLocaleString())}/${escapeHtml(next.toLocaleString())}</strong>`
           : `<span>Season Progress</span><strong>${escapeHtml(trackedCount)} tracked / ${escapeHtml(inventoryCount)} quest items</strong>`;
@@ -1534,7 +1548,7 @@
       const pct = Math.max(0, Math.min(100, Number(quest.pct || 0)));
       const isRecord = quest.kind === "record";
       const unresolved = quest.unresolved || (isRecord && /^Record\s+\d+$/i.test(String(quest.name || "")));
-      const title = unresolved ? "Unmapped Bungie record" : quest.name || `Record ${quest.hash}`;
+      const title = unresolved ? "Unmapped Bungie record" : cleanBungieText(quest.name) || `Record ${quest.hash}`;
       const hash = unresolved ? ` <span class="record-hash">Hash ${escapeHtml(quest.hash)}</span>` : "";
       const trackedBadge = quest.inGameTracked ? `<span class="fireteam-tracked-badge">Tracked in game</span>` : "";
       const catalystBadge = quest.catalystQuest ? `<span class="fireteam-catalyst-badge">Catalyst quest</span>` : "";
@@ -1551,7 +1565,7 @@
         ${icon}
         <div>
           <strong>${escapeHtml(title)}${trackedBadge}${catalystBadge}</strong>
-          <p class="fireteam-card-summary">${escapeHtml(quest.description || quest.questLineDescription || quest.activity || `${quest.objectiveComplete || 0}/${quest.objectiveTotal || 0} objectives`)}</p>
+          <p class="fireteam-card-summary">${escapeHtml(cleanBungieText(quest.description || quest.questLineDescription || quest.activity) || `${quest.objectiveComplete || 0}/${quest.objectiveTotal || 0} objectives`)}</p>
           ${cardVisuals}
         </div>
         ${tooltip}
@@ -1577,8 +1591,9 @@
     const stepInfo = quest.questLineName
       ? `<span>${escapeHtml(quest.questLineName)}</span>`
       : "";
-    const description = quest.description || quest.questLineDescription || quest.activity || "";
-    const flavor = quest.flavorText || "";
+    const description = cleanBungieText(quest.description || quest.questLineDescription || quest.activity || "");
+    const questLineDescription = cleanBungieText(quest.questLineDescription || "");
+    const flavor = cleanBungieText(quest.flavorText || "");
     const rewards = Array.isArray(quest.rewards) ? quest.rewards.filter(reward => reward?.name) : [];
     const trackerState = [
       quest.inGameTracked ? "Tracked in game" : "",
@@ -1606,10 +1621,10 @@
         <span>${escapeHtml(Math.round(Number(pct || 0)))}%</span>
       </div>
       ${description ? `<p>${escapeHtml(description)}</p>` : ""}
-      ${quest.questLineDescription && quest.questLineDescription !== description ? `<p>${escapeHtml(quest.questLineDescription)}</p>` : ""}
+      ${questLineDescription && questLineDescription !== description ? `<p>${escapeHtml(questLineDescription)}</p>` : ""}
       ${objectiveRows || `<div class="quest-step-list"><div class="quest-step-more">No objective rows exposed by Bungie for this item.</div></div>`}
       ${flavor ? `<blockquote class="fireteam-quest-flavor">${escapeHtml(flavor)}</blockquote>` : ""}
-      ${rewards.length ? `<div class="fireteam-quest-rewards"><strong>Rewards</strong>${rewards.map(reward => `<span>${reward.icon ? `<img src="${escapeHtml(iconUrl(reward.icon))}" alt="" width="24" height="24" loading="lazy" decoding="async" aria-hidden="true" />` : pursuitFallbackMarkup()}<em>${escapeHtml(reward.name)}</em></span>`).join("")}</div>` : ""}
+      ${rewards.length ? `<div class="fireteam-quest-rewards"><strong>Rewards</strong>${rewards.map(reward => `<span>${reward.icon ? `<img src="${escapeHtml(iconUrl(reward.icon))}" alt="" width="24" height="24" loading="lazy" decoding="async" aria-hidden="true" />` : pursuitFallbackMarkup()}<em>${escapeHtml(cleanBungieText(reward.name))}</em></span>`).join("")}</div>` : ""}
       <div class="fireteam-quest-tooltip-meta">
         ${sourceChip || ""}
         ${stepInfo}
@@ -1718,7 +1733,7 @@
     return `<div class="manual-objective ${complete ? "is-complete" : ""} ${isFuture ? "is-unavailable" : ""}">
       <span class="quest-step-check" aria-hidden="true"></span>
       <div>
-        <strong>${escapeHtml(row.name || `Objective ${row.objectiveHash || ""}`)}</strong>
+        <strong>${escapeHtml(cleanBungieText(row.name) || `Objective ${row.objectiveHash || ""}`)}</strong>
         ${value ? `<em>${escapeHtml(value)}</em>` : ""}
         <div class="quest-step-track"><i style="width:${pct}%"></i></div>
       </div>
@@ -1737,7 +1752,7 @@
       return `<div class="quest-step ${row.complete ? "is-complete" : ""}">
         <span class="quest-step-check" aria-hidden="true"></span>
         <div>
-          <strong>${escapeHtml(row.name || `Objective ${row.objectiveHash || ""}`)}</strong>
+          <strong>${escapeHtml(cleanBungieText(row.name) || `Objective ${row.objectiveHash || ""}`)}</strong>
           <em>${escapeHtml(value)}</em>
           <div class="quest-step-track"><i style="width:${pct}%"></i></div>
         </div>
