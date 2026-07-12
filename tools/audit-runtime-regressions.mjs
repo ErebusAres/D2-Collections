@@ -6,6 +6,7 @@ const app = read("assets/app.js");
 const armor = read("assets/armor-columns.js");
 const auth = read("assets/bungie-collection-dump.js");
 const fireteam = read("assets/fireteam.js");
+const backgroundSync = read("assets/background-sync.js");
 const styles = read("assets/styles.css");
 const worker = read("worker/src/index.js");
 
@@ -27,6 +28,14 @@ assert.match(fireteam, /function objectiveRowsPct\(rows = \[\]\)/, "Quest cards 
 assert.match(fireteam, /calculated \?\? Math\.round/, "Saved cloud snapshots must recalculate progress during rendering.");
 assert.doesNotMatch(fireteam, /addEventListener\("pointermove"/, "Fireteam tooltips must not scan the DOM on every pointer movement.");
 assert.match(fireteam, /function scheduleFloatingTooltipPosition\(\)/, "Tooltip scroll positioning must be animation-frame throttled.");
+assert.match(fireteam, /AUTO_REFRESH_MS = 15 \* 60 \* 1000/, "Fireteam background refresh must use a restrained interval.");
+assert.match(fireteam, /document\.hidden \|\| !navigator\.onLine \|\| userIsBusy\(\)/, "Fireteam background refresh must pause while hidden, offline, or busy.");
+assert.match(fireteam, /DATA_SYNC_LOCK/, "Fireteam refresh must coordinate with other D2 Collections tabs.");
+assert.match(fireteam, /Date\.now\(\) - latest < AUTO_REFRESH_MS/, "Visibility changes must not refresh an already-fresh Fireteam snapshot.");
+assert.match(backgroundSync, /STALE_MS = 30 \* 60 \* 1000/, "Collection background sync must be stale-driven.");
+assert.match(backgroundSync, /document\.hidden \|\| !navigator\.onLine/, "Collection background sync must pause while hidden or offline.");
+assert.match(backgroundSync, /navigator\.locks\.request\(SYNC_LOCK/, "Collection background sync must use a cross-tab lock.");
+assert.match(app, /CLOUD_STALE_MS = 30 \* 60 \* 1000/, "Visible collection freshness must match its background sync policy.");
 assert.match(auth, /\/api\/auth\/exchange/, "Browser OAuth must prefer the persistent Worker exchange.");
 assert.match(auth, /server_session_token/, "Browser session storage must support opaque Worker sessions.");
 assert.match(worker, /AES-GCM/, "Stored Bungie refresh tokens must be encrypted.");

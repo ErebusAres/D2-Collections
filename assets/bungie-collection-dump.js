@@ -991,7 +991,9 @@
         actions.insertAdjacentElement("afterend", hint);
       }
       button.addEventListener("click", async () => {
+        let syncOk = false;
         button.disabled = true;
+        document.dispatchEvent(new CustomEvent("d2collections:sync-started", { detail: { source: "collection" } }));
         setStatus("Pulling logged-in Bungie collection/profile data...");
         try {
           const dump = await buildCollectionDump(status);
@@ -1032,6 +1034,7 @@
               }
             }
             setStatus(`Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor, ${applyResult.catalystsChanged || 0} catalysts, ${applyResult.completedChanged || 0} done.${xurText}${cloudText}`);
+            syncOk = true;
           } else {
             setStatus(`Built sync debug payload, but could not live-sync because ${liveSync.reason}.`);
           }
@@ -1039,6 +1042,7 @@
           setStatus(error.message || String(error));
         } finally {
           button.disabled = false;
+          document.dispatchEvent(new CustomEvent("d2collections:sync-finished", { detail: { ok: syncOk, source: "collection", finishedAt: new Date().toISOString() } }));
         }
       });
       return true;

@@ -14,6 +14,7 @@
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const ACTIVE_PLAYER_KEY = "d2-collections-active-player-v1";
   const CLAIM_FEED_KEY = "d2-collections-claim-feed-v1";
+  const CLOUD_STALE_MS = 30 * 60 * 1000;
   const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "chris" };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {}, chris: {} });
@@ -502,7 +503,7 @@
       const user = BASE.users?.[player]?.display || BASE.users?.[player]?.label || titleCase(player);
       const row = cloudMeta?.players?.[player] || {};
       const syncedAt = row.syncedAt || resources?.[player]?.cloudSyncedAt || "";
-      const stale = syncedAt && Date.now() - Date.parse(syncedAt) > 7 * 24 * 60 * 60 * 1000;
+      const stale = syncedAt && Date.now() - Date.parse(syncedAt) > CLOUD_STALE_MS;
       const label = syncedAt ? formatShortDate(syncedAt) : "No DB";
       const title = syncedAt
         ? `${user} database snapshot saved ${formatFullDate(syncedAt)}${Number(row.itemCount || 0) ? ` with ${row.itemCount} item(s).` : "."}`
@@ -587,7 +588,7 @@
     const user = BASE.users?.[player]?.display || BASE.users?.[player]?.label || titleCase(player);
     const syncedAt = row.syncedAt || resources?.[player]?.cloudSyncedAt || "";
     const synced = Boolean(syncedAt);
-    const stale = synced && Date.now() - Date.parse(syncedAt) > 7 * 24 * 60 * 60 * 1000;
+    const stale = synced && Date.now() - Date.parse(syncedAt) > CLOUD_STALE_MS;
     const itemCount = Number(row.itemCount || row.matchedCatalogItems || 0);
     const title = synced
       ? `${user}: last database snapshot saved ${formatFullDate(syncedAt)}${itemCount ? ` with ${itemCount} catalog item(s).` : "."}`

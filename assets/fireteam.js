@@ -13,7 +13,10 @@
   const MANUAL_TRACK_KEY = "d2-fireteam-manual-track-v1";
   const MANUAL_TRACK_CACHE_KEY = "d2-fireteam-manual-track-cache-v1";
   const MANUAL_DRAWER_KEY = "d2-fireteam-manual-drawer-minimized-v1";
-  const AUTO_REFRESH_MS = 90 * 1000;
+  const AUTO_REFRESH_MS = 15 * 60 * 1000;
+  const AUTO_REFRESH_RETRY_MS = 60 * 1000;
+  const BACKGROUND_IDLE_MS = 8 * 1000;
+  const DATA_SYNC_LOCK = "d2-collections-bungie-data-sync";
   const MAX_RECORD_ITEMS = 18;
   const ITEM_STATE_TRACKED = 2;
   const ITEM_STATE_HIGHLIGHTED_OBJECTIVE = 16;
@@ -107,6 +110,7 @@
   let floatingTooltip = null;
   let floatingTooltipCard = null;
   let floatingTooltipPositionFrame = 0;
+  let lastInteractionAt = Date.now();
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -1904,7 +1908,11 @@
       return;
     }
     els.cloudStatus.innerHTML = snapshots.length
-      ? snapshots.slice(0, 4).map(snapshot => `<span class="is-good"><strong>${escapeHtml(snapshotDisplayName(snapshot) || "Saved")}</strong>${escapeHtml(formatShort(snapshot.syncedAt || snapshot.updatedAt))}</span>`).join("")
+      ? snapshots.slice(0, 4).map(snapshot => {
+        const syncedAt = snapshot.syncedAt || snapshot.updatedAt;
+        const stale = !syncedAt || Date.now() - Date.parse(syncedAt) >= AUTO_REFRESH_MS;
+        return `<span class="${stale ? "is-warn" : "is-good"}" title="${escapeHtml(stale ? "Snapshot is stale and will refresh when this Guardian signs in." : "Snapshot is current.")}"><strong>${escapeHtml(snapshotDisplayName(snapshot) || "Saved")}</strong>${escapeHtml(formatShort(syncedAt))}${stale ? " / stale" : ""}</span>`;
+      }).join("")
       : `<span class="is-idle"><strong>Cloud</strong>No fireteam snapshots</span>`;
   }
 
@@ -2001,10 +2009,49 @@
     }
   }
 
-  function scheduleAutoRefresh() {
+  function userIsBusy() {
+    const active = document.activeElement;
+    const editing = active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName);
+    return editing || Date.now() - lastInteractionAt < BACKGROUND_IDLE_MS;
+  }
+
+  function latestLocalSnapshotTime() {
+    return Date.parse(latestSnapshot?.updatedAt || "") || 0;
+  }
+
+  async function withDataSyncLock(callback, { ifAvailable = false } = {}) {
+    if (!navigator.locks?.request) return callback();
+    return navigator.locks.request(DATA_SYNC_LOCK, ifAvailable ? { ifAvailable: true } : {}, lock => lock ? callback() : false);
+  }
+
+  async function requestRefresh({ background = false } = {}) {
+    if (background && (document.hidden || !navigator.onLine || userIsBusy())) {
+      scheduleAutoRefresh(AUTO_REFRESH_RETRY_MS);
+      return false;
+    }
+    const result = await withDataSyncLock(
+      () => refreshFromBungie({ silent: background }),
+      { ifAvailable: background }
+    );
+    if (background && result === false) scheduleAutoRefresh(AUTO_REFRESH_RETRY_MS);
+    return result;
+  }
+
+  function scheduleAutoRefresh(delay = null) {
     if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
     if (!sessionIsUsable()) return;
-    autoRefreshTimer = setTimeout(() => refreshFromBungie({ silent: true }), AUTO_REFRESH_MS);
+    if (document.hidden) return;
+    const syncedAt = latestLocalSnapshotTime();
+    const remaining = syncedAt ? Math.max(AUTO_REFRESH_RETRY_MS, AUTO_REFRESH_MS - (Date.now() - syncedAt)) : 5 * 1000;
+    autoRefreshTimer = setTimeout(() => {
+      autoRefreshTimer = 0;
+      const latest = latestLocalSnapshotTime();
+      if (latest && Date.now() - latest < AUTO_REFRESH_MS) {
+        scheduleAutoRefresh();
+        return;
+      }
+      requestRefresh({ background: true });
+    }, delay ?? remaining);
   }
 
   function init() {
@@ -2015,7 +2062,7 @@
     els.loginBtn?.addEventListener("click", () => {
       window.location.assign(buildAuthUrl());
     });
-    els.refreshBtn?.addEventListener("click", () => refreshFromBungie());
+    els.refreshBtn?.addEventListener("click", () => requestRefresh());
     els.socialDrawerToggle?.addEventListener("click", () => {
       renderSocialDrawer();
       setSocialDrawerOpen(els.socialDrawer?.hidden !== false);
@@ -2072,7 +2119,25 @@
     window.addEventListener("resize", scheduleFloatingTooltipPosition, { passive: true });
     window.addEventListener("blur", () => hideFloatingTooltip());
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) hideFloatingTooltip();
+      if (document.hidden) {
+        hideFloatingTooltip();
+        if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
+      } else {
+        scheduleAutoRefresh(3 * 1000);
+      }
+    });
+    ["pointerdown", "keydown", "touchstart", "wheel"].forEach(type => {
+      document.addEventListener(type, () => { lastInteractionAt = Date.now(); }, { passive: true });
+    });
+    window.addEventListener("online", () => scheduleAutoRefresh(3 * 1000));
+    window.addEventListener("storage", event => {
+      if (event.key !== SESSION_KEY && event.key !== AUTH_KEY) return;
+      setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Bungie offline");
+      scheduleAutoRefresh(3 * 1000);
+    });
+    document.addEventListener("d2collections:auth-changed", () => {
+      setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Bungie offline");
+      scheduleAutoRefresh(3 * 1000);
     });
     document.addEventListener("click", event => {
       const socialTabButton = event.target.closest("[data-social-tab]");
@@ -2147,7 +2212,7 @@
       event.preventDefault();
       setSelectedSnapshot(String(snapshotCard.dataset.viewSnapshot || ""));
     });
-    if (sessionIsUsable() || hasSavedCode()) refreshFromBungie({ silent: true });
+    if (sessionIsUsable() || hasSavedCode()) scheduleAutoRefresh(5 * 1000);
   }
 
   if (document.readyState === "loading") {
