@@ -1439,7 +1439,6 @@
   function questMatchesFilter(quest, filter) {
     if (filter === "all") return true;
     if (filter === "tracked") return Boolean(quest.inGameTracked || manualTracked.has(questKey(quest)));
-    if (filter === "inventory") return Boolean(quest.inInventory);
     if (filter === "quest") return quest.kind === "quest" || quest.kind === "pursuit" || isSeasonalOrderQuest(quest);
     if (filter === "bounty") return quest.kind === "bounty" && !isSeasonalOrderQuest(quest);
     return questCategory(quest) === filter;
@@ -1548,7 +1547,6 @@
     const trackerState = [
       quest.inGameTracked ? "Tracked in game" : "",
       quest.highlightedObjective ? "Highlighted objective" : "",
-      quest.inInventory ? "In inventory" : "",
       quest.catalystQuest ? "Catalyst quest" : ""
     ].filter(Boolean);
     const contextRows = [
