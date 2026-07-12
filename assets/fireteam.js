@@ -9,6 +9,7 @@
   const RECORD_CACHE_KEY = "d2-fireteam-record-def-cache-v1";
   const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v4";
   const OBJECTIVE_CACHE_KEY = "d2-fireteam-objective-def-cache-v1";
+  const SEASON_PASS_CACHE_KEY = "d2-fireteam-season-pass-def-cache-v1";
   const MANUAL_TRACK_KEY = "d2-fireteam-manual-track-v1";
   const MANUAL_TRACK_CACHE_KEY = "d2-fireteam-manual-track-cache-v1";
   const MANUAL_DRAWER_KEY = "d2-fireteam-manual-drawer-minimized-v1";
@@ -548,31 +549,44 @@
     return next > 0 ? Math.max(0, Math.min(100, Math.round((progress / next) * 100))) : 0;
   }
 
-  function seasonProgressSummary(profile) {
-    const data = profile?.profileProgression?.data || {};
+  async function seasonPassDefinition(hash) {
+    const key = String(hash || "");
+    if (!key) return null;
+    const cache = readJson(SEASON_PASS_CACHE_KEY);
+    if (cache[key]?.rewardProgressionHash || cache[key]?.prestigeProgressionHash) return cache[key];
+    try {
+      const definition = await bungieGet(`/Destiny2/Manifest/DestinySeasonPassDefinition/${encodeURIComponent(key)}/?lc=en`);
+      cache[key] = {
+        rewardProgressionHash: String(definition?.rewardProgressionHash || ""),
+        prestigeProgressionHash: String(definition?.prestigeProgressionHash || ""),
+        resolvedAt: new Date().toISOString()
+      };
+      writeJson(SEASON_PASS_CACHE_KEY, cache);
+      return cache[key];
+    } catch {
+      return null;
+    }
+  }
+
+  function characterProgression(profile, hash) {
+    const key = String(hash || "");
+    if (!key) return null;
+    const matches = Object.values(profile?.characterProgressions?.data || {})
+      .map(component => component?.progressions?.[key])
+      .filter(Boolean);
+    return matches.sort((a, b) => Number(b.level || 0) - Number(a.level || 0) || Number(b.currentProgress || 0) - Number(a.currentProgress || 0))[0] || null;
+  }
+
+  async function seasonProgressSummary(profile) {
     const profileData = profile?.profile?.data || {};
-    const artifact = data.seasonalArtifact || {};
-    const seasonPass = data.seasonPassProgression || data.currentSeasonPassProgression || {};
-    const candidates = [
-      data.seasonPassProgression,
-      data.currentSeasonPassProgression,
-      data.seasonalRankProgression
-    ].filter(Boolean);
-    const progression = candidates.find(item => Number(item?.nextLevelAt || item?.completionValue || 0) > 0) || candidates[0] || null;
-    const rank = Number(
-      seasonPass.level ||
-      seasonPass.rank ||
-      seasonPass.currentLevel ||
-      data.seasonPassRank ||
-      data.currentSeasonPassRank ||
-      data.seasonRank ||
-      data.currentSeasonRank ||
-      profileData.seasonPassRank ||
-      profileData.currentSeasonPassRank ||
-      profileData.seasonRank ||
-      profileData.currentSeasonRank ||
-      0
-    );
+    const definition = await seasonPassDefinition(profileData.currentSeasonPassHash);
+    const reward = characterProgression(profile, definition?.rewardProgressionHash);
+    const prestige = characterProgression(profile, definition?.prestigeProgressionHash);
+    const rewardLevel = Number(reward?.level || 0);
+    const prestigeLevel = Number(prestige?.level || 0);
+    const rank = rewardLevel + prestigeLevel;
+    const rewardFinished = Boolean(reward && Number(reward.levelCap || 0) > 0 && rewardLevel >= Number(reward.levelCap));
+    const progression = rewardFinished && prestige ? prestige : reward || prestige;
     const progress = Number(progression?.progressToNextLevel || progression?.progress || 0);
     const next = Number(progression?.nextLevelAt || progression?.completionValue || 0);
     return {
@@ -580,18 +594,16 @@
       progress,
       next,
       pct: progressionPct(progression),
-      label: rank ? "Season Rank" : "Season Progress"
+      label: rank ? "Rewards Pass Rank" : "Rewards Pass Progress"
     };
   }
 
   function profileStatSummary(profile) {
-    const progression = profile?.profileProgression?.data || {};
     const profileData = profile?.profile?.data || {};
     const records = profile?.profileRecords?.data || {};
     const guardianRank = Number(
-      progression.currentGuardianRank ||
-      progression.lifetimeHighestGuardianRank ||
       profileData.currentGuardianRank ||
+      profileData.renewedGuardianRank ||
       profileData.lifetimeHighestGuardianRank ||
       0
     );
@@ -1131,7 +1143,7 @@
       },
       membershipCount: (memberships.destinyMemberships || []).length,
       characterSummaries: characters,
-      seasonProgress: seasonProgressSummary(profile),
+      seasonProgress: await seasonProgressSummary(profile),
       profileStats: profileStatSummary(profile),
       activeQuestItemCount: inventoryQuestItemCount,
       inventoryQuestItemCount,
