@@ -1002,7 +1002,9 @@
     await mapWithConcurrency(characters, 3, async character => {
       if (!character.emblemHash) return;
       const definition = await itemDefinition(character.emblemHash, cache);
-      character.emblemIconPath = definition.secondarySpecial || definition.secondaryOverlay || definition.secondaryIcon || character.emblemPath || "";
+      character.emblemIconPath = character.emblemPath || definition.icon || definition.secondaryIcon || "";
+      character.emblemBannerPath = definition.secondarySpecial || character.emblemBackgroundPath || "";
+      character.emblemOverlayPath = definition.secondaryOverlay || "";
     });
     return characters;
   }
@@ -1186,11 +1188,13 @@
       ].filter(Boolean).join("");
     }
     if (els.profileEmblem) {
-      const emblem = selectedCharacter?.emblemIconPath || selectedCharacter?.emblemPath || snapshot.characterSummaries?.find(character => character.emblemIconPath || character.emblemPath)?.emblemIconPath || snapshot.characterSummaries?.find(character => character.emblemPath)?.emblemPath || "";
+      const emblem = selectedCharacter?.emblemPath || selectedCharacter?.emblemIconPath || snapshot.characterSummaries?.find(character => character.emblemPath || character.emblemIconPath)?.emblemPath || snapshot.characterSummaries?.find(character => character.emblemIconPath)?.emblemIconPath || "";
       els.profileEmblem.src = emblem ? iconUrl(emblem) : "assets/d2-collections-mark.svg";
       els.profileEmblem.classList.toggle("is-game-emblem", Boolean(emblem));
     }
-    const banner = selectedCharacter?.emblemBackgroundPath || snapshot.characterSummaries?.find(character => character.emblemBackgroundPath)?.emblemBackgroundPath || "";
+    // Older snapshots stored secondarySpecial in emblemIconPath. It is the
+    // full-width Bungie banner layer, so retain it as the migration fallback.
+    const banner = selectedCharacter?.emblemBannerPath || selectedCharacter?.emblemIconPath || selectedCharacter?.emblemBackgroundPath || snapshot.characterSummaries?.find(character => character.emblemBannerPath || character.emblemIconPath || character.emblemBackgroundPath)?.emblemBannerPath || snapshot.characterSummaries?.find(character => character.emblemIconPath)?.emblemIconPath || snapshot.characterSummaries?.find(character => character.emblemBackgroundPath)?.emblemBackgroundPath || "";
     if (banner) {
       const bannerUrl = iconUrl(banner);
       if (els.profileBannerImage) els.profileBannerImage.style.backgroundImage = `url("${bannerUrl}")`;
