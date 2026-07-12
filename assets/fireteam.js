@@ -916,6 +916,7 @@
       definition.name,
       definition.description
     ].join(" ").toLowerCase();
+    if (/\border(s)?\b/.test(text) || /seasonal arsenal|rewards pass/.test(text)) return "order";
     if (item.expirationDate) return "bounty";
     if (text.includes("bounty")) return "bounty";
     if (text.includes("quest")) return "quest";
@@ -1416,8 +1417,15 @@
     ].filter(Boolean).join(" ").toLowerCase();
   }
 
+  function isSeasonalOrderQuest(quest) {
+    if (quest?.kind === "order") return true;
+    const text = questSearchText(quest);
+    return /\border(s)?\b|seasonal arsenal|rewards pass/.test(text);
+  }
+
   function questCategory(quest) {
     const text = questSearchText(quest);
+    if (isSeasonalOrderQuest(quest)) return "edge-of-fate";
     if (quest.kind === "bounty" || /\bbount(y|ies)\b/.test(text)) return "bounty";
     if (/pathfinder/.test(text)) return "pathfinder";
     if (/new light|guardian rank|guardian ranks|tutorial|introduct|cosmodrome|shaw han/.test(text)) return "new-light";
@@ -1432,8 +1440,8 @@
     if (filter === "all") return true;
     if (filter === "tracked") return Boolean(quest.inGameTracked || manualTracked.has(questKey(quest)));
     if (filter === "inventory") return Boolean(quest.inInventory);
-    if (filter === "quest") return quest.kind === "quest" || quest.kind === "pursuit";
-    if (filter === "bounty") return quest.kind === "bounty";
+    if (filter === "quest") return quest.kind === "quest" || quest.kind === "pursuit" || isSeasonalOrderQuest(quest);
+    if (filter === "bounty") return quest.kind === "bounty" && !isSeasonalOrderQuest(quest);
     return questCategory(quest) === filter;
   }
 
@@ -1503,13 +1511,12 @@
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
       const cardVisuals = cardVisualMarkup(quest, pct, { isPinned });
       const tooltip = questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash, icon });
-      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.highlightedObjective ? "is-highlighted-objective" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0">
+      return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.highlightedObjective ? "is-highlighted-objective" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0" style="--card-progress:${pct}%">
         ${pinButton}
         ${icon}
         <div>
           <strong>${escapeHtml(title)}${trackedBadge}${catalystBadge}</strong>
           <p class="fireteam-card-summary">${escapeHtml(quest.description || quest.questLineDescription || quest.activity || `${quest.objectiveComplete || 0}/${quest.objectiveTotal || 0} objectives`)}</p>
-          <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
           ${cardVisuals}
         </div>
         ${tooltip}
@@ -1520,20 +1527,18 @@
     const statusItems = [
       quest.inGameTracked ? ["Tracked in game", "tracked"] : null,
       isPinned ? ["Pinned here", "pinned"] : null,
-      quest.inInventory ? ["In inventory", "inventory"] : null,
       quest.catalystQuest ? ["Catalyst", "catalyst"] : null
     ].filter(Boolean);
     const status = statusItems.length
       ? `<div class="fireteam-card-status">${statusItems.map(([label, key]) => `<span class="is-${escapeHtml(key)}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></span>`).join("")}</div>`
       : "";
-    return `<div class="fireteam-card-visuals">
-      <span class="fireteam-card-percent">${escapeHtml(Math.round(Number(pct || 0)))}% total</span>
-      ${status}
-    </div>`;
+    return status ? `<div class="fireteam-card-visuals">${status}</div>` : "";
   }
 
   function questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash, icon } = {}) {
-    const kind = titleCase(quest.kind || "quest");
+    const seasonalOrder = isSeasonalOrderQuest(quest);
+    const kind = seasonalOrder ? "Order" : titleCase(quest.kind || "quest");
+    const stepLabel = seasonalOrder ? "Seasonal Hub: Orders" : "Quest Step";
     const stepInfo = quest.questLineName
       ? `<span>${escapeHtml(quest.questLineName)}</span>`
       : "";
@@ -1558,7 +1563,7 @@
         <div class="fireteam-tooltip-icon">${icon || `<span class="fireteam-icon-fallback">Q</span>`}</div>
         <div>
           <strong>${escapeHtml(title || quest.name || "Quest item")}</strong>
-          <span>Quest Step</span>
+          <span>${escapeHtml(stepLabel)}</span>
         </div>
         <em>${escapeHtml(rarityLabel)}</em>
       </div>
@@ -1740,6 +1745,7 @@
   }
 
   function sideTrackerKind(item) {
+    if (isSeasonalOrderQuest(item)) return "order";
     if (item?.kind === "bounty") return "bounty";
     if (item?.sourceType === "activity") return "activity";
     return "seasonal";
@@ -1747,6 +1753,7 @@
 
   function sideTrackerLabel(item) {
     const kind = sideTrackerKind(item);
+    if (kind === "order") return "Seasonal Hub: Orders";
     if (kind === "bounty") return "Bounty";
     if (kind === "activity") return "Director";
     return "Seasonal hub";
