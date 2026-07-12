@@ -23,6 +23,7 @@
     seasonal: "assets/dim-icons/dim_pursuit_complete.svg",
     tracked: "assets/dim-icons/dim_tracked.svg"
   };
+  const PURSUIT_FALLBACK_ICON = "assets/dim-icons/dim_pursuit_complete.svg";
   const CLASS_LABELS = {
     "2271682572": "Warlock",
     "3655393761": "Titan",
@@ -439,6 +440,15 @@
       ? `<img class="stat-icon" src="${escapeHtml(icon)}" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" />`
       : `<i class="stat-icon" aria-hidden="true"></i>`;
     return `<span class="${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}">${iconMarkup}<em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
+  }
+
+  function headerSymbolMarkup(className, symbol, label, value) {
+    if (!value && value !== 0) return "";
+    return `<span class="${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}"><i class="stat-icon stat-symbol" aria-hidden="true">${escapeHtml(symbol)}</i><em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
+  }
+
+  function pursuitFallbackMarkup(className = "fireteam-icon-fallback") {
+    return `<span class="${escapeHtml(className)}"><img src="${PURSUIT_FALLBACK_ICON}" alt="" loading="lazy" decoding="async" aria-hidden="true" /></span>`;
   }
 
   function headerClassStatMarkup(className, icon) {
@@ -1193,10 +1203,10 @@
       const selectedClass = selectedCharacter?.className || classFilter || "";
       const selectedClassIcon = classIconPath(selectedClass);
       els.profileTopStats.innerHTML = [
-        season.rank ? headerStatMarkup("stat-season", "assets/dim-icons/bt_season_rank.svg", "Season Pass Rank", season.rank) : "",
-        guardianRank ? headerStatMarkup("stat-rank", "assets/dim-icons/bt_guardian_rank.svg", "Guardian Rank", guardianRank) : "",
+        season.rank ? headerSymbolMarkup("stat-season", "", "Season Pass Rank", season.rank) : "",
+        guardianRank ? headerSymbolMarkup("stat-rank", "", "Guardian Rank", guardianRank) : "",
         selectedClass && selectedClassIcon ? headerClassStatMarkup(selectedClass, selectedClassIcon) : "",
-        displayLight ? headerStatMarkup("is-power", "assets/dim-icons/bt_light_level.svg", "Light", `+${displayLight}`) : ""
+        displayLight ? headerSymbolMarkup("is-power", "", "Light", `+${displayLight}`) : ""
       ].filter(Boolean).join("");
     }
     if (els.profileEmblem) {
@@ -1269,7 +1279,7 @@
           <strong>${profileNameMarkup(account)}</strong>
           <span>${escapeHtml(String(subtitle).toUpperCase())}</span>
         </div>
-        ${seasonRank ? `<span class="fireteam-selector-rank">${headerStatMarkup("stat-season", "assets/dim-icons/bt_season_rank.svg", "Season Pass Rank", seasonRank)}</span>` : ""}
+        ${seasonRank ? `<span class="fireteam-selector-rank">${headerSymbolMarkup("stat-season", "", "Season Pass Rank", seasonRank)}</span>` : ""}
       </div>
       <div class="fireteam-selector-xp">
         <span>Experience</span>
@@ -1293,7 +1303,7 @@
     const active = classFilter && className === classFilter;
     const emblemMarkup = emblem
       ? `<img class="selector-emblem" src="${escapeHtml(emblem)}" alt="" width="48" height="48" loading="lazy" decoding="async" aria-hidden="true" />`
-      : `<span class="fireteam-icon-fallback">G</span>`;
+      : pursuitFallbackMarkup();
     const classMarkup = classIcon
       ? `<img class="selector-class" src="${escapeHtml(classIcon)}" alt="" width="34" height="34" loading="lazy" decoding="async" aria-hidden="true" />`
       : "";
@@ -1472,6 +1482,16 @@
       button.classList.toggle("is-empty", count === 0);
       button.title = tooltip;
       button.setAttribute("aria-label", tooltip);
+      const representative = quests.find(quest => quest.icon && questMatchesFilter(quest, button.dataset.questFilter || "all"));
+      const image = button.querySelector("img");
+      if (image && !image.dataset.fallbackSrc) image.dataset.fallbackSrc = image.getAttribute("src") || PURSUIT_FALLBACK_ICON;
+      if (image && representative?.icon) {
+        image.src = iconUrl(representative.icon);
+        image.classList.add("is-bungie-icon");
+      } else if (image) {
+        image.src = image.dataset.fallbackSrc || PURSUIT_FALLBACK_ICON;
+        image.classList.remove("is-bungie-icon");
+      }
     });
   }
 
@@ -1523,7 +1543,7 @@
       const key = questKey(quest);
       const isPinned = manualTracked.has(key);
       const pinButton = allowPin && key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin from site tracker" : "Pin to site tracker"}"><span aria-hidden="true"></span></button>` : "";
-      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
+      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : pursuitFallbackMarkup();
       const cardVisuals = cardVisualMarkup(quest, pct, { isPinned });
       const tooltip = questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash, icon });
       return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.highlightedObjective ? "is-highlighted-objective" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0" style="--card-progress:${pct}%">
@@ -1574,7 +1594,7 @@
     const rarityLabel = quest.catalystQuest || questCategory(quest) === "exotics" ? "Exotic" : kind;
     return `<div class="fireteam-quest-tooltip" role="tooltip">
       <div class="fireteam-quest-tooltip-head">
-        <div class="fireteam-tooltip-icon">${icon || `<span class="fireteam-icon-fallback">Q</span>`}</div>
+        <div class="fireteam-tooltip-icon">${icon || pursuitFallbackMarkup()}</div>
         <div>
           <strong>${escapeHtml(title || quest.name || "Quest item")}</strong>
           <span>${escapeHtml(stepLabel)}</span>
@@ -1589,7 +1609,7 @@
       ${quest.questLineDescription && quest.questLineDescription !== description ? `<p>${escapeHtml(quest.questLineDescription)}</p>` : ""}
       ${objectiveRows || `<div class="quest-step-list"><div class="quest-step-more">No objective rows exposed by Bungie for this item.</div></div>`}
       ${flavor ? `<blockquote class="fireteam-quest-flavor">${escapeHtml(flavor)}</blockquote>` : ""}
-      ${rewards.length ? `<div class="fireteam-quest-rewards"><strong>Rewards</strong>${rewards.map(reward => `<span>${reward.icon ? `<img src="${escapeHtml(iconUrl(reward.icon))}" alt="" width="24" height="24" loading="lazy" decoding="async" aria-hidden="true" />` : `<i class="fireteam-icon-fallback">R</i>`}<em>${escapeHtml(reward.name)}</em></span>`).join("")}</div>` : ""}
+      ${rewards.length ? `<div class="fireteam-quest-rewards"><strong>Rewards</strong>${rewards.map(reward => `<span>${reward.icon ? `<img src="${escapeHtml(iconUrl(reward.icon))}" alt="" width="24" height="24" loading="lazy" decoding="async" aria-hidden="true" />` : pursuitFallbackMarkup()}<em>${escapeHtml(reward.name)}</em></span>`).join("")}</div>` : ""}
       <div class="fireteam-quest-tooltip-meta">
         ${sourceChip || ""}
         ${stepInfo}
@@ -1654,7 +1674,7 @@
         objectives: quest.objectives || []
       }];
       const currentIndex = Math.max(0, steps.findIndex(step => step.status === "current"));
-      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">Q</span>`;
+      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" loading="lazy" decoding="async" aria-hidden="true" />` : pursuitFallbackMarkup();
       return `<article class="manual-track-card">
         <div class="manual-track-head">
           ${icon}
