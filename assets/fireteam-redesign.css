@@ -2131,3 +2131,14 @@ body.manual-tracker-minimized .fireteam-pinned-panel {
     width: min(360px, 100vw);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  body.fireteam-page *,
+  body.fireteam-page *::before,
+  body.fireteam-page *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

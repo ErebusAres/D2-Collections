@@ -7,7 +7,7 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/fireteam-redesign.css?v=header-xp-text-001" />
+  <link rel="stylesheet" href="assets/fireteam-redesign.css?v=qol-audit-001" />
 </head>
 <body class="fireteam-page">
   <div class="app-shell fireteam-shell">
@@ -55,7 +55,7 @@
           <strong id="socialPlayerName">Fireteam</strong>
           <span id="socialPlayerMeta">Synced Guardians</span>
         </div>
-        <button id="socialDrawerClose" type="button" title="Dismiss">x</button>
+        <button id="socialDrawerClose" type="button" aria-label="Close fireteam and friends" title="Dismiss">x</button>
       </div>
       <div class="fireteam-social-tabs" role="tablist" aria-label="Social list type">
         <button class="active" type="button" data-social-tab="fireteam">Fireteam</button>
@@ -116,8 +116,8 @@
             </div>
             <span id="authState" class="count-pill">Bungie offline</span>
           </div>
-          <div id="statusBox" class="fireteam-status">Ready.</div>
-          <div id="cloudStatus" class="sync-health-strip fireteam-cloud-strip"></div>
+          <div id="statusBox" class="fireteam-status" role="status" aria-live="polite">Ready.</div>
+          <div id="cloudStatus" class="sync-health-strip fireteam-cloud-strip" aria-live="polite"></div>
           <div id="playerMeta" class="fireteam-meta-list fireteam-sync-meta"></div>
           <div class="fireteam-actions">
             <button id="loginBtn" class="button primary" type="button">Sign in with Bungie</button>
@@ -194,6 +194,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=worker-oauth-session-003"></script>
-  <script src="assets/fireteam.js?v=header-xp-text-001"></script>
+  <script src="assets/fireteam.js?v=qol-audit-001"></script>
 </body>
 </html>

@@ -106,6 +106,7 @@
   let manualRenderSeq = 0;
   let floatingTooltip = null;
   let floatingTooltipCard = null;
+  let floatingTooltipPositionFrame = 0;
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -376,14 +377,12 @@
     if (floatingTooltip) floatingTooltip.hidden = true;
   }
 
-  function syncFloatingTooltipTarget(event) {
-    if (!floatingTooltipCard) return;
-    const card = event.target.closest?.(".fireteam-progress-card") || null;
-    if (!card) {
-      hideFloatingTooltip();
-      return;
-    }
-    if (card !== floatingTooltipCard) showFloatingTooltip(card);
+  function scheduleFloatingTooltipPosition() {
+    if (!floatingTooltipCard || floatingTooltipPositionFrame) return;
+    floatingTooltipPositionFrame = requestAnimationFrame(() => {
+      floatingTooltipPositionFrame = 0;
+      positionFloatingTooltip(floatingTooltipCard);
+    });
   }
 
   function classFilterMatches(quest) {
@@ -879,6 +878,17 @@
     return hashes;
   }
 
+  function objectiveRowsPct(rows = []) {
+    if (!rows.length) return null;
+    return Math.round(rows.reduce((sum, row) => {
+      const progress = Number(row.progress || 0);
+      const total = Number(row.total || row.completionValue || 0);
+      const complete = Boolean(row.complete) || (total > 0 && progress >= total);
+      if (complete) return sum + 100;
+      return sum + (total > 0 ? Math.max(0, Math.min(100, (progress / total) * 100)) : 0);
+    }, 0) / rows.length);
+  }
+
   function objectiveSummary(objectives = [], activeHashes = new Set()) {
     const rows = objectives.map(objective => {
       const progress = Number(objective.progress || 0);
@@ -893,12 +903,13 @@
       };
     });
     const complete = rows.filter(row => row.complete).length;
+    const pct = objectiveRowsPct(rows) || 0;
     return {
       rows,
       complete,
       total: rows.length,
       active: rows.filter(row => row.active).length,
-      pct: rows.length ? Math.round((complete / rows.length) * 100) : 0
+      pct
     };
   }
 
@@ -1491,7 +1502,7 @@
       const count = quests.filter(quest => questMatchesFilter(quest, button.dataset.questFilter || "all")).length;
       const label = button.dataset.label || button.dataset.questFilter || "Filter";
       const copy = button.dataset.copy || "";
-      const tooltip = copy ? `${label}: ${copy}` : label;
+      const tooltip = `${label}: ${copy ? `${copy} ` : ""}${count} item${count === 1 ? "" : "s"} in this view.`;
       button.dataset.count = String(count);
       button.classList.toggle("is-empty", count === 0);
       button.title = tooltip;
@@ -1545,7 +1556,7 @@
   }
 
   function progressCardMarkup(quest, { allowPin = true } = {}) {
-      const pct = Math.max(0, Math.min(100, Number(quest.pct || 0)));
+      const pct = questPct(quest);
       const isRecord = quest.kind === "record";
       const unresolved = quest.unresolved || (isRecord && /^Record\s+\d+$/i.test(String(quest.name || "")));
       const title = unresolved ? "Unmapped Bungie record" : cleanBungieText(quest.name) || `Record ${quest.hash}`;
@@ -1556,7 +1567,8 @@
       const objectiveRows = renderObjectiveSteps(quest.objectives || []);
       const key = questKey(quest);
       const isPinned = manualTracked.has(key);
-      const pinButton = allowPin && key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin from site tracker" : "Pin to site tracker"}"><span aria-hidden="true"></span></button>` : "";
+      const pinLabel = isPinned ? `Unpin ${title} from site tracker` : `Pin ${title} to site tracker`;
+      const pinButton = allowPin && key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-label="${escapeHtml(pinLabel)}" aria-pressed="${isPinned ? "true" : "false"}" title="${escapeHtml(pinLabel)}"><span aria-hidden="true"></span></button>` : "";
       const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : pursuitFallbackMarkup();
       const cardVisuals = cardVisualMarkup(quest, pct, { isPinned });
       const tooltip = questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash, icon });
@@ -1697,7 +1709,7 @@
             <strong>${escapeHtml(quest.questLineName || quest.name || "Pinned quest")}</strong>
             <span>${escapeHtml(quest.fireteamOwner || "Fireteam")} / ${escapeHtml(titleCase(quest.kind || "quest"))} / Step ${currentIndex + 1} of ${steps.length}</span>
           </div>
-          <button class="manual-track-remove" type="button" data-manual-track="${escapeHtml(questKey(quest))}" title="Unpin from site tracker">x</button>
+          <button class="manual-track-remove" type="button" data-manual-track="${escapeHtml(questKey(quest))}" aria-label="${escapeHtml(`Unpin ${quest.questLineName || quest.name || "quest"} from site tracker`)}" title="Unpin from site tracker">x</button>
         </div>
         <div class="manual-step-list">${steps.map((step, index) => renderTimelineStep(step, index, steps.length)).join("")}</div>
       </article>`;
@@ -1784,7 +1796,8 @@
   }
 
   function questPct(quest) {
-    return Math.max(0, Math.min(100, Math.round(Number(quest?.pct || 0))));
+    const calculated = objectiveRowsPct(quest?.objectives || []);
+    return Math.max(0, Math.min(100, calculated ?? Math.round(Number(quest?.pct || 0))));
   }
 
   function isSeasonalHubQuest(quest) {
@@ -1875,7 +1888,7 @@
         <span class="side-track-icon">${sideTrackerIcon(item)}</span>
         <div class="side-track-main">
           <div class="side-track-bar" style="--pct:${pct}%">
-            <strong>${escapeHtml(item.name || "Objective")}</strong>
+            <strong>${escapeHtml(cleanBungieText(item.name) || "Objective")}</strong>
             <em>${pct}%</em>
           </div>
           <span><img src="${escapeHtml(categoryIcon)}" alt="" width="14" height="14" loading="lazy" decoding="async" aria-hidden="true" />${trackedIcon}${escapeHtml(sideTrackerMeta(item))}${count}</span>
@@ -2043,7 +2056,6 @@
       if (!card || card.contains(event.relatedTarget)) return;
       hideFloatingTooltip(card);
     });
-    document.addEventListener("pointermove", syncFloatingTooltipTarget, { passive: true });
     document.addEventListener("pointerleave", () => hideFloatingTooltip());
     document.addEventListener("focusin", event => {
       const card = event.target.closest(".fireteam-progress-card");
@@ -2056,8 +2068,8 @@
         if (!card.contains(document.activeElement)) hideFloatingTooltip(card);
       });
     });
-    window.addEventListener("scroll", () => positionFloatingTooltip(floatingTooltipCard), { passive: true });
-    window.addEventListener("resize", () => positionFloatingTooltip(floatingTooltipCard), { passive: true });
+    window.addEventListener("scroll", scheduleFloatingTooltipPosition, { passive: true });
+    window.addEventListener("resize", scheduleFloatingTooltipPosition, { passive: true });
     window.addEventListener("blur", () => hideFloatingTooltip());
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) hideFloatingTooltip();
