@@ -27,6 +27,11 @@
     tracked: "assets/dim-icons/dim_tracked.svg"
   };
   const PURSUIT_FALLBACK_ICON = "assets/dim-icons/dim_pursuit_complete.svg";
+  const HEADER_STAT_ICONS = {
+    seasonRank: "assets/dim-icons/bt_season_rank.svg",
+    guardianRank: "assets/dim-icons/bt_guardian_rank.svg",
+    light: "assets/dim-icons/bt_light_level.svg"
+  };
   const CLASS_LABELS = {
     "2271682572": "Warlock",
     "3655393761": "Titan",
@@ -452,12 +457,8 @@
     const iconMarkup = icon
       ? `<img class="stat-icon" src="${escapeHtml(icon)}" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" />`
       : `<i class="stat-icon" aria-hidden="true"></i>`;
-    return `<span class="${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}">${iconMarkup}<em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
-  }
-
-  function headerSymbolMarkup(className, symbol, label, value) {
-    if (!value && value !== 0) return "";
-    return `<span class="${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}"><i class="stat-icon stat-symbol" aria-hidden="true">${escapeHtml(symbol)}</i><em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
+    const accessibleLabel = `${label}: ${value}`;
+    return `<span class="${escapeHtml(className)}" title="${escapeHtml(accessibleLabel)}" aria-label="${escapeHtml(accessibleLabel)}">${iconMarkup}<em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
   }
 
   function pursuitFallbackMarkup(className = "fireteam-icon-fallback") {
@@ -466,7 +467,7 @@
 
   function headerClassStatMarkup(className, icon) {
     if (!className || !icon) return "";
-    return `<span class="stat-class" title="${escapeHtml(`Class: ${className}`)}"><img class="stat-icon" src="${escapeHtml(icon)}" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /><em>${escapeHtml(className)}</em></span>`;
+    return `<span class="stat-class" title="${escapeHtml(`Class: ${className}`)}" aria-label="${escapeHtml(`Class: ${className}`)}"><img class="stat-icon" src="${escapeHtml(icon)}" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /><em>${escapeHtml(className)}</em></span>`;
   }
 
   function apiBase() {
@@ -1228,10 +1229,10 @@
       const selectedClass = selectedCharacter?.className || classFilter || "";
       const selectedClassIcon = classIconPath(selectedClass);
       els.profileTopStats.innerHTML = [
-        season.rank ? headerSymbolMarkup("stat-season", "", "Season Pass Rank", season.rank) : "",
-        guardianRank ? headerSymbolMarkup("stat-rank", "", "Guardian Rank", guardianRank) : "",
+        season.rank ? headerStatMarkup("stat-season", HEADER_STAT_ICONS.seasonRank, "Rewards Pass Rank", season.rank) : "",
+        guardianRank ? headerStatMarkup("stat-rank", HEADER_STAT_ICONS.guardianRank, "Guardian Rank", guardianRank) : "",
         selectedClass && selectedClassIcon ? headerClassStatMarkup(selectedClass, selectedClassIcon) : "",
-        displayLight ? headerSymbolMarkup("is-power", "", "Light", `+${displayLight}`) : ""
+        displayLight ? headerStatMarkup("is-power", HEADER_STAT_ICONS.light, "Power", `+${displayLight}`) : ""
       ].filter(Boolean).join("");
     }
     if (els.profileEmblem) {
@@ -1308,7 +1309,7 @@
           <strong>${profileNameMarkup(account)}</strong>
           <span>${escapeHtml(String(subtitle).toUpperCase())}</span>
         </div>
-        ${seasonRank ? `<span class="fireteam-selector-rank">${headerSymbolMarkup("stat-season", "", "Season Pass Rank", seasonRank)}</span>` : ""}
+        ${seasonRank ? `<span class="fireteam-selector-rank">${headerStatMarkup("stat-season", HEADER_STAT_ICONS.seasonRank, "Rewards Pass Rank", seasonRank)}</span>` : ""}
       </div>
       <div class="fireteam-selector-xp">
         <span>Experience</span>

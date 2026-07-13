@@ -568,6 +568,20 @@ body.fireteam-page .app-shell.fireteam-shell {
   filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0,0,0,.62));
 }
 
+.fireteam-profile-stats .stat-season .stat-icon,
+.fireteam-profile-stats .stat-rank .stat-icon {
+  width: 15px;
+  height: 15px;
+  flex-basis: 15px;
+}
+
+.fireteam-profile-stats .is-power .stat-icon {
+  width: 17px;
+  height: 15px;
+  flex-basis: 17px;
+  opacity: 1;
+}
+
 .fireteam-profile-stats .stat-class .stat-icon {
   width: 16px;
   height: 16px;
@@ -586,10 +600,6 @@ body.fireteam-page .app-shell.fireteam-shell {
 .fireteam-profile-stats .is-power strong {
   color: var(--ft-gold);
   font-size: .95rem;
-}
-
-.fireteam-profile-stats .is-power strong {
-  color: var(--ft-gold);
 }
 
 .fireteam-profile-select .fireteam-profile-meta {

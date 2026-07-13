@@ -24,6 +24,10 @@ assert.match(fireteam, /secondarySpecial/, "Fireteam title identity must resolve
 assert.match(fireteam, /function cleanBungieText\(value\)/, "Fireteam text must sanitize unresolved Bungie display tokens.");
 assert.match(fireteam, /\\\{var:\\d\+\\\}/, "Fireteam text must remove unresolved Bungie variable placeholders.");
 assert.match(fireteam, /profileGuardianMeta\.style\.setProperty\("--season-progress"/, "The title bar must expose Rewards Pass progress to CSS.");
+assert.match(fireteam, /bt_season_rank\.svg/, "Rewards Pass rank must use its semantic title-bar icon.");
+assert.match(fireteam, /bt_guardian_rank\.svg/, "Guardian Rank must use its semantic title-bar icon.");
+assert.match(fireteam, /bt_light_level\.svg/, "Power must use its semantic title-bar icon.");
+assert.doesNotMatch(fireteam, /function headerSymbolMarkup/, "Title-bar stats must not depend on ambiguous private-use font glyphs.");
 assert.match(fireteam, /function objectiveRowsPct\(rows = \[\]\)/, "Quest cards must include partial objective progress in their percentage.");
 assert.match(fireteam, /calculated \?\? Math\.round/, "Saved cloud snapshots must recalculate progress during rendering.");
 assert.doesNotMatch(fireteam, /addEventListener\("pointermove"/, "Fireteam tooltips must not scan the DOM on every pointer movement.");
