@@ -973,13 +973,61 @@ body.fireteam-page .fireteam-profile-copy.d2-shell-identity {
 
 body.fireteam-page .fireteam-profile-mark {
   position: static;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  transform: none;
+}
+
+body.fireteam-page .fireteam-profile-mark img.d2-shell-emblem {
+  display: block;
   width: 96px;
   height: 96px;
 }
 
-body.fireteam-page .fireteam-profile-mark img.d2-shell-emblem {
-  width: 96px;
-  height: 96px;
+body.fireteam-page.is-fireteam-syncing .fireteam-bray-header::before {
+  content: "";
+  position: absolute;
+  z-index: 310;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0 12%, #78c9ed 28%, #69dfa7 50%, #e7c85c 72%, transparent 88%);
+  background-size: 220% 100%;
+  animation: d2-fireteam-sync-sweep 1.35s linear infinite;
+  box-shadow: 0 0 10px rgba(105,223,167,.42);
+}
+
+body.fireteam-page.is-fireteam-syncing #authState::before,
+body.fireteam-page .fireteam-status[data-kind="loading"]::before {
+  content: "";
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  border: 2px solid rgba(143,199,236,.3);
+  border-top-color: #8fc7ec;
+  border-radius: 50%;
+  animation: d2-fireteam-sync-spin .75s linear infinite;
+}
+
+body.fireteam-page.is-fireteam-syncing #authState,
+body.fireteam-page .fireteam-status[data-kind="loading"] {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-color: rgba(143,199,236,.42);
+  color: #dff4ff;
+}
+
+@keyframes d2-fireteam-sync-sweep {
+  from { background-position: 110% 0; }
+  to { background-position: -110% 0; }
+}
+
+@keyframes d2-fireteam-sync-spin {
+  to { transform: rotate(360deg); }
 }
 
 body.fireteam-page .fireteam-profile-select.d2-shell-profile-button {

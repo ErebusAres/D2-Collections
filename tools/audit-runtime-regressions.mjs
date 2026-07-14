@@ -46,6 +46,11 @@ assert.match(fireteam, /calculated \?\? Math\.round/, "Saved cloud snapshots mus
 assert.doesNotMatch(fireteam, /addEventListener\("pointermove"/, "Fireteam tooltips must not scan the DOM on every pointer movement.");
 assert.match(fireteam, /function scheduleFloatingTooltipPosition\(\)/, "Tooltip scroll positioning must be animation-frame throttled.");
 assert.match(fireteam, /AUTO_REFRESH_MS = 15 \* 60 \* 1000/, "Fireteam background refresh must use a restrained interval.");
+assert.match(fireteam, /function setSyncing\(active\)/, "Fireteam refresh must expose a visible and accessible loading state.");
+assert.match(fireteam, /renderSnapshot\(linked \? localGuardianProfile\(\) : null\)/, "Fireteam must recognize the shared linked profile immediately on navigation.");
+assert.match(fireteam, /setTimeout\(\(\) => requestRefresh\(\), 0\)/, "Fireteam must begin its first linked refresh without an artificial delay.");
+assert.match(siteShellStyles, /transform:\s*none;[\s\S]{0,160}img\.d2-shell-emblem/, "The Fireteam emblem must not retain the obsolete upward translation.");
+assert.match(siteShellStyles, /d2-fireteam-sync-sweep/, "Fireteam must show an animated synchronization indicator.");
 assert.match(fireteam, /document\.hidden \|\| !navigator\.onLine \|\| userIsBusy\(\)/, "Fireteam background refresh must pause while hidden, offline, or busy.");
 assert.match(fireteam, /DATA_SYNC_LOCK/, "Fireteam refresh must coordinate with other D2 Collections tabs.");
 assert.match(fireteam, /Date\.now\(\) - latest < AUTO_REFRESH_MS/, "Visibility changes must not refresh an already-fresh Fireteam snapshot.");

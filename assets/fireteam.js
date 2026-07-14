@@ -5,6 +5,7 @@
   const AUTH_KEY = "d2-collections-auth-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const RETURN_KEY = "d2-collections-oauth-return-v1";
+  const GUARDIAN_PROFILE_KEY = "d2-collections-local-guardian-profile-v1";
   const STATE_KEY = "d2-collections-oauth-state-v1";
   const RECORD_CACHE_KEY = "d2-fireteam-record-def-cache-v1";
   const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v4";
@@ -428,6 +429,22 @@
   function setAuthState(text) {
     if (els.authState) els.authState.textContent = text;
     if (els.loginBtn) els.loginBtn.textContent = sessionIsUsable() || hasSavedCode() ? "Refresh Bungie login" : "Sign in with Bungie";
+  }
+
+  function setSyncing(active) {
+    document.body.classList.toggle("is-fireteam-syncing", active);
+    document.querySelector("main.fireteam-grid")?.setAttribute("aria-busy", String(active));
+    if (els.refreshBtn) {
+      els.refreshBtn.textContent = active ? "Syncing Bungie..." : "Refresh from Bungie";
+      els.refreshBtn.disabled = active;
+    }
+    if (active) setAuthState("Syncing Bungie...");
+    else setAuthState(sessionIsUsable() ? "Bungie linked" : hasSavedCode() ? "Login ready" : "Sign in required");
+  }
+
+  function localGuardianProfile() {
+    const saved = readJson(GUARDIAN_PROFILE_KEY);
+    return saved?.characterSummaries?.length ? saved : null;
   }
 
   function formatDate(value) {
@@ -1989,9 +2006,8 @@
   async function refreshFromBungie({ silent = false } = {}) {
     if (refreshing) return;
     refreshing = true;
-    if (els.refreshBtn) els.refreshBtn.disabled = true;
+    setSyncing(true);
     try {
-      setAuthState(sessionIsUsable() || hasSavedCode() ? "Bungie linked" : "Sign in required");
       if (!sessionIsUsable() && !hasSavedCode()) {
         setStatus("Sign in with Bungie to read Fireteam progress.", "warn");
         return;
@@ -2011,7 +2027,7 @@
       setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Sign in required");
     } finally {
       refreshing = false;
-      if (els.refreshBtn) els.refreshBtn.disabled = false;
+      setSyncing(false);
       scheduleAutoRefresh();
     }
   }
@@ -2063,8 +2079,9 @@
 
   function init() {
     captureOAuthCode();
-    setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Bungie offline");
-    renderSnapshot(null);
+    const linked = sessionIsUsable();
+    setAuthState(linked ? "Bungie linked" : hasSavedCode() ? "Securing Bungie login..." : "Bungie offline");
+    renderSnapshot(linked ? localGuardianProfile() : null);
     loadCloudSnapshots();
     els.loginBtn?.addEventListener("click", () => {
       window.location.assign(buildAuthUrl());
@@ -2220,7 +2237,7 @@
       event.preventDefault();
       setSelectedSnapshot(String(snapshotCard.dataset.viewSnapshot || ""));
     });
-    if (sessionIsUsable() || hasSavedCode()) scheduleAutoRefresh(5 * 1000);
+    if (sessionIsUsable() || hasSavedCode()) setTimeout(() => requestRefresh(), 0);
   }
 
   if (document.readyState === "loading") {
