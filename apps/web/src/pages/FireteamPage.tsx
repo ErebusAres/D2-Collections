@@ -1,0 +1,62 @@
+import type { FireteamData, FireteamMember } from "@guardian-nexus/contracts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Activity, AlertTriangle, CheckCircle2, EyeOff, Link2, Radio, Share2, ShieldCheck, Users } from "lucide-react";
+import { useCallback, useEffect, useMemo } from "react";
+import { api, mutationHeaders } from "../api/client";
+import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
+import { pinsKey, useGuardian } from "../state/GuardianContext";
+import styles from "./Pages.module.css";
+
+export function FireteamPage() {
+  const { session, selectedCharacterId, autoRefresh } = useGuardian();
+  const queryClient = useQueryClient();
+  const result = useQuery({
+    queryKey: ["fireteam", selectedCharacterId],
+    queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(selectedCharacterId)}`),
+    enabled: Boolean(session?.authenticated),
+    refetchInterval: autoRefresh ? 60_000 : false,
+    refetchIntervalInBackground: false
+  });
+  const pinnedIds = useMemo(() => {
+    if (!session?.guardian?.membershipId || !selectedCharacterId) return [];
+    try { return JSON.parse(localStorage.getItem(pinsKey(session.guardian.membershipId, selectedCharacterId)) || "[]") as string[]; } catch { return []; }
+  }, [session?.guardian?.membershipId, selectedCharacterId]);
+  const share = useMutation({
+    mutationFn: () => api("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds: pinnedIds }) }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
+  });
+  const stop = useMutation({
+    mutationFn: () => api("/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
+  });
+  const renew = useCallback(() => { if (selectedCharacterId && !share.isPending) share.mutate(); }, [selectedCharacterId, share]);
+  useEffect(() => {
+    if (!result.data?.data.sharingEnabled || !autoRefresh) return;
+    const timer = window.setInterval(renew, 60_000);
+    return () => window.clearInterval(timer);
+  }, [result.data?.data.sharingEnabled, autoRefresh, renew]);
+  const data = result.data?.data;
+
+  return <AuthGate>
+    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="See current party presence and activity, then coordinate only the quest details each Guardian explicitly shares." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />{data && <button className={`${styles.primaryAction} ${data.sharingEnabled ? styles.sharing : ""}`} onClick={() => data.sharingEnabled ? stop.mutate() : share.mutate()} disabled={share.isPending || stop.isPending}><Share2 size={15} />{data.sharingEnabled ? "Stop sharing" : "Share for 15 minutes"}</button>}</>} />
+    <QueryState loading={result.isLoading} error={result.error as Error} onRetry={() => void result.refetch()} />
+    {data && <>
+      <section className={styles.fireteamStatus}>
+        <div><Radio /><span>Fireteam signal</span><strong>{data.members.length > 1 ? `${data.members.length} Guardians` : "Solo"}</strong></div>
+        <div><Activity /><span>Current activity</span><strong>{data.activity || "Orbit / unavailable"}</strong></div>
+        <div><ShieldCheck /><span>Your sharing</span><strong>{data.sharingEnabled ? "Active · renews every 60s" : "Private"}</strong></div>
+      </section>
+      <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} />)}</section>
+      <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Best-effort live status</strong><p>Bungie describes party and current-activity data as transitory and non-authoritative. Guardian Nexus shows timestamps and privacy states instead of presenting it as guaranteed real time.</p></div></section>
+    </>}
+  </AuthGate>;
+}
+
+function MemberCard({ member }: { member: FireteamMember }) {
+  return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""}`}>
+    <header>{member.character?.emblemPath ? <img src={member.character.emblemPath} alt="" /> : <span><Users /></span>}<div><small>{member.isSelf ? "You" : member.sharing ? "Sharing now" : "Party member"}</small><h2>{member.displayName}</h2><p>{member.character ? `${member.character.className} · ${member.character.power} Power` : "Character details private"}</p></div><i className={member.sharing ? styles.signalLive : ""} /></header>
+    <div className={styles.memberActivity}><Activity size={15} /><span>Activity</span><strong>{member.activity || "Unavailable"}</strong></div>
+    {member.sharing ? <div className={styles.sharedQuests}><h3>Shared objectives</h3>{member.quests.length ? member.quests.map((quest) => <div key={quest.instanceId}><span>{quest.icon ? <img src={quest.icon} alt="" /> : <CheckCircle2 />}</span><div><b>{quest.name}</b><small>{quest.currentStep}</small><i><span style={{ width: `${quest.percent}%` }} /></i></div><strong>{quest.percent}%</strong></div>) : <p>No site-pinned or in-game-tracked quests shared.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Quest details not shared</strong><p>This Guardian must open Guardian Nexus and opt into a temporary share.</p></div>}
+    {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>Shared progress opportunity:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
+  </article>;
+}

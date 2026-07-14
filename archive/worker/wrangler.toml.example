@@ -1,0 +1,14 @@
+name = "d2-collections-sync"
+main = "src/index.js"
+compatibility_date = "2026-06-28"
+workers_dev = true
+preview_urls = true
+
+[vars]
+ALLOWED_ORIGIN = "https://erebusares.github.io"
+BUNGIE_CLIENT_ID = "53180"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "d2-collections"
+database_id = "replace-with-cloudflare-d1-database-id"

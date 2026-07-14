@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>D2 Exotic Collections</title>
+  <meta name="description" content="Destiny 2 exotic collection tracker with Bungie login, Cloudflare sync, catalyst tracking, armor checks, and quick acquisition help." />
+  <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
+  <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
+  <link rel="stylesheet" href="assets/styles.css?v=status-glyph-perf-001" />
+  <script>
+    (() => {
+      try {
+        const mode = localStorage.getItem("d2-collections-layout-mode-v1");
+        if (mode === "simple") document.documentElement.classList.add("layout-simple");
+        if (mode === "shelf") document.documentElement.classList.add("layout-shelf");
+      } catch {}
+    })();
+  </script>
+</head>
+<body>
+  <details class="sync-popout">
+    <summary class="sync-gear" aria-label="Open sync tools" title="Sync tools">&#9881;</summary>
+    <div class="sync-popout-panel">
+      <div class="sync-popout-head">
+        <div>
+          <p class="eyebrow">Sync center</p>
+          <h2>Bungie + cloud status</h2>
+        </div>
+      </div>
+      <div class="sync-actions">
+        <div class="auth-chip" aria-label="Bungie account status">
+          <span id="apiStatus" class="count-pill">Not signed in</span>
+          <button id="loginBtn" class="button primary" type="button">Login with Bungie</button>
+        </div>
+        <button id="exportBtn" class="button ghost" type="button">Export backup</button>
+      </div>
+      <div id="dataHealth" class="data-health" aria-label="Catalog data health"></div>
+      <section class="panel data-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Diagnostics</p>
+            <h2>Local backup export</h2>
+          </div>
+          <span class="count-pill">Advanced</span>
+        </div>
+        <p class="muted">Cloud sync is the normal path now. Use this only as a local backup or when debugging a bad sync.</p>
+        <details class="debug-details">
+          <summary>Show exported checklist JSON</summary>
+          <textarea id="exportBox" spellcheck="false" placeholder="Click Export backup to generate local checklist JSON..."></textarea>
+        </details>
+      </section>
+    </div>
+  </details>
+
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Cloud-synced Destiny 2 tracker</p>
+        <h1 class="hero-title"><img src="assets/d2-collections-title.svg?v=d2-exotic-tile-mark" alt="D2 Exotic Collections" width="760" height="150" decoding="async" /></h1>
+        <p class="hero-copy">A fast exotic checklist for Ares, Icee, and Fears. Bungie login updates local ownership, catalysts, Rahool materials, Xur checks, and the shared cloud snapshot.</p>
+      </div>
+      <nav class="site-nav" aria-label="Site navigation">
+        <a href="index.html" aria-current="page">Collections</a>
+        <a href="fireteam.html">Fireteam</a>
+      </nav>
+    </header>
+
+    <section id="summary" class="summary-grid" aria-label="Collection summary"></section>
+
+    <nav class="toolbar" aria-label="Collection controls">
+      <div class="search-wrap">
+        <span aria-hidden="true">/</span>
+        <input id="searchInput" type="search" placeholder="Search exotics, slots, elements, sources..." autocomplete="off" />
+      </div>
+      <div class="segmented" role="group" aria-label="View filter">
+        <button class="seg active" data-view="all" type="button">All</button>
+        <button class="seg" data-view="needs" type="button">Needs Action</button>
+        <button class="seg" data-view="priority" type="button">Priority</button>
+        <button class="seg" data-view="easy" type="button">Easy</button>
+        <button class="seg" data-view="missing" type="button">Missing</button>
+        <button class="seg" data-view="catalysts" type="button">Catalysts</button>
+      </div>
+      <div class="segmented" role="group" aria-label="Player focus">
+        <button class="seg active" data-player="all" type="button">Fireteam</button>
+        <button class="seg" data-player="corey" type="button">Ares</button>
+        <button class="seg" data-player="matt" type="button">Icee</button>
+        <button class="seg" data-player="chris" type="button">Fears</button>
+      </div>
+      <label class="sort-wrap">
+        <span>Sort</span>
+        <select id="sortSelect" aria-label="Sort collection">
+          <option value="catalog">Catalog</option>
+          <option value="needs">Needs action first</option>
+          <option value="priority">Priority first</option>
+          <option value="missing">Missing first</option>
+          <option value="easy">Easy wins first</option>
+          <option value="rahool">Rahool-ready first</option>
+          <option value="catalyst">Catalyst gaps first</option>
+          <option value="type">Slot / type</option>
+        </select>
+      </label>
+      <div class="segmented layout-toggle" role="group" aria-label="Layout mode">
+        <button class="seg active" data-layout-mode="detailed" type="button">Detailed</button>
+        <button class="seg" data-layout-mode="shelf" type="button">Shelf</button>
+        <button class="seg" data-layout-mode="simple" type="button">Simple</button>
+      </div>
+    </nav>
+
+    <section class="at-a-glance" aria-label="At a glance navigation and legend">
+      <nav class="quick-jump" aria-label="Quick jump">
+        <a href="#weaponsPanel">Weapons</a>
+        <a href="#aresWeapons">Ares weapons</a>
+        <a href="#iceeWeapons">Icee weapons</a>
+        <a href="#fearsWeapons">Fears weapons</a>
+        <a href="#aresArmor">Ares armor</a>
+        <a href="#iceeArmor">Icee armor</a>
+        <a href="#fearsArmor">Fears armor</a>
+      </nav>
+      <div class="legend-strip" aria-label="Visual legend">
+        <span id="activePlayerPill" class="identity-pill">Viewing as: not linked</span>
+        <span><i class="legend-swatch owned"></i>Owned</span>
+        <span><i class="legend-swatch partial"></i>Partial</span>
+        <span><i class="legend-swatch missing"></i>Missing</span>
+        <span><i class="legend-dot yes"></i><i class="legend-dot no"></i>Own / Cat / Done</span>
+        <span><i class="legend-dot idle"></i>No catalyst</span>
+        <span><i class="legend-chip must"><img class="ui-glyph" src="assets/dim-icons/dim_thumb_up.svg" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Must</span>
+        <span><i class="legend-chip easy"><img class="ui-glyph" src="assets/dim-icons/dim_check_circle.svg" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Easy</span>
+        <span><i class="legend-chip final"><img class="ui-glyph" src="assets/dim-icons/dim_masterwork_hammer.svg" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Final catalyst</span>
+        <span><i class="legend-chip rahool"><img class="real-icon" src="https://www.bungie.net/common/destiny2_content/icons/3e6a698e1a8a5fb446fdcbf1e63c5269.png" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Rahool</span>
+        <span><i class="legend-chip xur"><img class="real-icon" src="https://www.bungie.net/common/destiny2_content/icons/1fa5806bb6ec16b5f8cdeb4b36d4bb01.jpg" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Xur</span>
+        <span><i class="legend-chip buy"><img class="real-icon" src="https://www.bungie.net/common/destiny2_content/icons/9970631fe1052642c268132dfc30e16b.jpg" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Buy now</span>
+        <span><i class="legend-chip difficulty-easy"><img class="ui-glyph" src="assets/dim-icons/difficulty_easy.svg?v=d2-foreground-skull-difficulty" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Easy diff</span>
+        <span><i class="legend-chip difficulty-normal"><img class="ui-glyph" src="assets/dim-icons/difficulty_normal.svg?v=d2-foreground-skull-difficulty" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Normal diff</span>
+        <span><i class="legend-chip difficulty-difficult"><img class="ui-glyph" src="assets/dim-icons/difficulty_difficult.svg?v=d2-foreground-skull-difficulty" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Difficult</span>
+        <span><i class="legend-chip difficulty-impossible"><img class="ui-glyph" src="assets/dim-icons/difficulty_impossible.svg?v=d2-foreground-skull-difficulty" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Impossible</span>
+      </div>
+      <div id="syncHealthStrip" class="sync-health-strip" aria-label="Sync health"></div>
+    </section>
+
+    <details id="claimFeedPopout" class="claim-feed-popout">
+      <summary class="claim-feed-button" aria-label="Open recent claims feed" title="Recent claims">
+        <span class="claim-feed-icon" aria-hidden="true"></span>
+        <strong>Recent</strong>
+        <em id="claimFeedCount">0</em>
+      </summary>
+      <section class="claim-feed-panel" aria-label="Recently claimed items">
+        <div class="claim-feed-head">
+          <div>
+            <p class="eyebrow">Activity feed</p>
+            <h2>Recently claimed</h2>
+          </div>
+          <button id="clearClaimFeedBtn" class="button ghost" type="button">Clear</button>
+        </div>
+        <div id="claimFeedList" class="claim-feed-list"></div>
+      </section>
+    </details>
+
+    <main class="content-grid">
+      <section id="weaponsPanel" class="panel weapons-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Weapons</p>
+            <h2>Owned + catalyst checklist</h2>
+          </div>
+          <span id="weaponCount" class="count-pill"></span>
+        </div>
+        <div id="weaponsList" class="weapon-list"></div>
+      </section>
+
+      <section class="panel armor-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Armor</p>
+            <h2>Fireteam class checklist</h2>
+          </div>
+          <span id="armorCount" class="count-pill"></span>
+        </div>
+        <div class="armor-columns">
+          <article id="aresArmor">
+            <div class="class-title warlock"><span class="class-title-icon"><img src="assets/dim-icons/class_warlock.png" alt="" width="22" height="22" loading="lazy" decoding="async" aria-hidden="true" /></span><strong>Ares / Warlock</strong><em id="aresArmorCount" class="section-stat"></em></div>
+            <div id="warlockList" class="armor-list"></div>
+          </article>
+          <article id="iceeArmor">
+            <div class="class-title titan"><span class="class-title-icon"><img src="assets/dim-icons/class_titan.png" alt="" width="22" height="22" loading="lazy" decoding="async" aria-hidden="true" /></span><strong>Icee / Titan</strong><em id="iceeArmorCount" class="section-stat"></em></div>
+            <div id="titanList" class="armor-list"></div>
+          </article>
+          <article id="fearsArmor">
+            <div class="class-title hunter"><span class="class-title-icon"><img src="assets/dim-icons/class_hunter.png" alt="" width="22" height="22" loading="lazy" decoding="async" aria-hidden="true" /></span><strong>Fears / Hunter</strong><em id="fearsArmorCount" class="section-stat"></em></div>
+            <div id="hunterList" class="armor-list"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+  </div>
+
+  <script src="data/bungie-config.js"></script>
+  <script src="data/catalog.js?v=d2-source-audit"></script>
+  <script src="data/hunter-catalog.js"></script>
+  <script src="data/year-8-catalog.js?v=d2-real-source-results"></script>
+  <script src="data/icon-map.js?v=244164-icons-283"></script>
+  <script src="data/bungie-collectible-map.js?v=244164-sources"></script>
+  <script src="data/item-unlocks.js?v=manifest-unlock-names"></script>
+  <script src="assets/static-icons.js?v=manifest-sources"></script>
+  <script src="assets/ui-icons.js?v=d2-foreground-skull-difficulty"></script>
+  <script src="data/priority-tags.js?v=d2-real-source-results"></script>
+  <script src="data/checklist.js?v=short-player-labels"></script>
+  <script src="assets/oauth-redirect-fix.js?v=d2-persistent-login"></script>
+  <script>window.D2_COLLECTIONS_ARMOR_COLUMNS_ACTIVE = true;</script>
+  <script src="assets/app.js?v=status-glyph-perf-001"></script>
+  <script src="assets/auth-compact.js?v=refresh-not-logout"></script>
+  <script src="assets/armor-columns.js?v=status-glyph-perf-001"></script>
+  <script src="assets/help.js?v=scroll-audit-001"></script>
+  <script src="assets/layout-mode.js?v=shelf-layout"></script>
+  <script src="assets/icon-audit.js"></script>
+  <script src="assets/api-handoff.js?v=auth-refresh-diagnostics"></script>
+  <script src="assets/cloud-sync.js?v=d2-polish-sync-health"></script>
+  <script src="assets/bungie-collection-dump.js?v=worker-oauth-session-003"></script>
+</body>
+</html>
