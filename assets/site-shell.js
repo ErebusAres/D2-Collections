@@ -126,6 +126,24 @@
     return `<span class="d2-shell-stat ${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}"><img src="${escapeHtml(icon)}" alt="" aria-hidden="true" /><strong>${escapeHtml(value)}</strong></span>`;
   }
 
+  function headerStatMarkup(className, icon, label, value) {
+    if (!value && value !== 0) return "";
+    return `<span class="${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}" aria-label="${escapeHtml(`${label}: ${value}`)}"><img class="stat-icon" src="${escapeHtml(icon)}" alt="" aria-hidden="true" /><strong>${escapeHtml(value)}</strong><em>${escapeHtml(label)}</em></span>`;
+  }
+
+  function headerClassStatMarkup(className) {
+    const icon = CLASS_ICONS[className];
+    if (!className || !icon) return "";
+    return `<span class="stat-class" title="${escapeHtml(`Class: ${className}`)}" aria-label="${escapeHtml(`Class: ${className}`)}"><img class="stat-icon" src="${escapeHtml(icon)}" alt="" aria-hidden="true" /><em>${escapeHtml(className)}</em></span>`;
+  }
+
+  function accountNameMarkup(name) {
+    const value = String(name || "Guardian");
+    const match = value.match(/^(.*?)(#\d+)$/);
+    if (!match) return escapeHtml(value);
+    return `${escapeHtml(match[1])}<em>${escapeHtml(match[2])}</em>`;
+  }
+
   function selectedCharacter(snapshot) {
     const characters = payload(snapshot)?.characterSummaries || [];
     return characters.find(character => String(character.characterId) === selectedCharacterId) || characters[0] || null;
@@ -138,8 +156,10 @@
       els.name.textContent = linked ? "Loading Guardian..." : "D2 Collections";
       els.stats.innerHTML = `<span class="d2-shell-stat">${linked ? "Syncing profile and characters" : "Sign in to load Guardian identity"}</span>`;
       els.emblem.src = "assets/d2-collections-mark.svg";
+      els.emblem.classList.remove("is-game-emblem");
       els.banner?.style.removeProperty("background-image");
       els.xp?.style.setProperty("--d2-season-progress", "0%");
+      els.xp?.style.setProperty("--season-progress", "0%");
       els.characterMenu.innerHTML = "";
       return;
     }
@@ -150,28 +170,41 @@
     const className = character?.className || "";
     els.name.textContent = accountName(snapshot);
     els.stats.innerHTML = [
-      season.rank ? statMarkup(STAT_ICONS.season, "Rewards Pass Rank", season.rank) : "",
-      guardianRank ? statMarkup(STAT_ICONS.rank, "Guardian Rank", guardianRank) : "",
-      className && CLASS_ICONS[className] ? statMarkup(CLASS_ICONS[className], "Class", className, "is-class") : "",
-      power ? statMarkup(STAT_ICONS.power, "Power", `+${power}`, "is-power") : ""
+      season.rank ? headerStatMarkup("stat-season", STAT_ICONS.season, "Rewards Pass Rank", season.rank) : "",
+      guardianRank ? headerStatMarkup("stat-rank", STAT_ICONS.rank, "Guardian Rank", guardianRank) : "",
+      headerClassStatMarkup(className),
+      power ? headerStatMarkup("is-power", STAT_ICONS.power, "Power", `+${power}`) : ""
     ].filter(Boolean).join("");
     const emblem = character?.emblemPath || character?.emblemIconPath || "";
     els.emblem.src = emblem ? iconUrl(emblem) : "assets/d2-collections-mark.svg";
+    els.emblem.classList.toggle("is-game-emblem", Boolean(emblem));
     const banner = character?.emblemBannerPath || character?.emblemBackgroundPath || row.characterSummaries?.find(item => item.emblemBannerPath || item.emblemBackgroundPath)?.emblemBannerPath || row.characterSummaries?.find(item => item.emblemBackgroundPath)?.emblemBackgroundPath || "";
     if (banner) els.banner.style.backgroundImage = `url("${iconUrl(banner)}")`;
     else els.banner.style.removeProperty("background-image");
     els.xp?.style.setProperty("--d2-season-progress", `${Math.max(0, Math.min(100, Number(season.pct || 0)))}%`);
+    els.xp?.style.setProperty("--season-progress", `${Math.max(0, Math.min(100, Number(season.pct || 0)))}%`);
     renderCharacters(snapshot);
   }
 
   function renderCharacters(snapshot) {
     const row = payload(snapshot) || {};
     const characters = row.characterSummaries || [];
-    els.characterMenu.innerHTML = characters.map(character => {
+    if (!characters.length) {
+      els.characterMenu.innerHTML = `<div class="fireteam-selector-empty">Sync Bungie to load characters.</div>`;
+      return;
+    }
+    const season = row.seasonProgress || {};
+    const progress = Number(season.progress || 0);
+    const next = Number(season.next || 0);
+    const pct = next ? Math.max(0, Math.min(100, Math.round((progress / next) * 100))) : Number(season.pct || 0);
+    const options = characters.map(character => {
       const active = String(character.characterId) === String(selectedCharacter(snapshot)?.characterId);
-      const icon = character.emblemPath || CLASS_ICONS[character.className] || "assets/d2-collections-mark.svg";
-      return `<button class="d2-shell-character-option ${active ? "active" : ""}" type="button" data-shell-character="${escapeHtml(character.characterId)}"><img src="${escapeHtml(iconUrl(icon))}" alt="" aria-hidden="true" /><span><strong>${escapeHtml(character.className || "Guardian")}</strong><small>${escapeHtml(character.raceName || "Character")}</small></span><b>+${escapeHtml(character.light || 0)}</b></button>`;
+      const emblem = character.emblemPath || "assets/d2-collections-mark.svg";
+      const classIcon = CLASS_ICONS[character.className] || "";
+      const banner = character.emblemBannerPath || character.emblemBackgroundPath || "";
+      return `<button class="fireteam-selector-character ${active ? "active" : ""}" type="button" data-shell-character="${escapeHtml(character.characterId)}" aria-pressed="${active ? "true" : "false"}" ${banner ? `style="--character-banner:url('${escapeHtml(iconUrl(banner))}')"` : ""}><img class="selector-emblem" src="${escapeHtml(iconUrl(emblem))}" alt="" aria-hidden="true" /><span><strong>${escapeHtml(character.className || "Guardian")}</strong><em>${escapeHtml(character.raceName || "Character")}</em></span>${classIcon ? `<img class="selector-class" src="${escapeHtml(classIcon)}" alt="" aria-hidden="true" />` : ""}<b>+${escapeHtml(character.light || 0)}</b></button>`;
     }).join("");
+    els.characterMenu.innerHTML = `<div class="fireteam-selector-account"><div><strong>${accountNameMarkup(accountName(snapshot))}</strong><span>${escapeHtml(String(row.clanName || row.clan?.name || "Guardian profile").toUpperCase())}</span></div>${season.rank ? `<span class="fireteam-selector-rank">${statMarkup(STAT_ICONS.season, "Rewards Pass Rank", season.rank)}</span>` : ""}</div><div class="fireteam-selector-xp"><span>Experience</span><strong>${next ? `${escapeHtml(progress.toLocaleString())}/${escapeHtml(next.toLocaleString())}` : "No season progress"}</strong><i style="width:${pct}%"></i></div><div class="fireteam-selector-list">${options}</div>`;
   }
 
   function renderRoster() {
@@ -220,6 +253,11 @@
     }
     setMenu(els.characterMenu.hidden);
   });
+  els.profileButton?.addEventListener("keydown", event => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    els.profileButton.click();
+  });
   els.characterMenu?.addEventListener("click", event => {
     const button = event.target.closest("[data-shell-character]");
     if (!button) return;
@@ -241,6 +279,9 @@
   });
   document.addEventListener("click", event => {
     if (!event.target.closest("#shellProfileButton,#shellCharacterMenu")) setMenu(false);
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") setMenu(false);
   });
   window.addEventListener("storage", event => {
     if (event.key === GUARDIAN_PROFILE_KEY) {

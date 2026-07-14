@@ -1223,6 +1223,7 @@
       if (els.profileGuardianName) els.profileGuardianName.textContent = "Fireteam Progress";
       if (els.profileGuardianMeta) {
         els.profileGuardianMeta.style.setProperty("--season-progress", "0%");
+        els.profileGuardianMeta.style.setProperty("--d2-season-progress", "0%");
         els.profileGuardianMeta.innerHTML = `<span>Season Progress</span><strong>Sign in to load Guardian data</strong>`;
       }
       if (els.profileTopStats) els.profileTopStats.innerHTML = "";
@@ -1283,6 +1284,7 @@
         const next = Number(season.next || 0);
         const pct = Number(season.pct || 0);
         els.profileGuardianMeta.style.setProperty("--season-progress", `${pct}%`);
+        els.profileGuardianMeta.style.setProperty("--d2-season-progress", `${pct}%`);
         els.profileGuardianMeta.title = next
           ? `${season.label || "Rewards Pass"}: ${pct}% (${progress.toLocaleString()}/${next.toLocaleString()})`
           : "Rewards Pass progress unavailable";

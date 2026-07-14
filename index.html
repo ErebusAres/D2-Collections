@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="stylesheet" href="assets/styles.css?v=unified-workspace-003" />
-  <link rel="stylesheet" href="assets/site-shell.css?v=unified-workspace-003" />
+  <link rel="stylesheet" href="assets/site-shell.css?v=shared-guardian-header-001" />
   <script>
     (() => {
       try {
@@ -20,13 +20,13 @@
   </script>
 </head>
 <body class="collection-page">
-  <header class="d2-site-shell" aria-label="D2 Collections Guardian header">
-    <div class="d2-shell-appbar">
-      <a class="d2-shell-brand" href="index.html" aria-label="D2 Collections home">
+  <header class="fireteam-bray-header d2-site-shell" aria-label="D2 Collections Guardian header">
+    <div class="fireteam-appbar d2-shell-appbar">
+      <a class="fireteam-brand d2-shell-brand" href="index.html" aria-label="D2 Collections home">
         <img src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" />
         <span>D2 Collections</span>
       </a>
-      <div class="d2-shell-actions">
+      <div class="fireteam-appbar-actions d2-shell-actions">
         <nav class="d2-shell-nav" aria-label="Site navigation">
           <a href="index.html" aria-current="page">Collections</a>
           <a href="fireteam.html">Fireteam</a>
@@ -40,16 +40,15 @@
         </button>
       </div>
     </div>
-    <section class="d2-shell-banner">
-      <div id="shellBannerArt" class="d2-shell-banner-art" aria-hidden="true"></div>
-      <div class="d2-shell-identity">
-        <img id="shellEmblem" class="d2-shell-emblem" src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" />
-        <button id="shellProfileButton" class="d2-shell-profile-button" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="shellCharacterMenu">
-          <strong id="shellGuardianName" class="d2-shell-name">D2 Collections</strong>
-          <span id="shellGuardianStats" class="d2-shell-stats"></span>
-          <span id="shellXp" class="d2-shell-xp" aria-label="Rewards Pass experience progress"></span>
-        </button>
-        <div id="shellCharacterMenu" class="d2-shell-character-menu" hidden></div>
+    <section class="fireteam-profile-banner d2-shell-banner" aria-label="Guardian profile header">
+      <div class="fireteam-profile-background" aria-hidden="true"><div id="shellBannerArt" class="fireteam-profile-background-image d2-shell-banner-art"></div></div>
+      <div class="fireteam-profile-copy d2-shell-identity">
+        <div class="fireteam-profile-mark"><img id="shellEmblem" class="d2-shell-emblem" src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" /></div>
+        <div id="shellProfileButton" class="fireteam-profile-select d2-shell-profile-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="shellCharacterMenu">
+          <div class="fireteam-profile-title-row"><h1 id="shellGuardianName" class="d2-shell-name">D2 Collections</h1><div id="shellGuardianStats" class="fireteam-profile-stats d2-shell-stats"></div></div>
+          <div id="shellXp" class="fireteam-profile-meta d2-shell-xp" aria-label="Rewards Pass experience progress"></div>
+        </div>
+        <div id="shellCharacterMenu" class="fireteam-character-selector d2-shell-character-menu d2-shell-profile-selector" hidden></div>
       </div>
     </section>
   </header>
@@ -235,7 +234,7 @@
   </main>
 
   <script src="data/bungie-config.js"></script>
-  <script src="assets/site-shell.js?v=stable-guardian-routing-001"></script>
+  <script src="assets/site-shell.js?v=shared-guardian-header-001"></script>
   <script src="data/catalog.js?v=d2-source-audit"></script>
   <script src="data/hunter-catalog.js"></script>
   <script src="data/year-8-catalog.js?v=d2-real-source-results"></script>

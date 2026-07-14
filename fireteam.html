@@ -8,7 +8,7 @@
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="stylesheet" href="assets/fireteam-redesign.css?v=unified-workspace-003" />
-  <link rel="stylesheet" href="assets/site-shell.css?v=fireteam-sync-feedback-001" />
+  <link rel="stylesheet" href="assets/site-shell.css?v=shared-guardian-header-001" />
 </head>
 <body class="fireteam-page">
   <div class="app-shell fireteam-shell d2-workspace">
@@ -38,14 +38,14 @@
           <div class="fireteam-profile-mark">
             <img id="profileEmblem" class="d2-shell-emblem" src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" />
           </div>
-          <div id="profileSelectorToggle" class="fireteam-profile-select d2-shell-profile-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+          <div id="profileSelectorToggle" class="fireteam-profile-select d2-shell-profile-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="profileCharacterSelector">
             <div class="fireteam-profile-title-row">
               <h1 id="profileGuardianName" class="d2-shell-name">Fireteam Progress</h1>
               <div id="profileTopStats" class="fireteam-profile-stats d2-shell-stats"></div>
             </div>
             <div id="profileGuardianMeta" class="fireteam-profile-meta d2-shell-xp">Quest progress, character summaries, and shared fireteam snapshots.</div>
           </div>
-          <div id="profileCharacterSelector" class="fireteam-character-selector" hidden></div>
+          <div id="profileCharacterSelector" class="fireteam-character-selector d2-shell-character-menu d2-shell-profile-selector" hidden></div>
         </div>
       </section>
     </header>
@@ -195,6 +195,6 @@
   <script src="data/bungie-config.js"></script>
   <script src="data/fireteam-activity-map.js?v=001"></script>
   <script src="assets/bungie-collection-dump.js?v=linked-guardian-profile-001"></script>
-  <script src="assets/fireteam.js?v=stable-guardian-routing-001"></script>
+  <script src="assets/fireteam.js?v=shared-guardian-header-001"></script>
 </body>
 </html>

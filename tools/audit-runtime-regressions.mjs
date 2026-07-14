@@ -52,6 +52,10 @@ assert.match(fireteam, /setTimeout\(\(\) => requestRefresh\(\), 0\)/, "Fireteam 
 assert.match(fireteam, /sessionStorage\.setItem\(RETURN_KEY/, "Fireteam OAuth return routing must remain scoped to the current browser tab.");
 assert.match(siteShell, /sessionIsUsable\(\) && local/, "Collections must prefer the locally published signed-in Guardian identity.");
 assert.doesNotMatch(siteShell, /Guardian linked/, "Collections must not leave the header at a generic linked-account label.");
+assert.match(siteShell, /fireteam-selector-account/, "Collections must render the same account selector structure as Fireteam.");
+assert.match(siteShellStyles, /body:is\(\.fireteam-page, \.collection-page\) \.fireteam-profile-select/, "Collections and Fireteam must share the same profile-header treatment.");
+assert.match(collectionsHtml, /fireteam-profile-select d2-shell-profile-button/, "Collections must use the shared Fireteam profile-selector structure.");
+assert.match(fireteamHtml, /fireteam-character-selector d2-shell-character-menu d2-shell-profile-selector/, "Fireteam must use the shared character-selector component.");
 assert.match(backgroundSync, /sessionStorage\.getItem\(OAUTH_RETURN_PENDING_KEY\)/, "Background sync must not honor stale cross-tab OAuth return routes.");
 assert.match(siteShellStyles, /transform:\s*none;[\s\S]{0,160}img\.d2-shell-emblem/, "The Fireteam emblem must not retain the obsolete upward translation.");
 assert.match(siteShellStyles, /d2-fireteam-sync-sweep/, "Fireteam must show an animated synchronization indicator.");
@@ -76,7 +80,7 @@ assert.match(worker, /sha256Hex\(sessionToken\)/, "Worker browser sessions must 
 assert.match(worker, /BUNGIE_CLIENT_SECRET/, "Worker OAuth must require the confidential Bungie client secret.");
 assert.match(collectionsHtml, /assets\/site-shell\.css/, "Collections must load the shared Destiny HUD shell.");
 assert.match(fireteamHtml, /assets\/site-shell\.css/, "Fireteam must load the shared Destiny HUD shell.");
-assert.match(collectionsHtml, /class="d2-site-shell"/, "Collections must render the shared Guardian header.");
+assert.match(collectionsHtml, /class="[^"]*d2-site-shell[^"]*"/, "Collections must render the shared Guardian header.");
 assert.match(collectionsHtml, /class="sync-popout"/, "The shared header must preserve the existing sync panel.");
 assert.match(collectionsHtml, /data-layout-mode="detailed"/, "Detailed collection mode must remain available.");
 assert.match(collectionsHtml, /data-layout-mode="shelf"/, "Shelf collection mode must remain available.");
