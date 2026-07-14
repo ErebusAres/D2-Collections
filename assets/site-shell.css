@@ -1017,10 +1017,17 @@ body.fireteam-page .app-shell.fireteam-shell {
 
 body:is(.fireteam-page, .collection-page) .fireteam-bray-header.d2-site-shell {
   height: calc(var(--d2-topbar) + var(--d2-banner));
+  min-height: calc(var(--d2-topbar) + var(--d2-banner));
 }
 
 body:is(.fireteam-page, .collection-page) .fireteam-appbar.d2-shell-appbar {
+  position: relative;
+  z-index: 260;
+  top: auto;
+  left: auto;
+  right: auto;
   height: var(--d2-topbar);
+  min-height: var(--d2-topbar);
   padding: 0;
 }
 

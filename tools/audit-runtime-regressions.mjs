@@ -54,6 +54,7 @@ assert.match(siteShell, /sessionIsUsable\(\) && local/, "Collections must prefer
 assert.doesNotMatch(siteShell, /Guardian linked/, "Collections must not leave the header at a generic linked-account label.");
 assert.match(siteShell, /fireteam-selector-account/, "Collections must render the same account selector structure as Fireteam.");
 assert.match(siteShellStyles, /body:is\(\.fireteam-page, \.collection-page\) \.fireteam-profile-select/, "Collections and Fireteam must share the same profile-header treatment.");
+assert.match(siteShellStyles, /\.fireteam-appbar\.d2-shell-appbar\s*\{[\s\S]{0,180}position:\s*relative/, "The shared app bar must remain in document flow so the Guardian banner is not pulled upward.");
 assert.match(collectionsHtml, /fireteam-profile-select d2-shell-profile-button/, "Collections must use the shared Fireteam profile-selector structure.");
 assert.match(fireteamHtml, /fireteam-character-selector d2-shell-character-menu d2-shell-profile-selector/, "Fireteam must use the shared character-selector component.");
 assert.match(backgroundSync, /sessionStorage\.getItem\(OAUTH_RETURN_PENDING_KEY\)/, "Background sync must not honor stale cross-tab OAuth return routes.");
