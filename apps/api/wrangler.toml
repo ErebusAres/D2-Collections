@@ -9,14 +9,14 @@ crons = ["17 */6 * * *"]
 
 [vars]
 BUNGIE_CLIENT_ID = "53180"
-ALLOWED_ORIGIN = "http://localhost:5173"
-WEB_ORIGIN = "http://localhost:5173"
-GAME_DATA_URL = "http://localhost:5173/data/manifest.json"
+ALLOWED_ORIGIN = "https://guardian-nexus.pages.dev"
+WEB_ORIGIN = "https://guardian-nexus.pages.dev"
+GAME_DATA_URL = "https://guardian-nexus.pages.dev/data/manifest.json"
 DEV_MEMBERSHIP_IDS = "4611686018470688010,4611686018470677739,4611686018470990353"
 MATRIX_MEMBERSHIP_IDS = "4611686018470688010,4611686018470677739,4611686018470990353"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "guardian-nexus-v1"
-database_id = "replace-with-new-d1-database-id"
+database_id = "3ba95115-0f5c-4ba2-86b0-4750ac341e06"
 migrations_dir = "migrations"

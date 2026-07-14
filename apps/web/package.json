@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.json --noEmit && vite build",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json --noEmit && tsc -p functions/tsconfig.json --noEmit && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p functions/tsconfig.json --noEmit",
     "test": "vitest run",
-    "deploy": "wrangler pages deploy dist --project-name guardian-nexus"
+    "deploy": "wrangler pages deploy"
   },
   "dependencies": {
     "@fontsource/barlow": "^5.2.6",
