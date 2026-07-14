@@ -16,13 +16,18 @@
   const VENDOR_SALES_COMPONENT = 402;
   const ITEM_DEF_CACHE_KEY = "d2-collections-item-def-cache-v1";
   const RECORD_DEF_CACHE_KEY = "d2-collections-record-def-cache-v1";
+  const GUARDIAN_PROFILE_KEY = "d2-collections-local-guardian-profile-v1";
+  const CLASS_LABELS = { "671679327": "Hunter", "2271682572": "Warlock", "3655393761": "Titan" };
+  const RACE_LABELS = { "2803282938": "Awoken", "3887404748": "Human", "898834093": "Exo" };
   const EXOTIC_CIPHER_HASHES = new Set(["3467984096", "187236078", "825199458"]);
   const EXOTIC_ENGRAM_HASHES = new Set(["343863063", "685908770", "761932252", "773306547", "903043774", "935088801", "1010947726", "1425215686", "1728121941", "2122520503", "2176771682", "2370072441", "2564361489", "2685382923", "2762058303", "2778705488", "2907562922", "3290874772", "3484503346", "3670763683", "3875551374", "4003905209", "4106630301", "4111522113"]);
   const REFRESH_LOCK_KEY = "d2-collections-bungie-refresh-lock-v1";
   const REFRESH_LOCK_TTL_MS = 60000;
   const REFRESH_WAIT_MS = 65000;
+  const EXCHANGE_LOCK_KEY = "d2-collections-bungie-code-exchange";
   const TAB_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let refreshPromise = null;
+  let exchangePromise = null;
   let autoExchangeStarted = false;
 
   function readJson(key) {
@@ -79,15 +84,15 @@
   }
 
   function tokenIsValid(saved = token()) {
-    return Boolean(!saved.auth_error && saved.access_token && saved.expires_at && saved.expires_at > Math.floor(Date.now() / 1000) + 60);
+    return Boolean(saved.access_token && saved.expires_at && saved.expires_at > Math.floor(Date.now() / 1000) + 60);
   }
 
   function refreshTokenIsValid(saved = token()) {
     const now = Math.floor(Date.now() / 1000) + 60;
-    return Boolean(!saved.auth_error && (
+    return Boolean(
       (saved.server_session_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)) ||
-      (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
-    ));
+      (!saved.auth_error && saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
+    );
   }
 
   function sleep(ms) {
@@ -242,6 +247,28 @@
     return saveToken(data);
   }
 
+  async function exchangeCodeAcrossTabs(status) {
+    const exchange = async () => {
+      const code = authCode();
+      if (code) return exchangeCodeForToken(status);
+      const saved = token();
+      if (tokenIsValid(saved)) return saved;
+      if (refreshTokenIsValid(saved)) return refreshTokenAcrossTabs(status);
+      throw new Error("No Bungie login code captured. Click Login with Bungie first.");
+    };
+    if (navigator.locks?.request) {
+      return navigator.locks.request(EXCHANGE_LOCK_KEY, { mode: "exclusive" }, exchange);
+    }
+    return exchange();
+  }
+
+  function exchangeCodeOnce(status) {
+    if (!exchangePromise) {
+      exchangePromise = exchangeCodeAcrossTabs(status).finally(() => { exchangePromise = null; });
+    }
+    return exchangePromise;
+  }
+
   async function refreshToken() {
     const saved = token();
     if (saved.server_session_token) return refreshTokenWithWorker(saved.server_session_token);
@@ -364,22 +391,21 @@
   }
 
   async function ensureToken(status) {
+    // A saved authorization code represents an explicit fresh login and must
+    // replace any older Worker or refresh-token session.
+    if (authCode()) return exchangeCodeOnce(status);
     const saved = token();
     if (tokenIsValid(saved)) {
-      if (authCode()) clearAuthCode("ignored_stale_code_session_valid");
       return saved;
     }
     if (refreshTokenIsValid(saved)) {
-      if (authCode()) clearAuthCode("ignored_stale_code_refresh_valid");
       if (!refreshPromise) refreshPromise = refreshTokenAcrossTabs(status).finally(() => { refreshPromise = null; });
       return refreshPromise;
     }
-    if (authCode()) return exchangeCodeForToken(status);
-    if (saved.access_token || saved.refresh_token) {
-      markAuthRefreshError("Bungie session needs a fresh login.");
+    if (saved.access_token || saved.refresh_token || saved.server_session_token) {
       throw new Error("Bungie session needs a fresh login. Click Refresh Bungie login.");
     }
-    return exchangeCodeForToken(status);
+    return exchangeCodeOnce(status);
   }
 
   window.D2_COLLECTIONS_AUTH = {
@@ -949,6 +975,36 @@
     };
   }
 
+  function publishGuardianProfile(dump) {
+    const primary = dump.profiles.find(profile => String(profile.membershipId) === String(dump.primaryMembershipId)) || dump.profiles[0];
+    if (!primary?.profile) return null;
+    const profileData = primary.profile.profile?.data || {};
+    const characters = Object.values(primary.profile.characters?.data || {}).map(character => ({
+      characterId: String(character.characterId || ""),
+      className: CLASS_LABELS[String(character.classHash)] || "Guardian",
+      raceName: RACE_LABELS[String(character.raceHash)] || "",
+      light: Number(character.light || 0),
+      emblemPath: character.emblemPath || "",
+      emblemBackgroundPath: character.emblemBackgroundPath || "",
+      lastPlayed: character.dateLastPlayed || ""
+    })).sort((a, b) => Date.parse(b.lastPlayed || "") - Date.parse(a.lastPlayed || "") || b.light - a.light);
+    const identity = {
+      primaryMembershipId: String(dump.primaryMembershipId || primary.membershipId || ""),
+      membershipId: String(primary.membershipId || ""),
+      displayName: primary.displayName || "",
+      playerDisplayName: primary.displayName || "",
+      bungieGlobalDisplayName: primary.bungieGlobalDisplayName || primary.displayName || "",
+      updatedAt: new Date().toISOString(),
+      profileStats: {
+        guardianRank: Number(profileData.currentGuardianRank || profileData.renewedGuardianRank || profileData.lifetimeHighestGuardianRank || 0)
+      },
+      characterSummaries: characters
+    };
+    writeJson(GUARDIAN_PROFILE_KEY, identity);
+    document.dispatchEvent(new CustomEvent("d2collections:guardian-profile", { detail: identity }));
+    return identity;
+  }
+
   function init() {
     if (!autoExchangeStarted && authCode() && !tokenIsValid() && !refreshTokenIsValid()) {
       autoExchangeStarted = true;
@@ -991,10 +1047,13 @@
         actions.insertAdjacentElement("afterend", hint);
       }
       button.addEventListener("click", async () => {
+        let syncOk = false;
         button.disabled = true;
+        document.dispatchEvent(new CustomEvent("d2collections:sync-started", { detail: { source: "collection" } }));
         setStatus("Pulling logged-in Bungie collection/profile data...");
         try {
           const dump = await buildCollectionDump(status);
+          publishGuardianProfile(dump);
           setOutput(JSON.stringify(compactDumpForOutput(dump), null, 2));
           setStatus("Profile pulled. Resolving D2 Collections catalog matches...");
           const liveSync = await buildLiveSyncPayload(dump, status);
@@ -1032,6 +1091,7 @@
               }
             }
             setStatus(`Synced ${applyResult.matchedItems || liveSync.matchedCatalogItems || 0} catalog item(s) for ${liveSync.player}. Newly marked: ${applyResult.weaponsChanged || 0} weapons, ${applyResult.armorChanged || 0} armor, ${applyResult.catalystsChanged || 0} catalysts, ${applyResult.completedChanged || 0} done.${xurText}${cloudText}`);
+            syncOk = true;
           } else {
             setStatus(`Built sync debug payload, but could not live-sync because ${liveSync.reason}.`);
           }
@@ -1039,6 +1099,7 @@
           setStatus(error.message || String(error));
         } finally {
           button.disabled = false;
+          document.dispatchEvent(new CustomEvent("d2collections:sync-finished", { detail: { ok: syncOk, source: "collection", finishedAt: new Date().toISOString() } }));
         }
       });
       return true;

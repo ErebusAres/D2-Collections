@@ -14,6 +14,7 @@
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const ACTIVE_PLAYER_KEY = "d2-collections-active-player-v1";
   const CLAIM_FEED_KEY = "d2-collections-claim-feed-v1";
+  const CLOUD_STALE_MS = 30 * 60 * 1000;
   const CLASS_FOCUS = { warlock: "corey", titan: "matt", hunter: "chris" };
   const CLASS_LABELS = { warlock: "Warlock", titan: "Titan", hunter: "Hunter" };
   const players = Object.keys(BASE.users || { corey: {}, matt: {}, chris: {} });
@@ -502,7 +503,7 @@
       const user = BASE.users?.[player]?.display || BASE.users?.[player]?.label || titleCase(player);
       const row = cloudMeta?.players?.[player] || {};
       const syncedAt = row.syncedAt || resources?.[player]?.cloudSyncedAt || "";
-      const stale = syncedAt && Date.now() - Date.parse(syncedAt) > 7 * 24 * 60 * 60 * 1000;
+      const stale = syncedAt && Date.now() - Date.parse(syncedAt) > CLOUD_STALE_MS;
       const label = syncedAt ? formatShortDate(syncedAt) : "No DB";
       const title = syncedAt
         ? `${user} database snapshot saved ${formatFullDate(syncedAt)}${Number(row.itemCount || 0) ? ` with ${row.itemCount} item(s).` : "."}`
@@ -587,7 +588,7 @@
     const user = BASE.users?.[player]?.display || BASE.users?.[player]?.label || titleCase(player);
     const syncedAt = row.syncedAt || resources?.[player]?.cloudSyncedAt || "";
     const synced = Boolean(syncedAt);
-    const stale = synced && Date.now() - Date.parse(syncedAt) > 7 * 24 * 60 * 60 * 1000;
+    const stale = synced && Date.now() - Date.parse(syncedAt) > CLOUD_STALE_MS;
     const itemCount = Number(row.itemCount || row.matchedCatalogItems || 0);
     const title = synced
       ? `${user}: last database snapshot saved ${formatFullDate(syncedAt)}${itemCount ? ` with ${itemCount} catalog item(s).` : "."}`
@@ -1311,7 +1312,7 @@
     const clientId = BUNGIE.clientId || "53180";
     const redirectUri = BUNGIE.redirectUri || "https://erebusares.github.io/D2-Collections/index.html";
     const state = crypto?.randomUUID?.() || String(Date.now());
-    localStorage.setItem("d2-collections-oauth-state-v1", state);
+    sessionStorage.setItem("d2-collections-oauth-state-v1", state);
     const params = new URLSearchParams({ client_id: clientId, response_type: "code", redirect_uri: redirectUri, state });
     return `${BUNGIE.authUrl || "https://www.bungie.net/en/OAuth/Authorize"}?${params.toString()}`;
   }
@@ -1321,25 +1322,35 @@
     const code = url.searchParams.get("code");
     if (!code) return;
     const returnedState = url.searchParams.get("state") || "";
-    const expectedState = localStorage.getItem("d2-collections-oauth-state-v1") || "";
+    const expectedState = sessionStorage.getItem("d2-collections-oauth-state-v1") || localStorage.getItem("d2-collections-oauth-state-v1") || "";
     if (expectedState && returnedState !== expectedState) {
       console.warn("Bungie OAuth state mismatch.");
+      sessionStorage.removeItem("d2-collections-oauth-state-v1");
+      localStorage.removeItem("d2-collections-oauth-state-v1");
+      url.searchParams.delete("code");
+      url.searchParams.delete("state");
+      window.history.replaceState({}, document.title, url.toString());
       return;
     }
     authState.oauthCode = code;
     authState.lastSaved = new Date().toISOString();
     saveAuthState(authState);
+    sessionStorage.removeItem("d2-collections-oauth-state-v1");
     localStorage.removeItem("d2-collections-oauth-state-v1");
     url.searchParams.delete("code");
     url.searchParams.delete("state");
     window.history.replaceState({}, document.title, url.toString());
-    const returnTarget = localStorage.getItem("d2-collections-oauth-return-v1") || "";
+    const returnTarget = sessionStorage.getItem("d2-collections-oauth-return-v1") || localStorage.getItem("d2-collections-oauth-return-v1") || "";
+    sessionStorage.removeItem("d2-collections-oauth-return-v1");
+    localStorage.removeItem("d2-collections-oauth-return-v1");
     if (returnTarget) {
       try {
         const target = new URL(returnTarget, window.location.href);
         if (target.origin === window.location.origin && target.pathname.startsWith("/D2-Collections/")) {
-          localStorage.removeItem("d2-collections-oauth-return-v1");
-          window.location.assign(target.toString());
+          // Return only after the complete Collections/cloud sync succeeds.
+          // Leaving here would strand the fresh code before the shared auth
+          // helper and collection sync have a chance to consume it.
+          sessionStorage.setItem("d2-collections-oauth-return-pending-v1", target.toString());
         }
       } catch {}
     }

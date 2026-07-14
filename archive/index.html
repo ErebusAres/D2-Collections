@@ -7,7 +7,8 @@
   <meta name="description" content="Destiny 2 exotic collection tracker with Bungie login, Cloudflare sync, catalyst tracking, armor checks, and quick acquisition help." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/styles.css?v=status-glyph-perf-001" />
+  <link rel="stylesheet" href="assets/styles.css?v=unified-workspace-003" />
+  <link rel="stylesheet" href="assets/site-shell.css?v=shared-guardian-header-002" />
   <script>
     (() => {
       try {
@@ -18,7 +19,48 @@
     })();
   </script>
 </head>
-<body>
+<body class="collection-page">
+  <header class="fireteam-bray-header d2-site-shell" data-guardian-header="fireteam" aria-label="D2 Collections Guardian header">
+    <div class="fireteam-appbar d2-shell-appbar">
+      <a class="fireteam-brand d2-shell-brand" href="index.html" aria-label="D2 Collections home">
+        <img src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" />
+        <span>D2 Collections</span>
+      </a>
+      <div class="fireteam-appbar-actions d2-shell-actions">
+        <nav class="d2-shell-nav" aria-label="Site navigation">
+          <a href="index.html" aria-current="page">Collections</a>
+          <a href="fireteam.html">Fireteam</a>
+        </nav>
+        <button id="shellSocialButton" class="d2-shell-icon-button" type="button" aria-expanded="false" aria-controls="collectionSocialDrawer" title="Fireteam snapshots">
+          <span class="d2-shell-social-icon" aria-hidden="true"></span>
+          <em id="shellSocialCount">0</em>
+        </button>
+        <button id="shellSyncButton" class="d2-shell-icon-button" type="button" aria-expanded="false" title="Sync and account tools">
+          <img src="assets/dim-icons/dim_cog.svg" alt="" aria-hidden="true" />
+        </button>
+      </div>
+    </div>
+    <section class="fireteam-profile-banner d2-shell-banner" aria-label="Guardian profile header">
+      <div class="fireteam-profile-background" aria-hidden="true"><div id="shellBannerArt" class="fireteam-profile-background-image d2-shell-banner-art"></div></div>
+      <div class="fireteam-profile-copy d2-shell-identity">
+        <div class="fireteam-profile-mark"><img id="shellEmblem" class="d2-shell-emblem" src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" /></div>
+        <div id="shellProfileButton" class="fireteam-profile-select d2-shell-profile-button" data-guardian-selector role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="shellCharacterMenu">
+          <div class="fireteam-profile-title-row"><h1 id="shellGuardianName" class="d2-shell-name">D2 Collections</h1><div id="shellGuardianStats" class="fireteam-profile-stats d2-shell-stats"></div></div>
+          <div id="shellXp" class="fireteam-profile-meta d2-shell-xp" aria-label="Rewards Pass experience progress"></div>
+        </div>
+        <div id="shellCharacterMenu" class="fireteam-character-selector d2-shell-character-menu d2-shell-profile-selector" hidden></div>
+      </div>
+    </section>
+  </header>
+
+  <aside id="collectionSocialDrawer" class="d2-shell-drawer" aria-label="Fireteam snapshots" hidden>
+    <div class="d2-shell-drawer-head">
+      <div><p class="eyebrow">Fireteam</p><h2>Synced Guardians</h2></div>
+      <button id="collectionSocialClose" type="button" aria-label="Close Fireteam snapshots">x</button>
+    </div>
+    <div id="collectionSocialList" class="d2-shell-roster"></div>
+  </aside>
+
   <details class="sync-popout">
     <summary class="sync-gear" aria-label="Open sync tools" title="Sync tools">&#9881;</summary>
     <div class="sync-popout-panel">
@@ -53,20 +95,16 @@
     </div>
   </details>
 
-  <div class="app-shell">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">Cloud-synced Destiny 2 tracker</p>
-        <h1 class="hero-title"><img src="assets/d2-collections-title.svg?v=d2-exotic-tile-mark" alt="D2 Exotic Collections" width="760" height="150" decoding="async" /></h1>
-        <p class="hero-copy">A fast exotic checklist for Ares, Icee, and Fears. Bungie login updates local ownership, catalysts, Rahool materials, Xur checks, and the shared cloud snapshot.</p>
+  <main class="app-shell d2-workspace collection-workspace">
+    <section class="d2-command-deck" aria-label="Collection command deck">
+      <div class="d2-command-heading">
+        <div>
+          <p class="eyebrow">Collections</p>
+          <h2>Exotic inventory</h2>
+        </div>
+        <span>Weapons, armor, catalysts, and acquisition readiness</span>
       </div>
-      <nav class="site-nav" aria-label="Site navigation">
-        <a href="index.html" aria-current="page">Collections</a>
-        <a href="fireteam.html">Fireteam</a>
-      </nav>
-    </header>
-
-    <section id="summary" class="summary-grid" aria-label="Collection summary"></section>
+      <section id="summary" class="summary-grid" aria-label="Collection summary"></section>
 
     <nav class="toolbar" aria-label="Collection controls">
       <div class="search-wrap">
@@ -107,7 +145,7 @@
       </div>
     </nav>
 
-    <section class="at-a-glance" aria-label="At a glance navigation and legend">
+      <section class="at-a-glance" aria-label="At a glance navigation and legend">
       <nav class="quick-jump" aria-label="Quick jump">
         <a href="#weaponsPanel">Weapons</a>
         <a href="#aresWeapons">Ares weapons</a>
@@ -136,6 +174,7 @@
         <span><i class="legend-chip difficulty-impossible"><img class="ui-glyph" src="assets/dim-icons/difficulty_impossible.svg?v=d2-foreground-skull-difficulty" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /></i>Impossible</span>
       </div>
       <div id="syncHealthStrip" class="sync-health-strip" aria-label="Sync health"></div>
+      </section>
     </section>
 
     <details id="claimFeedPopout" class="claim-feed-popout">
@@ -156,7 +195,7 @@
       </section>
     </details>
 
-    <main class="content-grid">
+    <div class="content-grid" role="main">
       <section id="weaponsPanel" class="panel weapons-panel">
         <div class="panel-head">
           <div>
@@ -191,11 +230,11 @@
           </article>
         </div>
       </section>
-    </main>
-
-  </div>
+    </div>
+  </main>
 
   <script src="data/bungie-config.js"></script>
+  <script src="assets/site-shell.js?v=global-fireteam-header-001"></script>
   <script src="data/catalog.js?v=d2-source-audit"></script>
   <script src="data/hunter-catalog.js"></script>
   <script src="data/year-8-catalog.js?v=d2-real-source-results"></script>
@@ -206,16 +245,17 @@
   <script src="assets/ui-icons.js?v=d2-foreground-skull-difficulty"></script>
   <script src="data/priority-tags.js?v=d2-real-source-results"></script>
   <script src="data/checklist.js?v=short-player-labels"></script>
-  <script src="assets/oauth-redirect-fix.js?v=d2-persistent-login"></script>
+  <script src="assets/oauth-redirect-fix.js?v=tab-safe-oauth-state-001"></script>
   <script>window.D2_COLLECTIONS_ARMOR_COLUMNS_ACTIVE = true;</script>
-  <script src="assets/app.js?v=status-glyph-perf-001"></script>
+  <script src="assets/app.js?v=stable-guardian-routing-001"></script>
   <script src="assets/auth-compact.js?v=refresh-not-logout"></script>
   <script src="assets/armor-columns.js?v=status-glyph-perf-001"></script>
-  <script src="assets/help.js?v=scroll-audit-001"></script>
+  <script src="assets/help.js?v=unified-workspace-002"></script>
   <script src="assets/layout-mode.js?v=shelf-layout"></script>
   <script src="assets/icon-audit.js"></script>
   <script src="assets/api-handoff.js?v=auth-refresh-diagnostics"></script>
   <script src="assets/cloud-sync.js?v=d2-polish-sync-health"></script>
-  <script src="assets/bungie-collection-dump.js?v=worker-oauth-session-003"></script>
+  <script src="assets/bungie-collection-dump.js?v=linked-guardian-profile-001"></script>
+  <script src="assets/background-sync.js?v=stable-guardian-routing-001"></script>
 </body>
 </html>

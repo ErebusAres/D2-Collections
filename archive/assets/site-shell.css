@@ -1,0 +1,1217 @@
+@font-face {
+  font-family: "D2 Haas";
+  src: url("fonts/NHaasGroteskTXPro-55Rg-BPs-uVRv.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "D2 Haas";
+  src: url("fonts/NHaasGroteskTXPro-65Md-VMYclGbC.woff2") format("woff2");
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --d2-bg: #060807;
+  --d2-surface: rgba(10, 13, 12, .88);
+  --d2-surface-solid: #0b0e0d;
+  --d2-surface-raised: rgba(21, 24, 22, .96);
+  --d2-line: rgba(220, 226, 224, .17);
+  --d2-line-strong: rgba(232, 236, 233, .36);
+  --d2-text: #f0f2ed;
+  --d2-soft: #c4cac5;
+  --d2-muted: #8e9791;
+  --d2-gold: #d8bc62;
+  --d2-green: #55d99a;
+  --d2-red: #e56572;
+  --d2-cyan: #8fc9e8;
+  --d2-focus: #f0df9b;
+  --d2-topbar: 40px;
+  --d2-banner: 146px;
+  --d2-content: min(1660px, calc(100% - 32px));
+  --d2-layer-sticky: 30;
+  --d2-layer-drawer: 80;
+  --d2-layer-tooltip: 120;
+  --d2-layer-modal: 160;
+}
+
+body.collection-page,
+body.fireteam-page {
+  color: var(--d2-text);
+  font-family: "D2 Haas", "Segoe UI", system-ui, sans-serif;
+  background-color: var(--d2-bg);
+  background-image:
+    linear-gradient(90deg, rgba(218, 225, 220, .025) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(218, 225, 220, .02) 1px, transparent 1px),
+    linear-gradient(118deg, transparent 0 18%, rgba(111, 16, 30, .11) 18.05% 18.22%, transparent 18.3%),
+    linear-gradient(154deg, transparent 0 73%, rgba(216, 188, 98, .065) 73.05% 73.18%, transparent 73.25%);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+body.collection-page::before,
+body.fireteam-page::before {
+  background: linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,.34));
+}
+
+body.collection-page::after,
+body.fireteam-page::after {
+  display: none;
+}
+
+body.collection-page button,
+body.collection-page input,
+body.collection-page select,
+body.fireteam-page button,
+body.fireteam-page input,
+body.fireteam-page select {
+  font-family: inherit;
+}
+
+body.collection-page :focus-visible,
+body.fireteam-page :focus-visible {
+  outline: 2px solid var(--d2-focus);
+  outline-offset: 2px;
+}
+
+.d2-site-shell {
+  position: relative;
+  z-index: 70;
+  height: calc(var(--d2-topbar) + var(--d2-banner));
+  background: #090b0a;
+}
+
+.d2-shell-appbar {
+  height: var(--d2-topbar);
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  background: linear-gradient(90deg, rgba(103, 10, 24, .96), rgba(103, 10, 24, .62) 48%, rgba(190, 194, 201, .34));
+}
+
+.d2-shell-brand,
+.d2-shell-actions,
+.d2-shell-nav,
+.d2-shell-icon-button {
+  height: var(--d2-topbar);
+}
+
+.d2-shell-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 max(18px, calc((100vw - 1480px) / 2));
+  color: rgba(244,247,246,.86);
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.d2-shell-brand img {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+}
+
+.d2-shell-actions,
+.d2-shell-nav {
+  display: flex;
+  align-items: stretch;
+}
+
+.d2-shell-actions {
+  padding-right: max(18px, calc((100vw - 1480px) / 2));
+}
+
+.d2-shell-nav a {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 82px;
+  padding: 0 14px;
+  color: rgba(244,247,246,.72);
+  text-decoration: none;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.d2-shell-nav a:hover,
+.d2-shell-nav a[aria-current="page"] {
+  color: #fff;
+  background: rgba(255,255,255,.09);
+}
+
+.d2-shell-nav a[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 3px;
+  background: rgba(244,247,246,.92);
+}
+
+.d2-shell-icon-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 48px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 0;
+  color: rgba(244,247,246,.82);
+  background: transparent;
+}
+
+.d2-shell-icon-button:hover,
+.d2-shell-icon-button[aria-expanded="true"] {
+  color: #fff;
+  background: rgba(255,255,255,.1);
+}
+
+.d2-shell-icon-button img {
+  width: 19px;
+  height: 19px;
+  filter: brightness(0) invert(1);
+}
+
+.d2-shell-social-icon {
+  position: relative;
+  width: 22px;
+  height: 18px;
+}
+
+.d2-shell-social-icon::before,
+.d2-shell-social-icon::after {
+  content: "";
+  position: absolute;
+  background: currentColor;
+}
+
+.d2-shell-social-icon::before {
+  left: 8px;
+  top: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: -7px 1px 0 -1px currentColor, 7px 1px 0 -1px currentColor;
+}
+
+.d2-shell-social-icon::after {
+  left: 2px;
+  bottom: 1px;
+  width: 18px;
+  height: 8px;
+  border-radius: 8px 8px 2px 2px;
+}
+
+.d2-shell-icon-button em {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  min-width: 15px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  color: #fff;
+  background: rgba(0,0,0,.58);
+  font-size: .61rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.d2-shell-banner {
+  position: relative;
+  height: var(--d2-banner);
+  overflow: visible;
+  background: #17070b;
+}
+
+.d2-shell-banner-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background-color: #350711;
+  background-image: var(--d2-profile-banner-image);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.d2-shell-banner-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,.12), transparent 42%, rgba(0,0,0,.6));
+}
+
+.d2-shell-banner::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(224,230,227,.58), rgba(216,188,98,.34), transparent);
+}
+
+.d2-shell-identity {
+  position: relative;
+  z-index: 2;
+  width: min(560px, calc(100vw - 48px));
+  height: 100%;
+  margin-left: max(18px, calc((100vw - 1480px) / 2));
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: center;
+  color: inherit;
+}
+
+.d2-shell-emblem {
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
+  filter: grayscale(1) brightness(2.1) contrast(1.12) drop-shadow(0 8px 16px rgba(0,0,0,.65));
+}
+
+.d2-shell-profile-button {
+  position: relative;
+  min-width: 0;
+  height: 96px;
+  padding: 16px 18px 12px;
+  border: 2px solid transparent;
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.d2-shell-profile-button:hover,
+.d2-shell-profile-button:focus-visible,
+.d2-shell-profile-button[aria-expanded="true"] {
+  border-color: rgba(245,245,245,.94);
+  background: rgba(235,238,239,.16);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.76);
+}
+
+.d2-shell-name {
+  display: block;
+  overflow: hidden;
+  color: #f4f6f1;
+  font-size: clamp(1.7rem, 2.2vw, 2.25rem);
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 2px 2px rgba(0,0,0,.72);
+}
+
+.d2-shell-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 22px;
+  margin-top: 7px;
+  color: rgba(244,247,246,.78);
+  font-size: .79rem;
+  font-weight: 900;
+}
+
+.d2-shell-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.d2-shell-stat img {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0,0,0,.62));
+}
+
+.d2-shell-stat.is-power strong {
+  color: var(--d2-gold);
+  font-size: .92rem;
+}
+
+.d2-shell-xp {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 7px;
+  height: 5px;
+  background: rgba(219,225,221,.2);
+}
+
+.d2-shell-xp::after {
+  content: "";
+  display: block;
+  width: var(--d2-season-progress, var(--season-progress, 0%));
+  height: 100%;
+  background: rgba(235,238,233,.88);
+}
+
+.d2-shell-character-menu {
+  position: absolute;
+  z-index: var(--d2-layer-drawer);
+  left: 104px;
+  top: calc(50% + 48px);
+  width: min(520px, calc(100vw - 140px));
+  padding: 12px;
+  border: 1px solid var(--d2-line-strong);
+  border-radius: 0;
+  background: rgba(8, 10, 9, .97);
+  box-shadow: 0 24px 70px rgba(0,0,0,.58);
+}
+
+.d2-shell-character-menu[hidden] { display: none; }
+
+.d2-shell-character-option {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 58px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  color: var(--d2-soft);
+  background: rgba(255,255,255,.045);
+  text-align: left;
+}
+
+.d2-shell-character-option + .d2-shell-character-option { margin-top: 2px; }
+.d2-shell-character-option:hover,
+.d2-shell-character-option.active { border-color: rgba(255,255,255,.62); background: rgba(255,255,255,.12); }
+.d2-shell-character-option img { width: 44px; height: 44px; object-fit: contain; }
+.d2-shell-character-option span { display: grid; }
+.d2-shell-character-option small { color: var(--d2-muted); }
+.d2-shell-character-option b { color: var(--d2-gold); }
+
+.fireteam-character-selector.d2-shell-profile-selector {
+  width: min(560px, calc(100vw - 140px));
+  padding: 18px 16px 16px;
+  border: 0;
+  border-top: 4px solid rgba(244,247,246,.86);
+  background:
+    linear-gradient(128deg, rgba(126,18,31,.42), transparent 44%),
+    linear-gradient(180deg, rgba(10,8,10,.97), rgba(7,8,8,.94));
+  box-shadow: 0 32px 70px rgba(0,0,0,.72), 0 0 0 1px rgba(202,209,221,.18);
+}
+
+.fireteam-selector-empty {
+  padding: 12px;
+  color: rgba(226,229,220,.72);
+  font-weight: 800;
+}
+
+.fireteam-selector-account {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 16px;
+  align-items: start;
+  min-height: 78px;
+  padding-bottom: 12px;
+}
+
+.fireteam-selector-account > div > strong {
+  display: block;
+  overflow: hidden;
+  color: rgba(244,247,246,.96);
+  font-size: clamp(2rem,3.6vw,2.95rem);
+  font-weight: 900;
+  line-height: .95;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fireteam-selector-account > div > strong em { color: #62c6f2; font-style: normal; }
+.fireteam-selector-account > div > span { display: block; margin-top: 6px; color: rgba(226,229,220,.64); font-size: 1.05rem; font-weight: 800; }
+.fireteam-selector-rank { padding-top: 3px; opacity: .55; }
+.fireteam-selector-rank .d2-shell-stat,
+.fireteam-selector-rank .stat-season { display: inline-flex; align-items: center; gap: 8px; font-size: 2.1rem; }
+.fireteam-selector-rank .d2-shell-stat img,
+.fireteam-selector-rank .stat-season img { width: 30px; height: 30px; }
+
+.fireteam-selector-xp {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 12px;
+  align-items: end;
+  height: 28px;
+  margin: -8px 0 12px;
+  border-bottom: 1px solid rgba(226,229,220,.18);
+}
+
+.fireteam-selector-xp span,
+.fireteam-selector-xp strong { position: relative; z-index: 2; color: #27e8df; font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+.fireteam-selector-xp strong { text-transform: none; }
+.fireteam-selector-xp i { position: absolute; left: 0; bottom: -1px; height: 3px; max-width: 100%; background: linear-gradient(90deg,#00d2ce,#48f5e4); box-shadow: 0 0 14px rgba(39,232,223,.34); }
+.fireteam-selector-list { display: grid; gap: 4px; }
+
+.fireteam-selector-character {
+  position: relative;
+  display: grid;
+  grid-template-columns: 66px minmax(0,1fr) 52px auto;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  min-height: 68px;
+  padding: 0 14px 0 16px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  color: rgba(226,229,220,.78);
+  background: linear-gradient(90deg,rgba(207,211,203,.2),rgba(207,211,203,.1)),rgba(53,55,49,.54);
+  text-align: left;
+}
+
+.fireteam-selector-character::before { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg,rgba(244,247,246,.1),rgba(4,5,5,.08) 45%,rgba(4,5,5,.15)),var(--character-banner,none) center/cover no-repeat; opacity: .42; }
+.fireteam-selector-character::after { content: ""; position: absolute; top: 0; right: 0; width: 190px; height: 100%; background: linear-gradient(135deg,transparent 0 36%,rgba(231,200,92,.42) 36% 62%,rgba(78,121,137,.38) 62%); opacity: .7; clip-path: polygon(26% 0,100% 0,100% 100%,0 100%); }
+.fireteam-selector-character:hover,
+.fireteam-selector-character:focus-visible,
+.fireteam-selector-character.active { outline: 2px solid rgba(244,247,246,.86); outline-offset: -5px; color: rgba(244,247,246,.94); background: linear-gradient(90deg,rgba(226,229,220,.28),rgba(226,229,220,.14)),rgba(83,86,78,.62); }
+.fireteam-selector-character > * { position: relative; z-index: 2; }
+.fireteam-selector-character .selector-emblem { width: 48px; height: 48px; object-fit: cover; }
+.fireteam-selector-character .selector-class { justify-self: end; width: 42px; height: 42px; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0,0,0,.48)); }
+.fireteam-selector-character span { min-width: 0; }
+.fireteam-selector-character strong { display: block; color: inherit; font-size: 1.06rem; font-weight: 800; }
+.fireteam-selector-character em { display: block; margin-top: 2px; color: rgba(226,229,220,.58); font-size: .86rem; font-style: normal; font-weight: 800; }
+.fireteam-selector-character b { justify-self: end; min-width: 54px; color: var(--d2-gold); font-size: 1.24rem; font-weight: 900; text-align: right; }
+
+.d2-shell-drawer {
+  position: fixed;
+  z-index: var(--d2-layer-drawer);
+  top: var(--d2-topbar);
+  right: 0;
+  width: min(380px, calc(100vw - 24px));
+  height: calc(100vh - var(--d2-topbar));
+  padding: 16px;
+  overflow: auto;
+  border-left: 1px solid var(--d2-line-strong);
+  background: rgba(7, 9, 8, .98);
+  box-shadow: -20px 0 60px rgba(0,0,0,.46);
+}
+
+.d2-shell-drawer[hidden] { display: none; }
+.d2-shell-drawer-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--d2-line); }
+.d2-shell-drawer-head button { width: 34px; height: 34px; border: 1px solid var(--d2-line); border-radius: 0; color: var(--d2-soft); background: transparent; }
+.d2-shell-roster { display: grid; gap: 3px; margin-top: 12px; }
+.d2-shell-roster button { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 10px; min-height: 58px; padding: 7px; border: 1px solid var(--d2-line); border-radius: 0; color: var(--d2-soft); background: rgba(255,255,255,.035); text-align: left; }
+.d2-shell-roster button:hover { border-color: var(--d2-line-strong); background: rgba(255,255,255,.08); }
+.d2-shell-roster img { width: 40px; height: 40px; object-fit: cover; }
+.d2-shell-roster span { display: grid; }
+.d2-shell-roster small { color: var(--d2-muted); }
+
+body.collection-page .app-shell {
+  width: var(--d2-content);
+  padding-top: 20px;
+}
+
+body.collection-page .panel,
+body.collection-page .toolbar,
+body.collection-page .summary-card {
+  border-radius: 2px;
+  border-color: var(--d2-line);
+  box-shadow: none;
+}
+
+body.collection-page .content-grid > .panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+body.collection-page .summary-grid {
+  gap: 4px;
+  margin: 14px 0 8px;
+}
+
+body.collection-page .summary-card {
+  min-height: 82px;
+  padding: 12px 14px;
+  background: rgba(12,15,14,.86);
+}
+
+body.collection-page .summary-card::before { width: 2px; background: var(--d2-gold); }
+body.collection-page .summary-card::after { display: none; }
+body.collection-page .summary-card strong { font-size: 1.48rem; }
+
+body.collection-page .toolbar {
+  top: 8px;
+  z-index: var(--d2-layer-sticky);
+  gap: 8px;
+  padding: 8px;
+  background: rgba(7,10,9,.94);
+  border-color: var(--d2-line-strong);
+}
+
+body.collection-page .search-wrap,
+body.collection-page .sort-wrap,
+body.collection-page .segmented {
+  border-radius: 1px;
+}
+
+body.collection-page .button,
+body.collection-page .seg,
+body.collection-page select,
+body.collection-page input {
+  border-radius: 1px;
+}
+
+body.collection-page .seg.active,
+body.collection-page .seg[aria-pressed="true"] {
+  color: #080a09;
+  background: var(--d2-soft);
+  border-color: var(--d2-soft);
+}
+
+body.collection-page .at-a-glance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  margin-top: 8px;
+  margin-bottom: 12px;
+  border-radius: 1px;
+  background: transparent;
+}
+
+body.collection-page .quick-jump,
+body.collection-page .legend-strip,
+body.collection-page .sync-health-strip {
+  grid-column: 1;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  min-height: 40px;
+  padding: 5px 6px;
+  border-radius: 1px;
+  border-color: var(--d2-line);
+  background: rgba(8,11,10,.78);
+  box-shadow: none;
+}
+
+body.collection-page .quick-jump a,
+body.collection-page .legend-strip > span,
+body.collection-page .sync-health-strip > span {
+  flex: 0 0 auto;
+  min-height: 28px;
+  border-radius: 1px;
+}
+
+body.collection-page .quick-jump::before,
+body.collection-page .legend-strip::before,
+body.collection-page .sync-health-strip::before {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: 0 0 auto;
+  padding: 0 7px 0 4px;
+  color: var(--d2-blue);
+  background: rgba(8,11,10,.98);
+  font-size: .61rem;
+  font-weight: 900;
+  line-height: 28px;
+  text-transform: uppercase;
+}
+
+body.collection-page .quick-jump::before { content: "Director"; }
+body.collection-page .legend-strip::before { content: "Key"; }
+body.collection-page .sync-health-strip::before { content: "Network"; }
+
+body.collection-page .panel-head {
+  margin-bottom: 8px;
+  padding: 8px 0 9px;
+  border-bottom-color: var(--d2-line);
+}
+
+body.collection-page .panel-head::after { background: var(--d2-gold); width: 120px; }
+body.collection-page .panel-head h2::before { width: 4px; background: rgba(216,188,98,.22); }
+
+body.collection-page .weapon-card,
+body.collection-page .armor-card {
+  border-radius: 2px;
+  border-color: var(--d2-line);
+  background: rgba(12,15,14,.9);
+  box-shadow: none;
+}
+
+body.collection-page .weapon-list,
+body.collection-page .armor-list,
+body.fireteam-page .fireteam-card-grid,
+body.fireteam-page .side-track-list {
+  contain: layout style;
+}
+
+body.collection-page .weapon-card:hover,
+body.collection-page .armor-card:hover {
+  transform: none;
+  border-color: var(--d2-line-strong);
+  background: rgba(22,25,23,.96);
+}
+
+body.collection-page .weapon-card.is-owned,
+body.collection-page .armor-card.is-owned { border-color: rgba(85,217,154,.7); }
+body.collection-page .weapon-card.is-partial { border-color: rgba(216,188,98,.72); }
+body.collection-page .weapon-card.is-missing,
+body.collection-page .armor-card.is-missing { border-color: rgba(229,101,114,.54); }
+body.collection-page .weapon-card::after,
+body.collection-page .armor-card::after { display: none; }
+
+body.collection-page .help-panel {
+  z-index: var(--d2-layer-modal);
+  border-radius: 1px;
+  border-color: var(--d2-line-strong);
+  background: var(--d2-surface-solid);
+}
+
+body.collection-page .help-hero,
+body.collection-page .help-source,
+body.collection-page .help-priority,
+body.collection-page .help-detail,
+body.collection-page .help-icon-chip,
+body.collection-page .help-action {
+  border-radius: 1px;
+}
+
+body.collection-page .sync-popout {
+  top: calc(var(--d2-topbar) + 8px);
+  left: 12px;
+  z-index: var(--d2-layer-modal);
+}
+
+body.collection-page .sync-gear { display: none; }
+body.collection-page .sync-popout[open] .sync-popout-panel { margin-top: 0; }
+body.collection-page .sync-popout-panel { border-radius: 1px; background: rgba(7,9,8,.98); }
+
+body.fireteam-page .fireteam-shell .panel,
+body.fireteam-page .fireteam-status,
+body.fireteam-page .fireteam-mini-card,
+body.fireteam-page .side-track-row {
+  border-radius: 1px;
+}
+
+body.fireteam-page .fireteam-shell .panel {
+  box-shadow: none;
+  background: rgba(7,10,9,.76);
+}
+
+body.fireteam-page .fireteam-side-column {
+  border-left-color: var(--d2-line);
+}
+
+body.fireteam-page .fireteam-quest-tooltip {
+  z-index: var(--d2-layer-tooltip);
+}
+
+@media (max-width: 1180px) {
+  :root { --d2-banner: 128px; }
+  .d2-shell-brand { padding-left: 16px; }
+  .d2-shell-actions { padding-right: 8px; }
+  .d2-shell-identity { margin-left: 16px; }
+  body.collection-page .app-shell { width: calc(100% - 20px); }
+}
+
+@media (max-width: 780px) {
+  :root { --d2-topbar: 44px; --d2-banner: 112px; }
+  .d2-shell-brand span { display: none; }
+  .d2-shell-brand { padding: 0 12px; }
+  .d2-shell-nav a { min-width: 70px; padding: 0 8px; }
+  .d2-shell-nav a:not([aria-current="page"]) { display: none; }
+  .d2-shell-actions { padding-right: 0; }
+  .d2-shell-identity { grid-template-columns: 74px minmax(0,1fr); width: calc(100% - 18px); margin-left: 9px; }
+  .d2-shell-emblem { width: 68px; height: 68px; }
+  .d2-shell-profile-button { height: 78px; padding: 10px 8px 10px 12px; }
+  .d2-shell-name { font-size: 1.48rem; }
+  .d2-shell-stats { gap: 7px; font-size: .7rem; }
+  .d2-shell-stat img { width: 13px; height: 13px; }
+  .d2-shell-character-menu { left: 74px; top: calc(50% + 39px); width: calc(100vw - 92px); }
+  body.collection-page .app-shell { width: calc(100% - 12px); padding-top: 10px; }
+  body.collection-page .toolbar { position: static; }
+  body.collection-page .summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  body.collection-page .quick-jump::before,
+  body.collection-page .legend-strip::before,
+  body.collection-page .sync-health-strip::before { display: none; }
+
+  body.fireteam-page {
+    overflow-x: hidden;
+    --ft-left: 8px;
+    --ft-tracker-lane: 0px;
+    --ft-main-width: calc(100vw - 16px);
+  }
+
+  body.fireteam-page .fireteam-profile-banner {
+    min-height: 112px;
+    padding: 48px 10px 12px;
+  }
+
+  body.fireteam-page .fireteam-profile-mark {
+    left: 10px;
+    width: 64px;
+    height: 64px;
+  }
+
+  body.fireteam-page .fireteam-profile-mark img {
+    width: 64px;
+    height: 64px;
+  }
+
+  body.fireteam-page .fireteam-profile-select {
+    padding-left: 78px;
+  }
+
+  body.fireteam-page .fireteam-profile-copy h1 {
+    overflow: hidden;
+    font-size: 1.5rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  body.fireteam-page .fireteam-grid {
+    grid-template-columns: minmax(0, 1fr);
+    width: var(--ft-main-width);
+    max-width: var(--ft-main-width);
+    margin: 14px auto 0;
+  }
+
+  body.fireteam-page .fireteam-quest-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  body.fireteam-page .fireteam-tabs {
+    position: static;
+    display: flex;
+    flex-wrap: nowrap;
+    order: -1;
+    overflow-x: auto;
+  }
+
+  body.fireteam-page .fireteam-tabs .seg {
+    flex: 0 0 50px;
+    width: 50px;
+    min-width: 50px;
+    height: 46px;
+    min-height: 46px;
+  }
+
+  body.fireteam-page .fireteam-tabs .seg::after { display: none; }
+
+  body.fireteam-page .fireteam-pinned-panel {
+    position: static;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    transform: none !important;
+  }
+
+  body.fireteam-page .fireteam-pinned-panel .manual-drawer-toggle {
+    position: static;
+    width: 100%;
+    height: 38px;
+    margin: -1px -1px 10px;
+    border: 1px solid var(--d2-line-strong);
+    writing-mode: horizontal-tb;
+  }
+
+  body.fireteam-page .fireteam-pinned-panel #manualTrackList {
+    max-height: none;
+  }
+
+  body.fireteam-page.manual-tracker-minimized .fireteam-pinned-panel .panel-head,
+  body.fireteam-page.manual-tracker-minimized .fireteam-pinned-panel #manualTrackList {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.collection-page *,
+  body.collection-page *::before,
+  body.collection-page *::after,
+  body.fireteam-page *,
+  body.fireteam-page *::before,
+  body.fireteam-page *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Unified desktop composition */
+.d2-workspace {
+  width: var(--d2-content);
+  max-width: none;
+  margin: 0 auto;
+}
+
+.d2-command-deck {
+  position: relative;
+  margin: 18px 0 20px;
+  padding: 0 0 12px;
+  border-top: 1px solid var(--d2-line-strong);
+  border-bottom: 1px solid var(--d2-line);
+  background: rgba(5, 8, 7, .7);
+}
+
+.d2-command-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 58px;
+  padding: 10px 14px 9px;
+  border-bottom: 1px solid var(--d2-line);
+  background: linear-gradient(90deg, rgba(216,188,98,.12), transparent 42%);
+}
+
+.d2-command-heading .eyebrow { margin: 0 0 2px; color: var(--d2-cyan); }
+.d2-command-heading h2 { margin: 0; color: var(--d2-text); font-size: 1.18rem; text-transform: uppercase; }
+.d2-command-heading > span { max-width: 520px; color: var(--d2-muted); font-size: .76rem; font-weight: 700; text-align: right; }
+
+body.collection-page .collection-workspace {
+  padding: 0;
+}
+
+body.collection-page .d2-command-deck .summary-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border-bottom: 1px solid var(--d2-line);
+}
+
+body.collection-page .d2-command-deck .summary-card {
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 0;
+  border-right: 1px solid var(--d2-line);
+  border-bottom: 1px solid var(--d2-line);
+  background: rgba(12,15,14,.66);
+}
+
+body.collection-page .d2-command-deck .summary-card:nth-child(6n) { border-right: 0; }
+body.collection-page .d2-command-deck .summary-card::before { left: 0; top: 9px; bottom: 9px; height: auto; }
+body.collection-page .d2-command-deck .summary-card strong { font-size: 1.24rem; }
+body.collection-page .d2-command-deck .summary-card span { font-size: .72rem; line-height: 1.22; }
+
+body.collection-page .d2-command-deck .toolbar {
+  position: static;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--d2-line);
+  background: rgba(5,8,7,.94);
+}
+
+body.collection-page .d2-command-deck .at-a-glance {
+  margin: 0;
+  padding: 4px 10px 0;
+}
+
+body.collection-page .content-grid,
+body.fireteam-page .fireteam-grid {
+  align-items: start;
+}
+
+body.collection-page .content-grid {
+  gap: 24px;
+}
+
+body.collection-page .content-grid > .panel,
+body.fireteam-page .fireteam-shell .panel {
+  border: 0;
+  border-top: 1px solid var(--d2-line-strong);
+  border-bottom: 1px solid var(--d2-line);
+  background: rgba(5,8,7,.54);
+}
+
+body.collection-page .content-grid > .panel { padding: 0 0 16px; }
+body.fireteam-page .fireteam-shell .panel { padding: 12px; }
+
+body.collection-page .panel-head,
+body.fireteam-page .fireteam-shell .panel-head {
+  position: relative;
+  min-height: 52px;
+  margin: 0 0 10px;
+  padding: 9px 12px 10px;
+  border-bottom: 1px solid var(--d2-line);
+  background: linear-gradient(90deg, rgba(216,188,98,.1), transparent 44%);
+}
+
+body.collection-page .panel-head::after,
+body.fireteam-page .fireteam-shell .panel-head::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  bottom: -1px;
+  width: 112px;
+  height: 2px;
+  background: var(--d2-gold);
+}
+
+body.collection-page .panel-head .eyebrow,
+body.fireteam-page .fireteam-shell .panel-head .eyebrow {
+  margin: 0 0 2px;
+  color: var(--d2-cyan);
+  font-size: .61rem;
+  letter-spacing: .11em;
+}
+
+body.collection-page .panel-head h2,
+body.fireteam-page .fireteam-shell .panel-head h2 {
+  margin: 0;
+  color: var(--d2-text);
+  font-size: 1rem;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+body.collection-page .weapon-list,
+body.collection-page .armor-columns { padding: 0 8px; }
+
+body.collection-page .weapon-card,
+body.collection-page .armor-card,
+body.fireteam-page .fireteam-progress-card {
+  border-radius: 0;
+  background-color: rgba(17,20,18,.92);
+  background-image: linear-gradient(90deg, rgba(216,188,98,.1), transparent 28%);
+  box-shadow: none;
+}
+
+body.collection-page .weapon-card,
+body.collection-page .armor-card {
+  border: 1px solid rgba(214,220,216,.2);
+  border-left: 4px solid rgba(214,220,216,.36);
+}
+
+body.collection-page .weapon-card.is-owned,
+body.collection-page .armor-card.is-owned { border-left-color: var(--d2-green); }
+body.collection-page .weapon-card.is-partial { border-left-color: var(--d2-gold); }
+body.collection-page .weapon-card.is-missing,
+body.collection-page .armor-card.is-missing { border-left-color: var(--d2-red); }
+
+body.collection-page .class-title,
+body.collection-page .weapon-player-title {
+  border-radius: 0;
+  border: 1px solid var(--d2-line);
+  border-left: 3px solid var(--d2-gold);
+  background: rgba(18,21,19,.92);
+}
+
+body.collection-page .count-pill,
+body.fireteam-page .count-pill,
+body.collection-page .badge,
+body.collection-page .priority-chip {
+  border-radius: 1px;
+}
+
+body.fireteam-page .app-shell.fireteam-shell {
+  width: 100%;
+  padding: 0 0 36px;
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-bray-header.d2-site-shell {
+  height: calc(var(--d2-topbar) + var(--d2-banner));
+  min-height: calc(var(--d2-topbar) + var(--d2-banner));
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-appbar.d2-shell-appbar {
+  position: relative;
+  z-index: 260;
+  top: auto;
+  left: auto;
+  right: auto;
+  height: var(--d2-topbar);
+  min-height: var(--d2-topbar);
+  padding: 0;
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-brand.d2-shell-brand,
+body:is(.fireteam-page, .collection-page) .fireteam-appbar-actions.d2-shell-actions,
+body:is(.fireteam-page, .collection-page) .fireteam-bray-header .d2-shell-nav,
+body:is(.fireteam-page, .collection-page) .fireteam-social-button.d2-shell-icon-button {
+  height: var(--d2-topbar);
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-brand.d2-shell-brand {
+  padding-left: max(18px, calc((100vw - 1480px) / 2));
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-appbar-actions.d2-shell-actions {
+  padding-right: max(18px, calc((100vw - 1480px) / 2));
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-bray-header .d2-shell-nav { width: auto; }
+body:is(.fireteam-page, .collection-page) .fireteam-bray-header .d2-shell-nav a { min-width: 82px; padding: 0 14px; }
+
+body:is(.fireteam-page, .collection-page) .fireteam-profile-banner.d2-shell-banner {
+  display: block;
+  height: var(--d2-banner);
+  min-height: var(--d2-banner);
+  padding: 0;
+  overflow: visible;
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-profile-background { position: absolute; inset: 0; }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-background-image.d2-shell-banner-art { inset: 0; }
+
+body:is(.fireteam-page, .collection-page) .fireteam-profile-copy.d2-shell-identity {
+  position: relative;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: center;
+  width: min(560px, calc(100vw - 48px));
+  height: 100%;
+  margin-left: max(18px, calc((100vw - 1480px) / 2));
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-profile-mark {
+  position: static;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  transform: none;
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-profile-mark img.d2-shell-emblem {
+  display: block;
+  width: 96px;
+  height: 96px;
+}
+
+body.fireteam-page.is-fireteam-syncing .fireteam-bray-header::before {
+  content: "";
+  position: absolute;
+  z-index: 310;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 0 12%, #78c9ed 28%, #69dfa7 50%, #e7c85c 72%, transparent 88%);
+  background-size: 220% 100%;
+  animation: d2-fireteam-sync-sweep 1.35s linear infinite;
+  box-shadow: 0 0 10px rgba(105,223,167,.42);
+}
+
+body.fireteam-page.is-fireteam-syncing #authState::before,
+body.fireteam-page .fireteam-status[data-kind="loading"]::before {
+  content: "";
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  border: 2px solid rgba(143,199,236,.3);
+  border-top-color: #8fc7ec;
+  border-radius: 50%;
+  animation: d2-fireteam-sync-spin .75s linear infinite;
+}
+
+body.fireteam-page.is-fireteam-syncing #authState,
+body.fireteam-page .fireteam-status[data-kind="loading"] {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-color: rgba(143,199,236,.42);
+  color: #dff4ff;
+}
+
+@keyframes d2-fireteam-sync-sweep {
+  from { background-position: 110% 0; }
+  to { background-position: -110% 0; }
+}
+
+@keyframes d2-fireteam-sync-spin {
+  to { transform: rotate(360deg); }
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-profile-select.d2-shell-profile-button {
+  position: relative;
+  z-index: 4;
+  display: block;
+  aspect-ratio: auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  height: 96px;
+  padding: 16px 18px 12px;
+  border: 2px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  isolation: auto;
+  overflow: hidden;
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-profile-select::before,
+body:is(.fireteam-page, .collection-page) .fireteam-profile-select::after { display: none; }
+
+body:is(.fireteam-page, .collection-page) .fireteam-profile-select.d2-shell-profile-button:hover,
+body:is(.fireteam-page, .collection-page) .fireteam-profile-select.d2-shell-profile-button:focus-visible,
+body:is(.fireteam-page, .collection-page) .fireteam-profile-select.d2-shell-profile-button[aria-expanded="true"] {
+  border-color: rgba(245,245,245,.94);
+  background: rgba(235,238,239,.16);
+}
+
+body:is(.fireteam-page, .collection-page) .fireteam-profile-title-row { display: block; }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-select .fireteam-profile-title-row {
+  position: static;
+  inset: auto;
+  padding: 0;
+}
+body:is(.fireteam-page, .collection-page) .fireteam-profile-title-row .d2-shell-name { font-size: clamp(1.7rem, 2.2vw, 2.25rem); }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-stats.d2-shell-stats { margin-top: 7px; }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-copy h1 { margin: 0 0 5px; }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-stats span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-stats .stat-icon { display: block; width: 16px; height: 16px; flex: 0 0 16px; object-fit: contain; opacity: .86; filter: brightness(0) invert(1) drop-shadow(0 1px 1px rgba(0,0,0,.62)); }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-stats em { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-stats .is-power strong { color: var(--d2-gold); font-size: .95rem; }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-meta.d2-shell-xp { left: 18px; right: 18px; bottom: 7px; width: auto; background: transparent; }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-meta.d2-shell-xp::before { content: ""; position: absolute; inset: 0; height: 5px; background: rgba(207,211,203,.2); }
+body:is(.fireteam-page, .collection-page) .fireteam-profile-meta.d2-shell-xp::after { position: absolute; inset: 0 auto 0 0; width: var(--d2-season-progress, var(--season-progress,0%)); height: 5px; background: rgba(226,229,220,.86); }
+
+body:is(.fireteam-page, .collection-page) .fireteam-character-selector {
+  left: 104px;
+  top: calc(50% + 48px);
+  width: min(520px, calc(100vw - 140px));
+}
+
+body.fireteam-page .fireteam-grid {
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 22px;
+  width: min(1470px, calc(100vw - 430px));
+  max-width: none;
+  margin: 22px 0 0 max(18px, calc((100vw - 1900px) / 2));
+}
+
+body.fireteam-page .fireteam-main-column,
+body.fireteam-page .fireteam-side-column { gap: 18px; }
+
+body.fireteam-page .fireteam-side-column {
+  padding-left: 14px;
+  border-left: 1px solid var(--d2-line);
+}
+
+body.fireteam-page .fireteam-quest-panel .fireteam-card-grid {
+  grid-template-columns: repeat(3, minmax(230px, 1fr));
+}
+
+body.fireteam-page .fireteam-progress-card {
+  border-color: rgba(214,220,216,.26);
+}
+
+body.fireteam-page .fireteam-pinned-panel {
+  background: rgba(5,8,7,.98) !important;
+}
+
+@media (max-width: 1500px) and (min-width: 1181px) {
+  body.collection-page .d2-command-deck .summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  body.collection-page .d2-command-deck .summary-card:nth-child(6n) { border-right: 1px solid var(--d2-line); }
+  body.collection-page .d2-command-deck .summary-card:nth-child(4n) { border-right: 0; }
+  body.fireteam-page .fireteam-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+  body.fireteam-page .fireteam-quest-panel .fireteam-card-grid { grid-template-columns: 1fr; }
+}

@@ -1,5 +1,6 @@
 (() => {
   const AUTH_KEY = "d2-collections-auth-v1";
+  const STATE_KEY = "d2-collections-oauth-state-v1";
   const REDIRECT_URI = "https://erebusares.github.io/D2-Collections/index.html";
 
   function hasSavedCode() {
@@ -31,10 +32,13 @@
     const config = window.D2_BUNGIE_CONFIG || {};
     const authUrl = config.authUrl || "https://www.bungie.net/en/OAuth/Authorize";
     const clientId = config.clientId || "53180";
+    const state = crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem(STATE_KEY, state);
     const params = new URLSearchParams({
       client_id: clientId,
       response_type: "code",
-      redirect_uri: REDIRECT_URI
+      redirect_uri: REDIRECT_URI,
+      state
     });
     event.preventDefault();
     event.stopImmediatePropagation();

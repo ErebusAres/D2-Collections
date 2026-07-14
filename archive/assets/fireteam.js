@@ -5,6 +5,7 @@
   const AUTH_KEY = "d2-collections-auth-v1";
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const RETURN_KEY = "d2-collections-oauth-return-v1";
+  const GUARDIAN_PROFILE_KEY = "d2-collections-local-guardian-profile-v1";
   const STATE_KEY = "d2-collections-oauth-state-v1";
   const RECORD_CACHE_KEY = "d2-fireteam-record-def-cache-v1";
   const ITEM_CACHE_KEY = "d2-fireteam-item-def-cache-v4";
@@ -13,7 +14,10 @@
   const MANUAL_TRACK_KEY = "d2-fireteam-manual-track-v1";
   const MANUAL_TRACK_CACHE_KEY = "d2-fireteam-manual-track-cache-v1";
   const MANUAL_DRAWER_KEY = "d2-fireteam-manual-drawer-minimized-v1";
-  const AUTO_REFRESH_MS = 90 * 1000;
+  const AUTO_REFRESH_MS = 15 * 60 * 1000;
+  const AUTO_REFRESH_RETRY_MS = 60 * 1000;
+  const BACKGROUND_IDLE_MS = 8 * 1000;
+  const DATA_SYNC_LOCK = "d2-collections-bungie-data-sync";
   const MAX_RECORD_ITEMS = 18;
   const ITEM_STATE_TRACKED = 2;
   const ITEM_STATE_HIGHLIGHTED_OBJECTIVE = 16;
@@ -22,6 +26,12 @@
     bounty: "assets/dim-icons/dim_exclamation_triangle.svg",
     seasonal: "assets/dim-icons/dim_pursuit_complete.svg",
     tracked: "assets/dim-icons/dim_tracked.svg"
+  };
+  const PURSUIT_FALLBACK_ICON = "assets/dim-icons/dim_pursuit_complete.svg";
+  const HEADER_STAT_ICONS = {
+    seasonRank: "assets/dim-icons/bt_season_rank.svg",
+    guardianRank: "assets/dim-icons/bt_guardian_rank.svg",
+    light: "assets/dim-icons/bt_light_level.svg"
   };
   const CLASS_LABELS = {
     "2271682572": "Warlock",
@@ -105,6 +115,8 @@
   let manualRenderSeq = 0;
   let floatingTooltip = null;
   let floatingTooltipCard = null;
+  let floatingTooltipPositionFrame = 0;
+  let lastInteractionAt = Date.now();
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -114,6 +126,16 @@
       '"': "&quot;",
       "'": "&#39;"
     })[char]);
+  }
+
+  function cleanBungieText(value) {
+    return String(value ?? "")
+      .replace(/\[\s*([^\]]+?)\s*\]\s*(?=\1\b)/gi, "")
+      .replace(/\s+x\s*\{var:\d+\}/gi, "")
+      .replace(/\{var:\d+\}/gi, "")
+      .replace(/[ \t]+([,.;:!?])/g, "$1")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim();
   }
 
   function readJson(key) {
@@ -365,14 +387,12 @@
     if (floatingTooltip) floatingTooltip.hidden = true;
   }
 
-  function syncFloatingTooltipTarget(event) {
-    if (!floatingTooltipCard) return;
-    const card = event.target.closest?.(".fireteam-progress-card") || null;
-    if (!card) {
-      hideFloatingTooltip();
-      return;
-    }
-    if (card !== floatingTooltipCard) showFloatingTooltip(card);
+  function scheduleFloatingTooltipPosition() {
+    if (!floatingTooltipCard || floatingTooltipPositionFrame) return;
+    floatingTooltipPositionFrame = requestAnimationFrame(() => {
+      floatingTooltipPositionFrame = 0;
+      positionFloatingTooltip(floatingTooltipCard);
+    });
   }
 
   function classFilterMatches(quest) {
@@ -389,11 +409,11 @@
     if (window.D2_COLLECTIONS_AUTH?.sessionIsUsable?.()) return true;
     const saved = readJson(SESSION_KEY);
     const now = nowSeconds() + 60;
-    return Boolean(!saved.auth_error && (
+    return Boolean(
       (saved.access_token && saved.expires_at > now) ||
       (saved.server_session_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)) ||
-      (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
-    ));
+      (!saved.auth_error && saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
+    );
   }
 
   function hasSavedCode() {
@@ -409,6 +429,22 @@
   function setAuthState(text) {
     if (els.authState) els.authState.textContent = text;
     if (els.loginBtn) els.loginBtn.textContent = sessionIsUsable() || hasSavedCode() ? "Refresh Bungie login" : "Sign in with Bungie";
+  }
+
+  function setSyncing(active) {
+    document.body.classList.toggle("is-fireteam-syncing", active);
+    document.querySelector("main.fireteam-grid")?.setAttribute("aria-busy", String(active));
+    if (els.refreshBtn) {
+      els.refreshBtn.textContent = active ? "Syncing Bungie..." : "Refresh from Bungie";
+      els.refreshBtn.disabled = active;
+    }
+    if (active) setAuthState("Syncing Bungie...");
+    else setAuthState(sessionIsUsable() ? "Bungie linked" : hasSavedCode() ? "Login ready" : "Sign in required");
+  }
+
+  function localGuardianProfile() {
+    const saved = readJson(GUARDIAN_PROFILE_KEY);
+    return saved?.characterSummaries?.length ? saved : null;
   }
 
   function formatDate(value) {
@@ -438,12 +474,17 @@
     const iconMarkup = icon
       ? `<img class="stat-icon" src="${escapeHtml(icon)}" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" />`
       : `<i class="stat-icon" aria-hidden="true"></i>`;
-    return `<span class="${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}">${iconMarkup}<em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
+    const accessibleLabel = `${label}: ${value}`;
+    return `<span class="${escapeHtml(className)}" title="${escapeHtml(accessibleLabel)}" aria-label="${escapeHtml(accessibleLabel)}">${iconMarkup}<em>${escapeHtml(label)}</em><strong>${escapeHtml(value)}</strong></span>`;
+  }
+
+  function pursuitFallbackMarkup(className = "fireteam-icon-fallback") {
+    return `<span class="${escapeHtml(className)}"><img src="${PURSUIT_FALLBACK_ICON}" alt="" loading="lazy" decoding="async" aria-hidden="true" /></span>`;
   }
 
   function headerClassStatMarkup(className, icon) {
     if (!className || !icon) return "";
-    return `<span class="stat-class" title="${escapeHtml(`Class: ${className}`)}"><img class="stat-icon" src="${escapeHtml(icon)}" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /><em>${escapeHtml(className)}</em></span>`;
+    return `<span class="stat-class" title="${escapeHtml(`Class: ${className}`)}" aria-label="${escapeHtml(`Class: ${className}`)}"><img class="stat-icon" src="${escapeHtml(icon)}" alt="" width="16" height="16" loading="lazy" decoding="async" aria-hidden="true" /><em>${escapeHtml(className)}</em></span>`;
   }
 
   function apiBase() {
@@ -460,8 +501,8 @@
 
   function buildAuthUrl() {
     const state = crypto?.randomUUID?.() || String(Date.now());
-    localStorage.setItem(STATE_KEY, state);
-    localStorage.setItem(RETURN_KEY, new URL("fireteam.html", window.location.href).toString());
+    sessionStorage.setItem(STATE_KEY, state);
+    sessionStorage.setItem(RETURN_KEY, new URL("fireteam.html", window.location.href).toString());
     const params = new URLSearchParams({
       client_id: CONFIG.clientId || "53180",
       response_type: "code",
@@ -476,9 +517,14 @@
     const code = url.searchParams.get("code");
     if (!code) return false;
     const returnedState = url.searchParams.get("state") || "";
-    const expectedState = localStorage.getItem(STATE_KEY) || "";
+    const expectedState = sessionStorage.getItem(STATE_KEY) || localStorage.getItem(STATE_KEY) || "";
     if (expectedState && returnedState !== expectedState) {
       setStatus("Bungie login returned with a state mismatch. Try signing in again.", "warn");
+      sessionStorage.removeItem(STATE_KEY);
+      localStorage.removeItem(STATE_KEY);
+      url.searchParams.delete("code");
+      url.searchParams.delete("state");
+      window.history.replaceState({}, document.title, url.toString());
       return false;
     }
     writeJson(AUTH_KEY, {
@@ -486,6 +532,7 @@
       oauthCode: code,
       lastSaved: new Date().toISOString()
     });
+    sessionStorage.removeItem(STATE_KEY);
     localStorage.removeItem(STATE_KEY);
     url.searchParams.delete("code");
     url.searchParams.delete("state");
@@ -859,6 +906,17 @@
     return hashes;
   }
 
+  function objectiveRowsPct(rows = []) {
+    if (!rows.length) return null;
+    return Math.round(rows.reduce((sum, row) => {
+      const progress = Number(row.progress || 0);
+      const total = Number(row.total || row.completionValue || 0);
+      const complete = Boolean(row.complete) || (total > 0 && progress >= total);
+      if (complete) return sum + 100;
+      return sum + (total > 0 ? Math.max(0, Math.min(100, (progress / total) * 100)) : 0);
+    }, 0) / rows.length);
+  }
+
   function objectiveSummary(objectives = [], activeHashes = new Set()) {
     const rows = objectives.map(objective => {
       const progress = Number(objective.progress || 0);
@@ -873,12 +931,13 @@
       };
     });
     const complete = rows.filter(row => row.complete).length;
+    const pct = objectiveRowsPct(rows) || 0;
     return {
       rows,
       complete,
       total: rows.length,
       active: rows.filter(row => row.active).length,
-      pct: rows.length ? Math.round((complete / rows.length) * 100) : 0
+      pct
     };
   }
 
@@ -958,7 +1017,7 @@
       if (!reward?.name || reward.unresolved) return null;
       return {
         hash,
-        name: reward.name,
+        name: cleanBungieText(reward.name),
         icon: reward.icon || "",
         itemTypeDisplayName: reward.itemTypeDisplayName || ""
       };
@@ -1164,6 +1223,7 @@
       if (els.profileGuardianName) els.profileGuardianName.textContent = "Fireteam Progress";
       if (els.profileGuardianMeta) {
         els.profileGuardianMeta.style.setProperty("--season-progress", "0%");
+        els.profileGuardianMeta.style.setProperty("--d2-season-progress", "0%");
         els.profileGuardianMeta.innerHTML = `<span>Season Progress</span><strong>Sign in to load Guardian data</strong>`;
       }
       if (els.profileTopStats) els.profileTopStats.innerHTML = "";
@@ -1178,7 +1238,7 @@
       if (els.lastUpdated) els.lastUpdated.textContent = "Never";
       return;
     }
-    const visiblePlayerName = snapshotDisplayName(snapshot);
+    const visiblePlayerName = profileAccountName(snapshot);
     if (els.playerName) els.playerName.textContent = visiblePlayerName;
     if (els.profileGuardianName) els.profileGuardianName.textContent = visiblePlayerName;
     const selectedCharacter = classFilter
@@ -1193,10 +1253,10 @@
       const selectedClass = selectedCharacter?.className || classFilter || "";
       const selectedClassIcon = classIconPath(selectedClass);
       els.profileTopStats.innerHTML = [
-        season.rank ? headerStatMarkup("stat-season", "assets/dim-icons/bt_season_rank.svg", "Season Pass Rank", season.rank) : "",
-        guardianRank ? headerStatMarkup("stat-rank", "assets/dim-icons/bt_guardian_rank.svg", "Guardian Rank", guardianRank) : "",
+        season.rank ? headerStatMarkup("stat-season", HEADER_STAT_ICONS.seasonRank, "Rewards Pass Rank", season.rank) : "",
+        guardianRank ? headerStatMarkup("stat-rank", HEADER_STAT_ICONS.guardianRank, "Guardian Rank", guardianRank) : "",
         selectedClass && selectedClassIcon ? headerClassStatMarkup(selectedClass, selectedClassIcon) : "",
-        displayLight ? headerStatMarkup("is-power", "assets/dim-icons/bt_light_level.svg", "Light", `+${displayLight}`) : ""
+        displayLight ? headerStatMarkup("is-power", HEADER_STAT_ICONS.light, "Power", `+${displayLight}`) : ""
       ].filter(Boolean).join("");
     }
     if (els.profileEmblem) {
@@ -1224,6 +1284,11 @@
         const next = Number(season.next || 0);
         const pct = Number(season.pct || 0);
         els.profileGuardianMeta.style.setProperty("--season-progress", `${pct}%`);
+        els.profileGuardianMeta.style.setProperty("--d2-season-progress", `${pct}%`);
+        els.profileGuardianMeta.title = next
+          ? `${season.label || "Rewards Pass"}: ${pct}% (${progress.toLocaleString()}/${next.toLocaleString()})`
+          : "Rewards Pass progress unavailable";
+        els.profileGuardianMeta.setAttribute("aria-label", els.profileGuardianMeta.title);
         els.profileGuardianMeta.innerHTML = next
           ? `<span>${escapeHtml(season.label || "Season Progress")}</span><strong>${escapeHtml(progress.toLocaleString())}/${escapeHtml(next.toLocaleString())}</strong>`
           : `<span>Season Progress</span><strong>${escapeHtml(trackedCount)} tracked / ${escapeHtml(inventoryCount)} quest items</strong>`;
@@ -1269,7 +1334,7 @@
           <strong>${profileNameMarkup(account)}</strong>
           <span>${escapeHtml(String(subtitle).toUpperCase())}</span>
         </div>
-        ${seasonRank ? `<span class="fireteam-selector-rank">${headerStatMarkup("stat-season", "assets/dim-icons/bt_season_rank.svg", "Season Pass Rank", seasonRank)}</span>` : ""}
+        ${seasonRank ? `<span class="fireteam-selector-rank">${headerStatMarkup("stat-season", HEADER_STAT_ICONS.seasonRank, "Rewards Pass Rank", seasonRank)}</span>` : ""}
       </div>
       <div class="fireteam-selector-xp">
         <span>Experience</span>
@@ -1293,7 +1358,7 @@
     const active = classFilter && className === classFilter;
     const emblemMarkup = emblem
       ? `<img class="selector-emblem" src="${escapeHtml(emblem)}" alt="" width="48" height="48" loading="lazy" decoding="async" aria-hidden="true" />`
-      : `<span class="fireteam-icon-fallback">G</span>`;
+      : pursuitFallbackMarkup();
     const classMarkup = classIcon
       ? `<img class="selector-class" src="${escapeHtml(classIcon)}" alt="" width="34" height="34" loading="lazy" decoding="async" aria-hidden="true" />`
       : "";
@@ -1467,11 +1532,21 @@
       const count = quests.filter(quest => questMatchesFilter(quest, button.dataset.questFilter || "all")).length;
       const label = button.dataset.label || button.dataset.questFilter || "Filter";
       const copy = button.dataset.copy || "";
-      const tooltip = copy ? `${label}: ${copy}` : label;
+      const tooltip = `${label}: ${copy ? `${copy} ` : ""}${count} item${count === 1 ? "" : "s"} in this view.`;
       button.dataset.count = String(count);
       button.classList.toggle("is-empty", count === 0);
       button.title = tooltip;
       button.setAttribute("aria-label", tooltip);
+      const representative = quests.find(quest => quest.icon && questMatchesFilter(quest, button.dataset.questFilter || "all"));
+      const image = button.querySelector("img");
+      if (image && !image.dataset.fallbackSrc) image.dataset.fallbackSrc = image.getAttribute("src") || PURSUIT_FALLBACK_ICON;
+      if (image && representative?.icon) {
+        image.src = iconUrl(representative.icon);
+        image.classList.add("is-bungie-icon");
+      } else if (image) {
+        image.src = image.dataset.fallbackSrc || PURSUIT_FALLBACK_ICON;
+        image.classList.remove("is-bungie-icon");
+      }
     });
   }
 
@@ -1511,10 +1586,10 @@
   }
 
   function progressCardMarkup(quest, { allowPin = true } = {}) {
-      const pct = Math.max(0, Math.min(100, Number(quest.pct || 0)));
+      const pct = questPct(quest);
       const isRecord = quest.kind === "record";
       const unresolved = quest.unresolved || (isRecord && /^Record\s+\d+$/i.test(String(quest.name || "")));
-      const title = unresolved ? "Unmapped Bungie record" : quest.name || `Record ${quest.hash}`;
+      const title = unresolved ? "Unmapped Bungie record" : cleanBungieText(quest.name) || `Record ${quest.hash}`;
       const hash = unresolved ? ` <span class="record-hash">Hash ${escapeHtml(quest.hash)}</span>` : "";
       const trackedBadge = quest.inGameTracked ? `<span class="fireteam-tracked-badge">Tracked in game</span>` : "";
       const catalystBadge = quest.catalystQuest ? `<span class="fireteam-catalyst-badge">Catalyst quest</span>` : "";
@@ -1522,8 +1597,9 @@
       const objectiveRows = renderObjectiveSteps(quest.objectives || []);
       const key = questKey(quest);
       const isPinned = manualTracked.has(key);
-      const pinButton = allowPin && key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-pressed="${isPinned ? "true" : "false"}" title="${isPinned ? "Unpin from site tracker" : "Pin to site tracker"}"><span aria-hidden="true"></span></button>` : "";
-      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">${unresolved ? "?" : "Q"}</span>`;
+      const pinLabel = isPinned ? `Unpin ${title} from site tracker` : `Pin ${title} to site tracker`;
+      const pinButton = allowPin && key ? `<button class="manual-track-toggle ${isPinned ? "is-pinned" : ""}" type="button" data-manual-track="${escapeHtml(key)}" aria-label="${escapeHtml(pinLabel)}" aria-pressed="${isPinned ? "true" : "false"}" title="${escapeHtml(pinLabel)}"><span aria-hidden="true"></span></button>` : "";
+      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" width="36" height="36" loading="lazy" decoding="async" aria-hidden="true" />` : pursuitFallbackMarkup();
       const cardVisuals = cardVisualMarkup(quest, pct, { isPinned });
       const tooltip = questTooltipMarkup(quest, { title, pct, sourceChip, objectiveRows, hash, icon });
       return `<article class="fireteam-progress-card ${unresolved ? "is-unresolved" : ""} ${quest.inGameTracked ? "is-tracked" : ""} ${quest.highlightedObjective ? "is-highlighted-objective" : ""} ${quest.inInventory ? "is-inventory" : ""} ${escapeHtml(`is-${quest.kind || "record"}`)}" tabindex="0" style="--card-progress:${pct}%">
@@ -1531,7 +1607,7 @@
         ${icon}
         <div>
           <strong>${escapeHtml(title)}${trackedBadge}${catalystBadge}</strong>
-          <p class="fireteam-card-summary">${escapeHtml(quest.description || quest.questLineDescription || quest.activity || `${quest.objectiveComplete || 0}/${quest.objectiveTotal || 0} objectives`)}</p>
+          <p class="fireteam-card-summary">${escapeHtml(cleanBungieText(quest.description || quest.questLineDescription || quest.activity) || `${quest.objectiveComplete || 0}/${quest.objectiveTotal || 0} objectives`)}</p>
           ${cardVisuals}
         </div>
         ${tooltip}
@@ -1557,8 +1633,9 @@
     const stepInfo = quest.questLineName
       ? `<span>${escapeHtml(quest.questLineName)}</span>`
       : "";
-    const description = quest.description || quest.questLineDescription || quest.activity || "";
-    const flavor = quest.flavorText || "";
+    const description = cleanBungieText(quest.description || quest.questLineDescription || quest.activity || "");
+    const questLineDescription = cleanBungieText(quest.questLineDescription || "");
+    const flavor = cleanBungieText(quest.flavorText || "");
     const rewards = Array.isArray(quest.rewards) ? quest.rewards.filter(reward => reward?.name) : [];
     const trackerState = [
       quest.inGameTracked ? "Tracked in game" : "",
@@ -1574,7 +1651,7 @@
     const rarityLabel = quest.catalystQuest || questCategory(quest) === "exotics" ? "Exotic" : kind;
     return `<div class="fireteam-quest-tooltip" role="tooltip">
       <div class="fireteam-quest-tooltip-head">
-        <div class="fireteam-tooltip-icon">${icon || `<span class="fireteam-icon-fallback">Q</span>`}</div>
+        <div class="fireteam-tooltip-icon">${icon || pursuitFallbackMarkup()}</div>
         <div>
           <strong>${escapeHtml(title || quest.name || "Quest item")}</strong>
           <span>${escapeHtml(stepLabel)}</span>
@@ -1586,10 +1663,10 @@
         <span>${escapeHtml(Math.round(Number(pct || 0)))}%</span>
       </div>
       ${description ? `<p>${escapeHtml(description)}</p>` : ""}
-      ${quest.questLineDescription && quest.questLineDescription !== description ? `<p>${escapeHtml(quest.questLineDescription)}</p>` : ""}
+      ${questLineDescription && questLineDescription !== description ? `<p>${escapeHtml(questLineDescription)}</p>` : ""}
       ${objectiveRows || `<div class="quest-step-list"><div class="quest-step-more">No objective rows exposed by Bungie for this item.</div></div>`}
       ${flavor ? `<blockquote class="fireteam-quest-flavor">${escapeHtml(flavor)}</blockquote>` : ""}
-      ${rewards.length ? `<div class="fireteam-quest-rewards"><strong>Rewards</strong>${rewards.map(reward => `<span>${reward.icon ? `<img src="${escapeHtml(iconUrl(reward.icon))}" alt="" width="24" height="24" loading="lazy" decoding="async" aria-hidden="true" />` : `<i class="fireteam-icon-fallback">R</i>`}<em>${escapeHtml(reward.name)}</em></span>`).join("")}</div>` : ""}
+      ${rewards.length ? `<div class="fireteam-quest-rewards"><strong>Rewards</strong>${rewards.map(reward => `<span>${reward.icon ? `<img src="${escapeHtml(iconUrl(reward.icon))}" alt="" width="24" height="24" loading="lazy" decoding="async" aria-hidden="true" />` : pursuitFallbackMarkup()}<em>${escapeHtml(cleanBungieText(reward.name))}</em></span>`).join("")}</div>` : ""}
       <div class="fireteam-quest-tooltip-meta">
         ${sourceChip || ""}
         ${stepInfo}
@@ -1654,7 +1731,7 @@
         objectives: quest.objectives || []
       }];
       const currentIndex = Math.max(0, steps.findIndex(step => step.status === "current"));
-      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" loading="lazy" decoding="async" aria-hidden="true" />` : `<span class="fireteam-icon-fallback">Q</span>`;
+      const icon = quest.icon ? `<img src="${escapeHtml(iconUrl(quest.icon))}" alt="" loading="lazy" decoding="async" aria-hidden="true" />` : pursuitFallbackMarkup();
       return `<article class="manual-track-card">
         <div class="manual-track-head">
           ${icon}
@@ -1662,7 +1739,7 @@
             <strong>${escapeHtml(quest.questLineName || quest.name || "Pinned quest")}</strong>
             <span>${escapeHtml(quest.fireteamOwner || "Fireteam")} / ${escapeHtml(titleCase(quest.kind || "quest"))} / Step ${currentIndex + 1} of ${steps.length}</span>
           </div>
-          <button class="manual-track-remove" type="button" data-manual-track="${escapeHtml(questKey(quest))}" title="Unpin from site tracker">x</button>
+          <button class="manual-track-remove" type="button" data-manual-track="${escapeHtml(questKey(quest))}" aria-label="${escapeHtml(`Unpin ${quest.questLineName || quest.name || "quest"} from site tracker`)}" title="Unpin from site tracker">x</button>
         </div>
         <div class="manual-step-list">${steps.map((step, index) => renderTimelineStep(step, index, steps.length)).join("")}</div>
       </article>`;
@@ -1698,7 +1775,7 @@
     return `<div class="manual-objective ${complete ? "is-complete" : ""} ${isFuture ? "is-unavailable" : ""}">
       <span class="quest-step-check" aria-hidden="true"></span>
       <div>
-        <strong>${escapeHtml(row.name || `Objective ${row.objectiveHash || ""}`)}</strong>
+        <strong>${escapeHtml(cleanBungieText(row.name) || `Objective ${row.objectiveHash || ""}`)}</strong>
         ${value ? `<em>${escapeHtml(value)}</em>` : ""}
         <div class="quest-step-track"><i style="width:${pct}%"></i></div>
       </div>
@@ -1717,7 +1794,7 @@
       return `<div class="quest-step ${row.complete ? "is-complete" : ""}">
         <span class="quest-step-check" aria-hidden="true"></span>
         <div>
-          <strong>${escapeHtml(row.name || `Objective ${row.objectiveHash || ""}`)}</strong>
+          <strong>${escapeHtml(cleanBungieText(row.name) || `Objective ${row.objectiveHash || ""}`)}</strong>
           <em>${escapeHtml(value)}</em>
           <div class="quest-step-track"><i style="width:${pct}%"></i></div>
         </div>
@@ -1749,7 +1826,8 @@
   }
 
   function questPct(quest) {
-    return Math.max(0, Math.min(100, Math.round(Number(quest?.pct || 0))));
+    const calculated = objectiveRowsPct(quest?.objectives || []);
+    return Math.max(0, Math.min(100, calculated ?? Math.round(Number(quest?.pct || 0))));
   }
 
   function isSeasonalHubQuest(quest) {
@@ -1840,7 +1918,7 @@
         <span class="side-track-icon">${sideTrackerIcon(item)}</span>
         <div class="side-track-main">
           <div class="side-track-bar" style="--pct:${pct}%">
-            <strong>${escapeHtml(item.name || "Objective")}</strong>
+            <strong>${escapeHtml(cleanBungieText(item.name) || "Objective")}</strong>
             <em>${pct}%</em>
           </div>
           <span><img src="${escapeHtml(categoryIcon)}" alt="" width="14" height="14" loading="lazy" decoding="async" aria-hidden="true" />${trackedIcon}${escapeHtml(sideTrackerMeta(item))}${count}</span>
@@ -1856,7 +1934,11 @@
       return;
     }
     els.cloudStatus.innerHTML = snapshots.length
-      ? snapshots.slice(0, 4).map(snapshot => `<span class="is-good"><strong>${escapeHtml(snapshotDisplayName(snapshot) || "Saved")}</strong>${escapeHtml(formatShort(snapshot.syncedAt || snapshot.updatedAt))}</span>`).join("")
+      ? snapshots.slice(0, 4).map(snapshot => {
+        const syncedAt = snapshot.syncedAt || snapshot.updatedAt;
+        const stale = !syncedAt || Date.now() - Date.parse(syncedAt) >= AUTO_REFRESH_MS;
+        return `<span class="${stale ? "is-warn" : "is-good"}" title="${escapeHtml(stale ? "Snapshot is stale and will refresh when this Guardian signs in." : "Snapshot is current.")}"><strong>${escapeHtml(snapshotDisplayName(snapshot) || "Saved")}</strong>${escapeHtml(formatShort(syncedAt))}${stale ? " / stale" : ""}</span>`;
+      }).join("")
       : `<span class="is-idle"><strong>Cloud</strong>No fireteam snapshots</span>`;
   }
 
@@ -1926,9 +2008,8 @@
   async function refreshFromBungie({ silent = false } = {}) {
     if (refreshing) return;
     refreshing = true;
-    if (els.refreshBtn) els.refreshBtn.disabled = true;
+    setSyncing(true);
     try {
-      setAuthState(sessionIsUsable() || hasSavedCode() ? "Bungie linked" : "Sign in required");
       if (!sessionIsUsable() && !hasSavedCode()) {
         setStatus("Sign in with Bungie to read Fireteam progress.", "warn");
         return;
@@ -1948,26 +2029,66 @@
       setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Sign in required");
     } finally {
       refreshing = false;
-      if (els.refreshBtn) els.refreshBtn.disabled = false;
+      setSyncing(false);
       scheduleAutoRefresh();
     }
   }
 
-  function scheduleAutoRefresh() {
+  function userIsBusy() {
+    const active = document.activeElement;
+    const editing = active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName);
+    return editing || Date.now() - lastInteractionAt < BACKGROUND_IDLE_MS;
+  }
+
+  function latestLocalSnapshotTime() {
+    return Date.parse(latestSnapshot?.updatedAt || "") || 0;
+  }
+
+  async function withDataSyncLock(callback, { ifAvailable = false } = {}) {
+    if (!navigator.locks?.request) return callback();
+    return navigator.locks.request(DATA_SYNC_LOCK, ifAvailable ? { ifAvailable: true } : {}, lock => lock ? callback() : false);
+  }
+
+  async function requestRefresh({ background = false } = {}) {
+    if (background && (document.hidden || !navigator.onLine || userIsBusy())) {
+      scheduleAutoRefresh(AUTO_REFRESH_RETRY_MS);
+      return false;
+    }
+    const result = await withDataSyncLock(
+      () => refreshFromBungie({ silent: background }),
+      { ifAvailable: background }
+    );
+    if (background && result === false) scheduleAutoRefresh(AUTO_REFRESH_RETRY_MS);
+    return result;
+  }
+
+  function scheduleAutoRefresh(delay = null) {
     if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
     if (!sessionIsUsable()) return;
-    autoRefreshTimer = setTimeout(() => refreshFromBungie({ silent: true }), AUTO_REFRESH_MS);
+    if (document.hidden) return;
+    const syncedAt = latestLocalSnapshotTime();
+    const remaining = syncedAt ? Math.max(AUTO_REFRESH_RETRY_MS, AUTO_REFRESH_MS - (Date.now() - syncedAt)) : 5 * 1000;
+    autoRefreshTimer = setTimeout(() => {
+      autoRefreshTimer = 0;
+      const latest = latestLocalSnapshotTime();
+      if (latest && Date.now() - latest < AUTO_REFRESH_MS) {
+        scheduleAutoRefresh();
+        return;
+      }
+      requestRefresh({ background: true });
+    }, delay ?? remaining);
   }
 
   function init() {
     captureOAuthCode();
-    setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Bungie offline");
-    renderSnapshot(null);
+    const linked = sessionIsUsable();
+    setAuthState(linked ? "Bungie linked" : hasSavedCode() ? "Securing Bungie login..." : "Bungie offline");
+    renderSnapshot(linked ? localGuardianProfile() : null);
     loadCloudSnapshots();
     els.loginBtn?.addEventListener("click", () => {
       window.location.assign(buildAuthUrl());
     });
-    els.refreshBtn?.addEventListener("click", () => refreshFromBungie());
+    els.refreshBtn?.addEventListener("click", () => requestRefresh());
     els.socialDrawerToggle?.addEventListener("click", () => {
       renderSocialDrawer();
       setSocialDrawerOpen(els.socialDrawer?.hidden !== false);
@@ -2008,7 +2129,6 @@
       if (!card || card.contains(event.relatedTarget)) return;
       hideFloatingTooltip(card);
     });
-    document.addEventListener("pointermove", syncFloatingTooltipTarget, { passive: true });
     document.addEventListener("pointerleave", () => hideFloatingTooltip());
     document.addEventListener("focusin", event => {
       const card = event.target.closest(".fireteam-progress-card");
@@ -2021,11 +2141,30 @@
         if (!card.contains(document.activeElement)) hideFloatingTooltip(card);
       });
     });
-    window.addEventListener("scroll", () => positionFloatingTooltip(floatingTooltipCard), { passive: true });
-    window.addEventListener("resize", () => positionFloatingTooltip(floatingTooltipCard), { passive: true });
+    window.addEventListener("scroll", scheduleFloatingTooltipPosition, { passive: true });
+    window.addEventListener("resize", scheduleFloatingTooltipPosition, { passive: true });
     window.addEventListener("blur", () => hideFloatingTooltip());
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden) hideFloatingTooltip();
+      if (document.hidden) {
+        hideFloatingTooltip();
+        if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
+      } else {
+        scheduleAutoRefresh(3 * 1000);
+      }
+    });
+    ["pointerdown", "keydown", "touchstart", "wheel"].forEach(type => {
+      document.addEventListener(type, () => { lastInteractionAt = Date.now(); }, { passive: true });
+    });
+    window.addEventListener("online", () => scheduleAutoRefresh(3 * 1000));
+    window.addEventListener("storage", event => {
+      if (event.key !== SESSION_KEY && event.key !== AUTH_KEY) return;
+      setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Bungie offline");
+      scheduleAutoRefresh(3 * 1000);
+    });
+    document.addEventListener("d2collections:auth-changed", event => {
+      setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Bungie offline");
+      if (event.detail?.signedIn) requestRefresh();
+      else scheduleAutoRefresh(3 * 1000);
     });
     document.addEventListener("click", event => {
       const socialTabButton = event.target.closest("[data-social-tab]");
@@ -2100,7 +2239,7 @@
       event.preventDefault();
       setSelectedSnapshot(String(snapshotCard.dataset.viewSnapshot || ""));
     });
-    if (sessionIsUsable() || hasSavedCode()) refreshFromBungie({ silent: true });
+    if (sessionIsUsable() || hasSavedCode()) setTimeout(() => requestRefresh(), 0);
   }
 
   if (document.readyState === "loading") {
