@@ -20,7 +20,7 @@
   </script>
 </head>
 <body class="collection-page">
-  <header class="fireteam-bray-header d2-site-shell" aria-label="D2 Collections Guardian header">
+  <header class="fireteam-bray-header d2-site-shell" data-guardian-header="fireteam" aria-label="D2 Collections Guardian header">
     <div class="fireteam-appbar d2-shell-appbar">
       <a class="fireteam-brand d2-shell-brand" href="index.html" aria-label="D2 Collections home">
         <img src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" />
@@ -44,7 +44,7 @@
       <div class="fireteam-profile-background" aria-hidden="true"><div id="shellBannerArt" class="fireteam-profile-background-image d2-shell-banner-art"></div></div>
       <div class="fireteam-profile-copy d2-shell-identity">
         <div class="fireteam-profile-mark"><img id="shellEmblem" class="d2-shell-emblem" src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" /></div>
-        <div id="shellProfileButton" class="fireteam-profile-select d2-shell-profile-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="shellCharacterMenu">
+        <div id="shellProfileButton" class="fireteam-profile-select d2-shell-profile-button" data-guardian-selector role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="shellCharacterMenu">
           <div class="fireteam-profile-title-row"><h1 id="shellGuardianName" class="d2-shell-name">D2 Collections</h1><div id="shellGuardianStats" class="fireteam-profile-stats d2-shell-stats"></div></div>
           <div id="shellXp" class="fireteam-profile-meta d2-shell-xp" aria-label="Rewards Pass experience progress"></div>
         </div>
@@ -234,7 +234,7 @@
   </main>
 
   <script src="data/bungie-config.js"></script>
-  <script src="assets/site-shell.js?v=shared-guardian-header-001"></script>
+  <script src="assets/site-shell.js?v=global-fireteam-header-001"></script>
   <script src="data/catalog.js?v=d2-source-audit"></script>
   <script src="data/hunter-catalog.js"></script>
   <script src="data/year-8-catalog.js?v=d2-real-source-results"></script>

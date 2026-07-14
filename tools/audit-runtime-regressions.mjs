@@ -14,6 +14,15 @@ const siteShellStyles = read("assets/site-shell.css");
 const collectionsHtml = read("index.html");
 const fireteamHtml = read("fireteam.html");
 const worker = read("worker/src/index.js");
+const publicPages = fs.readdirSync(".").filter(name => name.endsWith(".html"));
+
+for (const page of publicPages) {
+  const html = read(page);
+  assert.match(html, /assets\/site-shell\.css/, `${page} must load the canonical Guardian-header stylesheet.`);
+  assert.match(html, /data-guardian-header="fireteam"/, `${page} must use the Fireteam Guardian header globally.`);
+  assert.match(html, /data-guardian-selector/, `${page} must retain the Fireteam character-selector interaction.`);
+  assert.match(html, /fireteam-profile-select d2-shell-profile-button/, `${page} must use the canonical Fireteam profile-selector structure.`);
+}
 
 assert.match(styles, /--status-glyph:\s*url\("dim-icons\/dim_check\.svg"\)/, "Owned status must retain the check glyph.");
 assert.match(styles, /--status-glyph:\s*url\("dim-icons\/dim_times\.svg"\)/, "Missing status must retain the X glyph.");
