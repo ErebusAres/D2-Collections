@@ -58,6 +58,8 @@ assert.match(collectionsHtml, /data-layout-mode="shelf"/, "Shelf collection mode
 assert.match(collectionsHtml, /data-layout-mode="simple"/, "Simple collection mode must remain available.");
 assert.match(siteShell, /\/api\/fireteam-snapshots/, "The shared header may read the existing cloud identity snapshots.");
 assert.doesNotMatch(siteShell, /www\.bungie\.net\/Platform/, "The shared header must not create a second Bungie API refresh loop.");
+assert.match(siteShell, /function sessionIsUsable\(\)/, "The shared header must distinguish a usable Bungie session from an unavailable identity snapshot.");
+assert.match(siteShell, /document\.querySelector\("#loginBtn"\)\?\.click\(\)/, "The signed-out Guardian header must launch the existing Bungie login flow.");
 assert.match(siteShellStyles, /body\.collection-page \.at-a-glance/, "Collections controls must use the shared HUD rails.");
 assert.match(siteShellStyles, /body\.fireteam-page \.fireteam-pinned-panel/, "The shared responsive layer must keep the Fireteam tracker in flow on mobile.");
 

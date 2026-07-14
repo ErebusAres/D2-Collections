@@ -43,6 +43,16 @@
     try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
   }
 
+  function sessionIsUsable() {
+    const session = readJson(SESSION_KEY);
+    const now = Math.floor(Date.now() / 1000) + 60;
+    return Boolean(
+      (session.access_token && Number(session.expires_at || 0) > now) ||
+      (session.server_session_token && (!session.refresh_expires_at || Number(session.refresh_expires_at) > now)) ||
+      (session.refresh_token && (!session.refresh_expires_at || Number(session.refresh_expires_at) > now))
+    );
+  }
+
   function payload(snapshot) {
     return snapshot?.fireteamSnapshot || snapshot || null;
   }
@@ -92,8 +102,9 @@
   function renderIdentity(snapshot) {
     const row = payload(snapshot);
     if (!row) {
-      els.name.textContent = "D2 Collections";
-      els.stats.innerHTML = `<span class="d2-shell-stat">Sign in to load Guardian identity</span>`;
+      const linked = sessionIsUsable();
+      els.name.textContent = linked ? "Guardian linked" : "D2 Collections";
+      els.stats.innerHTML = `<span class="d2-shell-stat">${linked ? "Sync to load Guardian identity" : "Sign in to load Guardian identity"}</span>`;
       els.emblem.src = "assets/d2-collections-mark.svg";
       els.banner?.style.removeProperty("background-image");
       els.xp?.style.setProperty("--d2-season-progress", "0%");
@@ -170,6 +181,10 @@
 
   els.profileButton?.addEventListener("click", event => {
     event.stopPropagation();
+    if (!sessionIsUsable()) {
+      document.querySelector("#loginBtn")?.click();
+      return;
+    }
     setMenu(els.characterMenu.hidden);
   });
   els.characterMenu?.addEventListener("click", event => {
