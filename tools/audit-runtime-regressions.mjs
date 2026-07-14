@@ -75,6 +75,12 @@ assert.match(collectionsHtml, /data-layout-mode="simple"/, "Simple collection mo
 assert.match(siteShell, /\/api\/fireteam-snapshots/, "The shared header may read the existing cloud identity snapshots.");
 assert.doesNotMatch(siteShell, /www\.bungie\.net\/Platform/, "The shared header must not create a second Bungie API refresh loop.");
 assert.match(siteShell, /function sessionIsUsable\(\)/, "The shared header must distinguish a usable Bungie session from an unavailable identity snapshot.");
+assert.match(auth, /function publishGuardianProfile\(dump\)/, "A successful collection pull must publish Guardian identity for the shared header.");
+assert.match(auth, /d2collections:guardian-profile/, "The shared header must receive freshly pulled Guardian identity immediately.");
+assert.match(siteShell, /function accountName\(snapshot\)/, "The shared header must render the linked Bungie username and discriminator.");
+assert.match(siteShell, /function upsertLocalProfile\(local\)/, "Locally synced identity must enrich rather than replace richer cloud character data.");
+assert.match(fireteam, /const visiblePlayerName = profileAccountName\(snapshot\)/, "Fireteam title identity must use the full linked Bungie username and discriminator.");
+assert.match(siteShell, /GUARDIAN_PROFILE_KEY/, "The shared header must retain locally synced character tiles across pages.");
 assert.match(siteShell, /document\.querySelector\("#loginBtn"\)\?\.click\(\)/, "The signed-out Guardian header must launch the existing Bungie login flow.");
 assert.match(siteShellStyles, /body\.collection-page \.at-a-glance/, "Collections controls must use the shared HUD rails.");
 assert.match(siteShellStyles, /body\.fireteam-page \.fireteam-pinned-panel/, "The shared responsive layer must keep the Fireteam tracker in flow on mobile.");

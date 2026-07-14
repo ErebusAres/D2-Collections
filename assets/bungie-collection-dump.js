@@ -16,6 +16,9 @@
   const VENDOR_SALES_COMPONENT = 402;
   const ITEM_DEF_CACHE_KEY = "d2-collections-item-def-cache-v1";
   const RECORD_DEF_CACHE_KEY = "d2-collections-record-def-cache-v1";
+  const GUARDIAN_PROFILE_KEY = "d2-collections-local-guardian-profile-v1";
+  const CLASS_LABELS = { "671679327": "Hunter", "2271682572": "Warlock", "3655393761": "Titan" };
+  const RACE_LABELS = { "2803282938": "Awoken", "3887404748": "Human", "898834093": "Exo" };
   const EXOTIC_CIPHER_HASHES = new Set(["3467984096", "187236078", "825199458"]);
   const EXOTIC_ENGRAM_HASHES = new Set(["343863063", "685908770", "761932252", "773306547", "903043774", "935088801", "1010947726", "1425215686", "1728121941", "2122520503", "2176771682", "2370072441", "2564361489", "2685382923", "2762058303", "2778705488", "2907562922", "3290874772", "3484503346", "3670763683", "3875551374", "4003905209", "4106630301", "4111522113"]);
   const REFRESH_LOCK_KEY = "d2-collections-bungie-refresh-lock-v1";
@@ -972,6 +975,36 @@
     };
   }
 
+  function publishGuardianProfile(dump) {
+    const primary = dump.profiles.find(profile => String(profile.membershipId) === String(dump.primaryMembershipId)) || dump.profiles[0];
+    if (!primary?.profile) return null;
+    const profileData = primary.profile.profile?.data || {};
+    const characters = Object.values(primary.profile.characters?.data || {}).map(character => ({
+      characterId: String(character.characterId || ""),
+      className: CLASS_LABELS[String(character.classHash)] || "Guardian",
+      raceName: RACE_LABELS[String(character.raceHash)] || "",
+      light: Number(character.light || 0),
+      emblemPath: character.emblemPath || "",
+      emblemBackgroundPath: character.emblemBackgroundPath || "",
+      lastPlayed: character.dateLastPlayed || ""
+    })).sort((a, b) => Date.parse(b.lastPlayed || "") - Date.parse(a.lastPlayed || "") || b.light - a.light);
+    const identity = {
+      primaryMembershipId: String(dump.primaryMembershipId || primary.membershipId || ""),
+      membershipId: String(primary.membershipId || ""),
+      displayName: primary.displayName || "",
+      playerDisplayName: primary.displayName || "",
+      bungieGlobalDisplayName: primary.bungieGlobalDisplayName || primary.displayName || "",
+      updatedAt: new Date().toISOString(),
+      profileStats: {
+        guardianRank: Number(profileData.currentGuardianRank || profileData.renewedGuardianRank || profileData.lifetimeHighestGuardianRank || 0)
+      },
+      characterSummaries: characters
+    };
+    writeJson(GUARDIAN_PROFILE_KEY, identity);
+    document.dispatchEvent(new CustomEvent("d2collections:guardian-profile", { detail: identity }));
+    return identity;
+  }
+
   function init() {
     if (!autoExchangeStarted && authCode() && !tokenIsValid() && !refreshTokenIsValid()) {
       autoExchangeStarted = true;
@@ -1020,6 +1053,7 @@
         setStatus("Pulling logged-in Bungie collection/profile data...");
         try {
           const dump = await buildCollectionDump(status);
+          publishGuardianProfile(dump);
           setOutput(JSON.stringify(compactDumpForOutput(dump), null, 2));
           setStatus("Profile pulled. Resolving D2 Collections catalog matches...");
           const liveSync = await buildLiveSyncPayload(dump, status);

@@ -1220,7 +1220,7 @@
       if (els.lastUpdated) els.lastUpdated.textContent = "Never";
       return;
     }
-    const visiblePlayerName = snapshotDisplayName(snapshot);
+    const visiblePlayerName = profileAccountName(snapshot);
     if (els.playerName) els.playerName.textContent = visiblePlayerName;
     if (els.profileGuardianName) els.profileGuardianName.textContent = visiblePlayerName;
     const selectedCharacter = classFilter

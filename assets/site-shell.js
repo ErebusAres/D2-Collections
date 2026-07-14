@@ -6,6 +6,7 @@
   const API = String(CONFIG.cloudSyncApi || "").replace(/\/+$/, "");
   const SESSION_KEY = "d2-collections-bungie-session-v2";
   const ACTIVE_PLAYER_KEY = "d2-collections-active-player-v1";
+  const GUARDIAN_PROFILE_KEY = "d2-collections-local-guardian-profile-v1";
   const PLAYER_KEYS = { ares: "corey", erebusares: "corey", corey: "corey", icee: "matt", iceededpple: "matt", matt: "matt", fears: "chris", chris: "chris" };
   const STAT_ICONS = {
     season: "assets/dim-icons/bt_season_rank.svg",
@@ -89,6 +90,35 @@
     return snapshots.find(snapshot => playerKey(snapshot) === active) || null;
   }
 
+  function localGuardianProfile() {
+    const saved = readJson(GUARDIAN_PROFILE_KEY);
+    return saved?.characterSummaries?.length ? saved : null;
+  }
+
+  function accountName(snapshot) {
+    const row = payload(snapshot) || {};
+    return row.bungieGlobalDisplayName || row.playerDisplayName || row.displayName || shortName(snapshot);
+  }
+
+  function upsertLocalProfile(local) {
+    if (!local) return;
+    const id = snapshotId(local);
+    const existing = snapshots.find(snapshot => id && snapshotId(snapshot) === id);
+    const previous = payload(existing) || {};
+    const previousCharacters = new Map((previous.characterSummaries || []).map(character => [String(character.characterId), character]));
+    const merged = {
+      ...previous,
+      ...local,
+      seasonProgress: previous.seasonProgress || local.seasonProgress,
+      profileStats: { ...(previous.profileStats || {}), ...(local.profileStats || {}) },
+      characterSummaries: (local.characterSummaries || previous.characterSummaries || []).map(character => ({
+        ...(previousCharacters.get(String(character.characterId)) || {}),
+        ...character
+      }))
+    };
+    snapshots = [merged, ...snapshots.filter(snapshot => !id || snapshotId(snapshot) !== id)];
+  }
+
   function statMarkup(icon, label, value, className = "") {
     if (!value && value !== 0) return "";
     return `<span class="d2-shell-stat ${escapeHtml(className)}" title="${escapeHtml(`${label}: ${value}`)}"><img src="${escapeHtml(icon)}" alt="" aria-hidden="true" /><strong>${escapeHtml(value)}</strong></span>`;
@@ -116,7 +146,7 @@
     const guardianRank = Number(row.profileStats?.guardianRank || 0);
     const power = Number(character?.light || 0);
     const className = character?.className || "";
-    els.name.textContent = shortName(snapshot);
+    els.name.textContent = accountName(snapshot);
     els.stats.innerHTML = [
       season.rank ? statMarkup(STAT_ICONS.season, "Rewards Pass Rank", season.rank) : "",
       guardianRank ? statMarkup(STAT_ICONS.rank, "Guardian Rank", guardianRank) : "",
@@ -172,6 +202,7 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.message || "Snapshot read failed");
       snapshots = data.snapshots || [];
+      upsertLocalProfile(localGuardianProfile());
       renderRoster();
       renderIdentity(signedInSnapshot());
     } catch {
@@ -210,10 +241,21 @@
     if (!event.target.closest("#shellProfileButton,#shellCharacterMenu")) setMenu(false);
   });
   window.addEventListener("storage", event => {
-    if (event.key === SESSION_KEY || event.key === ACTIVE_PLAYER_KEY) renderIdentity(signedInSnapshot());
+    if (event.key === GUARDIAN_PROFILE_KEY) {
+      upsertLocalProfile(localGuardianProfile());
+      renderRoster();
+    }
+    if (event.key === SESSION_KEY || event.key === ACTIVE_PLAYER_KEY || event.key === GUARDIAN_PROFILE_KEY) renderIdentity(signedInSnapshot());
   });
   document.addEventListener("d2collections:ownership-applied", () => renderIdentity(signedInSnapshot()));
+  document.addEventListener("d2collections:guardian-profile", event => {
+    upsertLocalProfile(event.detail || localGuardianProfile());
+    renderRoster();
+    renderIdentity(signedInSnapshot());
+  });
 
-  renderIdentity(null);
+  const initialProfile = localGuardianProfile();
+  upsertLocalProfile(initialProfile);
+  renderIdentity(signedInSnapshot());
   loadSnapshots();
 })();
