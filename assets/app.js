@@ -1339,8 +1339,10 @@
       try {
         const target = new URL(returnTarget, window.location.href);
         if (target.origin === window.location.origin && target.pathname.startsWith("/D2-Collections/")) {
-          localStorage.removeItem("d2-collections-oauth-return-v1");
-          window.location.assign(target.toString());
+          // Return only after the complete Collections/cloud sync succeeds.
+          // Leaving here would strand the fresh code before the shared auth
+          // helper and collection sync have a chance to consume it.
+          localStorage.setItem("d2-collections-oauth-return-pending-v1", target.toString());
         }
       } catch {}
     }

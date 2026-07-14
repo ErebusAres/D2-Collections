@@ -49,6 +49,10 @@ assert.match(backgroundSync, /document\.hidden \|\| !navigator\.onLine/, "Collec
 assert.match(backgroundSync, /navigator\.locks\.request\(SYNC_LOCK/, "Collection background sync must use a cross-tab lock.");
 assert.match(backgroundSync, /forceNextSync/, "A successful Bungie login must force an immediate first sync.");
 assert.match(backgroundSync, /event\.detail\?\.signedIn \? 500/, "The post-login sync must start promptly after authentication.");
+assert.match(app, /d2-collections-oauth-return-pending-v1/, "Fireteam OAuth must wait for the complete Collections sync before returning.");
+assert.doesNotMatch(app, /localStorage\.removeItem\("d2-collections-oauth-return-v1"\);\s*window\.location\.assign/, "OAuth capture must not leave Collections before its full sync runs.");
+assert.match(backgroundSync, /function returnToOriginatingPage\(\)/, "Successful full sync must return to the page that initiated login.");
+assert.match(fireteam, /event\.detail\?\.signedIn\) requestRefresh\(\)/, "Fireteam must refresh immediately after shared authentication succeeds.");
 assert.match(app, /CLOUD_STALE_MS = 30 \* 60 \* 1000/, "Visible collection freshness must match its background sync policy.");
 assert.match(auth, /\/api\/auth\/exchange/, "Browser OAuth must prefer the persistent Worker exchange.");
 assert.match(auth, /server_session_token/, "Browser session storage must support opaque Worker sessions.");

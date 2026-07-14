@@ -4,6 +4,8 @@
   const ACTIVE_PLAYER_KEY = "d2-collections-active-player-v1";
   const CLOUD_META_KEY = "d2-collections-cloud-meta-v1";
   const LAST_SYNC_KEY = "d2-collections-last-background-sync-v1";
+  const OAUTH_RETURN_KEY = "d2-collections-oauth-return-v1";
+  const OAUTH_RETURN_PENDING_KEY = "d2-collections-oauth-return-pending-v1";
   const SYNC_LOCK = "d2-collections-bungie-data-sync";
   const STALE_MS = 30 * 60 * 1000;
   const CHECK_MS = 5 * 60 * 1000;
@@ -110,6 +112,22 @@
     lastInteractionAt = Date.now();
   }
 
+  function returnToOriginatingPage() {
+    const raw = localStorage.getItem(OAUTH_RETURN_PENDING_KEY) || "";
+    if (!raw) return false;
+    try {
+      const target = new URL(raw, window.location.href);
+      if (target.origin !== window.location.origin || !target.pathname.startsWith("/D2-Collections/")) return false;
+      localStorage.removeItem(OAUTH_RETURN_KEY);
+      localStorage.removeItem(OAUTH_RETURN_PENDING_KEY);
+      window.location.assign(target.toString());
+      return true;
+    } catch {
+      localStorage.removeItem(OAUTH_RETURN_PENDING_KEY);
+      return false;
+    }
+  }
+
   ["pointerdown", "keydown", "touchstart", "wheel"].forEach(type => {
     document.addEventListener(type, noteInteraction, { passive: true });
   });
@@ -125,7 +143,9 @@
     schedule(event.detail?.signedIn ? 500 : 3 * 1000, { force: Boolean(event.detail?.signedIn) });
   });
   document.addEventListener("d2collections:sync-finished", event => {
-    if (event.detail?.ok) localStorage.setItem(LAST_SYNC_KEY, JSON.stringify({ finishedAt: event.detail.finishedAt || new Date().toISOString() }));
+    if (!event.detail?.ok) return;
+    localStorage.setItem(LAST_SYNC_KEY, JSON.stringify({ finishedAt: event.detail.finishedAt || new Date().toISOString() }));
+    returnToOriginatingPage();
   });
 
   schedule(8 * 1000);

@@ -2136,9 +2136,10 @@
       setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Bungie offline");
       scheduleAutoRefresh(3 * 1000);
     });
-    document.addEventListener("d2collections:auth-changed", () => {
+    document.addEventListener("d2collections:auth-changed", event => {
       setAuthState(sessionIsUsable() || hasSavedCode() ? "Login ready" : "Bungie offline");
-      scheduleAutoRefresh(3 * 1000);
+      if (event.detail?.signedIn) requestRefresh();
+      else scheduleAutoRefresh(3 * 1000);
     });
     document.addEventListener("click", event => {
       const socialTabButton = event.target.closest("[data-social-tab]");
