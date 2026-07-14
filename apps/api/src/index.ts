@@ -5,6 +5,7 @@ import type {
   DevProbeResult,
   FireteamData,
   FireteamMember,
+  FireteamSharingMode,
   MatrixData,
   MatrixSnapshot,
   QuestData,
@@ -18,7 +19,8 @@ import type { Env, RequestContext, SessionRow } from "./types";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
-  sitePinnedQuestIds: z.array(z.string()).max(40).default([])
+  sitePinnedQuestIds: z.array(z.string()).max(40).default([]),
+  mode: z.enum(["temporary", "persistent"]).default("temporary")
 });
 
 const probeSchema = z.object({
@@ -52,9 +54,10 @@ export default {
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
     const now = new Date().toISOString();
     await env.DB.batch([
-      env.DB.prepare("DELETE FROM fireteam_shares WHERE expires_at <= ?").bind(now),
+      env.DB.prepare("DELETE FROM fireteam_shares WHERE sharing_mode = 'temporary' AND expires_at <= ?").bind(now),
       env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
     ]);
+    await refreshPersistentShares(env);
   }
 };
 
@@ -281,22 +284,51 @@ async function quests(row: SessionRow, env: Env, context: RequestContext): Promi
 
 async function upsertShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = shareSchema.parse(await request.json());
+  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode);
+  return envelope({ sharing: true, mode: input.mode, expiresAt: input.mode === "temporary" ? result.expiresAt : undefined, sharedQuestCount: result.sharedQuestCount }, env, context, { sourceMintedAt: result.sourceMintedAt });
+}
+
+async function storeShare(row: SessionRow, env: Env, characterId: string, sitePinnedQuestIds: string[], mode: FireteamSharingMode): Promise<{ expiresAt: string; sharedQuestCount: number; sourceMintedAt?: string }> {
   const { profile } = await profileFor(row, env);
   const manifest = await loadManifest(env);
-  const character = selectedCharacter(charactersFromProfile(profile), input.characterId);
-  if (!character || character.characterId !== input.characterId) throw httpError(400, "character_invalid", "The selected character does not belong to this Guardian.");
-  const allQuests = normalizeQuests(profile, manifest, character.characterId, new Set(input.sitePinnedQuestIds));
+  const character = selectedCharacter(charactersFromProfile(profile), characterId);
+  if (!character || character.characterId !== characterId) throw httpError(400, "character_invalid", "The selected character does not belong to this Guardian.");
+  const allQuests = normalizeQuests(profile, manifest, character.characterId, new Set(sitePinnedQuestIds));
   const allowedIds = new Set(allQuests.quests.map((quest) => quest.instanceId));
   const questsToShare = allQuests.quests.filter((quest) => quest.inGameTracked || (quest.sitePinned && allowedIds.has(quest.instanceId)));
   const updatedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
   const payload = { character, activity: allQuests.currentActivity, quests: questsToShare };
   await env.DB.prepare(`
-    INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(membership_id) DO UPDATE SET display_name = excluded.display_name, character_id = excluded.character_id, updated_at = excluded.updated_at, expires_at = excluded.expires_at, payload_json = excluded.payload_json
-  `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload)).run();
-  return envelope({ sharing: true, expiresAt, sharedQuestCount: questsToShare.length }, env, context, { sourceMintedAt: profile?.responseMintedTimestamp });
+    INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
+    ON CONFLICT(membership_id) DO UPDATE SET display_name = excluded.display_name, character_id = excluded.character_id, updated_at = excluded.updated_at, expires_at = excluded.expires_at, payload_json = excluded.payload_json, sharing_mode = excluded.sharing_mode, site_pinned_quest_ids_json = excluded.site_pinned_quest_ids_json, last_error = NULL
+  `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload), mode, JSON.stringify(sitePinnedQuestIds)).run();
+  return { expiresAt, sharedQuestCount: questsToShare.length, sourceMintedAt: profile?.responseMintedTimestamp };
+}
+
+async function refreshPersistentShares(env: Env): Promise<void> {
+  const { results = [] } = await env.DB.prepare("SELECT membership_id, character_id, site_pinned_quest_ids_json FROM fireteam_shares WHERE sharing_mode = 'persistent'").all<any>();
+  for (const share of results) {
+    const row = await env.DB.prepare(`
+      SELECT s.session_hash, s.membership_id, u.membership_type, u.display_name, u.bungie_name,
+        s.access_token_cipher, s.refresh_token_cipher, s.access_expires_at, s.refresh_expires_at
+      FROM oauth_sessions s JOIN users u ON u.membership_id = s.membership_id
+      WHERE s.membership_id = ? AND s.refresh_expires_at > ?
+      ORDER BY s.updated_at DESC LIMIT 1
+    `).bind(String(share.membership_id), Math.floor(Date.now() / 1000)).first<SessionRow>();
+    if (!row) {
+      await env.DB.prepare("UPDATE fireteam_shares SET last_error = ? WHERE membership_id = ?").bind("Bungie authorization must be renewed.", String(share.membership_id)).run();
+      continue;
+    }
+    let pinnedIds: string[] = [];
+    try { pinnedIds = z.array(z.string()).max(40).parse(JSON.parse(String(share.site_pinned_quest_ids_json || "[]"))); } catch { pinnedIds = []; }
+    try {
+      await storeShare(row, env, String(share.character_id), pinnedIds, "persistent");
+    } catch (error: any) {
+      await env.DB.prepare("UPDATE fireteam_shares SET last_error = ? WHERE membership_id = ?").bind(String(error?.message || "Background refresh failed.").slice(0, 240), String(share.membership_id)).run();
+    }
+  }
 }
 
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -304,7 +336,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const manifest = await loadManifest(env);
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
   const now = new Date().toISOString();
-  const { results = [] } = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json FROM fireteam_shares WHERE expires_at > ?").bind(now).all<any>();
+  const { results = [] } = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error FROM fireteam_shares WHERE sharing_mode = 'persistent' OR expires_at > ?").bind(now).all<any>();
   const shares = new Map(results.map((result: any) => [String(result.membership_id), result]));
   const party = (transitory.partyMembers || []).map((member: any) => ({
     membershipId: String(member.membershipId || member.destinyMembershipId || ""),
@@ -328,19 +360,20 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       activity: payload?.activity,
       isSelf: member.membershipId === row.membership_id,
       sharing: Boolean(share),
-      expiresAt: share?.expires_at,
+      sharingMode: share?.sharing_mode,
+      expiresAt: share?.sharing_mode === "temporary" ? share?.expires_at : undefined,
       quests: memberQuests,
       overlaps: memberQuests.filter((quest: any) => (questCounts.get(String(quest.itemHash)) || 0) > 1).map((quest: any) => quest.name),
       freshness: {
-        state: share ? "fresh" : "privacy-limited",
+        state: share ? (Date.now() - Date.parse(share.updated_at) > 15 * 60_000 ? "stale" : "fresh") : "privacy-limited",
         observedAt: share?.updated_at || now,
         ageSeconds: share ? Math.max(0, Math.round((Date.now() - Date.parse(share.updated_at)) / 1000)) : 0
       }
     };
   });
   const ownShare = shares.get(row.membership_id);
-  const data: FireteamData = { sharingEnabled: Boolean(ownShare), activity: activityName(profile, manifest), members };
-  return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale."] });
+  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, activity: activityName(profile, manifest), members };
+  return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
 }
 
 async function matrix(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

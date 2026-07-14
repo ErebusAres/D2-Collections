@@ -5,7 +5,7 @@ workers_dev = true
 preview_urls = true
 
 [triggers]
-crons = ["17 */6 * * *"]
+crons = ["*/5 * * * *"]
 
 [vars]
 BUNGIE_CLIENT_ID = "53180"

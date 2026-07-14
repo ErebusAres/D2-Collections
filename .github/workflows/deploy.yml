@@ -25,11 +25,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm manifest:sync
       - run: pnpm run audit
-      - run: pnpm --filter @guardian-nexus/api deploy
+      - run: pnpm --filter @guardian-nexus/api run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - run: pnpm --filter @guardian-nexus/web deploy
+      - run: pnpm --filter @guardian-nexus/web run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -150,14 +150,19 @@ export interface FireteamMember {
   activity?: string;
   isSelf: boolean;
   sharing: boolean;
+  sharingMode?: FireteamSharingMode;
   expiresAt?: string;
   quests: QuestProgress[];
   overlaps: string[];
   freshness: Freshness;
 }
 
+export type FireteamSharingMode = "temporary" | "persistent";
+
 export interface FireteamData {
   sharingEnabled: boolean;
+  sharingMode: "off" | FireteamSharingMode;
+  sharingExpiresAt?: string;
   activity?: string;
   members: FireteamMember[];
 }
