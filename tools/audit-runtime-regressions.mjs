@@ -7,6 +7,7 @@ const armor = read("assets/armor-columns.js");
 const auth = read("assets/bungie-collection-dump.js");
 const fireteam = read("assets/fireteam.js");
 const backgroundSync = read("assets/background-sync.js");
+const oauthRedirect = read("assets/oauth-redirect-fix.js");
 const styles = read("assets/styles.css");
 const siteShell = read("assets/site-shell.js");
 const siteShellStyles = read("assets/site-shell.css");
@@ -19,6 +20,10 @@ assert.match(styles, /--status-glyph:\s*url\("dim-icons\/dim_times\.svg"\)/, "Mi
 assert.doesNotMatch(app, /status-mark[^`]*dimIcon\("dim_(?:check|times|times_circle)\.svg"/, "Collection status cells must not recreate repeated icon images.");
 assert.doesNotMatch(armor, /status-mark[^`]*dimIcon\("dim_(?:check|times)\.svg"/, "Armor status cells must not recreate repeated icon images.");
 assert.match(auth, /navigator\.locks\?\.request/, "OAuth refresh must prefer an atomic browser lock.");
+assert.match(oauthRedirect, /sessionStorage\.setItem\(STATE_KEY, state\)/, "The compatibility OAuth launcher must save a per-tab state token.");
+assert.match(oauthRedirect, /redirect_uri: REDIRECT_URI,\s*state/, "The compatibility OAuth launcher must send its saved state token.");
+assert.match(app, /sessionStorage\.getItem\("d2-collections-oauth-state-v1"\)/, "Collections must validate OAuth state from the originating browser tab.");
+assert.match(fireteam, /sessionStorage\.getItem\(STATE_KEY\)/, "Fireteam must validate OAuth state from the originating browser tab.");
 assert.match(auth, /EXCHANGE_LOCK_KEY/, "OAuth code exchange must be coordinated across tabs.");
 assert.match(auth, /if \(authCode\(\)\) return exchangeCodeOnce\(status\)/, "A fresh OAuth code must replace an older saved session.");
 assert.doesNotMatch(auth, /function tokenIsValid[\s\S]{0,220}!saved\.auth_error/, "A historical refresh error must not invalidate a live access token.");

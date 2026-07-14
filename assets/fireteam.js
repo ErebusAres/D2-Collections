@@ -484,7 +484,7 @@
 
   function buildAuthUrl() {
     const state = crypto?.randomUUID?.() || String(Date.now());
-    localStorage.setItem(STATE_KEY, state);
+    sessionStorage.setItem(STATE_KEY, state);
     localStorage.setItem(RETURN_KEY, new URL("fireteam.html", window.location.href).toString());
     const params = new URLSearchParams({
       client_id: CONFIG.clientId || "53180",
@@ -500,9 +500,14 @@
     const code = url.searchParams.get("code");
     if (!code) return false;
     const returnedState = url.searchParams.get("state") || "";
-    const expectedState = localStorage.getItem(STATE_KEY) || "";
+    const expectedState = sessionStorage.getItem(STATE_KEY) || localStorage.getItem(STATE_KEY) || "";
     if (expectedState && returnedState !== expectedState) {
       setStatus("Bungie login returned with a state mismatch. Try signing in again.", "warn");
+      sessionStorage.removeItem(STATE_KEY);
+      localStorage.removeItem(STATE_KEY);
+      url.searchParams.delete("code");
+      url.searchParams.delete("state");
+      window.history.replaceState({}, document.title, url.toString());
       return false;
     }
     writeJson(AUTH_KEY, {
@@ -510,6 +515,7 @@
       oauthCode: code,
       lastSaved: new Date().toISOString()
     });
+    sessionStorage.removeItem(STATE_KEY);
     localStorage.removeItem(STATE_KEY);
     url.searchParams.delete("code");
     url.searchParams.delete("state");

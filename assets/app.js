@@ -1312,7 +1312,7 @@
     const clientId = BUNGIE.clientId || "53180";
     const redirectUri = BUNGIE.redirectUri || "https://erebusares.github.io/D2-Collections/index.html";
     const state = crypto?.randomUUID?.() || String(Date.now());
-    localStorage.setItem("d2-collections-oauth-state-v1", state);
+    sessionStorage.setItem("d2-collections-oauth-state-v1", state);
     const params = new URLSearchParams({ client_id: clientId, response_type: "code", redirect_uri: redirectUri, state });
     return `${BUNGIE.authUrl || "https://www.bungie.net/en/OAuth/Authorize"}?${params.toString()}`;
   }
@@ -1322,14 +1322,20 @@
     const code = url.searchParams.get("code");
     if (!code) return;
     const returnedState = url.searchParams.get("state") || "";
-    const expectedState = localStorage.getItem("d2-collections-oauth-state-v1") || "";
+    const expectedState = sessionStorage.getItem("d2-collections-oauth-state-v1") || localStorage.getItem("d2-collections-oauth-state-v1") || "";
     if (expectedState && returnedState !== expectedState) {
       console.warn("Bungie OAuth state mismatch.");
+      sessionStorage.removeItem("d2-collections-oauth-state-v1");
+      localStorage.removeItem("d2-collections-oauth-state-v1");
+      url.searchParams.delete("code");
+      url.searchParams.delete("state");
+      window.history.replaceState({}, document.title, url.toString());
       return;
     }
     authState.oauthCode = code;
     authState.lastSaved = new Date().toISOString();
     saveAuthState(authState);
+    sessionStorage.removeItem("d2-collections-oauth-state-v1");
     localStorage.removeItem("d2-collections-oauth-state-v1");
     url.searchParams.delete("code");
     url.searchParams.delete("state");
