@@ -49,6 +49,10 @@ assert.match(fireteam, /AUTO_REFRESH_MS = 15 \* 60 \* 1000/, "Fireteam backgroun
 assert.match(fireteam, /function setSyncing\(active\)/, "Fireteam refresh must expose a visible and accessible loading state.");
 assert.match(fireteam, /renderSnapshot\(linked \? localGuardianProfile\(\) : null\)/, "Fireteam must recognize the shared linked profile immediately on navigation.");
 assert.match(fireteam, /setTimeout\(\(\) => requestRefresh\(\), 0\)/, "Fireteam must begin its first linked refresh without an artificial delay.");
+assert.match(fireteam, /sessionStorage\.setItem\(RETURN_KEY/, "Fireteam OAuth return routing must remain scoped to the current browser tab.");
+assert.match(siteShell, /sessionIsUsable\(\) && local/, "Collections must prefer the locally published signed-in Guardian identity.");
+assert.doesNotMatch(siteShell, /Guardian linked/, "Collections must not leave the header at a generic linked-account label.");
+assert.match(backgroundSync, /sessionStorage\.getItem\(OAUTH_RETURN_PENDING_KEY\)/, "Background sync must not honor stale cross-tab OAuth return routes.");
 assert.match(siteShellStyles, /transform:\s*none;[\s\S]{0,160}img\.d2-shell-emblem/, "The Fireteam emblem must not retain the obsolete upward translation.");
 assert.match(siteShellStyles, /d2-fireteam-sync-sweep/, "Fireteam must show an animated synchronization indicator.");
 assert.match(fireteam, /document\.hidden \|\| !navigator\.onLine \|\| userIsBusy\(\)/, "Fireteam background refresh must pause while hidden, offline, or busy.");

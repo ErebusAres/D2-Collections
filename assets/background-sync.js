@@ -113,17 +113,19 @@
   }
 
   function returnToOriginatingPage() {
-    const raw = localStorage.getItem(OAUTH_RETURN_PENDING_KEY) || "";
+    const raw = sessionStorage.getItem(OAUTH_RETURN_PENDING_KEY) || "";
+    localStorage.removeItem(OAUTH_RETURN_KEY);
+    localStorage.removeItem(OAUTH_RETURN_PENDING_KEY);
     if (!raw) return false;
     try {
       const target = new URL(raw, window.location.href);
+      sessionStorage.removeItem(OAUTH_RETURN_KEY);
+      sessionStorage.removeItem(OAUTH_RETURN_PENDING_KEY);
       if (target.origin !== window.location.origin || !target.pathname.startsWith("/D2-Collections/")) return false;
-      localStorage.removeItem(OAUTH_RETURN_KEY);
-      localStorage.removeItem(OAUTH_RETURN_PENDING_KEY);
       window.location.assign(target.toString());
       return true;
     } catch {
-      localStorage.removeItem(OAUTH_RETURN_PENDING_KEY);
+      sessionStorage.removeItem(OAUTH_RETURN_PENDING_KEY);
       return false;
     }
   }
@@ -148,5 +150,7 @@
     returnToOriginatingPage();
   });
 
+  localStorage.removeItem(OAUTH_RETURN_KEY);
+  localStorage.removeItem(OAUTH_RETURN_PENDING_KEY);
   schedule(8 * 1000);
 })();

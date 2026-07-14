@@ -502,7 +502,7 @@
   function buildAuthUrl() {
     const state = crypto?.randomUUID?.() || String(Date.now());
     sessionStorage.setItem(STATE_KEY, state);
-    localStorage.setItem(RETURN_KEY, new URL("fireteam.html", window.location.href).toString());
+    sessionStorage.setItem(RETURN_KEY, new URL("fireteam.html", window.location.href).toString());
     const params = new URLSearchParams({
       client_id: CONFIG.clientId || "53180",
       response_type: "code",

@@ -83,6 +83,8 @@
   }
 
   function signedInSnapshot() {
+    const local = localGuardianProfile();
+    if (sessionIsUsable() && local) return local;
     const session = readJson(SESSION_KEY);
     const ids = [session.primaryMembershipId, session.membershipId, session.destinyMembershipId, session.bungieMembershipId, session.membership_id].filter(Boolean).map(String);
     if (ids.length) return snapshots.find(snapshot => ids.includes(snapshotId(snapshot))) || null;
@@ -133,8 +135,8 @@
     const row = payload(snapshot);
     if (!row) {
       const linked = sessionIsUsable();
-      els.name.textContent = linked ? "Guardian linked" : "D2 Collections";
-      els.stats.innerHTML = `<span class="d2-shell-stat">${linked ? "Sync to load Guardian identity" : "Sign in to load Guardian identity"}</span>`;
+      els.name.textContent = linked ? "Loading Guardian..." : "D2 Collections";
+      els.stats.innerHTML = `<span class="d2-shell-stat">${linked ? "Syncing profile and characters" : "Sign in to load Guardian identity"}</span>`;
       els.emblem.src = "assets/d2-collections-mark.svg";
       els.banner?.style.removeProperty("background-image");
       els.xp?.style.setProperty("--d2-season-progress", "0%");
@@ -206,7 +208,7 @@
       renderRoster();
       renderIdentity(signedInSnapshot());
     } catch {
-      renderIdentity(null);
+      renderIdentity(signedInSnapshot() || localGuardianProfile());
     }
   }
 

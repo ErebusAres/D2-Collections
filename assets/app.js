@@ -1340,7 +1340,9 @@
     url.searchParams.delete("code");
     url.searchParams.delete("state");
     window.history.replaceState({}, document.title, url.toString());
-    const returnTarget = localStorage.getItem("d2-collections-oauth-return-v1") || "";
+    const returnTarget = sessionStorage.getItem("d2-collections-oauth-return-v1") || localStorage.getItem("d2-collections-oauth-return-v1") || "";
+    sessionStorage.removeItem("d2-collections-oauth-return-v1");
+    localStorage.removeItem("d2-collections-oauth-return-v1");
     if (returnTarget) {
       try {
         const target = new URL(returnTarget, window.location.href);
@@ -1348,7 +1350,7 @@
           // Return only after the complete Collections/cloud sync succeeds.
           // Leaving here would strand the fresh code before the shared auth
           // helper and collection sync have a chance to consume it.
-          localStorage.setItem("d2-collections-oauth-return-pending-v1", target.toString());
+          sessionStorage.setItem("d2-collections-oauth-return-pending-v1", target.toString());
         }
       } catch {}
     }
