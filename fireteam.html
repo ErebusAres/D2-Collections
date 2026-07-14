@@ -7,42 +7,43 @@
   <meta name="description" content="Destiny 2 fireteam quest and progress dashboard for shared Bungie snapshots." />
   <link rel="icon" type="image/svg+xml" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
   <link rel="apple-touch-icon" href="assets/d2-collections-mark.svg?v=d2-exotic-tile-mark" />
-  <link rel="stylesheet" href="assets/fireteam-redesign.css?v=semantic-header-icons-001" />
+  <link rel="stylesheet" href="assets/fireteam-redesign.css?v=unified-workspace-002" />
+  <link rel="stylesheet" href="assets/site-shell.css?v=unified-workspace-002" />
 </head>
 <body class="fireteam-page">
-  <div class="app-shell fireteam-shell">
-    <header class="fireteam-bray-header">
-      <div class="fireteam-appbar">
-        <a class="fireteam-brand" href="fireteam.html" aria-label="D2 Collections fireteam dashboard">
+  <div class="app-shell fireteam-shell d2-workspace">
+    <header class="fireteam-bray-header d2-site-shell">
+      <div class="fireteam-appbar d2-shell-appbar">
+        <a class="fireteam-brand d2-shell-brand" href="fireteam.html" aria-label="D2 Collections fireteam dashboard">
           <img src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" />
           <span>D2 Collections</span>
         </a>
-        <div class="fireteam-appbar-actions">
-          <nav class="site-nav" aria-label="Site navigation">
+        <div class="fireteam-appbar-actions d2-shell-actions">
+          <nav class="site-nav d2-shell-nav" aria-label="Site navigation">
             <a href="index.html">Collections</a>
             <a href="fireteam.html" aria-current="page">Fireteam</a>
           </nav>
-          <button id="socialDrawerToggle" class="fireteam-social-button" type="button" aria-expanded="false" aria-controls="socialDrawer" title="Fireteam and friends">
-            <span aria-hidden="true"></span>
+          <button id="socialDrawerToggle" class="fireteam-social-button d2-shell-icon-button" type="button" aria-expanded="false" aria-controls="socialDrawer" title="Fireteam and friends">
+            <span class="d2-shell-social-icon" aria-hidden="true"></span>
             <em id="socialCount">0</em>
           </button>
         </div>
       </div>
 
-      <section class="fireteam-profile-banner" aria-label="Fireteam dashboard header">
+      <section class="fireteam-profile-banner d2-shell-banner" aria-label="Fireteam dashboard header">
         <div class="fireteam-profile-background" aria-hidden="true">
-          <div id="profileBannerImage" class="fireteam-profile-background-image"></div>
+          <div id="profileBannerImage" class="fireteam-profile-background-image d2-shell-banner-art"></div>
         </div>
-        <div class="fireteam-profile-mark">
-          <img id="profileEmblem" src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" />
-        </div>
-        <div class="fireteam-profile-copy">
-          <div id="profileSelectorToggle" class="fireteam-profile-select" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+        <div class="fireteam-profile-copy d2-shell-identity">
+          <div class="fireteam-profile-mark">
+            <img id="profileEmblem" class="d2-shell-emblem" src="assets/d2-collections-mark.svg" alt="" aria-hidden="true" />
+          </div>
+          <div id="profileSelectorToggle" class="fireteam-profile-select d2-shell-profile-button" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
             <div class="fireteam-profile-title-row">
-              <h1 id="profileGuardianName">Fireteam Progress</h1>
-              <div id="profileTopStats" class="fireteam-profile-stats"></div>
+              <h1 id="profileGuardianName" class="d2-shell-name">Fireteam Progress</h1>
+              <div id="profileTopStats" class="fireteam-profile-stats d2-shell-stats"></div>
             </div>
-            <div id="profileGuardianMeta" class="fireteam-profile-meta">Quest progress, character summaries, and shared fireteam snapshots.</div>
+            <div id="profileGuardianMeta" class="fireteam-profile-meta d2-shell-xp">Quest progress, character summaries, and shared fireteam snapshots.</div>
           </div>
           <div id="profileCharacterSelector" class="fireteam-character-selector" hidden></div>
         </div>

@@ -8,6 +8,10 @@ const auth = read("assets/bungie-collection-dump.js");
 const fireteam = read("assets/fireteam.js");
 const backgroundSync = read("assets/background-sync.js");
 const styles = read("assets/styles.css");
+const siteShell = read("assets/site-shell.js");
+const siteShellStyles = read("assets/site-shell.css");
+const collectionsHtml = read("index.html");
+const fireteamHtml = read("fireteam.html");
 const worker = read("worker/src/index.js");
 
 assert.match(styles, /--status-glyph:\s*url\("dim-icons\/dim_check\.svg"\)/, "Owned status must retain the check glyph.");
@@ -45,5 +49,16 @@ assert.match(auth, /server_session_token/, "Browser session storage must support
 assert.match(worker, /AES-GCM/, "Stored Bungie refresh tokens must be encrypted.");
 assert.match(worker, /sha256Hex\(sessionToken\)/, "Worker browser sessions must be stored by hash.");
 assert.match(worker, /BUNGIE_CLIENT_SECRET/, "Worker OAuth must require the confidential Bungie client secret.");
+assert.match(collectionsHtml, /assets\/site-shell\.css/, "Collections must load the shared Destiny HUD shell.");
+assert.match(fireteamHtml, /assets\/site-shell\.css/, "Fireteam must load the shared Destiny HUD shell.");
+assert.match(collectionsHtml, /class="d2-site-shell"/, "Collections must render the shared Guardian header.");
+assert.match(collectionsHtml, /class="sync-popout"/, "The shared header must preserve the existing sync panel.");
+assert.match(collectionsHtml, /data-layout-mode="detailed"/, "Detailed collection mode must remain available.");
+assert.match(collectionsHtml, /data-layout-mode="shelf"/, "Shelf collection mode must remain available.");
+assert.match(collectionsHtml, /data-layout-mode="simple"/, "Simple collection mode must remain available.");
+assert.match(siteShell, /\/api\/fireteam-snapshots/, "The shared header may read the existing cloud identity snapshots.");
+assert.doesNotMatch(siteShell, /www\.bungie\.net\/Platform/, "The shared header must not create a second Bungie API refresh loop.");
+assert.match(siteShellStyles, /body\.collection-page \.at-a-glance/, "Collections controls must use the shared HUD rails.");
+assert.match(siteShellStyles, /body\.fireteam-page \.fireteam-pinned-panel/, "The shared responsive layer must keep the Fireteam tracker in flow on mobile.");
 
 console.log("runtime regression audit passed");
