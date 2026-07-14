@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { QuestProgress } from "@guardian-nexus/contracts";
-import { objectivePercent, recommendQuests } from "./index";
+import type { CompactManifest, QuestProgress } from "@guardian-nexus/contracts";
+import { mergeCollection, objectivePercent, recommendQuests } from "./index";
 
 const quest = (overrides: Partial<QuestProgress>): QuestProgress => ({
   instanceId: "1",
@@ -46,5 +46,37 @@ describe("recommendQuests", () => {
       quest({ instanceId: "c", name: "C", activityName: "Tower" })
     ]);
     expect(results[0]?.reasons).toContain("Progresses with other quests");
+  });
+});
+
+describe("mergeCollection", () => {
+  it("consolidates legacy variants and preserves ownership across their collectible hashes", () => {
+    const variants: CompactManifest["items"] = [
+      { itemHash: "old", name: "Phoenix Protocol", description: "", icon: "/old.png", kind: "armor", className: "Warlock", slot: "Chest", itemType: "Chest Armor", source: "", catalystRecordHashes: ["not-a-real-armor-catalyst"] },
+      { itemHash: "current", collectibleHash: "owned", name: "Phoenix Protocol", description: "Current", icon: "/current.png", kind: "armor", className: "Warlock", slot: "Chest", itemType: "Chest Armor", source: "Engrams", catalystRecordHashes: [] }
+    ];
+    const entries = mergeCollection({ version: "test", generatedAt: "now", items: variants, itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} }, {
+      ownedCollectibleHashes: new Set(["owned"]),
+      completedRecordHashes: new Set(),
+      visibleRecordHashes: new Set()
+    }, "Warlock");
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ itemHash: "current", owned: true, catalyst: "unavailable" });
+  });
+
+  it("combines ownership and catalyst state for duplicate weapon definitions", () => {
+    const variants: CompactManifest["items"] = [
+      { itemHash: "a", collectibleHash: "missing", name: "Test Rifle", description: "", icon: "/a.png", kind: "weapon", slot: "Kinetic", itemType: "Auto Rifle", source: "Quest", catalystRecordHashes: ["cat"] },
+      { itemHash: "b", collectibleHash: "owned", name: "Test Rifle", description: "", icon: "/b.png", kind: "weapon", slot: "Kinetic", itemType: "Auto Rifle", source: "Quest", catalystRecordHashes: [] }
+    ];
+    const entries = mergeCollection({ version: "test", generatedAt: "now", items: variants, itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} }, {
+      ownedCollectibleHashes: new Set(["owned"]),
+      completedRecordHashes: new Set(["cat"]),
+      visibleRecordHashes: new Set(["cat"])
+    }, "Warlock");
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ owned: true, catalyst: "complete" });
   });
 });

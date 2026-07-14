@@ -112,20 +112,40 @@ export function mergeCollection(
   selectedClass: GuardianClass,
   guides: Record<string, GuideEntry> = {}
 ): ExoticCollectionEntry[] {
-  return manifest.items
-    .filter((item) => item.kind === "weapon" || item.className === selectedClass)
-    .map((item) => {
-      const catalystAvailable = item.catalystRecordHashes.length > 0;
-      const catalystComplete = item.catalystRecordHashes.some((hash) => state.completedRecordHashes.has(hash));
-      const catalystOwned = item.catalystRecordHashes.some((hash) => state.visibleRecordHashes.has(hash));
+  const grouped = new Map<string, CompactManifest["items"]>();
+  for (const item of manifest.items.filter((entry) => entry.kind === "weapon" || entry.className === selectedClass)) {
+    const key = [item.kind, item.className ?? "", item.slot, item.name.trim().toLocaleLowerCase()].join("|");
+    const variants = grouped.get(key) ?? [];
+    variants.push(item);
+    grouped.set(key, variants);
+  }
+
+  return [...grouped.values()]
+    .map((variants) => {
+      const item = [...variants].sort((a, b) => representativeScore(b) - representativeScore(a) || a.itemHash.localeCompare(b.itemHash))[0]!;
+      const catalystRecordHashes = item.kind === "weapon"
+        ? [...new Set(variants.flatMap((variant) => variant.catalystRecordHashes))]
+        : [];
+      const catalystAvailable = catalystRecordHashes.length > 0;
+      const catalystComplete = catalystRecordHashes.some((hash) => state.completedRecordHashes.has(hash));
+      const catalystOwned = catalystRecordHashes.some((hash) => state.visibleRecordHashes.has(hash));
+      const owned = variants.some((variant) => variant.collectibleHash && state.ownedCollectibleHashes.has(variant.collectibleHash));
+      const guide = variants.map((variant) => guides[variant.itemHash]).find(Boolean) ?? fallbackGuide({ ...item, catalystRecordHashes });
       return {
         ...item,
         icon: imageUrl(item.icon),
         watermark: imageUrl(item.watermark),
-        owned: item.collectibleHash ? state.ownedCollectibleHashes.has(item.collectibleHash) : false,
+        owned,
         catalyst: !catalystAvailable ? "unavailable" : catalystComplete ? "complete" : catalystOwned ? "obtained" : "missing",
-        guide: guides[item.itemHash] ?? fallbackGuide(item)
+        guide
       } satisfies ExoticCollectionEntry;
     })
     .sort((a, b) => a.kind.localeCompare(b.kind) || a.slot.localeCompare(b.slot) || a.name.localeCompare(b.name));
+}
+
+function representativeScore(item: CompactManifest["items"][number]): number {
+  return (item.collectibleHash ? 8 : 0)
+    + (item.source ? 4 : 0)
+    + (item.description ? 2 : 0)
+    + (item.icon ? 1 : 0);
 }

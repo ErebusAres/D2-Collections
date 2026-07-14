@@ -102,8 +102,9 @@ export function normalizeCollection(profile: any, manifest: CompactManifest, sel
     totals: {
       owned: entries.filter((entry) => entry.owned).length,
       available: entries.length,
-      catalystsOwned: entries.filter((entry) => entry.catalyst === "obtained" || entry.catalyst === "complete").length,
-      catalystsComplete: entries.filter((entry) => entry.catalyst === "complete").length
+      catalystsAvailable: entries.filter((entry) => entry.kind === "weapon" && entry.catalyst !== "unavailable").length,
+      catalystsOwned: entries.filter((entry) => entry.kind === "weapon" && (entry.catalyst === "obtained" || entry.catalyst === "complete")).length,
+      catalystsComplete: entries.filter((entry) => entry.kind === "weapon" && entry.catalyst === "complete").length
     }
   };
 }

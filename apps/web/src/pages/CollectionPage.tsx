@@ -29,7 +29,7 @@ export function CollectionPage() {
     return (!query || text.includes(query.toLowerCase()))
       && (kind === "all" || entry.kind === kind)
       && (owned === "all" || (owned === "owned" ? entry.owned : !entry.owned))
-      && (catalyst === "all" || entry.catalyst === catalyst);
+      && (catalyst === "all" || (entry.kind === "weapon" && entry.catalyst === catalyst));
   }), [result.data, query, kind, owned, catalyst]);
   const data = result.data?.data;
 
@@ -39,7 +39,7 @@ export function CollectionPage() {
     {data && <>
       <section className={styles.summaryGrid}>
         <Summary label="Exotics owned" value={`${data.totals.owned}/${data.totals.available}`} progress={data.totals.available ? data.totals.owned / data.totals.available : 0} icon={<Sparkles />} />
-        <Summary label="Catalysts found" value={String(data.totals.catalystsOwned)} progress={data.totals.available ? data.totals.catalystsOwned / data.totals.available : 0} icon={<BookOpen />} />
+        <Summary label="Catalysts found" value={`${data.totals.catalystsOwned}/${data.totals.catalystsAvailable}`} progress={data.totals.catalystsAvailable ? data.totals.catalystsOwned / data.totals.catalystsAvailable : 0} icon={<BookOpen />} />
         <Summary label="Catalysts complete" value={String(data.totals.catalystsComplete)} progress={data.totals.catalystsOwned ? data.totals.catalystsComplete / data.totals.catalystsOwned : 0} icon={<Check />} />
         <Summary label="Manifest" value={data.manifestVersion === "offline-fallback" || data.manifestVersion === "unavailable" ? "Offline" : "Current"} progress={data.entries.length ? 1 : 0} icon={<Shield />} />
       </section>
@@ -70,7 +70,7 @@ function ItemCard({ entry, onOpen }: { entry: ExoticCollectionEntry; onOpen: () 
   return <button className={`${styles.itemCard} ${entry.owned ? styles.owned : styles.missing}`} onClick={onOpen}>
     <div className={styles.itemArt}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span>{entry.kind === "weapon" ? <Swords /> : <Shield />}</span>}{entry.watermark && <img className={styles.watermark} src={entry.watermark} alt="" />}</div>
     <div className={styles.itemBody}><span>{entry.kind} · {entry.slot}</span><h2>{entry.name}</h2><p>{entry.itemType}</p></div>
-    <div className={styles.itemState}><StateBadge active={entry.owned} label={entry.owned ? "Owned" : "Missing"} /><StateBadge active={entry.catalyst === "obtained" || entry.catalyst === "complete"} label={catalystLabel(entry.catalyst)} gold={entry.catalyst === "complete"} /></div>
+    <div className={styles.itemState}><StateBadge active={entry.owned} label={entry.owned ? "Owned" : "Missing"} />{entry.kind === "weapon" && <StateBadge active={entry.catalyst === "obtained" || entry.catalyst === "complete"} label={catalystLabel(entry.catalyst)} gold={entry.catalyst === "complete"} />}</div>
     <ChevronRight className={styles.chevron} size={18} />
   </button>;
 }
@@ -90,7 +90,7 @@ function GuideDrawer({ entry, onClose }: { entry: ExoticCollectionEntry | null; 
       <GuideSection title="Current source"><p>{entry.guide.acquisition}</p></GuideSection>
       <GuideSection title="Acquisition steps"><ol>{entry.guide.steps.length ? entry.guide.steps.map((step, index) => <li key={index}>{step}</li>) : <li>Verification pending. No steps will be invented.</li>}</ol></GuideSection>
       {entry.guide.prerequisites.length > 0 && <GuideSection title="Prerequisites"><ul>{entry.guide.prerequisites.map((step, index) => <li key={index}>{step}</li>)}</ul></GuideSection>}
-      <GuideSection title="Catalyst"><p>{entry.guide.catalystSource || "No catalyst is currently mapped for this item."}</p>{entry.guide.catalystCompletion && <p>{entry.guide.catalystCompletion}</p>}</GuideSection>
+      {entry.kind === "weapon" && <GuideSection title="Catalyst"><p>{entry.guide.catalystSource || "No catalyst is currently mapped for this weapon."}</p>{entry.guide.catalystCompletion && <p>{entry.guide.catalystCompletion}</p>}</GuideSection>}
       <GuideSection title="Verification"><p>{entry.guide.verifiedAt ? `Verified ${new Date(entry.guide.verifiedAt).toLocaleDateString()}.` : "Needs a current source verification pass."}</p>{entry.guide.sources.map((source) => source.url ? <a key={source.label} href={source.url} target="_blank" rel="noreferrer">{source.label} <ChevronRight size={13} /></a> : <span key={source.label}>{source.label}</span>)}</GuideSection>
     </>}
   </aside></>;

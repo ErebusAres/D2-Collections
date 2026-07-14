@@ -100,7 +100,7 @@ export interface ExoticCollectionEntry {
 export interface CollectionData {
   manifestVersion: string;
   entries: ExoticCollectionEntry[];
-  totals: { owned: number; available: number; catalystsOwned: number; catalystsComplete: number };
+  totals: { owned: number; available: number; catalystsAvailable: number; catalystsOwned: number; catalystsComplete: number };
 }
 
 export interface QuestObjective {
