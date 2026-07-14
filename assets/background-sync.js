@@ -14,6 +14,7 @@
   let lastInteractionAt = Date.now();
   let timer = 0;
   let running = false;
+  let forceNextSync = false;
 
   function readJson(key) {
     try { return JSON.parse(localStorage.getItem(key) || "{}"); } catch { return {}; }
@@ -23,11 +24,11 @@
     if (window.D2_COLLECTIONS_AUTH?.sessionIsUsable?.()) return true;
     const saved = readJson(SESSION_KEY);
     const now = Math.floor(Date.now() / 1000) + 60;
-    return Boolean(!saved.auth_error && (
+    return Boolean(
       (saved.access_token && saved.expires_at > now) ||
       (saved.server_session_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)) ||
-      (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
-    ));
+      (!saved.auth_error && saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
+    );
   }
 
   function latestSyncTime() {
@@ -76,10 +77,12 @@
     return navigator.locks.request(SYNC_LOCK, { ifAvailable: true }, lock => lock ? callback() : false);
   }
 
-  async function check({ initial = false } = {}) {
+  async function check({ initial = false, force = false } = {}) {
     clearTimeout(timer);
     timer = 0;
-    if (running || document.hidden || !navigator.onLine || !sessionUsable() || !stale() || userIsBusy()) {
+    force = force || forceNextSync;
+    forceNextSync = false;
+    if (running || document.hidden || !navigator.onLine || !sessionUsable() || (!force && (!stale() || userIsBusy()))) {
       schedule(initial ? 15 * 1000 : CHECK_MS);
       return;
     }
@@ -97,8 +100,9 @@
     }
   }
 
-  function schedule(delay = CHECK_MS) {
+  function schedule(delay = CHECK_MS, { force = false } = {}) {
     clearTimeout(timer);
+    if (force) forceNextSync = true;
     timer = setTimeout(() => check(), delay);
   }
 
@@ -117,7 +121,9 @@
   window.addEventListener("storage", event => {
     if (event.key === SESSION_KEY || event.key === AUTH_KEY || event.key === CLOUD_META_KEY) schedule(3 * 1000);
   });
-  document.addEventListener("d2collections:auth-changed", () => schedule(3 * 1000));
+  document.addEventListener("d2collections:auth-changed", event => {
+    schedule(event.detail?.signedIn ? 500 : 3 * 1000, { force: Boolean(event.detail?.signedIn) });
+  });
   document.addEventListener("d2collections:sync-finished", event => {
     if (event.detail?.ok) localStorage.setItem(LAST_SYNC_KEY, JSON.stringify({ finishedAt: event.detail.finishedAt || new Date().toISOString() }));
   });

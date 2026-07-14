@@ -21,8 +21,10 @@
   const REFRESH_LOCK_KEY = "d2-collections-bungie-refresh-lock-v1";
   const REFRESH_LOCK_TTL_MS = 60000;
   const REFRESH_WAIT_MS = 65000;
+  const EXCHANGE_LOCK_KEY = "d2-collections-bungie-code-exchange";
   const TAB_ID = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let refreshPromise = null;
+  let exchangePromise = null;
   let autoExchangeStarted = false;
 
   function readJson(key) {
@@ -79,15 +81,15 @@
   }
 
   function tokenIsValid(saved = token()) {
-    return Boolean(!saved.auth_error && saved.access_token && saved.expires_at && saved.expires_at > Math.floor(Date.now() / 1000) + 60);
+    return Boolean(saved.access_token && saved.expires_at && saved.expires_at > Math.floor(Date.now() / 1000) + 60);
   }
 
   function refreshTokenIsValid(saved = token()) {
     const now = Math.floor(Date.now() / 1000) + 60;
-    return Boolean(!saved.auth_error && (
+    return Boolean(
       (saved.server_session_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now)) ||
-      (saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
-    ));
+      (!saved.auth_error && saved.refresh_token && (!saved.refresh_expires_at || saved.refresh_expires_at > now))
+    );
   }
 
   function sleep(ms) {
@@ -242,6 +244,28 @@
     return saveToken(data);
   }
 
+  async function exchangeCodeAcrossTabs(status) {
+    const exchange = async () => {
+      const code = authCode();
+      if (code) return exchangeCodeForToken(status);
+      const saved = token();
+      if (tokenIsValid(saved)) return saved;
+      if (refreshTokenIsValid(saved)) return refreshTokenAcrossTabs(status);
+      throw new Error("No Bungie login code captured. Click Login with Bungie first.");
+    };
+    if (navigator.locks?.request) {
+      return navigator.locks.request(EXCHANGE_LOCK_KEY, { mode: "exclusive" }, exchange);
+    }
+    return exchange();
+  }
+
+  function exchangeCodeOnce(status) {
+    if (!exchangePromise) {
+      exchangePromise = exchangeCodeAcrossTabs(status).finally(() => { exchangePromise = null; });
+    }
+    return exchangePromise;
+  }
+
   async function refreshToken() {
     const saved = token();
     if (saved.server_session_token) return refreshTokenWithWorker(saved.server_session_token);
@@ -364,22 +388,21 @@
   }
 
   async function ensureToken(status) {
+    // A saved authorization code represents an explicit fresh login and must
+    // replace any older Worker or refresh-token session.
+    if (authCode()) return exchangeCodeOnce(status);
     const saved = token();
     if (tokenIsValid(saved)) {
-      if (authCode()) clearAuthCode("ignored_stale_code_session_valid");
       return saved;
     }
     if (refreshTokenIsValid(saved)) {
-      if (authCode()) clearAuthCode("ignored_stale_code_refresh_valid");
       if (!refreshPromise) refreshPromise = refreshTokenAcrossTabs(status).finally(() => { refreshPromise = null; });
       return refreshPromise;
     }
-    if (authCode()) return exchangeCodeForToken(status);
-    if (saved.access_token || saved.refresh_token) {
-      markAuthRefreshError("Bungie session needs a fresh login.");
+    if (saved.access_token || saved.refresh_token || saved.server_session_token) {
       throw new Error("Bungie session needs a fresh login. Click Refresh Bungie login.");
     }
-    return exchangeCodeForToken(status);
+    return exchangeCodeOnce(status);
   }
 
   window.D2_COLLECTIONS_AUTH = {

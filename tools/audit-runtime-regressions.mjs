@@ -19,6 +19,10 @@ assert.match(styles, /--status-glyph:\s*url\("dim-icons\/dim_times\.svg"\)/, "Mi
 assert.doesNotMatch(app, /status-mark[^`]*dimIcon\("dim_(?:check|times|times_circle)\.svg"/, "Collection status cells must not recreate repeated icon images.");
 assert.doesNotMatch(armor, /status-mark[^`]*dimIcon\("dim_(?:check|times)\.svg"/, "Armor status cells must not recreate repeated icon images.");
 assert.match(auth, /navigator\.locks\?\.request/, "OAuth refresh must prefer an atomic browser lock.");
+assert.match(auth, /EXCHANGE_LOCK_KEY/, "OAuth code exchange must be coordinated across tabs.");
+assert.match(auth, /if \(authCode\(\)\) return exchangeCodeOnce\(status\)/, "A fresh OAuth code must replace an older saved session.");
+assert.doesNotMatch(auth, /function tokenIsValid[\s\S]{0,220}!saved\.auth_error/, "A historical refresh error must not invalidate a live access token.");
+assert.match(auth, /saved\.server_session_token[\s\S]{0,140}\|\|[\s\S]{0,140}!saved\.auth_error && saved\.refresh_token/, "Worker sessions must remain refreshable after transient local errors.");
 assert.match(auth, /waitForTokenRotation\(usedRefreshToken, timeoutMs = 10000\)/, "Refresh-token rotation must allow time for another tab to finish.");
 assert.match(fireteam, /function reusableDefinition\(entry\)/, "Unresolved manifest definitions must use the retry policy.");
 assert.match(fireteam, /function mapWithConcurrency\(values, limit, mapper\)/, "Fireteam manifest loading must use bounded concurrency.");
@@ -43,9 +47,12 @@ assert.match(fireteam, /Date\.now\(\) - latest < AUTO_REFRESH_MS/, "Visibility c
 assert.match(backgroundSync, /STALE_MS = 30 \* 60 \* 1000/, "Collection background sync must be stale-driven.");
 assert.match(backgroundSync, /document\.hidden \|\| !navigator\.onLine/, "Collection background sync must pause while hidden or offline.");
 assert.match(backgroundSync, /navigator\.locks\.request\(SYNC_LOCK/, "Collection background sync must use a cross-tab lock.");
+assert.match(backgroundSync, /forceNextSync/, "A successful Bungie login must force an immediate first sync.");
+assert.match(backgroundSync, /event\.detail\?\.signedIn \? 500/, "The post-login sync must start promptly after authentication.");
 assert.match(app, /CLOUD_STALE_MS = 30 \* 60 \* 1000/, "Visible collection freshness must match its background sync policy.");
 assert.match(auth, /\/api\/auth\/exchange/, "Browser OAuth must prefer the persistent Worker exchange.");
 assert.match(auth, /server_session_token/, "Browser session storage must support opaque Worker sessions.");
+assert.ok(fs.existsSync("tools/test-auth-session.mjs"), "Persistent auth behavior must retain its executable regression test.");
 assert.match(worker, /AES-GCM/, "Stored Bungie refresh tokens must be encrypted.");
 assert.match(worker, /sha256Hex\(sessionToken\)/, "Worker browser sessions must be stored by hash.");
 assert.match(worker, /BUNGIE_CLIENT_SECRET/, "Worker OAuth must require the confidential Bungie client secret.");
