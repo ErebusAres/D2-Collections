@@ -7,7 +7,7 @@ import type {
   QuestObjective,
   QuestProgress
 } from "@guardian-nexus/contracts";
-import { className, imageUrl, mergeCollection, objectivePercent, questPercent, recommendQuests } from "@guardian-nexus/domain";
+import { className, imageUrl, mergeCollection, objectivePercent, questPercent, questStepPosition, recommendQuests } from "@guardian-nexus/domain";
 
 const raceNames: Record<number, string> = { 0: "Human", 1: "Awoken", 2: "Exo" };
 
@@ -142,6 +142,7 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
     if (Number(definition?.itemType) !== 12 && !/quest|mission|pursuit/i.test(typeName)) return [];
     const instanceId = String(item.itemInstanceId || hash);
     const objectives = objectiveRows(itemObjectives[instanceId], manifest);
+    const stepPosition = questStepPosition(definition, hash);
     const activityHash = String(definition?.traitHashes?.[0] || definition?.activityHash || "");
     const activity = (manifest.activityDefinitions[activityHash] as any)?.displayProperties?.name || definition?.sourceData?.sourceName;
     const result: QuestProgress = {
@@ -150,7 +151,8 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
       name: definition?.displayProperties?.name || "Unknown quest",
       description: definition?.displayProperties?.description || "Bungie did not return a description for this quest.",
       icon: imageUrl(definition?.displayProperties?.icon),
-      currentStep: definition?.setData?.questStepSummary || definition?.displayProperties?.description || "Current step",
+      currentStep: definition?.displayProperties?.description || definition?.setData?.questStepSummary || "Current step",
+      ...stepPosition,
       characterId,
       inGameTracked: Boolean(Number(item.state || 0) & 2),
       sitePinned: pinnedIds.has(instanceId),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest, QuestProgress } from "@guardian-nexus/contracts";
-import { mergeCollection, objectivePercent, partyPresenceLabel, recommendQuests } from "./index";
+import { mergeCollection, objectivePercent, partyPresenceLabel, questStepPosition, recommendQuests } from "./index";
 
 const quest = (overrides: Partial<QuestProgress>): QuestProgress => ({
   instanceId: "1",
@@ -34,6 +34,18 @@ describe("partyPresenceLabel", () => {
     expect(partyPresenceLabel(1)).toBe("Fireteam member");
     expect(partyPresenceLabel(2)).toBe("Party member");
     expect(partyPresenceLabel(0)).toBe("Public fireteam presence");
+  });
+});
+
+describe("questStepPosition", () => {
+  it("derives the current and total step from ordered manifest set data", () => {
+    const definition = { setData: { itemList: [
+      { trackingValue: 300, itemHash: 33 },
+      { trackingValue: 100, itemHash: 11 },
+      { trackingValue: 200, itemHash: 22 }
+    ] } };
+    expect(questStepPosition(definition, "22")).toEqual({ stepNumber: 2, stepCount: 3 });
+    expect(questStepPosition(definition, "99")).toEqual({});
   });
 });
 

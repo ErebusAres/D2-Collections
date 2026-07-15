@@ -29,6 +29,17 @@ export function partyPresenceLabel(status: number): string {
   return "Public fireteam presence";
 }
 
+export function questStepPosition(definition: unknown, itemHash: string): { stepNumber?: number; stepCount?: number } {
+  const itemList = (definition as any)?.setData?.itemList;
+  if (!Array.isArray(itemList) || itemList.length === 0) return {};
+  const ordered = itemList
+    .map((entry: any, index: number) => ({ itemHash: String(entry?.itemHash || ""), trackingValue: Number(entry?.trackingValue || 0), index }))
+    .filter((entry: { itemHash: string }) => entry.itemHash)
+    .sort((a: { trackingValue: number; index: number }, b: { trackingValue: number; index: number }) => a.trackingValue - b.trackingValue || a.index - b.index);
+  const stepIndex = ordered.findIndex((entry: { itemHash: string }) => entry.itemHash === itemHash);
+  return stepIndex >= 0 ? { stepNumber: stepIndex + 1, stepCount: ordered.length } : {};
+}
+
 export function objectivePercent(progress: number, completionValue: number, complete = false): number {
   if (complete) return 100;
   if (!Number.isFinite(completionValue) || completionValue <= 0) return 0;

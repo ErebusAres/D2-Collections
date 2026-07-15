@@ -119,6 +119,8 @@ export interface QuestProgress {
   description: string;
   icon: string;
   currentStep: string;
+  stepNumber?: number;
+  stepCount?: number;
   characterId: string;
   inGameTracked: boolean;
   sitePinned: boolean;
