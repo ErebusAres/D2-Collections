@@ -1,4 +1,8 @@
 node_modules/
+.pnpm-store/
+dist/
+coverage/
 .wrangler/
 .dev.vars
-worker/wrangler.toml
+*.log
+apps/web/public/data/manifest.generated.json

@@ -1,15 +1,27 @@
 {
-  "name": "d2-collections",
+  "name": "guardian-nexus",
   "private": true,
   "type": "module",
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.7.0",
   "scripts": {
-    "audit": "node tools/audit-runtime-regressions.mjs && node tools/verify-icons.mjs && node tools/audit-help-data.mjs",
-    "cf:login": "wrangler login",
-    "cf:d1:create": "wrangler d1 create d2-collections",
-    "cf:d1:migrate": "wrangler d1 migrations apply d2-collections --remote --config worker/wrangler.toml",
-    "cf:deploy": "wrangler deploy --config worker/wrangler.toml"
+    "dev": "pnpm --filter @guardian-nexus/web dev",
+    "dev:api": "pnpm --filter @guardian-nexus/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "eslint apps packages tools --max-warnings=0",
+    "audit:archive": "node tools/audit-archive-boundary.mjs",
+    "audit": "pnpm audit:archive && pnpm typecheck && pnpm test && pnpm build",
+    "manifest:sync": "python tools/sync-manifest.py",
+    "cf:deploy": "pnpm --filter @guardian-nexus/api run deploy && pnpm --filter @guardian-nexus/web run deploy"
   },
   "devDependencies": {
-    "wrangler": "latest"
+    "@eslint/js": "^9.28.0",
+    "eslint": "^9.28.0",
+    "globals": "^16.2.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.0",
+    "vitest": "^3.2.4"
   }
 }

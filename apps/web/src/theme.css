@@ -1,0 +1,38 @@
+:root {
+  color-scheme: dark;
+  font-family: "Barlow", system-ui, sans-serif;
+  color: #eef4f7;
+  background: #071018;
+  font-synthesis: none;
+  --ink: #eef4f7;
+  --muted: #91a1aa;
+  --faint: #52636d;
+  --panel: rgba(11, 22, 31, 0.84);
+  --panel-strong: rgba(16, 29, 39, 0.96);
+  --line: rgba(202, 224, 232, 0.15);
+  --line-strong: rgba(220, 239, 244, 0.34);
+  --cyan: #9be7e2;
+  --cyan-bright: #d7fffb;
+  --gold: #e7c877;
+  --gold-dim: #8e7541;
+  --exotic: #ceae63;
+  --danger: #ef7986;
+  --success: #84e8bc;
+  --violet: #b6a6ef;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+}
+
+* { box-sizing: border-box; }
+html { min-width: 1180px; min-height: 100%; background: #071018; }
+body { margin: 0; min-height: 100vh; overflow-x: auto; }
+button, input, select { font: inherit; }
+button { color: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--cyan-bright); outline-offset: 3px; }
+button { cursor: pointer; }
+h1, h2, h3, p { margin-top: 0; }
+::selection { background: rgba(155, 231, 226, 0.28); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+::-webkit-scrollbar-thumb { background: #4a5b64; border: 2px solid #111c24; }
+[data-reduced-motion="true"] *, [data-reduced-motion="true"] *::before, [data-reduced-motion="true"] *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }

@@ -1,0 +1,36 @@
+{
+  "name": "@guardian-nexus/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && tsc -p functions/tsconfig.json --noEmit && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p functions/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "deploy": "pnpm run build && wrangler pages deploy --branch main"
+  },
+  "dependencies": {
+    "@fontsource/barlow": "^5.2.6",
+    "@fontsource/barlow-condensed": "^5.2.6",
+    "@guardian-nexus/contracts": "workspace:*",
+    "@guardian-nexus/domain": "workspace:*",
+    "@tanstack/react-query": "^5.80.7",
+    "lucide-react": "^0.515.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.6.2"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.5.2",
+    "jsdom": "^26.1.0",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.20.0"
+  }
+}

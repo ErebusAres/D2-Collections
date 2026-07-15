@@ -1,0 +1,141 @@
+.questWorkspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  gap: 18px;
+  align-items: start;
+}
+
+.questBoard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  min-width: 0;
+}
+
+.questWorkspaceInspecting .questBoard {
+  grid-template-columns: minmax(420px, 1fr) minmax(330px, 390px);
+}
+
+.questCards { min-width: 0; }
+.questWorkspaceInspecting .questCards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.questSelected {
+  outline: 1px solid rgba(118, 215, 218, 0.88);
+  outline-offset: -1px;
+  box-shadow: 0 0 0 2px rgba(70, 150, 166, 0.2), 0 14px 32px rgba(0, 0, 0, 0.22);
+}
+
+.bountyRail {
+  position: sticky;
+  top: 132px;
+  max-height: calc(100vh - 154px);
+  margin-top: 0;
+  overflow: auto;
+}
+
+.bountyRail > div { grid-template-columns: 1fr; }
+
+.questInspectPanel {
+  position: sticky;
+  z-index: 4;
+  top: 132px;
+  max-height: calc(100vh - 154px);
+  overflow: auto;
+  border: 1px solid rgba(134, 181, 202, 0.28);
+  border-radius: 7px;
+  background: linear-gradient(165deg, rgba(17, 31, 41, 0.99), rgba(8, 17, 24, 0.99));
+  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.44);
+}
+
+.questInspectHeader {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 30px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border-bottom: 1px solid rgba(132, 176, 195, 0.22);
+  background: linear-gradient(110deg, rgba(50, 80, 91, 0.48), rgba(17, 31, 40, 0.2));
+}
+
+.questInspectIcon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border: 1px solid rgba(168, 202, 215, 0.36);
+  background: rgba(4, 10, 15, 0.52);
+}
+.questInspectIcon img { width: 100%; height: 100%; object-fit: cover; }
+.questInspectIcon svg { color: #91c9d4; }
+.questInspectHeader > div:nth-child(2) { min-width: 0; }
+.questInspectHeader span { color: #91aab6; font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.questInspectHeader h2 { margin: 3px 0 0; overflow: hidden; color: #f3f7f9; font-family: var(--font-display); font-size: 1.08rem; text-overflow: ellipsis; white-space: nowrap; }
+.questInspectHeader > button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; background: transparent; color: #8ca2ae; cursor: pointer; }
+.questInspectHeader > button:hover { color: #e7f2f5; }
+.questInspectHeader > button svg { width: 17px; }
+
+.questInspectBody { padding: 15px; }
+.questInspectDescription { margin: 0; color: #c7d5dc; font-size: 0.78rem; line-height: 1.55; }
+.questInspectBody blockquote { margin: 13px 0 0; padding: 9px 11px; border-left: 2px solid #bda65e; background: rgba(188, 164, 90, 0.07); color: #aebec6; font-size: 0.72rem; font-style: italic; line-height: 1.5; }
+
+.inspectObjectives, .inspectRewards { margin-top: 17px; }
+.inspectObjectives > header, .inspectRewards > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; color: #829aa7; font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.inspectObjectives > header strong { color: #bdd0d8; }
+.inspectObjectives > article { padding: 9px 0; border-top: 1px solid rgba(130, 170, 188, 0.14); }
+.inspectObjectives > article > div { display: grid; grid-template-columns: minmax(0, 1fr) auto 17px; gap: 8px; align-items: center; }
+.inspectObjectives > article > div span { color: #d9e4e8; font-size: 0.72rem; }
+.inspectObjectives > article > div strong { color: #97adb7; font-size: 0.68rem; font-weight: 500; }
+.inspectObjectives > article > div svg { width: 15px; color: #75c8a1; }
+.inspectObjectives > article > i { display: block; height: 4px; margin-top: 7px; overflow: hidden; background: rgba(128, 160, 174, 0.16); }
+.inspectObjectives > article > i span { display: block; height: 100%; background: linear-gradient(90deg, #5ba4bf, #75d2d1); }
+.inspectObjectiveComplete > i span { background: #67bd92; }
+
+.inspectRewards > header { justify-content: flex-start; }
+.inspectRewards > header svg { width: 14px; color: #d2b868; }
+.inspectRewards > div:not(.inspectUnavailable) { display: grid; gap: 7px; }
+.inspectRewards article { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 10px; min-width: 0; padding: 6px; border: 1px solid rgba(130, 170, 188, 0.14); background: rgba(6, 14, 20, 0.54); }
+.inspectRewardArt { display: grid; place-items: center; width: 44px; height: 44px; overflow: hidden; background: rgba(3, 8, 12, 0.7); }
+.inspectRewardArt img { width: 100%; height: 100%; object-fit: cover; }
+.inspectRewardArt span { padding: 4px; color: #b79775; font-size: 0.52rem; text-align: center; }
+.inspectRewards main { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 7px; min-width: 0; }
+.inspectRewards main strong { overflow: hidden; color: #dce7eb; font-size: 0.72rem; text-overflow: ellipsis; white-space: nowrap; }
+.inspectRewards main b { color: #9acdd3; font-size: 0.7rem; }
+.inspectRewards main small { grid-column: 1 / -1; color: #b69171; font-size: 0.6rem; }
+
+.inspectUnavailable { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px dashed rgba(171, 139, 102, 0.32); color: #bc9c78; font-size: 0.68rem; }
+.inspectUnavailable svg { width: 15px; flex: 0 0 auto; }
+
+.questInspectLink { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 15px; color: #80cbd0; font-size: 0.7rem; text-decoration: none; }
+.questInspectLink svg { width: 14px; }
+.questInspectScrim { display: none; }
+
+.questDetailFlavor { margin: 10px 0; padding-left: 11px; border-left: 2px solid #bda65e; color: #aebec6; font-size: 0.76rem; font-style: italic; }
+.questDetailRewards { display: grid; gap: 7px; margin-top: 10px; }
+.questDetailRewards article { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 9px; align-items: center; padding: 6px; border: 1px solid rgba(130, 170, 188, 0.15); background: rgba(6, 14, 20, 0.5); }
+.questDetailRewards article > div { display: grid; place-items: center; width: 48px; height: 48px; overflow: hidden; background: #071018; }
+.questDetailRewards article > div img { width: 100%; height: 100%; object-fit: cover; }
+.questDetailRewards article > div span { padding: 4px; color: #b79775; font-size: 0.54rem; text-align: center; }
+.questDetailRewards main { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 6px; }
+.questDetailRewards main strong { overflow: hidden; color: #dce7eb; font-size: 0.74rem; text-overflow: ellipsis; white-space: nowrap; }
+.questDetailRewards main b { color: #9acdd3; font-size: 0.7rem; }
+.questDetailRewards main small { grid-column: 1 / -1; color: #b69171; font-size: 0.6rem; }
+
+@media (max-width: 1450px) {
+  .questWorkspaceInspecting .questBoard { grid-template-columns: minmax(360px, 1fr) minmax(315px, 350px); }
+  .questWorkspaceInspecting .questCards { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 1120px) {
+  .questWorkspace { grid-template-columns: 1fr; }
+  .bountyRail { position: static; max-height: none; }
+  .bountyRail > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 820px) {
+  .questWorkspaceInspecting .questBoard { grid-template-columns: 1fr; }
+  .questWorkspaceInspecting .questCards { grid-template-columns: 1fr; }
+  .questInspectScrim { position: fixed; z-index: 60; inset: 0; display: block; width: 100%; height: 100%; border: 0; background: rgba(0, 0, 0, 0.64); }
+  .questInspectPanel { position: fixed; z-index: 61; top: auto; right: 8px; bottom: 8px; left: 8px; max-height: min(82vh, 680px); border-radius: 10px; }
+  .bountyRail > div { grid-template-columns: 1fr; }
+}

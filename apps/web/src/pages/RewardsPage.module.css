@@ -1,0 +1,148 @@
+.rewardsHero {
+  --rewards-background: none;
+  position: relative;
+  display: grid;
+  grid-template-columns: 180px minmax(280px, 1fr) 230px;
+  gap: 18px;
+  align-items: stretch;
+  overflow: hidden;
+  margin-bottom: 22px;
+  padding: 22px;
+  border: 1px solid rgba(117, 177, 206, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(110deg, rgba(10, 21, 31, 0.96), rgba(15, 42, 54, 0.9)), var(--rewards-background) center / cover;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
+}
+
+.rewardsRank,
+.rewardsProgress,
+.rewardsHero > a {
+  position: relative;
+  z-index: 1;
+  border: 1px solid rgba(148, 196, 217, 0.18);
+  border-radius: 13px;
+  background: rgba(7, 16, 24, 0.68);
+}
+
+.rewardsRank {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-content: center;
+  gap: 2px 10px;
+  padding: 16px;
+}
+
+.rewardsRank svg { color: #e4c773; }
+.rewardsRank span { color: #96adba; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.rewardsRank strong { grid-column: 2; color: #f7fbfd; font-family: var(--font-display); font-size: 2.1rem; line-height: 1; }
+
+.rewardsProgress { padding: 15px 18px; }
+.rewardsProgress header { display: flex; justify-content: space-between; gap: 15px; align-items: flex-end; }
+.rewardsProgress header div { display: grid; gap: 3px; }
+.rewardsProgress header span { color: #91a8b5; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.rewardsProgress header strong { color: #f4f8fa; font-size: 1rem; }
+.rewardsProgress header b { color: #7fd6da; }
+.rewardsProgress > i { display: block; height: 6px; margin-top: 12px; overflow: hidden; border-radius: 999px; background: rgba(142, 173, 188, 0.16); }
+.rewardsProgress > i span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #62a7c3, #79d5d6); box-shadow: 0 0 12px rgba(112, 208, 213, 0.42); }
+.rewardsProgress p { margin: 9px 0 0; color: #a9bdc8; font-size: 0.74rem; }
+.rewardsProgressUnavailable > i span { background: #697984; box-shadow: none; }
+.rewardsProgressUnavailable p { color: #d3b88c; }
+
+.rewardsHero > a {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-content: center;
+  gap: 2px 9px;
+  padding: 15px;
+  color: #d7e7ed;
+  text-decoration: none;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.rewardsHero > a:hover { border-color: rgba(119, 211, 215, 0.5); background: rgba(22, 50, 61, 0.8); }
+.rewardsHero > a svg { grid-row: span 2; align-self: center; color: #77d3d7; }
+.rewardsHero > a span { color: #8ea8b5; font-size: 0.68rem; text-transform: uppercase; }
+.rewardsHero > a strong { font-size: 0.82rem; }
+
+.rewardCatalog {
+  overflow: hidden;
+  border: 1px solid rgba(125, 170, 193, 0.19);
+  border-radius: 16px;
+  background: rgba(10, 20, 28, 0.74);
+}
+
+.rewardCatalog > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(125, 170, 193, 0.15);
+}
+.rewardCatalog > header > div { display: flex; align-items: center; gap: 11px; }
+.rewardCatalog > header img { width: 42px; height: 42px; object-fit: contain; }
+.rewardCatalog > header svg { width: 28px; color: #e2c46f; }
+.rewardCatalog > header span { display: grid; gap: 3px; }
+.rewardCatalog > header small { color: #7793a2; font-size: 0.64rem; text-transform: uppercase; }
+.rewardCatalog > header strong { color: #edf5f7; }
+.rewardCatalog > header p { margin: 0; color: #8da5b1; font-size: 0.74rem; }
+
+.rewardGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
+  gap: 1px;
+  background: rgba(116, 164, 185, 0.13);
+}
+
+.rewardCard { min-width: 0; padding: 12px; background: #0d1a23; }
+.rewardCard > header { display: flex; justify-content: space-between; gap: 7px; color: #8ba5b2; font-size: 0.62rem; text-transform: uppercase; }
+.rewardCard > header b { overflow: hidden; color: #c4d4dc; text-overflow: ellipsis; white-space: nowrap; }
+.rewardItemArt { display: grid; place-items: center; aspect-ratio: 1; margin: 10px 0; overflow: hidden; border: 1px solid rgba(140, 182, 202, 0.22); background: rgba(4, 10, 15, 0.62); }
+.rewardItemArt img { width: 100%; height: 100%; object-fit: cover; }
+.rewardItemArt span { padding: 8px; color: #c7aa81; font-size: 0.65rem; text-align: center; }
+.rewardCard main { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 5px; }
+.rewardCard main strong { overflow: hidden; color: #e8f0f3; font-size: 0.76rem; text-overflow: ellipsis; white-space: nowrap; }
+.rewardCard main b { color: #9bd5d5; font-size: 0.72rem; }
+.rewardCard main small { grid-column: 1 / -1; color: #768f9c; font-size: 0.61rem; }
+.rewardCard footer { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(128, 168, 187, 0.14); color: #8fa6b1; font-size: 0.65rem; }
+.rewardCard footer svg { width: 13px; height: 13px; }
+.rewardClaimed footer { color: #76c4a0; }
+.rewardAvailable { box-shadow: inset 0 2px #d4bd68; }
+.rewardAvailable footer, .rewardEarned footer { color: #d7bd68; }
+.rewardLocked { filter: saturate(0.72); }
+.rewardLocked .rewardItemArt { opacity: 0.62; }
+.rewardUnavailable footer { color: #c29d7b; }
+
+.rewardCatalogUnavailable {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 48px 20px;
+  color: #c5a77f;
+  text-align: center;
+}
+.rewardCatalogUnavailable svg { width: 28px; height: 28px; }
+.rewardCatalogUnavailable p { max-width: 600px; margin: 0; color: #90a7b3; font-size: 0.78rem; }
+
+.rewardSources { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
+.rewardSources > div { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid rgba(125, 170, 193, 0.16); background: rgba(10, 20, 28, 0.6); }
+.rewardSources span { color: #738f9e; font-size: 0.64rem; text-transform: uppercase; }
+.rewardSources strong { color: #bcd0d9; font-size: 0.72rem; }
+
+@media (max-width: 1280px) {
+  .rewardGrid { grid-template-columns: repeat(5, minmax(116px, 1fr)); }
+}
+
+@media (max-width: 900px) {
+  .rewardsHero { grid-template-columns: 150px 1fr; }
+  .rewardsHero > a { grid-column: 1 / -1; }
+  .rewardGrid { grid-template-columns: repeat(3, minmax(104px, 1fr)); }
+}
+
+@media (max-width: 620px) {
+  .rewardsHero { grid-template-columns: 1fr; padding: 14px; }
+  .rewardsHero > a { grid-column: auto; }
+  .rewardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rewardSources { grid-template-columns: 1fr; }
+  .rewardCatalog > header { align-items: flex-start; }
+  .rewardCatalog > header p { display: none; }
+}

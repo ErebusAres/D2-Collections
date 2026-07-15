@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Guardian Nexus">
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10242d"/>
+      <stop offset="1" stop-color="#071018"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.6" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="12" fill="url(#bg)"/>
+  <path d="M32 8 56 32 32 56 8 32Z" fill="none" stroke="#78b9bd" stroke-width="2"/>
+  <path d="m20 25 12 12 12-12v9L32 46 20 34Z" fill="none" stroke="#b9ffff" stroke-width="4" stroke-linejoin="miter" filter="url(#glow)"/>
+  <circle cx="32" cy="17" r="2.5" fill="#d7bc6a"/>
+</svg>
