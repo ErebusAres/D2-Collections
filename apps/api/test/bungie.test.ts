@@ -58,7 +58,35 @@ describe("seasonPassProgress", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ErrorCode: 1, Response: { rewardProgressionHash: 11, prestigeProgressionHash: 22 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
     const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: { c1: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 5, progressToNextLevel: 250, nextLevelAt: 1000 } } } } } };
 
-    await expect(seasonPassProgress(profile, "access", { BUNGIE_API_KEY: "test" } as Env)).resolves.toEqual({ rank: 105, progress: 250, nextLevelAt: 1000, percent: 25 });
+    await expect(seasonPassProgress(profile, "access", { BUNGIE_API_KEY: "test" } as Env, "c1")).resolves.toEqual({
+      rank: 105,
+      progress: {
+        state: "available",
+        source: "bungie-profile-character-progressions",
+        passHash: "99",
+        rewardProgressionHash: "11",
+        prestigeProgressionHash: "22",
+        activeProgressionHash: "22",
+        currentProgress: 0,
+        progressToNextLevel: 250,
+        nextLevelAt: 1000,
+        percent: 25
+      }
+    });
+  });
+
+  it("reports why XP is unavailable when component 202 is missing", async () => {
+    const profile = { profile: { data: { currentSeasonPassHash: 99 } } };
+
+    await expect(seasonPassProgress(profile, "access", { BUNGIE_API_KEY: "test" } as Env, "c1")).resolves.toMatchObject({
+      rank: 0,
+      progress: {
+        state: "unavailable",
+        source: "bungie-profile-character-progressions",
+        passHash: "99",
+        reason: expect.stringContaining("characterProgressions")
+      }
+    });
   });
 });
 

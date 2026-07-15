@@ -35,7 +35,7 @@ export function Shell() {
             {guardian ? (
               <>
                 <img src={character?.emblemPath || ""} alt="" />
-                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small><div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Power" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" /></div>{guardian.stats.rewardsPassProgress && <NavLink to="/rewards" className={styles.rewardProgress} title={`${guardian.stats.rewardsPassProgress.progress.toLocaleString()} / ${guardian.stats.rewardsPassProgress.nextLevelAt.toLocaleString()} XP to the next Rewards Pass rank`}><i><span style={{ width: `${guardian.stats.rewardsPassProgress.percent}%` }} /></i><b>{guardian.stats.rewardsPassProgress.percent}% to rank {guardian.stats.rewardsPassRank + 1}</b></NavLink>}</div>
+                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small><div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Power" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassProgress.state === "unavailable" && !guardian.stats.rewardsPassRank ? undefined : guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" /></div><RewardsProgress rank={guardian.stats.rewardsPassRank} progress={guardian.stats.rewardsPassProgress} /></div>
                 {guardian.isInGame && <em>In game</em>}
               </>
             ) : (
@@ -60,7 +60,15 @@ export function Shell() {
   );
 }
 
-function HeaderStat({ label, value, icon, accent = false, to }: { label: string; value?: number; icon: React.ReactNode; accent?: boolean; to?: string }) {
-  const content = <><i>{icon}</i><span>{label}</span><strong>{value || "—"}</strong></>;
+function HeaderStat({ label, value, icon, accent = false, to }: { label: string; value?: number | string; icon: React.ReactNode; accent?: boolean; to?: string }) {
+  const content = <><i>{icon}</i><span>{label}</span><strong>{value ?? "—"}</strong></>;
   return to ? <NavLink to={to} className={`${styles.headerStat} ${accent ? styles.accentStat : ""}`}>{content}</NavLink> : <div className={`${styles.headerStat} ${accent ? styles.accentStat : ""}`}>{content}</div>;
+}
+
+function RewardsProgress({ rank, progress }: { rank: number; progress: import("@guardian-nexus/contracts").RewardsPassProgress }) {
+  const available = progress.state === "available" && progress.nextLevelAt !== undefined && progress.progressToNextLevel !== undefined && progress.percent !== undefined;
+  const label = available
+    ? `${progress.progressToNextLevel!.toLocaleString()} / ${progress.nextLevelAt!.toLocaleString()} XP · ${progress.percent}% to rank ${rank + 1}`
+    : progress.reason || "Rewards Pass XP is unavailable from Bungie.";
+  return <NavLink to="/rewards" className={`${styles.rewardProgress} ${available ? "" : styles.rewardProgressUnavailable}`} title={label}><i><span style={{ width: `${available ? progress.percent : 0}%` }} /></i><b>{available ? label : "XP unavailable"}</b></NavLink>;
 }

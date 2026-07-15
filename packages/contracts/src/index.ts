@@ -38,10 +38,55 @@ export interface HeaderStats {
   power: number;
   guardianRank: number;
   rewardsPassRank: number;
-  rewardsPassProgress?: {
-    progress: number;
-    nextLevelAt: number;
-    percent: number;
+  rewardsPassProgress: RewardsPassProgress;
+}
+
+export interface RewardsPassProgress {
+  state: "available" | "partial" | "unavailable";
+  source: "bungie-profile-character-progressions";
+  passHash?: string;
+  rewardProgressionHash?: string;
+  prestigeProgressionHash?: string;
+  activeProgressionHash?: string;
+  currentProgress?: number;
+  progressToNextLevel?: number;
+  nextLevelAt?: number;
+  percent?: number;
+  reason?: string;
+}
+
+export type RewardsPassRewardState = "claimed" | "available" | "earned" | "locked" | "unavailable";
+
+export interface RewardsPassReward {
+  rewardItemIndex: number;
+  itemHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  quantity: number;
+  requiredLevel: number;
+  track: string;
+  state: RewardsPassRewardState;
+  stateFlags?: number;
+  acquisition: "instant" | "claim-required" | "unknown";
+}
+
+export interface RewardsPassData {
+  passHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  backgroundImage: string;
+  manifestVersion: string;
+  rank: number;
+  progress: RewardsPassProgress;
+  rewards: RewardsPassReward[];
+  rewardDataState: "available" | "unavailable";
+  rewardDataReason?: string;
+  sources: {
+    rankAndXp: "Destiny2.GetProfile characterProgressions (component 202)";
+    rewards: "DestinySeasonPassDefinition and DestinyProgressionDefinition manifest data";
+    claimingSupported: false;
   };
 }
 
@@ -151,11 +196,23 @@ export interface QuestStepProgress {
   progressKnown: boolean;
 }
 
+export interface QuestReward {
+  itemHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  quantity: number;
+  definitionAvailable: boolean;
+}
+
 export interface QuestProgress {
   instanceId: string;
   itemHash: string;
   name: string;
   description: string;
+  flavorText?: string;
+  itemType?: string;
+  rarity?: string;
   icon: string;
   currentStep: string;
   stepNumber?: number;
@@ -166,7 +223,7 @@ export interface QuestProgress {
   expiresAt?: string;
   isExoticUnlock: boolean;
   activityName?: string;
-  rewards: string[];
+  rewards: QuestReward[];
   objectives: QuestObjective[];
   steps?: QuestStepProgress[];
   percent: number;
@@ -383,4 +440,12 @@ export interface GearManifest {
   gearItemDefinitions: Record<string, Record<string, unknown>>;
   plugDefinitions: Record<string, Record<string, unknown>>;
   statDefinitions: Record<string, Record<string, unknown>>;
+}
+
+export interface RewardsManifest {
+  version: string;
+  generatedAt: string;
+  seasonPassDefinitions: Record<string, Record<string, unknown>>;
+  progressionDefinitions: Record<string, Record<string, unknown>>;
+  itemDefinitions: Record<string, Record<string, unknown>>;
 }

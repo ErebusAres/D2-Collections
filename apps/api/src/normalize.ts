@@ -6,7 +6,8 @@ import type {
   QuestData,
   QuestObjective,
   QuestProgress,
-  QuestStepProgress
+  QuestStepProgress,
+  RewardsPassProgress
 } from "@guardian-nexus/contracts";
 import { className, imageUrl, mergeCollection, objectivePercent, questPercent, questStepPosition, recommendQuests } from "@guardian-nexus/domain";
 
@@ -67,7 +68,7 @@ export function normalizeGuardian(args: {
   displayName: string;
   bungieName: string;
   requestedCharacterId?: string;
-  rewardsPass: { rank: number; progress: number; nextLevelAt: number; percent: number };
+  rewardsPass: { rank: number; progress: RewardsPassProgress };
   manifest: CompactManifest;
 }): GuardianSummary {
   const characters = charactersFromProfile(args.profile);
@@ -85,11 +86,7 @@ export function normalizeGuardian(args: {
       power: selected?.power || 0,
       guardianRank: Number(profileData.currentGuardianRank || profileData.renewedGuardianRank || profileData.lifetimeHighestGuardianRank || 0),
       rewardsPassRank: args.rewardsPass.rank,
-      rewardsPassProgress: {
-        progress: args.rewardsPass.progress,
-        nextLevelAt: args.rewardsPass.nextLevelAt,
-        percent: args.rewardsPass.percent
-      }
+      rewardsPassProgress: args.rewardsPass.progress
     },
     currentActivity,
     isInGame: Boolean(selected?.minutesPlayedThisSession && currentActivity)
@@ -225,6 +222,9 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
       itemHash: hash,
       name: definition?.displayProperties?.name || "Unknown quest",
       description: definition?.displayProperties?.description || "Bungie did not return a description for this quest.",
+      flavorText: definition?.flavorText || undefined,
+      itemType: definition?.itemTypeDisplayName || definition?.itemTypeAndTierDisplayName || undefined,
+      rarity: definition?.inventory?.tierTypeName || undefined,
       icon: imageUrl(definition?.displayProperties?.icon),
       currentStep: definition?.displayProperties?.description || definition?.setData?.questStepSummary || "Current step",
       ...stepPosition,
@@ -236,8 +236,16 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
       rewards: (definition?.value?.itemValue || []).map((reward: any) => {
         const rewardHash = String(reward.itemHash || "");
         const rewardDefinition = definitionFor(manifest, rewardHash);
-        return String(rewardDefinition?.displayProperties?.name || rewardDefinition?.name || (rewardHash ? `Reward ${rewardHash}` : ""));
-      }).filter(Boolean),
+        const properties = rewardDefinition?.displayProperties || {};
+        return {
+          itemHash: rewardHash,
+          name: String(properties?.name || "Bungie reward definition unavailable"),
+          description: String(properties?.description || ""),
+          icon: imageUrl(properties?.icon),
+          quantity: Math.max(1, Number(reward?.quantity || 1)),
+          definitionAvailable: Boolean(properties?.name)
+        };
+      }).filter((reward: any) => Boolean(reward.itemHash)),
       objectives,
       steps,
       percent: 0,

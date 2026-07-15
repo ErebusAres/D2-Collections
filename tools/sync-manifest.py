@@ -21,6 +21,7 @@ GEAR_OUTPUT = OUTPUT.with_name("gear-manifest.json")
 ACTIVITY_OUTPUT = OUTPUT.with_name("activity-manifest.json")
 FEATURE_OUTPUT = OUTPUT.with_name("collection-features.json")
 PURSUIT_OUTPUT = OUTPUT.with_name("pursuit-manifest.json")
+REWARDS_OUTPUT = OUTPUT.with_name("rewards-manifest.json")
 ARMOR_STAT_HASHES = {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}
 COLLECTION_FEATURE_PATTERN = re.compile(r"\b(?:stance|faction|lawless|crystal|form|combo|reversal|mode|catalyst)\b", re.IGNORECASE)
 
@@ -83,23 +84,49 @@ def minimal_item(definition: dict) -> dict:
 
 
 def minimal_pursuit_item(definition: dict) -> dict:
+    inventory = definition.get("inventory") or {}
     return {
         "hash": str(definition.get("hash", "")),
         "displayProperties": display(definition),
         "itemType": definition.get("itemType"),
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
         "itemTypeAndTierDisplayName": definition.get("itemTypeAndTierDisplayName", ""),
-        "inventory": {"tierType": (definition.get("inventory") or {}).get("tierType")},
+        "inventory": {"tierType": inventory.get("tierType"), "tierTypeName": inventory.get("tierTypeName", "")},
         "objectives": definition.get("objectives") or {},
         "setData": definition.get("setData") or {},
         "value": definition.get("value") or {},
         "traitHashes": definition.get("traitHashes") or [],
         "sourceData": definition.get("sourceData") or {},
+        "flavorText": definition.get("flavorText", ""),
     }
 
 
 def minimal_reward_item(definition: dict) -> dict:
-    return {"hash": str(definition.get("hash", "")), "displayProperties": display(definition)}
+    return {
+        "hash": str(definition.get("hash", "")),
+        "displayProperties": display(definition),
+        "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
+    }
+
+
+def minimal_season_pass(definition: dict) -> dict:
+    return {
+        "hash": str(definition.get("hash", "")),
+        "displayProperties": display(definition),
+        "rewardProgressionHash": str(definition.get("rewardProgressionHash") or ""),
+        "prestigeProgressionHash": str(definition.get("prestigeProgressionHash") or ""),
+        "linkRedirectPath": definition.get("linkRedirectPath", ""),
+        "images": definition.get("images") or {},
+    }
+
+
+def minimal_progression(definition: dict) -> dict:
+    return {
+        "hash": str(definition.get("hash", "")),
+        "displayProperties": display(definition),
+        "repeatLastStep": bool(definition.get("repeatLastStep")),
+        "rewardItems": definition.get("rewardItems") or [],
+    }
 
 
 def minimal_gear_item(definition: dict) -> dict:
@@ -179,6 +206,8 @@ def main() -> None:
             damage_types = table_rows(connection, "DestinyDamageTypeDefinition")
             stat_definitions = table_rows(connection, "DestinyStatDefinition")
             plug_sets = table_rows(connection, "DestinyPlugSetDefinition")
+            season_passes = table_rows(connection, "DestinySeasonPassDefinition")
+            progressions = table_rows(connection, "DestinyProgressionDefinition")
 
     catalyst_records = {
         key: value for key, value in records.items()
@@ -312,6 +341,37 @@ def main() -> None:
         "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
         "statDefinitions": {key: {"hash": key, "displayProperties": display(value)} for key, value in stat_definitions.items() if key in {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}},
     }
+    reward_progression_hashes = {
+        str(value.get(field) or "")
+        for value in season_passes.values()
+        for field in ("rewardProgressionHash", "prestigeProgressionHash")
+        if value.get(field)
+    }
+    reward_progressions = {
+        key: value for key, value in progressions.items()
+        if key in reward_progression_hashes
+    }
+    reward_item_hashes = {
+        str(reward.get("itemHash") or "")
+        for progression in reward_progressions.values()
+        for reward in progression.get("rewardItems") or []
+        if reward.get("itemHash")
+    }
+    rewards_compact = {
+        "version": version,
+        "generatedAt": compact["generatedAt"],
+        "seasonPassDefinitions": {
+            key: minimal_season_pass(value)
+            for key, value in season_passes.items()
+            if not value.get("redacted") and str(value.get("rewardProgressionHash") or "") in reward_progressions
+        },
+        "progressionDefinitions": {key: minimal_progression(value) for key, value in reward_progressions.items()},
+        "itemDefinitions": {
+            key: minimal_reward_item(inventory[key])
+            for key in reward_item_hashes
+            if key in inventory and not inventory[key].get("redacted")
+        },
+    }
     activity_compact = {
         "version": version,
         "generatedAt": compact["generatedAt"],
@@ -327,7 +387,8 @@ def main() -> None:
     ACTIVITY_OUTPUT.write_text(json.dumps(activity_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     FEATURE_OUTPUT.write_text(json.dumps(feature_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     PURSUIT_OUTPUT.write_text(json.dumps(pursuit_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(quest_defs)} quests, and {len(pursuit_defs)} compact pursuits for manifest {version}.")
+    REWARDS_OUTPUT.write_text(json.dumps(rewards_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, and {len(reward_item_hashes)} Rewards Pass items for manifest {version}.")
 
 
 if __name__ == "__main__":

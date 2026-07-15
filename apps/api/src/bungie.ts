@@ -1,4 +1,4 @@
-import type { CompactManifest, FireteamContact, FireteamSocialData, GearManifest } from "@guardian-nexus/contracts";
+import type { CompactManifest, FireteamContact, FireteamSocialData, GearManifest, RewardsManifest, RewardsPassProgress } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 
@@ -8,6 +8,7 @@ let manifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let gearManifestCache: { value: GearManifest; expiresAt: number } | null = null;
 let activityManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let questManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
+let rewardsManifestCache: { value: RewardsManifest; expiresAt: number } | null = null;
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
 const publicMembershipTypeCache = new Map<string, number>();
@@ -289,30 +290,71 @@ export async function loadGearManifest(env: Env): Promise<GearManifest> {
   }
 }
 
-export async function seasonPassProgress(profile: any, accessToken: string, env: Env): Promise<{
+export async function loadRewardsManifest(env: Env): Promise<RewardsManifest> {
+  if (rewardsManifestCache && rewardsManifestCache.expiresAt > Date.now()) return rewardsManifestCache.value;
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "rewards-manifest.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Rewards manifest request returned ${response.status}.`);
+    const value = await response.json() as RewardsManifest;
+    if (!value?.version || !value.seasonPassDefinitions || !value.progressionDefinitions || !value.itemDefinitions) throw new Error("Rewards manifest artifact is invalid.");
+    rewardsManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    return { version: "unavailable", generatedAt: new Date().toISOString(), seasonPassDefinitions: {}, progressionDefinitions: {}, itemDefinitions: {} };
+  }
+}
+
+export interface SeasonPassSnapshot {
   rank: number;
-  progress: number;
-  nextLevelAt: number;
-  percent: number;
-}> {
+  progress: RewardsPassProgress;
+}
+
+export async function seasonPassProgress(profile: any, accessToken: string, env: Env, characterId?: string): Promise<SeasonPassSnapshot> {
   const hash = String(profile?.profile?.data?.currentSeasonPassHash || "");
-  if (!hash) return { rank: 0, progress: 0, nextLevelAt: 0, percent: 0 };
+  const unavailable = (reason: string): SeasonPassSnapshot => ({
+    rank: 0,
+    progress: { state: "unavailable", source: "bungie-profile-character-progressions", ...(hash ? { passHash: hash } : {}), reason }
+  });
+  if (!hash) return unavailable("Bungie did not include currentSeasonPassHash in the profile component.");
+  if (profile?.characterProgressions?.disabled) return unavailable("Bungie marked characterProgressions (component 202) as disabled for this profile.");
+  if (!profile?.characterProgressions?.data) return unavailable("Bungie did not return characterProgressions (component 202). Check Destiny data permissions and profile privacy.");
   try {
     const definition = await bungieGet(`/Destiny2/Manifest/DestinySeasonPassDefinition/${encodeURIComponent(hash)}/?lc=en`, env, accessToken);
-    const hashes = [definition?.rewardProgressionHash, definition?.prestigeProgressionHash].filter(Boolean).map(String);
-    const progressions = hashes.map((progressionHash) => {
-      const rows = Object.values(profile?.characterProgressions?.data || {})
+    const rewardProgressionHash = String(definition?.rewardProgressionHash || "");
+    const prestigeProgressionHash = String(definition?.prestigeProgressionHash || "");
+    const hashes = [rewardProgressionHash, prestigeProgressionHash].filter((value) => value && value !== "0");
+    if (!hashes.length) return unavailable("The current DestinySeasonPassDefinition did not identify a reward progression.");
+    const progressionRows = hashes.map((progressionHash) => {
+      const selected = characterId ? profile.characterProgressions.data?.[characterId]?.progressions?.[progressionHash] : undefined;
+      const rows = selected ? [selected] : Object.values(profile.characterProgressions.data || {})
         .map((component: any) => component?.progressions?.[progressionHash])
-        .filter(Boolean);
-      return rows.sort((a: any, b: any) => Number(b?.level || 0) - Number(a?.level || 0) || Number(b?.progressToNextLevel || 0) - Number(a?.progressToNextLevel || 0))[0];
-    }).filter(Boolean);
-    const rank = progressions.reduce((total: number, progression: any) => total + Math.max(0, Number(progression?.level || 0)), 0);
-    const active = [...progressions].reverse().find((progression: any) => Number(progression?.nextLevelAt || 0) > 0) || progressions[0];
-    const progress = Math.max(0, Number(active?.progressToNextLevel || 0));
-    const nextLevelAt = Math.max(0, Number(active?.nextLevelAt || 0));
-    return { rank, progress, nextLevelAt, percent: nextLevelAt ? Math.max(0, Math.min(100, Math.round((progress / nextLevelAt) * 100))) : 0 };
-  } catch {
-    return { rank: 0, progress: 0, nextLevelAt: 0, percent: 0 };
+        .filter(Boolean)
+        .sort((a: any, b: any) => Number(b?.level || 0) - Number(a?.level || 0) || Number(b?.progressToNextLevel || 0) - Number(a?.progressToNextLevel || 0));
+      return rows[0] ? { hash: progressionHash, value: rows[0] } : undefined;
+    }).filter((entry): entry is { hash: string; value: any } => Boolean(entry));
+    if (!progressionRows.length) return unavailable("Bungie's characterProgressions component did not contain the current Rewards Pass progression.");
+    const rank = progressionRows.reduce((total, entry) => total + Math.max(0, Number(entry.value?.level || 0)), 0);
+    const active = [...progressionRows].reverse().find((entry) => Number(entry.value?.nextLevelAt || 0) > 0) || progressionRows[0]!;
+    const progressToNextLevel = Math.max(0, Number(active.value?.progressToNextLevel || 0));
+    const nextLevelAt = Math.max(0, Number(active.value?.nextLevelAt || 0));
+    const currentProgress = Math.max(0, Number(active.value?.currentProgress || 0));
+    const base = {
+      source: "bungie-profile-character-progressions" as const,
+      passHash: hash,
+      rewardProgressionHash: rewardProgressionHash || undefined,
+      prestigeProgressionHash: prestigeProgressionHash || undefined,
+      activeProgressionHash: active.hash,
+      currentProgress,
+      progressToNextLevel,
+      nextLevelAt: nextLevelAt || undefined,
+      percent: nextLevelAt ? Math.max(0, Math.min(100, Math.round((progressToNextLevel / nextLevelAt) * 100))) : undefined
+    };
+    return nextLevelAt
+      ? { rank, progress: { ...base, state: "available" } }
+      : { rank, progress: { ...base, state: "partial", reason: "Bungie returned the Rewards Pass rank but no nextLevelAt XP threshold." } };
+  } catch (error: any) {
+    return unavailable(`The current DestinySeasonPassDefinition could not be loaded: ${String(error?.message || "Bungie request failed.")}`);
   }
 }
 

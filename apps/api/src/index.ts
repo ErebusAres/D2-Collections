@@ -12,15 +12,17 @@ import type {
   MatrixData,
   MatrixSnapshot,
   QuestData,
+  RewardsPassData,
   SessionData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadGearManifest, loadManifest, loadQuestManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardsManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { normalizeGear, type GearStateRow } from "./gear";
+import { normalizeRewardsPass } from "./rewards";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -88,6 +90,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/overview" && request.method === "GET") return overview(session.row, env, context);
   if (path === "/api/v1/me/collection" && request.method === "GET") return collection(session.row, env, context);
   if (path === "/api/v1/me/quests" && request.method === "GET") return quests(session.row, env, context);
+  if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
   if (path === "/api/v1/me/gear" && request.method === "GET") return gear(session.row, env, context);
   if (path === "/api/v1/me/gear/item-state" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateGearState(request, session.row, env, context); }
   if (path === "/api/v1/me/gear/action" && request.method === "POST") { await requireCsrf(request, session.token, env); return gearAction(request, session.row, env, context); }
@@ -231,14 +234,15 @@ async function readSession(request: Request, env: Env, context: RequestContext):
   if (!session) return envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false } }, env, context);
   const { profile, accessToken } = await profileFor(session.row, env, "session");
   const manifest = await loadActivityManifest(env);
+  const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
   const guardian = normalizeGuardian({
     profile,
     membershipId: session.row.membership_id,
     membershipType: session.row.membership_type,
     displayName: session.row.display_name,
     bungieName: session.row.bungie_name,
-    requestedCharacterId: context.url.searchParams.get("characterId") || undefined,
-    rewardsPass: await seasonPassProgress(profile, accessToken, env),
+    requestedCharacterId,
+    rewardsPass: await seasonPassProgress(profile, accessToken, env, requestedCharacterId),
     manifest
   });
   return envelope<SessionData>({
@@ -267,14 +271,15 @@ async function deleteSession(request: Request, env: Env, context: RequestContext
 async function overview(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { profile, accessToken } = await profileFor(row, env);
   const manifest = await loadManifest(env);
+  const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
   const guardian = normalizeGuardian({
     profile,
     membershipId: row.membership_id,
     membershipType: row.membership_type,
     displayName: row.display_name,
     bungieName: row.bungie_name,
-    requestedCharacterId: context.url.searchParams.get("characterId") || undefined,
-    rewardsPass: await seasonPassProgress(profile, accessToken, env),
+    requestedCharacterId,
+    rewardsPass: await seasonPassProgress(profile, accessToken, env, requestedCharacterId),
     manifest
   });
   return envelope(guardian, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: transitoryWarning(profile) });
@@ -303,6 +308,17 @@ async function quests(row: SessionRow, env: Env, context: RequestContext): Promi
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const pinned = new Set((context.url.searchParams.get("pinned") || "").split(",").filter(Boolean));
   return envelope<QuestData>(normalizeQuests(profile, manifest, character.characterId, pinned), env, context, { sourceMintedAt: profile?.responseMintedTimestamp });
+}
+
+async function rewards(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile, accessToken } = await profileFor(row, env, "session");
+  const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
+  const character = selectedCharacter(charactersFromProfile(profile), requestedCharacterId);
+  const snapshot = await seasonPassProgress(profile, accessToken, env, character?.characterId);
+  const manifest = await loadRewardsManifest(env);
+  const data = normalizeRewardsPass({ profile, manifest, rank: snapshot.rank, progress: snapshot.progress, characterId: character?.characterId });
+  const warnings = [snapshot.progress.state !== "available" ? snapshot.progress.reason : undefined, data.rewardDataReason].filter((value): value is string => Boolean(value));
+  return envelope<RewardsPassData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
 }
 
 async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

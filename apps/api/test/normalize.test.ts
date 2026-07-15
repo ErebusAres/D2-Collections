@@ -40,11 +40,13 @@ describe("guardianOnlineState", () => {
 });
 
 describe("normalizeQuests", () => {
-  it("builds completed, current, and future quest steps with objective progress", () => {
+  it("builds quest steps and resolves flavor text plus multiple real reward definitions", () => {
     const chainManifest = { ...manifest, itemDefinitions: {
       "11": { displayProperties: { name: "A Quest", description: "Finish the introduction." }, objectives: { objectiveHashes: ["101"] } },
-      "22": { displayProperties: { name: "A Quest", description: "Defeat combatants." }, itemType: 12, objectives: { objectiveHashes: ["102"] }, setData: { questStepSummary: "Fight through the area.", itemList: [{ trackingValue: 1, itemHash: 11 }, { trackingValue: 2, itemHash: 22 }, { trackingValue: 3, itemHash: 33 }] } },
-      "33": { displayProperties: { name: "A Quest", description: "Return to the Tower." }, objectives: { objectiveHashes: ["103"] } }
+      "22": { displayProperties: { name: "A Quest", description: "Defeat combatants." }, flavorText: "A test of resolve.", itemType: 12, itemTypeDisplayName: "Quest Step", inventory: { tierType: 6, tierTypeName: "Exotic" }, value: { itemValue: [{ itemHash: 501, quantity: 1 }, { itemHash: 502, quantity: 3 }] }, objectives: { objectiveHashes: ["102"] }, setData: { questStepSummary: "Fight through the area.", itemList: [{ trackingValue: 1, itemHash: 11 }, { trackingValue: 2, itemHash: 22 }, { trackingValue: 3, itemHash: 33 }] } },
+      "33": { displayProperties: { name: "A Quest", description: "Return to the Tower." }, objectives: { objectiveHashes: ["103"] } },
+      "501": { displayProperties: { name: "Test Weapon", description: "Reward one", icon: "/weapon.png" } },
+      "502": { displayProperties: { name: "Test Currency", description: "Reward two", icon: "/currency.png" } }
     }, objectiveDefinitions: {
       "101": { progressDescription: "Introduction", completionValue: 1 },
       "102": { progressDescription: "Combatants", completionValue: 10 },
@@ -52,7 +54,11 @@ describe("normalizeQuests", () => {
     } } satisfies CompactManifest;
     const profile = { responseMintedTimestamp: "2026-07-15T00:00:00Z", characterInventories: { data: { c1: { items: [{ itemHash: 22, itemInstanceId: "i1" }] } } }, itemComponents: { objectives: { data: { i1: { objectives: [{ objectiveHash: 102, progress: 4, completionValue: 10, complete: false }] } } } } };
     const quest = normalizeQuests(profile, chainManifest, "c1").quests[0]!;
-    expect(quest).toMatchObject({ stepNumber: 2, stepCount: 3, percent: 40 });
+    expect(quest).toMatchObject({ stepNumber: 2, stepCount: 3, percent: 40, flavorText: "A test of resolve.", itemType: "Quest Step", rarity: "Exotic" });
+    expect(quest.rewards).toEqual([
+      { itemHash: "501", name: "Test Weapon", description: "Reward one", icon: "https://www.bungie.net/weapon.png", quantity: 1, definitionAvailable: true },
+      { itemHash: "502", name: "Test Currency", description: "Reward two", icon: "https://www.bungie.net/currency.png", quantity: 3, definitionAvailable: true }
+    ]);
     expect(quest.steps).toMatchObject([
       { stepNumber: 1, status: "completed", percent: 100, objectives: [{ progress: 1, completionValue: 1, complete: true }] },
       { stepNumber: 2, status: "current", percent: 40, objectives: [{ progress: 4, completionValue: 10 }] },
