@@ -14,7 +14,7 @@
     "audit:archive": "node tools/audit-archive-boundary.mjs",
     "audit": "pnpm audit:archive && pnpm typecheck && pnpm test && pnpm build",
     "manifest:sync": "python tools/sync-manifest.py",
-    "cf:deploy": "pnpm --filter @guardian-nexus/api deploy && pnpm --filter @guardian-nexus/web deploy"
+    "cf:deploy": "pnpm --filter @guardian-nexus/api run deploy && pnpm --filter @guardian-nexus/web run deploy"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
