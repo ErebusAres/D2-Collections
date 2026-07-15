@@ -9,6 +9,12 @@ import type {
   GearActionRequest,
   GearActionResult,
   GearData,
+  EquipLoadoutRequest,
+  EquipLoadoutResult,
+  LoadoutsData,
+  MailboxData,
+  MailboxPullRequest,
+  MailboxPullResult,
   MatrixData,
   MatrixSnapshot,
   QuestData,
@@ -16,7 +22,7 @@ import type {
   SessionData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardsManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardsManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -24,6 +30,8 @@ import type { Env, RequestContext, SessionRow } from "./types";
 import { normalizeGear, type GearStateRow } from "./gear";
 import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
+import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
+import { normalizeLoadouts } from "./loadouts";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -45,6 +53,8 @@ const gearActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("setLock"), itemInstanceId: z.string().regex(/^\d+$/), locked: z.boolean(), characterId: z.string().regex(/^\d+$/).optional() }),
   z.object({ action: z.literal("groupPull"), itemInstanceIds: z.array(z.string().regex(/^\d+$/)).min(1).max(20), characterId: z.string().regex(/^\d+$/) })
 ]);
+const mailboxPullSchema = z.object({ itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/), quantity: z.number().int().positive().max(999_999_999) });
+const equipLoadoutSchema = z.object({ loadoutIndex: z.number().int().nonnegative().max(99), characterId: z.string().regex(/^\d+$/) });
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -95,6 +105,10 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/gear" && request.method === "GET") return gear(session.row, env, context);
   if (path === "/api/v1/me/gear/item-state" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateGearState(request, session.row, env, context); }
   if (path === "/api/v1/me/gear/action" && request.method === "POST") { await requireCsrf(request, session.token, env); return gearAction(request, session.row, env, context); }
+  if (path === "/api/v1/me/mailbox" && request.method === "GET") return mailbox(session.row, env, context);
+  if (path === "/api/v1/me/mailbox/pull" && request.method === "POST") { await requireCsrf(request, session.token, env); return pullMailboxItem(request, session.row, env, context); }
+  if (path === "/api/v1/me/loadouts" && request.method === "GET") return loadouts(session.row, env, context);
+  if (path === "/api/v1/me/loadouts/equip" && request.method === "POST") { await requireCsrf(request, session.token, env); return equipLoadout(request, session.row, env, context); }
   if (path === "/api/v1/fireteam" && request.method === "GET") return fireteam(session.row, env, context);
   if (path === "/api/v1/fireteam/share" && request.method === "PUT") {
     await requireCsrf(request, session.token, env);
@@ -335,6 +349,61 @@ async function gear(row: SessionRow, env: Env, context: RequestContext): Promise
     await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
   }
   return envelope<GearData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: manifest.version !== "unavailable" ? [] : ["Armor manifest data is unavailable; refresh the deployment manifest before using Gear."] });
+}
+
+async function mailbox(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile } = await profileFor(row, env, "mailbox");
+  const manifest = await loadCompanionManifest(env);
+  return envelope<MailboxData>(normalizeMailbox(profile, manifest), env, context, {
+    sourceMintedAt: profile?.responseMintedTimestamp,
+    warnings: manifest.version === "unavailable" ? ["Mailbox item definitions are unavailable. Item identities and capacity may be incomplete."] : []
+  });
+}
+
+async function pullMailboxItem(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const input = mailboxPullSchema.parse(await request.json()) as MailboxPullRequest;
+  const { profile, accessToken } = await profileFor(row, env, "mailbox");
+  const character = charactersFromProfile(profile).find((entry) => entry.characterId === input.characterId);
+  if (!character) throw httpError(403, "character_invalid", "That character does not belong to this Guardian.");
+  const item = postmasterItemsForCharacter(profile, input.characterId).find((entry: any) => String(entry?.itemInstanceId || "") === input.itemInstanceId);
+  if (!item) throw httpError(404, "postmaster_item_missing", "That item is no longer in this character's Postmaster.");
+  const availableQuantity = Math.max(1, Number(item?.quantity || 1));
+  if (input.quantity > availableQuantity) throw httpError(409, "postmaster_quantity_changed", `Only ${availableQuantity} of that item remains in the Postmaster.`);
+  if (Number(item?.transferStatus || 0) !== 0) throw httpError(409, "postmaster_item_not_transferable", "Bungie has marked that Postmaster item as non-transferable.");
+  await bungiePost("/Destiny2/Actions/Items/PullFromPostmaster/", {
+    itemReferenceHash: Number(item.itemHash),
+    stackSize: input.quantity,
+    itemId: input.itemInstanceId,
+    characterId: input.characterId,
+    membershipType: row.membership_type
+  }, env, accessToken);
+  return envelope<MailboxPullResult>({ itemInstanceId: input.itemInstanceId, characterId: input.characterId, quantity: input.quantity, pulled: true }, env, context);
+}
+
+async function loadouts(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile } = await profileFor(row, env, "loadouts");
+  const manifest = await loadCompanionManifest(env);
+  const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  return envelope<LoadoutsData>(normalizeLoadouts(profile, manifest, character), env, context, {
+    sourceMintedAt: profile?.responseMintedTimestamp,
+    warnings: manifest.version === "unavailable" ? ["Loadout item definitions are unavailable. Saved item and socket details may be incomplete."] : []
+  });
+}
+
+async function equipLoadout(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const input = equipLoadoutSchema.parse(await request.json()) as EquipLoadoutRequest;
+  const { profile, accessToken } = await profileFor(row, env, "loadouts");
+  const character = charactersFromProfile(profile).find((entry) => entry.characterId === input.characterId);
+  if (!character) throw httpError(403, "character_invalid", "That character does not belong to this Guardian.");
+  const loadout = profile?.characterLoadouts?.data?.[input.characterId]?.loadouts?.[input.loadoutIndex];
+  if (!loadout || !Array.isArray(loadout.items) || loadout.items.length === 0) throw httpError(404, "loadout_missing", "That saved loadout is no longer available on this character.");
+  await bungiePost("/Destiny2/Actions/Loadouts/EquipLoadout/", {
+    loadoutIndex: input.loadoutIndex,
+    characterId: input.characterId,
+    membershipType: row.membership_type
+  }, env, accessToken);
+  return envelope<EquipLoadoutResult>({ loadoutIndex: input.loadoutIndex, characterId: input.characterId, equipped: true }, env, context);
 }
 
 async function updateGearState(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

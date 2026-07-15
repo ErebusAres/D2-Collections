@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadQuestManifest, seasonPassProgress, socialRosterFor, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, seasonPassProgress, socialRosterFor, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -131,6 +131,23 @@ describe("socialRosterFor", () => {
 });
 
 describe("manifest overlays", () => {
+  it("reassembles companion item definitions from deployment chunks", async () => {
+    const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      const value = url.endsWith("companion-manifest.json")
+        ? { version: "chunk-test", generatedAt: "now", itemDefinitions: { index: { name: "Index" } }, itemDefinitionChunks: ["companion-manifest-00.json"], bucketDefinitions: {}, loadoutNameDefinitions: {}, loadoutIconDefinitions: {}, loadoutColorDefinitions: {} }
+        : { itemDefinitions: { chunk: { name: "Chunk" } } };
+      return Promise.resolve(new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadCompanionManifest({ GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env);
+
+    expect(result.itemDefinitions).toEqual({ index: { name: "Index" }, chunk: { name: "Chunk" } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://example.test/data/companion-manifest-00.json");
+  });
+
   it("keeps social features and pursuit definitions outside the core manifest payload", async () => {
     const values = [
       { version: "overlay-test", generatedAt: "now", items: [], itemDefinitions: { base: {} }, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} },

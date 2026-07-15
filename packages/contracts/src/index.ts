@@ -39,6 +39,7 @@ export interface HeaderStats {
   guardianRank: number;
   rewardsPassRank: number;
   rewardsPassProgress: RewardsPassProgress;
+  mailboxCount: number;
 }
 
 export interface RewardsPassProgress {
@@ -391,6 +392,120 @@ export interface GearActionResult {
   succeeded: string[];
   skipped: Array<{ itemInstanceId: string; reason: string }>;
   failed: Array<{ itemInstanceId: string; code: string; message: string }>;
+}
+
+export interface CompanionManifest {
+  version: string;
+  generatedAt: string;
+  itemDefinitions: Record<string, Record<string, unknown>>;
+  itemDefinitionChunks?: string[];
+  bucketDefinitions: Record<string, Record<string, unknown>>;
+  loadoutNameDefinitions: Record<string, Record<string, unknown>>;
+  loadoutIconDefinitions: Record<string, Record<string, unknown>>;
+  loadoutColorDefinitions: Record<string, Record<string, unknown>>;
+}
+
+export interface MailboxItem {
+  instanceId: string;
+  itemHash: string;
+  characterId: string;
+  name: string;
+  description: string;
+  icon: string;
+  itemType: string;
+  rarity: string;
+  quantity: number;
+  bucketHash: string;
+  canPull: boolean;
+  unavailableReason?: string;
+  definitionAvailable: boolean;
+}
+
+export interface MailboxCharacter {
+  characterId: string;
+  className: GuardianClass;
+  emblemPath: string;
+  count: number;
+  capacity: number;
+  items: MailboxItem[];
+}
+
+export interface MailboxData {
+  manifestVersion: string;
+  count: number;
+  capacity: number;
+  characters: MailboxCharacter[];
+}
+
+export interface MailboxPullRequest {
+  itemInstanceId: string;
+  characterId: string;
+  quantity: number;
+}
+
+export interface MailboxPullResult {
+  itemInstanceId: string;
+  characterId: string;
+  quantity: number;
+  pulled: true;
+}
+
+export type LoadoutSocketCategory = "element" | "super" | "melee" | "grenade" | "class-ability" | "movement" | "aspect" | "fragment" | "modifier" | "other";
+
+export interface LoadoutSocket {
+  itemHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: LoadoutSocketCategory;
+  categoryLabel: string;
+  definitionAvailable: boolean;
+}
+
+export interface LoadoutItem {
+  instanceId: string;
+  itemHash: string;
+  name: string;
+  icon: string;
+  itemType: string;
+  rarity: string;
+  equipmentSlot: string;
+  definitionAvailable: boolean;
+  sockets: LoadoutSocket[];
+}
+
+export interface GuardianLoadout {
+  index: number;
+  name: string;
+  icon: string;
+  color: string;
+  element?: string;
+  items: LoadoutItem[];
+  subclass?: LoadoutItem;
+  abilities: LoadoutSocket[];
+  aspects: LoadoutSocket[];
+  fragments: LoadoutSocket[];
+  modifiers: LoadoutSocket[];
+  unresolvedItemCount: number;
+}
+
+export interface LoadoutsData {
+  manifestVersion: string;
+  characterId: string;
+  characterClass: GuardianClass;
+  loadouts: GuardianLoadout[];
+  equipRestriction: string;
+}
+
+export interface EquipLoadoutRequest {
+  loadoutIndex: number;
+  characterId: string;
+}
+
+export interface EquipLoadoutResult {
+  loadoutIndex: number;
+  characterId: string;
+  equipped: true;
 }
 
 export type DevProbeKey =

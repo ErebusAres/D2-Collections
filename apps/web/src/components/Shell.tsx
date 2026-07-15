@@ -1,12 +1,13 @@
 import type { RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Boxes, Cloud, CloudOff, Coins, GitCompareArrows, ListTodo, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
+import { Badge, Boxes, Cloud, CloudOff, Coins, GitCompareArrows, Layers3, ListTodo, Mail, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../api/client";
 import { hasClaimableReward, rewardLevelProgress } from "../rewardsProgress";
 import { useGuardian } from "../state/GuardianContext";
 import { OptionsPanel } from "./OptionsPanel";
+import { RewardCodeMarquee } from "./RewardCodeMarquee";
 import { getConnectionSnapshot, subscribeConnection } from "../api/client";
 import styles from "./Shell.module.css";
 
@@ -15,6 +16,7 @@ const tabs = [
   { to: "/xur", label: "Xûr", icon: Coins },
   { to: "/quests", label: "Quests", icon: ListTodo },
   { to: "/gear", label: "Gear", icon: ShieldEllipsis },
+  { to: "/loadouts", label: "Loadouts", icon: Layers3 },
   { to: "/fireteam", label: "Fireteam", icon: Users },
   { to: "/matrix", label: "Guardian Matrix", icon: GitCompareArrows }
 ];
@@ -39,6 +41,7 @@ export function Shell() {
     <div className={styles.shell} style={character?.emblemBackgroundPath ? { "--guardian-banner": `url(${character.emblemBackgroundPath})` } as React.CSSProperties : undefined}>
       <div className={styles.ambient} aria-hidden="true" />
       <header className={styles.header}>
+        <RewardCodeMarquee />
         <div className={styles.identityBar}>
           <NavLink to="/collection" className={styles.brand} aria-label="Guardian Nexus home">
             <span className={styles.brandMark}><span /></span>
@@ -48,7 +51,7 @@ export function Shell() {
             {guardian ? (
               <>
                 <img src={character?.emblemPath || ""} alt="" />
-                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small><div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassProgress.state === "unavailable" && !guardian.stats.rewardsPassRank ? undefined : guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /></div><RewardsProgress rank={guardian.stats.rewardsPassRank} progress={guardian.stats.rewardsPassProgress} /></div>
+                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small><div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassProgress.state === "unavailable" && !guardian.stats.rewardsPassRank ? undefined : guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /><HeaderStat label="Mailbox" value={guardian.stats.mailboxCount} icon={<Mail />} to="/mailbox" /></div><RewardsProgress rank={guardian.stats.rewardsPassRank} progress={guardian.stats.rewardsPassProgress} /></div>
                 {guardian.isInGame && <em>In game</em>}
               </>
             ) : (
@@ -67,7 +70,7 @@ export function Shell() {
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>
-      <footer className={styles.footer}><span>Guardian Nexus</span><span>Read-only Destiny companion</span><span>Activity data may be delayed</span></footer>
+      <footer className={styles.footer}><span>Guardian Nexus</span><span>Destiny companion</span><span>Activity data may be delayed</span></footer>
       <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} />
     </div>
   );
