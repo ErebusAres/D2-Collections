@@ -2,7 +2,7 @@ name: Deploy Guardian Nexus
 
 on:
   push:
-    branches: [main, feature/erebus-guardian-upgrades]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
