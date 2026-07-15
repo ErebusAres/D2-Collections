@@ -28,11 +28,25 @@ export function selectedCharacter(characters: CharacterSummary[], requested?: st
   return characters.find((character) => character.characterId === requested) || characters[0];
 }
 
-export function activityName(profile: any, manifest: CompactManifest): string | undefined {
+export function activityName(profile: any, manifest: CompactManifest, characterId?: string): string | undefined {
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
-  const hash = String(transitory?.currentActivity?.activityHash || "");
-  const definition = manifest.activityDefinitions[hash] as any;
-  return definition?.displayProperties?.name || undefined;
+  const characterActivities = profile?.characterActivities?.data || {};
+  const preferred = characterId ? characterActivities[characterId] : undefined;
+  const otherActivities = Object.entries(characterActivities)
+    .filter(([id]) => id !== characterId)
+    .map(([, activity]) => activity as any);
+  const components = [preferred, ...otherActivities].filter(Boolean);
+  const hashes = [
+    transitory?.currentActivity?.activityHash,
+    ...components.map((activity: any) => activity?.currentActivityHash),
+    ...components.map((activity: any) => activity?.currentPlaylistActivityHash)
+  ].map(String).filter((hash) => hash && hash !== "0");
+  for (const hash of [...new Set(hashes)]) {
+    const definition = manifest.activityDefinitions[hash] as any;
+    const name = String(definition?.displayProperties?.name || definition?.originalDisplayProperties?.name || "").trim();
+    if (name) return name;
+  }
+  return undefined;
 }
 
 export function normalizeGuardian(args: {
@@ -48,7 +62,7 @@ export function normalizeGuardian(args: {
   const characters = charactersFromProfile(args.profile);
   const selected = selectedCharacter(characters, args.requestedCharacterId);
   const profileData = args.profile?.profile?.data || {};
-  const currentActivity = activityName(args.profile, args.manifest);
+  const currentActivity = activityName(args.profile, args.manifest, selected?.characterId);
   return {
     membershipId: args.membershipId,
     membershipType: args.membershipType,
@@ -133,7 +147,7 @@ function objectiveRows(component: any, manifest: CompactManifest): QuestObjectiv
 export function normalizeQuests(profile: any, manifest: CompactManifest, characterId: string, pinnedIds = new Set<string>()): QuestData {
   const inventory = profile?.characterInventories?.data?.[characterId]?.items || [];
   const itemObjectives = profile?.itemComponents?.objectives?.data || {};
-  const currentActivity = activityName(profile, manifest);
+  const currentActivity = activityName(profile, manifest, characterId);
   const updatedAt = profile?.responseMintedTimestamp || new Date().toISOString();
   const quests: QuestProgress[] = inventory.flatMap((item: any) => {
     const hash = String(item.itemHash || "");

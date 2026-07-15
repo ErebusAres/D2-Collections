@@ -347,7 +347,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   })).filter((member: any) => member.membershipId);
   if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, displayName: row.bungie_name || row.display_name, emblemHash: "", status: 1 });
   const ownCharacter = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
-  const fireteamActivity = activityName(profile, manifest);
+  const fireteamActivity = activityName(profile, manifest, ownCharacter?.characterId);
   const questCounts = new Map<string, number>();
   for (const member of party) {
     const share: any = shares.get(member.membershipId);
@@ -361,7 +361,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     const memberQuests = payload?.quests || [];
     const isSelf = member.membershipId === row.membership_id;
     const character = payload?.character || (isSelf ? ownCharacter : undefined);
-    const activity = payload?.activity || fireteamActivity;
+    const activity = fireteamActivity || payload?.activity;
     const inGameName = member.displayName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
     return {
       membershipId: member.membershipId,
@@ -371,8 +371,10 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       presenceLabel: partyPresenceLabel(member.status),
       character,
       activity,
-      activitySource: payload?.activity ? "shared" : fireteamActivity ? "fireteam" : "unavailable",
+      activitySource: fireteamActivity ? "fireteam" : payload?.activity ? "shared" : "unavailable",
       isSelf,
+      isLeader: (member.status & 8) !== 0,
+      syncState: share ? "synced" : "not-synced",
       sharing: Boolean(share),
       sharingMode: share?.sharing_mode,
       expiresAt: share?.sharing_mode === "temporary" ? share?.expires_at : undefined,

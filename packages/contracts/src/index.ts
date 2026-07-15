@@ -155,6 +155,8 @@ export interface FireteamMember {
   activity?: string;
   activitySource: "shared" | "fireteam" | "unavailable";
   isSelf: boolean;
+  isLeader: boolean;
+  syncState: "synced" | "not-synced";
   sharing: boolean;
   sharingMode?: FireteamSharingMode;
   expiresAt?: string;
