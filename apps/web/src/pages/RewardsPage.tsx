@@ -1,13 +1,21 @@
 import type { RewardsPassData, RewardsPassReward, RewardsPassRewardState } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, CircleHelp, ExternalLink, LockKeyhole, Sparkles, Ticket } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ExternalLink, LockKeyhole, Sparkles, Ticket } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
+import { rewardLevelProgress } from "../rewardsProgress";
 import { useGuardian } from "../state/GuardianContext";
 import pageStyles from "./Pages.module.css";
 import styles from "./RewardsPage.module.css";
 
 const OFFICIAL_REWARDS_URL = "https://www.bungie.net/7/en/Seasons/Progress";
+const LEVELS_PER_PAGE = 10;
+
+interface RewardLevel {
+  level: number;
+  rewards: RewardsPassReward[];
+}
 
 export function RewardsPage() {
   const { session, selectedCharacterId, autoRefresh } = useGuardian();
@@ -20,7 +28,16 @@ export function RewardsPage() {
   });
   const data = result.data?.data;
   const progress = data?.progress;
-  const xpAvailable = progress?.state === "available" && progress.nextLevelAt !== undefined && progress.progressToNextLevel !== undefined && progress.percent !== undefined;
+  const levelProgress = rewardLevelProgress(progress);
+  const rewardLevels = useMemo(() => groupRewardsByLevel(data?.rewards || []), [data?.rewards]);
+  const pageCount = Math.max(1, Math.ceil(rewardLevels.length / LEVELS_PER_PAGE));
+  const [rewardPage, setRewardPage] = useState(0);
+  useEffect(() => {
+    if (!data || !rewardLevels.length) return;
+    const currentIndex = rewardLevels.findIndex((entry) => entry.level >= Math.max(1, data.rank));
+    setRewardPage(Math.max(0, Math.floor((currentIndex < 0 ? rewardLevels.length - 1 : currentIndex) / LEVELS_PER_PAGE)));
+  }, [data?.passHash, data?.rank, rewardLevels]);
+  const visibleLevels = rewardLevels.slice(rewardPage * LEVELS_PER_PAGE, (rewardPage + 1) * LEVELS_PER_PAGE);
 
   return <AuthGate>
     <PageHeader eyebrow="Account-wide progression" title="Rewards Pass" description="Live rank, XP, reward definitions, and per-character reward state from Bungie's profile and manifest data." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
@@ -28,26 +45,55 @@ export function RewardsPage() {
     {data && <>
       <section className={styles.rewardsHero} style={data.backgroundImage ? { "--rewards-background": `url(${data.backgroundImage})` } as React.CSSProperties : undefined}>
         <div className={styles.rewardsRank}><Ticket /><span>Current rank</span><strong>{progress?.state === "unavailable" && !data.rank ? "—" : data.rank}</strong></div>
-        <div className={`${styles.rewardsProgress} ${xpAvailable ? "" : styles.rewardsProgressUnavailable}`}><header><div><span>{xpAvailable ? "Next rank" : "XP status"}</span><strong>{xpAvailable ? data.rank + 1 : "Unavailable"}</strong></div><b>{xpAvailable ? `${progress.percent}%` : "—"}</b></header><i><span style={{ width: `${xpAvailable ? progress.percent : 0}%` }} /></i><p>{xpAvailable ? `${progress.progressToNextLevel!.toLocaleString()} / ${progress.nextLevelAt!.toLocaleString()} XP · ${progress.currentProgress?.toLocaleString() || "0"} total progression` : progress?.reason || "Bungie did not return a usable XP threshold."}</p></div>
+        <div className={`${styles.rewardsProgress} ${levelProgress ? "" : styles.rewardsProgressUnavailable}`}><header><div><span>{levelProgress ? "Next rank" : "XP status"}</span><strong>{levelProgress ? data.rank + 1 : "Unavailable"}</strong></div><b>{levelProgress ? <><strong>{levelProgress.percent}%</strong><small>of level</small></> : "—"}</b></header><i><span style={{ width: `${levelProgress?.percent || 0}%` }} /></i><p>{levelProgress ? `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP this level${progress?.currentProgress !== undefined ? ` · ${progress.currentProgress.toLocaleString()} total progression` : ""}` : progress?.reason || "Bungie did not return a usable XP threshold."}</p></div>
         <a href={OFFICIAL_REWARDS_URL} target="_blank" rel="noreferrer"><ExternalLink /><span>Open official tracker</span><strong>View and claim rewards</strong></a>
       </section>
       <section className={styles.rewardCatalog}>
-        <header><div>{data.icon ? <img src={data.icon} alt="" /> : <Sparkles />}<span><small>Manifest {data.manifestVersion}</small><strong>{data.name}</strong></span></div><p>{data.rewards.length} visible reward entries</p></header>
-        {data.rewardDataState === "available" ? <div className={styles.rewardGrid}>{data.rewards.map((reward) => <RewardCard key={`${reward.rewardItemIndex}-${reward.itemHash}`} reward={reward} />)}</div> : <div className={styles.rewardCatalogUnavailable}><CircleHelp /><strong>Reward catalog unavailable</strong><p>{data.rewardDataReason || "Bungie did not provide reward definitions for the current pass."}</p></div>}
+        <header><div>{data.icon ? <img src={data.icon} alt="" /> : <Sparkles />}<span><small>Current pass · Manifest {data.manifestVersion}</small><strong>{data.name}</strong></span></div><p>{data.rewards.length} live rewards across {rewardLevels.length} ranks</p></header>
+        {data.rewardDataState === "available" ? <>
+          <div className={styles.rewardPager}>
+            <button type="button" onClick={() => setRewardPage((page) => Math.max(0, page - 1))} disabled={rewardPage === 0} aria-label="Previous reward ranks"><ChevronLeft /></button>
+            <div><span>Reward ranks</span><strong>{visibleLevels[0]?.level || "—"}–{visibleLevels.at(-1)?.level || "—"}</strong></div>
+            <button type="button" onClick={() => setRewardPage((page) => Math.min(pageCount - 1, page + 1))} disabled={rewardPage >= pageCount - 1} aria-label="Next reward ranks"><ChevronRight /></button>
+          </div>
+          <div className={styles.rewardTrackWindow}><div className={styles.rewardLevelGrid}>{visibleLevels.map((entry) => <RewardLevelColumn key={entry.level} entry={entry} currentRank={data.rank} />)}</div></div>
+          <nav className={styles.rewardPages} aria-label="Reward rank pages">{Array.from({ length: pageCount }, (_, index) => <button key={index} type="button" className={index === rewardPage ? styles.rewardPageActive : ""} onClick={() => setRewardPage(index)} aria-current={index === rewardPage ? "page" : undefined} aria-label={`Show reward ranks ${index * LEVELS_PER_PAGE + 1} through ${Math.min((index + 1) * LEVELS_PER_PAGE, rewardLevels.at(-1)?.level || (index + 1) * LEVELS_PER_PAGE)}`}>{index + 1}</button>)}</nav>
+        </> : <div className={styles.rewardCatalogUnavailable}><CircleHelp /><strong>Reward catalog unavailable</strong><p>{data.rewardDataReason || "Bungie did not provide reward definitions for the current pass."}</p></div>}
       </section>
-      <section className={styles.rewardSources}><div><span>Rank and XP</span><strong>{data.sources.rankAndXp}</strong></div><div><span>Reward catalog</span><strong>{data.sources.rewards}</strong></div><div><span>Claiming</span><strong>Not exposed to third-party apps</strong></div></section>
-      <section className={pageStyles.transitoryNotice}><LockKeyhole /><div><strong>Claiming stays with Bungie</strong><p>Guardian Nexus displays Bungie's live reward state but does not submit claims because the public third-party API does not expose a Rewards Pass claim action.</p></div></section>
+      <section className={styles.rewardSources}><div><span>Rank and XP</span><strong>{data.sources.rankAndXp}</strong></div><div><span>Reward catalog</span><strong>{data.sources.rewards}</strong></div><div><span>Claiming</span><strong>Available rewards open Bungie's supported claim flow</strong></div></section>
+      <section className={pageStyles.transitoryNotice}><LockKeyhole /><div><strong>Claims are completed securely on Bungie.net</strong><p>Bungie's public third-party API exposes claim eligibility and claimed state, but not a Rewards Pass claim action. “Claim on Bungie” opens the official tracker without fabricating an unsupported in-site redemption.</p></div></section>
     </>}
   </AuthGate>;
 }
 
+function RewardLevelColumn({ entry, currentRank }: { entry: RewardLevel; currentRank: number }) {
+  const reached = entry.level <= currentRank;
+  const next = entry.level === currentRank + 1;
+  return <article className={`${styles.rewardLevel} ${reached ? styles.rewardLevelReached : ""} ${next ? styles.rewardLevelNext : ""}`}>
+    <header><span>Rank</span><strong>{entry.level}</strong>{reached && <CheckCircle2 />}</header>
+    <div>{entry.rewards.map((reward) => <RewardCard key={`${reward.rewardItemIndex}-${reward.itemHash}`} reward={reward} />)}</div>
+  </article>;
+}
+
 function RewardCard({ reward }: { reward: RewardsPassReward }) {
   return <article className={`${styles.rewardCard} ${rewardStateClass(reward.state)}`}>
-    <header><span>Rank {reward.requiredLevel || "—"}</span><b>{reward.track}</b></header>
-    <div className={styles.rewardItemArt}>{reward.icon ? <img src={reward.icon} alt="" loading="lazy" /> : <span>Image unavailable</span>}</div>
-    <main><strong>{reward.name}</strong>{reward.quantity > 1 && <b>×{reward.quantity.toLocaleString()}</b>}<small>{reward.acquisition === "claim-required" ? "Manual claim" : reward.acquisition === "instant" ? "Granted automatically" : "Acquisition unavailable"}</small></main>
+    <header><span>{reward.track}</span></header>
+    <div className={styles.rewardItemArt}>{reward.icon ? <img src={reward.icon} alt="" loading="lazy" /> : <span>Image unavailable</span>}{reward.quantity > 1 && <b>×{reward.quantity.toLocaleString()}</b>}</div>
+    <main><strong title={reward.name}>{reward.name}</strong><small>{reward.acquisition === "claim-required" ? "Manual claim" : reward.acquisition === "instant" ? "Granted automatically" : "Acquisition unavailable"}</small></main>
     <footer>{rewardStateIcon(reward.state)}<span>{rewardStateLabel(reward.state)}</span></footer>
+    {reward.state === "available" && <a href={OFFICIAL_REWARDS_URL} target="_blank" rel="noreferrer">Claim on Bungie <ExternalLink /></a>}
   </article>;
+}
+
+function groupRewardsByLevel(rewards: RewardsPassReward[]): RewardLevel[] {
+  const levels = new Map<number, RewardsPassReward[]>();
+  for (const reward of rewards) {
+    const level = Math.max(0, reward.requiredLevel);
+    levels.set(level, [...(levels.get(level) || []), reward]);
+  }
+  return [...levels.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([level, levelRewards]) => ({ level, rewards: levelRewards.sort((left, right) => left.track.localeCompare(right.track) || left.rewardItemIndex - right.rewardItemIndex) }));
 }
 
 function rewardStateClass(state: RewardsPassRewardState): string {

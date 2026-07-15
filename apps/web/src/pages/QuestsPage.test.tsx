@@ -4,7 +4,7 @@ import type { QuestProgress } from "@guardian-nexus/contracts";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { QuestInspectPanel } from "./QuestsPage";
+import { getQuestTooltipPosition, QuestInspectPanel } from "./QuestsPage";
 
 const quest: QuestProgress = {
   instanceId: "quest-instance",
@@ -52,5 +52,21 @@ describe("QuestInspectPanel", () => {
       "https://www.bungie.net/currency.png"
     ]);
     expect(screen.getByText("Active objective").closest("article")?.querySelector("i span")?.getAttribute("style")).toContain("40%");
+  });
+
+  it("places the desktop tooltip beside its quest while keeping it inside the quest board", () => {
+    expect(getQuestTooltipPosition(
+      { top: 180, left: 120, right: 360 },
+      { left: 100, right: 1_100 },
+      1_440,
+      900
+    )).toEqual({ top: 180, left: 370, maxHeight: 708 });
+
+    expect(getQuestTooltipPosition(
+      { top: 760, left: 850, right: 1_080 },
+      { left: 100, right: 1_100 },
+      1_440,
+      900
+    )).toEqual({ top: 468, left: 450, maxHeight: 420 });
   });
 });

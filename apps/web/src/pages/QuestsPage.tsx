@@ -1,7 +1,8 @@
 import type { QuestData, QuestObjective, QuestProgress, QuestStepProgress } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { Activity, Bookmark, CheckCircle2, ChevronDown, ChevronRight, CircleDashed, CircleHelp, Clock3, Compass, Crosshair, Gift, LayoutGrid, ListFilter, Rows3, Search, Sparkles, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
@@ -11,6 +12,35 @@ import questStyles from "./QuestsPage.module.css";
 
 type QuestFilter = "all" | "pinned" | "tracked" | "near" | "activity";
 type QuestLayout = "grid" | "list";
+type QuestTooltipState = { questId: string; anchor: HTMLElement; locked: boolean };
+type QuestTooltipPosition = { top: number; left: number; maxHeight: number };
+
+const TOOLTIP_CLOSE_DELAY = 180;
+const TOOLTIP_GAP = 10;
+const TOOLTIP_MARGIN = 12;
+const TOOLTIP_WIDTH = 390;
+
+export function getQuestTooltipPosition(
+  anchor: Pick<DOMRect, "top" | "left" | "right">,
+  board: Pick<DOMRect, "left" | "right">,
+  viewportWidth: number,
+  viewportHeight: number
+): QuestTooltipPosition {
+  const width = Math.max(280, Math.min(TOOLTIP_WIDTH, viewportWidth - TOOLTIP_MARGIN * 2));
+  const minLeft = Math.max(TOOLTIP_MARGIN, board.left);
+  const maxRight = Math.min(viewportWidth - TOOLTIP_MARGIN, board.right);
+  const maxLeft = Math.max(minLeft, maxRight - width);
+  const rightCandidate = anchor.right + TOOLTIP_GAP;
+  const leftCandidate = anchor.left - TOOLTIP_GAP - width;
+  const left = rightCandidate + width <= maxRight
+    ? rightCandidate
+    : leftCandidate >= minLeft
+      ? leftCandidate
+      : maxLeft;
+  const minimumVisibleHeight = Math.min(420, viewportHeight - TOOLTIP_MARGIN * 2);
+  const top = Math.max(TOOLTIP_MARGIN, Math.min(anchor.top, viewportHeight - TOOLTIP_MARGIN - minimumVisibleHeight));
+  return { top, left, maxHeight: Math.max(220, viewportHeight - top - TOOLTIP_MARGIN) };
+}
 
 export function QuestsPage() {
   const { session, selectedCharacterId, autoRefresh } = useGuardian();
@@ -19,7 +49,9 @@ export function QuestsPage() {
   const [pins, setPins] = useState<Set<string>>(() => new Set());
   const [filter, setFilter] = useState<QuestFilter>("all");
   const [search, setSearch] = useState("");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tooltip, setTooltip] = useState<QuestTooltipState | null>(null);
+  const [tooltipPosition, setTooltipPosition] = useState<QuestTooltipPosition | null>(null);
+  const closeTimer = useRef<number | null>(null);
   const [layout, setLayout] = useState<QuestLayout>(() => localStorage.getItem("guardian-nexus:quest-layout") === "list" ? "list" : "grid");
   useEffect(() => { try { setPins(new Set(JSON.parse(localStorage.getItem(storageKey) || "[]"))); } catch { setPins(new Set()); } }, [storageKey]);
   const pinnedParam = [...pins].join(",");
@@ -37,14 +69,83 @@ export function QuestsPage() {
   }).sort((a, b) => Number(pins.has(b.instanceId)) - Number(pins.has(a.instanceId)) || Number(b.inGameTracked) - Number(a.inGameTracked) || a.name.localeCompare(b.name)), [result.data, filter, search, pins]);
   const primaryQuests = quests.filter((quest) => !quest.category || quest.category === "quest");
   const compactPursuits = quests.filter((quest) => quest.category === "bounty" || quest.category === "order");
-  const selectedQuest = result.data?.data.quests.find((quest) => quest.instanceId === selectedId && (!quest.category || quest.category === "quest"));
-  useEffect(() => {
-    if (!primaryQuests.length) {
-      if (selectedId) setSelectedId(null);
+  const tooltipQuest = result.data?.data.quests.find((quest) => quest.instanceId === tooltip?.questId && (!quest.category || quest.category === "quest"));
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+  const closeTooltip = useCallback(() => {
+    clearCloseTimer();
+    setTooltip(null);
+    setTooltipPosition(null);
+  }, [clearCloseTimer]);
+  const previewTooltip = useCallback((questId: string, anchor: HTMLElement) => {
+    clearCloseTimer();
+    setTooltip((current) => current?.locked ? current : { questId, anchor, locked: false });
+  }, [clearCloseTimer]);
+  const toggleTooltip = useCallback((questId: string, anchor: HTMLElement) => {
+    clearCloseTimer();
+    if (tooltip?.locked && tooltip.questId === questId) {
+      closeTooltip();
       return;
     }
-    if (!selectedQuest) setSelectedId(primaryQuests[0]!.instanceId);
-  }, [primaryQuests, selectedId, selectedQuest]);
+    setTooltip({ questId, anchor, locked: true });
+  }, [clearCloseTimer, closeTooltip, tooltip]);
+  const scheduleTooltipClose = useCallback(() => {
+    if (tooltip?.locked) return;
+    clearCloseTimer();
+    closeTimer.current = window.setTimeout(() => {
+      setTooltip(null);
+      setTooltipPosition(null);
+      closeTimer.current = null;
+    }, TOOLTIP_CLOSE_DELAY);
+  }, [clearCloseTimer, tooltip?.locked]);
+  useEffect(() => {
+    if (tooltip && !primaryQuests.some((quest) => quest.instanceId === tooltip.questId)) closeTooltip();
+  }, [closeTooltip, primaryQuests, tooltip]);
+  useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
+  useEffect(() => {
+    if (!tooltip?.locked) return;
+    const dismissOutside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || tooltip.anchor.contains(target) || target.closest("[data-quest-inspect]")) return;
+      closeTooltip();
+    };
+    const dismissOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") closeTooltip(); };
+    document.addEventListener("pointerdown", dismissOutside, true);
+    document.addEventListener("keydown", dismissOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", dismissOutside, true);
+      document.removeEventListener("keydown", dismissOnEscape);
+    };
+  }, [closeTooltip, tooltip]);
+  useLayoutEffect(() => {
+    if (!tooltip) return;
+    let frame = 0;
+    const placeTooltip = () => {
+      if (!tooltip.anchor.isConnected) {
+        closeTooltip();
+        return;
+      }
+      const anchorRect = tooltip.anchor.getBoundingClientRect();
+      const boardRect = tooltip.anchor.closest<HTMLElement>("[data-quest-board]")?.getBoundingClientRect() || anchorRect;
+      setTooltipPosition(getQuestTooltipPosition(anchorRect, boardRect, window.innerWidth, window.innerHeight));
+    };
+    const queuePlacement = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(placeTooltip);
+    };
+    placeTooltip();
+    window.addEventListener("resize", queuePlacement);
+    window.addEventListener("scroll", queuePlacement, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", queuePlacement);
+      window.removeEventListener("scroll", queuePlacement, true);
+    };
+  }, [closeTooltip, tooltip]);
   const togglePin = (quest: QuestProgress) => setPins((current) => {
     const next = new Set(current);
     if (next.has(quest.instanceId)) next.delete(quest.instanceId); else next.add(quest.instanceId);
@@ -71,21 +172,42 @@ export function QuestsPage() {
         ] as const).map(([value, label, Icon]) => <button key={value} className={filter === value ? styles.activeFilter : ""} onClick={() => setFilter(value)}><Icon size={14} />{label}</button>)}</div>
         <div className={styles.layoutToggle}><button className={layout === "grid" ? styles.activeFilter : ""} onClick={() => chooseLayout("grid")}><LayoutGrid size={14} />Grid</button><button className={layout === "list" ? styles.activeFilter : ""} onClick={() => chooseLayout("list")}><Rows3 size={14} />List</button></div>
       </section>
-      <section className={`${questStyles.questWorkspace} ${selectedQuest ? questStyles.questWorkspaceInspecting : ""}`}>
-        <div className={questStyles.questBoard}>
-          {primaryQuests.length ? <section className={`${layout === "grid" ? styles.questGrid : styles.questList} ${questStyles.questCards}`}>{primaryQuests.map((quest) => layout === "grid" ? <QuestGridCard key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} selected={selectedId === quest.instanceId} onPin={() => togglePin(quest)} onSelect={() => setSelectedId(quest.instanceId)} /> : <QuestCard key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} selected={selectedId === quest.instanceId} onPin={() => togglePin(quest)} onSelect={() => setSelectedId(quest.instanceId)} />)}</section> : compactPursuits.length === 0 && <div className={styles.inlineEmpty}><ListFilter /><h2>No quests match this view</h2><p>Adjust the filter or wait for Bungie to mint a newer character inventory response.</p></div>}
-          {selectedQuest && <QuestInspectPanel quest={selectedQuest} onClose={() => setSelectedId(null)} />}
+      <section className={questStyles.questWorkspace}>
+        <div className={questStyles.questBoard} data-quest-board>
+          {primaryQuests.length ? <section className={`${layout === "grid" ? styles.questGrid : styles.questList} ${questStyles.questCards}`}>{primaryQuests.map((quest) => {
+            const interaction = {
+              selected: tooltip?.questId === quest.instanceId,
+              onPreview: (anchor: HTMLElement) => previewTooltip(quest.instanceId, anchor),
+              onLeave: scheduleTooltipClose,
+              onToggle: (anchor: HTMLElement) => toggleTooltip(quest.instanceId, anchor)
+            };
+            return layout === "grid"
+              ? <QuestGridCard key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} {...interaction} />
+              : <QuestCard key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} {...interaction} />;
+          })}</section> : compactPursuits.length === 0 && <div className={styles.inlineEmpty}><ListFilter /><h2>No quests match this view</h2><p>Adjust the filter or wait for Bungie to mint a newer character inventory response.</p></div>}
         </div>
         {compactPursuits.length > 0 && <aside className={`${styles.compactPursuits} ${questStyles.bountyRail}`}><header><div><Crosshair /><span>Bounties, hub orders & vendor orders</span></div><strong>{compactPursuits.length}</strong></header><div>{compactPursuits.map((quest) => <CompactPursuit key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} />)}</div></aside>}
       </section>
+      {tooltipQuest && tooltipPosition && createPortal(<QuestInspectPanel quest={tooltipQuest} position={tooltipPosition} onClose={closeTooltip} onPointerEnter={clearCloseTimer} onPointerLeave={scheduleTooltipClose} />, document.body)}
     </>}
   </AuthGate>;
 }
 
-function QuestCard({ quest, pinned, selected, onPin, onSelect }: { quest: QuestProgress; pinned: boolean; selected: boolean; onPin: () => void; onSelect: () => void }) {
+type QuestCardInteraction = {
+  selected: boolean;
+  onPreview: (anchor: HTMLElement) => void;
+  onLeave: () => void;
+  onToggle: (anchor: HTMLElement) => void;
+};
+
+function shouldToggleTooltip(target: EventTarget | null): boolean {
+  return target instanceof Element && !target.closest("a, button, input, select, textarea");
+}
+
+function QuestCard({ quest, pinned, selected, onPin, onPreview, onLeave, onToggle }: { quest: QuestProgress; pinned: boolean; onPin: () => void } & QuestCardInteraction) {
   const [expanded, setExpanded] = useState(false);
   const steps = quest.steps?.length ? quest.steps : [fallbackStep(quest)];
-  return <article className={`${styles.questCard} ${quest.inGameTracked ? styles.questTracked : ""} ${selected ? questStyles.questSelected : ""}`} tabIndex={0} onMouseEnter={onSelect} onFocusCapture={onSelect} onClick={onSelect}>
+  return <article className={`${styles.questCard} ${quest.inGameTracked ? styles.questTracked : ""} ${selected ? questStyles.questSelected : ""}`} tabIndex={0} aria-expanded={selected} onMouseEnter={(event) => onPreview(event.currentTarget)} onMouseLeave={onLeave} onFocusCapture={(event) => onPreview(event.currentTarget)} onBlurCapture={onLeave} onClick={(event) => { if (shouldToggleTooltip(event.target)) onToggle(event.currentTarget); }}>
     <div className={styles.questIcon}>{quest.icon ? <img src={quest.icon} alt="" /> : <Crosshair />}</div>
     <div className={styles.questMain}><div className={styles.questMeta}><span>{quest.activityName || "Active quest"}</span>{quest.stepNumber && quest.stepCount && <b>Step {quest.stepNumber}/{quest.stepCount}</b>}{quest.inGameTracked && <em><Crosshair size={11} /> Tracked in Destiny</em>}</div><h2>{quest.name}</h2><p>{quest.currentStep}</p>
       <div className={styles.objectives}>{quest.objectives.length ? quest.objectives.map((objective) => <div key={objective.objectiveHash}><span><b>{objective.name}</b><small>{objective.progress.toLocaleString()} / {objective.completionValue.toLocaleString()}</small></span><i><span style={{ width: `${objective.percent}%` }} /></i>{objective.complete ? <CheckCircle2 size={16} /> : <strong>{objective.percent}%</strong>}</div>) : <div><span><b>Progress details unavailable</b><small>Bungie returned no item objectives.</small></span></div>}</div>
@@ -95,19 +217,19 @@ function QuestCard({ quest, pinned, selected, onPin, onSelect }: { quest: QuestP
   </article>;
 }
 
-function QuestGridCard({ quest, pinned, selected, onPin, onSelect }: { quest: QuestProgress; pinned: boolean; selected: boolean; onPin: () => void; onSelect: () => void }) {
+function QuestGridCard({ quest, pinned, selected, onPin, onPreview, onLeave, onToggle }: { quest: QuestProgress; pinned: boolean; onPin: () => void } & QuestCardInteraction) {
   const objective = quest.objectives.find((entry) => !entry.complete) || quest.objectives[0];
-  return <article className={`${styles.questGridCard} ${quest.inGameTracked ? styles.questTracked : ""} ${pinned ? styles.questPinned : ""} ${selected ? questStyles.questSelected : ""}`} tabIndex={0} onMouseEnter={onSelect} onFocusCapture={onSelect} onClick={onSelect}>
+  return <article className={`${styles.questGridCard} ${quest.inGameTracked ? styles.questTracked : ""} ${pinned ? styles.questPinned : ""} ${selected ? questStyles.questSelected : ""}`} tabIndex={0} aria-expanded={selected} onMouseEnter={(event) => onPreview(event.currentTarget)} onMouseLeave={onLeave} onFocusCapture={(event) => onPreview(event.currentTarget)} onBlurCapture={onLeave} onClick={(event) => { if (shouldToggleTooltip(event.target)) onToggle(event.currentTarget); }}>
     <header><div className={styles.questGridIcon}>{quest.icon ? <img src={quest.icon} alt="" /> : <Crosshair />}</div><div><span>{quest.activityName || "Active quest"}</span><h2>{quest.name}</h2></div><button className={pinned ? styles.pinned : ""} onClick={onPin} aria-label={pinned ? `Unpin ${quest.name}` : `Pin ${quest.name}`}><Bookmark size={15} fill={pinned ? "currentColor" : "none"} /></button></header>
     <p>{quest.currentStep}</p><div className={styles.questGridProgress}><span><b>{objective?.name || "Step progress"}</b><strong>{quest.percent}%</strong></span><i><span style={{ width: `${quest.percent}%` }} /></i></div>
     <footer>{quest.stepNumber && quest.stepCount ? <span>Step {quest.stepNumber}/{quest.stepCount}</span> : <span>Current step</span>}<Link to={`/quests/${encodeURIComponent(quest.instanceId)}`}>Details <ChevronRight size={13} /></Link></footer>
   </article>;
 }
 
-export function QuestInspectPanel({ quest, onClose }: { quest: QuestProgress; onClose: () => void }) {
+export function QuestInspectPanel({ quest, position, onClose, onPointerEnter, onPointerLeave }: { quest: QuestProgress; position?: QuestTooltipPosition; onClose: () => void; onPointerEnter?: () => void; onPointerLeave?: () => void }) {
   return <>
     <button className={questStyles.questInspectScrim} onClick={onClose} aria-label="Close quest details" />
-    <aside className={questStyles.questInspectPanel} aria-label={`${quest.name} details`}>
+    <aside className={questStyles.questInspectPanel} style={position} aria-label={`${quest.name} details`} data-quest-inspect onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave} onFocusCapture={onPointerEnter} onBlurCapture={onPointerLeave}>
       <header className={questStyles.questInspectHeader}>
         <div className={questStyles.questInspectIcon}>{quest.icon ? <img src={quest.icon} alt="" /> : <Crosshair />}</div>
         <div><span>{quest.itemType || "Quest Step"}{quest.rarity ? ` · ${quest.rarity}` : ""}</span><h2>{quest.name}</h2></div>

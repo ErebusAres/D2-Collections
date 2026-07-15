@@ -335,7 +335,19 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
     }).filter((entry): entry is { hash: string; value: any } => Boolean(entry));
     if (!progressionRows.length) return unavailable("Bungie's characterProgressions component did not contain the current Rewards Pass progression.");
     const rank = progressionRows.reduce((total, entry) => total + Math.max(0, Number(entry.value?.level || 0)), 0);
-    const active = [...progressionRows].reverse().find((entry) => Number(entry.value?.nextLevelAt || 0) > 0) || progressionRows[0]!;
+    const rewardProgression = progressionRows.find((entry) => entry.hash === rewardProgressionHash);
+    const prestigeProgression = progressionRows.find((entry) => entry.hash === prestigeProgressionHash);
+    const rewardLevel = Math.max(0, Number(rewardProgression?.value?.level || 0));
+    const rewardLevelCap = Math.max(0, Number(rewardProgression?.value?.levelCap || 0));
+    const rewardTrackComplete = Boolean(rewardProgression) && (
+      Number(rewardProgression?.value?.nextLevelAt || 0) <= 0
+      || (rewardLevelCap > 0 && rewardLevel >= rewardLevelCap)
+    );
+    const active = rewardTrackComplete && prestigeProgression && Number(prestigeProgression.value?.nextLevelAt || 0) > 0
+      ? prestigeProgression
+      : rewardProgression && Number(rewardProgression.value?.nextLevelAt || 0) > 0
+        ? rewardProgression
+        : progressionRows.find((entry) => Number(entry.value?.nextLevelAt || 0) > 0) || progressionRows[0]!;
     const progressToNextLevel = Math.max(0, Number(active.value?.progressToNextLevel || 0));
     const nextLevelAt = Math.max(0, Number(active.value?.nextLevelAt || 0));
     const currentProgress = Math.max(0, Number(active.value?.currentProgress || 0));

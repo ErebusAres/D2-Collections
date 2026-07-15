@@ -54,6 +54,26 @@ describe("xurInventoryFor", () => {
 });
 
 describe("seasonPassProgress", () => {
+  it("uses the normal reward track for XP until that track reaches its cap", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ErrorCode: 1, Response: { rewardProgressionHash: 11, prestigeProgressionHash: 22 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: { c1: { progressions: {
+      11: { level: 33, levelCap: 100, currentProgress: 3_362_500, progressToNextLevel: 62_500, nextLevelAt: 100_000 },
+      22: { level: 0, progressToNextLevel: 0, nextLevelAt: 100_000 }
+    } } } } };
+
+    await expect(seasonPassProgress(profile, "access", { BUNGIE_API_KEY: "test" } as Env, "c1")).resolves.toMatchObject({
+      rank: 33,
+      progress: {
+        state: "available",
+        activeProgressionHash: "11",
+        currentProgress: 3_362_500,
+        progressToNextLevel: 62_500,
+        nextLevelAt: 100_000,
+        percent: 63
+      }
+    });
+  });
+
   it("combines reward and prestige ranks while reporting current XP progress", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ErrorCode: 1, Response: { rewardProgressionHash: 11, prestigeProgressionHash: 22 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
     const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: { c1: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 5, progressToNextLevel: 250, nextLevelAt: 1000 } } } } } };
