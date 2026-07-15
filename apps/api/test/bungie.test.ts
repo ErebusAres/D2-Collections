@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName } from "../src/bungie";
-import type { Env } from "../src/types";
+import { bungieGet, destinyDisplayName, xurInventoryFor } from "../src/bungie";
+import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -31,5 +31,24 @@ describe("bungieGet", () => {
 
     await expect(bungieGet("/Destiny2/3/Profile/1/", { BUNGIE_API_KEY: "test" } as Env))
       .rejects.toMatchObject({ status: 429, code: "bungie_throttled", retryAfterSeconds: 7 });
+  });
+});
+
+describe("xurInventoryFor", () => {
+  it("reads Xûr's enabled live sales from the character vendor endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ErrorCode: 1,
+      Response: {
+        vendor: { data: { enabled: true, nextRefreshDate: "2026-07-17T17:00:00Z" } },
+        sales: { data: { 0: { itemHash: 111 }, 1: { itemHash: 222 }, 2: { itemHash: 111 } } }
+      }
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const row = { membership_type: 3, membership_id: "member" } as SessionRow;
+
+    const result = await xurInventoryFor(row, "character-xur-test", { BUNGIE_API_KEY: "test" } as Env, "access");
+
+    expect(result).toMatchObject({ state: "available", itemHashes: ["111", "222"], nextRefreshAt: "2026-07-17T17:00:00Z" });
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/Vendors/2190858386/?components=400,402");
   });
 });

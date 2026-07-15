@@ -100,4 +100,20 @@ describe("mergeCollection", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ owned: true, catalyst: "complete" });
   });
+
+  it("marks a deduplicated item when Xûr sells any matching manifest variant", () => {
+    const variants: CompactManifest["items"] = [
+      { itemHash: "display", collectibleHash: "owned", name: "Test Helm", description: "", icon: "/a.png", kind: "armor", className: "Warlock", slot: "Helmet", itemType: "Helmet", source: "Engrams", catalystRecordHashes: [] },
+      { itemHash: "vendor-roll", name: "Test Helm", description: "", icon: "/a.png", kind: "armor", className: "Warlock", slot: "Helmet", itemType: "Helmet", source: "", catalystRecordHashes: [] }
+    ];
+    const entries = mergeCollection({ version: "test", generatedAt: "now", items: variants, itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} }, {
+      ownedCollectibleHashes: new Set(),
+      completedRecordHashes: new Set(),
+      visibleRecordHashes: new Set(),
+      xurSaleItemHashes: new Set(["vendor-roll"])
+    }, "Warlock");
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.xurSelling).toBe(true);
+  });
 });

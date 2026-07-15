@@ -94,13 +94,19 @@ export interface ExoticCollectionEntry {
   source: string;
   owned: boolean;
   catalyst: CatalystState;
+  xurSelling: boolean;
   guide: GuideEntry;
 }
 
 export interface CollectionData {
   manifestVersion: string;
   entries: ExoticCollectionEntry[];
-  totals: { owned: number; available: number; catalystsAvailable: number; catalystsOwned: number; catalystsComplete: number };
+  totals: { owned: number; available: number; catalystsAvailable: number; catalystsOwned: number; catalystsComplete: number; xurSelling: number };
+  xur: {
+    state: "available" | "away" | "unavailable";
+    checkedAt: string;
+    nextRefreshAt?: string;
+  };
 }
 
 export interface QuestObjective {

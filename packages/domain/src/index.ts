@@ -127,6 +127,7 @@ export function mergeCollection(
     ownedCollectibleHashes: ReadonlySet<string>;
     completedRecordHashes: ReadonlySet<string>;
     visibleRecordHashes: ReadonlySet<string>;
+    xurSaleItemHashes?: ReadonlySet<string>;
   },
   selectedClass: GuardianClass,
   guides: Record<string, GuideEntry> = {}
@@ -149,6 +150,7 @@ export function mergeCollection(
       const catalystComplete = catalystRecordHashes.some((hash) => state.completedRecordHashes.has(hash));
       const catalystOwned = catalystRecordHashes.some((hash) => state.visibleRecordHashes.has(hash));
       const owned = variants.some((variant) => variant.collectibleHash && state.ownedCollectibleHashes.has(variant.collectibleHash));
+      const xurSelling = variants.some((variant) => state.xurSaleItemHashes?.has(variant.itemHash));
       const guide = variants.map((variant) => guides[variant.itemHash]).find(Boolean) ?? fallbackGuide({ ...item, catalystRecordHashes });
       return {
         ...item,
@@ -156,6 +158,7 @@ export function mergeCollection(
         watermark: imageUrl(item.watermark),
         owned,
         catalyst: !catalystAvailable ? "unavailable" : catalystComplete ? "complete" : catalystOwned ? "obtained" : "missing",
+        xurSelling,
         guide
       } satisfies ExoticCollectionEntry;
     })

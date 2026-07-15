@@ -112,13 +112,14 @@ function recordSets(profile: any): { completed: Set<string>; visible: Set<string
   return { completed, visible };
 }
 
-export function normalizeCollection(profile: any, manifest: CompactManifest, selectedClass: CharacterSummary["className"]): CollectionData {
+export function normalizeCollection(profile: any, manifest: CompactManifest, selectedClass: CharacterSummary["className"], xurSaleItemHashes = new Set<string>()): CollectionData {
   const states = collectibleStates(profile);
   const records = recordSets(profile);
   const entries = mergeCollection(manifest, {
     ownedCollectibleHashes: new Set([...states].filter(([, state]) => (state & 1) === 0).map(([hash]) => hash)),
     completedRecordHashes: records.completed,
-    visibleRecordHashes: records.visible
+    visibleRecordHashes: records.visible,
+    xurSaleItemHashes
   }, selectedClass);
   return {
     manifestVersion: manifest.version,
@@ -128,8 +129,10 @@ export function normalizeCollection(profile: any, manifest: CompactManifest, sel
       available: entries.length,
       catalystsAvailable: entries.filter((entry) => entry.kind === "weapon" && entry.catalyst !== "unavailable").length,
       catalystsOwned: entries.filter((entry) => entry.kind === "weapon" && (entry.catalyst === "obtained" || entry.catalyst === "complete")).length,
-      catalystsComplete: entries.filter((entry) => entry.kind === "weapon" && entry.catalyst === "complete").length
-    }
+      catalystsComplete: entries.filter((entry) => entry.kind === "weapon" && entry.catalyst === "complete").length,
+      xurSelling: entries.filter((entry) => entry.xurSelling).length
+    },
+    xur: { state: "unavailable", checkedAt: new Date().toISOString() }
   };
 }
 

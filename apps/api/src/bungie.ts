@@ -8,6 +8,8 @@ let manifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
 const publicMembershipTypeCache = new Map<string, number>();
+const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
+const XUR_VENDOR_HASH = "2190858386";
 
 export async function bungieGet(path: string, env: Env, accessToken?: string): Promise<any> {
   if (!env.BUNGIE_API_KEY) throw httpError(503, "bungie_api_unconfigured", "Bungie API access is not configured.");
@@ -82,6 +84,46 @@ export async function publicProfileFor(
   const unavailable = { expiresAt: Date.now() + 30_000 };
   publicProfileCache.set(membershipId, unavailable);
   return unavailable;
+}
+
+export async function xurInventoryFor(row: SessionRow, characterId: string, env: Env, accessToken: string): Promise<{
+  state: "available" | "away" | "unavailable";
+  itemHashes: string[];
+  checkedAt: string;
+  nextRefreshAt?: string;
+  warning?: string;
+}> {
+  const cacheKey = `${row.membership_type}:${row.membership_id}:${characterId}`;
+  const cached = xurInventoryCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached;
+  const checkedAt = new Date().toISOString();
+  try {
+    const response = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/Character/${characterId}/Vendors/${XUR_VENDOR_HASH}/?components=400,402`, env, accessToken);
+    const enabled = Boolean(response?.vendor?.data?.enabled);
+    const itemHashes = enabled
+      ? [...new Set(Object.values(response?.sales?.data || {}).map((sale: any) => String(sale?.itemHash || "")).filter(Boolean))]
+      : [];
+    const result = {
+      state: enabled ? "available" as const : "away" as const,
+      itemHashes,
+      checkedAt,
+      nextRefreshAt: response?.vendor?.data?.nextRefreshDate,
+      expiresAt: Date.now() + 5 * 60_000
+    };
+    xurInventoryCache.set(cacheKey, result);
+    return result;
+  } catch (error: any) {
+    const expectedAbsence = /vendor.*(not found|unavailable)|x[uû]r.*(not found|unavailable)/i.test(String(error?.message || ""));
+    const result = {
+      state: expectedAbsence ? "away" as const : "unavailable" as const,
+      itemHashes: [],
+      checkedAt,
+      ...(expectedAbsence ? {} : { warning: "Xûr's live inventory could not be verified from Bungie." }),
+      expiresAt: Date.now() + 2 * 60_000
+    };
+    xurInventoryCache.set(cacheKey, result);
+    return result;
+  }
 }
 
 export async function exchangeCode(code: string, env: Env): Promise<any> {

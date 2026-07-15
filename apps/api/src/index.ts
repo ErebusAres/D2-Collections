@@ -12,7 +12,7 @@ import type {
   SessionData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, destinyDisplayName, emblemPathFor, exchangeCode, loadManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassRank } from "./bungie";
+import { accessTokenFor, bungieGet, destinyDisplayName, emblemPathFor, exchangeCode, loadManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassRank, xurInventoryFor } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -266,11 +266,18 @@ async function overview(row: SessionRow, env: Env, context: RequestContext): Pro
 }
 
 async function collection(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile } = await profileFor(row, env);
+  const { profile, accessToken } = await profileFor(row, env);
   const manifest = await loadManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
-  const data = normalizeCollection(profile, manifest, character?.className || "Unknown");
-  const warnings = manifest.version === "unavailable" ? ["Current manifest data is unavailable; run the manifest sync before production deployment."] : [];
+  const xur = character?.characterId
+    ? await xurInventoryFor(row, character.characterId, env, accessToken)
+    : { state: "unavailable" as const, itemHashes: [], checkedAt: new Date().toISOString(), warning: "Xûr inventory requires a selected character." };
+  const data = normalizeCollection(profile, manifest, character?.className || "Unknown", new Set(xur.itemHashes));
+  data.xur = { state: xur.state, checkedAt: xur.checkedAt, nextRefreshAt: xur.nextRefreshAt };
+  const warnings = [
+    ...(manifest.version === "unavailable" ? ["Current manifest data is unavailable; run the manifest sync before production deployment."] : []),
+    ...(xur.warning ? [xur.warning] : [])
+  ];
   return envelope<CollectionData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
 }
 
