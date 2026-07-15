@@ -509,7 +509,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     const publicCharacter = publicCharacters.find((entry) => entry.minutesPlayedThisSession > 0) || publicCharacters[0];
     const publicActivity = publicProfile ? activityName(publicProfile, manifest, publicCharacter?.characterId) : undefined;
     const character = payload?.character || publicCharacter || (isSelf ? ownCharacter : undefined);
-    const directActivity = publicActivity || (isSelf ? fireteamActivity : undefined) || payload?.activity;
+    const directActivity = isSelf ? fireteamActivity : publicActivity || payload?.activity;
     const onlineState = guardianOnlineState(character, directActivity, isSelf || Boolean(publicProfile));
     const activity = onlineState === "offline" ? undefined : directActivity || fireteamActivity;
     const publicName = destinyDisplayName(publicProfile?.profile?.data?.userInfo);

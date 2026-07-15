@@ -11,7 +11,7 @@ import styles from "./RewardsPage.module.css";
 const OFFICIAL_REWARDS_URL = "https://www.bungie.net/7/en/Seasons/Progress";
 const LEVELS_PER_PAGE = 10;
 
-interface RewardLevel {
+export interface RewardLevel {
   level: number;
   rewards: RewardsPassReward[];
 }
@@ -71,10 +71,10 @@ export function RewardsPage() {
   </AuthGate>;
 }
 
-function RewardLevelColumn({ entry, currentRank }: { entry: RewardLevel; currentRank: number }) {
+export function RewardLevelColumn({ entry, currentRank }: { entry: RewardLevel; currentRank: number }) {
   const reached = entry.level <= currentRank;
-  const next = entry.level === currentRank + 1;
-  return <article className={`${styles.rewardLevel} ${reached ? styles.rewardLevelReached : ""} ${next ? styles.rewardLevelNext : ""}`}>
+  const current = entry.level === currentRank;
+  return <article className={`${styles.rewardLevel} ${reached ? styles.rewardLevelReached : ""} ${current ? styles.rewardLevelCurrent : ""}`} aria-current={current ? "step" : undefined}>
     <header><span>Rank</span><strong>{entry.level}</strong>{reached && <CheckCircle2 />}</header>
     <div>{entry.rewards.map((reward) => <RewardCard key={`${reward.rewardItemIndex}-${reward.itemHash}`} reward={reward} />)}</div>
   </article>;

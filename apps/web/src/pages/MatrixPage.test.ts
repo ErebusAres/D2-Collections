@@ -9,8 +9,8 @@ const guardians: MatrixGuardian[] = [
 ];
 
 describe("defaultMatrixSelection", () => {
-  it("starts each Guardian on their own Matrix", () => {
-    expect(defaultMatrixSelection(guardians, "2", [])).toEqual(["2"]);
+  it("starts with every approved Guardian in the comparison", () => {
+    expect(defaultMatrixSelection(guardians, "2", [])).toEqual(["1", "2", "3"]);
   });
 
   it("restores valid comparisons and discards Guardians outside the roster", () => {

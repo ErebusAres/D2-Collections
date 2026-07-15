@@ -1,0 +1,23 @@
+.picker { position: relative; z-index: 6; }
+.trigger { min-width: 96px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; padding: 0 8px; border: 1px solid var(--line); background: rgba(255,255,255,.025); color: var(--muted); font-size: 8px; text-transform: uppercase; }
+.trigger svg { width: 13px; height: 13px; color: var(--tag-color, var(--cyan)); }
+.trigger:disabled { opacity: .5; cursor: wait; }
+.trigger[aria-expanded="true"] { border-color: var(--tag-color, var(--cyan)); color: var(--ink); background: #13232c; }
+.menu { position: absolute; left: 0; bottom: calc(100% + 5px); z-index: 20; width: 176px; display: grid; gap: 3px; padding: 5px; border: 1px solid rgba(155,231,226,.4); background: #08141b; box-shadow: 0 14px 32px rgba(0,0,0,.62); }
+.menu button { width: 100%; min-height: 31px; display: grid; grid-template-columns: 22px 1fr 14px; align-items: center; gap: 7px; padding: 0 8px; border: 1px solid transparent; background: rgba(255,255,255,.025); color: var(--muted); text-align: left; font-size: 8px; text-transform: uppercase; }
+.menu button:hover,.menu button:focus-visible,.menu .selected { border-color: var(--tag-color, var(--cyan)); background: color-mix(in srgb,var(--tag-color, var(--cyan)) 12%,#0d1b23); color: var(--ink); outline: 0; }
+.menu button > svg:first-child { width: 14px; color: var(--tag-color, var(--cyan)); }
+.menu button > svg:last-child { width: 11px; color: var(--cyan); }
+.filter .trigger { width: 100%; min-height: 36px; background: #101c24; }
+.filter .menu { top: calc(100% + 5px); bottom: auto; }
+.badge { position: absolute; top: 3px; right: 3px; z-index: 4; width: 23px; height: 23px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.82); background: var(--tag-color); color: var(--tag-ink,#071015); box-shadow: 0 1px 6px rgba(0,0,0,.78); }
+.badge svg { width: 14px; height: 14px; stroke-width: 3; }
+.all { --tag-color: #8ab7c7; }
+.none { --tag-color: #788891; }
+.favorite { --tag-color: #f1c94f; --tag-ink: #191203; }
+.keep { --tag-color: #55caa3; --tag-ink: #041710; }
+.junk { --tag-color: #e76874; --tag-ink: #210407; }
+.infuse { --tag-color: #bd83ec; --tag-ink: #16051f; }
+.archive { --tag-color: #6ba8e8; --tag-ink: #04111e; }
+
+@media(max-width:620px){.menu{right:0;left:auto}.filter .menu{left:0;right:auto}}

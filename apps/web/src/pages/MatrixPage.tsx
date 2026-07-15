@@ -18,7 +18,7 @@ export function MatrixPage() {
   const currentMembershipId = session?.guardian?.membershipId || "";
   const guardians = result.data?.data.guardians || [];
   const snapshots = result.data?.data.snapshots || [];
-  const selectionKey = `guardian-nexus:${currentMembershipId || "observer"}:matrix-comparison`;
+  const selectionKey = `guardian-nexus:${currentMembershipId || "observer"}:matrix-comparison-v2`;
   const guardianIds = guardians.map((guardian) => guardian.membershipId).join(",");
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export function MatrixPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Guardian comparison" title="Guardian Matrix" description="Start with your own collection, then add ErebusAres, IceeDedPple, or FearsRedemption for a side-by-side Exotic and catalyst comparison." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />{result.data?.data.canSync && <button className={styles.primaryAction} onClick={() => sync.mutate()} disabled={sync.isPending}><RefreshCcw size={15} />{sync.isPending ? "Synchronizing…" : "Sync my Matrix"}</button>}</>} />
+    <PageHeader eyebrow="Guardian comparison" title="Guardian Matrix" description="Compare FearsRedemption, ErebusAres, and IceeDedPple side by side by default, then tailor the roster for your own Exotic and catalyst review." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />{result.data?.data.canSync && <button className={styles.primaryAction} onClick={() => sync.mutate()} disabled={sync.isPending}><RefreshCcw size={15} />{sync.isPending ? "Synchronizing…" : "Sync my Matrix"}</button>}</>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {guardians.length > 0 && <section className={styles.matrixRoster}>
       <header><div><Users /><span><strong>Choose your comparison</strong><small>Your selection is saved only in this browser.</small></span></div><nav><button type="button" onClick={() => selectGuardians(currentMembershipId && guardians.some((guardian) => guardian.membershipId === currentMembershipId) ? [currentMembershipId] : [guardians[0]!.membershipId])}>Just me</button><button type="button" onClick={() => selectGuardians(guardians.map((guardian) => guardian.membershipId))}>Compare all</button></nav></header>
@@ -89,12 +89,11 @@ export function MatrixPage() {
   </AuthGate>;
 }
 
-export function defaultMatrixSelection(guardians: MatrixGuardian[], currentMembershipId: string, requested: string[]): string[] {
+export function defaultMatrixSelection(guardians: MatrixGuardian[], _currentMembershipId: string, requested: string[]): string[] {
   const available = new Set(guardians.map((guardian) => guardian.membershipId));
   const valid = [...new Set(requested)].filter((membershipId) => available.has(membershipId));
   if (valid.length) return valid;
-  if (currentMembershipId && available.has(currentMembershipId)) return [currentMembershipId];
-  return guardians[0] ? [guardians[0].membershipId] : [];
+  return guardians.map((guardian) => guardian.membershipId);
 }
 
 function GuardianColumn({ guardian, snapshot, isSelf }: { guardian: MatrixGuardian; snapshot?: MatrixSnapshot; isSelf: boolean }) {
