@@ -5,7 +5,8 @@ import type {
   GuardianSummary,
   QuestData,
   QuestObjective,
-  QuestProgress
+  QuestProgress,
+  QuestStepProgress
 } from "@guardian-nexus/contracts";
 import { className, imageUrl, mergeCollection, objectivePercent, questPercent, questStepPosition, recommendQuests } from "@guardian-nexus/domain";
 
@@ -157,6 +158,47 @@ function objectiveRows(component: any, manifest: CompactManifest): QuestObjectiv
   });
 }
 
+function questSteps(definition: any, currentHash: string, currentObjectives: QuestObjective[], manifest: CompactManifest): QuestStepProgress[] {
+  const itemList = Array.isArray(definition?.setData?.itemList) ? [...definition.setData.itemList] : [];
+  const ordered = itemList.sort((a: any, b: any) => Number(a?.trackingValue || 0) - Number(b?.trackingValue || 0));
+  const currentIndex = ordered.findIndex((entry: any) => String(entry?.itemHash || "") === currentHash);
+  if (currentIndex < 0) return [{
+    itemHash: currentHash, stepNumber: 1, name: stepRequirement(definition, 1), description: stepDescription(definition), status: "current",
+    objectives: currentObjectives, percent: questPercent({ objectives: currentObjectives }), progressKnown: currentObjectives.length > 0
+  }];
+  return ordered.map((entry: any, index: number) => {
+    const itemHash = String(entry?.itemHash || "");
+    const stepDefinition = definitionFor(manifest, itemHash);
+    const status: QuestStepProgress["status"] = index < currentIndex ? "completed" : index === currentIndex ? "current" : "future";
+    const liveObjectives = status === "current" ? currentObjectives : [];
+    const objectives = liveObjectives.length ? liveObjectives : staticStepObjectives(stepDefinition, manifest, status);
+    const percent = status === "completed" ? 100 : status === "future" ? 0 : questPercent({ objectives });
+    return {
+      itemHash, stepNumber: index + 1, name: stepRequirement(stepDefinition, index + 1), description: stepDescription(stepDefinition), status,
+      objectives, percent, progressKnown: status !== "current" || liveObjectives.length > 0
+    };
+  });
+}
+
+function staticStepObjectives(definition: any, manifest: CompactManifest, status: QuestStepProgress["status"]): QuestObjective[] {
+  return (definition?.objectives?.objectiveHashes || []).map((value: unknown) => {
+    const objectiveHash = String(value || "");
+    const objective = manifest.objectiveDefinitions[objectiveHash] as any;
+    const completionValue = Number(objective?.completionValue || 0);
+    const complete = status === "completed";
+    return {
+      objectiveHash, name: objective?.progressDescription || objective?.displayProperties?.name || "Objective",
+      progress: complete ? completionValue : 0, completionValue, complete, percent: complete ? 100 : 0
+    };
+  });
+}
+
+function stepRequirement(definition: any, stepNumber: number): string {
+  const description = String(definition?.displayProperties?.description || "").split(/\r?\n/).map((value) => value.trim()).find(Boolean);
+  return description || String(definition?.setData?.questStepSummary || definition?.displayProperties?.name || `Step ${stepNumber}`);
+}
+function stepDescription(definition: any): string { return String(definition?.setData?.questStepSummary || definition?.displayProperties?.description || "Bungie does not expose additional instructions for this step."); }
+
 export function normalizeQuests(profile: any, manifest: CompactManifest, characterId: string, pinnedIds = new Set<string>()): QuestData {
   const inventory = profile?.characterInventories?.data?.[characterId]?.items || [];
   const itemObjectives = profile?.itemComponents?.objectives?.data || {};
@@ -170,6 +212,7 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
     const instanceId = String(item.itemInstanceId || hash);
     const objectives = objectiveRows(itemObjectives[instanceId], manifest);
     const stepPosition = questStepPosition(definition, hash);
+    const steps = questSteps(definition, hash, objectives, manifest);
     const activityHash = String(definition?.traitHashes?.[0] || definition?.activityHash || "");
     const activity = (manifest.activityDefinitions[activityHash] as any)?.displayProperties?.name || definition?.sourceData?.sourceName;
     const result: QuestProgress = {
@@ -187,6 +230,7 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
       activityName: activity,
       rewards: (definition?.value?.itemValue || []).map((reward: any) => String(reward.itemHash || "")).filter(Boolean),
       objectives,
+      steps,
       percent: 0,
       updatedAt
     };

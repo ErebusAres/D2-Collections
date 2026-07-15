@@ -421,9 +421,10 @@ async function storeShare(row: SessionRow, env: Env, characterId: string, sitePi
   const allQuests = normalizeQuests(profile, manifest, character.characterId, new Set(sitePinnedQuestIds));
   const allowedIds = new Set(allQuests.quests.map((quest) => quest.instanceId));
   const questsToShare = allQuests.quests.filter((quest) => quest.inGameTracked || (quest.sitePinned && allowedIds.has(quest.instanceId)));
+  const compactSharedQuests = questsToShare.map((quest) => ({ ...quest, steps: undefined }));
   const updatedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
-  const payload = { character, activity: allQuests.currentActivity, quests: questsToShare };
+  const payload = { character, activity: allQuests.currentActivity, quests: compactSharedQuests };
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)

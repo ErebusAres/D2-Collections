@@ -118,6 +118,17 @@ export interface QuestObjective {
   percent: number;
 }
 
+export interface QuestStepProgress {
+  itemHash: string;
+  stepNumber: number;
+  name: string;
+  description: string;
+  status: "completed" | "current" | "future";
+  objectives: QuestObjective[];
+  percent: number;
+  progressKnown: boolean;
+}
+
 export interface QuestProgress {
   instanceId: string;
   itemHash: string;
@@ -135,6 +146,7 @@ export interface QuestProgress {
   activityName?: string;
   rewards: string[];
   objectives: QuestObjective[];
+  steps?: QuestStepProgress[];
   percent: number;
   updatedAt: string;
 }

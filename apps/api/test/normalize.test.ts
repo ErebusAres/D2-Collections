@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest } from "@guardian-nexus/contracts";
-import { activityName, guardianOnlineState } from "../src/normalize";
+import { activityName, guardianOnlineState, normalizeQuests } from "../src/normalize";
 
 const manifest = {
   version: "test",
@@ -36,5 +36,27 @@ describe("guardianOnlineState", () => {
     expect(guardianOnlineState({ minutesPlayedThisSession: 12 }, undefined, true)).toBe("online");
     expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, "The Tower", true)).toBe("online");
     expect(guardianOnlineState(undefined, undefined, false)).toBe("unknown");
+  });
+});
+
+describe("normalizeQuests", () => {
+  it("builds completed, current, and future quest steps with objective progress", () => {
+    const chainManifest = { ...manifest, itemDefinitions: {
+      "11": { displayProperties: { name: "A Quest", description: "Finish the introduction." }, objectives: { objectiveHashes: ["101"] } },
+      "22": { displayProperties: { name: "A Quest", description: "Defeat combatants." }, itemType: 12, objectives: { objectiveHashes: ["102"] }, setData: { questStepSummary: "Fight through the area.", itemList: [{ trackingValue: 1, itemHash: 11 }, { trackingValue: 2, itemHash: 22 }, { trackingValue: 3, itemHash: 33 }] } },
+      "33": { displayProperties: { name: "A Quest", description: "Return to the Tower." }, objectives: { objectiveHashes: ["103"] } }
+    }, objectiveDefinitions: {
+      "101": { progressDescription: "Introduction", completionValue: 1 },
+      "102": { progressDescription: "Combatants", completionValue: 10 },
+      "103": { progressDescription: "Return", completionValue: 1 }
+    } } satisfies CompactManifest;
+    const profile = { responseMintedTimestamp: "2026-07-15T00:00:00Z", characterInventories: { data: { c1: { items: [{ itemHash: 22, itemInstanceId: "i1" }] } } }, itemComponents: { objectives: { data: { i1: { objectives: [{ objectiveHash: 102, progress: 4, completionValue: 10, complete: false }] } } } } };
+    const quest = normalizeQuests(profile, chainManifest, "c1").quests[0]!;
+    expect(quest).toMatchObject({ stepNumber: 2, stepCount: 3, percent: 40 });
+    expect(quest.steps).toMatchObject([
+      { stepNumber: 1, status: "completed", percent: 100, objectives: [{ progress: 1, completionValue: 1, complete: true }] },
+      { stepNumber: 2, status: "current", percent: 40, objectives: [{ progress: 4, completionValue: 10 }] },
+      { stepNumber: 3, status: "future", percent: 0, objectives: [{ progress: 0, completionValue: 1 }] }
+    ]);
   });
 });
