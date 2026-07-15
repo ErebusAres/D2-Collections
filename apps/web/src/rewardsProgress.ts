@@ -1,4 +1,4 @@
-import type { RewardsPassProgress } from "@guardian-nexus/contracts";
+import type { RewardsPassProgress, RewardsPassReward } from "@guardian-nexus/contracts";
 
 export interface RewardLevelProgress {
   current: number;
@@ -17,4 +17,8 @@ export function rewardLevelProgress(progress?: RewardsPassProgress): RewardLevel
     required,
     percent: Math.max(0, Math.min(100, Number.isFinite(supplied) ? Math.round(supplied) : calculated))
   };
+}
+
+export function hasClaimableReward(rewards: RewardsPassReward[] | undefined): boolean {
+  return rewards?.some((reward) => reward.state === "available") || false;
 }

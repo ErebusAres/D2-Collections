@@ -22,6 +22,7 @@ import { activityName, charactersFromProfile, guardianOnlineState, normalizeColl
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { normalizeGear, type GearStateRow } from "./gear";
+import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
 
 const shareSchema = z.object({
@@ -545,9 +546,19 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
 }
 
 async function matrix(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const permittedMembershipIds = allowlist(env.MATRIX_MEMBERSHIP_IDS);
   const { results = [] } = await env.DB.prepare("SELECT membership_id, display_name, synced_at, manifest_version, payload_json FROM matrix_snapshots ORDER BY display_name").all<any>();
-  const snapshots = results.map((result: any) => ({ ...JSON.parse(result.payload_json), membershipId: result.membership_id, displayName: result.display_name, syncedAt: result.synced_at, manifestVersion: result.manifest_version }));
-  return envelope<MatrixData>({ snapshots, canSync: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(row.membership_id) }, env, context, {
+  const snapshots = results
+    .filter((result: any) => permittedMembershipIds.has(String(result.membership_id)))
+    .map((result: any) => ({ ...JSON.parse(result.payload_json), membershipId: result.membership_id, displayName: result.display_name, syncedAt: result.synced_at, manifestVersion: result.manifest_version }));
+  const { results: users = [] } = await env.DB.prepare("SELECT membership_id, display_name FROM users ORDER BY display_name").all<any>();
+  const guardians = matrixGuardianRoster(
+    permittedMembershipIds,
+    users.map((user: any) => ({ membershipId: String(user.membership_id), displayName: String(user.display_name) })),
+    snapshots,
+    { membershipId: row.membership_id, displayName: row.display_name }
+  );
+  return envelope<MatrixData>({ guardians, snapshots, canSync: permittedMembershipIds.has(row.membership_id) }, env, context, {
     warnings: snapshots.some((snapshot: MatrixSnapshot) => Date.now() - Date.parse(snapshot.syncedAt) > 86_400_000) ? ["One or more Guardian snapshots are older than 24 hours."] : []
   });
 }

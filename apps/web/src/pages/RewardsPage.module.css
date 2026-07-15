@@ -145,10 +145,18 @@
 .rewardCatalogUnavailable svg { width: 28px; height: 28px; }
 .rewardCatalogUnavailable p { max-width: 600px; margin: 0; color: #90a7b3; font-size: 0.78rem; }
 
-.rewardSources { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 0; }
-.rewardSources > div { display: grid; gap: 4px; padding: 12px 14px; border: 1px solid rgba(125, 170, 193, 0.16); background: rgba(10, 20, 28, 0.6); }
-.rewardSources span { color: #738f9e; font-size: 0.64rem; text-transform: uppercase; }
-.rewardSources strong { color: #bcd0d9; font-size: 0.72rem; }
+.rewardInsights { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+.rewardInsights > article,
+.rewardInsights > a { min-width: 0; min-height: 96px; display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 11px; padding: 14px; border: 1px solid rgba(125, 170, 193, 0.18); background: linear-gradient(120deg, rgba(16, 33, 43, 0.72), rgba(7, 16, 23, 0.72)); color: #bcd0d9; text-decoration: none; }
+.rewardInsights > a { grid-template-columns: 30px minmax(0, 1fr) 18px; transition: border-color 150ms ease, background 150ms ease; }
+.rewardInsights > a:hover { border-color: rgba(218, 191, 103, 0.5); background: linear-gradient(120deg, rgba(54, 47, 27, 0.42), rgba(10, 23, 30, 0.78)); }
+.rewardInsights > article > svg,
+.rewardInsights > a > svg:first-child { color: #7ed0d4; }
+.rewardInsights > a > svg:last-child { width: 14px; color: #d9bd67; }
+.rewardInsights div { min-width: 0; display: grid; gap: 3px; }
+.rewardInsights span { color: #718f9e; font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.rewardInsights strong { overflow: hidden; color: #e4edf1; font-family: var(--font-display); font-size: 0.92rem; text-overflow: ellipsis; white-space: nowrap; }
+.rewardInsights p { margin: 0; color: #8da5b1; font-size: 0.67rem; line-height: 1.35; }
 
 @media (max-width: 900px) {
   .rewardsHero { grid-template-columns: 150px 1fr; }
@@ -158,7 +166,7 @@
 @media (max-width: 620px) {
   .rewardsHero { grid-template-columns: 1fr; padding: 14px; }
   .rewardsHero > a { grid-column: auto; }
-  .rewardSources { grid-template-columns: 1fr; }
+  .rewardInsights { grid-template-columns: 1fr; }
   .rewardCatalog > header { align-items: flex-start; }
   .rewardCatalog > header p { display: none; }
 }

@@ -299,7 +299,15 @@ export interface MatrixSnapshot {
   entries: Pick<ExoticCollectionEntry, "itemHash" | "name" | "kind" | "className" | "owned" | "catalyst">[];
 }
 
+export interface MatrixGuardian {
+  membershipId: string;
+  displayName: string;
+  hasSnapshot: boolean;
+  syncedAt?: string;
+}
+
 export interface MatrixData {
+  guardians: MatrixGuardian[];
   snapshots: MatrixSnapshot[];
   canSync: boolean;
 }
