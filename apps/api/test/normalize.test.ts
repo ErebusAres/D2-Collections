@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest } from "@guardian-nexus/contracts";
-import { activityName, guardianOnlineState, normalizeQuests } from "../src/normalize";
+import { activityName, guardianOnlineState, normalizeGuardian, normalizeQuests } from "../src/normalize";
 
 const manifest = {
   version: "test",
@@ -36,6 +36,36 @@ describe("guardianOnlineState", () => {
     expect(guardianOnlineState({ minutesPlayedThisSession: 12 }, undefined, true)).toBe("offline");
     expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, "The Tower", true)).toBe("online");
     expect(guardianOnlineState(undefined, undefined, false)).toBe("unknown");
+  });
+});
+
+describe("normalizeGuardian", () => {
+  it("counts Postmaster items for only the selected character", () => {
+    const profile = {
+      characters: { data: {
+        c1: { characterId: "c1", classType: 1, raceType: 0, dateLastPlayed: "2026-07-15T00:00:00Z" },
+        c2: { characterId: "c2", classType: 0, raceType: 2, dateLastPlayed: "2026-07-14T00:00:00Z" }
+      } },
+      characterInventories: { data: {
+        c1: { items: [{ bucketHash: 215593132 }, { bucketHash: 215593132 }] },
+        c2: { items: [{ bucketHash: 215593132 }, { bucketHash: 1498876634 }] }
+      } },
+      profile: { data: {} }
+    };
+
+    const guardian = normalizeGuardian({
+      profile,
+      membershipId: "member",
+      membershipType: 3,
+      displayName: "Guardian",
+      bungieName: "Guardian#0001",
+      requestedCharacterId: "c2",
+      rewardsPass: { rank: 1, progress: { state: "unavailable", source: "bungie-profile-character-progressions" } },
+      manifest
+    });
+
+    expect(guardian.selectedCharacterId).toBe("c2");
+    expect(guardian.stats.mailboxCount).toBe(1);
   });
 });
 
