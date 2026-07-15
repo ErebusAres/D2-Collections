@@ -35,7 +35,7 @@ export function guardianOnlineState(
   activity: string | undefined,
   observedDirectly: boolean
 ): "online" | "offline" | "unknown" {
-  if (activity || (character?.minutesPlayedThisSession || 0) > 0) return "online";
+  if (activity) return "online";
   if (observedDirectly && character) return "offline";
   return "unknown";
 }
