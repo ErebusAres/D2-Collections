@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import tempfile
 import time
@@ -18,7 +19,10 @@ WEB_ROOT = "https://www.bungie.net"
 OUTPUT = Path(__file__).resolve().parents[1] / "apps" / "web" / "public" / "data" / "manifest.json"
 GEAR_OUTPUT = OUTPUT.with_name("gear-manifest.json")
 ACTIVITY_OUTPUT = OUTPUT.with_name("activity-manifest.json")
+FEATURE_OUTPUT = OUTPUT.with_name("collection-features.json")
+PURSUIT_OUTPUT = OUTPUT.with_name("pursuit-manifest.json")
 ARMOR_STAT_HASHES = {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}
+COLLECTION_FEATURE_PATTERN = re.compile(r"\b(?:stance|faction|lawless|crystal|form|combo|reversal|mode|catalyst)\b", re.IGNORECASE)
 
 
 def get_json(url: str) -> dict:
@@ -76,6 +80,26 @@ def minimal_item(definition: dict) -> dict:
         "plug": {"plugCategoryIdentifier": (definition.get("plug") or {}).get("plugCategoryIdentifier", "")},
         "equippableItemSetHash": definition.get("equippableItemSetHash"),
     }
+
+
+def minimal_pursuit_item(definition: dict) -> dict:
+    return {
+        "hash": str(definition.get("hash", "")),
+        "displayProperties": display(definition),
+        "itemType": definition.get("itemType"),
+        "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
+        "itemTypeAndTierDisplayName": definition.get("itemTypeAndTierDisplayName", ""),
+        "inventory": {"tierType": (definition.get("inventory") or {}).get("tierType")},
+        "objectives": definition.get("objectives") or {},
+        "setData": definition.get("setData") or {},
+        "value": definition.get("value") or {},
+        "traitHashes": definition.get("traitHashes") or [],
+        "sourceData": definition.get("sourceData") or {},
+    }
+
+
+def minimal_reward_item(definition: dict) -> dict:
+    return {"hash": str(definition.get("hash", "")), "displayProperties": display(definition)}
 
 
 def minimal_gear_item(definition: dict) -> dict:
@@ -154,17 +178,29 @@ def main() -> None:
             buckets = table_rows(connection, "DestinyInventoryBucketDefinition")
             damage_types = table_rows(connection, "DestinyDamageTypeDefinition")
             stat_definitions = table_rows(connection, "DestinyStatDefinition")
+            plug_sets = table_rows(connection, "DestinyPlugSetDefinition")
 
     catalyst_records = {
         key: value for key, value in records.items()
         if "catalyst" in (value.get("displayProperties") or {}).get("name", "").lower()
     }
     quest_defs = {key: value for key, value in inventory.items() if int(value.get("itemType", -1)) == 12}
+    pursuit_defs = {
+        key: value for key, value in inventory.items()
+        if int(value.get("itemType", -1)) != 12
+        and any(term in str(value.get("itemTypeDisplayName") or value.get("itemTypeAndTierDisplayName") or "").lower() for term in ("quest", "mission", "pursuit", "bounty", "order"))
+    }
+    all_quest_defs = {**quest_defs, **pursuit_defs}
     gear_defs = {key: value for key, value in inventory.items() if int(value.get("itemType", -1)) == 2 and not value.get("redacted")}
     plug_defs = {key: value for key, value in inventory.items() if value.get("plug") and (value.get("displayProperties") or {}).get("name") and relevant_armor_plug(value)}
-    objective_hashes: set[str] = set()
-    for definition in quest_defs.values():
-        objective_hashes.update(str(value) for value in (definition.get("objectives") or {}).get("objectiveHashes", []))
+    base_objective_hashes = {
+        str(value) for definition in quest_defs.values()
+        for value in (definition.get("objectives") or {}).get("objectiveHashes", [])
+    }
+    pursuit_objective_hashes = {
+        str(value) for definition in pursuit_defs.values()
+        for value in (definition.get("objectives") or {}).get("objectiveHashes", [])
+    }
 
     class_names = {0: "Titan", 1: "Hunter", 2: "Warlock"}
     items = []
@@ -203,6 +239,41 @@ def main() -> None:
             "catalystRecordHashes": catalyst_hashes,
         })
 
+    related_item_hashes: set[str] = set()
+    for definition in all_quest_defs.values():
+        related_item_hashes.update(
+            str(value.get("itemHash") or "")
+            for value in (definition.get("value") or {}).get("itemValue", [])
+        )
+    related_defs = {key: inventory[key] for key in related_item_hashes if key and key != "0" and key in inventory}
+    collection_feature_definitions = {}
+    for item in items:
+        if item["kind"] != "weapon":
+            continue
+        definition = inventory.get(item["itemHash"], {})
+        features = {}
+        for socket in (definition.get("sockets") or {}).get("socketEntries", []):
+            hashes = [str(socket.get("singleInitialItemHash") or "")]
+            hashes.extend(str(plug.get("plugItemHash") or plug.get("itemHash") or "") for plug in socket.get("reusablePlugItems", []))
+            for set_key in ("reusablePlugSetHash", "randomizedPlugSetHash"):
+                plug_set = plug_sets.get(str(socket.get(set_key) or ""), {})
+                hashes.extend(str(plug.get("plugItemHash") or plug.get("itemHash") or "") for plug in plug_set.get("reusablePlugItems", []))
+            for feature_hash in hashes:
+                feature = inventory.get(feature_hash, {})
+                properties = feature.get("displayProperties") or {}
+                text = " ".join((str(properties.get("name", "")), str(properties.get("description", "")), str((feature.get("plug") or {}).get("plugCategoryIdentifier", "")))).lower()
+                name = str(properties.get("name", ""))
+                if not feature_hash or feature_hash == "0" or not name or name.lower().startswith("empty ") or not COLLECTION_FEATURE_PATTERN.search(text):
+                    continue
+                features[feature_hash] = {
+                    "itemHash": feature_hash,
+                    "name": properties.get("name", ""),
+                    "description": properties.get("description", ""),
+                    "icon": properties.get("icon", ""),
+                }
+        if features:
+            collection_feature_definitions[item["itemHash"]] = list(features.values())
+
     compact = {
         "version": version,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
@@ -210,7 +281,7 @@ def main() -> None:
         "itemDefinitions": {key: minimal_item(value) for key, value in quest_defs.items()},
         "objectiveDefinitions": {
             key: {"hash": key, "displayProperties": display(value), "progressDescription": value.get("progressDescription", ""), "completionValue": value.get("completionValue", 0)}
-            for key, value in objectives.items() if key in objective_hashes
+            for key, value in objectives.items() if key in base_objective_hashes
         },
         "activityDefinitions": {
             key: {"hash": key, "displayProperties": display(value), "activityTypeHash": str(value.get("activityTypeHash") or "")}
@@ -219,6 +290,19 @@ def main() -> None:
         "recordDefinitions": {
             key: {"hash": key, "displayProperties": display(value), "objectives": value.get("objectives") or []}
             for key, value in catalyst_records.items()
+        },
+    }
+    feature_compact = {"version": version, "generatedAt": compact["generatedAt"], "collectionFeatureDefinitions": collection_feature_definitions}
+    pursuit_compact = {
+        "version": version,
+        "generatedAt": compact["generatedAt"],
+        "itemDefinitions": {
+            **{key: minimal_pursuit_item(value) for key, value in pursuit_defs.items()},
+            **{key: minimal_reward_item(value) for key, value in related_defs.items()},
+        },
+        "objectiveDefinitions": {
+            key: {"hash": key, "displayProperties": display(value), "progressDescription": value.get("progressDescription", ""), "completionValue": value.get("completionValue", 0)}
+            for key, value in objectives.items() if key in pursuit_objective_hashes
         },
     }
     gear_compact = {
@@ -241,7 +325,9 @@ def main() -> None:
     OUTPUT.write_text(json.dumps(compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     GEAR_OUTPUT.write_text(json.dumps(gear_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     ACTIVITY_OUTPUT.write_text(json.dumps(activity_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, and {len(quest_defs)} quests for manifest {version}.")
+    FEATURE_OUTPUT.write_text(json.dumps(feature_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    PURSUIT_OUTPUT.write_text(json.dumps(pursuit_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(quest_defs)} quests, and {len(pursuit_defs)} compact pursuits for manifest {version}.")
 
 
 if __name__ == "__main__":

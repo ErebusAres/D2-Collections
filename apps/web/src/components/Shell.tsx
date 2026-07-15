@@ -1,4 +1,4 @@
-import { Boxes, Cloud, CloudOff, Coins, GitCompareArrows, ListTodo, Settings, ShieldEllipsis, Users, Wrench } from "lucide-react";
+import { Badge, Boxes, Cloud, CloudOff, Coins, GitCompareArrows, ListTodo, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useGuardian } from "../state/GuardianContext";
@@ -35,17 +35,12 @@ export function Shell() {
             {guardian ? (
               <>
                 <img src={character?.emblemPath || ""} alt="" />
-                <div><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small></div>
+                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small><div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Power" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" /></div>{guardian.stats.rewardsPassProgress && <NavLink to="/rewards" className={styles.rewardProgress} title={`${guardian.stats.rewardsPassProgress.progress.toLocaleString()} / ${guardian.stats.rewardsPassProgress.nextLevelAt.toLocaleString()} XP to the next Rewards Pass rank`}><i><span style={{ width: `${guardian.stats.rewardsPassProgress.percent}%` }} /></i><b>{guardian.stats.rewardsPassProgress.percent}% to rank {guardian.stats.rewardsPassRank + 1}</b></NavLink>}</div>
                 {guardian.isInGame && <em>In game</em>}
               </>
             ) : (
               <div><span>Guardian Network</span><strong>{loading ? "Checking link…" : error ? "Link interrupted" : "Bungie not linked"}</strong></div>
             )}
-          </div>
-          <div className={styles.headerStats} aria-label="Guardian stats">
-            <HeaderStat label="Power" value={guardian?.stats.power} symbol="✦" accent />
-            <HeaderStat label="Guardian Rank" value={guardian?.stats.guardianRank} symbol="◆" />
-            <HeaderStat label="Rewards Pass" value={guardian?.stats.rewardsPassRank} symbol="⬡" />
           </div>
           {!session?.authenticated && !loading && !error && <button className={styles.signIn} onClick={signIn}>Sign in with Bungie</button>}
           <div className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""}`} title={connection.queued ? `${connection.queued} request${connection.queued === 1 ? "" : "s"} queued. Guardian Nexus will retry automatically. ${connection.lastError || ""}` : error ? `${error.message} Displaying the last successful Guardian data.` : connection.lastError || "Guardian services connected."}>
@@ -65,6 +60,7 @@ export function Shell() {
   );
 }
 
-function HeaderStat({ label, value, symbol, accent = false }: { label: string; value?: number; symbol: string; accent?: boolean }) {
-  return <div className={`${styles.headerStat} ${accent ? styles.accentStat : ""}`}><i>{symbol}</i><span>{label}</span><strong>{value || "—"}</strong></div>;
+function HeaderStat({ label, value, icon, accent = false, to }: { label: string; value?: number; icon: React.ReactNode; accent?: boolean; to?: string }) {
+  const content = <><i>{icon}</i><span>{label}</span><strong>{value || "—"}</strong></>;
+  return to ? <NavLink to={to} className={`${styles.headerStat} ${accent ? styles.accentStat : ""}`}>{content}</NavLink> : <div className={`${styles.headerStat} ${accent ? styles.accentStat : ""}`}>{content}</div>;
 }

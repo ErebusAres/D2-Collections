@@ -6,6 +6,8 @@ import { FireteamPage } from "./pages/FireteamPage";
 import { GearPage } from "./pages/GearPage";
 import { MatrixPage } from "./pages/MatrixPage";
 import { QuestsPage } from "./pages/QuestsPage";
+import { QuestDetailPage } from "./pages/QuestDetailPage";
+import { RewardsPage } from "./pages/RewardsPage";
 import { XurPage } from "./pages/XurPage";
 
 export function App() {
@@ -16,6 +18,8 @@ export function App() {
         <Route path="collection" element={<CollectionPage />} />
         <Route path="xur" element={<XurPage />} />
         <Route path="quests" element={<QuestsPage />} />
+        <Route path="quests/:questId" element={<QuestDetailPage />} />
+        <Route path="rewards" element={<RewardsPage />} />
         <Route path="fireteam" element={<FireteamPage />} />
         <Route path="matrix" element={<MatrixPage />} />
         <Route path="gear" element={<GearPage />} />

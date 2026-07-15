@@ -38,6 +38,11 @@ export interface HeaderStats {
   power: number;
   guardianRank: number;
   rewardsPassRank: number;
+  rewardsPassProgress?: {
+    progress: number;
+    nextLevelAt: number;
+    percent: number;
+  };
 }
 
 export interface GuardianSummary {
@@ -79,6 +84,21 @@ export interface GuideEntry {
   sources: GuideSource[];
 }
 
+export interface CollectionCatalyst {
+  recordHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  state: CatalystState;
+}
+
+export interface CollectionFeature {
+  itemHash: string;
+  name: string;
+  description: string;
+  icon: string;
+}
+
 export interface ExoticCollectionEntry {
   itemHash: string;
   collectibleHash?: string;
@@ -95,6 +115,8 @@ export interface ExoticCollectionEntry {
   owned: boolean;
   catalyst: CatalystState;
   xurSelling: boolean;
+  catalysts?: CollectionCatalyst[];
+  features?: CollectionFeature[];
   guide: GuideEntry;
 }
 
@@ -149,6 +171,7 @@ export interface QuestProgress {
   steps?: QuestStepProgress[];
   percent: number;
   updatedAt: string;
+  category?: "quest" | "bounty" | "order";
 }
 
 export interface QuestRecommendation {
@@ -184,6 +207,22 @@ export interface FireteamMember {
   freshness: Freshness;
 }
 
+export interface FireteamContact {
+  membershipId: string;
+  membershipType?: number;
+  displayName: string;
+  source: "friend" | "clan" | "friend-and-clan";
+  clanName?: string;
+  onlineState: "online" | "offline" | "unknown";
+  inDestiny2: boolean;
+}
+
+export interface FireteamSocialData {
+  state: "available" | "reauthorization-required" | "unavailable";
+  contacts: FireteamContact[];
+  warning?: string;
+}
+
 export type FireteamSharingMode = "temporary" | "persistent";
 
 export interface FireteamData {
@@ -192,6 +231,7 @@ export interface FireteamData {
   sharingExpiresAt?: string;
   activity?: string;
   members: FireteamMember[];
+  social?: FireteamSocialData;
 }
 
 export interface MatrixSnapshot {
@@ -331,6 +371,7 @@ export interface CompactManifest {
   objectiveDefinitions: Record<string, Record<string, unknown>>;
   activityDefinitions: Record<string, Record<string, unknown>>;
   recordDefinitions: Record<string, Record<string, unknown>>;
+  collectionFeatureDefinitions?: Record<string, CollectionFeature[]>;
   gearItemDefinitions?: Record<string, Record<string, unknown>>;
   plugDefinitions?: Record<string, Record<string, unknown>>;
   statDefinitions?: Record<string, Record<string, unknown>>;

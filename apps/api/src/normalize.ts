@@ -67,7 +67,7 @@ export function normalizeGuardian(args: {
   displayName: string;
   bungieName: string;
   requestedCharacterId?: string;
-  rewardsPassRank: number;
+  rewardsPass: { rank: number; progress: number; nextLevelAt: number; percent: number };
   manifest: CompactManifest;
 }): GuardianSummary {
   const characters = charactersFromProfile(args.profile);
@@ -84,7 +84,12 @@ export function normalizeGuardian(args: {
     stats: {
       power: selected?.power || 0,
       guardianRank: Number(profileData.currentGuardianRank || profileData.renewedGuardianRank || profileData.lifetimeHighestGuardianRank || 0),
-      rewardsPassRank: args.rewardsPassRank
+      rewardsPassRank: args.rewardsPass.rank,
+      rewardsPassProgress: {
+        progress: args.rewardsPass.progress,
+        nextLevelAt: args.rewardsPass.nextLevelAt,
+        percent: args.rewardsPass.percent
+      }
     },
     currentActivity,
     isInGame: Boolean(selected?.minutesPlayedThisSession && currentActivity)
@@ -208,7 +213,7 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
     const hash = String(item.itemHash || "");
     const definition = definitionFor(manifest, hash);
     const typeName = String(definition?.itemTypeDisplayName || definition?.itemTypeAndTierDisplayName || "");
-    if (Number(definition?.itemType) !== 12 && !/quest|mission|pursuit/i.test(typeName)) return [];
+    if (Number(definition?.itemType) !== 12 && !/quest|mission|pursuit|bounty|order/i.test(typeName)) return [];
     const instanceId = String(item.itemInstanceId || hash);
     const objectives = objectiveRows(itemObjectives[instanceId], manifest);
     const stepPosition = questStepPosition(definition, hash);
@@ -228,11 +233,17 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
       sitePinned: pinnedIds.has(instanceId),
       isExoticUnlock: Number(definition?.inventory?.tierType || 0) === 6 || /exotic/i.test(typeName),
       activityName: activity,
-      rewards: (definition?.value?.itemValue || []).map((reward: any) => String(reward.itemHash || "")).filter(Boolean),
+      rewards: (definition?.value?.itemValue || []).map((reward: any) => {
+        const rewardHash = String(reward.itemHash || "");
+        const rewardDefinition = definitionFor(manifest, rewardHash);
+        return String(rewardDefinition?.displayProperties?.name || rewardDefinition?.name || (rewardHash ? `Reward ${rewardHash}` : ""));
+      }).filter(Boolean),
       objectives,
       steps,
       percent: 0,
-      updatedAt
+      expiresAt: item.expirationDate || undefined,
+      updatedAt,
+      category: /bounty/i.test(typeName) ? "bounty" : /order/i.test(typeName) ? "order" : "quest"
     };
     result.percent = questPercent(result);
     return [result];

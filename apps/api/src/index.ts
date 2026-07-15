@@ -15,7 +15,7 @@ import type {
   SessionData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadGearManifest, loadManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassRank, xurInventoryFor } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadGearManifest, loadManifest, loadQuestManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -238,7 +238,7 @@ async function readSession(request: Request, env: Env, context: RequestContext):
     displayName: session.row.display_name,
     bungieName: session.row.bungie_name,
     requestedCharacterId: context.url.searchParams.get("characterId") || undefined,
-    rewardsPassRank: await seasonPassRank(profile, accessToken, env),
+    rewardsPass: await seasonPassProgress(profile, accessToken, env),
     manifest
   });
   return envelope<SessionData>({
@@ -274,7 +274,7 @@ async function overview(row: SessionRow, env: Env, context: RequestContext): Pro
     displayName: row.display_name,
     bungieName: row.bungie_name,
     requestedCharacterId: context.url.searchParams.get("characterId") || undefined,
-    rewardsPassRank: await seasonPassRank(profile, accessToken, env),
+    rewardsPass: await seasonPassProgress(profile, accessToken, env),
     manifest
   });
   return envelope(guardian, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: transitoryWarning(profile) });
@@ -298,7 +298,7 @@ async function collection(row: SessionRow, env: Env, context: RequestContext): P
 
 async function quests(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { profile } = await profileFor(row, env);
-  const manifest = await loadManifest(env);
+  const manifest = await loadQuestManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const pinned = new Set((context.url.searchParams.get("pinned") || "").split(",").filter(Boolean));
@@ -415,7 +415,7 @@ async function upsertShare(request: Request, row: SessionRow, env: Env, context:
 
 async function storeShare(row: SessionRow, env: Env, characterId: string, sitePinnedQuestIds: string[], mode: FireteamSharingMode): Promise<{ expiresAt: string; sharedQuestCount: number; sourceMintedAt?: string }> {
   const { profile } = await profileFor(row, env);
-  const manifest = await loadManifest(env);
+  const manifest = await loadQuestManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), characterId);
   if (!character || character.characterId !== characterId) throw httpError(400, "character_invalid", "The selected character does not belong to this Guardian.");
   const allQuests = normalizeQuests(profile, manifest, character.characterId, new Set(sitePinnedQuestIds));
@@ -523,8 +523,9 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     };
   }));
   const ownShare = shares.get(row.membership_id);
-  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, activity: fireteamActivity, members };
-  return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
+  const social = await socialRosterFor(row, accessToken, env);
+  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, activity: fireteamActivity, members, social };
+  return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(social.warning ? [social.warning] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
 }
 
 async function matrix(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

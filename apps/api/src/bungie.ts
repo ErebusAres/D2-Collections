@@ -1,4 +1,4 @@
-import type { CompactManifest, GearManifest } from "@guardian-nexus/contracts";
+import type { CompactManifest, FireteamContact, FireteamSocialData, GearManifest } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 
@@ -7,10 +7,12 @@ const TOKEN_URL = `${API_ROOT}/App/OAuth/Token/`;
 let manifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let gearManifestCache: { value: GearManifest; expiresAt: number } | null = null;
 let activityManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
+let questManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
 const publicMembershipTypeCache = new Map<string, number>();
 const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
+const socialRosterCache = new Map<string, { value: FireteamSocialData; expiresAt: number }>();
 const XUR_VENDOR_HASH = "2190858386";
 
 export async function bungieGet(path: string, env: Env, accessToken?: string): Promise<any> {
@@ -231,6 +233,11 @@ export async function loadManifest(env: Env): Promise<CompactManifest> {
     if (!response.ok) throw new Error(`Manifest request returned ${response.status}.`);
     const value = await response.json() as CompactManifest;
     if (!value?.version || !Array.isArray(value.items)) throw new Error("Manifest artifact is invalid.");
+    try {
+      const featureResponse = await fetch(env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "collection-features.json"), { cf: { cacheTtl: 300, cacheEverything: true } });
+      const featureValue = featureResponse.ok ? await featureResponse.json() as any : undefined;
+      value.collectionFeatureDefinitions = featureValue?.version === value.version ? featureValue.collectionFeatureDefinitions || {} : {};
+    } catch { value.collectionFeatureDefinitions = {}; }
     manifestCache = { value, expiresAt: Date.now() + 300_000 };
     return value;
   } catch {
@@ -243,6 +250,27 @@ export async function loadManifest(env: Env): Promise<CompactManifest> {
       activityDefinitions: {},
       recordDefinitions: {}
     };
+  }
+}
+
+export async function loadQuestManifest(env: Env): Promise<CompactManifest> {
+  if (questManifestCache && questManifestCache.expiresAt > Date.now()) return questManifestCache.value;
+  const base = await loadManifest(env);
+  try {
+    const response = await fetch(env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "pursuit-manifest.json"), { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Pursuit manifest returned ${response.status}.`);
+    const overlay = await response.json() as any;
+    if (overlay?.version !== base.version) throw new Error("Pursuit manifest version does not match.");
+    const value: CompactManifest = {
+      ...base,
+      itemDefinitions: { ...base.itemDefinitions, ...(overlay.itemDefinitions || {}) },
+      objectiveDefinitions: { ...base.objectiveDefinitions, ...(overlay.objectiveDefinitions || {}) }
+    };
+    questManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    questManifestCache = { value: base, expiresAt: Date.now() + 60_000 };
+    return base;
   }
 }
 
@@ -261,17 +289,106 @@ export async function loadGearManifest(env: Env): Promise<GearManifest> {
   }
 }
 
-export async function seasonPassRank(profile: any, accessToken: string, env: Env): Promise<number> {
+export async function seasonPassProgress(profile: any, accessToken: string, env: Env): Promise<{
+  rank: number;
+  progress: number;
+  nextLevelAt: number;
+  percent: number;
+}> {
   const hash = String(profile?.profile?.data?.currentSeasonPassHash || "");
-  if (!hash) return 0;
+  if (!hash) return { rank: 0, progress: 0, nextLevelAt: 0, percent: 0 };
   try {
     const definition = await bungieGet(`/Destiny2/Manifest/DestinySeasonPassDefinition/${encodeURIComponent(hash)}/?lc=en`, env, accessToken);
     const hashes = [definition?.rewardProgressionHash, definition?.prestigeProgressionHash].filter(Boolean).map(String);
-    return hashes.reduce((total, progressionHash) => {
-      const levels = Object.values(profile?.characterProgressions?.data || {}).map((component: any) => Number(component?.progressions?.[progressionHash]?.level || 0));
-      return total + Math.max(0, ...levels);
-    }, 0);
+    const progressions = hashes.map((progressionHash) => {
+      const rows = Object.values(profile?.characterProgressions?.data || {})
+        .map((component: any) => component?.progressions?.[progressionHash])
+        .filter(Boolean);
+      return rows.sort((a: any, b: any) => Number(b?.level || 0) - Number(a?.level || 0) || Number(b?.progressToNextLevel || 0) - Number(a?.progressToNextLevel || 0))[0];
+    }).filter(Boolean);
+    const rank = progressions.reduce((total: number, progression: any) => total + Math.max(0, Number(progression?.level || 0)), 0);
+    const active = [...progressions].reverse().find((progression: any) => Number(progression?.nextLevelAt || 0) > 0) || progressions[0];
+    const progress = Math.max(0, Number(active?.progressToNextLevel || 0));
+    const nextLevelAt = Math.max(0, Number(active?.nextLevelAt || 0));
+    return { rank, progress, nextLevelAt, percent: nextLevelAt ? Math.max(0, Math.min(100, Math.round((progress / nextLevelAt) * 100))) : 0 };
   } catch {
-    return 0;
+    return { rank: 0, progress: 0, nextLevelAt: 0, percent: 0 };
   }
+}
+
+export async function socialRosterFor(row: SessionRow, accessToken: string, env: Env): Promise<FireteamSocialData> {
+  const cached = socialRosterCache.get(row.membership_id);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const contacts = new Map<string, FireteamContact>();
+  let friendsAvailable = false;
+  let clanAvailable = false;
+  let reauthorizationRequired = false;
+
+  try {
+    const response = await bungieGet("/Social/Friends/", env, accessToken);
+    friendsAvailable = true;
+    for (const friend of response?.friends || []) {
+      const membershipId = String(friend?.lastSeenAsMembershipId || "");
+      const name = destinyDisplayName(friend) || destinyDisplayName(friend?.bungieNetUser) || "Bungie friend";
+      if (!membershipId && !name) continue;
+      const key = membershipId || name.toLocaleLowerCase();
+      contacts.set(key, {
+        membershipId,
+        membershipType: Number(friend?.lastSeenAsBungieMembershipType || 0) || undefined,
+        displayName: name,
+        source: "friend",
+        onlineState: Number(friend?.onlineStatus || 0) === 1 ? "online" : "offline",
+        inDestiny2: (Number(friend?.onlineTitle || 0) & 2) !== 0
+      });
+    }
+  } catch (error: any) {
+    reauthorizationRequired = Number(error?.status || 0) === 401 || Number(error?.status || 0) === 403 || /scope|permission|authorization/i.test(String(error?.message || ""));
+  }
+
+  try {
+    const groups = await bungieGet(`/GroupV2/User/${row.membership_type}/${row.membership_id}/0/1/`, env, accessToken);
+    const membership = (groups?.results || [])[0];
+    const groupId = String(membership?.group?.groupId || "");
+    const clanName = String(membership?.group?.name || membership?.group?.about || "Clan").trim();
+    if (groupId) {
+      const response = await bungieGet(`/GroupV2/${groupId}/Members/?currentpage=1`, env, accessToken);
+      clanAvailable = true;
+      for (const member of response?.results || []) {
+        const user = member?.destinyUserInfo || member?.bungieNetUserInfo || {};
+        const membershipId = String(user?.membershipId || "");
+        const name = destinyDisplayName(user) || "Clan member";
+        if (!membershipId || membershipId === row.membership_id) continue;
+        const existing = contacts.get(membershipId);
+        contacts.set(membershipId, {
+          membershipId,
+          membershipType: Number(user?.membershipType || 0) || existing?.membershipType,
+          displayName: existing?.displayName || name,
+          source: existing ? "friend-and-clan" : "clan",
+          clanName,
+          onlineState: existing?.onlineState || (typeof member?.isOnline === "boolean" ? member.isOnline ? "online" : "offline" : "unknown"),
+          inDestiny2: existing?.inDestiny2 || false
+        });
+      }
+    }
+  } catch {
+    clanAvailable = false;
+  }
+
+  const available = friendsAvailable || clanAvailable;
+  const value: FireteamSocialData = {
+    state: available ? "available" : reauthorizationRequired ? "reauthorization-required" : "unavailable",
+    contacts: [...contacts.values()].sort((a, b) => socialOrder(a) - socialOrder(b) || a.displayName.localeCompare(b.displayName)),
+    ...(!friendsAvailable && reauthorizationRequired
+      ? { warning: "Bungie friends require the ReadUserData app permission and a fresh authorization." }
+      : !available ? { warning: "Bungie friends and clan presence are temporarily unavailable." } : {})
+  };
+  socialRosterCache.set(row.membership_id, { value, expiresAt: Date.now() + 2 * 60_000 });
+  return value;
+}
+
+function socialOrder(contact: FireteamContact): number {
+  if (contact.onlineState === "online" && contact.inDestiny2) return 0;
+  if (contact.onlineState === "online") return 1;
+  if (contact.onlineState === "unknown") return 2;
+  return 3;
 }

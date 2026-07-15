@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadQuestManifest, seasonPassProgress, socialRosterFor, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -50,5 +50,50 @@ describe("xurInventoryFor", () => {
 
     expect(result).toMatchObject({ state: "available", itemHashes: ["111", "222"], nextRefreshAt: "2026-07-17T17:00:00Z" });
     expect(fetchMock.mock.calls[0]?.[0]).toContain("/Vendors/2190858386/?components=400,402");
+  });
+});
+
+describe("seasonPassProgress", () => {
+  it("combines reward and prestige ranks while reporting current XP progress", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ErrorCode: 1, Response: { rewardProgressionHash: 11, prestigeProgressionHash: 22 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: { c1: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 5, progressToNextLevel: 250, nextLevelAt: 1000 } } } } } };
+
+    await expect(seasonPassProgress(profile, "access", { BUNGIE_API_KEY: "test" } as Env)).resolves.toEqual({ rank: 105, progress: 250, nextLevelAt: 1000, percent: 25 });
+  });
+});
+
+describe("socialRosterFor", () => {
+  it("merges Bungie friends and clan presence without duplicating a Guardian", async () => {
+    const responses = [
+      { friends: [{ lastSeenAsMembershipId: "friend-1", lastSeenAsBungieMembershipType: 3, bungieGlobalDisplayName: "Friend", bungieGlobalDisplayNameCode: 7, onlineStatus: 1, onlineTitle: 2 }] },
+      { results: [{ group: { groupId: "clan-1", name: "Test Clan" } }] },
+      { results: [{ isOnline: true, destinyUserInfo: { membershipId: "friend-1", membershipType: 3, bungieGlobalDisplayName: "Friend", bungieGlobalDisplayNameCode: 7 } }, { isOnline: false, destinyUserInfo: { membershipId: "clan-2", membershipType: 3, bungieGlobalDisplayName: "Clanmate", bungieGlobalDisplayNameCode: 8 } }] }
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: responses.shift() }), { status: 200, headers: { "Content-Type": "application/json" } }))));
+    const row = { membership_type: 3, membership_id: "social-test-member" } as SessionRow;
+
+    const result = await socialRosterFor(row, "access", { BUNGIE_API_KEY: "test" } as Env);
+
+    expect(result.state).toBe("available");
+    expect(result.contacts).toMatchObject([
+      { membershipId: "friend-1", displayName: "Friend#0007", source: "friend-and-clan", clanName: "Test Clan", onlineState: "online", inDestiny2: true },
+      { membershipId: "clan-2", displayName: "Clanmate#0008", source: "clan", onlineState: "offline" }
+    ]);
+  });
+});
+
+describe("manifest overlays", () => {
+  it("keeps social features and pursuit definitions outside the core manifest payload", async () => {
+    const values = [
+      { version: "overlay-test", generatedAt: "now", items: [], itemDefinitions: { base: {} }, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} },
+      { version: "overlay-test", collectionFeatureDefinitions: { weapon: [{ itemHash: "feature", name: "Weapon mode", description: "Mode", icon: "/mode.png" }] } },
+      { version: "overlay-test", itemDefinitions: { bounty: { itemTypeDisplayName: "Bounty" } }, objectiveDefinitions: { objective: { completionValue: 10 } } }
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(values.shift()), { status: 200, headers: { "Content-Type": "application/json" } }))));
+
+    const result = await loadQuestManifest({ GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env);
+
+    expect(result.itemDefinitions).toMatchObject({ base: {}, bounty: { itemTypeDisplayName: "Bounty" } });
+    expect(result.collectionFeatureDefinitions?.weapon?.[0]?.name).toBe("Weapon mode");
   });
 });

@@ -1,4 +1,5 @@
 import type { CatalystState, CollectionData, ExoticCollectionEntry } from "@guardian-nexus/contracts";
+import { sortCollectionEntries, type CollectionSortMode } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Check, ChevronRight, Coins, Search, Shield, Sparkles, Swords, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -18,6 +19,7 @@ export function CollectionPage() {
   const [owned, setOwned] = useState<OwnedFilter>("all");
   const [catalyst, setCatalyst] = useState<"all" | CatalystState>("all");
   const [availability, setAvailability] = useState<AvailabilityFilter>("all");
+  const [sort, setSort] = useState<CollectionSortMode>("position");
   const [selected, setSelected] = useState<ExoticCollectionEntry | null>(null);
   const result = useQuery({
     queryKey: ["collection", selectedCharacterId],
@@ -26,14 +28,14 @@ export function CollectionPage() {
     refetchInterval: autoRefresh ? 5 * 60_000 : false,
     refetchIntervalInBackground: false
   });
-  const entries = useMemo(() => (result.data?.data.entries || []).filter((entry) => {
+  const entries = useMemo(() => sortCollectionEntries((result.data?.data.entries || []).filter((entry) => {
     const text = `${entry.name} ${entry.itemType} ${entry.slot} ${entry.source}`.toLowerCase();
     return (!query || text.includes(query.toLowerCase()))
       && (kind === "all" || entry.kind === kind)
       && (owned === "all" || (owned === "owned" ? entry.owned : !entry.owned))
       && (catalyst === "all" || (entry.kind === "weapon" && entry.catalyst === catalyst))
       && (availability === "all" || entry.xurSelling);
-  }), [result.data, query, kind, owned, catalyst, availability]);
+  }), sort), [result.data, query, kind, owned, catalyst, availability, sort]);
   const data = result.data?.data;
 
   return <AuthGate>
@@ -52,6 +54,7 @@ export function CollectionPage() {
         <FilterGroup label="Collection" value={owned} values={["all", "owned", "missing"]} onChange={(value) => setOwned(value as OwnedFilter)} />
         <FilterGroup label="Availability" value={availability} values={["all", "xur"]} labels={{ xur: "Xûr" }} onChange={(value) => setAvailability(value as AvailabilityFilter)} />
         <label className={styles.selectFilter}><span>Catalyst</span><select value={catalyst} onChange={(event) => setCatalyst(event.target.value as typeof catalyst)}><option value="all">All states</option><option value="missing">Missing</option><option value="obtained">Obtained</option><option value="complete">Complete</option><option value="unavailable">No catalyst</option></select></label>
+        <label className={styles.selectFilter}><span>Sort</span><select value={sort} onChange={(event) => setSort(event.target.value as CollectionSortMode)}><option value="position">Position + A–Z</option><option value="type">Type + A–Z</option><option value="alpha">Name A–Z</option><option value="missing">Missing first</option><option value="owned">Owned first</option><option value="source">Acquisition source</option></select></label>
         <strong className={styles.resultCount}>{entries.length} shown</strong>
       </section>
       {entries.length ? <section className={styles.itemGrid}>
@@ -91,11 +94,13 @@ function GuideDrawer({ entry, onClose }: { entry: ExoticCollectionEntry | null; 
   return <><button className={`${styles.drawerScrim} ${entry ? styles.drawerOpen : ""}`} onClick={onClose} aria-label="Close guide" /><aside className={`${styles.guideDrawer} ${entry ? styles.drawerOpen : ""}`} aria-hidden={!entry}>
     {entry && <><header><div><span>Acquisition guide</span><h2>{entry.name}</h2></div><button onClick={onClose}><X /></button></header>
       <div className={styles.guideHero}>{entry.icon && <img src={entry.icon} alt="" />}<div><span>{entry.kind} · {entry.slot}</span><p>{entry.description || "No description returned."}</p><b className={`${styles.confidence} ${styles[entry.guide.confidence]}`}>{entry.guide.confidence}</b></div></div>
+      <div className={styles.guideFacts}><div><span>Collection</span><strong>{entry.owned ? "Owned" : "Missing"}</strong></div><div><span>Type</span><strong>{entry.itemType}</strong></div><div><span>Slot</span><strong>{entry.slot}</strong></div>{entry.damageType && <div><span>Damage</span><strong>{entry.damageType}</strong></div>}</div>
       {entry.xurSelling && <GuideSection title="Available from Xûr"><p>Xûr is selling this item in the latest live Bungie vendor inventory check.</p></GuideSection>}
       <GuideSection title="Current source"><p>{entry.guide.acquisition}</p></GuideSection>
       <GuideSection title="Acquisition steps"><ol>{entry.guide.steps.length ? entry.guide.steps.map((step, index) => <li key={index}>{step}</li>) : <li>Verification pending. No steps will be invented.</li>}</ol></GuideSection>
       {entry.guide.prerequisites.length > 0 && <GuideSection title="Prerequisites"><ul>{entry.guide.prerequisites.map((step, index) => <li key={index}>{step}</li>)}</ul></GuideSection>}
-      {entry.kind === "weapon" && <GuideSection title="Catalyst"><p>{entry.guide.catalystSource || "No catalyst is currently mapped for this weapon."}</p>{entry.guide.catalystCompletion && <p>{entry.guide.catalystCompletion}</p>}</GuideSection>}
+      {entry.kind === "weapon" && <GuideSection title={entry.catalysts?.length === 1 ? "Catalyst" : "Catalysts"}>{entry.catalysts?.length ? <div className={styles.guideFeatureList}>{entry.catalysts.map((catalystEntry) => <article key={catalystEntry.recordHash}>{catalystEntry.icon ? <img src={catalystEntry.icon} alt="" /> : <BookOpen />}<div><span>{catalystLabel(catalystEntry.state)}</span><strong>{catalystEntry.name}</strong><p>{catalystEntry.description}</p></div></article>)}</div> : <p>No catalyst is currently mapped for this weapon.</p>}{entry.guide.catalystCompletion && <p>{entry.guide.catalystCompletion}</p>}</GuideSection>}
+      {Boolean(entry.features?.length) && <GuideSection title="Selectable features and sockets"><div className={styles.guideFeatureList}>{entry.features!.map((feature) => <article key={feature.itemHash}>{feature.icon ? <img src={feature.icon} alt="" /> : <Sparkles />}<div><strong>{feature.name}</strong><p>{feature.description}</p></div></article>)}</div></GuideSection>}
       <GuideSection title="Verification"><p>{entry.guide.verifiedAt ? `Verified ${new Date(entry.guide.verifiedAt).toLocaleDateString()}.` : "Needs a current source verification pass."}</p>{entry.guide.sources.map((source) => source.url ? <a key={source.label} href={source.url} target="_blank" rel="noreferrer">{source.label} <ChevronRight size={13} /></a> : <span key={source.label}>{source.label}</span>)}</GuideSection>
     </>}
   </aside></>;

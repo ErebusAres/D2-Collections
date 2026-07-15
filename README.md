@@ -23,6 +23,10 @@ pnpm dev:api
 
 Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars` and supply Bungie/Cloudflare development values. Never commit secrets.
 
+The Bungie application must include the `ReadUserData` OAuth scope for the Fireteam social roster. After adding that scope in Bungie's developer portal, existing users must authorize the app again before their friend list can be read. Clan and fireteam presence degrade gracefully when Bungie withholds social data.
+
+Guardian Nexus does not simulate unsupported actions: joining, whispering, and leader removal controls copy Destiny 2 text-chat commands, and Rewards Pass claiming links to Bungie's official authenticated tracker.
+
 ## Validation
 
 ```powershell

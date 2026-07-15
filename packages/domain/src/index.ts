@@ -3,6 +3,7 @@ import type {
   ArmorItem,
   ArmorStatKey,
   CompactManifest,
+  CollectionFeature,
   ExoticCollectionEntry,
   GuardianClass,
   GuideEntry,
@@ -75,6 +76,30 @@ function comparableArmor(a: ArmorItem, b: ArmorItem, tolerance: number, mode: Ar
 }
 
 export const BUNGIE_IMAGE_ROOT = "https://www.bungie.net";
+
+export type CollectionSortMode = "position" | "type" | "alpha" | "owned" | "missing" | "source";
+
+export function sortCollectionEntries(entries: ExoticCollectionEntry[], mode: CollectionSortMode): ExoticCollectionEntry[] {
+  return [...entries].sort((a, b) => {
+    if (mode === "alpha") return a.name.localeCompare(b.name) || a.itemType.localeCompare(b.itemType);
+    if (mode === "type") return a.kind.localeCompare(b.kind) || a.itemType.localeCompare(b.itemType) || a.name.localeCompare(b.name);
+    if (mode === "owned") return Number(b.owned) - Number(a.owned) || a.name.localeCompare(b.name);
+    if (mode === "missing") return Number(a.owned) - Number(b.owned) || a.name.localeCompare(b.name);
+    if (mode === "source") return (a.source || "Unknown source").localeCompare(b.source || "Unknown source") || a.name.localeCompare(b.name);
+    return collectionPosition(a) - collectionPosition(b) || a.name.localeCompare(b.name);
+  });
+}
+
+function collectionPosition(entry: ExoticCollectionEntry): number {
+  if (entry.kind === "weapon") return 10;
+  const slot = entry.slot.toLocaleLowerCase();
+  if (slot.includes("helmet") || slot.includes("head")) return 0;
+  if (slot.includes("gauntlet") || slot.includes("arm")) return 1;
+  if (slot.includes("chest")) return 2;
+  if (slot.includes("leg")) return 3;
+  if (slot.includes("class")) return 4;
+  return 5;
+}
 
 export function imageUrl(path?: string): string {
   if (!path) return "";
@@ -194,7 +219,11 @@ function fallbackGuide(item: CompactManifest["items"][number]): GuideEntry {
   return {
     itemHash: item.itemHash,
     acquisition: source,
-    steps: source ? ["Use the current source shown here as the acquisition lead."] : [],
+    steps: [
+      `Start with the current Bungie source: ${source}`,
+      "Check the relevant vendor, activity, quest, or Collections entry for any account-specific prerequisite.",
+      "Complete the source requirement, then verify the item in Collections before pursuing catalysts or alternate features."
+    ],
     prerequisites: [],
     catalystSource: item.catalystRecordHashes.length ? "Catalyst record detected in the current Bungie manifest." : undefined,
     catalystCompletion: item.catalystRecordHashes.length ? "Open the catalyst record in Destiny to confirm its current objective." : undefined,
@@ -229,11 +258,25 @@ export function mergeCollection(
         ? [...new Set(variants.flatMap((variant) => variant.catalystRecordHashes))]
         : [];
       const catalystAvailable = catalystRecordHashes.length > 0;
-      const catalystComplete = catalystRecordHashes.some((hash) => state.completedRecordHashes.has(hash));
+      const catalystComplete = catalystAvailable && catalystRecordHashes.every((hash) => state.completedRecordHashes.has(hash));
       const catalystOwned = catalystRecordHashes.some((hash) => state.visibleRecordHashes.has(hash));
       const owned = variants.some((variant) => variant.collectibleHash && state.ownedCollectibleHashes.has(variant.collectibleHash));
       const xurSelling = variants.some((variant) => state.xurSaleItemHashes?.has(variant.itemHash));
       const guide = variants.map((variant) => guides[variant.itemHash]).find(Boolean) ?? fallbackGuide({ ...item, catalystRecordHashes });
+      const catalysts = catalystRecordHashes.map((recordHash) => {
+        const definition = manifest.recordDefinitions[recordHash] as any;
+        const properties = definition?.displayProperties || {};
+        const complete = state.completedRecordHashes.has(recordHash);
+        const obtained = state.visibleRecordHashes.has(recordHash);
+        return {
+          recordHash,
+          name: String(properties.name || `${item.name} Catalyst`),
+          description: String(properties.description || "Open the catalyst record in Destiny for its current objective."),
+          icon: imageUrl(properties.icon),
+          state: complete ? "complete" as const : obtained ? "obtained" as const : "missing" as const
+        };
+      });
+      const features = collectionFeatures(manifest, variants.map((variant) => variant.itemHash));
       return {
         ...item,
         icon: imageUrl(item.icon),
@@ -241,10 +284,38 @@ export function mergeCollection(
         owned,
         catalyst: !catalystAvailable ? "unavailable" : catalystComplete ? "complete" : catalystOwned ? "obtained" : "missing",
         xurSelling,
+        catalysts,
+        features,
         guide
       } satisfies ExoticCollectionEntry;
     })
     .sort((a, b) => a.kind.localeCompare(b.kind) || a.slot.localeCompare(b.slot) || a.name.localeCompare(b.name));
+}
+
+function collectionFeatures(manifest: CompactManifest, itemHashes: string[]): CollectionFeature[] {
+  const ignored = /^(empty |default )|ornament|shader|kill tracker|masterwork/i;
+  const features = new Map<string, CollectionFeature>();
+  for (const itemHash of itemHashes) {
+    for (const feature of manifest.collectionFeatureDefinitions?.[itemHash] || []) features.set(feature.itemHash, { ...feature, icon: imageUrl(feature.icon) });
+    const definition = manifest.itemDefinitions[itemHash] as any;
+    for (const socket of definition?.sockets?.socketEntries || []) {
+      const hashes = [socket?.singleInitialItemHash, ...(socket?.reusablePlugItems || []).map((plug: any) => plug?.plugItemHash || plug?.itemHash)]
+        .map(String).filter((hash) => hash && hash !== "0");
+      for (const hash of hashes) {
+        const plug = manifest.itemDefinitions[hash] as any;
+        const properties = plug?.displayProperties || {};
+        const name = String(properties.name || "").trim();
+        if (!name || ignored.test(name)) continue;
+        features.set(hash, {
+          itemHash: hash,
+          name,
+          description: String(properties.description || "Additional item socket or selectable feature."),
+          icon: imageUrl(properties.icon)
+        });
+      }
+    }
+  }
+  return [...features.values()];
 }
 
 function representativeScore(item: CompactManifest["items"][number]): number {

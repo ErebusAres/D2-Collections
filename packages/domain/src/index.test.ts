@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest, QuestProgress } from "@guardian-nexus/contracts";
-import { armorGrade, groupArmor, mergeCollection, objectivePercent, partyPresenceLabel, questStepPosition, recommendQuests, xurSchedule } from "./index";
+import { armorGrade, groupArmor, mergeCollection, objectivePercent, partyPresenceLabel, questStepPosition, recommendQuests, sortCollectionEntries, xurSchedule } from "./index";
 
 const quest = (overrides: Partial<QuestProgress>): QuestProgress => ({
   instanceId: "1",
@@ -148,5 +148,39 @@ describe("mergeCollection", () => {
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.xurSelling).toBe(true);
+  });
+
+  it("keeps separate catalyst records and only marks multi-catalyst weapons complete when every record is complete", () => {
+    const variants: CompactManifest["items"] = [
+      { itemHash: "multi", name: "Multi Catalyst", description: "", icon: "/item.png", kind: "weapon", slot: "Energy", itemType: "Trace Rifle", source: "Quest", catalystRecordHashes: ["one", "two"] }
+    ];
+    const entries = mergeCollection({ version: "test", generatedAt: "now", items: variants, itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {
+      one: { displayProperties: { name: "First Catalyst", icon: "/one.png" } },
+      two: { displayProperties: { name: "Second Catalyst", icon: "/two.png" } }
+    } }, {
+      ownedCollectibleHashes: new Set(),
+      completedRecordHashes: new Set(["one"]),
+      visibleRecordHashes: new Set(["one", "two"])
+    }, "Hunter");
+
+    expect(entries[0]?.catalyst).toBe("obtained");
+    expect(entries[0]?.catalysts).toMatchObject([{ name: "First Catalyst", state: "complete" }, { name: "Second Catalyst", state: "obtained" }]);
+  });
+});
+
+describe("sortCollectionEntries", () => {
+  const entries = [
+    { name: "Weapon B", kind: "weapon", slot: "Kinetic Weapons", itemType: "Auto Rifle", owned: true, source: "Quest" },
+    { name: "Helmet C", kind: "armor", slot: "Helmet", itemType: "Helmet", owned: true, source: "Engram" },
+    { name: "Arms A", kind: "armor", slot: "Gauntlets", itemType: "Gauntlets", owned: false, source: "Raid" }
+  ] as any;
+
+  it("sorts armor positions before weapons", () => {
+    expect(sortCollectionEntries(entries, "position").map((entry) => entry.name)).toEqual(["Helmet C", "Arms A", "Weapon B"]);
+  });
+
+  it("supports general alphabetical and missing-first views", () => {
+    expect(sortCollectionEntries(entries, "alpha").map((entry) => entry.name)).toEqual(["Arms A", "Helmet C", "Weapon B"]);
+    expect(sortCollectionEntries(entries, "missing")[0]?.name).toBe("Arms A");
   });
 });
