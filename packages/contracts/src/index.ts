@@ -153,7 +153,7 @@ export interface FireteamMember {
   presenceLabel: string;
   character?: CharacterSummary;
   activity?: string;
-  activitySource: "shared" | "fireteam" | "unavailable";
+  activitySource: "public" | "shared" | "fireteam" | "unavailable";
   isSelf: boolean;
   isLeader: boolean;
   syncState: "synced" | "not-synced";

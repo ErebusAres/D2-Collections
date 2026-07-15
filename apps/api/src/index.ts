@@ -12,7 +12,7 @@ import type {
   SessionData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, emblemPathFor, exchangeCode, loadManifest, membershipsFor, primaryMembership, profileFor, seasonPassRank } from "./bungie";
+import { accessTokenFor, bungieGet, destinyDisplayName, emblemPathFor, exchangeCode, loadManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassRank } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -333,7 +333,7 @@ async function refreshPersistentShares(env: Env): Promise<void> {
 }
 
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile } = await profileFor(row, env);
+  const { profile, accessToken } = await profileFor(row, env);
   const manifest = await loadManifest(env);
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
   const now = new Date().toISOString();
@@ -360,9 +360,16 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     try { payload = share ? JSON.parse(share.payload_json) : null; } catch { payload = null; }
     const memberQuests = payload?.quests || [];
     const isSelf = member.membershipId === row.membership_id;
-    const character = payload?.character || (isSelf ? ownCharacter : undefined);
-    const activity = fireteamActivity || payload?.activity;
-    const inGameName = member.displayName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
+    const publicProfile = !isSelf && (!share || !member.displayName)
+      ? (await publicProfileFor(member.membershipId, row.membership_type, env, accessToken)).profile
+      : undefined;
+    const publicCharacters = publicProfile ? charactersFromProfile(publicProfile) : [];
+    const publicCharacter = publicCharacters.find((entry) => entry.minutesPlayedThisSession > 0) || publicCharacters[0];
+    const publicActivity = publicProfile ? activityName(publicProfile, manifest, publicCharacter?.characterId) : undefined;
+    const character = payload?.character || publicCharacter || (isSelf ? ownCharacter : undefined);
+    const activity = publicActivity || fireteamActivity || payload?.activity;
+    const publicName = destinyDisplayName(publicProfile?.profile?.data?.userInfo);
+    const inGameName = member.displayName || publicName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
     return {
       membershipId: member.membershipId,
       displayName: inGameName,
@@ -371,7 +378,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       presenceLabel: partyPresenceLabel(member.status),
       character,
       activity,
-      activitySource: fireteamActivity ? "fireteam" : payload?.activity ? "shared" : "unavailable",
+      activitySource: publicActivity ? "public" : fireteamActivity ? "fireteam" : payload?.activity ? "shared" : "unavailable",
       isSelf,
       isLeader: (member.status & 8) !== 0,
       syncState: share ? "synced" : "not-synced",

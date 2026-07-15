@@ -6,6 +6,8 @@ const API_ROOT = "https://www.bungie.net/Platform";
 const TOKEN_URL = `${API_ROOT}/App/OAuth/Token/`;
 let manifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
+const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
+const publicMembershipTypeCache = new Map<string, number>();
 
 export async function bungieGet(path: string, env: Env, accessToken?: string): Promise<any> {
   if (!env.BUNGIE_API_KEY) throw httpError(503, "bungie_api_unconfigured", "Bungie API access is not configured.");
@@ -37,6 +39,47 @@ export async function emblemPathFor(hash: string, env: Env): Promise<string | un
     emblemCache.set(hash, { expiresAt: Date.now() + 5 * 60_000 });
     return undefined;
   }
+}
+
+export function destinyDisplayName(userInfo: any): string | undefined {
+  const name = String(userInfo?.bungieGlobalDisplayName || userInfo?.displayName || "").trim();
+  if (!name) return undefined;
+  const code = Number(userInfo?.bungieGlobalDisplayNameCode || 0);
+  return code > 0 && !name.includes("#") ? `${name}#${String(code).padStart(4, "0")}` : name;
+}
+
+export async function publicProfileFor(
+  membershipId: string,
+  preferredMembershipType: number,
+  env: Env,
+  accessToken: string
+): Promise<{ profile?: any; membershipType?: number; expiresAt: number }> {
+  const cached = publicProfileCache.get(membershipId);
+  if (cached && cached.expiresAt > Date.now()) return cached;
+  const types = [...new Set([
+    publicMembershipTypeCache.get(membershipId),
+    preferredMembershipType,
+    3,
+    2,
+    1,
+    6
+  ].filter((value): value is number => Number.isInteger(value) && Number(value) > 0))];
+  for (const membershipType of types) {
+    try {
+      const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,204`, env, accessToken);
+      const userInfo = profile?.profile?.data?.userInfo;
+      if (!userInfo || String(userInfo.membershipId || membershipId) !== membershipId) continue;
+      publicMembershipTypeCache.set(membershipId, membershipType);
+      const result = { profile, membershipType, expiresAt: Date.now() + 55_000 };
+      publicProfileCache.set(membershipId, result);
+      return result;
+    } catch (error: any) {
+      if (Number(error?.status) === 429) break;
+    }
+  }
+  const unavailable = { expiresAt: Date.now() + 30_000 };
+  publicProfileCache.set(membershipId, unavailable);
+  return unavailable;
 }
 
 export async function exchangeCode(code: string, env: Env): Promise<any> {
