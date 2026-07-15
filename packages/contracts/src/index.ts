@@ -146,8 +146,11 @@ export interface QuestData {
 export interface FireteamMember {
   membershipId: string;
   displayName: string;
+  emblemPath?: string;
+  presenceLabel: string;
   character?: CharacterSummary;
   activity?: string;
+  activitySource: "shared" | "fireteam" | "unavailable";
   isSelf: boolean;
   sharing: boolean;
   sharingMode?: FireteamSharingMode;

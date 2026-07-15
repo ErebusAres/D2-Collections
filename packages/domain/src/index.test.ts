@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest, QuestProgress } from "@guardian-nexus/contracts";
-import { mergeCollection, objectivePercent, recommendQuests } from "./index";
+import { mergeCollection, objectivePercent, partyPresenceLabel, recommendQuests } from "./index";
 
 const quest = (overrides: Partial<QuestProgress>): QuestProgress => ({
   instanceId: "1",
@@ -25,6 +25,15 @@ describe("objectivePercent", () => {
     expect(objectivePercent(5, 10)).toBe(50);
     expect(objectivePercent(20, 10)).toBe(100);
     expect(objectivePercent(0, 0, true)).toBe(100);
+  });
+});
+
+describe("partyPresenceLabel", () => {
+  it("prefers the leader flag and handles Bungie's public party states", () => {
+    expect(partyPresenceLabel(9)).toBe("Fireteam leader");
+    expect(partyPresenceLabel(1)).toBe("Fireteam member");
+    expect(partyPresenceLabel(2)).toBe("Party member");
+    expect(partyPresenceLabel(0)).toBe("Public fireteam presence");
   });
 });
 

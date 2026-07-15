@@ -21,6 +21,14 @@ export function className(classType: unknown): GuardianClass {
   return "Unknown";
 }
 
+export function partyPresenceLabel(status: number): string {
+  if ((status & 8) !== 0) return "Fireteam leader";
+  if ((status & 1) !== 0) return "Fireteam member";
+  if ((status & 2) !== 0) return "Party member";
+  if ((status & 4) !== 0) return "Group member";
+  return "Public fireteam presence";
+}
+
 export function objectivePercent(progress: number, completionValue: number, complete = false): number {
   if (complete) return 100;
   if (!Number.isFinite(completionValue) || completionValue <= 0) return 0;

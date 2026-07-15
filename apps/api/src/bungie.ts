@@ -5,6 +5,7 @@ import { decrypt, encrypt, httpError } from "./security";
 const API_ROOT = "https://www.bungie.net/Platform";
 const TOKEN_URL = `${API_ROOT}/App/OAuth/Token/`;
 let manifestCache: { value: CompactManifest; expiresAt: number } | null = null;
+const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 
 export async function bungieGet(path: string, env: Env, accessToken?: string): Promise<any> {
   if (!env.BUNGIE_API_KEY) throw httpError(503, "bungie_api_unconfigured", "Bungie API access is not configured.");
@@ -20,6 +21,22 @@ export async function bungieGet(path: string, env: Env, accessToken?: string): P
     throw httpError(response.status === 429 ? 429 : response.status || 502, response.status === 429 ? "bungie_throttled" : "bungie_request_failed", body.Message || "Bungie request failed.", throttle || undefined);
   }
   return body.Response;
+}
+
+export async function emblemPathFor(hash: string, env: Env): Promise<string | undefined> {
+  if (!hash || hash === "0") return undefined;
+  const cached = emblemCache.get(hash);
+  if (cached && cached.expiresAt > Date.now()) return cached.path;
+  try {
+    const definition = await bungieGet(`/Destiny2/Manifest/DestinyInventoryItemDefinition/${encodeURIComponent(hash)}/?lc=en`, env);
+    const icon = String(definition?.displayProperties?.icon || "");
+    const path = icon ? (icon.startsWith("/") ? `https://www.bungie.net${icon}` : icon) : undefined;
+    emblemCache.set(hash, { path, expiresAt: Date.now() + 6 * 60 * 60_000 });
+    return path;
+  } catch {
+    emblemCache.set(hash, { expiresAt: Date.now() + 5 * 60_000 });
+    return undefined;
+  }
 }
 
 export async function exchangeCode(code: string, env: Env): Promise<any> {

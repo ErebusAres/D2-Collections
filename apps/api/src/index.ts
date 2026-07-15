@@ -12,7 +12,8 @@ import type {
   SessionData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, exchangeCode, loadManifest, membershipsFor, primaryMembership, profileFor, seasonPassRank } from "./bungie";
+import { accessTokenFor, bungieGet, emblemPathFor, exchangeCode, loadManifest, membershipsFor, primaryMembership, profileFor, seasonPassRank } from "./bungie";
+import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
@@ -340,39 +341,50 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const shares = new Map(results.map((result: any) => [String(result.membership_id), result]));
   const party = (transitory.partyMembers || []).map((member: any) => ({
     membershipId: String(member.membershipId || member.destinyMembershipId || ""),
-    displayName: member.displayName || member.bungieGlobalDisplayName || "Fireteam member"
+    displayName: member.displayName || member.bungieGlobalDisplayName || "Fireteam member",
+    emblemHash: String(member.emblemHash || ""),
+    status: Number(member.status || 0)
   })).filter((member: any) => member.membershipId);
-  if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, displayName: row.display_name });
+  if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, displayName: row.display_name, emblemHash: "", status: 1 });
+  const ownCharacter = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
+  const fireteamActivity = activityName(profile, manifest);
   const questCounts = new Map<string, number>();
   for (const member of party) {
     const share: any = shares.get(member.membershipId);
     const payload = share ? JSON.parse(share.payload_json) : null;
     for (const quest of payload?.quests || []) questCounts.set(String(quest.itemHash), (questCounts.get(String(quest.itemHash)) || 0) + 1);
   }
-  const members: FireteamMember[] = party.map((member: any) => {
+  const members: FireteamMember[] = await Promise.all(party.map(async (member: any) => {
     const share: any = shares.get(member.membershipId);
-    const payload = share ? JSON.parse(share.payload_json) : null;
+    let payload: any = null;
+    try { payload = share ? JSON.parse(share.payload_json) : null; } catch { payload = null; }
     const memberQuests = payload?.quests || [];
+    const isSelf = member.membershipId === row.membership_id;
+    const character = payload?.character || (isSelf ? ownCharacter : undefined);
+    const activity = payload?.activity || fireteamActivity;
     return {
       membershipId: member.membershipId,
       displayName: member.displayName,
-      character: payload?.character,
-      activity: payload?.activity,
-      isSelf: member.membershipId === row.membership_id,
+      emblemPath: character?.emblemPath || await emblemPathFor(member.emblemHash, env),
+      presenceLabel: partyPresenceLabel(member.status),
+      character,
+      activity,
+      activitySource: payload?.activity ? "shared" : fireteamActivity ? "fireteam" : "unavailable",
+      isSelf,
       sharing: Boolean(share),
       sharingMode: share?.sharing_mode,
       expiresAt: share?.sharing_mode === "temporary" ? share?.expires_at : undefined,
       quests: memberQuests,
       overlaps: memberQuests.filter((quest: any) => (questCounts.get(String(quest.itemHash)) || 0) > 1).map((quest: any) => quest.name),
       freshness: {
-        state: share ? (Date.now() - Date.parse(share.updated_at) > 15 * 60_000 ? "stale" : "fresh") : "privacy-limited",
+        state: share && Date.now() - Date.parse(share.updated_at) > 15 * 60_000 ? "stale" : "fresh",
         observedAt: share?.updated_at || now,
         ageSeconds: share ? Math.max(0, Math.round((Date.now() - Date.parse(share.updated_at)) / 1000)) : 0
       }
     };
-  });
+  }));
   const ownShare = shares.get(row.membership_id);
-  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, activity: activityName(profile, manifest), members };
+  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, activity: fireteamActivity, members };
   return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
 }
 
