@@ -2,7 +2,7 @@ import type { FireteamData, FireteamMember, FireteamSharingMode } from "@guardia
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, CheckCircle2, Crown, EyeOff, Link2, Radio, Repeat2, Share2, ShieldCheck, Timer, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo } from "react";
-import { api, mutationHeaders } from "../api/client";
+import { api, mutationHeaders, queuedApi } from "../api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
 import { pinsKey, useGuardian } from "../state/GuardianContext";
 import styles from "./Pages.module.css";
@@ -22,11 +22,11 @@ export function FireteamPage() {
     try { return JSON.parse(localStorage.getItem(pinsKey(session.guardian.membershipId, selectedCharacterId)) || "[]") as string[]; } catch { return []; }
   }, [session?.guardian?.membershipId, selectedCharacterId]);
   const share = useMutation({
-    mutationFn: (mode: FireteamSharingMode) => api("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds: pinnedIds, mode }) }),
+    mutationFn: (mode: FireteamSharingMode) => queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds: pinnedIds, mode }) }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
   const stop = useMutation({
-    mutationFn: () => api("/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
+    mutationFn: () => queuedApi("/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
   const sharingMode = result.data?.data.sharingMode;
@@ -53,7 +53,7 @@ export function FireteamPage() {
         <button className={`${styles.primaryAction} ${styles.sharing}`} onClick={() => stop.mutate()} disabled={stop.isPending}><Share2 size={15} />Stop sharing</button>
       </>}
     </>} />
-    <QueryState loading={result.isLoading} error={result.error as Error} onRetry={() => void result.refetch()} />
+    <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.fireteamStatus}>
         <div><Radio /><span>Fireteam signal</span><strong>{data.members.length > 1 ? `${data.members.length} Guardians` : "Solo"}</strong></div>

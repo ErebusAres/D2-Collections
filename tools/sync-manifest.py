@@ -17,6 +17,8 @@ API_ROOT = "https://www.bungie.net/Platform"
 WEB_ROOT = "https://www.bungie.net"
 OUTPUT = Path(__file__).resolve().parents[1] / "apps" / "web" / "public" / "data" / "manifest.json"
 GEAR_OUTPUT = OUTPUT.with_name("gear-manifest.json")
+ACTIVITY_OUTPUT = OUTPUT.with_name("activity-manifest.json")
+ARMOR_STAT_HASHES = {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}
 
 
 def get_json(url: str) -> dict:
@@ -71,35 +73,35 @@ def minimal_item(definition: dict) -> dict:
         "investmentStats": definition.get("investmentStats") or [],
         "stats": definition.get("stats") or {},
         "perks": definition.get("perks") or [],
-        "plug": definition.get("plug") or {},
+        "plug": {"plugCategoryIdentifier": (definition.get("plug") or {}).get("plugCategoryIdentifier", "")},
         "equippableItemSetHash": definition.get("equippableItemSetHash"),
     }
 
 
 def minimal_gear_item(definition: dict) -> dict:
     inventory = definition.get("inventory") or {}
+    props = definition.get("displayProperties") or {}
     return {
         "hash": str(definition.get("hash", "")),
-        "displayProperties": display(definition),
+        "displayProperties": {"name": props.get("name", ""), "icon": props.get("icon", "")},
         "itemType": definition.get("itemType"),
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
         "classType": definition.get("classType"),
-        "inventory": {
-            "bucketTypeHash": inventory.get("bucketTypeHash"),
-            "tierType": inventory.get("tierType"),
-            "tierTypeName": inventory.get("tierTypeName", ""),
-        },
-        "equippableItemSetHash": definition.get("equippableItemSetHash"),
+        "inventory": {"tierTypeName": inventory.get("tierTypeName", "")},
     }
 
 
 def minimal_plug(definition: dict) -> dict:
+    props = definition.get("displayProperties") or {}
     return {
         "hash": str(definition.get("hash", "")),
-        "displayProperties": display(definition),
+        "displayProperties": {"name": props.get("name", ""), "description": props.get("description", ""), "icon": props.get("icon", "")},
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
-        "investmentStats": definition.get("investmentStats") or [],
-        "plug": definition.get("plug") or {},
+        "investmentStats": [
+            {"statTypeHash": stat.get("statTypeHash"), "value": stat.get("value", stat.get("statValue", 0))}
+            for stat in definition.get("investmentStats") or [] if str(stat.get("statTypeHash") or "") in ARMOR_STAT_HASHES
+        ],
+        "plug": {"plugCategoryIdentifier": (definition.get("plug") or {}).get("plugCategoryIdentifier", "")},
     }
 
 
@@ -110,9 +112,11 @@ def relevant_armor_plug(definition: dict) -> bool:
         str(props.get("name", "")), str(props.get("description", "")),
         str(definition.get("itemTypeDisplayName", "")), str(plug.get("plugCategoryIdentifier", "")),
     ]).lower()
-    return bool(definition.get("investmentStats")) or any(term in text for term in (
-        "armor", "archetype", "tuning", "artifice", "masterwork", "set bonus", "piece bonus", "intrinsic",
-        "ornament", "skin"
+    has_armor_stat = any(str(stat.get("statTypeHash") or "") in ARMOR_STAT_HASHES for stat in definition.get("investmentStats") or [])
+    is_armor_ornament = ("ornament" in text or "skin" in text) and ("armor" in text or "universal ornament" in text or "armor_skins" in text)
+    return has_armor_stat or is_armor_ornament or any(term in text for term in (
+        "archetype", "tuning", "artifice", "set bonus", "piece bonus", "pieces equipped",
+        "paragon", "grenadier", "specialist", "brawler", "bulwark", "gunner"
     ))
 
 
@@ -224,9 +228,19 @@ def main() -> None:
         "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
         "statDefinitions": {key: {"hash": key, "displayProperties": display(value)} for key, value in stat_definitions.items() if key in {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}},
     }
+    activity_compact = {
+        "version": version,
+        "generatedAt": compact["generatedAt"],
+        "items": [],
+        "itemDefinitions": {},
+        "objectiveDefinitions": {},
+        "activityDefinitions": compact["activityDefinitions"],
+        "recordDefinitions": {},
+    }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     GEAR_OUTPUT.write_text(json.dumps(gear_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    ACTIVITY_OUTPUT.write_text(json.dumps(activity_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, and {len(quest_defs)} quests for manifest {version}.")
 
 

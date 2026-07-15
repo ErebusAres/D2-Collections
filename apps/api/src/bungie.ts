@@ -6,6 +6,7 @@ const API_ROOT = "https://www.bungie.net/Platform";
 const TOKEN_URL = `${API_ROOT}/App/OAuth/Token/`;
 let manifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let gearManifestCache: { value: GearManifest; expiresAt: number } | null = null;
+let activityManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
 const publicMembershipTypeCache = new Map<string, number>();
@@ -199,11 +200,28 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export async function profileFor(row: SessionRow, env: Env, includeReusablePlugs = false): Promise<{ profile: any; accessToken: string }> {
+export async function profileFor(row: SessionRow, env: Env, mode: "full" | "session" | "gear" = "full"): Promise<{ profile: any; accessToken: string }> {
   const accessToken = await accessTokenFor(row, env);
-  const components = `100,102,103,104,200,201,202,204,205,300,301,304,305,307${includeReusablePlugs ? ",310" : ""},800,900,1000,1200`;
+  const components = mode === "session"
+    ? "100,200,202,204,1000"
+    : `100,102,103,104,200,201,202,204,205,300,301,304,305,307${mode === "gear" ? ",310" : ""},800,900,1000,1200`;
   const profile = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/?components=${components}`, env, accessToken);
   return { profile, accessToken };
+}
+
+export async function loadActivityManifest(env: Env): Promise<CompactManifest> {
+  if (activityManifestCache && activityManifestCache.expiresAt > Date.now()) return activityManifestCache.value;
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "activity-manifest.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Activity manifest request returned ${response.status}.`);
+    const value = await response.json() as CompactManifest;
+    if (!value?.version || !value.activityDefinitions) throw new Error("Activity manifest artifact is invalid.");
+    activityManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    return { version: "unavailable", generatedAt: new Date().toISOString(), items: [], itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} };
+  }
 }
 
 export async function loadManifest(env: Env): Promise<CompactManifest> {

@@ -39,7 +39,7 @@ export function QuestsPage() {
 
   return <AuthGate>
     <PageHeader eyebrow="Pursuit intelligence" title="Quests" description="Track active quest steps, understand objective progress, and surface the most practical next actions without changing anything in game." actions={<Freshness observedAt={result.data?.freshness.observedAt} />} />
-    <QueryState loading={result.isLoading} error={result.error as Error} onRetry={() => void result.refetch()} />
+    <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
       <section className={styles.questOverview}>
         <div><span>Active quests</span><strong>{result.data.data.quests.length}</strong></div>

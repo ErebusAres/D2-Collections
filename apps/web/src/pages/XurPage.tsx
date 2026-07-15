@@ -30,7 +30,7 @@ export function XurPage() {
 
   return <AuthGate>
     <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="Track Xûr's Tower visit, live Exotic inventory, and transparent roll guidance from one Guardian-specific view." actions={<Freshness observedAt={data?.xur.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
-    <QueryState loading={result.isLoading} error={result.error as Error} onRetry={() => void result.refetch()} />
+    <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={`${styles.xurHero} ${schedule.active ? styles.xurActive : ""}`}>
         <div className={styles.xurCountdown}><Coins /><span>{schedule.active ? "Xûr departs in" : "Xûr arrives in"}</span><strong>{countdown(schedule.target, now)}</strong><small>{new Date(schedule.target).toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</small></div>

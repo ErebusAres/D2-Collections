@@ -38,7 +38,7 @@ export function CollectionPage() {
 
   return <AuthGate>
     <PageHeader eyebrow="Personal archive" title="Collection" description="Every current Exotic weapon and class-valid armor piece, reconciled against your Bungie collection with catalyst progress kept separate." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
-    <QueryState loading={result.isLoading} error={result.error as Error} onRetry={() => void result.refetch()} />
+    <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.summaryGrid}>
         <Summary label="Exotics owned" value={`${data.totals.owned}/${data.totals.available}`} progress={data.totals.available ? data.totals.owned / data.totals.available : 0} icon={<Sparkles />} />

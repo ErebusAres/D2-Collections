@@ -9,15 +9,15 @@ export function PageHeader({ eyebrow, title, description, actions }: { eyebrow: 
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { session, loading, error, signIn, refresh } = useGuardian();
-  if (loading) return <StatePanel icon={<LoaderCircle className={styles.spin} />} title="Contacting the Guardian network" text="Checking your secure Bungie session…" />;
-  if (error) return <StatePanel icon={<AlertTriangle />} title="Guardian link interrupted" text={`${error.message} Your Bungie link is still saved; you do not need to sign in again.`} action={<button onClick={() => void refresh()}><RefreshCcw size={16} /> Try again</button>} />;
+  if (loading && !session) return <StatePanel icon={<LoaderCircle className={styles.spin} />} title="Contacting the Guardian network" text="Checking your secure Bungie session…" />;
+  if (error && !session?.authenticated) return <StatePanel icon={<AlertTriangle />} title="Guardian link interrupted" text={`${error.message} Your Bungie link is still saved; you do not need to sign in again.`} action={<button onClick={() => void refresh()}><RefreshCcw size={16} /> Try again</button>} />;
   if (!session?.authenticated) return <StatePanel icon={<LogIn />} title="Link your Guardian" text="Sign in through Bungie to load your characters, collection, quests, and fireteam status." action={<button onClick={signIn}>Sign in with Bungie</button>} />;
   return <>{children}</>;
 }
 
-export function QueryState({ loading, error, empty, onRetry }: { loading: boolean; error?: Error | null; empty?: boolean; onRetry?: () => void }) {
+export function QueryState({ loading, error, empty, hasData = false, onRetry }: { loading: boolean; error?: Error | null; empty?: boolean; hasData?: boolean; onRetry?: () => void }) {
   if (loading) return <StatePanel icon={<LoaderCircle className={styles.spin} />} title="Synchronizing" text="Reading fresh Guardian data…" />;
-  if (error) return <StatePanel icon={<AlertTriangle />} title="Signal interrupted" text={error.message} action={onRetry && <button onClick={onRetry}><RefreshCcw size={16} /> Try again</button>} />;
+  if (error && !hasData) return <StatePanel icon={<AlertTriangle />} title="Signal interrupted" text={error.message} action={onRetry && <button onClick={onRetry}><RefreshCcw size={16} /> Try again</button>} />;
   if (empty) return <StatePanel icon={<AlertTriangle />} title="No data returned" text="The current Bungie response did not include data for this view." />;
   return null;
 }

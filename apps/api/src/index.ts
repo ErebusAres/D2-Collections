@@ -15,7 +15,7 @@ import type {
   SessionData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadGearManifest, loadManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassRank, xurInventoryFor } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadGearManifest, loadManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassRank, xurInventoryFor } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -229,8 +229,8 @@ async function finishAuth(request: Request, env: Env, context: RequestContext): 
 async function readSession(request: Request, env: Env, context: RequestContext): Promise<Response> {
   const session = await sessionFromRequest(request, env);
   if (!session) return envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false } }, env, context);
-  const { profile, accessToken } = await profileFor(session.row, env);
-  const manifest = await loadManifest(env);
+  const { profile, accessToken } = await profileFor(session.row, env, "session");
+  const manifest = await loadActivityManifest(env);
   const guardian = normalizeGuardian({
     profile,
     membershipId: session.row.membership_id,
@@ -306,7 +306,7 @@ async function quests(row: SessionRow, env: Env, context: RequestContext): Promi
 }
 
 async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile } = await profileFor(row, env, true);
+  const { profile } = await profileFor(row, env, "gear");
   const manifest = await loadGearManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
@@ -322,7 +322,7 @@ async function gear(row: SessionRow, env: Env, context: RequestContext): Promise
 
 async function updateGearState(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = gearStateSchema.parse(await request.json());
-  const { profile, accessToken } = await profileFor(row, env, true);
+  const { profile, accessToken } = await profileFor(row, env, "gear");
   const manifest = await loadGearManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile));
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
@@ -344,7 +344,7 @@ async function updateGearState(request: Request, row: SessionRow, env: Env, cont
 async function gearAction(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = gearActionSchema.parse(await request.json()) as GearActionRequest;
   const started = performance.now();
-  const { profile, accessToken } = await profileFor(row, env, true);
+  const { profile, accessToken } = await profileFor(row, env, "gear");
   const manifest = await loadGearManifest(env);
   const characters = charactersFromProfile(profile);
   const selected = selectedCharacter(characters, "characterId" in input ? input.characterId : "targetCharacterId" in input ? input.targetCharacterId : undefined) || characters[0];

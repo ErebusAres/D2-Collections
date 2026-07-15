@@ -2,7 +2,7 @@ import type { CatalystState, MatrixData, MatrixSnapshot } from "@guardian-nexus/
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleHelp, GitCompareArrows, RefreshCcw, Search, ShieldX, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api, mutationHeaders } from "../api/client";
+import { api, mutationHeaders, queuedApi } from "../api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
 import { useGuardian } from "../state/GuardianContext";
 import styles from "./Pages.module.css";
@@ -13,7 +13,7 @@ export function MatrixPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "difference" | "missing">("all");
   const result = useQuery({ queryKey: ["matrix"], queryFn: () => api<MatrixData>("/api/v1/matrix"), enabled: Boolean(session?.authenticated) });
-  const sync = useMutation({ mutationFn: () => api("/api/v1/matrix/sync", { method: "POST", headers: mutationHeaders(session?.csrfToken) }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["matrix"] }) });
+  const sync = useMutation({ mutationFn: () => queuedApi("/api/v1/matrix/sync", { method: "POST", headers: mutationHeaders(session?.csrfToken) }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["matrix"] }) });
   const snapshots = result.data?.data.snapshots || [];
   const rows = useMemo(() => {
     const items = new Map<string, { itemHash: string; name: string; kind: string; states: Map<string, { owned: boolean; catalyst: CatalystState }> }>();
@@ -33,7 +33,7 @@ export function MatrixPage() {
 
   return <AuthGate>
     <PageHeader eyebrow="Three-Guardian comparison" title="Guardian Matrix" description="Compare the latest explicitly synced Exotic ownership and catalyst state for ErebusAres, IceeDedPple, and FearsRedemption." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />{result.data?.data.canSync && <button className={styles.primaryAction} onClick={() => sync.mutate()} disabled={sync.isPending}><RefreshCcw size={15} />{sync.isPending ? "Synchronizing…" : "Sync my Matrix"}</button>}</>} />
-    <QueryState loading={result.isLoading} error={result.error as Error} onRetry={() => void result.refetch()} />
+    <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && snapshots.length === 0 && <div className={styles.inlineEmpty}><GitCompareArrows /><h2>Matrix awaiting first sync</h2><p>Each approved Guardian must sign in and explicitly sync their own latest snapshot.</p></div>}
     {snapshots.length > 0 && <>
       <section className={styles.matrixGuardians}>{snapshots.map((snapshot) => <GuardianColumn key={snapshot.membershipId} snapshot={snapshot} />)}</section>

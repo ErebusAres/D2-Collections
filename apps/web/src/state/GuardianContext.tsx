@@ -33,7 +33,8 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     queryFn: () => api<SessionData>(`/api/v1/session${selectedCharacterId ? `?characterId=${encodeURIComponent(selectedCharacterId)}` : ""}`),
     refetchInterval: autoRefresh ? 60_000 : false,
     refetchIntervalInBackground: false,
-    retry: (failureCount, error) => error instanceof ApiRequestError && error.status >= 429 && failureCount < 2,
+    placeholderData: (previous) => previous,
+    retry: (failureCount, error) => (!(error instanceof ApiRequestError) || error.status === 408 || error.status === 429 || error.status >= 500) && failureCount < 3,
     retryDelay: (attempt, error) => error instanceof ApiRequestError && error.retryAfterSeconds
       ? Math.min(error.retryAfterSeconds * 1_000, 30_000)
       : Math.min(1_000 * 2 ** attempt, 5_000)

@@ -3,7 +3,7 @@ import { ARMOR_STAT_KEYS, groupArmor } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowUpFromLine, ChevronRight, Grid2X2, Lock, LockOpen, RefreshCw, Search, Shield, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api, mutationHeaders } from "../api/client";
+import { api, mutationHeaders, queuedApi } from "../api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
 import { useGuardian } from "../state/GuardianContext";
 import styles from "./Pages.module.css";
@@ -25,13 +25,13 @@ export function GearPage() {
     return values.sort((a, b) => sort === "base" ? b.baseTotal - a.baseTotal : sort === "current" ? b.currentTotal - a.currentTotal : sort === "power" ? b.power - a.power : sort === "new" ? Date.parse(b.firstSeenAt) - Date.parse(a.firstSeenAt) : sort === "name" ? a.name.localeCompare(b.name) : (a.slot.localeCompare(b.slot) || Number(groupedIds.has(b.instanceId)) - Number(groupedIds.has(a.instanceId)) || b.baseTotal - a.baseTotal));
   }, [data, allClasses, slot, location, tag, search, sort, groupedIds]);
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] });
-  const stateMutation = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null; dismissed?: boolean }) => api("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }), onSuccess: refresh });
-  const actionMutation = useMutation({ mutationFn: (input: GearActionRequest) => api<GearActionResult>("/api/v1/me/gear/action", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }), onSuccess: refresh });
+  const stateMutation = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null; dismissed?: boolean }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }), onSuccess: refresh });
+  const actionMutation = useMutation({ mutationFn: (input: GearActionRequest) => queuedApi<GearActionResult>("/api/v1/me/gear/action", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }), onSuccess: refresh });
   const selectedGroup = groups.find((group) => group.id === groupId);
   const slots = [...new Set((data?.items || []).map((item) => item.slot))].sort();
 
   return <AuthGate><PageHeader eyebrow="Account-wide armor intelligence" title="Gear" description="Compare true base distributions, audit every adjustment, and manage armor across your characters and vault." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button className={styles.gearRefresh} onClick={() => void result.refetch()}><RefreshCw size={14} /> Sync armor</button></>} />
-    <QueryState loading={result.isLoading} error={result.error as Error} onRetry={() => void result.refetch()} />
+    <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.gearSummary}>{[["Armor", data.totals.armor], ["Vault", data.totals.vault], ["Equipped", data.totals.equipped], ["Locked", data.totals.locked], ["Groups", groups.length], ["New", data.totals.newItems]].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</section>
       <section className={styles.gearControls}>

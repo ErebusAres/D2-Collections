@@ -1,8 +1,9 @@
-import { Boxes, Coins, GitCompareArrows, ListTodo, Settings, ShieldEllipsis, Users, Wrench } from "lucide-react";
-import { useState } from "react";
+import { Boxes, Cloud, CloudOff, Coins, GitCompareArrows, ListTodo, Settings, ShieldEllipsis, Users, Wrench } from "lucide-react";
+import { useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useGuardian } from "../state/GuardianContext";
 import { OptionsPanel } from "./OptionsPanel";
+import { getConnectionSnapshot, subscribeConnection } from "../api/client";
 import styles from "./Shell.module.css";
 
 const tabs = [
@@ -17,6 +18,7 @@ const tabs = [
 export function Shell() {
   const { session, loading, error, signIn } = useGuardian();
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const connection = useSyncExternalStore(subscribeConnection, getConnectionSnapshot, getConnectionSnapshot);
   const guardian = session?.guardian;
   const character = guardian?.characters.find((entry) => entry.characterId === guardian.selectedCharacterId) || guardian?.characters[0];
 
@@ -46,6 +48,9 @@ export function Shell() {
             <HeaderStat label="Rewards Pass" value={guardian?.stats.rewardsPassRank} symbol="⬡" />
           </div>
           {!session?.authenticated && !loading && !error && <button className={styles.signIn} onClick={signIn}>Sign in with Bungie</button>}
+          <div className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""}`} title={connection.queued ? `${connection.queued} request${connection.queued === 1 ? "" : "s"} queued. Guardian Nexus will retry automatically. ${connection.lastError || ""}` : error ? `${error.message} Displaying the last successful Guardian data.` : connection.lastError || "Guardian services connected."}>
+            {error || connection.lastError ? <CloudOff size={17} /> : <Cloud size={17} />}{connection.queued > 0 && <b>{connection.queued}</b>}
+          </div>
           <button className={styles.optionsButton} onClick={() => setOptionsOpen(true)} aria-label="Open options"><Settings size={20} /><span>Options</span></button>
         </div>
         <nav className={styles.tabs} aria-label="Guardian Nexus sections">

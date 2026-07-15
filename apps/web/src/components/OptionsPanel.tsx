@@ -1,7 +1,7 @@
 import type { FireteamData } from "@guardian-nexus/contracts";
 import { LogOut, RefreshCcw, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, mutationHeaders } from "../api/client";
+import { api, mutationHeaders, queuedApi } from "../api/client";
 import { pinsKey, useGuardian } from "../state/GuardianContext";
 import styles from "./OptionsPanel.module.css";
 
@@ -17,10 +17,10 @@ export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => 
   });
   const setPersistentSharing = useMutation({
     mutationFn: (enabled: boolean) => {
-      if (!enabled) return api("/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) });
+      if (!enabled) return queuedApi("/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) });
       let sitePinnedQuestIds: string[] = [];
       try { sitePinnedQuestIds = JSON.parse(localStorage.getItem(pinsKey(session?.guardian?.membershipId || "", guardianState.selectedCharacterId)) || "[]") as string[]; } catch { sitePinnedQuestIds = []; }
-      return api("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, mode: "persistent" }) });
+      return queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, mode: "persistent" }) });
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
