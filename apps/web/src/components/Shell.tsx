@@ -1,7 +1,10 @@
+import type { RewardsPassData } from "@guardian-nexus/contracts";
+import { useQuery } from "@tanstack/react-query";
 import { Badge, Boxes, Cloud, CloudOff, Coins, GitCompareArrows, ListTodo, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { rewardLevelProgress } from "../rewardsProgress";
+import { api } from "../api/client";
+import { hasClaimableReward, rewardLevelProgress } from "../rewardsProgress";
 import { useGuardian } from "../state/GuardianContext";
 import { OptionsPanel } from "./OptionsPanel";
 import { getConnectionSnapshot, subscribeConnection } from "../api/client";
@@ -17,11 +20,20 @@ const tabs = [
 ];
 
 export function Shell() {
-  const { session, loading, error, signIn } = useGuardian();
+  const { session, loading, error, signIn, selectedCharacterId, autoRefresh } = useGuardian();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const connection = useSyncExternalStore(subscribeConnection, getConnectionSnapshot, getConnectionSnapshot);
   const guardian = session?.guardian;
   const character = guardian?.characters.find((entry) => entry.characterId === guardian.selectedCharacterId) || guardian?.characters[0];
+  const rewards = useQuery({
+    queryKey: ["rewards", selectedCharacterId],
+    queryFn: () => api<RewardsPassData>(`/api/v1/me/rewards?characterId=${encodeURIComponent(selectedCharacterId)}`),
+    enabled: Boolean(session?.authenticated && selectedCharacterId),
+    staleTime: 60_000,
+    refetchInterval: autoRefresh ? 60_000 : false,
+    refetchIntervalInBackground: false
+  });
+  const claimableReward = hasClaimableReward(rewards.data?.data.rewards);
 
   return (
     <div className={styles.shell} style={character?.emblemBackgroundPath ? { "--guardian-banner": `url(${character.emblemBackgroundPath})` } as React.CSSProperties : undefined}>
@@ -36,7 +48,7 @@ export function Shell() {
             {guardian ? (
               <>
                 <img src={character?.emblemPath || ""} alt="" />
-                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small><div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Power" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassProgress.state === "unavailable" && !guardian.stats.rewardsPassRank ? undefined : guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" actionLabel="View" /></div><RewardsProgress rank={guardian.stats.rewardsPassRank} progress={guardian.stats.rewardsPassProgress} /></div>
+                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small><div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassProgress.state === "unavailable" && !guardian.stats.rewardsPassRank ? undefined : guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /></div><RewardsProgress rank={guardian.stats.rewardsPassRank} progress={guardian.stats.rewardsPassProgress} /></div>
                 {guardian.isInGame && <em>In game</em>}
               </>
             ) : (
@@ -61,9 +73,11 @@ export function Shell() {
   );
 }
 
-function HeaderStat({ label, value, icon, accent = false, to, actionLabel }: { label: string; value?: number | string; icon: React.ReactNode; accent?: boolean; to?: string; actionLabel?: string }) {
-  const content = <><i>{icon}</i><span>{label}{actionLabel && <small className={styles.statLinkCue}>{actionLabel} ›</small>}</span><strong>{value ?? "—"}</strong></>;
-  return to ? <NavLink to={to} className={`${styles.headerStat} ${styles.linkedStat} ${accent ? styles.accentStat : ""}`} aria-label={`Open ${label}`} title={`Open ${label}`}>{content}</NavLink> : <div className={`${styles.headerStat} ${accent ? styles.accentStat : ""}`}>{content}</div>;
+function HeaderStat({ label, value, icon, accent = false, to, claimable = false }: { label: string; value?: number | string; icon: React.ReactNode; accent?: boolean; to?: string; claimable?: boolean }) {
+  const tooltip = `${label}: ${value ?? "Unavailable"}${to ? " · Open" : ""}`;
+  const className = `${styles.headerStat} ${to ? styles.linkedStat : ""} ${accent ? styles.accentStat : ""} ${claimable ? styles.claimableStat : ""}`;
+  const content = <><i aria-hidden="true">{icon}</i><strong>{value ?? "—"}</strong></>;
+  return to ? <NavLink to={to} className={className} data-tooltip={label} aria-label={tooltip} title={tooltip}>{content}</NavLink> : <div className={className} data-tooltip={label} aria-label={tooltip} title={tooltip}>{content}</div>;
 }
 
 function RewardsProgress({ rank, progress }: { rank: number; progress: import("@guardian-nexus/contracts").RewardsPassProgress }) {

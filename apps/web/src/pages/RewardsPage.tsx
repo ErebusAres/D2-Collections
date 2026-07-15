@@ -1,12 +1,11 @@
 import type { RewardsPassData, RewardsPassReward, RewardsPassRewardState } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ExternalLink, LockKeyhole, Sparkles, Ticket } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, ExternalLink, Gauge, Gift, LockKeyhole, ShieldCheck, Sparkles, Ticket } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
 import { rewardLevelProgress } from "../rewardsProgress";
 import { useGuardian } from "../state/GuardianContext";
-import pageStyles from "./Pages.module.css";
 import styles from "./RewardsPage.module.css";
 
 const OFFICIAL_REWARDS_URL = "https://www.bungie.net/7/en/Seasons/Progress";
@@ -31,6 +30,9 @@ export function RewardsPage() {
   const levelProgress = rewardLevelProgress(progress);
   const rewardLevels = useMemo(() => groupRewardsByLevel(data?.rewards || []), [data?.rewards]);
   const pageCount = Math.max(1, Math.ceil(rewardLevels.length / LEVELS_PER_PAGE));
+  const claimableCount = data?.rewards.filter((reward) => reward.state === "available").length || 0;
+  const claimedCount = data?.rewards.filter((reward) => reward.state === "claimed").length || 0;
+  const lockedCount = data?.rewards.filter((reward) => reward.state === "locked").length || 0;
   const [rewardPage, setRewardPage] = useState(0);
   useEffect(() => {
     if (!data || !rewardLevels.length) return;
@@ -60,8 +62,11 @@ export function RewardsPage() {
           <nav className={styles.rewardPages} aria-label="Reward rank pages">{Array.from({ length: pageCount }, (_, index) => <button key={index} type="button" className={index === rewardPage ? styles.rewardPageActive : ""} onClick={() => setRewardPage(index)} aria-current={index === rewardPage ? "page" : undefined} aria-label={`Show reward ranks ${index * LEVELS_PER_PAGE + 1} through ${Math.min((index + 1) * LEVELS_PER_PAGE, rewardLevels.at(-1)?.level || (index + 1) * LEVELS_PER_PAGE)}`}>{index + 1}</button>)}</nav>
         </> : <div className={styles.rewardCatalogUnavailable}><CircleHelp /><strong>Reward catalog unavailable</strong><p>{data.rewardDataReason || "Bungie did not provide reward definitions for the current pass."}</p></div>}
       </section>
-      <section className={styles.rewardSources}><div><span>Rank and XP</span><strong>{data.sources.rankAndXp}</strong></div><div><span>Reward catalog</span><strong>{data.sources.rewards}</strong></div><div><span>Claiming</span><strong>Available rewards open Bungie's supported claim flow</strong></div></section>
-      <section className={pageStyles.transitoryNotice}><LockKeyhole /><div><strong>Claims are completed securely on Bungie.net</strong><p>Bungie's public third-party API exposes claim eligibility and claimed state, but not a Rewards Pass claim action. “Claim on Bungie” opens the official tracker without fabricating an unsupported in-site redemption.</p></div></section>
+      <section className={styles.rewardInsights} aria-label="Rewards Pass status">
+        <article><Gauge /><div><span>Live progression</span><strong>{levelProgress ? `Rank ${data.rank} · ${levelProgress.percent}% complete` : `Rank ${data.rank}`}</strong><p>{levelProgress ? `${levelProgress.required - levelProgress.current} XP until rank ${data.rank + 1}` : progress?.reason || "Next-rank XP is unavailable from Bungie."}</p></div></article>
+        <article><Gift /><div><span>Reward status</span><strong>{claimableCount ? `${claimableCount} ready to claim` : "No unclaimed rewards detected"}</strong><p>{claimedCount} claimed · {lockedCount} locked · updated from your live profile</p></div></article>
+        <a href={OFFICIAL_REWARDS_URL} target="_blank" rel="noreferrer"><ShieldCheck /><div><span>Secure claiming</span><strong>{claimableCount ? "Continue to Bungie.net" : "Open the official tracker"}</strong><p>Bungie's public API reports eligibility but does not provide a third-party claim action.</p></div><ExternalLink /></a>
+      </section>
     </>}
   </AuthGate>;
 }
