@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import sqlite3
@@ -22,6 +23,8 @@ ACTIVITY_OUTPUT = OUTPUT.with_name("activity-manifest.json")
 FEATURE_OUTPUT = OUTPUT.with_name("collection-features.json")
 PURSUIT_OUTPUT = OUTPUT.with_name("pursuit-manifest.json")
 REWARDS_OUTPUT = OUTPUT.with_name("rewards-manifest.json")
+COMPANION_OUTPUT = OUTPUT.with_name("companion-manifest.json")
+COMPANION_CHUNK_COUNT = 24
 ARMOR_STAT_HASHES = {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}
 COLLECTION_FEATURE_PATTERN = re.compile(r"\b(?:stance|faction|lawless|crystal|form|combo|reversal|mode|catalyst)\b", re.IGNORECASE)
 
@@ -109,6 +112,54 @@ def minimal_reward_item(definition: dict) -> dict:
     }
 
 
+def minimal_companion_item(definition: dict, damage_types: dict[str, dict], buckets: dict[str, dict]) -> dict:
+    inventory = definition.get("inventory") or {}
+    properties = definition.get("displayProperties") or {}
+    plug = definition.get("plug") or {}
+    damage_hash = str(definition.get("defaultDamageTypeHash") or "")
+    bucket_hash = str(inventory.get("bucketTypeHash") or "")
+    return {
+        "displayProperties": {
+            "name": properties.get("name", ""),
+            "icon": properties.get("icon", ""),
+            **({"description": properties.get("description", "")} if plug else {}),
+        },
+        "itemType": definition.get("itemType"),
+        "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
+        "inventory": {
+            "tierTypeName": inventory.get("tierTypeName", ""),
+            "bucketTypeHash": bucket_hash,
+        },
+        "equipmentSlot": (buckets.get(bucket_hash, {}).get("displayProperties") or {}).get("name", ""),
+        "damageType": (damage_types.get(damage_hash, {}).get("displayProperties") or {}).get("name", ""),
+        **({"plug": {"plugCategoryIdentifier": plug.get("plugCategoryIdentifier", "")}} if plug else {}),
+    }
+
+
+def minimal_bucket(definition: dict) -> dict:
+    return {
+        "hash": str(definition.get("hash", "")),
+        "displayProperties": display(definition),
+        "scope": definition.get("scope"),
+        "category": definition.get("category"),
+        "itemCount": definition.get("itemCount", 0),
+        "location": definition.get("location"),
+        "enabled": bool(definition.get("enabled", True)),
+    }
+
+
+def minimal_loadout_name(definition: dict) -> dict:
+    return {"name": definition.get("name", "")}
+
+
+def minimal_loadout_icon(definition: dict) -> dict:
+    return {"iconImagePath": definition.get("iconImagePath", "")}
+
+
+def minimal_loadout_color(definition: dict) -> dict:
+    return {"colorImagePath": definition.get("colorImagePath", "")}
+
+
 def minimal_season_pass(definition: dict) -> dict:
     return {
         "hash": str(definition.get("hash", "")),
@@ -172,6 +223,9 @@ def relevant_armor_plug(definition: dict) -> bool:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Build compact Guardian Nexus manifest artifacts.")
+    parser.add_argument("--companion-only", action="store_true", help="Only write the mailbox/loadouts companion artifact.")
+    args = parser.parse_args()
     envelope = get_json(f"{API_ROOT}/Destiny2/Manifest/")
     if int(envelope.get("ErrorCode", 0)) != 1:
         raise RuntimeError(envelope.get("Message") or "Bungie manifest lookup failed")
@@ -208,6 +262,40 @@ def main() -> None:
             plug_sets = table_rows(connection, "DestinyPlugSetDefinition")
             season_passes = table_rows(connection, "DestinySeasonPassDefinition")
             progressions = table_rows(connection, "DestinyProgressionDefinition")
+            loadout_names = table_rows(connection, "DestinyLoadoutNameDefinition")
+            loadout_icons = table_rows(connection, "DestinyLoadoutIconDefinition")
+            loadout_colors = table_rows(connection, "DestinyLoadoutColorDefinition")
+
+    generated_at = datetime.now(timezone.utc).isoformat()
+    companion_items = {
+        key: minimal_companion_item(value, damage_types, buckets)
+        for key, value in inventory.items()
+        if not value.get("redacted") and (value.get("displayProperties") or {}).get("name")
+    }
+    companion_chunks: list[dict[str, dict]] = [{} for _ in range(COMPANION_CHUNK_COUNT)]
+    for key, value in companion_items.items():
+        companion_chunks[int(key) % COMPANION_CHUNK_COUNT][key] = value
+    companion_chunk_paths = [f"companion-manifest-{index:02d}.json" for index in range(COMPANION_CHUNK_COUNT)]
+    companion_compact = {
+        "version": version,
+        "generatedAt": generated_at,
+        "itemDefinitions": {},
+        "itemDefinitionChunks": companion_chunk_paths,
+        "bucketDefinitions": {key: minimal_bucket(value) for key, value in buckets.items() if not value.get("redacted")},
+        "loadoutNameDefinitions": {key: minimal_loadout_name(value) for key, value in loadout_names.items()},
+        "loadoutIconDefinitions": {key: minimal_loadout_icon(value) for key, value in loadout_icons.items()},
+        "loadoutColorDefinitions": {key: minimal_loadout_color(value) for key, value in loadout_colors.items()},
+    }
+    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    for chunk_path, chunk in zip(companion_chunk_paths, companion_chunks):
+        COMPANION_OUTPUT.with_name(chunk_path).write_text(
+            json.dumps({"itemDefinitions": chunk}, ensure_ascii=False, separators=(",", ":")),
+            encoding="utf-8",
+        )
+    COMPANION_OUTPUT.write_text(json.dumps(companion_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    if args.companion_only:
+        print(f"Wrote {len(companion_items)} item definitions and {len(buckets)} bucket definitions for companion manifest {version}.")
+        return
 
     catalyst_records = {
         key: value for key, value in records.items()
@@ -305,7 +393,7 @@ def main() -> None:
 
     compact = {
         "version": version,
-        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "generatedAt": generated_at,
         "items": sorted(items, key=lambda item: (item["kind"], item["slot"], item["name"])),
         "itemDefinitions": {key: minimal_item(value) for key, value in quest_defs.items()},
         "objectiveDefinitions": {
@@ -381,14 +469,13 @@ def main() -> None:
         "activityDefinitions": compact["activityDefinitions"],
         "recordDefinitions": {},
     }
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     GEAR_OUTPUT.write_text(json.dumps(gear_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     ACTIVITY_OUTPUT.write_text(json.dumps(activity_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     FEATURE_OUTPUT.write_text(json.dumps(feature_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     PURSUIT_OUTPUT.write_text(json.dumps(pursuit_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     REWARDS_OUTPUT.write_text(json.dumps(rewards_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, and {len(reward_item_hashes)} Rewards Pass items for manifest {version}.")
+    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, and {len(companion_items)} companion item definitions for manifest {version}.")
 
 
 if __name__ == "__main__":

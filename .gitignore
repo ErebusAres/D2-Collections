@@ -5,4 +5,6 @@ coverage/
 .wrangler/
 .dev.vars
 *.log
+__pycache__/
+*.py[cod]
 apps/web/public/data/manifest.generated.json

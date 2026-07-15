@@ -1,4 +1,4 @@
-import type { CompactManifest, FireteamContact, FireteamSocialData, GearManifest, RewardsManifest, RewardsPassProgress } from "@guardian-nexus/contracts";
+import type { CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, RewardsManifest, RewardsPassProgress } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 
@@ -9,6 +9,7 @@ let gearManifestCache: { value: GearManifest; expiresAt: number } | null = null;
 let activityManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let questManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let rewardsManifestCache: { value: RewardsManifest; expiresAt: number } | null = null;
+let companionManifestCache: { value: CompanionManifest; expiresAt: number } | null = null;
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
 const publicMembershipTypeCache = new Map<string, number>();
@@ -203,13 +204,48 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export async function profileFor(row: SessionRow, env: Env, mode: "full" | "session" | "gear" = "full"): Promise<{ profile: any; accessToken: string }> {
+export async function profileFor(row: SessionRow, env: Env, mode: "full" | "session" | "gear" | "mailbox" | "loadouts" = "full"): Promise<{ profile: any; accessToken: string }> {
   const accessToken = await accessTokenFor(row, env);
   const components = mode === "session"
-    ? "100,200,202,204,1000"
+    ? "100,200,201,202,204,1000"
+    : mode === "mailbox"
+      ? "100,200,201"
+      : mode === "loadouts"
+        ? "100,102,200,201,205,206"
     : `100,102,103,104,200,201,202,204,205,300,301,304,305,307${mode === "gear" ? ",310" : ""},800,900,1000,1200`;
   const profile = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/?components=${components}`, env, accessToken);
   return { profile, accessToken };
+}
+
+export async function loadCompanionManifest(env: Env): Promise<CompanionManifest> {
+  if (companionManifestCache && companionManifestCache.expiresAt > Date.now()) return companionManifestCache.value;
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "companion-manifest.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Companion manifest request returned ${response.status}.`);
+    const index = await response.json() as CompanionManifest;
+    if (!index?.version || !index.itemDefinitions || !index.bucketDefinitions) throw new Error("Companion manifest artifact is invalid.");
+    const chunks = await Promise.all((index.itemDefinitionChunks || []).map(async (path) => {
+      const chunkResponse = await fetch(new URL(path, url).toString(), { cf: { cacheTtl: 300, cacheEverything: true } });
+      if (!chunkResponse.ok) throw new Error(`Companion manifest chunk request returned ${chunkResponse.status}.`);
+      const chunk = await chunkResponse.json() as Pick<CompanionManifest, "itemDefinitions">;
+      if (!chunk?.itemDefinitions) throw new Error("Companion manifest chunk is invalid.");
+      return chunk.itemDefinitions;
+    }));
+    const value = { ...index, itemDefinitions: Object.assign({}, index.itemDefinitions, ...chunks) };
+    companionManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    return {
+      version: "unavailable",
+      generatedAt: new Date().toISOString(),
+      itemDefinitions: {},
+      bucketDefinitions: {},
+      loadoutNameDefinitions: {},
+      loadoutIconDefinitions: {},
+      loadoutColorDefinitions: {}
+    };
+  }
 }
 
 export async function loadActivityManifest(env: Env): Promise<CompactManifest> {

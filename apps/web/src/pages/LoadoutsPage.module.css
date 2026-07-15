@@ -1,0 +1,52 @@
+.refresh { height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.035); color: var(--cyan); font-size: 9px; text-transform: uppercase; }
+.notice { min-height: 82px; display: grid; grid-template-columns: 42px 1fr; align-items: center; gap: 10px; margin-bottom: 14px; padding: 14px 18px; border: 1px solid rgba(155,231,226,.26); background: linear-gradient(105deg, rgba(155,231,226,.08), rgba(5,13,19,.7)); }
+.notice > svg { color: var(--cyan); }
+.notice div { display: grid; gap: 2px; }
+.notice span { color: var(--cyan); font-size: 8px; text-transform: uppercase; letter-spacing: .12em; }
+.notice strong { font: 600 18px "Barlow Condensed"; text-transform: uppercase; }
+.notice p { margin: 0; color: var(--muted); font-size: 9px; }
+.loadoutGrid { display: grid; gap: 14px; }
+.loadoutCard { --loadout-color: none; position: relative; overflow: hidden; border: 1px solid var(--line); background: linear-gradient(110deg, rgba(8,20,28,.96), rgba(6,13,19,.9)), var(--loadout-color) center / cover; }
+.loadoutCard::after { content: ""; position: absolute; z-index: 0; inset: 0; pointer-events: none; background: var(--loadout-color) center / cover; opacity: .07; mix-blend-mode: screen; }
+.loadoutCard > * { position: relative; z-index: 1; }
+.loadoutCard > header { min-height: 76px; display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 13px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.025); }
+.loadoutCard > header > img, .loadoutCard > header > svg { width: 46px; height: 46px; object-fit: contain; color: var(--cyan); }
+.loadoutCard > header div { min-width: 0; }
+.loadoutCard > header span { color: var(--cyan); font-size: 8px; text-transform: uppercase; letter-spacing: .11em; }
+.loadoutCard > header h2 { margin: 2px 0 0; font: 600 23px "Barlow Condensed"; text-transform: uppercase; }
+.loadoutCard > header small { color: var(--muted); font-size: 8px; }
+.loadoutCard > header button { height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid rgba(231,200,119,.45); background: rgba(231,200,119,.07); color: var(--gold); font-size: 8px; text-transform: uppercase; }
+.loadoutCard > header button:disabled { opacity: .45; }
+.abilitySection, .gearSection, .modifierSection { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.loadoutCard section > h3 { margin: 0 0 8px; color: var(--cyan); font-size: 8px; text-transform: uppercase; letter-spacing: .13em; }
+.abilitySection > h3:not(:first-child) { margin-top: 13px; }
+.abilitySection > div, .modifierSection > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px; }
+.socketChip { min-width: 0; min-height: 60px; display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 9px; padding: 7px; border: 1px solid var(--line); background: rgba(255,255,255,.025); }
+.socketChip > img, .socketChip > svg { width: 44px; height: 44px; object-fit: cover; color: var(--gold); }
+.socketChip div { min-width: 0; display: grid; align-content: center; }
+.socketChip span, .gearSection article span { color: var(--gold); font-size: 7px; text-transform: uppercase; letter-spacing: .08em; }
+.socketChip strong, .gearSection article strong { overflow: hidden; font: 600 14px "Barlow Condensed"; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.socketChip small { display: -webkit-box; overflow: hidden; color: var(--muted); font-size: 8px; line-height: 1.25; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.compactSocket { min-height: 48px; grid-template-columns: 34px minmax(0, 1fr); }
+.compactSocket > img, .compactSocket > svg { width: 32px; height: 32px; }
+.gearSection > div { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.gearSection article { min-width: 0; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; align-items: center; padding: 7px; border: 1px solid var(--line); background: rgba(255,255,255,.025); }
+.gearSection article > img, .gearSection article > svg { width: 46px; height: 46px; object-fit: cover; color: var(--gold); }
+.gearSection article > div { min-width: 0; display: grid; }
+.gearSection article small { overflow: hidden; color: var(--muted); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.itemUnavailable { border-style: dashed !important; color: var(--gold); }
+.unavailable { min-height: 48px; display: flex; align-items: center; gap: 7px; color: var(--gold); font-size: 9px; }
+.empty { min-height: 260px; display: grid; place-items: center; align-content: center; border: 1px solid var(--line); color: var(--muted); text-align: center; }
+.empty svg { color: var(--cyan); }
+.empty h2 { margin: 10px 0 2px; font: 600 22px "Barlow Condensed"; text-transform: uppercase; }
+.empty p { font-size: 10px; }
+.success, .error { position: fixed; z-index: 55; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 8px; max-width: 440px; padding: 12px 15px; border: 1px solid rgba(132,232,188,.45); background: #0a1918; color: var(--success); box-shadow: var(--shadow); font-size: 10px; }
+.error { border-color: rgba(239,121,134,.5); background: #1a0d12; color: var(--danger); }
+@media (max-width: 1300px) { .gearSection > div { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 850px) { .gearSection > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 650px) {
+  .loadoutCard > header { grid-template-columns: 42px minmax(0, 1fr); }
+  .loadoutCard > header > img, .loadoutCard > header > svg { width: 40px; height: 40px; }
+  .loadoutCard > header button { grid-column: 1 / -1; justify-content: center; }
+  .abilitySection > div, .modifierSection > div, .gearSection > div { grid-template-columns: 1fr; }
+}

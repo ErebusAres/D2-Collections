@@ -86,7 +86,8 @@ export function normalizeGuardian(args: {
       power: selected?.power || 0,
       guardianRank: Number(profileData.currentGuardianRank || profileData.renewedGuardianRank || profileData.lifetimeHighestGuardianRank || 0),
       rewardsPassRank: args.rewardsPass.rank,
-      rewardsPassProgress: args.rewardsPass.progress
+      rewardsPassProgress: args.rewardsPass.progress,
+      mailboxCount: Object.values(args.profile?.characterInventories?.data || {}).reduce((total: number, inventory: any) => total + (inventory?.items || []).filter((item: any) => String(item?.bucketHash || "") === "215593132").length, 0)
     },
     currentActivity,
     isInGame: Boolean(selected?.minutesPlayedThisSession && currentActivity)

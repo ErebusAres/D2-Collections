@@ -5,9 +5,12 @@ import { DevPage } from "./pages/DevPage";
 import { FireteamPage } from "./pages/FireteamPage";
 import { GearPage } from "./pages/GearPage";
 import { MatrixPage } from "./pages/MatrixPage";
+import { MailboxPage } from "./pages/MailboxPage";
+import { LoadoutsPage } from "./pages/LoadoutsPage";
 import { QuestsPage } from "./pages/QuestsPage";
 import { QuestDetailPage } from "./pages/QuestDetailPage";
 import { RewardsPage } from "./pages/RewardsPage";
+import { RewardCodesPage } from "./pages/RewardCodesPage";
 import { XurPage } from "./pages/XurPage";
 
 export function App() {
@@ -20,9 +23,12 @@ export function App() {
         <Route path="quests" element={<QuestsPage />} />
         <Route path="quests/:questId" element={<QuestDetailPage />} />
         <Route path="rewards" element={<RewardsPage />} />
+        <Route path="codes" element={<RewardCodesPage />} />
         <Route path="fireteam" element={<FireteamPage />} />
         <Route path="matrix" element={<MatrixPage />} />
         <Route path="gear" element={<GearPage />} />
+        <Route path="loadouts" element={<LoadoutsPage />} />
+        <Route path="mailbox" element={<MailboxPage />} />
         <Route path="dev" element={<DevPage />} />
         <Route path="*" element={<Navigate to="/collection" replace />} />
       </Route>
