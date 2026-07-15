@@ -29,6 +29,21 @@ export function partyPresenceLabel(status: number): string {
   return "Public fireteam presence";
 }
 
+export function xurSchedule(now = new Date()): { active: boolean; arrival: string; departure: string; target: string } {
+  const friday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 17));
+  friday.setUTCDate(friday.getUTCDate() - ((friday.getUTCDay() - 5 + 7) % 7));
+  if (friday.getTime() > now.getTime()) friday.setUTCDate(friday.getUTCDate() - 7);
+  const departure = new Date(friday.getTime() + 4 * 24 * 60 * 60_000);
+  const active = now.getTime() >= friday.getTime() && now.getTime() < departure.getTime();
+  const nextArrival = active ? friday : new Date(friday.getTime() + 7 * 24 * 60 * 60_000);
+  return {
+    active,
+    arrival: nextArrival.toISOString(),
+    departure: (active ? departure : new Date(nextArrival.getTime() + 4 * 24 * 60 * 60_000)).toISOString(),
+    target: (active ? departure : nextArrival).toISOString()
+  };
+}
+
 export function questStepPosition(definition: unknown, itemHash: string): { stepNumber?: number; stepCount?: number } {
   const itemList = (definition as any)?.setData?.itemList;
   if (!Array.isArray(itemList) || itemList.length === 0) return {};

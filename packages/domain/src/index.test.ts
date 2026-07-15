@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest, QuestProgress } from "@guardian-nexus/contracts";
-import { mergeCollection, objectivePercent, partyPresenceLabel, questStepPosition, recommendQuests } from "./index";
+import { mergeCollection, objectivePercent, partyPresenceLabel, questStepPosition, recommendQuests, xurSchedule } from "./index";
 
 const quest = (overrides: Partial<QuestProgress>): QuestProgress => ({
   instanceId: "1",
@@ -34,6 +34,14 @@ describe("partyPresenceLabel", () => {
     expect(partyPresenceLabel(1)).toBe("Fireteam member");
     expect(partyPresenceLabel(2)).toBe("Party member");
     expect(partyPresenceLabel(0)).toBe("Public fireteam presence");
+  });
+});
+
+describe("xurSchedule", () => {
+  it("counts from Friday reset until Tuesday reset at 17:00 UTC", () => {
+    expect(xurSchedule(new Date("2026-07-17T16:59:59Z"))).toMatchObject({ active: false, target: "2026-07-17T17:00:00.000Z" });
+    expect(xurSchedule(new Date("2026-07-17T17:00:00Z"))).toMatchObject({ active: true, target: "2026-07-21T17:00:00.000Z" });
+    expect(xurSchedule(new Date("2026-07-21T17:00:00Z"))).toMatchObject({ active: false, target: "2026-07-24T17:00:00.000Z" });
   });
 });
 

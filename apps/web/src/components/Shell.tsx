@@ -1,4 +1,4 @@
-import { Boxes, GitCompareArrows, ListTodo, Settings, ShieldEllipsis, Users, Wrench } from "lucide-react";
+import { Boxes, Coins, GitCompareArrows, ListTodo, Settings, ShieldEllipsis, Users, Wrench } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useGuardian } from "../state/GuardianContext";
@@ -7,6 +7,7 @@ import styles from "./Shell.module.css";
 
 const tabs = [
   { to: "/collection", label: "Collection", icon: Boxes },
+  { to: "/xur", label: "Xûr", icon: Coins },
   { to: "/quests", label: "Quests", icon: ListTodo },
   { to: "/gear", label: "Gear", icon: ShieldEllipsis },
   { to: "/fireteam", label: "Fireteam", icon: Users },

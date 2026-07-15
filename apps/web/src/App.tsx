@@ -6,6 +6,7 @@ import { FireteamPage } from "./pages/FireteamPage";
 import { GearPage } from "./pages/GearPage";
 import { MatrixPage } from "./pages/MatrixPage";
 import { QuestsPage } from "./pages/QuestsPage";
+import { XurPage } from "./pages/XurPage";
 
 export function App() {
   return (
@@ -13,6 +14,7 @@ export function App() {
       <Route element={<Shell />}>
         <Route index element={<Navigate to="/collection" replace />} />
         <Route path="collection" element={<CollectionPage />} />
+        <Route path="xur" element={<XurPage />} />
         <Route path="quests" element={<QuestsPage />} />
         <Route path="fireteam" element={<FireteamPage />} />
         <Route path="matrix" element={<MatrixPage />} />
