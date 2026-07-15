@@ -20,7 +20,9 @@ export async function bungieGet(path: string, env: Env, accessToken?: string): P
   const body = await response.json().catch(() => ({})) as any;
   if (!response.ok || Number(body.ErrorCode || 1) > 1) {
     const throttle = Number(body.ThrottleSeconds || response.headers.get("Retry-After") || 0);
-    throw httpError(response.status === 429 ? 429 : response.status || 502, response.status === 429 ? "bungie_throttled" : "bungie_request_failed", body.Message || "Bungie request failed.", throttle || undefined);
+    const throttled = response.status === 429 || throttle > 0;
+    const status = throttled ? 429 : response.ok ? 502 : response.status || 502;
+    throw httpError(status, throttled ? "bungie_throttled" : "bungie_request_failed", body.Message || "Bungie request failed.", throttle || undefined);
   }
   return body.Response;
 }

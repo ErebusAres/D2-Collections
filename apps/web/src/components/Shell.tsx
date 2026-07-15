@@ -14,7 +14,7 @@ const tabs = [
 ];
 
 export function Shell() {
-  const { session, loading, signIn } = useGuardian();
+  const { session, loading, error, signIn } = useGuardian();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const guardian = session?.guardian;
   const character = guardian?.characters.find((entry) => entry.characterId === guardian.selectedCharacterId) || guardian?.characters[0];
@@ -36,7 +36,7 @@ export function Shell() {
                 {guardian.isInGame && <em>In game</em>}
               </>
             ) : (
-              <div><span>Guardian Network</span><strong>{loading ? "Checking link…" : "Bungie not linked"}</strong></div>
+              <div><span>Guardian Network</span><strong>{loading ? "Checking link…" : error ? "Link interrupted" : "Bungie not linked"}</strong></div>
             )}
           </div>
           <div className={styles.headerStats} aria-label="Guardian stats">
@@ -44,7 +44,7 @@ export function Shell() {
             <HeaderStat label="Guardian Rank" value={guardian?.stats.guardianRank} symbol="◆" />
             <HeaderStat label="Rewards Pass" value={guardian?.stats.rewardsPassRank} symbol="⬡" />
           </div>
-          {!session?.authenticated && !loading && <button className={styles.signIn} onClick={signIn}>Sign in with Bungie</button>}
+          {!session?.authenticated && !loading && !error && <button className={styles.signIn} onClick={signIn}>Sign in with Bungie</button>}
           <button className={styles.optionsButton} onClick={() => setOptionsOpen(true)} aria-label="Open options"><Settings size={20} /><span>Options</span></button>
         </div>
         <nav className={styles.tabs} aria-label="Guardian Nexus sections">

@@ -1,7 +1,7 @@
 import type { SessionData } from "@guardian-nexus/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api } from "../api/client";
+import { api, ApiRequestError } from "../api/client";
 
 interface GuardianContextValue {
   session?: SessionData;
@@ -33,7 +33,10 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     queryFn: () => api<SessionData>(`/api/v1/session${selectedCharacterId ? `?characterId=${encodeURIComponent(selectedCharacterId)}` : ""}`),
     refetchInterval: autoRefresh ? 60_000 : false,
     refetchIntervalInBackground: false,
-    retry: false
+    retry: (failureCount, error) => error instanceof ApiRequestError && error.status >= 429 && failureCount < 2,
+    retryDelay: (attempt, error) => error instanceof ApiRequestError && error.retryAfterSeconds
+      ? Math.min(error.retryAfterSeconds * 1_000, 30_000)
+      : Math.min(1_000 * 2 ** attempt, 5_000)
   });
   const session = sessionQuery.data?.data;
   const membershipId = session?.guardian?.membershipId;

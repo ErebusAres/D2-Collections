@@ -8,8 +8,9 @@ export function PageHeader({ eyebrow, title, description, actions }: { eyebrow: 
 }
 
 export function AuthGate({ children }: { children: ReactNode }) {
-  const { session, loading, signIn } = useGuardian();
+  const { session, loading, error, signIn, refresh } = useGuardian();
   if (loading) return <StatePanel icon={<LoaderCircle className={styles.spin} />} title="Contacting the Guardian network" text="Checking your secure Bungie session…" />;
+  if (error) return <StatePanel icon={<AlertTriangle />} title="Guardian link interrupted" text={`${error.message} Your Bungie link is still saved; you do not need to sign in again.`} action={<button onClick={() => void refresh()}><RefreshCcw size={16} /> Try again</button>} />;
   if (!session?.authenticated) return <StatePanel icon={<LogIn />} title="Link your Guardian" text="Sign in through Bungie to load your characters, collection, quests, and fireteam status." action={<button onClick={signIn}>Sign in with Bungie</button>} />;
   return <>{children}</>;
 }
