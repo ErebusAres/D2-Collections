@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest, QuestProgress } from "@guardian-nexus/contracts";
-import { mergeCollection, objectivePercent, partyPresenceLabel, questStepPosition, recommendQuests, xurSchedule } from "./index";
+import { armorGrade, groupArmor, mergeCollection, objectivePercent, partyPresenceLabel, questStepPosition, recommendQuests, xurSchedule } from "./index";
 
 const quest = (overrides: Partial<QuestProgress>): QuestProgress => ({
   instanceId: "1",
@@ -42,6 +42,18 @@ describe("xurSchedule", () => {
     expect(xurSchedule(new Date("2026-07-17T16:59:59Z"))).toMatchObject({ active: false, target: "2026-07-17T17:00:00.000Z" });
     expect(xurSchedule(new Date("2026-07-17T17:00:00Z"))).toMatchObject({ active: true, target: "2026-07-21T17:00:00.000Z" });
     expect(xurSchedule(new Date("2026-07-21T17:00:00Z"))).toMatchObject({ active: false, target: "2026-07-24T17:00:00.000Z" });
+  });
+});
+
+describe("armor analysis", () => {
+  it("grades base totals and leaves empty class items ungraded", () => {
+    expect(armorGrade({ health: 15, melee: 12, grenade: 12, super: 12, class: 12, weapons: 12 })).toMatchObject({ letter: "S", score: 100 });
+    expect(armorGrade({})).toEqual({ letter: "—" });
+  });
+
+  it("groups matching top-three distributions within tolerance", () => {
+    const make = (instanceId: string, health: number) => ({ instanceId, className: "Warlock", slot: "Helmet", rarity: "Legendary", name: instanceId, baseTotal: 60, currentTotal: 60, baseStats: { health, melee: 15, grenade: 14, super: 8, class: 7, weapons: 6 } }) as any;
+    expect(groupArmor([make("a", 20), make("b", 18), make("c", 8)], 5)).toHaveLength(1);
   });
 });
 

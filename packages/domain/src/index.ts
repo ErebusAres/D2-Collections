@@ -1,4 +1,7 @@
 import type {
+  ArmorGrade,
+  ArmorItem,
+  ArmorStatKey,
   CompactManifest,
   ExoticCollectionEntry,
   GuardianClass,
@@ -6,6 +9,53 @@ import type {
   QuestProgress,
   QuestRecommendation
 } from "@guardian-nexus/contracts";
+
+export const ARMOR_STAT_KEYS: ArmorStatKey[] = ["health", "melee", "grenade", "super", "class", "weapons"];
+
+export function armorGrade(baseStats: Partial<Record<ArmorStatKey, number>>): ArmorGrade {
+  const values = ARMOR_STAT_KEYS.map((key) => Number(baseStats[key] || 0));
+  const total = values.reduce((sum, value) => sum + value, 0);
+  if (!total) return { letter: "—" };
+  const letter: ArmorGrade["letter"] = total >= 75 ? "S" : total >= 72 ? "A" : total >= 68 ? "B" : total >= 63 ? "C" : total >= 58 ? "D" : "F";
+  return { letter, score: Math.round(Math.min(100, total * 1.15 + Math.max(...values) * 1.25)) };
+}
+
+export interface ArmorComparisonGroup { id: string; label: string; colorIndex: number; items: ArmorItem[] }
+
+export function groupArmor(items: ArmorItem[], tolerance = 5, exact = false): ArmorComparisonGroup[] {
+  const buckets = new Map<string, ArmorItem[]>();
+  for (const item of items.filter((entry) => entry.baseTotal > 0)) {
+    const identity = item.rarity === "Exotic" ? item.name.toLowerCase() : "legendary";
+    const key = [item.className, item.slot, item.rarity, identity].join("|");
+    buckets.set(key, [...(buckets.get(key) || []), item]);
+  }
+  const found: ArmorItem[][] = [];
+  for (const bucket of buckets.values()) {
+    const pending = [...bucket].sort((a, b) => b.baseTotal - a.baseTotal || a.instanceId.localeCompare(b.instanceId));
+    while (pending.length) {
+      const seed = pending.shift()!; const matched = [seed];
+      for (let index = pending.length - 1; index >= 0; index -= 1) {
+        const candidate = pending[index];
+        if (candidate && comparableArmor(seed, candidate, tolerance, exact)) {
+          const removed = pending.splice(index, 1)[0];
+          if (removed) matched.push(removed);
+        }
+      }
+      if (matched.length > 1) found.push(matched);
+    }
+  }
+  return found.sort((a, b) => a[0]!.slot.localeCompare(b[0]!.slot) || b[0]!.baseTotal - a[0]!.baseTotal).map((itemsInGroup, index) => ({
+    id: itemsInGroup.map((item) => item.instanceId).sort().join(":"), label: `${itemsInGroup[0]!.slot.replace(/ Armor$/i, "")} ${String.fromCharCode(65 + (index % 26))}`, colorIndex: index % 6,
+    items: itemsInGroup.sort((a, b) => b.baseTotal - a.baseTotal || b.currentTotal - a.currentTotal || a.instanceId.localeCompare(b.instanceId))
+  }));
+}
+
+function comparableArmor(a: ArmorItem, b: ArmorItem, tolerance: number, exact: boolean): boolean {
+  if (exact) return ARMOR_STAT_KEYS.every((key) => a.baseStats[key] === b.baseStats[key]);
+  const top = (item: ArmorItem) => ARMOR_STAT_KEYS.map((key) => [key, item.baseStats[key]] as const).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).slice(0, 3);
+  const aTop = top(a); const bTop = top(b);
+  return aTop.every(([key, value], index) => Boolean(bTop[index] && bTop[index]![0] === key && Math.abs(value - bTop[index]![1]) <= Math.max(0, tolerance)));
+}
 
 export const BUNGIE_IMAGE_ROOT = "https://www.bungie.net";
 

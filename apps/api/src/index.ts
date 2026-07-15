@@ -6,17 +6,21 @@ import type {
   FireteamData,
   FireteamMember,
   FireteamSharingMode,
+  GearActionRequest,
+  GearActionResult,
+  GearData,
   MatrixData,
   MatrixSnapshot,
   QuestData,
   SessionData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, destinyDisplayName, emblemPathFor, exchangeCode, loadManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassRank, xurInventoryFor } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadGearManifest, loadManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassRank, xurInventoryFor } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
+import { normalizeGear, type GearStateRow } from "./gear";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -30,6 +34,14 @@ const probeSchema = z.object({
   hash: z.string().regex(/^\d+$/).optional(),
   components: z.array(z.number().int().nonnegative()).max(20).optional()
 });
+
+const gearStateSchema = z.object({ itemInstanceId: z.string().regex(/^\d+$/), tag: z.enum(["favorite", "keep", "junk", "infuse", "archive"]).nullable().optional(), dismissed: z.boolean().optional() });
+const gearActionSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("transfer"), itemInstanceId: z.string().regex(/^\d+$/), target: z.enum(["vault", "character"]), targetCharacterId: z.string().regex(/^\d+$/).optional() }),
+  z.object({ action: z.literal("equip"), itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/) }),
+  z.object({ action: z.literal("setLock"), itemInstanceId: z.string().regex(/^\d+$/), locked: z.boolean(), characterId: z.string().regex(/^\d+$/).optional() }),
+  z.object({ action: z.literal("groupPull"), itemInstanceIds: z.array(z.string().regex(/^\d+$/)).min(1).max(20), characterId: z.string().regex(/^\d+$/) })
+]);
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -76,6 +88,9 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/overview" && request.method === "GET") return overview(session.row, env, context);
   if (path === "/api/v1/me/collection" && request.method === "GET") return collection(session.row, env, context);
   if (path === "/api/v1/me/quests" && request.method === "GET") return quests(session.row, env, context);
+  if (path === "/api/v1/me/gear" && request.method === "GET") return gear(session.row, env, context);
+  if (path === "/api/v1/me/gear/item-state" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateGearState(request, session.row, env, context); }
+  if (path === "/api/v1/me/gear/action" && request.method === "POST") { await requireCsrf(request, session.token, env); return gearAction(request, session.row, env, context); }
   if (path === "/api/v1/fireteam" && request.method === "GET") return fireteam(session.row, env, context);
   if (path === "/api/v1/fireteam/share" && request.method === "PUT") {
     await requireCsrf(request, session.token, env);
@@ -288,6 +303,108 @@ async function quests(row: SessionRow, env: Env, context: RequestContext): Promi
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const pinned = new Set((context.url.searchParams.get("pinned") || "").split(",").filter(Boolean));
   return envelope<QuestData>(normalizeQuests(profile, manifest, character.characterId, pinned), env, context, { sourceMintedAt: profile?.responseMintedTimestamp });
+}
+
+async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile } = await profileFor(row, env);
+  const manifest = await loadGearManifest(env);
+  const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const states = await gearStates(row.membership_id, env);
+  const now = new Date().toISOString();
+  const data = normalizeGear(profile, manifest, character.characterId, character.className, states, now);
+  const missing = data.items.filter((item) => !states.has(item.instanceId));
+  for (let offset = 0; offset < missing.length; offset += 80) {
+    await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
+  }
+  return envelope<GearData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: manifest.version !== "unavailable" ? [] : ["Armor manifest data is unavailable; refresh the deployment manifest before using Gear."] });
+}
+
+async function updateGearState(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const input = gearStateSchema.parse(await request.json());
+  const { profile, accessToken } = await profileFor(row, env);
+  const manifest = await loadGearManifest(env);
+  const character = selectedCharacter(charactersFromProfile(profile));
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const states = await gearStates(row.membership_id, env);
+  const item = normalizeGear(profile, manifest, character.characterId, character.className, states, new Date().toISOString()).items.find((entry) => entry.instanceId === input.itemInstanceId);
+  if (!item) throw httpError(404, "gear_item_missing", "That armor item does not belong to this Guardian.");
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO gear_item_state (membership_id, item_instance_id, tag, first_seen_at, dismissed_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(membership_id, item_instance_id) DO UPDATE SET tag = excluded.tag, dismissed_at = excluded.dismissed_at, updated_at = excluded.updated_at`)
+    .bind(row.membership_id, item.instanceId, input.tag ?? item.tag ?? null, item.firstSeenAt || now, input.dismissed ? now : item.dismissedAt || null, now).run();
+  let warning: string | undefined;
+  if ((input.tag === "favorite" || input.tag === "keep") && !item.locked) {
+    try { await bungiePost("/Destiny2/Actions/Items/SetLockState/", { state: true, itemId: item.instanceId, characterId: item.ownerCharacterId || character.characterId, membershipType: row.membership_type }, env, accessToken); }
+    catch (error: any) { warning = `Tag saved, but Bungie could not lock the item: ${error.message}`; }
+  }
+  return envelope({ itemInstanceId: item.instanceId, tag: input.tag, dismissed: Boolean(input.dismissed) }, env, context, { warnings: warning ? [warning] : [] });
+}
+
+async function gearAction(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const input = gearActionSchema.parse(await request.json()) as GearActionRequest;
+  const started = performance.now();
+  const { profile, accessToken } = await profileFor(row, env);
+  const manifest = await loadGearManifest(env);
+  const characters = charactersFromProfile(profile);
+  const selected = selectedCharacter(characters, "characterId" in input ? input.characterId : "targetCharacterId" in input ? input.targetCharacterId : undefined) || characters[0];
+  if (!selected) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const items = normalizeGear(profile, manifest, selected.characterId, selected.className, await gearStates(row.membership_id, env), new Date().toISOString()).items;
+  const byId = new Map(items.map((item) => [item.instanceId, item]));
+  const requested = input.action === "groupPull" ? input.itemInstanceIds : [input.itemInstanceId];
+  const result: GearActionResult = { action: input.action, succeeded: [], skipped: [], failed: [] };
+  for (const instanceId of requested) {
+    const item = byId.get(instanceId);
+    const targetId = input.action === "equip" || input.action === "groupPull" ? input.characterId : input.action === "transfer" ? input.targetCharacterId : input.characterId;
+    const target = targetId ? characters.find((character) => character.characterId === targetId) : undefined;
+    if (!item) { result.failed.push({ itemInstanceId: instanceId, code: "ownership_invalid", message: "Item is not owned by this Guardian." }); continue; }
+    if (targetId && !target) { result.failed.push({ itemInstanceId: instanceId, code: "character_invalid", message: "Target character is not owned by this Guardian." }); continue; }
+    try {
+      if (input.action === "setLock") {
+        await bungiePost("/Destiny2/Actions/Items/SetLockState/", { state: input.locked, itemId: instanceId, characterId: input.characterId || item.ownerCharacterId || selected.characterId, membershipType: row.membership_type }, env, accessToken);
+      } else if (input.action === "transfer") {
+        if (input.target === "vault") {
+          if (item.equipped) { result.skipped.push({ itemInstanceId: instanceId, reason: "Equip another item before vaulting this one." }); continue; }
+          if (item.location === "vault") { result.skipped.push({ itemInstanceId: instanceId, reason: "Already in vault." }); continue; }
+          await transfer(item, true, item.ownerCharacterId || selected.characterId, row, env, accessToken);
+        } else {
+          if (!target) throw httpError(400, "character_required", "Choose a target character.");
+          await moveToCharacter(item, target.characterId, row, env, accessToken);
+        }
+      } else if (input.action === "groupPull") {
+        if (item.location !== "vault") { result.skipped.push({ itemInstanceId: instanceId, reason: "Item is already outside the vault." }); continue; }
+        await transfer(item, false, input.characterId, row, env, accessToken);
+      } else if (input.action === "equip") {
+        await moveToCharacter(item, input.characterId, row, env, accessToken);
+        await bungiePost("/Destiny2/Actions/Items/EquipItem/", { itemId: instanceId, characterId: input.characterId, membershipType: row.membership_type }, env, accessToken);
+      }
+      result.succeeded.push(instanceId);
+      await auditGear(row, env, input.action, instanceId, targetId, 200, undefined, performance.now() - started);
+    } catch (error: any) {
+      result.failed.push({ itemInstanceId: instanceId, code: String(error?.code || "action_failed"), message: String(error?.message || "Bungie action failed.") });
+      await auditGear(row, env, input.action, instanceId, targetId, Number(error?.status || 500), String(error?.code || "action_failed"), performance.now() - started);
+    }
+  }
+  return envelope(result, env, context, { warnings: result.failed.length ? ["One or more Gear actions failed. Inventory was refreshed from Bungie after the completed steps."] : [] });
+}
+
+async function gearStates(membershipId: string, env: Env): Promise<Map<string, GearStateRow>> {
+  const { results = [] } = await env.DB.prepare("SELECT item_instance_id, tag, first_seen_at, dismissed_at FROM gear_item_state WHERE membership_id = ?").bind(membershipId).all<GearStateRow>();
+  return new Map(results.map((row) => [String(row.item_instance_id), row]));
+}
+
+async function transfer(item: any, toVault: boolean, characterId: string, row: SessionRow, env: Env, accessToken: string): Promise<void> {
+  await bungiePost("/Destiny2/Actions/Items/TransferItem/", { itemReferenceHash: Number(item.itemHash), stackSize: 1, transferToVault: toVault, itemId: item.instanceId, characterId, membershipType: row.membership_type }, env, accessToken);
+}
+async function moveToCharacter(item: any, characterId: string, row: SessionRow, env: Env, accessToken: string): Promise<void> {
+  if (item.location === "vault") return transfer(item, false, characterId, row, env, accessToken);
+  if (item.ownerCharacterId === characterId) return;
+  if (item.equipped) throw httpError(409, "item_equipped", "Equip another item before moving this equipped armor.");
+  await transfer(item, true, item.ownerCharacterId, row, env, accessToken);
+  await transfer(item, false, characterId, row, env, accessToken);
+}
+async function auditGear(row: SessionRow, env: Env, action: string, itemId: string, target: string | undefined, status: number, code: string | undefined, duration: number): Promise<void> {
+  await env.DB.prepare("INSERT INTO gear_action_audit (membership_id, action, item_instance_id, target_character_id, status, error_code, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(row.membership_id, action, itemId, target || null, status, code || null, Math.round(duration)).run();
 }
 
 async function upsertShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

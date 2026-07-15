@@ -195,6 +195,85 @@ export interface MatrixData {
   canSync: boolean;
 }
 
+export type ArmorStatKey = "health" | "melee" | "grenade" | "super" | "class" | "weapons";
+export type GearTag = "favorite" | "keep" | "junk" | "infuse" | "archive";
+export type GearLocation = "equipped" | "inventory" | "vault";
+
+export interface ArmorStats {
+  health: number;
+  melee: number;
+  grenade: number;
+  super: number;
+  class: number;
+  weapons: number;
+}
+
+export interface ArmorAdjustment {
+  type: "masterwork" | "mod" | "artifice" | "tuning" | "other";
+  stats: Partial<ArmorStats>;
+}
+
+export interface ArmorPerk {
+  hash: string;
+  name: string;
+  description: string;
+  icon?: string;
+}
+
+export interface ArmorGrade { letter: "S" | "A" | "B" | "C" | "D" | "F" | "—"; score?: number }
+
+export interface ArmorItem {
+  instanceId: string;
+  itemHash: string;
+  name: string;
+  icon: string;
+  className: GuardianClass;
+  slot: string;
+  rarity: string;
+  power: number;
+  ownerCharacterId?: string;
+  location: GearLocation;
+  equipped: boolean;
+  locked: boolean;
+  masterworked: boolean;
+  archetype?: ArmorPerk;
+  tuning?: ArmorPerk & { stats: Partial<ArmorStats> };
+  setBonuses: Array<ArmorPerk & { pieces?: number; active: boolean }>;
+  perks: ArmorPerk[];
+  baseStats: ArmorStats;
+  currentStats: ArmorStats;
+  adjustments: ArmorAdjustment[];
+  baseTotal: number;
+  currentTotal: number;
+  grade: ArmorGrade;
+  tag?: GearTag;
+  firstSeenAt: string;
+  dismissedAt?: string;
+  isNew: boolean;
+}
+
+export interface GearData {
+  manifestVersion: string;
+  selectedCharacterId: string;
+  selectedClass: GuardianClass;
+  items: ArmorItem[];
+  statIcons: Partial<Record<ArmorStatKey, string>>;
+  totals: { armor: number; vault: number; equipped: number; locked: number; grouped: number; newItems: number };
+}
+
+export type GearActionRequest =
+  | { action: "transfer"; itemInstanceId: string; target: "vault" | "character"; targetCharacterId?: string }
+  | { action: "equip"; itemInstanceId: string; characterId: string }
+  | { action: "setLock"; itemInstanceId: string; locked: boolean; characterId?: string }
+  | { action: "groupPull"; itemInstanceIds: string[]; characterId: string };
+
+export interface GearActionResult {
+  action: GearActionRequest["action"];
+  succeeded: string[];
+  skipped: Array<{ itemInstanceId: string; reason: string }>;
+  failed: Array<{ itemInstanceId: string; code: string; message: string }>;
+}
+
 export type DevProbeKey =
   | "memberships"
   | "profile"
@@ -238,4 +317,15 @@ export interface CompactManifest {
   objectiveDefinitions: Record<string, Record<string, unknown>>;
   activityDefinitions: Record<string, Record<string, unknown>>;
   recordDefinitions: Record<string, Record<string, unknown>>;
+  gearItemDefinitions?: Record<string, Record<string, unknown>>;
+  plugDefinitions?: Record<string, Record<string, unknown>>;
+  statDefinitions?: Record<string, Record<string, unknown>>;
+}
+
+export interface GearManifest {
+  version: string;
+  generatedAt: string;
+  gearItemDefinitions: Record<string, Record<string, unknown>>;
+  plugDefinitions: Record<string, Record<string, unknown>>;
+  statDefinitions: Record<string, Record<string, unknown>>;
 }

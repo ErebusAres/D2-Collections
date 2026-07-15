@@ -1,10 +1,11 @@
-import type { CompactManifest } from "@guardian-nexus/contracts";
+import type { CompactManifest, GearManifest } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 
 const API_ROOT = "https://www.bungie.net/Platform";
 const TOKEN_URL = `${API_ROOT}/App/OAuth/Token/`;
 let manifestCache: { value: CompactManifest; expiresAt: number } | null = null;
+let gearManifestCache: { value: GearManifest; expiresAt: number } | null = null;
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
 const publicMembershipTypeCache = new Map<string, number>();
@@ -25,6 +26,17 @@ export async function bungieGet(path: string, env: Env, accessToken?: string): P
     const throttled = response.status === 429 || throttle > 0;
     const status = throttled ? 429 : response.ok ? 502 : response.status || 502;
     throw httpError(status, throttled ? "bungie_throttled" : "bungie_request_failed", body.Message || "Bungie request failed.", throttle || undefined);
+  }
+  return body.Response;
+}
+
+export async function bungiePost(path: string, bodyValue: unknown, env: Env, accessToken: string): Promise<any> {
+  if (!env.BUNGIE_API_KEY) throw httpError(503, "bungie_api_unconfigured", "Bungie API access is not configured.");
+  const response = await fetch(`${API_ROOT}${path}`, { method: "POST", headers: { "X-API-Key": env.BUNGIE_API_KEY, Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify(bodyValue) });
+  const body = await response.json().catch(() => ({})) as any;
+  if (!response.ok || Number(body.ErrorCode || 1) > 1) {
+    const throttle = Number(body.ThrottleSeconds || response.headers.get("Retry-After") || 0);
+    throw httpError(response.status === 429 || throttle > 0 ? 429 : response.status || 502, throttle ? "bungie_throttled" : String(body.ErrorStatus || "bungie_action_failed").toLowerCase(), body.Message || "Bungie item action failed.", throttle || undefined);
   }
   return body.Response;
 }
@@ -189,7 +201,7 @@ export function primaryMembership(memberships: any): any {
 
 export async function profileFor(row: SessionRow, env: Env): Promise<{ profile: any; accessToken: string }> {
   const accessToken = await accessTokenFor(row, env);
-  const components = "100,102,103,104,200,201,202,204,205,301,800,900,1000,1200";
+  const components = "100,102,103,104,200,201,202,204,205,300,301,304,305,307,800,900,1000,1200";
   const profile = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/?components=${components}`, env, accessToken);
   return { profile, accessToken };
 }
@@ -213,6 +225,21 @@ export async function loadManifest(env: Env): Promise<CompactManifest> {
       activityDefinitions: {},
       recordDefinitions: {}
     };
+  }
+}
+
+export async function loadGearManifest(env: Env): Promise<GearManifest> {
+  if (gearManifestCache && gearManifestCache.expiresAt > Date.now()) return gearManifestCache.value;
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "gear-manifest.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Gear manifest request returned ${response.status}.`);
+    const value = await response.json() as GearManifest;
+    if (!value?.version || !value.gearItemDefinitions || !value.plugDefinitions) throw new Error("Gear manifest artifact is invalid.");
+    gearManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    return { version: "unavailable", generatedAt: new Date().toISOString(), gearItemDefinitions: {}, plugDefinitions: {}, statDefinitions: {} };
   }
 }
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import tempfile
+import time
 import urllib.request
 import zipfile
 from contextlib import closing
@@ -15,12 +16,20 @@ from pathlib import Path
 API_ROOT = "https://www.bungie.net/Platform"
 WEB_ROOT = "https://www.bungie.net"
 OUTPUT = Path(__file__).resolve().parents[1] / "apps" / "web" / "public" / "data" / "manifest.json"
+GEAR_OUTPUT = OUTPUT.with_name("gear-manifest.json")
 
 
 def get_json(url: str) -> dict:
-    request = urllib.request.Request(url, headers={"User-Agent": "Guardian-Nexus-Manifest/1.0"})
-    with urllib.request.urlopen(request, timeout=120) as response:
-        return json.load(response)
+    for attempt in range(4):
+        request = urllib.request.Request(url, headers={"User-Agent": "Guardian-Nexus-Manifest/1.0"})
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                return json.load(response)
+        except Exception:
+            if attempt == 3:
+                raise
+            time.sleep(2 ** attempt)
+    raise RuntimeError("Manifest request exhausted retries")
 
 
 def table_rows(connection: sqlite3.Connection, table: str) -> dict[str, dict]:
@@ -58,7 +67,52 @@ def minimal_item(definition: dict) -> dict:
         "value": definition.get("value") or {},
         "traitHashes": definition.get("traitHashes") or [],
         "sourceData": definition.get("sourceData") or {},
+        "sockets": definition.get("sockets") or {},
+        "investmentStats": definition.get("investmentStats") or [],
+        "stats": definition.get("stats") or {},
+        "perks": definition.get("perks") or [],
+        "plug": definition.get("plug") or {},
+        "equippableItemSetHash": definition.get("equippableItemSetHash"),
     }
+
+
+def minimal_gear_item(definition: dict) -> dict:
+    inventory = definition.get("inventory") or {}
+    return {
+        "hash": str(definition.get("hash", "")),
+        "displayProperties": display(definition),
+        "itemType": definition.get("itemType"),
+        "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
+        "classType": definition.get("classType"),
+        "inventory": {
+            "bucketTypeHash": inventory.get("bucketTypeHash"),
+            "tierType": inventory.get("tierType"),
+            "tierTypeName": inventory.get("tierTypeName", ""),
+        },
+        "equippableItemSetHash": definition.get("equippableItemSetHash"),
+    }
+
+
+def minimal_plug(definition: dict) -> dict:
+    return {
+        "hash": str(definition.get("hash", "")),
+        "displayProperties": display(definition),
+        "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
+        "investmentStats": definition.get("investmentStats") or [],
+        "plug": definition.get("plug") or {},
+    }
+
+
+def relevant_armor_plug(definition: dict) -> bool:
+    props = definition.get("displayProperties") or {}
+    plug = definition.get("plug") or {}
+    text = " ".join([
+        str(props.get("name", "")), str(props.get("description", "")),
+        str(definition.get("itemTypeDisplayName", "")), str(plug.get("plugCategoryIdentifier", "")),
+    ]).lower()
+    return bool(definition.get("investmentStats")) or any(term in text for term in (
+        "armor", "archetype", "tuning", "artifice", "masterwork", "set bonus", "piece bonus", "intrinsic"
+    ))
 
 
 def main() -> None:
@@ -94,12 +148,15 @@ def main() -> None:
             activities = table_rows(connection, "DestinyActivityDefinition")
             buckets = table_rows(connection, "DestinyInventoryBucketDefinition")
             damage_types = table_rows(connection, "DestinyDamageTypeDefinition")
+            stat_definitions = table_rows(connection, "DestinyStatDefinition")
 
     catalyst_records = {
         key: value for key, value in records.items()
         if "catalyst" in (value.get("displayProperties") or {}).get("name", "").lower()
     }
     quest_defs = {key: value for key, value in inventory.items() if int(value.get("itemType", -1)) == 12}
+    gear_defs = {key: value for key, value in inventory.items() if int(value.get("itemType", -1)) == 2 and not value.get("redacted")}
+    plug_defs = {key: value for key, value in inventory.items() if value.get("plug") and (value.get("displayProperties") or {}).get("name") and relevant_armor_plug(value)}
     objective_hashes: set[str] = set()
     for definition in quest_defs.values():
         objective_hashes.update(str(value) for value in (definition.get("objectives") or {}).get("objectiveHashes", []))
@@ -159,9 +216,17 @@ def main() -> None:
             for key, value in catalyst_records.items()
         },
     }
+    gear_compact = {
+        "version": version,
+        "generatedAt": compact["generatedAt"],
+        "gearItemDefinitions": {key: minimal_gear_item(value) for key, value in gear_defs.items()},
+        "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
+        "statDefinitions": {key: {"hash": key, "displayProperties": display(value)} for key, value in stat_definitions.items() if key in {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}},
+    }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Wrote {len(items)} Exotics, {len(quest_defs)} quest definitions, and {len(objective_hashes)} objectives for manifest {version}.")
+    GEAR_OUTPUT.write_text(json.dumps(gear_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, and {len(quest_defs)} quests for manifest {version}.")
 
 
 if __name__ == "__main__":
