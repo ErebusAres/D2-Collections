@@ -148,6 +148,7 @@ export interface QuestData {
 export interface FireteamMember {
   membershipId: string;
   displayName: string;
+  inGameName: string;
   emblemPath?: string;
   presenceLabel: string;
   character?: CharacterSummary;

@@ -341,11 +341,11 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const shares = new Map(results.map((result: any) => [String(result.membership_id), result]));
   const party = (transitory.partyMembers || []).map((member: any) => ({
     membershipId: String(member.membershipId || member.destinyMembershipId || ""),
-    displayName: member.displayName || member.bungieGlobalDisplayName || "Fireteam member",
+    displayName: String(member.displayName || member.bungieGlobalDisplayName || "").trim(),
     emblemHash: String(member.emblemHash || ""),
     status: Number(member.status || 0)
   })).filter((member: any) => member.membershipId);
-  if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, displayName: row.display_name, emblemHash: "", status: 1 });
+  if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, displayName: row.bungie_name || row.display_name, emblemHash: "", status: 1 });
   const ownCharacter = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   const fireteamActivity = activityName(profile, manifest);
   const questCounts = new Map<string, number>();
@@ -362,9 +362,11 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     const isSelf = member.membershipId === row.membership_id;
     const character = payload?.character || (isSelf ? ownCharacter : undefined);
     const activity = payload?.activity || fireteamActivity;
+    const inGameName = member.displayName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
     return {
       membershipId: member.membershipId,
-      displayName: member.displayName,
+      displayName: inGameName,
+      inGameName,
       emblemPath: character?.emblemPath || await emblemPathFor(member.emblemHash, env),
       presenceLabel: partyPresenceLabel(member.status),
       character,
