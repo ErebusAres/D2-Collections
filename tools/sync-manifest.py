@@ -111,7 +111,8 @@ def relevant_armor_plug(definition: dict) -> bool:
         str(definition.get("itemTypeDisplayName", "")), str(plug.get("plugCategoryIdentifier", "")),
     ]).lower()
     return bool(definition.get("investmentStats")) or any(term in text for term in (
-        "armor", "archetype", "tuning", "artifice", "masterwork", "set bonus", "piece bonus", "intrinsic"
+        "armor", "archetype", "tuning", "artifice", "masterwork", "set bonus", "piece bonus", "intrinsic",
+        "ornament", "skin"
     ))
 
 

@@ -236,8 +236,10 @@ export interface ArmorItem {
   equipped: boolean;
   locked: boolean;
   masterworked: boolean;
+  gearTier: number;
   archetype?: ArmorPerk;
   tuning?: ArmorPerk & { stats: Partial<ArmorStats> };
+  tunedStat?: ArmorStatKey;
   setBonuses: Array<ArmorPerk & { pieces?: number; active: boolean }>;
   perks: ArmorPerk[];
   baseStats: ArmorStats;

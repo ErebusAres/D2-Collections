@@ -199,9 +199,9 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export async function profileFor(row: SessionRow, env: Env): Promise<{ profile: any; accessToken: string }> {
+export async function profileFor(row: SessionRow, env: Env, includeReusablePlugs = false): Promise<{ profile: any; accessToken: string }> {
   const accessToken = await accessTokenFor(row, env);
-  const components = "100,102,103,104,200,201,202,204,205,300,301,304,305,307,800,900,1000,1200";
+  const components = `100,102,103,104,200,201,202,204,205,300,301,304,305,307${includeReusablePlugs ? ",310" : ""},800,900,1000,1200`;
   const profile = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/?components=${components}`, env, accessToken);
   return { profile, accessToken };
 }

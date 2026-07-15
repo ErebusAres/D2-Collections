@@ -306,7 +306,7 @@ async function quests(row: SessionRow, env: Env, context: RequestContext): Promi
 }
 
 async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile } = await profileFor(row, env);
+  const { profile } = await profileFor(row, env, true);
   const manifest = await loadGearManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
@@ -322,7 +322,7 @@ async function gear(row: SessionRow, env: Env, context: RequestContext): Promise
 
 async function updateGearState(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = gearStateSchema.parse(await request.json());
-  const { profile, accessToken } = await profileFor(row, env);
+  const { profile, accessToken } = await profileFor(row, env, true);
   const manifest = await loadGearManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile));
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
@@ -344,7 +344,7 @@ async function updateGearState(request: Request, row: SessionRow, env: Env, cont
 async function gearAction(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = gearActionSchema.parse(await request.json()) as GearActionRequest;
   const started = performance.now();
-  const { profile, accessToken } = await profileFor(row, env);
+  const { profile, accessToken } = await profileFor(row, env, true);
   const manifest = await loadGearManifest(env);
   const characters = charactersFromProfile(profile);
   const selected = selectedCharacter(characters, "characterId" in input ? input.characterId : "targetCharacterId" in input ? input.targetCharacterId : undefined) || characters[0];
