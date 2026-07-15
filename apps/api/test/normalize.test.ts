@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest } from "@guardian-nexus/contracts";
-import { activityName } from "../src/normalize";
+import { activityName, guardianOnlineState } from "../src/normalize";
 
 const manifest = {
   version: "test",
@@ -27,5 +27,14 @@ describe("activityName", () => {
       characterActivities: { data: { c1: { currentActivityHash: 42 } } }
     };
     expect(activityName(profile, manifest, "c1")).toBe("A Transitory Activity");
+  });
+});
+
+describe("guardianOnlineState", () => {
+  it("distinguishes an observed offline Guardian from online orbit and unknown presence", () => {
+    expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, undefined, true)).toBe("offline");
+    expect(guardianOnlineState({ minutesPlayedThisSession: 12 }, undefined, true)).toBe("online");
+    expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, "The Tower", true)).toBe("online");
+    expect(guardianOnlineState(undefined, undefined, false)).toBe("unknown");
   });
 });

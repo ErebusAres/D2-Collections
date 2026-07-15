@@ -14,7 +14,7 @@ import type {
 import { z } from "zod";
 import { accessTokenFor, bungieGet, destinyDisplayName, emblemPathFor, exchangeCode, loadManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassRank } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
-import { activityName, charactersFromProfile, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
+import { activityName, charactersFromProfile, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 
@@ -367,7 +367,9 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     const publicCharacter = publicCharacters.find((entry) => entry.minutesPlayedThisSession > 0) || publicCharacters[0];
     const publicActivity = publicProfile ? activityName(publicProfile, manifest, publicCharacter?.characterId) : undefined;
     const character = payload?.character || publicCharacter || (isSelf ? ownCharacter : undefined);
-    const activity = publicActivity || fireteamActivity || payload?.activity;
+    const directActivity = publicActivity || (isSelf ? fireteamActivity : undefined) || payload?.activity;
+    const onlineState = guardianOnlineState(character, directActivity, isSelf || Boolean(publicProfile));
+    const activity = onlineState === "offline" ? undefined : directActivity || fireteamActivity;
     const publicName = destinyDisplayName(publicProfile?.profile?.data?.userInfo);
     const inGameName = member.displayName || publicName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
     return {
@@ -376,6 +378,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       inGameName,
       emblemPath: character?.emblemPath || await emblemPathFor(member.emblemHash, env),
       presenceLabel: partyPresenceLabel(member.status),
+      onlineState,
       character,
       activity,
       activitySource: publicActivity ? "public" : fireteamActivity ? "fireteam" : payload?.activity ? "shared" : "unavailable",

@@ -28,6 +28,16 @@ export function selectedCharacter(characters: CharacterSummary[], requested?: st
   return characters.find((character) => character.characterId === requested) || characters[0];
 }
 
+export function guardianOnlineState(
+  character: Pick<CharacterSummary, "minutesPlayedThisSession"> | undefined,
+  activity: string | undefined,
+  observedDirectly: boolean
+): "online" | "offline" | "unknown" {
+  if (activity || (character?.minutesPlayedThisSession || 0) > 0) return "online";
+  if (observedDirectly && character) return "offline";
+  return "unknown";
+}
+
 export function activityName(profile: any, manifest: CompactManifest, characterId?: string): string | undefined {
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
   const characterActivities = profile?.characterActivities?.data || {};

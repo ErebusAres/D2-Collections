@@ -151,6 +151,7 @@ export interface FireteamMember {
   inGameName: string;
   emblemPath?: string;
   presenceLabel: string;
+  onlineState: "online" | "offline" | "unknown";
   character?: CharacterSummary;
   activity?: string;
   activitySource: "public" | "shared" | "fireteam" | "unavailable";

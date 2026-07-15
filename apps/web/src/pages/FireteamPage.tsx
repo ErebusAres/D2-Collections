@@ -39,6 +39,7 @@ export function FireteamPage() {
     return () => window.clearInterval(timer);
   }, [result.data?.data.sharingEnabled, autoRefresh, renew]);
   const data = result.data?.data;
+  const self = data?.members.find((member) => member.isSelf);
 
   return <AuthGate>
     <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="See current party presence and activity, then coordinate only the quest details each Guardian explicitly shares." actions={<>
@@ -56,7 +57,7 @@ export function FireteamPage() {
     {data && <>
       <section className={styles.fireteamStatus}>
         <div><Radio /><span>Fireteam signal</span><strong>{data.members.length > 1 ? `${data.members.length} Guardians` : "Solo"}</strong></div>
-        <div><Activity /><span>Current activity</span><strong>{data.activity || "Orbit / unavailable"}</strong></div>
+        <div><Activity /><span>Current activity</span><strong>{self?.onlineState === "offline" ? "Offline" : data.activity || "Orbit / unavailable"}</strong></div>
         <div><ShieldCheck /><span>Your sharing</span><strong>{data.sharingMode === "persistent" ? "Always on / background refresh" : data.sharingMode === "temporary" ? "Temporary / 15 minutes" : "Private"}</strong></div>
       </section>
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} />)}</section>
@@ -66,9 +67,11 @@ export function FireteamPage() {
 }
 
 function MemberCard({ member }: { member: FireteamMember }) {
+  const activity = member.onlineState === "offline" ? "Offline" : member.activity || "Orbit / unavailable";
+  const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
   return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""}`}>
-    <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
-    <div className={styles.memberActivity}><Activity size={15} /><span>{member.activitySource === "public" ? "Public activity" : member.activitySource === "shared" ? "Shared activity" : member.activitySource === "fireteam" ? "Fireteam activity" : "Activity"}</span><strong>{member.activity || "Orbit / unavailable"}</strong></div>
+    <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
+    <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "public" ? "Public activity" : member.activitySource === "shared" ? "Shared activity" : member.activitySource === "fireteam" ? "Fireteam activity" : "Activity"}</span><strong>{activity}</strong></div>
     {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared objectives" : "Shared objectives"}</h3>{member.quests.length ? member.quests.map((quest) => <div className={styles.sharedQuest} key={quest.instanceId}><span className={styles.sharedQuestIcon}>{quest.icon ? <img src={quest.icon} alt="" /> : <CheckCircle2 />}</span><div className={styles.sharedQuestDetails}><div className={styles.sharedQuestTitle}><b>{quest.name}</b>{quest.stepNumber && quest.stepCount ? <em>Step {quest.stepNumber} / {quest.stepCount}</em> : <em>Active step</em>}</div><small>{quest.currentStep}</small>{quest.objectives.length > 0 && <div className={styles.sharedObjectives}>{quest.objectives.map((objective) => <div key={objective.objectiveHash}><span>{objective.name}</span><strong>{objective.complete ? "Complete" : objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : `${objective.percent}%`}</strong></div>)}</div>}<i className={styles.sharedQuestBar}><span style={{ width: `${quest.percent}%` }} /></i></div><strong className={styles.sharedQuestPercent}>{quest.percent}%</strong></div>) : <p>No site-pinned or in-game-tracked quests shared.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Quest details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
     {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>Shared progress opportunity:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
   </article>;
