@@ -58,20 +58,22 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
 }
 
 function resolveTunedStat(itemSockets: any[], reusableBySocket: Record<string, any[]>, plugs: Record<string, any>, applied?: any): ArmorStatKey | undefined {
-  const appliedPositive = positiveStat(applied);
+  const appliedPositive = directionalTunedStat(applied);
   if (appliedPositive) return appliedPositive;
   const candidates = itemSockets.flatMap((socket) => [
     ...(socket?.reusablePlugHashes || []),
     ...(socket?.reusablePlugItems || []).map((entry: any) => entry?.plugItemHash ?? entry?.plugHash)
   ]).concat(Object.values(reusableBySocket).flat().map((entry: any) => entry?.plugItemHash ?? entry?.plugHash)).map(hashOf).map((hash) => plugs[hash]).filter(isTuningPlug);
-  const positiveStats = [...new Set(candidates.map(positiveStat).filter(Boolean))] as ArmorStatKey[];
+  const positiveStats = [...new Set(candidates.map(directionalTunedStat).filter(Boolean))] as ArmorStatKey[];
   return positiveStats.length === 1 ? positiveStats[0] : undefined;
 }
 
-function positiveStat(plug: any): ArmorStatKey | undefined {
+function directionalTunedStat(plug: any): ArmorStatKey | undefined {
   if (!plug) return undefined;
   const stats = statsFromInvestment(plug.investmentStats || []);
-  return ARMOR_STAT_KEYS.find((key) => stats[key] > 0);
+  const positive = ARMOR_STAT_KEYS.filter((key) => stats[key] >= 5);
+  const hasTradeoff = ARMOR_STAT_KEYS.some((key) => stats[key] <= -5);
+  return positive.length === 1 && hasTradeoff ? positive[0] : undefined;
 }
 
 function isTuningPlug(plug: any): boolean { return normalize(plug?.plug?.plugCategoryIdentifier) === TUNING_CATEGORY; }

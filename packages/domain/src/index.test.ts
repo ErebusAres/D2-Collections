@@ -53,7 +53,13 @@ describe("armor analysis", () => {
 
   it("groups matching top-three distributions within tolerance", () => {
     const make = (instanceId: string, health: number) => ({ instanceId, className: "Warlock", slot: "Helmet", rarity: "Legendary", name: instanceId, baseTotal: 60, currentTotal: 60, baseStats: { health, melee: 15, grenade: 14, super: 8, class: 7, weapons: 6 } }) as any;
-    expect(groupArmor([make("a", 20), make("b", 18), make("c", 8)], 5)).toHaveLength(1);
+    expect(groupArmor([make("a", 20), make("b", 18), make("c", 8)], 5)).toMatchObject([{ id: "1A", label: "1A" }]);
+  });
+
+  it("assigns slot-number and alphabetical group IDs in display order", () => {
+    const make = (instanceId: string, slot: string, health: number, melee = 15, grenade = 14) => ({ instanceId, className: "Warlock", slot, rarity: "Legendary", name: instanceId, baseTotal: 60, currentTotal: 60, baseStats: { health, melee, grenade, super: 8, class: 7, weapons: 6 } }) as any;
+    const groups = groupArmor([make("h1", "Helmet", 20), make("h2", "Helmet", 19), make("h3", "Helmet", 10, 25, 20), make("h4", "Helmet", 9, 24, 19), make("g1", "Gauntlets", 20), make("g2", "Gauntlets", 19)], 2);
+    expect(groups.map((group) => group.label)).toEqual(["1A", "1B", "2A"]);
   });
 });
 

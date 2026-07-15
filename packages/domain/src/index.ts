@@ -22,6 +22,8 @@ export function armorGrade(baseStats: Partial<Record<ArmorStatKey, number>>): Ar
 
 export interface ArmorComparisonGroup { id: string; label: string; colorIndex: number; items: ArmorItem[] }
 
+const ARMOR_SLOT_ORDER = ["Helmet", "Gauntlets", "Chest Armor", "Leg Armor", "Class Item"];
+
 export function groupArmor(items: ArmorItem[], tolerance = 5, exact = false): ArmorComparisonGroup[] {
   const buckets = new Map<string, ArmorItem[]>();
   for (const item of items.filter((entry) => entry.baseTotal > 0)) {
@@ -44,11 +46,22 @@ export function groupArmor(items: ArmorItem[], tolerance = 5, exact = false): Ar
       if (matched.length > 1) found.push(matched);
     }
   }
-  return found.sort((a, b) => a[0]!.slot.localeCompare(b[0]!.slot) || b[0]!.baseTotal - a[0]!.baseTotal).map((itemsInGroup, index) => ({
-    id: itemsInGroup.map((item) => item.instanceId).sort().join(":"), label: `${itemsInGroup[0]!.slot.replace(/ Armor$/i, "")} ${String.fromCharCode(65 + (index % 26))}`, colorIndex: index % 6,
-    items: itemsInGroup.sort((a, b) => b.baseTotal - a.baseTotal || b.currentTotal - a.currentTotal || a.instanceId.localeCompare(b.instanceId))
-  }));
+  const ordered = found.sort((a, b) => slotNumber(a[0]!.slot) - slotNumber(b[0]!.slot) || a[0]!.className.localeCompare(b[0]!.className) || a[0]!.rarity.localeCompare(b[0]!.rarity) || b[0]!.baseTotal - a[0]!.baseTotal);
+  const perSlot = new Map<number, number>();
+  return ordered.map((itemsInGroup, index) => {
+    const slot = slotNumber(itemsInGroup[0]!.slot);
+    const sequence = (perSlot.get(slot) || 0) + 1;
+    perSlot.set(slot, sequence);
+    const label = `${slot}${letterFor(sequence)}`;
+    return {
+      id: label, label, colorIndex: index % 6,
+      items: itemsInGroup.sort((a, b) => b.baseTotal - a.baseTotal || b.currentTotal - a.currentTotal || a.instanceId.localeCompare(b.instanceId))
+    };
+  });
 }
+
+function slotNumber(slot: string): number { const index = ARMOR_SLOT_ORDER.indexOf(slot); return index >= 0 ? index + 1 : 9; }
+function letterFor(value: number): string { let current = Math.max(1, value); let result = ""; while (current > 0) { current -= 1; result = String.fromCharCode(65 + (current % 26)) + result; current = Math.floor(current / 26); } return result; }
 
 function comparableArmor(a: ArmorItem, b: ArmorItem, tolerance: number, exact: boolean): boolean {
   if (exact) return ARMOR_STAT_KEYS.every((key) => a.baseStats[key] === b.baseStats[key]);

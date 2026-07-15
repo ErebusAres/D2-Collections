@@ -22,7 +22,7 @@ describe("normalizeGear", () => {
       itemComponents: {
         stats: { data: { "100": { stats: { "1735777505": { value: 22 } } } } },
         sockets: { data: { "100": { sockets: [{ plugHash: 30 }, { plugHash: 40 }] } } },
-        reusablePlugs: { data: { "100": { plugs: { "1": [{ plugItemHash: 41 }, { plugItemHash: 42 }] } } } },
+        reusablePlugs: { data: { "100": { plugs: { "1": [{ plugItemHash: 41 }, { plugItemHash: 42 }, { plugItemHash: 43 }] } } } },
         instances: { data: { "100": { primaryStat: { value: 550 }, gearTier: 5 } } },
         state: { data: {} }
       }
@@ -34,7 +34,8 @@ describe("normalizeGear", () => {
         "30": { hash: 30, displayProperties: { name: "Current Armor Ornament", icon: "/ornament.png" }, itemTypeDisplayName: "Universal Ornament", plug: { plugCategoryIdentifier: "armor_skins" } },
         "40": { hash: 40, displayProperties: { name: "Empty Tuning Mod Socket", icon: "/tuning.png" }, plug: { plugCategoryIdentifier: "core.gear_systems.armor_tiering.plugs.tuning.mods" } },
         "41": { hash: 41, displayProperties: { name: "+Grenade / -Melee" }, plug: { plugCategoryIdentifier: "core.gear_systems.armor_tiering.plugs.tuning.mods" }, investmentStats: [{ statTypeHash: 1735777505, value: 5 }, { statTypeHash: 4244567218, value: -5 }] },
-        "42": { hash: 42, displayProperties: { name: "+Grenade / -Health" }, plug: { plugCategoryIdentifier: "core.gear_systems.armor_tiering.plugs.tuning.mods" }, investmentStats: [{ statTypeHash: 1735777505, value: 5 }, { statTypeHash: 392767087, value: -5 }] }
+        "42": { hash: 42, displayProperties: { name: "+Grenade / -Health" }, plug: { plugCategoryIdentifier: "core.gear_systems.armor_tiering.plugs.tuning.mods" }, investmentStats: [{ statTypeHash: 1735777505, value: 5 }, { statTypeHash: 392767087, value: -5 }] },
+        "43": { hash: 43, displayProperties: { name: "Balanced Tuning" }, plug: { plugCategoryIdentifier: "core.gear_systems.armor_tiering.plugs.tuning.mods" }, investmentStats: [{ statTypeHash: 392767087, value: 1 }, { statTypeHash: 4244567218, value: 1 }, { statTypeHash: 1735777505, value: 1 }] }
       }, statDefinitions: {}
     };
     const item = normalizeGear(profile, manifest, "character", "Warlock", new Map(), "2026-07-15T00:00:00Z").items[0];
