@@ -61,6 +61,13 @@ describe("armor analysis", () => {
     const groups = groupArmor([make("h1", "Helmet", 20), make("h2", "Helmet", 19), make("h3", "Helmet", 10, 25, 20), make("h4", "Helmet", 9, 24, 19), make("g1", "Gauntlets", 20), make("g2", "Gauntlets", 19)], 2);
     expect(groups.map((group) => group.label)).toEqual(["1A", "1B", "2A"]);
   });
+
+  it("supports exact-stat and same-name grouping identities", () => {
+    const make = (instanceId: string, name: string) => ({ instanceId, className: "Warlock", slot: "Helmet", rarity: "Legendary", name, baseTotal: 70, currentTotal: 70, baseStats: { health: 20, melee: 15, grenade: 14, super: 8, class: 7, weapons: 6 } }) as any;
+    const items = [make("a", "Alpha Hood"), make("b", "Beta Hood")];
+    expect(groupArmor(items, 5, "same-stats")).toHaveLength(1);
+    expect(groupArmor(items, 5, "same-name-stats")).toHaveLength(0);
+  });
 });
 
 describe("questStepPosition", () => {

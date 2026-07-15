@@ -10,6 +10,8 @@ import type {
   QuestRecommendation
 } from "@guardian-nexus/contracts";
 
+export * from "./gearSearch";
+
 export const ARMOR_STAT_KEYS: ArmorStatKey[] = ["health", "melee", "grenade", "super", "class", "weapons"];
 
 export function armorGrade(baseStats: Partial<Record<ArmorStatKey, number>>): ArmorGrade {
@@ -21,13 +23,15 @@ export function armorGrade(baseStats: Partial<Record<ArmorStatKey, number>>): Ar
 }
 
 export interface ArmorComparisonGroup { id: string; label: string; colorIndex: number; items: ArmorItem[] }
+export type ArmorGroupMode = "similar" | "same-stats" | "same-name-similar" | "same-name-stats";
 
 const ARMOR_SLOT_ORDER = ["Helmet", "Gauntlets", "Chest Armor", "Leg Armor", "Class Item"];
 
-export function groupArmor(items: ArmorItem[], tolerance = 5, exact = false): ArmorComparisonGroup[] {
+export function groupArmor(items: ArmorItem[], tolerance = 5, mode: ArmorGroupMode | boolean = "similar"): ArmorComparisonGroup[] {
+  const groupMode: ArmorGroupMode = typeof mode === "boolean" ? (mode ? "same-stats" : "similar") : mode;
   const buckets = new Map<string, ArmorItem[]>();
   for (const item of items.filter((entry) => entry.baseTotal > 0)) {
-    const identity = item.rarity === "Exotic" ? item.name.toLowerCase() : "legendary";
+    const identity = groupMode.startsWith("same-name") || item.rarity === "Exotic" ? item.name.toLowerCase() : "all-names";
     const key = [item.className, item.slot, item.rarity, identity].join("|");
     buckets.set(key, [...(buckets.get(key) || []), item]);
   }
@@ -38,7 +42,7 @@ export function groupArmor(items: ArmorItem[], tolerance = 5, exact = false): Ar
       const seed = pending.shift()!; const matched = [seed];
       for (let index = pending.length - 1; index >= 0; index -= 1) {
         const candidate = pending[index];
-        if (candidate && comparableArmor(seed, candidate, tolerance, exact)) {
+        if (candidate && comparableArmor(seed, candidate, tolerance, groupMode)) {
           const removed = pending.splice(index, 1)[0];
           if (removed) matched.push(removed);
         }
@@ -63,8 +67,8 @@ export function groupArmor(items: ArmorItem[], tolerance = 5, exact = false): Ar
 function slotNumber(slot: string): number { const index = ARMOR_SLOT_ORDER.indexOf(slot); return index >= 0 ? index + 1 : 9; }
 function letterFor(value: number): string { let current = Math.max(1, value); let result = ""; while (current > 0) { current -= 1; result = String.fromCharCode(65 + (current % 26)) + result; current = Math.floor(current / 26); } return result; }
 
-function comparableArmor(a: ArmorItem, b: ArmorItem, tolerance: number, exact: boolean): boolean {
-  if (exact) return ARMOR_STAT_KEYS.every((key) => a.baseStats[key] === b.baseStats[key]);
+function comparableArmor(a: ArmorItem, b: ArmorItem, tolerance: number, mode: ArmorGroupMode): boolean {
+  if (mode === "same-stats" || mode === "same-name-stats") return ARMOR_STAT_KEYS.every((key) => a.baseStats[key] === b.baseStats[key]);
   const top = (item: ArmorItem) => ARMOR_STAT_KEYS.map((key) => [key, item.baseStats[key]] as const).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).slice(0, 3);
   const aTop = top(a); const bTop = top(b);
   return aTop.every(([key, value], index) => Boolean(bTop[index] && bTop[index]![0] === key && Math.abs(value - bTop[index]![1]) <= Math.max(0, tolerance)));
