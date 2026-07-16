@@ -1,10 +1,12 @@
 import type { RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Boxes, Cloud, CloudOff, Coins, GitCompareArrows, Layers3, ListTodo, Mail, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
+import { Badge, Boxes, Cloud, CloudOff, Coins, Gift, GitCompareArrows, Layers3, ListTodo, Mail, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
 import { hasClaimableReward, rewardLevelProgress } from "../../modules/rewards/rewardsProgress";
+import { activeRewardCodes } from "../../modules/reward-codes/rewardCodes";
+import { useRewardCodeStatus } from "../../modules/reward-codes/rewardCodeStatus";
 import { useGuardian } from "../../context/GuardianContext";
 import { OptionsPanel } from "./OptionsPanel";
 import { RewardCodeMarquee } from "../reward-codes/RewardCodeMarquee";
@@ -36,6 +38,8 @@ export function Shell() {
     refetchIntervalInBackground: false
   });
   const claimableReward = hasClaimableReward(rewards.data?.data.rewards);
+  const { hidden: hiddenRewardCodes } = useRewardCodeStatus(guardian?.membershipId, Boolean(session?.authenticated), autoRefresh);
+  const availableRewardCodeCount = activeRewardCodes().filter((entry) => !hiddenRewardCodes.has(entry.code)).length;
 
   return (
     <div className={styles.shell} style={character?.emblemBackgroundPath ? { "--guardian-banner": `url(${character.emblemBackgroundPath})` } as React.CSSProperties : undefined}>
@@ -51,7 +55,7 @@ export function Shell() {
             {guardian ? (
               <>
                 <img src={character?.emblemPath || ""} alt="" />
-                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small>{character?.emblemBackgroundPath && <div className={styles.guardianBanner} data-testid="guardian-banner" aria-hidden="true" />}<div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassProgress.state === "unavailable" && !guardian.stats.rewardsPassRank ? undefined : guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /><HeaderStat label="Mailbox" value={guardian.stats.mailboxCount} icon={<Mail />} to="/mailbox" /></div><RewardsProgress rank={guardian.stats.rewardsPassRank} progress={guardian.stats.rewardsPassProgress} /></div>
+                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small>{character?.emblemBackgroundPath && <div className={styles.guardianBanner} data-testid="guardian-banner" aria-hidden="true" />}<div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassProgress.state === "unavailable" && !guardian.stats.rewardsPassRank ? undefined : guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /><HeaderStat label="Mailbox" value={guardian.stats.mailboxCount} icon={<Mail />} to="/mailbox" /><HeaderStat label="Reward Codes" value={availableRewardCodeCount} icon={<Gift />} to="/codes" claimable={availableRewardCodeCount > 0} /></div><RewardsProgress rank={guardian.stats.rewardsPassRank} progress={guardian.stats.rewardsPassProgress} /></div>
                 {guardian.isInGame && <em>In game</em>}
               </>
             ) : (
