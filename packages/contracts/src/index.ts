@@ -558,9 +558,17 @@ export interface BuildNamedEntry {
   itemType?: string;
   rarity?: string;
   damageType?: string;
+  description?: string;
   notes?: string;
   required?: boolean;
+  quantity?: number;
+  setName?: string;
+  requiredPieces?: number;
+  bonuses?: BuildNamedEntry[];
 }
+
+export type BuildArmorSlot = "helmet" | "arms" | "chest" | "legs" | "classItem";
+export type BuildStatName = "Health" | "Melee" | "Grenade" | "Super" | "Class" | "Weapons";
 
 export type BuildCatalogKind =
   | "subclass"
@@ -572,8 +580,10 @@ export type BuildCatalogKind =
   | "aspect"
   | "fragment"
   | "weapon"
+  | "weaponPerk"
   | "armor"
   | "armorMod"
+  | "armorSetBonus"
   | "artifact"
   | "artifactPerk"
   | "champion"
@@ -593,6 +603,24 @@ export interface BuildCatalogEntry {
   classType?: BuildGuardianClass;
   subclass?: BuildSubclass;
   exotic: boolean;
+  applicableSlots?: BuildArmorSlot[];
+  setName?: string;
+  requiredPieces?: number;
+  bonuses?: BuildNamedEntry[];
+}
+
+export interface BuildCatalogManifest {
+  version: string;
+  generatedAt: string;
+  groups: Partial<Record<BuildCatalogKind, string>>;
+  statDefinitions: Record<BuildStatName, { hash: string; name: BuildStatName; icon: string }>;
+}
+
+export interface BuildCatalogChunk {
+  version: string;
+  kind: BuildCatalogKind;
+  entries: BuildCatalogEntry[];
+  weaponPerkHashes?: Record<string, string[]>;
 }
 
 export interface BuildCatalogData {
@@ -622,6 +650,7 @@ export interface BuildSubclassConfig {
 export interface BuildEquipmentEntry extends BuildNamedEntry {
   slot: string;
   perks?: string;
+  selectedPerks?: BuildNamedEntry[];
   exotic?: boolean;
 }
 
@@ -632,7 +661,8 @@ export interface BuildEquipment {
 }
 
 export interface BuildStatPriority {
-  stat: string;
+  stat: BuildStatName;
+  icon?: string;
   target?: number;
   minimum?: number;
   maximum?: number;
