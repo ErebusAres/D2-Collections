@@ -36,6 +36,7 @@ import { normalizeRewardsPass } from "./rewards";
 import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
 import { normalizeLoadouts } from "./loadouts";
 import { normalizeRewardCodeStatus } from "./rewardCodes";
+import { buildsRoute } from "./builds";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -104,6 +105,8 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/auth/callback" && request.method === "GET") return finishAuth(request, env, context);
   if (path === "/api/v1/session" && request.method === "GET") return readSession(request, env, context);
   if (path === "/api/v1/session" && request.method === "DELETE") return deleteSession(request, env, context);
+  const buildsResponse = await buildsRoute(request, env, context);
+  if (buildsResponse) return buildsResponse;
 
   const session = await requireSession(request, env);
   if (path === "/api/v1/me/overview" && request.method === "GET") return overview(session.row, env, context);
@@ -257,7 +260,7 @@ async function finishAuth(request: Request, env: Env, context: RequestContext): 
 
 async function readSession(request: Request, env: Env, context: RequestContext): Promise<Response> {
   const session = await sessionFromRequest(request, env);
-  if (!session) return envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false } }, env, context);
+  if (!session) return envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false } }, env, context);
   const { profile, accessToken } = await profileFor(session.row, env, "session");
   const manifest = await loadActivityManifest(env);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
@@ -277,7 +280,8 @@ async function readSession(request: Request, env: Env, context: RequestContext):
     csrfToken: await csrfToken(session.token, env),
     roles: {
       dev: allowlist(env.DEV_MEMBERSHIP_IDS).has(session.row.membership_id),
-      matrixWriter: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id)
+      matrixWriter: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id),
+      buildEditor: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id)
     }
   }, env, context, { sourceMintedAt: profile?.responseMintedTimestamp });
 }
