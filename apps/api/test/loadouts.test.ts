@@ -73,4 +73,62 @@ describe("normalizeLoadouts", () => {
 
     expect(data.loadouts[0]).toMatchObject({ unresolvedItemCount: 1, items: [{ instanceId: "999", name: "Saved item unavailable", equipmentSlot: "Unavailable saved item", definitionAvailable: false }] });
   });
+
+  it("orders equipment, separates Prismatic configuration, and resolves the current artifact mods", () => {
+    const equipment = [
+      ["100", 10], ["101", 11], ["102", 12], ["103", 13], ["104", 14],
+      ["105", 15], ["106", 16], ["107", 17], ["108", 18], ["109", 19]
+    ].map(([itemInstanceId, itemHash]) => ({ itemInstanceId, itemHash }));
+    const savedOrder = ["107", "102", "105", "100", "109", "104", "108", "106", "101", "103"];
+    const profile = {
+      characterEquipment: { data: { c1: { items: equipment } } },
+      characterProgressions: { data: { c1: { seasonalArtifact: {
+        artifactHash: 9000,
+        pointsUsed: 7,
+        tiers: [{ items: [50, 51, 52, 53, 54, 55, 56].map((itemHash) => ({ itemHash, isActive: true, isVisible: true })) }, { items: [{ itemHash: 57, isActive: false, isVisible: true }] }]
+      } } } },
+      characterLoadouts: { data: { c1: { loadouts: [{
+        nameHash: 1,
+        items: savedOrder.map((itemInstanceId) => ({
+          itemInstanceId,
+          plugItemHashes: itemInstanceId === "100" ? [30, 31, 32, 33, 34] : itemInstanceId === "101" ? [40, 41, 42] : []
+        }))
+      }] } } }
+    };
+    const slots = ["Subclass", "Kinetic Weapons", "Energy Weapons", "Power Weapons", "Helmet", "Gauntlets", "Chest Armor", "Leg Armor", "Class Armor", "Artifacts"];
+    const manifest: any = {
+      version: "test", generatedAt: "now", bucketDefinitions: {},
+      loadoutNameDefinitions: { "1": { name: "Prismatic" } }, loadoutIconDefinitions: {}, loadoutColorDefinitions: {},
+      itemDefinitions: Object.fromEntries([
+        ...slots.map((equipmentSlot, index) => [String(10 + index), {
+          itemType: index === 0 ? 16 : 3,
+          displayProperties: { name: index === 0 ? "Prismatic Hunter" : equipmentSlot, icon: `/${index}.png` },
+          itemTypeDisplayName: equipmentSlot,
+          inventory: { tierTypeName: "Legendary" },
+          equipmentSlot
+        }]),
+        ["30", { displayProperties: { name: "Golden Gun", icon: "/super.png" }, plug: { plugCategoryIdentifier: "hunter.prism.supers" } }],
+        ["31", { displayProperties: { name: "Transcendence", icon: "/transcendence.png" }, plug: { plugCategoryIdentifier: "hunter.prism.transcendence" } }],
+        ["32", { displayProperties: { name: "Hailfire Spike", icon: "/prism-grenade.png" }, plug: { plugCategoryIdentifier: "hunter.prism.prism_grenade" } }],
+        ["33", { displayProperties: { name: "Winter's Shroud", icon: "/aspect.png" }, plug: { plugCategoryIdentifier: "hunter.prism.aspects" } }],
+        ["34", { displayProperties: { name: "Facet of Courage", icon: "/fragment.png" }, plug: { plugCategoryIdentifier: "hunter.prism.fragments" } }],
+        ["40", { displayProperties: { name: "Weapon Ornament", icon: "/ornament.png" }, plug: { plugCategoryIdentifier: "weapon_skins" } }],
+        ["41", { displayProperties: { name: "Test Shader", icon: "/shader.png" }, plug: { plugCategoryIdentifier: "shader" } }],
+        ["42", { displayProperties: { name: "Backup Mag", icon: "/mod.png" }, plug: { plugCategoryIdentifier: "weapon.mod" } }],
+        ...[50, 51, 52, 53, 54, 55, 56, 57].map((hash) => [String(hash), { displayProperties: { name: `Artifact Mod ${hash}`, icon: `/artifact-${hash}.png` }, plug: { plugCategoryIdentifier: "artifact_perks" } }])
+      ])
+    };
+    const character: any = { characterId: "c1", className: "Hunter", emblemPath: "", emblemBackgroundPath: "", power: 400, raceName: "Human", dateLastPlayed: "", minutesPlayedThisSession: 0 };
+
+    const data = normalizeLoadouts(profile, manifest, character);
+    const loadout = data.loadouts[0];
+
+    expect(loadout).toMatchObject({ isPrismatic: true, transcendence: { name: "Transcendence" }, prismaticGrenade: { name: "Hailfire Spike" } });
+    expect(loadout?.abilities.map((socket) => socket.category)).toEqual(["super"]);
+    expect(loadout?.equipment.map((item) => item.equipmentSlot)).toEqual(slots.slice(1, 9));
+    expect(loadout?.equipment[0]?.sockets.map((socket) => socket.categoryLabel)).toEqual(["Ornament", "Shader", "Weapon Mod"]);
+    expect(data.artifact).toMatchObject({ item: { name: "Artifacts" }, pointsUsed: 7, source: "current-character-progression" });
+    expect(data.artifact.mods).toHaveLength(7);
+    expect(data.artifact.mods.every((mod) => mod.category === "artifact-perk" && mod.definitionAvailable)).toBe(true);
+  });
 });

@@ -1,11 +1,14 @@
-import type { CompanionManifest, GuardianLoadout, LoadoutItem, LoadoutSocket, LoadoutSocketCategory, LoadoutsData } from "@guardian-nexus/contracts";
+import type { CompanionManifest, GuardianLoadout, LoadoutArtifact, LoadoutItem, LoadoutSocket, LoadoutSocketCategory, LoadoutsData } from "@guardian-nexus/contracts";
 import { imageUrl } from "@guardian-nexus/domain";
 import type { CharacterSummary } from "@guardian-nexus/contracts";
 
 const LOADOUT_EQUIP_RESTRICTION = "Bungie only allows loadout changes while offline, in orbit, or in a social space.";
+const ARTIFACT_LIMITATION = "Bungie returns artifact choices as current character progression, not as part of an individual saved loadout.";
+const EQUIPMENT_SLOT_ORDER = ["Kinetic Weapons", "Energy Weapons", "Power Weapons", "Helmet", "Gauntlets", "Chest Armor", "Leg Armor", "Class Armor"];
 
 export function normalizeLoadouts(profile: any, manifest: CompanionManifest, character: CharacterSummary): LoadoutsData {
   const instances = inventoryInstances(profile);
+  const artifact = normalizeArtifact(profile, manifest, character.characterId, instances);
   const loadoutRows = profile?.characterLoadouts?.data?.[character.characterId]?.loadouts || [];
   const loadouts = (loadoutRows as any[]).flatMap((row, index): GuardianLoadout[] => {
     const savedItems = Array.isArray(row?.items) ? row.items.filter(hasSavedItem) : [];
@@ -14,6 +17,7 @@ export function normalizeLoadouts(profile: any, manifest: CompanionManifest, cha
     const allSockets = dedupeSockets(items.flatMap((item) => item.sockets));
     const subclass = items.find((item) => Number((manifest.itemDefinitions[item.itemHash] as any)?.itemType) === 16 || /subclass/i.test(item.equipmentSlot));
     const element = elementFromSockets(subclass?.sockets || allSockets, manifest);
+    const isPrismatic = element === "Prismatic" || /prismatic/i.test(subclass?.name || "");
     return [{
       index,
       name: String((manifest.loadoutNameDefinitions[String(row.nameHash || "")] as any)?.name || "Loadout name unavailable"),
@@ -21,7 +25,11 @@ export function normalizeLoadouts(profile: any, manifest: CompanionManifest, cha
       color: imageUrl((manifest.loadoutColorDefinitions[String(row.colorHash || "")] as any)?.colorImagePath),
       element,
       items,
+      equipment: equipmentItems(items, subclass),
       subclass,
+      isPrismatic,
+      transcendence: isPrismatic ? allSockets.find((socket) => socket.category === "transcendence") : undefined,
+      prismaticGrenade: isPrismatic ? allSockets.find((socket) => socket.category === "prismatic-grenade") : undefined,
       abilities: allSockets.filter((socket) => ["super", "melee", "grenade", "class-ability", "movement"].includes(socket.category)),
       aspects: allSockets.filter((socket) => socket.category === "aspect"),
       fragments: allSockets.filter((socket) => socket.category === "fragment"),
@@ -34,7 +42,37 @@ export function normalizeLoadouts(profile: any, manifest: CompanionManifest, cha
     characterId: character.characterId,
     characterClass: character.className,
     loadouts,
+    artifact,
     equipRestriction: LOADOUT_EQUIP_RESTRICTION
+  };
+}
+
+function equipmentItems(items: LoadoutItem[], subclass: LoadoutItem | undefined): LoadoutItem[] {
+  return items
+    .filter((item) => item !== subclass && !/^Artifacts?$/i.test(item.equipmentSlot))
+    .sort((left, right) => equipmentSlotIndex(left.equipmentSlot) - equipmentSlotIndex(right.equipmentSlot));
+}
+
+function equipmentSlotIndex(slot: string): number {
+  const index = EQUIPMENT_SLOT_ORDER.findIndex((entry) => entry.toLowerCase() === slot.toLowerCase());
+  return index === -1 ? EQUIPMENT_SLOT_ORDER.length : index;
+}
+
+function normalizeArtifact(profile: any, manifest: CompanionManifest, characterId: string, instances: Map<string, any>): LoadoutArtifact {
+  const progression = profile?.characterProgressions?.data?.[characterId]?.seasonalArtifact;
+  const artifactRow = [...(profile?.characterEquipment?.data?.[characterId]?.items || []), ...(profile?.characterInventories?.data?.[characterId]?.items || [])]
+    .find((row: any) => /^Artifacts?$/i.test(String((manifest.itemDefinitions[String(row?.itemHash || "")] as any)?.equipmentSlot || "")));
+  const item = artifactRow ? normalizeLoadoutItem({ itemInstanceId: artifactRow.itemInstanceId, plugItemHashes: [] }, instances, manifest) : undefined;
+  const mods = dedupeSockets((progression?.tiers || []).flatMap((tier: any) => (tier?.items || [])
+    .filter((entry: any) => entry?.isActive && entry?.isVisible !== false)
+    .map((entry: any) => ({ ...normalizeSocket(String(entry?.itemHash || ""), manifest), category: "artifact-perk" as const, categoryLabel: "Artifact Mod" }))));
+  const pointsUsed = Number(progression?.pointsUsed);
+  return {
+    item,
+    mods,
+    pointsUsed: Number.isFinite(pointsUsed) ? pointsUsed : undefined,
+    source: "current-character-progression",
+    limitation: ARTIFACT_LIMITATION
   };
 }
 
@@ -94,9 +132,12 @@ function normalizeSocket(itemHash: string, manifest: CompanionManifest): Loadout
 }
 
 function socketCategory(identifier: string): LoadoutSocketCategory {
+  if (/\.transcendence$/.test(identifier)) return "transcendence";
+  if (/\.prism_grenade$/.test(identifier)) return "prismatic-grenade";
+  if (/^artifact_perks$/.test(identifier)) return "artifact-perk";
   if (/\.supers?$/.test(identifier)) return "super";
   if (/\.melee$/.test(identifier)) return "melee";
-  if (/\.grenades?$|\.prism_grenade$/.test(identifier)) return "grenade";
+  if (/\.grenades?$/.test(identifier)) return "grenade";
   if (/\.class_abilities$/.test(identifier)) return "class-ability";
   if (/\.movement$/.test(identifier)) return "movement";
   if (/\.aspects$/.test(identifier)) return "aspect";
@@ -126,10 +167,13 @@ function socketCategoryLabel(category: LoadoutSocketCategory, identifier: string
     super: "Super",
     melee: "Melee",
     grenade: "Grenade",
+    "prismatic-grenade": "Prismatic Grenade",
+    transcendence: "Transcendence",
     "class-ability": "Class Ability",
     movement: "Movement",
     aspect: "Aspect",
     fragment: "Fragment",
+    "artifact-perk": "Artifact Mod",
     modifier: "Modifier",
     other: "Socket"
   };
