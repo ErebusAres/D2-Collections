@@ -57,6 +57,33 @@ describe("build validation", () => {
       armorMods: { ...validBuild.armorMods, arms: [{ name: "Dynamo", quantity: 3 }, { name: "Radiant Light", quantity: 1 }] }
     })).toThrow();
   });
+
+  it("accepts only explicit 2 + 2 or matching 2 + 4 armor set selections", () => {
+    const twoPiece = { name: "Ionic Overclock", setName: "Luminopotent", requiredPieces: 2 };
+    expect(buildDocumentSchema.parse({
+      ...validBuild,
+      equipment: { ...validBuild.equipment, armorSets: [twoPiece, { name: "Shock and Clear", setName: "Luminopotent", requiredPieces: 4 }] }
+    }).equipment.armorSets).toHaveLength(2);
+    expect(buildDocumentSchema.parse({
+      ...validBuild,
+      equipment: { ...validBuild.equipment, armorSets: [twoPiece, { name: "Techsec bonus", setName: "Techsec", requiredPieces: 2 }] }
+    }).equipment.armorSets).toHaveLength(2);
+    expect(() => buildDocumentSchema.parse({
+      ...validBuild,
+      equipment: { ...validBuild.equipment, armorSets: [twoPiece, { name: "Wrong four", setName: "Techsec", requiredPieces: 4 }] }
+    })).toThrow(/Armor sets must be/);
+    expect(() => buildDocumentSchema.parse({
+      ...validBuild,
+      equipment: { ...validBuild.equipment, armorSets: [{ name: "Four only", setName: "Luminopotent", requiredPieces: 4 }] }
+    })).toThrow(/Armor sets must be/);
+  });
+
+  it("limits each selected Artifact to seven equipped perks", () => {
+    expect(() => buildDocumentSchema.parse({
+      ...validBuild,
+      artifacts: [{ name: "Tablet of Ruin", perks: Array.from({ length: 8 }, (_, index) => ({ name: `Perk ${index + 1}` })) }]
+    })).toThrow();
+  });
 });
 
 describe("build presentation helpers", () => {

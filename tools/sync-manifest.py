@@ -552,15 +552,15 @@ def build_catalog_manifest(inventory: dict[str, dict], damage_types: dict[str, d
                 "requiredPieces": int(set_perk.get("requiredSetCount", 0)),
             })
         for required_pieces in (2, 4):
-            selected = [bonus for bonus in bonuses if int(bonus["requiredPieces"]) <= required_pieces]
+            selected = [bonus for bonus in bonuses if int(bonus["requiredPieces"]) == required_pieces]
             if not selected:
                 continue
-            label = "2-piece" if required_pieces == 2 else "2 + 4-piece"
+            bonus = selected[0]
             entries.append({
                 "hash": set_hash,
-                "name": f"{set_name} · {label}",
-                "description": " ".join(f"{bonus['itemType']}: {bonus['description']}" for bonus in selected),
-                "icon": selected[-1]["icon"],
+                "name": f"{set_name} · {required_pieces}-piece",
+                "description": f"{bonus['itemType']}: {bonus['description']}",
+                "icon": bonus["icon"],
                 "itemType": "Armor Set Bonus",
                 "rarity": "",
                 "slot": "",
@@ -569,7 +569,7 @@ def build_catalog_manifest(inventory: dict[str, dict], damage_types: dict[str, d
                 "exotic": False,
                 "setName": set_name,
                 "requiredPieces": required_pieces,
-                "bonuses": selected,
+                "bonuses": [bonus],
             })
     stat_names = {"392767087": "Health", "4244567218": "Melee", "1735777505": "Grenade", "144602215": "Super", "1943323491": "Class", "2996146975": "Weapons"}
     stats = {
@@ -593,8 +593,30 @@ def write_build_catalog_files(catalog: dict) -> dict:
         {**entry, "kind": "armorTrait"} for entry in grouped.get("armor", [])
         if entry.get("exotic") and entry.get("traits")
     ]
-    icon_kinds = {"icon", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
-    grouped["icon"] = [entry for entry in catalog["entries"] if entry["kind"] in icon_kinds or entry["kind"] in {"weapon", "armor"} and entry.get("exotic")]
+    icon_kinds = {"icon", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "weaponPerk", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
+    icon_entries = [entry for entry in catalog["entries"] if entry["kind"] in icon_kinds or entry["kind"] in {"weapon", "armor"} and entry.get("exotic")]
+    for armor in grouped.get("armor", []):
+        for trait in armor.get("traits") or []:
+            icon_entries.append({
+                "hash": trait.get("hash", ""),
+                "name": trait.get("name", ""),
+                "description": trait.get("description", ""),
+                "icon": trait.get("icon", ""),
+                "itemType": f"Armor Trait · {trait.get('itemType', 'Intrinsic')}",
+                "rarity": "",
+                "slot": "",
+                "damageType": "",
+                "kind": "icon",
+                "exotic": False,
+            })
+    seen_icons: set[tuple[str, str]] = set()
+    grouped["icon"] = []
+    for entry in icon_entries:
+        key = (str(entry.get("hash", "")), str(entry.get("name", "")).lower())
+        if not entry.get("name") or not entry.get("icon") or key in seen_icons:
+            continue
+        seen_icons.add(key)
+        grouped["icon"].append(entry)
     for kind, entries in grouped.items():
         filename = f"build-catalog-{re.sub(r'([A-Z])', lambda match: '-' + match.group(1).lower(), kind)}.json"
         groups[kind] = filename

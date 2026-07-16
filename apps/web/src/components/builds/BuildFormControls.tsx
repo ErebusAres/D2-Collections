@@ -2,6 +2,7 @@ import type { BuildArmorSlot, BuildCatalogEntry, BuildCatalogKind, BuildEquipmen
 import { AlertTriangle, Trash2 } from "lucide-react";
 import { namedEntryFromCatalog } from "../../modules/builds/buildCatalog";
 import styles from "../../pages/Builds.module.css";
+import { addArmorSetSelection, armorSetOptionAllowed, normalizeArmorSetSelections } from "../../modules/builds/armorSetBonuses";
 import { isCatalogEntry, ManifestMultiEditor, ManifestPicker, ManifestSingleEditor } from "./ManifestPicker";
 
 interface SelectorContext {
@@ -79,16 +80,19 @@ export function ArmorModEditor({ values, onChange, slot, label }: { values: Buil
 }
 
 export function ArmorSetBonusEditor({ values, onChange, classType }: { values: BuildNamedEntry[]; onChange: (values: BuildNamedEntry[]) => void; classType: BuildGuardianClass }) {
+  const selected = normalizeArmorSetSelections(values);
   const add = (entry: BuildCatalogEntry | BuildNamedEntry) => {
     const next = isCatalogEntry(entry) ? namedEntryFromCatalog(entry) : entry;
-    if (next.requiredPieces === 4) return onChange([next]);
-    const twoPiece = values.filter((value) => value.requiredPieces !== 4 && value.setName !== next.setName);
-    onChange([...twoPiece, next].slice(-2));
+    onChange(addArmorSetSelection(selected, next));
+  };
+  const remove = (index: number) => {
+    const remaining = selected.filter((_, entryIndex) => index !== entryIndex);
+    onChange(index === 0 && remaining[0]?.requiredPieces === 4 ? [] : remaining);
   };
   return <div className={styles.armorSetEditor}>
-    <p>Choose either one same-set 2 + 4-piece bonus, or two different 2-piece set bonuses.</p>
-    {values.length > 0 && <div className={styles.manifestSelections}>{values.map((entry, index) => <article className={styles.manifestSelection} key={`${entry.hash}-${entry.requiredPieces}-${index}`}>{entry.icon ? <img src={entry.icon} alt="" /> : <AlertTriangle />}<span><strong>{entry.setName || entry.name}</strong><small>{entry.requiredPieces === 4 ? "2 + 4-piece bonuses" : "2-piece bonus"}</small></span><button type="button" onClick={() => onChange(values.filter((_, entryIndex) => index !== entryIndex))} aria-label={`Remove ${entry.name}`}><Trash2 /></button></article>)}</div>}
-    {!(values.length === 1 && values[0]?.requiredPieces === 4) && values.length < 2 && <ManifestPicker kind="armorSetBonus" label={`Set configuration · ${values.length}/2`} placeholder="Search armor set bonuses…" context={{ classType }} onSelect={add} />}
+    <p>Slot 1 is a 2-piece bonus. Slot 2 may be another set's 2-piece bonus or the same set's 4-piece bonus.</p>
+    {selected.length > 0 && <div className={styles.manifestSelections}>{selected.map((entry, index) => <article className={styles.manifestSelection} key={`${entry.hash}-${entry.requiredPieces}-${index}`}>{entry.icon ? <img src={entry.icon} alt="" /> : <AlertTriangle />}<span><strong>{entry.setName || entry.name}</strong><small>Slot {index + 1} · {entry.requiredPieces}-piece bonus · {entry.name}</small></span><button type="button" onClick={() => remove(index)} aria-label={`Remove ${entry.requiredPieces}-piece ${entry.setName || entry.name} bonus`}><Trash2 /></button></article>)}</div>}
+    {selected.length < 2 && <ManifestPicker kind="armorSetBonus" label={selected.length ? "Second set bonus · 2 of another set or 4 of this set" : "First set bonus · choose a 2-piece bonus"} placeholder="Search armor set bonuses…" context={{ classType }} onSelect={add} allowManual={false} filterEntry={(entry) => armorSetOptionAllowed(selected, namedEntryFromCatalog(entry))} />}
   </div>;
 }
 

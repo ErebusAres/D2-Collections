@@ -1,4 +1,5 @@
 import type { BuildDocument, BuildGuardianClass, BuildSubclass, GuardianBuild } from "@guardian-nexus/contracts";
+import { normalizeArmorSetSelections } from "./armorSetBonuses";
 import { defaultBuildStatPriorities, normalizeBuildStatPriorities } from "./buildStats";
 
 export type BuildSort = "updated" | "newest" | "top" | "most-voted";
@@ -174,7 +175,7 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
     equipment: {
       weapons: named(value.equipment.weapons).filter((entry) => entry.slot.trim()).map((entry) => ({ ...entry, selectedPerks: named(entry.selectedPerks || []), traits: named(entry.traits || []) })),
       armor: named(value.equipment.armor).filter((entry) => entry.slot.trim()).map((entry) => ({ ...entry, traits: named(entry.traits || []), selectedSpirits: named(entry.selectedSpirits || []).slice(0, 2) })),
-      armorSets: named(value.equipment.armorSets)
+      armorSets: named(normalizeArmorSetSelections(value.equipment.armorSets)).slice(0, 2)
     },
     statPriorities: normalizeBuildStatPriorities(value.statPriorities).map((entry) => clean(entry)),
     armorMods: {
@@ -184,7 +185,7 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
       legs: named(expanded(value.armorMods.legs)).slice(0, 3),
       classItem: named(expanded(value.armorMods.classItem)).slice(0, 3)
     },
-    artifacts: named(value.artifacts).map((artifact) => ({ ...artifact, perks: named(artifact.perks) })),
+    artifacts: named(value.artifacts).map((artifact) => ({ ...artifact, perks: named(artifact.perks).slice(0, 7) })),
     gameplayLoop: value.gameplayLoop.filter((entry) => entry.text.trim()).map((entry) => clean(entry)),
     cosmetics: {
       ...value.cosmetics,

@@ -2,6 +2,7 @@ import type { BuildArmorMods, BuildNamedEntry, GuardianBuild } from "@guardian-n
 import { AlertTriangle, CircleHelp, ExternalLink, Film, Footprints, Gauge, Link2, MessageSquareText, PackageOpen, Palette, Play, Puzzle, Sparkles, Swords } from "lucide-react";
 import type { ReactNode } from "react";
 import { buildStatIcon } from "../../modules/builds/buildStats";
+import { normalizeArmorSetSelections } from "../../modules/builds/armorSetBonuses";
 import { expandBuildEntries } from "./BuildFormControls";
 import { BuildRichNotes } from "./BuildRichNotes";
 import styles from "../../pages/Builds.module.css";
@@ -38,7 +39,7 @@ export function BuildDetailSections({ build }: { build: GuardianBuild }) {
     </BuildSection>
 
     <BuildSection id="stats" eyebrow="Target thresholds" title="Stat priorities" icon={<Gauge />} empty={!build.statPriorities.length}>
-      <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`}><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>Priority {stat.priority}</small><strong>{stat.stat}</strong></span><b>{stat.target ?? stat.minimum ?? stat.maximum ?? "Any"}</b><small>{stat.minimum === undefined && stat.target === undefined && stat.maximum === undefined ? "No fixed threshold" : <>{stat.minimum !== undefined && `Min ${stat.minimum}`}{stat.minimum !== undefined && stat.target !== undefined && " · "}{stat.target !== undefined && `Target ${stat.target}`}{stat.maximum !== undefined && ` · Max ${stat.maximum}`}</>}</small></article>)}</div>
+      <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`} data-priority={stat.priority}><i><b>{stat.priority}</b><small>of 6</small></i><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>{stat.priority === 1 ? "Highest priority" : stat.priority === 6 ? "Lowest priority" : `Priority ${stat.priority}`}</small><strong>{stat.stat}</strong></span><b>{stat.target ?? stat.minimum ?? stat.maximum ?? "Any"}</b><small>{stat.minimum === undefined && stat.target === undefined && stat.maximum === undefined ? "Any value · no fixed threshold" : <>{stat.minimum !== undefined && `Min ${stat.minimum}`}{stat.minimum !== undefined && stat.target !== undefined && " · "}{stat.target !== undefined && `Target ${stat.target}`}{stat.maximum !== undefined && ` · Max ${stat.maximum}`}</>}</small></article>)}</div>
     </BuildSection>
 
     <BuildSection id="mods" eyebrow="Armor energy" title="Armor mods" icon={<Puzzle />} empty={!Object.values(build.armorMods).some((entries) => entries.length)}>
@@ -90,8 +91,9 @@ function EquipmentGroup({ title, entries }: { title: string; entries: GuardianBu
 }
 
 function ArmorSetBonusGroup({ entries }: { entries: BuildNamedEntry[] }) {
-  if (!entries.length) return null;
-  return <div className={styles.armorSetBonuses}><h3>Sets & bonuses</h3>{entries.map((entry) => <article key={`${entry.hash}-${entry.requiredPieces}`}><header>{entry.icon ? <img src={entry.icon} alt="" /> : <AlertTriangle />}<span><small>{entry.requiredPieces === 4 ? "2 + 4 pieces equipped" : "2 pieces equipped"}</small><strong>{entry.setName || entry.name}</strong></span></header><div>{(entry.bonuses || []).map((bonus) => <NamedEntry key={`${bonus.hash}-${bonus.requiredPieces}`} entry={bonus} />)}</div></article>)}</div>;
+  const selected = normalizeArmorSetSelections(entries);
+  if (!selected.length) return null;
+  return <div className={styles.armorSetBonuses}><h3>Selected set bonuses</h3>{selected.map((entry, index) => <article key={`${entry.hash}-${entry.requiredPieces}-${index}`}><header>{entry.icon ? <img src={entry.icon} alt="" /> : <AlertTriangle />}<span><small>{entry.requiredPieces}-piece bonus selected</small><strong>{entry.setName || entry.name}</strong></span></header><div>{(entry.bonuses?.length ? entry.bonuses : [entry]).map((bonus) => <NamedEntry key={`${bonus.hash}-${bonus.requiredPieces}-${bonus.name}`} entry={bonus} />)}</div></article>)}</div>;
 }
 
 function hasSubclassData(build: GuardianBuild): boolean {
