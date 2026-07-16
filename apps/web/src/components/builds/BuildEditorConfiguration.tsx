@@ -2,8 +2,9 @@ import type { BuildArmorMods, BuildCatalogEntry, BuildCatalogKind, BuildDocument
 import { CalendarClock, CirclePlus, Footprints, Gauge, PackageOpen, Palette, Puzzle, Sparkles, Swords, Trash2 } from "lucide-react";
 import { namedEntryFromCatalog } from "../../modules/builds/buildCatalog";
 import { EditorSection } from "./BuildEditorBasics";
-import { EquipmentEditor, NamedEntryEditor } from "./BuildFormControls";
+import { ArmorModEditor, EquipmentEditor, NamedEntryEditor } from "./BuildFormControls";
 import { isCatalogEntry, ManifestMultiEditor, ManifestPicker, ManifestSingleEditor } from "./ManifestPicker";
+import { BuildStatPriorityEditor } from "./BuildStatPriorityEditor";
 import styles from "../../pages/Builds.module.css";
 
 export function BuildEditorConfiguration({ value, onChange }: { value: BuildDocument; onChange: (value: BuildDocument) => void }) {
@@ -19,20 +20,15 @@ export function BuildEditorConfiguration({ value, onChange }: { value: BuildDocu
     <EditorSection title="Equipment" eyebrow="Weapons and armor" icon={<Swords />}>
       <h3>Weapons</h3><EquipmentEditor kind="weapon" values={value.equipment.weapons} onChange={(weapons) => set("equipment", { ...value.equipment, weapons })} addLabel="Add weapon" />
       <h3>Armor</h3><EquipmentEditor kind="armor" context={{ classType: value.classType }} values={value.equipment.armor} onChange={(armor) => set("equipment", { ...value.equipment, armor })} addLabel="Add armor" />
-      <h3>Sets and bonuses</h3><NamedEntryEditor kind="armor" label="Armor set pieces" placeholder="Search official armor definitions…" context={{ classType: value.classType }} values={value.equipment.armorSets} onChange={(armorSets) => set("equipment", { ...value.equipment, armorSets })} addLabel="Armor set pieces" />
+      <h3>Set bonuses</h3><NamedEntryEditor kind="armorSetBonus" label="Selected set bonuses" placeholder="Search a set such as Luminopotent, then choose its 2-piece or 2 + 4-piece bonus…" context={{ classType: value.classType }} values={value.equipment.armorSets} onChange={(armorSets) => set("equipment", { ...value.equipment, armorSets })} addLabel="Set bonuses" requiredToggle={false} />
     </EditorSection>
 
     <EditorSection title="Stats" eyebrow="Priorities and thresholds" icon={<Gauge />}>
-      <div className={styles.repeater}>{value.statPriorities.map((stat, index) => <div className={styles.repeaterRow} key={index}>
-        <label><span>Priority</span><input type="number" min={1} max={20} value={stat.priority} onChange={(event) => set("statPriorities", value.statPriorities.map((item, itemIndex) => itemIndex === index ? { ...item, priority: Number(event.target.value) } : item))} /></label>
-        <label><span>Stat</span><select value={stat.stat} onChange={(event) => set("statPriorities", value.statPriorities.map((item, itemIndex) => itemIndex === index ? { ...item, stat: event.target.value } : item))}><option value="">Choose stat</option>{["Health", "Melee", "Grenade", "Super", "Class", "Weapons"].map((entry) => <option key={entry}>{entry}</option>)}</select></label>
-        {(["minimum", "target", "maximum"] as const).map((key) => <label key={key}><span>{labelFor(key)}</span><input type="number" min={0} max={999} value={stat[key] ?? ""} onChange={(event) => set("statPriorities", value.statPriorities.map((item, itemIndex) => itemIndex === index ? { ...item, [key]: event.target.value ? Number(event.target.value) : undefined } : item))} /></label>)}
-        <button type="button" className={styles.removeField} onClick={() => set("statPriorities", value.statPriorities.filter((_, itemIndex) => itemIndex !== index))}><Trash2 /></button>
-      </div>)}<button type="button" className={styles.addField} onClick={() => set("statPriorities", [...value.statPriorities, { stat: "", priority: value.statPriorities.length + 1 }])}><CirclePlus /> Add stat priority</button></div>
+      <BuildStatPriorityEditor values={value.statPriorities} onChange={(statPriorities) => set("statPriorities", statPriorities)} />
     </EditorSection>
 
     <EditorSection title="Armor mods" eyebrow="Slot-by-slot energy" icon={<Puzzle />}>
-      {(Object.keys(value.armorMods) as (keyof BuildArmorMods)[]).map((slot) => <div key={slot}><h3>{labelFor(slot)}</h3><NamedEntryEditor kind="armorMod" label={`${labelFor(slot)} mods`} placeholder={`Search official ${labelFor(slot).toLowerCase()} mods…`} context={{ slot }} values={value.armorMods[slot]} onChange={(entries) => set("armorMods", { ...value.armorMods, [slot]: entries })} addLabel={`${labelFor(slot)} mods`} max={5} requiredToggle={false} /></div>)}
+      {(Object.keys(value.armorMods) as (keyof BuildArmorMods)[]).map((slot) => <div key={slot}><h3>{labelFor(slot)}</h3><ArmorModEditor slot={slot} label={`${labelFor(slot)} mods`} values={value.armorMods[slot]} onChange={(entries) => set("armorMods", { ...value.armorMods, [slot]: entries })} /></div>)}
     </EditorSection>
 
     <EditorSection title="Artifact" eyebrow="Post-June-9 tablets and perks" icon={<PackageOpen />}>
