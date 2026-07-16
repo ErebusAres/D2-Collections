@@ -9,11 +9,12 @@
     "dev:api": "pnpm --filter @guardian-nexus/api dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && node --test tools/sync-reward-codes.test.mjs",
     "lint": "eslint apps packages tools --max-warnings=0",
     "audit:archive": "node tools/audit-archive-boundary.mjs",
     "audit": "pnpm audit:archive && pnpm typecheck && pnpm test && pnpm build",
     "manifest:sync": "python tools/sync-manifest.py",
+    "codes:sync": "node tools/sync-reward-codes.mjs",
     "cf:deploy": "pnpm --filter @guardian-nexus/api run deploy && pnpm --filter @guardian-nexus/web run deploy"
   },
   "devDependencies": {
