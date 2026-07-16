@@ -25,7 +25,7 @@ const validBuild = {
 
 describe("build validation", () => {
   it("accepts a complete minimal build without inventing optional data", () => {
-    expect(buildDocumentSchema.parse(validBuild)).toMatchObject({ title: validBuild.title, tags: ["support"] });
+    expect(buildDocumentSchema.parse({ ...validBuild, concepts: [{ name: "Radiant", hash: "123", icon: "https://www.bungie.net/radiant.png" }] })).toMatchObject({ title: validBuild.title, tags: ["support"], concepts: [{ name: "Radiant", hash: "123" }], championCounters: [] });
   });
 
   it("requires at least one tag and rejects unsafe links", () => {

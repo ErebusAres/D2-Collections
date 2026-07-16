@@ -553,9 +553,53 @@ export type BuildLinkKind = "dim" | "mobalytics" | "youtube" | "twitch" | "sourc
 
 export interface BuildNamedEntry {
   name: string;
+  hash?: string;
   icon?: string;
+  itemType?: string;
+  rarity?: string;
+  damageType?: string;
   notes?: string;
   required?: boolean;
+}
+
+export type BuildCatalogKind =
+  | "subclass"
+  | "super"
+  | "classAbility"
+  | "movement"
+  | "melee"
+  | "grenade"
+  | "aspect"
+  | "fragment"
+  | "weapon"
+  | "armor"
+  | "armorMod"
+  | "artifact"
+  | "artifactPerk"
+  | "champion"
+  | "cosmetic"
+  | "icon";
+
+export interface BuildCatalogEntry {
+  hash: string;
+  name: string;
+  description: string;
+  icon: string;
+  itemType: string;
+  rarity: string;
+  slot: string;
+  damageType: string;
+  kind: BuildCatalogKind;
+  classType?: BuildGuardianClass;
+  subclass?: BuildSubclass;
+  exotic: boolean;
+}
+
+export interface BuildCatalogData {
+  manifestVersion: string;
+  available: boolean;
+  warning?: string;
+  results: BuildCatalogEntry[];
 }
 
 export interface BuildLink {
@@ -639,6 +683,8 @@ export interface BuildDocument {
   activityTags: string[];
   summary: string;
   notes: string;
+  concepts: BuildNamedEntry[];
+  championCounters: BuildNamedEntry[];
   links: BuildLink[];
   subclassConfig: BuildSubclassConfig;
   equipment: BuildEquipment;

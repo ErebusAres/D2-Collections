@@ -10,6 +10,8 @@ const build: GuardianBuild = {
   title: "Field-tested support",
   tags: ["support"],
   notes: "Keep Radiant active.",
+  concepts: [{ name: "Radiant", hash: "1", icon: "https://www.bungie.net/radiant.png" }],
+  championCounters: [{ name: "Anti-Barrier Hand Cannon", hash: "2", icon: "https://www.bungie.net/barrier.png" }],
   links: [{ kind: "dim", label: "Open in DIM", url: "https://app.destinyitemmanager.com/example" }],
   subclassConfig: { aspects: [{ name: "Bleak Watcher" }], fragments: [], grenade: { name: "Healing Grenade" } },
   equipment: { weapons: [{ slot: "Energy", name: "No Hesitation", exotic: false }], armor: [{ slot: "Chest", name: "Speaker's Sight", exotic: true }], armorSets: [] },
@@ -36,6 +38,7 @@ describe("BuildDetailSections", () => {
       expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
     }
     expect(screen.getByText("Volatile Wake")).toBeTruthy();
+    expect(screen.getByText("Anti-Barrier Hand Cannon")).toBeTruthy();
     expect(screen.getByText("Speaker's Sight")).toBeTruthy();
   });
 });

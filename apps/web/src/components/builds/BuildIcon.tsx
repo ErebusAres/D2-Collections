@@ -1,13 +1,12 @@
 import type { BuildGuardianClass, BuildSubclass } from "@guardian-nexus/contracts";
-import { Orbit, Shield, Sparkles, Sun, Waves, Wind, Zap } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import styles from "../../pages/Builds.module.css";
 
 export function SubclassIcon({ subclass, icon, large = false }: { subclass: BuildSubclass; icon?: string; large?: boolean }) {
   if (icon) return <span className={`${styles.subclassIcon} ${large ? styles.largeIcon : ""}`} data-element={subclass}><img src={icon} alt="" /></span>;
-  const Icon = subclass === "arc" ? Zap : subclass === "solar" ? Sun : subclass === "void" ? Orbit : subclass === "strand" ? Wind : subclass === "stasis" ? Waves : Sparkles;
-  return <span className={`${styles.subclassIcon} ${large ? styles.largeIcon : ""}`} data-element={subclass} aria-label={subclass}><Icon /></span>;
+  return <span className={`${styles.subclassIcon} ${large ? styles.largeIcon : ""}`} data-element={subclass} aria-label={`${subclass} icon unavailable`} title="Official subclass icon unavailable"><AlertTriangle /></span>;
 }
 
-export function ClassIcon({ classType }: { classType: BuildGuardianClass }) {
-  return <span className={styles.classIcon} aria-label={classType}><Shield /><b>{classType[0]!.toUpperCase()}</b></span>;
+export function ClassIcon({ classType, icon }: { classType: BuildGuardianClass; icon?: string }) {
+  return <span className={styles.classIcon} aria-label={classType} title={icon ? undefined : "Official class icon unavailable"}>{icon ? <img src={icon} alt="" /> : <AlertTriangle />}</span>;
 }
