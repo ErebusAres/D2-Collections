@@ -503,6 +503,8 @@ export interface GuardianLoadout {
   items: LoadoutItem[];
   equipment: LoadoutItem[];
   subclass?: LoadoutItem;
+  artifact?: LoadoutItem;
+  artifactMods: LoadoutSocket[];
   isPrismatic: boolean;
   transcendence?: LoadoutSocket;
   prismaticGrenade?: LoadoutSocket;
@@ -513,11 +515,11 @@ export interface GuardianLoadout {
   unresolvedItemCount: number;
 }
 
+/** @deprecated Artifact data is scoped to each GuardianLoadout after Destiny 2 Update 9.7.0. */
 export interface LoadoutArtifact {
   item?: LoadoutItem;
   mods: LoadoutSocket[];
-  pointsUsed?: number;
-  source: "current-character-progression";
+  source: "saved-loadout-compatibility";
   limitation: string;
 }
 
@@ -526,6 +528,7 @@ export interface LoadoutsData {
   characterId: string;
   characterClass: GuardianClass;
   loadouts: GuardianLoadout[];
+  /** @deprecated Retained temporarily so a Worker-first production rollout cannot break the previous web bundle. */
   artifact: LoadoutArtifact;
   equipRestriction: string;
 }
