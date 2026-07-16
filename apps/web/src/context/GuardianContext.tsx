@@ -1,7 +1,7 @@
-import type { SessionData } from "@guardian-nexus/contracts";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { SessionData, UpdateUserPreferenceRequest, UserPreferenceKey, UserPreferencesData } from "@guardian-nexus/contracts";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, ApiRequestError } from "../services/api/client";
+import { api, ApiRequestError, mutationHeaders, queuedApi } from "../services/api/client";
 
 interface GuardianContextValue {
   session?: SessionData;
@@ -13,6 +13,8 @@ interface GuardianContextValue {
   setAutoRefresh: (value: boolean) => void;
   reducedMotion: boolean;
   setReducedMotion: (value: boolean) => void;
+  preferences: UserPreferencesData["values"];
+  setPreference: (key: UserPreferenceKey, value: string) => void;
   signIn: () => void;
   refresh: () => Promise<void>;
 }
@@ -28,6 +30,7 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
   const [selectedCharacterId, setSelectedCharacterId] = useState("");
   const [autoRefresh, setAutoRefreshState] = useState(() => localStorage.getItem("guardian-nexus:auto-refresh") !== "false");
   const [reducedMotion, setReducedMotionState] = useState(() => localStorage.getItem("guardian-nexus:reduced-motion") === "true");
+  const [preferences, setPreferencesState] = useState<UserPreferencesData["values"]>({});
   const sessionQuery = useQuery({
     queryKey: ["session", selectedCharacterId],
     queryFn: () => api<SessionData>(`/api/v1/session${selectedCharacterId ? `?characterId=${encodeURIComponent(selectedCharacterId)}` : ""}`),
@@ -41,6 +44,31 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
   });
   const session = sessionQuery.data?.data;
   const membershipId = session?.guardian?.membershipId;
+  const preferencesQuery = useQuery({
+    queryKey: ["preferences", membershipId],
+    queryFn: () => api<UserPreferencesData>("/api/v1/me/preferences"),
+    enabled: Boolean(session?.authenticated && membershipId),
+    staleTime: 5 * 60_000,
+    retry: 1
+  });
+  const preferenceMutation = useMutation({
+    mutationFn: (input: UpdateUserPreferenceRequest) => queuedApi<UserPreferencesData>("/api/v1/me/preferences", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) })
+  });
+
+  useEffect(() => {
+    if (!membershipId) { setPreferencesState({}); return; }
+    try { setPreferencesState(JSON.parse(localStorage.getItem(preferenceKey(membershipId, "preferences")) || "{}")); }
+    catch { setPreferencesState({}); }
+  }, [membershipId]);
+
+  useEffect(() => {
+    if (!membershipId || !preferencesQuery.data?.data.values) return;
+    setPreferencesState((current) => {
+      const next = { ...current, ...preferencesQuery.data!.data.values };
+      localStorage.setItem(preferenceKey(membershipId, "preferences"), JSON.stringify(next));
+      return next;
+    });
+  }, [membershipId, preferencesQuery.data]);
 
   useEffect(() => {
     if (!session?.guardian) return;
@@ -70,6 +98,16 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("guardian-nexus:reduced-motion", String(value));
   }, []);
 
+  const setPreference = useCallback((key: UserPreferenceKey, preferenceValue: string) => {
+    if (!membershipId) return;
+    setPreferencesState((current) => {
+      const next = { ...current, [key]: preferenceValue };
+      localStorage.setItem(preferenceKey(membershipId, "preferences"), JSON.stringify(next));
+      return next;
+    });
+    preferenceMutation.mutate({ key, value: preferenceValue });
+  }, [membershipId, preferenceMutation]);
+
   const value = useMemo<GuardianContextValue>(() => ({
     session,
     loading: sessionQuery.isLoading,
@@ -80,9 +118,11 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     setAutoRefresh,
     reducedMotion,
     setReducedMotion,
+    preferences,
+    setPreference,
     signIn: () => { window.location.href = `/api/v1/auth/start?returnTo=${encodeURIComponent(window.location.pathname)}`; },
     refresh: async () => { await sessionQuery.refetch(); await queryClient.invalidateQueries(); }
-  }), [session, sessionQuery.isLoading, sessionQuery.error, sessionQuery.refetch, selectedCharacterId, selectCharacter, autoRefresh, setAutoRefresh, reducedMotion, setReducedMotion, queryClient]);
+  }), [session, sessionQuery.isLoading, sessionQuery.error, sessionQuery.refetch, selectedCharacterId, selectCharacter, autoRefresh, setAutoRefresh, reducedMotion, setReducedMotion, preferences, setPreference, queryClient]);
 
   return <GuardianContext.Provider value={value}>{children}</GuardianContext.Provider>;
 }

@@ -1,6 +1,6 @@
 import type { RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Boxes, Cloud, CloudOff, Coins, Gift, GitCompareArrows, Layers3, ListTodo, Mail, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
+import { Badge, Boxes, Coins, Gift, GitCompareArrows, Layers3, ListTodo, Mail, Orbit, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
 import { useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
@@ -63,8 +63,8 @@ export function Shell() {
             )}
           </div>
           {!session?.authenticated && !loading && !error && <button className={styles.signIn} onClick={signIn}>Sign in with Bungie</button>}
-          <div className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""}`} title={connection.queued ? `${connection.queued} request${connection.queued === 1 ? "" : "s"} queued. Guardian Nexus will retry automatically. ${connection.lastError || ""}` : error ? `${error.message} Displaying the last successful Guardian data.` : connection.lastError || "Guardian services connected."}>
-            {error || connection.lastError ? <CloudOff size={17} /> : <Cloud size={17} />}{connection.queued > 0 && <b>{connection.queued}</b>}
+          <div className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""} ${connection.retrying ? styles.connectionWorking : ""}`} aria-label={error || connection.lastError ? "Guardian services interrupted" : "Guardian services connected"} title={connection.queued ? `${connection.queued} request${connection.queued === 1 ? "" : "s"} queued. Guardian Nexus will retry automatically. ${connection.lastError || ""}` : error ? `${error.message} Displaying the last successful Guardian data.` : connection.lastError || "Guardian services connected."}>
+            <Orbit size={18} />{connection.queued > 0 && <b>{connection.queued}</b>}
           </div>
           <button className={styles.optionsButton} onClick={() => setOptionsOpen(true)} aria-label="Open options"><Settings size={20} /><span>Options</span></button>
         </div>

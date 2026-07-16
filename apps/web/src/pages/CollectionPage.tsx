@@ -13,13 +13,13 @@ type OwnedFilter = "all" | "owned" | "missing";
 type AvailabilityFilter = "all" | "xur";
 
 export function CollectionPage() {
-  const { selectedCharacterId, session, autoRefresh } = useGuardian();
+  const { selectedCharacterId, session, autoRefresh, preferences, setPreference } = useGuardian();
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<KindFilter>("all");
   const [owned, setOwned] = useState<OwnedFilter>("all");
   const [catalyst, setCatalyst] = useState<"all" | CatalystState>("all");
   const [availability, setAvailability] = useState<AvailabilityFilter>("all");
-  const [sort, setSort] = useState<CollectionSortMode>("position");
+  const sort = COLLECTION_SORTS.has(preferences["collection.sort"] as CollectionSortMode) ? preferences["collection.sort"] as CollectionSortMode : "position";
   const [selected, setSelected] = useState<ExoticCollectionEntry | null>(null);
   const result = useQuery({
     queryKey: ["collection", selectedCharacterId],
@@ -54,7 +54,7 @@ export function CollectionPage() {
         <FilterGroup label="Collection" value={owned} values={["all", "owned", "missing"]} onChange={(value) => setOwned(value as OwnedFilter)} />
         <FilterGroup label="Availability" value={availability} values={["all", "xur"]} labels={{ xur: "Xûr" }} onChange={(value) => setAvailability(value as AvailabilityFilter)} />
         <label className={styles.selectFilter}><span>Catalyst</span><select value={catalyst} onChange={(event) => setCatalyst(event.target.value as typeof catalyst)}><option value="all">All states</option><option value="missing">Missing</option><option value="obtained">Obtained</option><option value="complete">Complete</option><option value="unavailable">No catalyst</option></select></label>
-        <label className={styles.selectFilter}><span>Sort</span><select value={sort} onChange={(event) => setSort(event.target.value as CollectionSortMode)}><option value="position">Position + A–Z</option><option value="type">Type + A–Z</option><option value="alpha">Name A–Z</option><option value="missing">Missing first</option><option value="owned">Owned first</option><option value="source">Acquisition source</option></select></label>
+        <label className={styles.selectFilter}><span>Sort</span><select value={sort} onChange={(event) => setPreference("collection.sort", event.target.value)}><option value="position">Position + A–Z</option><option value="type">Type + A–Z</option><option value="alpha">Name A–Z</option><option value="missing">Missing first</option><option value="owned">Owned first</option><option value="source">Acquisition source</option></select></label>
         <strong className={styles.resultCount}>{entries.length} shown</strong>
       </section>
       {entries.length ? <section className={styles.itemGrid}>
@@ -64,6 +64,8 @@ export function CollectionPage() {
     <GuideDrawer entry={selected} onClose={() => setSelected(null)} />
   </AuthGate>;
 }
+
+const COLLECTION_SORTS = new Set<CollectionSortMode>(["position", "type", "alpha", "missing", "owned", "source"]);
 
 function Summary({ label, value, progress, icon }: { label: string; value: string; progress: number; icon: React.ReactNode }) {
   return <article className={styles.summary}><i>{icon}</i><span>{label}</span><strong>{value}</strong><div><span style={{ width: `${Math.max(0, Math.min(100, progress * 100))}%` }} /></div></article>;

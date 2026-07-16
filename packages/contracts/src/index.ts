@@ -277,6 +277,8 @@ export interface FireteamContact {
 
 export interface FireteamSocialData {
   state: "available" | "reauthorization-required" | "unavailable";
+  friendsState?: "available" | "reauthorization-required" | "unavailable";
+  clanState?: "available" | "unavailable";
   contacts: FireteamContact[];
   warning?: string;
 }
@@ -513,6 +515,17 @@ export interface LoadoutsData {
   characterClass: GuardianClass;
   loadouts: GuardianLoadout[];
   equipRestriction: string;
+}
+
+export type UserPreferenceKey = "gear.sort" | "collection.sort";
+
+export interface UserPreferencesData {
+  values: Partial<Record<UserPreferenceKey, string>>;
+}
+
+export interface UpdateUserPreferenceRequest {
+  key: UserPreferenceKey;
+  value: string;
 }
 
 export interface EquipLoadoutRequest {

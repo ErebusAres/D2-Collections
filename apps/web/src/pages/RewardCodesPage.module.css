@@ -27,9 +27,19 @@
 .codeGrid main { padding: 12px; }
 .codeGrid h2 { margin: 0 0 8px; overflow: hidden; font: 600 17px "Barlow Condensed"; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .codeGrid code { display: block; padding: 8px; border: 1px solid rgba(231,200,119,.28); background: rgba(0,0,0,.25); color: var(--gold); font: 600 15px "Barlow Condensed"; letter-spacing: .1em; text-align: center; }
-.codeGrid p { display: flex; align-items: center; gap: 5px; margin: 9px 0 2px; color: var(--success); font-size: 8px; text-transform: uppercase; }
+.codeGrid p { display: flex; align-items: center; justify-content: center; gap: 5px; margin: 0 0 8px; color: var(--success); font-size: 8px; text-align: center; text-transform: uppercase; }
 .codeGrid p svg { width: 12px; height: 12px; }
 .codeGrid small { color: var(--faint); font-size: 7px; }
+.rewardExamples { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
+.rewardExamples > strong { display: block; margin-bottom: 6px; color: var(--muted); font-size: 7px; letter-spacing: .09em; text-transform: uppercase; }
+.rewardExamples > span { display: block; min-height: 34px; color: var(--faint); font-size: 8px; line-height: 1.4; }
+.rewardExamples ul { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.rewardExamples li { min-width: 0; display: flex; align-items: center; gap: 8px; padding: 5px; border: 1px solid rgba(255,255,255,.055); background: rgba(0,0,0,.18); }
+.rewardExamples img { width: 38px; height: 38px; flex: 0 0 38px; object-fit: cover; background: rgba(255,255,255,.04); }
+.rewardExamples li > span { min-width: 0; display: grid; gap: 2px; }
+.rewardExamples li b { overflow: hidden; color: var(--ink); font: 500 11px "Barlow Condensed"; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.rewardExamples li small { overflow: hidden; color: var(--muted); font-size: 7px; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.rewardExamples + small { display: block; margin-top: 8px; }
 .codeGrid footer { min-height: 34px; display: flex; border-top: 1px solid var(--line); }
 .codeGrid footer button, .codeGrid footer a { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--cyan); font-size: 7px; text-decoration: none; text-transform: uppercase; }
 .codeGrid footer a:last-child { max-width: 34px; border-right: 0; color: var(--muted); }

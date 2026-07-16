@@ -464,27 +464,31 @@ export async function socialRosterFor(row: SessionRow, accessToken: string, env:
 
   try {
     const groups = await bungieGet(`/GroupV2/User/${row.membership_type}/${row.membership_id}/0/1/`, env, accessToken);
-    const membership = (groups?.results || [])[0];
-    const groupId = String(membership?.group?.groupId || "");
-    const clanName = String(membership?.group?.name || membership?.group?.about || "Clan").trim();
-    if (groupId) {
-      const response = await bungieGet(`/GroupV2/${groupId}/Members/?currentpage=1`, env, accessToken);
-      clanAvailable = true;
-      for (const member of response?.results || []) {
-        const user = member?.destinyUserInfo || member?.bungieNetUserInfo || {};
-        const membershipId = String(user?.membershipId || "");
-        const name = destinyDisplayName(user) || "Clan member";
-        if (!membershipId || membershipId === row.membership_id) continue;
-        const existing = contacts.get(membershipId);
-        contacts.set(membershipId, {
-          membershipId,
-          membershipType: Number(user?.membershipType || 0) || existing?.membershipType,
-          displayName: existing?.displayName || name,
-          source: existing ? "friend-and-clan" : "clan",
-          clanName,
-          onlineState: existing?.onlineState || (typeof member?.isOnline === "boolean" ? member.isOnline ? "online" : "offline" : "unknown"),
-          inDestiny2: existing?.inDestiny2 || false
-        });
+    for (const membership of groups?.results || []) {
+      const groupId = String(membership?.group?.groupId || "");
+      const clanName = String(membership?.group?.name || membership?.group?.about || "Clan").trim();
+      if (!groupId) continue;
+      for (let page = 1; page <= 20; page += 1) {
+        const response = await bungieGet(`/GroupV2/${groupId}/Members/?currentpage=${page}`, env, accessToken);
+        clanAvailable = true;
+        for (const member of response?.results || []) {
+          const user = member?.destinyUserInfo || member?.bungieNetUserInfo || {};
+          const membershipId = String(user?.membershipId || "");
+          const name = destinyDisplayName(user) || "Clan member";
+          if (!membershipId || membershipId === row.membership_id) continue;
+          const existing = contacts.get(membershipId);
+          const clanOnlineState = typeof member?.isOnline === "boolean" ? member.isOnline ? "online" : "offline" : "unknown";
+          contacts.set(membershipId, {
+            membershipId,
+            membershipType: Number(user?.membershipType || 0) || existing?.membershipType,
+            displayName: existing?.displayName || name,
+            source: existing?.source === "friend" || existing?.source === "friend-and-clan" ? "friend-and-clan" : "clan",
+            clanName: mergeClanNames(existing?.clanName, clanName),
+            onlineState: existing?.onlineState === "online" || clanOnlineState === "online" ? "online" : existing?.onlineState || clanOnlineState,
+            inDestiny2: existing?.inDestiny2 || false
+          });
+        }
+        if (!response?.hasMore) break;
       }
     }
   } catch {
@@ -494,6 +498,8 @@ export async function socialRosterFor(row: SessionRow, accessToken: string, env:
   const available = friendsAvailable || clanAvailable;
   const value: FireteamSocialData = {
     state: available ? "available" : reauthorizationRequired ? "reauthorization-required" : "unavailable",
+    friendsState: friendsAvailable ? "available" : reauthorizationRequired ? "reauthorization-required" : "unavailable",
+    clanState: clanAvailable ? "available" : "unavailable",
     contacts: [...contacts.values()].sort((a, b) => socialOrder(a) - socialOrder(b) || a.displayName.localeCompare(b.displayName)),
     ...(!friendsAvailable && reauthorizationRequired
       ? { warning: "Bungie friends require the ReadUserData app permission and a fresh authorization." }
@@ -501,6 +507,10 @@ export async function socialRosterFor(row: SessionRow, accessToken: string, env:
   };
   socialRosterCache.set(row.membership_id, { value, expiresAt: Date.now() + 2 * 60_000 });
   return value;
+}
+
+function mergeClanNames(existing: string | undefined, next: string): string {
+  return [...new Set([...(existing || "").split(" · "), next].filter(Boolean))].join(" · ");
 }
 
 function socialOrder(contact: FireteamContact): number {

@@ -123,10 +123,28 @@ describe("socialRosterFor", () => {
     const result = await socialRosterFor(row, "access", { BUNGIE_API_KEY: "test" } as Env);
 
     expect(result.state).toBe("available");
+    expect(result.friendsState).toBe("available");
+    expect(result.clanState).toBe("available");
     expect(result.contacts).toMatchObject([
       { membershipId: "friend-1", displayName: "Friend#0007", source: "friend-and-clan", clanName: "Test Clan", onlineState: "online", inDestiny2: true },
       { membershipId: "clan-2", displayName: "Clanmate#0008", source: "clan", onlineState: "offline" }
     ]);
+  });
+
+  it("loads every returned clan member page", async () => {
+    const responses = [
+      { friends: [] },
+      { results: [{ group: { groupId: "clan-pages", name: "Full Clan" } }] },
+      { results: [{ isOnline: false, destinyUserInfo: { membershipId: "page-1", membershipType: 3, bungieGlobalDisplayName: "First" } }], hasMore: true },
+      { results: [{ isOnline: false, destinyUserInfo: { membershipId: "page-2", membershipType: 3, bungieGlobalDisplayName: "Second" } }], hasMore: false }
+    ];
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: responses.shift() }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await socialRosterFor({ membership_type: 3, membership_id: "paged-social-member" } as SessionRow, "access", { BUNGIE_API_KEY: "test" } as Env);
+
+    expect(result.contacts.map((contact) => contact.membershipId)).toEqual(["page-1", "page-2"]);
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(expect.arrayContaining([expect.stringContaining("currentpage=1"), expect.stringContaining("currentpage=2")]));
   });
 });
 
