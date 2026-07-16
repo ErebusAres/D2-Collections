@@ -42,4 +42,4 @@ Guardian Nexus does not simulate unsupported actions: joining, whispering, and l
 pnpm audit
 ```
 
-The manifest sync requires network access. A compact artifact generated from Bungie's official manifest is checked in so builds remain deterministic between scheduled refreshes.
+The manifest sync requires network access. Core compact artifacts are checked in for deterministic builds; the Build Builder's category shards are generated during `pnpm manifest:sync` so each selector can load and search only its relevant cached Destiny data.
