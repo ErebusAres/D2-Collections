@@ -1,4 +1,4 @@
-import type { BuildArmorSlot, BuildCatalogChunk, BuildCatalogData, BuildCatalogEntry, BuildCatalogKind, BuildCatalogManifest, BuildGuardianClass, BuildNamedEntry, BuildSubclass } from "@guardian-nexus/contracts";
+import type { BuildArmorSlot, BuildCatalogChunk, BuildCatalogData, BuildCatalogEntry, BuildCatalogKind, BuildCatalogManifest, BuildGuardianClass, BuildNamedEntry, BuildSubclass, GuardianBuild } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useMemo } from "react";
 
@@ -9,6 +9,7 @@ export interface BuildCatalogQuery {
   subclass?: BuildSubclass;
   slot?: BuildArmorSlot;
   itemHash?: string;
+  spiritRow?: 1 | 2;
   enabled?: boolean;
 }
 
@@ -34,7 +35,7 @@ export function useBuildCatalog(input: BuildCatalogQuery) {
       available: true,
       results: searchBuildCatalogChunk(chunk.data, { ...input, query })
     } satisfies BuildCatalogData
-  } : undefined, [chunk.data, index.data, input.kind, input.classType, input.subclass, input.slot, input.itemHash, query]);
+  } : undefined, [chunk.data, index.data, input.kind, input.classType, input.subclass, input.slot, input.itemHash, input.spiritRow, query]);
   return {
     data,
     isLoading: enabled && (index.isLoading || Boolean(path) && chunk.isLoading),
@@ -42,21 +43,38 @@ export function useBuildCatalog(input: BuildCatalogQuery) {
   };
 }
 
+export function useBuildArmorTraits(build: GuardianBuild | undefined): GuardianBuild | undefined {
+  const index = useQuery({ queryKey: ["build-catalog-index"], queryFn: () => staticJson<BuildCatalogManifest>("/data/build-catalog.json"), enabled: Boolean(build), staleTime: Infinity });
+  const path = index.data?.groups.armorTrait;
+  const traits = useQuery({ queryKey: ["build-catalog-chunk", path], queryFn: () => staticJson<BuildCatalogChunk>(`/data/${path}`), enabled: Boolean(build && path), staleTime: Infinity });
+  return useMemo(() => {
+    if (!build || !traits.data) return build;
+    const byHash = new Map(traits.data.entries.map((entry) => [entry.hash, entry.traits || []]));
+    return { ...build, equipment: { ...build.equipment, armor: build.equipment.armor.map((entry) => entry.traits?.length || !entry.hash ? entry : { ...entry, traits: byHash.get(entry.hash) || [] }) } };
+  }, [build, traits.data]);
+}
+
 export function searchBuildCatalogChunk(chunk: BuildCatalogChunk, input: Omit<BuildCatalogQuery, "enabled">): BuildCatalogEntry[] {
   const query = input.query.trim().toLocaleLowerCase();
   const allowedPerks = input.kind === "weaponPerk" && input.itemHash
     ? new Set(chunk.weaponPerkHashes?.[input.itemHash] || [])
     : undefined;
+  const allowedSpirits = input.kind === "exoticSpirit" && input.itemHash && input.spiritRow
+    ? new Set(chunk.spiritHashes?.[input.itemHash]?.[input.spiritRow === 1 ? "row1" : "row2"] || [])
+    : undefined;
   const seen = new Set<string>();
   return chunk.entries.filter((entry) => {
     if (allowedPerks && !allowedPerks.has(entry.hash)) return false;
+    if (allowedSpirits && !allowedSpirits.has(entry.hash)) return false;
     if (input.classType && entry.classType && entry.classType !== input.classType) return false;
     if ((input.kind === "subclass" || input.kind === "armor") && input.classType && entry.classType !== input.classType) return false;
     if (input.subclass && abilityKind(input.kind) && entry.subclass !== input.subclass) return false;
     if (input.slot && input.kind === "armorMod" && !entry.applicableSlots?.includes(input.slot)) return false;
     const search = `${entry.name} ${entry.itemType} ${entry.description} ${entry.rarity} ${entry.slot} ${entry.damageType} ${entry.setName || ""}`.toLocaleLowerCase();
     if (query && !search.includes(query)) return false;
-    const key = `${entry.kind}:${entry.name.toLocaleLowerCase()}:${entry.hash}:${entry.requiredPieces || 0}`;
+    const key = entry.kind === "armorMod"
+      ? `${entry.kind}:${entry.name.toLocaleLowerCase()}:${(entry.applicableSlots || []).join(",")}`
+      : `${entry.kind}:${entry.name.toLocaleLowerCase()}:${entry.hash}:${entry.requiredPieces || 0}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -78,7 +96,8 @@ export function namedEntryFromCatalog(entry: BuildCatalogEntry): BuildNamedEntry
     description: entry.description || undefined,
     setName: entry.setName,
     requiredPieces: entry.requiredPieces,
-    bonuses: entry.bonuses
+    bonuses: entry.bonuses,
+    row: entry.row
   };
 }
 

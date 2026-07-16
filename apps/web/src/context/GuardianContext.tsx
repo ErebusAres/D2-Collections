@@ -72,31 +72,20 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!session?.guardian) return;
-    const stored = localStorage.getItem(preferenceKey(session.guardian.membershipId, "character"));
+    const stored = preferences["site.character"] || localStorage.getItem(preferenceKey(session.guardian.membershipId, "character"));
     const validStored = session.guardian.characters.some((character) => character.characterId === stored);
     const next = validStored ? stored! : session.guardian.selectedCharacterId;
     if (next && next !== selectedCharacterId) setSelectedCharacterId(next);
-  }, [session?.guardian, selectedCharacterId]);
+  }, [session?.guardian, selectedCharacterId, preferences]);
+
+  useEffect(() => {
+    if (preferences["site.autoRefresh"] !== undefined) setAutoRefreshState(preferences["site.autoRefresh"] !== "false");
+    if (preferences["site.reducedMotion"] !== undefined) setReducedMotionState(preferences["site.reducedMotion"] === "true");
+  }, [preferences]);
 
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(reducedMotion);
   }, [reducedMotion]);
-
-  const selectCharacter = useCallback((id: string) => {
-    setSelectedCharacterId(id);
-    if (membershipId) localStorage.setItem(preferenceKey(membershipId, "character"), id);
-    void queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "session" });
-  }, [membershipId, queryClient]);
-
-  const setAutoRefresh = useCallback((value: boolean) => {
-    setAutoRefreshState(value);
-    localStorage.setItem("guardian-nexus:auto-refresh", String(value));
-  }, []);
-
-  const setReducedMotion = useCallback((value: boolean) => {
-    setReducedMotionState(value);
-    localStorage.setItem("guardian-nexus:reduced-motion", String(value));
-  }, []);
 
   const setPreference = useCallback((key: UserPreferenceKey, preferenceValue: string) => {
     if (!membershipId) return;
@@ -107,6 +96,25 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     });
     preferenceMutation.mutate({ key, value: preferenceValue });
   }, [membershipId, preferenceMutation]);
+
+  const selectCharacter = useCallback((id: string) => {
+    setSelectedCharacterId(id);
+    if (membershipId) localStorage.setItem(preferenceKey(membershipId, "character"), id);
+    setPreference("site.character", id);
+    void queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== "session" });
+  }, [membershipId, queryClient, setPreference]);
+
+  const setAutoRefresh = useCallback((value: boolean) => {
+    setAutoRefreshState(value);
+    localStorage.setItem("guardian-nexus:auto-refresh", String(value));
+    setPreference("site.autoRefresh", String(value));
+  }, [setPreference]);
+
+  const setReducedMotion = useCallback((value: boolean) => {
+    setReducedMotionState(value);
+    localStorage.setItem("guardian-nexus:reduced-motion", String(value));
+    setPreference("site.reducedMotion", String(value));
+  }, [setPreference]);
 
   const value = useMemo<GuardianContextValue>(() => ({
     session,

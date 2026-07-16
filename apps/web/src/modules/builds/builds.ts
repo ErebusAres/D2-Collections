@@ -151,6 +151,7 @@ export function splitTags(value: string): string[] {
 
 export function prepareBuildDocument(value: BuildDocument): BuildDocument {
   const named = <T extends { name: string }>(entries: T[]): T[] => entries.filter((entry) => entry.name.trim()).map((entry) => clean(entry));
+  const expanded = (entries: BuildDocument["armorMods"][keyof BuildDocument["armorMods"]]) => entries.flatMap((entry) => Array.from({ length: Math.max(1, entry.quantity || 1) }, () => ({ ...entry, quantity: undefined })));
   const optionalNamed = <T extends { name: string }>(entry: T | undefined): T | undefined => entry?.name.trim() ? clean(entry) : undefined;
   return clean({
     ...value,
@@ -171,17 +172,17 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
       fragments: named(value.subclassConfig.fragments)
     },
     equipment: {
-      weapons: named(value.equipment.weapons).filter((entry) => entry.slot.trim()).map((entry) => ({ ...entry, selectedPerks: named(entry.selectedPerks || []) })),
-      armor: named(value.equipment.armor).filter((entry) => entry.slot.trim()),
+      weapons: named(value.equipment.weapons).filter((entry) => entry.slot.trim()).map((entry) => ({ ...entry, selectedPerks: named(entry.selectedPerks || []), traits: named(entry.traits || []) })),
+      armor: named(value.equipment.armor).filter((entry) => entry.slot.trim()).map((entry) => ({ ...entry, traits: named(entry.traits || []), selectedSpirits: named(entry.selectedSpirits || []).slice(0, 2) })),
       armorSets: named(value.equipment.armorSets)
     },
     statPriorities: normalizeBuildStatPriorities(value.statPriorities).map((entry) => clean(entry)),
     armorMods: {
-      helmet: named(value.armorMods.helmet),
-      arms: named(value.armorMods.arms),
-      chest: named(value.armorMods.chest),
-      legs: named(value.armorMods.legs),
-      classItem: named(value.armorMods.classItem)
+      helmet: named(expanded(value.armorMods.helmet)).slice(0, 3),
+      arms: named(expanded(value.armorMods.arms)).slice(0, 3),
+      chest: named(expanded(value.armorMods.chest)).slice(0, 3),
+      legs: named(expanded(value.armorMods.legs)).slice(0, 3),
+      classItem: named(expanded(value.armorMods.classItem)).slice(0, 3)
     },
     artifacts: named(value.artifacts).map((artifact) => ({ ...artifact, perks: named(artifact.perks) })),
     gameplayLoop: value.gameplayLoop.filter((entry) => entry.text.trim()).map((entry) => clean(entry)),
