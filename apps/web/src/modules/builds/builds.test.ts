@@ -26,6 +26,20 @@ describe("build catalog filters", () => {
     expect(filterBuilds(entries, { ...defaultBuildFilters, search: "radiant" })).toHaveLength(0);
   });
 
+  it("searches selected rolls, set bonuses, and armor mods", () => {
+    const entries = [build({
+      equipment: {
+        weapons: [{ slot: "Energy", name: "No Hesitation", selectedPerks: [{ name: "Physic" }] }],
+        armor: [],
+        armorSets: [{ name: "Luminopotent · 2 + 4-piece", bonuses: [{ name: "Shock and Clear", description: "Creates Ionic Traces." }] }]
+      },
+      armorMods: { helmet: [{ name: "Dynamo", quantity: 2 }], arms: [], chest: [], legs: [], classItem: [] }
+    })];
+    expect(filterBuilds(entries, { ...defaultBuildFilters, search: "physic" })).toHaveLength(1);
+    expect(filterBuilds(entries, { ...defaultBuildFilters, search: "ionic traces" })).toHaveLength(1);
+    expect(filterBuilds(entries, { ...defaultBuildFilters, search: "dynamo" })).toHaveLength(1);
+  });
+
   it("sorts rated builds above unrated builds", () => {
     const entries = [build({ id: "one" }), build({ id: "two", rating: { upvotes: 8, downvotes: 2, total: 10, score: 6, percentPositive: 80 } })];
     expect(filterBuilds(entries, { ...defaultBuildFilters, sort: "top" })[0]?.id).toBe("two");
