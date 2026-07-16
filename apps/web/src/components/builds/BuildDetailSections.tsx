@@ -1,6 +1,7 @@
 import type { BuildArmorMods, BuildNamedEntry, GuardianBuild } from "@guardian-nexus/contracts";
 import { AlertTriangle, CircleHelp, ExternalLink, Film, Footprints, Gauge, Link2, MessageSquareText, PackageOpen, Palette, Play, Puzzle, Sparkles, Swords } from "lucide-react";
 import type { ReactNode } from "react";
+import { buildStatIcon } from "../../modules/builds/buildStats";
 import styles from "../../pages/Builds.module.css";
 
 export function BuildDetailSections({ build }: { build: GuardianBuild }) {
@@ -31,11 +32,11 @@ export function BuildDetailSections({ build }: { build: GuardianBuild }) {
     <BuildSection id="gear" eyebrow="Saved equipment" title="Equipment" icon={<Swords />} empty={!build.equipment.weapons.length && !build.equipment.armor.length && !build.equipment.armorSets.length}>
       <EquipmentGroup title="Weapons" entries={build.equipment.weapons} />
       <EquipmentGroup title="Armor" entries={build.equipment.armor} />
-      <NamedGroup title="Sets & bonuses" entries={build.equipment.armorSets} />
+      <ArmorSetBonusGroup entries={build.equipment.armorSets} />
     </BuildSection>
 
     <BuildSection id="stats" eyebrow="Target thresholds" title="Stat priorities" icon={<Gauge />} empty={!build.statPriorities.length}>
-      <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`}><i>{stat.priority}</i><span><strong>{stat.stat}</strong><small>{stat.minimum !== undefined && `Min ${stat.minimum}`}{stat.minimum !== undefined && stat.target !== undefined && " · "}{stat.target !== undefined && `Target ${stat.target}`}{stat.maximum !== undefined && ` · Max ${stat.maximum}`}</small></span>{stat.notes && <p>{stat.notes}</p>}</article>)}</div>
+      <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`}><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>Priority {stat.priority}</small><strong>{stat.stat}</strong></span><b>{stat.target ?? stat.minimum ?? stat.maximum ?? "—"}</b><small>{stat.minimum !== undefined && `Min ${stat.minimum}`}{stat.minimum !== undefined && stat.target !== undefined && " · "}{stat.target !== undefined && `Target ${stat.target}`}{stat.maximum !== undefined && ` · Max ${stat.maximum}`}</small></article>)}</div>
     </BuildSection>
 
     <BuildSection id="mods" eyebrow="Armor energy" title="Armor mods" icon={<Puzzle />} empty={!Object.values(build.armorMods).some((entries) => entries.length)}>
@@ -78,7 +79,7 @@ function NamedGroup({ title, entries }: { title: string; entries: BuildNamedEntr
 }
 
 function NamedEntry({ label, entry }: { label?: string; entry: BuildNamedEntry }) {
-  return <article className={styles.namedEntry}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span className={styles.unavailableManifestIcon} title="Official icon unavailable"><AlertTriangle /></span>}<span>{(label || entry.itemType || entry.damageType) && <small>{[label || entry.itemType, label ? entry.itemType : undefined, entry.damageType].filter(Boolean).join(" · ")}</small>}<strong>{entry.name}</strong>{entry.notes && <p>{entry.notes}</p>}</span>{entry.required !== undefined && <em data-required={entry.required}>{entry.required ? "Required" : "Flexible"}</em>}</article>;
+  return <article className={styles.namedEntry}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span className={styles.unavailableManifestIcon} title="Official icon unavailable"><AlertTriangle /></span>}<span>{(label || entry.itemType || entry.damageType) && <small>{[label || entry.itemType, label ? entry.itemType : undefined, entry.damageType].filter(Boolean).join(" · ")}</small>}<strong>{entry.name}</strong>{entry.description && <p>{entry.description}</p>}{entry.notes && <p>{entry.notes}</p>}</span>{(entry.quantity || 1) > 1 ? <em data-required="true">×{entry.quantity}</em> : entry.required !== undefined && <em data-required={entry.required}>{entry.required ? "Required" : "Flexible"}</em>}</article>;
 }
 
 function RichBuildNotes({ value }: { value: string }) {
@@ -99,7 +100,12 @@ function inlineNotes(value: string) {
 
 function EquipmentGroup({ title, entries }: { title: string; entries: GuardianBuild["equipment"]["weapons"] }) {
   if (!entries.length) return null;
-  return <div className={styles.namedGroup}><h3>{title}</h3><div>{entries.map((entry, index) => <article className={styles.namedEntry} key={`${entry.slot}-${entry.name}-${index}`}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span className={styles.unavailableManifestIcon} title="Official item icon unavailable"><AlertTriangle /></span>}<span><small>{[entry.slot, entry.itemType, entry.damageType].filter(Boolean).join(" · ")}</small><strong>{entry.name}</strong>{entry.perks && <p>{entry.perks}</p>}{entry.notes && <p>{entry.notes}</p>}</span>{entry.exotic ? <em data-required="true">Exotic</em> : entry.required !== undefined && <em data-required={entry.required}>{entry.required ? "Required" : "Flexible"}</em>}</article>)}</div></div>;
+  return <div className={styles.namedGroup}><h3>{title}</h3><div>{entries.map((entry, index) => <article className={`${styles.namedEntry} ${styles.equipmentDetailEntry}`} key={`${entry.slot}-${entry.name}-${index}`}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span className={styles.unavailableManifestIcon} title="Official item icon unavailable"><AlertTriangle /></span>}<span><small>{[entry.slot, entry.itemType, entry.damageType].filter(Boolean).join(" · ")}</small><strong>{entry.name}</strong>{entry.perks && <p>{entry.perks}</p>}{entry.notes && <p>{entry.notes}</p>}</span>{entry.exotic ? <em data-required="true">Exotic</em> : entry.required !== undefined && <em data-required={entry.required}>{entry.required ? "Required" : "Flexible"}</em>}{entry.selectedPerks?.length ? <div className={styles.equipmentRoll}>{entry.selectedPerks.map((perk) => <span key={`${perk.hash}-${perk.name}`} title={perk.description || perk.name}>{perk.icon ? <img src={perk.icon} alt="" /> : <AlertTriangle />}<small>{perk.itemType}</small><strong>{perk.name}</strong></span>)}</div> : null}</article>)}</div></div>;
+}
+
+function ArmorSetBonusGroup({ entries }: { entries: BuildNamedEntry[] }) {
+  if (!entries.length) return null;
+  return <div className={styles.armorSetBonuses}><h3>Sets & bonuses</h3>{entries.map((entry) => <article key={`${entry.hash}-${entry.requiredPieces}`}><header>{entry.icon ? <img src={entry.icon} alt="" /> : <AlertTriangle />}<span><small>{entry.requiredPieces === 4 ? "2 + 4 pieces equipped" : "2 pieces equipped"}</small><strong>{entry.setName || entry.name}</strong></span></header><div>{(entry.bonuses || []).map((bonus) => <NamedEntry key={`${bonus.hash}-${bonus.requiredPieces}`} entry={bonus} />)}</div></article>)}</div>;
 }
 
 function hasSubclassData(build: GuardianBuild): boolean {
