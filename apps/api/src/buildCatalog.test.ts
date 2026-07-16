@@ -1,48 +1,37 @@
-import type { CompanionManifest, GearManifest } from "@guardian-nexus/contracts";
+import type { BuildCatalogChunk, BuildCatalogEntry } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import { searchBuildCatalog } from "./buildCatalog";
 
-const companion: CompanionManifest = {
-  version: "test-manifest",
-  generatedAt: "2026-07-16T00:00:00.000Z",
-  bucketDefinitions: {},
-  loadoutNameDefinitions: {},
-  loadoutIconDefinitions: {},
-  loadoutColorDefinitions: {},
-  itemDefinitions: {
-    "1": item("Prismatic Hunter", "Hunter Subclass", "/icons/prismatic.png"),
-    "2": item("Combination Blow", "Arc Melee | Light Ability", "/icons/melee.png", "hunter.prism.melee"),
-    "3": item("Firepower", "Arms Armor Mod", "/icons/firepower.png", "enhancements.v2_arms"),
-    "4": { ...item("Gjallarhorn", "Rocket Launcher", "/icons/gjallarhorn.jpg"), itemType: 3, inventory: { tierTypeName: "Exotic" }, equipmentSlot: "Power Weapons", damageType: "Solar" },
-    "5": item("Locked Armor Mod", "Arms Armor Mod", "/icons/locked.png", "enhancements.v2_arms")
-  }
-};
-
-const gear: GearManifest = { version: "test-manifest", generatedAt: companion.generatedAt, gearItemDefinitions: {}, plugDefinitions: {}, statDefinitions: {} };
-
 describe("build manifest catalog", () => {
-  it("resolves official subclass and ability icons for the selected class and subclass", () => {
-    const subclass = searchBuildCatalog(companion, gear, { kind: "subclass", q: "", classType: "hunter" });
-    const melee = searchBuildCatalog(companion, gear, { kind: "melee", q: "combination", classType: "hunter", subclass: "prismatic" });
-    expect(subclass[0]).toMatchObject({ hash: "1", subclass: "prismatic", classType: "hunter", icon: "https://www.bungie.net/icons/prismatic.png" });
-    expect(melee[0]).toMatchObject({ hash: "2", kind: "melee", name: "Combination Blow" });
+  it("filters official subclass and ability definitions by class and subclass", () => {
+    const chunk = catalog("subclass", [entry("1", "Prismatic Hunter", "subclass", { classType: "hunter", subclass: "prismatic" }), entry("2", "Prismatic Titan", "subclass", { classType: "titan", subclass: "prismatic" })]);
+    expect(searchBuildCatalog(chunk, { kind: "subclass", q: "", classType: "hunter" })).toEqual([expect.objectContaining({ hash: "1", name: "Prismatic Hunter" })]);
   });
 
-  it("filters armor mods by slot and removes locked placeholders", () => {
-    expect(searchBuildCatalog(companion, gear, { kind: "armorMod", q: "", slot: "arms" }).map((entry) => entry.name)).toEqual(["Firepower"]);
-    expect(searchBuildCatalog(companion, gear, { kind: "armorMod", q: "", slot: "helmet" })).toEqual([]);
+  it("uses precomputed slot applicability for armor mods", () => {
+    const chunk = catalog("armorMod", [entry("3", "Firepower", "armorMod", { applicableSlots: ["arms"] })]);
+    expect(searchBuildCatalog(chunk, { kind: "armorMod", q: "", slot: "arms" }).map((value) => value.name)).toEqual(["Firepower"]);
+    expect(searchBuildCatalog(chunk, { kind: "armorMod", q: "", slot: "helmet" })).toEqual([]);
   });
 
-  it("returns real weapon metadata and Exotic state", () => {
-    expect(searchBuildCatalog(companion, gear, { kind: "weapon", q: "gjallar" })[0]).toMatchObject({ name: "Gjallarhorn", exotic: true, slot: "Power Weapons", damageType: "Solar" });
+  it("limits searchable roll perks to the selected weapon's real pool", () => {
+    const chunk = { ...catalog("weaponPerk", [entry("10", "Incandescent", "weaponPerk"), entry("11", "Headstone", "weaponPerk")]), weaponPerkHashes: { "100": ["10"], "200": ["11"] } };
+    expect(searchBuildCatalog(chunk, { kind: "weaponPerk", q: "", itemHash: "100" }).map((value) => value.name)).toEqual(["Incandescent"]);
+  });
+
+  it("returns both the two-piece and cumulative four-piece set choices", () => {
+    const chunk = catalog("armorSetBonus", [
+      entry("20", "Luminopotent · 2-piece", "armorSetBonus", { setName: "Luminopotent", requiredPieces: 2 }),
+      entry("20", "Luminopotent · 2 + 4-piece", "armorSetBonus", { setName: "Luminopotent", requiredPieces: 4 })
+    ]);
+    expect(searchBuildCatalog(chunk, { kind: "armorSetBonus", q: "luminopotent" }).map((value) => value.requiredPieces)).toEqual([4, 2]);
   });
 });
 
-function item(name: string, itemTypeDisplayName: string, icon: string, plugCategoryIdentifier?: string) {
-  return {
-    displayProperties: { name, icon, description: `${name} description` },
-    itemTypeDisplayName,
-    inventory: { tierTypeName: "Legendary" },
-    ...(plugCategoryIdentifier ? { plug: { plugCategoryIdentifier } } : {})
-  };
+function catalog(kind: BuildCatalogChunk["kind"], entries: BuildCatalogEntry[]): BuildCatalogChunk {
+  return { version: "test-manifest", kind, entries };
+}
+
+function entry(hash: string, name: string, kind: BuildCatalogEntry["kind"], overrides: Partial<BuildCatalogEntry> = {}): BuildCatalogEntry {
+  return { hash, name, kind, description: `${name} description`, icon: `https://www.bungie.net/${hash}.png`, itemType: "", rarity: "", slot: "", damageType: "", exotic: false, ...overrides };
 }
