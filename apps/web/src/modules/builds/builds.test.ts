@@ -1,6 +1,6 @@
 import type { GuardianBuild } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { buildDiscordSummary, defaultBuildFilters, emptyBuildDocument, filterBuilds, splitTags } from "./builds";
+import { buildDiscordSummary, defaultBuildFilters, emptyBuildDocument, filterBuilds, prepareBuildDocument, splitTags } from "./builds";
 
 function build(values: Partial<GuardianBuild>): GuardianBuild {
   return {
@@ -58,5 +58,21 @@ describe("build catalog filters", () => {
     expect(summary).toContain("Anti-Barrier Hand Cannon");
     expect(summary).toContain("Radiant");
     expect(summary).toContain("1. Keep the fireteam alive");
+  });
+
+  it("converts legacy cumulative set data into two explicit saved bonuses", () => {
+    const value = emptyBuildDocument();
+    value.title = "Set conversion";
+    value.tags = ["pve"];
+    value.equipment.armorSets = [{
+      name: "Luminopotent · 2 + 4-piece",
+      setName: "Luminopotent",
+      requiredPieces: 4,
+      bonuses: [{ name: "Ionic Overclock", requiredPieces: 2 }, { name: "Shock and Clear", requiredPieces: 4 }]
+    }];
+    expect(prepareBuildDocument(value).equipment.armorSets).toEqual([
+      expect.objectContaining({ name: "Ionic Overclock", requiredPieces: 2 }),
+      expect.objectContaining({ name: "Shock and Clear", requiredPieces: 4 })
+    ]);
   });
 });

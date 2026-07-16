@@ -12,18 +12,19 @@ interface PickerContext {
   spiritRow?: 1 | 2;
 }
 
-export function ManifestPicker({ kind, label, placeholder, onSelect, context, allowManual = true }: {
+export function ManifestPicker({ kind, label, placeholder, onSelect, context, allowManual = true, filterEntry }: {
   kind: BuildCatalogKind;
   label: string;
   placeholder: string;
   onSelect: (entry: BuildCatalogEntry | BuildNamedEntry) => void;
   context?: PickerContext;
   allowManual?: boolean;
+  filterEntry?: (entry: BuildCatalogEntry) => boolean;
 }) {
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
   const result = useBuildCatalog({ kind, query, enabled: focused, ...context });
-  const entries = result.data?.data.results || [];
+  const entries = (result.data?.data.results || []).filter((entry) => !filterEntry || filterEntry(entry));
   const choose = (entry: BuildCatalogEntry | BuildNamedEntry) => {
     onSelect(entry);
     setQuery("");
@@ -33,8 +34,8 @@ export function ManifestPicker({ kind, label, placeholder, onSelect, context, al
     <div className={styles.manifestSearchInput}><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} onFocus={() => setFocused(true)} onBlur={() => window.setTimeout(() => setFocused(false), 120)} placeholder={placeholder} role="combobox" aria-expanded={focused} /></div>
     {focused && <div className={styles.manifestResults}>
       {result.isLoading && <p>Searching the current Bungie manifest…</p>}
-      {result.error && <p className={styles.manifestUnavailable}><AlertTriangle /> The cached Destiny catalog is temporarily unavailable. Manual entry remains available.</p>}
-      {!result.isLoading && !result.error && entries.map((entry) => <button type="button" key={`${entry.kind}-${entry.hash}`} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(entry)}>
+      {result.error && <p className={styles.manifestUnavailable}><AlertTriangle /> The cached Destiny catalog is temporarily unavailable. {allowManual ? "Manual entry remains available." : "Try the official selector again shortly."}</p>}
+      {!result.isLoading && !result.error && entries.map((entry) => <button type="button" key={`${entry.kind}-${entry.hash}-${entry.requiredPieces || 0}`} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(entry)}>
         <img src={entry.icon} alt="" loading="lazy" /><span><strong>{entry.name}</strong><small>{[entry.itemType, entry.rarity, entry.slot, entry.damageType].filter(Boolean).join(" · ")}</small>{entry.description && <small>{entry.description}</small>}</span>{entry.exotic && <em>Exotic</em>}
       </button>)}
       {!result.isLoading && !result.error && focused && !entries.length && <p>{kind === "icon" && query.trim().length < 2 ? "Type at least two characters to find a Destiny icon." : "No official definition matches this search."}</p>}

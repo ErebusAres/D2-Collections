@@ -24,12 +24,12 @@ describe("build manifest catalog", () => {
     expect(searchBuildCatalog(chunk, { kind: "weaponPerk", q: "", itemHash: "100" }).map((value) => value.name)).toEqual(["Incandescent"]);
   });
 
-  it("returns both the two-piece and cumulative four-piece set choices", () => {
+  it("returns separate two-piece and four-piece set choices", () => {
     const chunk = catalog("armorSetBonus", [
       entry("20", "Luminopotent · 2-piece", "armorSetBonus", { setName: "Luminopotent", requiredPieces: 2 }),
-      entry("20", "Luminopotent · 2 + 4-piece", "armorSetBonus", { setName: "Luminopotent", requiredPieces: 4 })
+      entry("20", "Luminopotent · 4-piece", "armorSetBonus", { setName: "Luminopotent", requiredPieces: 4 })
     ]);
-    expect(searchBuildCatalog(chunk, { kind: "armorSetBonus", q: "luminopotent" }).map((value) => value.requiredPieces)).toEqual([4, 2]);
+    expect(searchBuildCatalog(chunk, { kind: "armorSetBonus", q: "luminopotent" }).map((value) => value.requiredPieces)).toEqual([2, 4]);
   });
 });
 

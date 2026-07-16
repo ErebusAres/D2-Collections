@@ -45,6 +45,17 @@ const armorModEntriesSchema = z.array(namedEntrySchema).max(3).refine(
   (entries) => entries.reduce((total, entry) => total + (entry.quantity || 1), 0) <= 3,
   "Armor pieces support at most three selected mod copies."
 );
+const armorSetEntriesSchema = z.array(namedEntrySchema).max(2).refine((entries) => {
+  if (entries.length === 0) return true;
+  const [primary, secondary] = entries;
+  if (primary?.requiredPieces !== 2) return false;
+  if (!secondary) return true;
+  const primarySet = (primary.setName || "").toLocaleLowerCase();
+  const secondarySet = (secondary.setName || "").toLocaleLowerCase();
+  return secondary.requiredPieces === 4
+    ? Boolean(primarySet && primarySet === secondarySet)
+    : secondary.requiredPieces === 2 && Boolean(primarySet && secondarySet && primarySet !== secondarySet);
+}, "Armor sets must be either two different 2-piece bonuses or matching 2-piece and 4-piece bonuses.");
 const linkSchema = z.object({
   kind: z.enum(["dim", "mobalytics", "youtube", "twitch", "source", "other"]),
   label: z.string().trim().min(1).max(80),
@@ -77,7 +88,7 @@ export const buildDocumentSchema = z.object({
   equipment: z.object({
     weapons: z.array(equipmentEntrySchema).max(12).default([]),
     armor: z.array(equipmentEntrySchema).max(12).default([]),
-    armorSets: z.array(namedEntrySchema).max(12).default([])
+    armorSets: armorSetEntriesSchema.default([])
   }),
   statPriorities: z.array(z.object({
     stat: z.enum(["Health", "Melee", "Grenade", "Super", "Class", "Weapons"]),
@@ -96,7 +107,7 @@ export const buildDocumentSchema = z.object({
     classItem: armorModEntriesSchema.default([])
   }),
   artifacts: z.array(namedEntrySchema.extend({
-    perks: z.array(namedEntrySchema).max(30).default([]),
+    perks: z.array(namedEntrySchema).max(7).default([]),
     tier: z.string().trim().max(80).optional()
   })).max(6).default([]),
   gameplayLoop: z.array(z.object({

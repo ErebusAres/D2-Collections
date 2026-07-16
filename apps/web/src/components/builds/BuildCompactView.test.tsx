@@ -13,7 +13,7 @@ function build(): GuardianBuild {
     tags: ["pve"],
     notes: `Use ${destinyNoteToken({ name: "Radiant", hash: "1", icon: "https://www.bungie.net/radiant.png" })} before damage.`,
     subclassConfig: { aspects: [], fragments: [], super: { name: "Hammer of Sol", icon: "https://www.bungie.net/super.png" } },
-    equipment: { weapons: [], armor: [{ name: "Stoicism", slot: "Titan Mark", exotic: true, traits: [{ name: "Exotic Class Item" }], selectedSpirits: [{ name: "Spirit of the Abeyant", row: 1 }, { name: "Spirit of the Horn", row: 2 }] }], armorSets: [] },
+    equipment: { weapons: [], armor: [{ name: "Stoicism", slot: "Titan Mark", exotic: true, traits: [{ name: "Exotic Class Item" }], selectedSpirits: [{ name: "Spirit of the Abeyant", row: 1 }, { name: "Spirit of the Horn", row: 2 }] }], armorSets: [{ name: "Luminopotent · 2 + 4-piece", setName: "Luminopotent", requiredPieces: 4, bonuses: [{ name: "Ionic Overclock", requiredPieces: 2 }, { name: "Shock and Clear", requiredPieces: 4 }] }] },
     armorMods: { helmet: [{ name: "Dynamo", quantity: 2 }], arms: [], chest: [], legs: [], classItem: [] },
     statPriorities: [{ stat: "Grenade", priority: 1 }],
     gameplayLoop: [{ text: "Cast Barricade" }],
@@ -30,7 +30,11 @@ describe("BuildCompactView", () => {
     expect(screen.getByLabelText("Titan Mark: Stoicism")).toBeTruthy();
     expect(screen.getByText("Spirit of the Abeyant")).toBeTruthy();
     expect(screen.getAllByLabelText(/Helmet socket .*: Dynamo/)).toHaveLength(2);
-    expect(screen.getAllByLabelText("Grenade: Any")).toHaveLength(2);
+    expect(screen.getByLabelText("Grenade, priority 1 of 6, any value")).toBeTruthy();
+    expect(screen.getByLabelText("Grenade stat: Grenade")).toBeTruthy();
+    expect(screen.getByLabelText("Luminopotent · 2-piece bonus: Ionic Overclock")).toBeTruthy();
+    expect(screen.getByLabelText("Luminopotent · 4-piece bonus: Shock and Clear")).toBeTruthy();
+    expect(screen.queryByText("2+4")).toBeNull();
     expect(screen.getByText("Cast Barricade")).toBeTruthy();
   });
 
