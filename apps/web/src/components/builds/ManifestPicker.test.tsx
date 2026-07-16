@@ -5,8 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ManifestMultiEditor } from "./ManifestPicker";
 
 const entries = {
-  bleak: { hash: "1", kind: "aspect", name: "Bleak Watcher", icon: "https://www.bungie.net/bleak.png" },
-  iceflare: { hash: "2", kind: "aspect", name: "Iceflare Bolts", icon: "https://www.bungie.net/iceflare.png" }
+  bleak: catalogEntry("1", "Bleak Watcher", "https://www.bungie.net/bleak.png"),
+  iceflare: catalogEntry("2", "Iceflare Bolts", "https://www.bungie.net/iceflare.png")
 } as const;
 
 afterEach(() => vi.unstubAllGlobals());
@@ -15,8 +15,8 @@ describe("ManifestMultiEditor", () => {
   it("keeps subsequent searches open after selecting the first result", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input), "https://guardian-nexus.pages.dev");
-      const result = url.searchParams.get("q") === "iceflare" ? entries.iceflare : entries.bleak;
-      return new Response(JSON.stringify({ data: { available: true, results: [result] } }), { status: 200 });
+      if (url.pathname.endsWith("build-catalog.json")) return new Response(JSON.stringify({ version: "test", generatedAt: "2026-07-16T00:00:00.000Z", groups: { aspect: "build-catalog-aspect.json" }, statDefinitions: {} }), { status: 200 });
+      return new Response(JSON.stringify({ version: "test", kind: "aspect", entries: Object.values(entries) }), { status: 200 });
     }));
     const values: { name: string; hash?: string; icon?: string }[] = [];
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -38,3 +38,7 @@ describe("ManifestMultiEditor", () => {
     expect(await screen.findByRole("button", { name: /Iceflare Bolts/ })).toBeTruthy();
   });
 });
+
+function catalogEntry(hash: string, name: string, icon: string) {
+  return { hash, kind: "aspect", name, icon, description: `${name} description`, itemType: "Aspect", rarity: "", slot: "", damageType: "", exotic: false };
+}

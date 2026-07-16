@@ -1,4 +1,5 @@
 import type { BuildDocument, BuildGuardianClass, BuildSubclass, GuardianBuild } from "@guardian-nexus/contracts";
+import { defaultBuildStatPriorities, normalizeBuildStatPriorities } from "./buildStats";
 
 export type BuildSort = "updated" | "newest" | "top" | "most-voted";
 
@@ -44,7 +45,7 @@ export function emptyBuildDocument(): BuildDocument {
     links: [],
     subclassConfig: { aspects: [], fragments: [] },
     equipment: { weapons: [], armor: [], armorSets: [] },
-    statPriorities: [],
+    statPriorities: defaultBuildStatPriorities(),
     armorMods: { helmet: [], arms: [], chest: [], legs: [], classItem: [] },
     artifacts: [],
     gameplayLoop: [],
@@ -81,24 +82,33 @@ export function filterBuilds(builds: GuardianBuild[], filters: BuildFilters): Gu
 }
 
 function buildSearchText(build: GuardianBuild): string {
+  const armorMods = Object.values(build.armorMods).flat();
+  const subclassChoices = [build.subclassConfig.super, build.subclassConfig.classAbility, build.subclassConfig.movement, build.subclassConfig.melee, build.subclassConfig.grenade]
+    .flatMap((entry) => entry ? [entry] : []);
   const named = [
     ...build.equipment.weapons,
     ...build.equipment.armor,
     ...build.equipment.armorSets,
+    ...build.equipment.armorSets.flatMap((entry) => entry.bonuses || []),
+    ...build.equipment.weapons.flatMap((entry) => entry.selectedPerks || []),
+    ...armorMods,
     ...build.artifacts,
     ...build.artifacts.flatMap((artifact) => artifact.perks),
     ...build.concepts,
     ...build.championCounters,
+    ...subclassChoices,
     ...build.subclassConfig.aspects,
-    ...build.subclassConfig.fragments
-  ].map((entry) => `${entry.name} ${entry.notes || ""}`).join(" ");
+    ...build.subclassConfig.fragments,
+    ...build.cosmetics.ornaments,
+    ...[build.cosmetics.shader, build.cosmetics.ghost, build.cosmetics.sparrow, build.cosmetics.ship].flatMap((entry) => entry ? [entry] : [])
+  ].map((entry) => `${entry.name} ${entry.setName || ""} ${entry.description || ""} ${entry.notes || ""}`).join(" ");
   return [build.title, build.tags.join(" "), build.activityTags.join(" "), build.authorDisplayName, build.originalCreatorName, build.summary, build.notes, build.classType, build.subclass, named]
     .filter(Boolean).join(" ").toLowerCase();
 }
 
 export function buildDiscordSummary(build: GuardianBuild): string {
   const links = build.links.map((link) => `- ${link.label}: ${link.url}`).join("\n");
-  const weapons = build.equipment.weapons.map((item) => `- ${item.slot}: ${item.name}${item.required ? " (required)" : ""}`).join("\n");
+  const weapons = build.equipment.weapons.map((item) => `- ${item.slot}: ${item.name}${item.selectedPerks?.length ? ` — ${item.selectedPerks.map((perk) => perk.name).join(", ")}` : item.perks ? ` — ${item.perks}` : ""}${item.required ? " (required)" : ""}`).join("\n");
   const stats = [...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => `- ${stat.stat}: ${stat.target ?? stat.minimum ?? "priority"}`).join("\n");
   const artifacts = build.artifacts.map((artifact) => `- ${artifact.name}: ${artifact.perks.map((perk) => perk.name).join(", ") || "no perks listed"}`).join("\n");
   const champions = build.championCounters.map((entry) => entry.name).join(", ");
@@ -161,11 +171,11 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
       fragments: named(value.subclassConfig.fragments)
     },
     equipment: {
-      weapons: named(value.equipment.weapons).filter((entry) => entry.slot.trim()),
+      weapons: named(value.equipment.weapons).filter((entry) => entry.slot.trim()).map((entry) => ({ ...entry, selectedPerks: named(entry.selectedPerks || []) })),
       armor: named(value.equipment.armor).filter((entry) => entry.slot.trim()),
       armorSets: named(value.equipment.armorSets)
     },
-    statPriorities: value.statPriorities.filter((entry) => entry.stat.trim()).map((entry) => clean(entry)),
+    statPriorities: normalizeBuildStatPriorities(value.statPriorities).map((entry) => clean(entry)),
     armorMods: {
       helmet: named(value.armorMods.helmet),
       arms: named(value.armorMods.arms),

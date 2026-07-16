@@ -1,30 +1,70 @@
-import type { BuildCatalogData, BuildCatalogEntry, BuildCatalogKind, BuildGuardianClass, BuildNamedEntry, BuildSubclass } from "@guardian-nexus/contracts";
+import type { BuildArmorSlot, BuildCatalogChunk, BuildCatalogData, BuildCatalogEntry, BuildCatalogKind, BuildCatalogManifest, BuildGuardianClass, BuildNamedEntry, BuildSubclass } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { useDeferredValue } from "react";
-import { api } from "../../services/api/client";
+import { useDeferredValue, useMemo } from "react";
 
 export interface BuildCatalogQuery {
   kind: BuildCatalogKind;
   query: string;
   classType?: BuildGuardianClass;
   subclass?: BuildSubclass;
-  slot?: "helmet" | "arms" | "chest" | "legs" | "classItem";
+  slot?: BuildArmorSlot;
+  itemHash?: string;
   enabled?: boolean;
 }
 
 export function useBuildCatalog(input: BuildCatalogQuery) {
   const query = useDeferredValue(input.query.trim());
-  const parameters = new URLSearchParams({ kind: input.kind });
-  if (query) parameters.set("q", query);
-  if (input.classType) parameters.set("classType", input.classType);
-  if (input.subclass) parameters.set("subclass", input.subclass);
-  if (input.slot) parameters.set("slot", input.slot);
-  return useQuery({
-    queryKey: ["build-catalog", input.kind, query, input.classType, input.subclass, input.slot],
-    queryFn: () => api<BuildCatalogData>(`/api/v1/builds/catalog?${parameters.toString()}`),
-    enabled: input.enabled !== false && (input.kind !== "icon" || query.length >= 2),
-    staleTime: 10 * 60_000
+  const enabled = input.enabled !== false && (input.kind !== "icon" || query.length >= 2);
+  const index = useQuery({
+    queryKey: ["build-catalog-index"],
+    queryFn: () => staticJson<BuildCatalogManifest>("/data/build-catalog.json"),
+    enabled,
+    staleTime: Infinity
   });
+  const path = index.data?.groups[input.kind];
+  const chunk = useQuery({
+    queryKey: ["build-catalog-chunk", path],
+    queryFn: () => staticJson<BuildCatalogChunk>(`/data/${path}`),
+    enabled: enabled && Boolean(path),
+    staleTime: Infinity
+  });
+  const data = useMemo(() => chunk.data && index.data ? {
+    data: {
+      manifestVersion: index.data.version,
+      available: true,
+      results: searchBuildCatalogChunk(chunk.data, { ...input, query })
+    } satisfies BuildCatalogData
+  } : undefined, [chunk.data, index.data, input.kind, input.classType, input.subclass, input.slot, input.itemHash, query]);
+  return {
+    data,
+    isLoading: enabled && (index.isLoading || Boolean(path) && chunk.isLoading),
+    error: index.error || chunk.error
+  };
+}
+
+export function searchBuildCatalogChunk(chunk: BuildCatalogChunk, input: Omit<BuildCatalogQuery, "enabled">): BuildCatalogEntry[] {
+  const query = input.query.trim().toLocaleLowerCase();
+  const allowedPerks = input.kind === "weaponPerk" && input.itemHash
+    ? new Set(chunk.weaponPerkHashes?.[input.itemHash] || [])
+    : undefined;
+  const seen = new Set<string>();
+  return chunk.entries.filter((entry) => {
+    if (allowedPerks && !allowedPerks.has(entry.hash)) return false;
+    if (input.classType && entry.classType && entry.classType !== input.classType) return false;
+    if ((input.kind === "subclass" || input.kind === "armor") && input.classType && entry.classType !== input.classType) return false;
+    if (input.subclass && abilityKind(input.kind) && entry.subclass !== input.subclass) return false;
+    if (input.slot && input.kind === "armorMod" && !entry.applicableSlots?.includes(input.slot)) return false;
+    const search = `${entry.name} ${entry.itemType} ${entry.description} ${entry.rarity} ${entry.slot} ${entry.damageType} ${entry.setName || ""}`.toLocaleLowerCase();
+    if (query && !search.includes(query)) return false;
+    const key = `${entry.kind}:${entry.name.toLocaleLowerCase()}:${entry.hash}:${entry.requiredPieces || 0}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((left, right) => {
+    const leftExact = query && left.name.toLocaleLowerCase() === query ? 0 : query && left.name.toLocaleLowerCase().startsWith(query) ? 1 : 2;
+    const rightExact = query && right.name.toLocaleLowerCase() === query ? 0 : query && right.name.toLocaleLowerCase().startsWith(query) ? 1 : 2;
+    return leftExact - rightExact || Number(right.exotic) - Number(left.exotic) || left.name.localeCompare(right.name) || Number(left.requiredPieces || 0) - Number(right.requiredPieces || 0);
+  }).slice(0, 60);
 }
 
 export function namedEntryFromCatalog(entry: BuildCatalogEntry): BuildNamedEntry {
@@ -34,6 +74,20 @@ export function namedEntryFromCatalog(entry: BuildCatalogEntry): BuildNamedEntry
     icon: entry.icon,
     itemType: entry.itemType || undefined,
     rarity: entry.rarity || undefined,
-    damageType: entry.damageType || undefined
+    damageType: entry.damageType || undefined,
+    description: entry.description || undefined,
+    setName: entry.setName,
+    requiredPieces: entry.requiredPieces,
+    bonuses: entry.bonuses
   };
+}
+
+async function staticJson<T>(path: string): Promise<T> {
+  const response = await fetch(path, { cache: "force-cache" });
+  if (!response.ok) throw new Error(`Destiny build catalog request returned ${response.status}.`);
+  return response.json() as Promise<T>;
+}
+
+function abilityKind(kind: BuildCatalogKind): boolean {
+  return ["super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment"].includes(kind);
 }

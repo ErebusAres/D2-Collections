@@ -8,3 +8,4 @@ coverage/
 __pycache__/
 *.py[cod]
 apps/web/public/data/manifest.generated.json
+apps/web/public/data/build-catalog*.json

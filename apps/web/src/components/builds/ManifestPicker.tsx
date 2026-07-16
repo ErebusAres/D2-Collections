@@ -1,4 +1,4 @@
-import type { BuildCatalogEntry, BuildCatalogKind, BuildGuardianClass, BuildNamedEntry, BuildSubclass } from "@guardian-nexus/contracts";
+import type { BuildArmorSlot, BuildCatalogEntry, BuildCatalogKind, BuildGuardianClass, BuildNamedEntry, BuildSubclass } from "@guardian-nexus/contracts";
 import { AlertTriangle, Check, Search, Trash2, Wrench } from "lucide-react";
 import { useState } from "react";
 import { namedEntryFromCatalog, useBuildCatalog } from "../../modules/builds/buildCatalog";
@@ -7,7 +7,8 @@ import styles from "../../pages/Builds.module.css";
 interface PickerContext {
   classType?: BuildGuardianClass;
   subclass?: BuildSubclass;
-  slot?: "helmet" | "arms" | "chest" | "legs" | "classItem";
+  slot?: BuildArmorSlot;
+  itemHash?: string;
 }
 
 export function ManifestPicker({ kind, label, placeholder, onSelect, context, allowManual = true }: {
@@ -31,12 +32,11 @@ export function ManifestPicker({ kind, label, placeholder, onSelect, context, al
     <div className={styles.manifestSearchInput}><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} onFocus={() => setFocused(true)} onBlur={() => window.setTimeout(() => setFocused(false), 120)} placeholder={placeholder} role="combobox" aria-expanded={focused} /></div>
     {focused && <div className={styles.manifestResults}>
       {result.isLoading && <p>Searching the current Bungie manifest…</p>}
-      {result.error && <p className={styles.manifestUnavailable}><AlertTriangle /> Official definitions are temporarily unavailable. Manual entry remains available.</p>}
-      {result.data && !result.data.data.available && <p className={styles.manifestUnavailable}><AlertTriangle /> {result.data.data.warning || "The current Bungie manifest is unavailable."}</p>}
+      {result.error && <p className={styles.manifestUnavailable}><AlertTriangle /> The cached Destiny catalog is temporarily unavailable. Manual entry remains available.</p>}
       {!result.isLoading && !result.error && entries.map((entry) => <button type="button" key={`${entry.kind}-${entry.hash}`} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(entry)}>
-        <img src={entry.icon} alt="" loading="lazy" /><span><strong>{entry.name}</strong><small>{[entry.itemType, entry.rarity, entry.slot, entry.damageType].filter(Boolean).join(" · ")}</small></span>{entry.exotic && <em>Exotic</em>}
+        <img src={entry.icon} alt="" loading="lazy" /><span><strong>{entry.name}</strong><small>{[entry.itemType, entry.rarity, entry.slot, entry.damageType].filter(Boolean).join(" · ")}</small>{entry.description && <small>{entry.description}</small>}</span>{entry.exotic && <em>Exotic</em>}
       </button>)}
-      {!result.isLoading && !result.error && result.data?.data.available !== false && focused && !entries.length && <p>{kind === "icon" && query.trim().length < 2 ? "Type at least two characters to find a Destiny icon." : "No official definition matches this search."}</p>}
+      {!result.isLoading && !result.error && focused && !entries.length && <p>{kind === "icon" && query.trim().length < 2 ? "Type at least two characters to find a Destiny icon." : "No official definition matches this search."}</p>}
       {allowManual && query.trim().length >= 2 && <button type="button" className={styles.manualManifestEntry} onMouseDown={(event) => event.preventDefault()} onClick={() => choose({ name: query.trim() })}><Wrench /><span><strong>Use “{query.trim()}” manually</strong><small>No fabricated or placeholder icon will be added.</small></span></button>}
     </div>}
   </label>;
