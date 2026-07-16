@@ -9,9 +9,14 @@ describe("build manifest catalog", () => {
   });
 
   it("uses precomputed slot applicability for armor mods", () => {
-    const chunk = catalog("armorMod", [entry("3", "Firepower", "armorMod", { applicableSlots: ["arms"] })]);
+    const chunk = catalog("armorMod", [entry("3", "Firepower", "armorMod", { applicableSlots: ["arms"] }), entry("4", "Firepower", "armorMod", { applicableSlots: ["arms"] })]);
     expect(searchBuildCatalog(chunk, { kind: "armorMod", q: "", slot: "arms" }).map((value) => value.name)).toEqual(["Firepower"]);
     expect(searchBuildCatalog(chunk, { kind: "armorMod", q: "", slot: "helmet" })).toEqual([]);
+  });
+
+  it("limits exotic class-item Spirits to the selected row", () => {
+    const chunk = { ...catalog("exoticSpirit", [entry("30", "Spirit of the Abeyant", "exoticSpirit", { row: 1 }), entry("31", "Spirit of the Horn", "exoticSpirit", { row: 2 })]), spiritHashes: { "100": { row1: ["30"], row2: ["31"] } } };
+    expect(searchBuildCatalog(chunk, { kind: "exoticSpirit", q: "", itemHash: "100", spiritRow: 2 }).map((value) => value.name)).toEqual(["Spirit of the Horn"]);
   });
 
   it("limits searchable roll perks to the selected weapon's real pool", () => {

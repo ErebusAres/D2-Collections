@@ -29,13 +29,16 @@ const namedEntryBaseSchema = z.object({
   required: z.boolean().optional(),
   quantity: z.number().int().min(1).max(3).optional(),
   setName: z.string().trim().max(160).optional(),
-  requiredPieces: z.number().int().min(1).max(5).optional()
+  requiredPieces: z.number().int().min(1).max(5).optional(),
+  row: z.union([z.literal(1), z.literal(2)]).optional()
 });
 const namedEntrySchema = namedEntryBaseSchema.extend({ bonuses: z.array(namedEntryBaseSchema).max(4).optional() });
 const equipmentEntrySchema = namedEntrySchema.extend({
   slot: z.string().trim().min(1).max(80),
   perks: optionalText,
   selectedPerks: z.array(namedEntrySchema).max(10).optional(),
+  traits: z.array(namedEntrySchema).max(8).optional(),
+  selectedSpirits: z.array(namedEntrySchema).max(2).optional(),
   exotic: z.boolean().optional()
 });
 const armorModEntriesSchema = z.array(namedEntrySchema).max(3).refine(

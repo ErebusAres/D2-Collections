@@ -2,7 +2,7 @@ import type { BuildArmorMods, BuildCatalogEntry, BuildCatalogKind, BuildDocument
 import { CalendarClock, CirclePlus, Footprints, Gauge, PackageOpen, Palette, Puzzle, Sparkles, Swords, Trash2 } from "lucide-react";
 import { namedEntryFromCatalog } from "../../modules/builds/buildCatalog";
 import { EditorSection } from "./BuildEditorBasics";
-import { ArmorModEditor, EquipmentEditor, NamedEntryEditor } from "./BuildFormControls";
+import { ArmorModEditor, ArmorSetBonusEditor, EquipmentEditor, NamedEntryEditor } from "./BuildFormControls";
 import { isCatalogEntry, ManifestMultiEditor, ManifestPicker, ManifestSingleEditor } from "./ManifestPicker";
 import { BuildStatPriorityEditor } from "./BuildStatPriorityEditor";
 import styles from "../../pages/Builds.module.css";
@@ -20,7 +20,7 @@ export function BuildEditorConfiguration({ value, onChange }: { value: BuildDocu
     <EditorSection title="Equipment" eyebrow="Weapons and armor" icon={<Swords />}>
       <h3>Weapons</h3><EquipmentEditor kind="weapon" values={value.equipment.weapons} onChange={(weapons) => set("equipment", { ...value.equipment, weapons })} addLabel="Add weapon" />
       <h3>Armor</h3><EquipmentEditor kind="armor" context={{ classType: value.classType }} values={value.equipment.armor} onChange={(armor) => set("equipment", { ...value.equipment, armor })} addLabel="Add armor" />
-      <h3>Set bonuses</h3><NamedEntryEditor kind="armorSetBonus" label="Selected set bonuses" placeholder="Search a set such as Luminopotent, then choose its 2-piece or 2 + 4-piece bonus…" context={{ classType: value.classType }} values={value.equipment.armorSets} onChange={(armorSets) => set("equipment", { ...value.equipment, armorSets })} addLabel="Set bonuses" requiredToggle={false} />
+      <h3>Set bonuses</h3><ArmorSetBonusEditor classType={value.classType} values={value.equipment.armorSets} onChange={(armorSets) => set("equipment", { ...value.equipment, armorSets })} />
     </EditorSection>
 
     <EditorSection title="Stats" eyebrow="Priorities and thresholds" icon={<Gauge />}>

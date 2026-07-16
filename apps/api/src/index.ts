@@ -22,6 +22,7 @@ import type {
   RewardsPassData,
   SessionData,
   UpdateUserPreferenceRequest,
+  UpdateRewardCodePreferenceRequest,
   UserPreferencesData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
@@ -62,8 +63,14 @@ const mailboxPullSchema = z.object({ itemInstanceId: z.string().regex(/^\d+$/), 
 const equipLoadoutSchema = z.object({ loadoutIndex: z.number().int().nonnegative().max(99), characterId: z.string().regex(/^\d+$/) });
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
-  z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) })
+  z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
+  z.object({ key: z.enum(["gear.filters", "collection.filters", "quests.filters", "rewardCodes.filters", "builds.filters"]), value: z.string().max(4_000) }),
+  z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
+  z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "detailed"]) }),
+  z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion"]), value: z.enum(["true", "false"]) }),
+  z.object({ key: z.literal("site.character"), value: z.string().regex(/^\d+$/) })
 ]);
+const rewardCodePreferenceSchema = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{3}(?:-[A-Z0-9]{3}){2}$/), redeemed: z.boolean() }).strict();
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -116,6 +123,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/quests" && request.method === "GET") return quests(session.row, env, context);
   if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "GET") return rewardCodeStatus(session.row, env, context);
+  if (path === "/api/v1/me/reward-code-status" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateRewardCodePreference(request, session.row, env, context); }
   if (path === "/api/v1/me/gear" && request.method === "GET") return gear(session.row, env, context);
   if (path === "/api/v1/me/gear/item-state" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateGearState(request, session.row, env, context); }
   if (path === "/api/v1/me/gear/action" && request.method === "POST") { await requireCsrf(request, session.token, env); return gearAction(request, session.row, env, context); }
@@ -355,6 +363,9 @@ async function rewardCodeStatus(row: SessionRow, env: Env, context: RequestConte
   const { profile } = await profileFor(row, env, "collectibles");
   const manifest = await loadRewardCodeManifest(env);
   const data = normalizeRewardCodeStatus(profile, manifest);
+  const manual = await manualRewardCodes(row.membership_id, env);
+  data.manualCodes = manual.codes;
+  data.manualCodesConfigured = manual.configured;
   const unavailable = data.statuses.filter((entry) => entry.state === "unavailable").length;
   const warnings = manifest.version === "unavailable"
     ? ["Reward-code collectible mappings are unavailable; automatic ownership detection is temporarily disabled."]
@@ -365,6 +376,25 @@ async function rewardCodeStatus(row: SessionRow, env: Env, context: RequestConte
     sourceMintedAt: profile?.responseMintedTimestamp,
     warnings
   });
+}
+
+async function updateRewardCodePreference(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const input = rewardCodePreferenceSchema.parse(await request.json()) as UpdateRewardCodePreferenceRequest;
+  const codes = new Set((await manualRewardCodes(row.membership_id, env)).codes);
+  if (input.redeemed) codes.add(input.code); else codes.delete(input.code);
+  const values = [...codes].sort();
+  await env.DB.prepare(`INSERT INTO user_preferences (membership_id, preference_key, preference_value, updated_at) VALUES (?, 'reward.codes', ?, ?)
+    ON CONFLICT(membership_id, preference_key) DO UPDATE SET preference_value = excluded.preference_value, updated_at = excluded.updated_at`)
+    .bind(row.membership_id, JSON.stringify(values), new Date().toISOString()).run();
+  return envelope<{ manualCodes: string[] }>({ manualCodes: values }, env, context);
+}
+
+async function manualRewardCodes(membershipId: string, env: Env): Promise<{ codes: string[]; configured: boolean }> {
+  const row = await env.DB.prepare("SELECT preference_value FROM user_preferences WHERE membership_id = ? AND preference_key = 'reward.codes'").bind(membershipId).first<{ preference_value: string }>();
+  try {
+    const parsed = JSON.parse(row?.preference_value || "[]");
+    return { codes: Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string").slice(0, 500) : [], configured: Boolean(row) };
+  } catch { return { codes: [], configured: Boolean(row) }; }
 }
 
 async function userPreferences(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

@@ -2,7 +2,7 @@ import type { CatalystState, CollectionData, ExoticCollectionEntry } from "@guar
 import { sortCollectionEntries, type CollectionSortMode } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Check, ChevronRight, Coins, Search, Shield, Sparkles, Swords, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
@@ -19,6 +19,18 @@ export function CollectionPage() {
   const [owned, setOwned] = useState<OwnedFilter>("all");
   const [catalyst, setCatalyst] = useState<"all" | CatalystState>("all");
   const [availability, setAvailability] = useState<AvailabilityFilter>("all");
+  useEffect(() => {
+    const raw = preferences["collection.filters"];
+    if (!raw) return;
+    try {
+      const stored = JSON.parse(raw) as Record<string, string>;
+      if (["all", "weapon", "armor"].includes(stored.kind || "")) setKind(stored.kind as KindFilter);
+      if (["all", "owned", "missing"].includes(stored.owned || "")) setOwned(stored.owned as OwnedFilter);
+      if (["all", "missing", "obtained", "complete", "unavailable"].includes(stored.catalyst || "")) setCatalyst(stored.catalyst as "all" | CatalystState);
+      if (["all", "xur"].includes(stored.availability || "")) setAvailability(stored.availability as AvailabilityFilter);
+    } catch { /* Ignore malformed historical preferences. */ }
+  }, [preferences]);
+  const saveFilters = (next: Partial<{ kind: KindFilter; owned: OwnedFilter; catalyst: "all" | CatalystState; availability: AvailabilityFilter }>) => setPreference("collection.filters", JSON.stringify({ kind, owned, catalyst, availability, ...next }));
   const sort = COLLECTION_SORTS.has(preferences["collection.sort"] as CollectionSortMode) ? preferences["collection.sort"] as CollectionSortMode : "position";
   const [selected, setSelected] = useState<ExoticCollectionEntry | null>(null);
   const result = useQuery({
@@ -50,10 +62,10 @@ export function CollectionPage() {
       </section>
       <section className={styles.commandBar}>
         <label className={styles.search}><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Exotics, slots, sources…" /></label>
-        <FilterGroup label="Type" value={kind} values={["all", "weapon", "armor"]} onChange={(value) => setKind(value as KindFilter)} />
-        <FilterGroup label="Collection" value={owned} values={["all", "owned", "missing"]} onChange={(value) => setOwned(value as OwnedFilter)} />
-        <FilterGroup label="Availability" value={availability} values={["all", "xur"]} labels={{ xur: "Xûr" }} onChange={(value) => setAvailability(value as AvailabilityFilter)} />
-        <label className={styles.selectFilter}><span>Catalyst</span><select value={catalyst} onChange={(event) => setCatalyst(event.target.value as typeof catalyst)}><option value="all">All states</option><option value="missing">Missing</option><option value="obtained">Obtained</option><option value="complete">Complete</option><option value="unavailable">No catalyst</option></select></label>
+        <FilterGroup label="Type" value={kind} values={["all", "weapon", "armor"]} onChange={(value) => { const next = value as KindFilter; setKind(next); saveFilters({ kind: next }); }} />
+        <FilterGroup label="Collection" value={owned} values={["all", "owned", "missing"]} onChange={(value) => { const next = value as OwnedFilter; setOwned(next); saveFilters({ owned: next }); }} />
+        <FilterGroup label="Availability" value={availability} values={["all", "xur"]} labels={{ xur: "Xûr" }} onChange={(value) => { const next = value as AvailabilityFilter; setAvailability(next); saveFilters({ availability: next }); }} />
+        <label className={styles.selectFilter}><span>Catalyst</span><select value={catalyst} onChange={(event) => { const next = event.target.value as typeof catalyst; setCatalyst(next); saveFilters({ catalyst: next }); }}><option value="all">All states</option><option value="missing">Missing</option><option value="obtained">Obtained</option><option value="complete">Complete</option><option value="unavailable">No catalyst</option></select></label>
         <label className={styles.selectFilter}><span>Sort</span><select value={sort} onChange={(event) => setPreference("collection.sort", event.target.value)}><option value="position">Position + A–Z</option><option value="type">Type + A–Z</option><option value="alpha">Name A–Z</option><option value="missing">Missing first</option><option value="owned">Owned first</option><option value="source">Acquisition source</option></select></label>
         <strong className={styles.resultCount}>{entries.length} shown</strong>
       </section>

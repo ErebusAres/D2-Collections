@@ -2,7 +2,7 @@ import type { ArmorItem, ArmorStatKey, GearActionRequest, GearActionResult, Gear
 import { applyGearSearchSuggestion, ARMOR_STAT_KEYS, gearSearchSuggestions, groupArmor, matchesGearSearch, type ArmorGroupMode } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowUpFromLine, ChevronRight, Grid2X2, Lock, LockOpen, RefreshCw, Search, Shield, Sparkles, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { GearTagBadge, GearTagFilter, GearTagPicker } from "../components/gear/GearTagPicker";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
@@ -17,6 +17,21 @@ export function GearPage() {
   const [search, setSearch] = useState(""); const [searchFocused, setSearchFocused] = useState(false); const [slot, setSlot] = useState("all"); const [location, setLocation] = useState("all"); const [tag, setTag] = useState("all");
   const sort = GEAR_SORTS.has(preferences["gear.sort"] || "") ? preferences["gear.sort"]! : "analyzer";
   const [allClasses, setAllClasses] = useState(false); const [tolerance, setTolerance] = useState(5); const [groupMode, setGroupMode] = useState<ArmorGroupMode>("similar"); const [onlyGrouped, setOnlyGrouped] = useState(false); const [groupId, setGroupId] = useState("");
+  useEffect(() => {
+    const raw = preferences["gear.filters"];
+    if (!raw) return;
+    try {
+      const stored = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof stored.slot === "string") setSlot(stored.slot);
+      if (typeof stored.location === "string") setLocation(stored.location);
+      if (typeof stored.tag === "string") setTag(stored.tag);
+      if (typeof stored.allClasses === "boolean") setAllClasses(stored.allClasses);
+      if (typeof stored.tolerance === "number") setTolerance(Math.max(0, Math.min(20, stored.tolerance)));
+      if (["similar", "same-stats", "same-name-similar", "same-name-stats"].includes(String(stored.groupMode))) setGroupMode(stored.groupMode as ArmorGroupMode);
+      if (typeof stored.onlyGrouped === "boolean") setOnlyGrouped(stored.onlyGrouped);
+    } catch { /* Keep safe defaults when an older preference is malformed. */ }
+  }, [preferences]);
+  const saveFilters = (next: Partial<{ slot: string; location: string; tag: string; allClasses: boolean; tolerance: number; groupMode: ArmorGroupMode; onlyGrouped: boolean }>) => setPreference("gear.filters", JSON.stringify({ slot, location, tag, allClasses, tolerance, groupMode, onlyGrouped, ...next }));
   const result = useQuery({ queryKey: ["gear", selectedCharacterId], queryFn: () => api<GearData>(`/api/v1/me/gear?characterId=${encodeURIComponent(selectedCharacterId)}`), enabled: Boolean(session?.authenticated && selectedCharacterId), refetchInterval: autoRefresh ? 60_000 : false, refetchIntervalInBackground: false });
   const data = result.data?.data;
   const groups = useMemo(() => groupArmor(data?.items || [], tolerance, groupMode), [data?.items, tolerance, groupMode]);
@@ -38,17 +53,17 @@ export function GearPage() {
       <section className={styles.gearSummary}>{[["Armor", data.totals.armor], ["Vault", data.totals.vault], ["Equipped", data.totals.equipped], ["Locked", data.totals.locked], ["Groups", groups.length], ["New", data.totals.newItems]].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</section>
       <section className={styles.gearControls}>
         <label className={styles.gearSearch}><Search size={15} /><input value={search} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Tab" && suggestions[0]) { event.preventDefault(); setSearch(applyGearSearchSuggestion(search, suggestions[0].value)); } }} placeholder="Search or try isrank:s isarchetype:paragon" role="combobox" aria-expanded={searchFocused && suggestions.length > 0} aria-controls="gear-search-suggestions" />{searchFocused && suggestions.length > 0 && <div id="gear-search-suggestions" className={styles.gearSearchSuggestions} role="listbox">{suggestions.map((suggestion) => <button key={suggestion.value} type="button" role="option" onMouseDown={(event) => event.preventDefault()} onClick={() => setSearch(applyGearSearchSuggestion(search, suggestion.value))}><b>{suggestion.value}</b><span>{suggestion.description}</span></button>)}</div>}</label>
-        <select value={slot} onChange={(event) => setSlot(event.target.value)}><option value="all">All slots</option>{slots.map((value) => <option key={value}>{value}</option>)}</select>
-        <select value={location} onChange={(event) => setLocation(event.target.value)}><option value="all">All locations</option><option value="equipped">Equipped</option><option value="inventory">Characters</option><option value="vault">Vault</option></select>
-        <GearTagFilter value={tag as "all" | "none" | GearTag} onChange={setTag} />
+        <select value={slot} onChange={(event) => { setSlot(event.target.value); saveFilters({ slot: event.target.value }); }}><option value="all">All slots</option>{slots.map((value) => <option key={value}>{value}</option>)}</select>
+        <select value={location} onChange={(event) => { setLocation(event.target.value); saveFilters({ location: event.target.value }); }}><option value="all">All locations</option><option value="equipped">Equipped</option><option value="inventory">Characters</option><option value="vault">Vault</option></select>
+        <GearTagFilter value={tag as "all" | "none" | GearTag} onChange={(value) => { setTag(value); saveFilters({ tag: value }); }} />
         <select value={sort} onChange={(event) => setPreference("gear.sort", event.target.value)}><option value="analyzer">Group ID (1A–5Z)</option><option value="base">Best base total</option><option value="current">Best current total</option><option value="rank">Best rank</option><option value="tier">Highest tier</option><option value="power">Highest Power</option><option value="grouped">Grouped first</option><option value="untagged">Untagged first</option><option value="slot">Slot order</option><option value="new">Newest</option><option value="name">Name A–Z</option></select>
-        <button className={allClasses ? styles.gearControlActive : ""} onClick={() => setAllClasses((value) => !value)}>{allClasses ? "All classes" : data.selectedClass}</button>
+        <button className={allClasses ? styles.gearControlActive : ""} onClick={() => { setAllClasses((value) => !value); saveFilters({ allClasses: !allClasses }); }}>{allClasses ? "All classes" : data.selectedClass}</button>
         <button disabled title="Table layout is planned after the card workspace is validated"><Grid2X2 size={14} /> Cards</button>
       </section>
       <section className={styles.gearGroupingControls}>
-        <label><span>Grouping method</span><select value={groupMode} onChange={(event) => setGroupMode(event.target.value as ArmorGroupMode)}><option value="similar">Similar top stats</option><option value="same-stats">Exact stats, any name</option><option value="same-name-similar">Same name + similar stats</option><option value="same-name-stats">Same name + exact stats</option></select></label>
-        <label className={`${styles.tolerance} ${groupMode.includes("stats") ? styles.controlDisabled : ""}`}>Similarity ±<strong>{tolerance}</strong><input type="range" min="0" max="20" value={tolerance} disabled={groupMode.includes("stats")} onChange={(event) => setTolerance(Number(event.target.value))} /></label>
-        <button className={onlyGrouped ? styles.gearControlActive : ""} onClick={() => setOnlyGrouped((value) => !value)}><Grid2X2 size={13} /> Only show groups</button>
+        <label><span>Grouping method</span><select value={groupMode} onChange={(event) => { const value = event.target.value as ArmorGroupMode; setGroupMode(value); saveFilters({ groupMode: value }); }}><option value="similar">Similar top stats</option><option value="same-stats">Exact stats, any name</option><option value="same-name-similar">Same name + similar stats</option><option value="same-name-stats">Same name + exact stats</option></select></label>
+        <label className={`${styles.tolerance} ${groupMode.includes("stats") ? styles.controlDisabled : ""}`}>Similarity ±<strong>{tolerance}</strong><input type="range" min="0" max="20" value={tolerance} disabled={groupMode.includes("stats")} onChange={(event) => { const value = Number(event.target.value); setTolerance(value); saveFilters({ tolerance: value }); }} /></label>
+        <button className={onlyGrouped ? styles.gearControlActive : ""} onClick={() => { setOnlyGrouped((value) => !value); saveFilters({ onlyGrouped: !onlyGrouped }); }}><Grid2X2 size={13} /> Only show groups</button>
         <p><b>{groups.length}</b> comparison groups · Smart search supports quoted names, negation, numeric comparisons, and filters such as <code>is:locked</code>, <code>group:1A</code>, <code>tuned:grenade</code>, and <code>basetotal:&gt;=70</code>. Press Tab to accept the first suggestion.</p>
       </section>
       {data.items.filter((item) => item.isNew).slice(0, 20).length > 0 && <section className={styles.recentGear}><header><Sparkles size={15} /><strong>Recently discovered</strong></header><div>{data.items.filter((item) => item.isNew).sort((a,b) => Date.parse(b.firstSeenAt)-Date.parse(a.firstSeenAt)).slice(0,20).map((item) => <button key={item.instanceId} title={item.name} onClick={() => stateMutation.mutate({ itemInstanceId: item.instanceId, dismissed: true })}>{item.icon && <img src={item.icon} alt="" />}<span>{item.name}</span><X size={11} /></button>)}</div></section>}

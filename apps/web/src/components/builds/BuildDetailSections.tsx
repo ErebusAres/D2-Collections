@@ -2,6 +2,8 @@ import type { BuildArmorMods, BuildNamedEntry, GuardianBuild } from "@guardian-n
 import { AlertTriangle, CircleHelp, ExternalLink, Film, Footprints, Gauge, Link2, MessageSquareText, PackageOpen, Palette, Play, Puzzle, Sparkles, Swords } from "lucide-react";
 import type { ReactNode } from "react";
 import { buildStatIcon } from "../../modules/builds/buildStats";
+import { expandBuildEntries } from "./BuildFormControls";
+import { BuildRichNotes } from "./BuildRichNotes";
 import styles from "../../pages/Builds.module.css";
 
 export function BuildDetailSections({ build }: { build: GuardianBuild }) {
@@ -13,7 +15,7 @@ export function BuildDetailSections({ build }: { build: GuardianBuild }) {
 
     <BuildSection id="notes" eyebrow="Creator field notes" title="Notes" icon={<MessageSquareText />} empty={!build.notes && !build.concepts.length}>
       {build.concepts.length > 0 && <NamedGroup title="At a glance" entries={build.concepts} />}
-      {build.notes && <RichBuildNotes value={build.notes} />}
+      {build.notes && <BuildRichNotes value={build.notes} />}
     </BuildSection>
 
     <BuildSection id="subclass" eyebrow="Ability configuration" title="Subclass" icon={<Sparkles />} empty={!hasSubclassData(build)}>
@@ -36,11 +38,11 @@ export function BuildDetailSections({ build }: { build: GuardianBuild }) {
     </BuildSection>
 
     <BuildSection id="stats" eyebrow="Target thresholds" title="Stat priorities" icon={<Gauge />} empty={!build.statPriorities.length}>
-      <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`}><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>Priority {stat.priority}</small><strong>{stat.stat}</strong></span><b>{stat.target ?? stat.minimum ?? stat.maximum ?? "—"}</b><small>{stat.minimum !== undefined && `Min ${stat.minimum}`}{stat.minimum !== undefined && stat.target !== undefined && " · "}{stat.target !== undefined && `Target ${stat.target}`}{stat.maximum !== undefined && ` · Max ${stat.maximum}`}</small></article>)}</div>
+      <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`}><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>Priority {stat.priority}</small><strong>{stat.stat}</strong></span><b>{stat.target ?? stat.minimum ?? stat.maximum ?? "Any"}</b><small>{stat.minimum === undefined && stat.target === undefined && stat.maximum === undefined ? "No fixed threshold" : <>{stat.minimum !== undefined && `Min ${stat.minimum}`}{stat.minimum !== undefined && stat.target !== undefined && " · "}{stat.target !== undefined && `Target ${stat.target}`}{stat.maximum !== undefined && ` · Max ${stat.maximum}`}</>}</small></article>)}</div>
     </BuildSection>
 
     <BuildSection id="mods" eyebrow="Armor energy" title="Armor mods" icon={<Puzzle />} empty={!Object.values(build.armorMods).some((entries) => entries.length)}>
-      <div className={styles.modColumns}>{(Object.entries(build.armorMods) as [keyof BuildArmorMods, BuildNamedEntry[]][]).map(([slot, entries]) => entries.length > 0 && <NamedGroup key={slot} title={armorSlotLabel(slot)} entries={entries} />)}</div>
+      <div className={styles.modColumns}>{(Object.entries(build.armorMods) as [keyof BuildArmorMods, BuildNamedEntry[]][]).map(([slot, entries]) => entries.length > 0 && <NamedGroup key={slot} title={armorSlotLabel(slot)} entries={expandBuildEntries(entries)} />)}</div>
     </BuildSection>
 
     <BuildSection id="artifact" eyebrow="Seasonal configuration" title="Artifact" icon={<PackageOpen />} empty={!build.artifacts.length && !build.championCounters.length}>
@@ -82,25 +84,9 @@ function NamedEntry({ label, entry }: { label?: string; entry: BuildNamedEntry }
   return <article className={styles.namedEntry}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span className={styles.unavailableManifestIcon} title="Official icon unavailable"><AlertTriangle /></span>}<span>{(label || entry.itemType || entry.damageType) && <small>{[label || entry.itemType, label ? entry.itemType : undefined, entry.damageType].filter(Boolean).join(" · ")}</small>}<strong>{entry.name}</strong>{entry.description && <p>{entry.description}</p>}{entry.notes && <p>{entry.notes}</p>}</span>{(entry.quantity || 1) > 1 ? <em data-required="true">×{entry.quantity}</em> : entry.required !== undefined && <em data-required={entry.required}>{entry.required ? "Required" : "Flexible"}</em>}</article>;
 }
 
-function RichBuildNotes({ value }: { value: string }) {
-  return <div className={styles.richNotes}>{value.split("\n").map((line, index) => {
-    const heading = line.match(/^(#{1,3})\s+(.+)$/);
-    if (heading) return <h3 key={index}>{inlineNotes(heading[2] || "")}</h3>;
-    if (/^[-*]\s+/.test(line)) return <p className={styles.noteListItem} key={index}>• {inlineNotes(line.replace(/^[-*]\s+/, ""))}</p>;
-    if (/^\d+\.\s+/.test(line)) return <p className={styles.noteListItem} key={index}>{inlineNotes(line)}</p>;
-    return line ? <p key={index}>{inlineNotes(line)}</p> : <br key={index} />;
-  })}</div>;
-}
-
-function inlineNotes(value: string) {
-  return value.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean).map((part, index) => part.startsWith("**") && part.endsWith("**")
-    ? <strong key={index}>{part.slice(2, -2)}</strong>
-    : part.startsWith("`") && part.endsWith("`") ? <code key={index}>{part.slice(1, -1)}</code> : part);
-}
-
 function EquipmentGroup({ title, entries }: { title: string; entries: GuardianBuild["equipment"]["weapons"] }) {
   if (!entries.length) return null;
-  return <div className={styles.namedGroup}><h3>{title}</h3><div>{entries.map((entry, index) => <article className={`${styles.namedEntry} ${styles.equipmentDetailEntry}`} key={`${entry.slot}-${entry.name}-${index}`}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span className={styles.unavailableManifestIcon} title="Official item icon unavailable"><AlertTriangle /></span>}<span><small>{[entry.slot, entry.itemType, entry.damageType].filter(Boolean).join(" · ")}</small><strong>{entry.name}</strong>{entry.perks && <p>{entry.perks}</p>}{entry.notes && <p>{entry.notes}</p>}</span>{entry.exotic ? <em data-required="true">Exotic</em> : entry.required !== undefined && <em data-required={entry.required}>{entry.required ? "Required" : "Flexible"}</em>}{entry.selectedPerks?.length ? <div className={styles.equipmentRoll}>{entry.selectedPerks.map((perk) => <span key={`${perk.hash}-${perk.name}`} title={perk.description || perk.name}>{perk.icon ? <img src={perk.icon} alt="" /> : <AlertTriangle />}<small>{perk.itemType}</small><strong>{perk.name}</strong></span>)}</div> : null}</article>)}</div></div>;
+  return <div className={styles.namedGroup}><h3>{title}</h3><div>{entries.map((entry, index) => <article className={`${styles.namedEntry} ${styles.equipmentDetailEntry}`} key={`${entry.slot}-${entry.name}-${index}`}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span className={styles.unavailableManifestIcon} title="Official item icon unavailable"><AlertTriangle /></span>}<span><small>{[entry.slot, entry.itemType, entry.damageType].filter(Boolean).join(" · ")}</small><strong>{entry.name}</strong>{entry.perks && <p>{entry.perks}</p>}{entry.notes && <p>{entry.notes}</p>}</span>{entry.exotic ? <em data-required="true">Exotic</em> : entry.required !== undefined && <em data-required={entry.required}>{entry.required ? "Required" : "Flexible"}</em>}{[...(entry.traits || []), ...(entry.selectedPerks || []), ...(entry.selectedSpirits || [])].length ? <div className={styles.equipmentRoll}>{[...(entry.traits || []), ...(entry.selectedPerks || []), ...(entry.selectedSpirits || [])].map((perk, perkIndex) => <span key={`${perk.hash}-${perk.name}-${perkIndex}`} title={perk.description || perk.name}>{perk.icon ? <img src={perk.icon} alt="" /> : <AlertTriangle />}<small>{perk.row ? `Spirit row ${perk.row}` : perk.itemType}</small><strong>{perk.name}</strong></span>)}</div> : null}</article>)}</div></div>;
 }
 
 function ArmorSetBonusGroup({ entries }: { entries: BuildNamedEntry[] }) {

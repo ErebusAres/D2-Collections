@@ -1,17 +1,26 @@
 import type { BuildVoteResult, BuildsData } from "@guardian-nexus/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CirclePlus, Filter, Search, Sparkles } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { BuildCard } from "../components/builds/BuildCard";
 import { PageHeader, QueryState } from "../components/common/Page";
 import { defaultBuildFilters, filterBuilds, titleCase, type BuildFilters } from "../modules/builds/builds";
 import { api } from "../services/api/client";
 import styles from "./Builds.module.css";
+import { useGuardian } from "../context/GuardianContext";
 
 export function BuildsPage() {
   const queryClient = useQueryClient();
+  const { preferences, setPreference } = useGuardian();
   const [filters, setFilters] = useState<BuildFilters>(defaultBuildFilters);
+  const loadedPreference = useRef("");
+  useEffect(() => {
+    const stored = preferences["builds.filters"] || "";
+    if (!stored || stored === loadedPreference.current) return;
+    loadedPreference.current = stored;
+    setFilters((current) => ({ ...readBuildFilters(stored), search: current.search }));
+  }, [preferences]);
   const result = useQuery({ queryKey: ["builds"], queryFn: () => api<BuildsData>("/api/v1/builds") });
   const builds = result.data?.data.builds || [];
   const filtered = useMemo(() => filterBuilds(builds, filters), [builds, filters]);
@@ -21,7 +30,11 @@ export function BuildsPage() {
   const exoticArmor = useMemo(() => unique(builds.flatMap((build) => build.equipment.armor.filter((entry) => entry.exotic).map((entry) => entry.name))), [builds]);
   const exoticWeapons = useMemo(() => unique(builds.flatMap((build) => build.equipment.weapons.filter((entry) => entry.exotic).map((entry) => entry.name))), [builds]);
   const artifacts = useMemo(() => unique(builds.flatMap((build) => build.artifacts.map((entry) => entry.name))), [builds]);
-  const update = <K extends keyof BuildFilters>(key: K, value: BuildFilters[K]) => setFilters((current) => ({ ...current, [key]: value }));
+  const update = <K extends keyof BuildFilters>(key: K, value: BuildFilters[K]) => setFilters((current) => {
+    const next = { ...current, [key]: value };
+    if (key !== "search") { const stored = JSON.stringify({ ...next, search: "" }); loadedPreference.current = stored; setPreference("builds.filters", stored); }
+    return next;
+  });
   const ratingChanged = (_result: BuildVoteResult) => void queryClient.invalidateQueries({ queryKey: ["builds"] });
 
   return <>
@@ -43,9 +56,16 @@ export function BuildsPage() {
         <strong><Filter /> {filtered.length} / {builds.length}</strong>
       </section>
       {filtered.length ? <section className={styles.buildGrid}>{filtered.map((build) => <BuildCard key={build.id} build={build} onRatingChange={ratingChanged} />)}</section>
-        : <section className={styles.emptyBuilds}><Sparkles /><h2>{builds.length ? "No builds match these filters" : "The Builds library is ready"}</h2><p>{builds.length ? "Clear or adjust the current filters to reveal more configurations." : result.data.data.canCreate ? "Create the first real Guardian Nexus build. No sample or fabricated build data has been inserted." : "The approved editors have not published a build yet. Check back after their first field guide is ready."}</p>{builds.length > 0 && <button type="button" onClick={() => setFilters(defaultBuildFilters)}>Clear filters</button>}</section>}
+        : <section className={styles.emptyBuilds}><Sparkles /><h2>{builds.length ? "No builds match these filters" : "The Builds library is ready"}</h2><p>{builds.length ? "Clear or adjust the current filters to reveal more configurations." : result.data.data.canCreate ? "Create the first real Guardian Nexus build. No sample or fabricated build data has been inserted." : "The approved editors have not published a build yet. Check back after their first field guide is ready."}</p>{builds.length > 0 && <button type="button" onClick={() => { setFilters(defaultBuildFilters); setPreference("builds.filters", JSON.stringify(defaultBuildFilters)); }}>Clear filters</button>}</section>}
     </>}
   </>;
 }
 
 function unique(values: string[]): string[] { return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
+
+function readBuildFilters(raw: string): BuildFilters {
+  try {
+    const value = JSON.parse(raw) as Partial<BuildFilters>;
+    return { ...defaultBuildFilters, ...Object.fromEntries(Object.entries(value).filter(([, entry]) => typeof entry === "string")) } as BuildFilters;
+  } catch { return defaultBuildFilters; }
+}

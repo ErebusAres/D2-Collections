@@ -9,6 +9,7 @@ interface PickerContext {
   subclass?: BuildSubclass;
   slot?: BuildArmorSlot;
   itemHash?: string;
+  spiritRow?: 1 | 2;
 }
 
 export function ManifestPicker({ kind, label, placeholder, onSelect, context, allowManual = true }: {

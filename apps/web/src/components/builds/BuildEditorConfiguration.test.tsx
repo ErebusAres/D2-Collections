@@ -11,7 +11,7 @@ describe("BuildEditorConfiguration", () => {
     expect(screen.getByPlaceholderText("Search super definitions…")).toBeTruthy();
     expect(screen.getByPlaceholderText("Search official weapon definitions…")).toBeTruthy();
     expect(screen.getByPlaceholderText("Search official Artifact definitions…")).toBeTruthy();
-    expect(screen.getByPlaceholderText(/Search a set such as Luminopotent/)).toBeTruthy();
+    expect(screen.getByPlaceholderText("Search armor set bonuses…")).toBeTruthy();
     expect(screen.getByText("Drag the six fixed Destiny stats into priority order. Priority 1 is highest; priority 6 is lowest.")).toBeTruthy();
     expect(screen.queryByText(/Icon URL/i)).toBeNull();
     expect(screen.queryByText(/Selection notes|Why these choices|Fashion notes/i)).toBeNull();

@@ -1,0 +1,41 @@
+// @vitest-environment jsdom
+import type { GuardianBuild } from "@guardian-nexus/contracts";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { emptyBuildDocument } from "../../modules/builds/builds";
+import { BuildCompactView } from "./BuildCompactView";
+import { BuildRichNotes, destinyNoteToken } from "./BuildRichNotes";
+
+function build(): GuardianBuild {
+  return {
+    ...emptyBuildDocument(),
+    title: "Compact Titan",
+    tags: ["pve"],
+    notes: `Use ${destinyNoteToken({ name: "Radiant", hash: "1", icon: "https://www.bungie.net/radiant.png" })} before damage.`,
+    subclassConfig: { aspects: [], fragments: [], super: { name: "Hammer of Sol", icon: "https://www.bungie.net/super.png" } },
+    equipment: { weapons: [], armor: [{ name: "Stoicism", slot: "Titan Mark", exotic: true, traits: [{ name: "Exotic Class Item" }], selectedSpirits: [{ name: "Spirit of the Abeyant", row: 1 }, { name: "Spirit of the Horn", row: 2 }] }], armorSets: [] },
+    armorMods: { helmet: [{ name: "Dynamo", quantity: 2 }], arms: [], chest: [], legs: [], classItem: [] },
+    statPriorities: [{ stat: "Grenade", priority: 1 }],
+    gameplayLoop: [{ text: "Cast Barricade" }],
+    id: "compact", slug: "compact", authorMembershipId: "1", authorDisplayName: "Guardian", rating: { upvotes: 0, downvotes: 0, total: 0, score: 0 }, canEdit: false,
+    createdAt: "2026-07-16T00:00:00.000Z", updatedAt: "2026-07-16T00:00:00.000Z"
+  };
+}
+
+describe("BuildCompactView", () => {
+  afterEach(cleanup);
+  it("shows all major build groups as tooltip-backed icons and expands repeated mods", () => {
+    render(<BuildCompactView build={build()} />);
+    expect(screen.getByRole("heading", { name: "Subclass & abilities" })).toBeTruthy();
+    expect(screen.getByLabelText("Titan Mark: Stoicism")).toBeTruthy();
+    expect(screen.getByText("Spirit of the Abeyant")).toBeTruthy();
+    expect(screen.getAllByLabelText(/Helmet socket .*: Dynamo/)).toHaveLength(2);
+    expect(screen.getAllByLabelText("Grenade: Any")).toHaveLength(2);
+    expect(screen.getByText("Cast Barricade")).toBeTruthy();
+  });
+
+  it("renders an inserted Destiny note token inline with its official icon", () => {
+    render(<BuildRichNotes value={build().notes} />);
+    expect(screen.getByLabelText("Destiny reference: Radiant")).toBeTruthy();
+  });
+});

@@ -467,7 +467,14 @@ export interface RewardCodeStatusData {
   source: "bungie-profile-collectibles";
   checkedAt: string;
   statuses: RewardCodeAccountStatus[];
+  manualCodes: string[];
+  manualCodesConfigured: boolean;
   limitation: string;
+}
+
+export interface UpdateRewardCodePreferenceRequest {
+  code: string;
+  redeemed: boolean;
 }
 
 export type LoadoutSocketCategory = "element" | "super" | "melee" | "grenade" | "prismatic-grenade" | "transcendence" | "class-ability" | "movement" | "aspect" | "fragment" | "artifact-perk" | "modifier" | "other";
@@ -533,7 +540,19 @@ export interface LoadoutsData {
   equipRestriction: string;
 }
 
-export type UserPreferenceKey = "gear.sort" | "collection.sort";
+export type UserPreferenceKey =
+  | "gear.sort"
+  | "gear.filters"
+  | "collection.sort"
+  | "collection.filters"
+  | "quests.layout"
+  | "quests.filters"
+  | "rewardCodes.filters"
+  | "builds.filters"
+  | "build.detail.layout"
+  | "site.autoRefresh"
+  | "site.reducedMotion"
+  | "site.character";
 
 export interface UserPreferencesData {
   values: Partial<Record<UserPreferenceKey, string>>;
@@ -564,6 +583,7 @@ export interface BuildNamedEntry {
   quantity?: number;
   setName?: string;
   requiredPieces?: number;
+  row?: 1 | 2;
   bonuses?: BuildNamedEntry[];
 }
 
@@ -582,6 +602,8 @@ export type BuildCatalogKind =
   | "weapon"
   | "weaponPerk"
   | "armor"
+  | "armorTrait"
+  | "exoticSpirit"
   | "armorMod"
   | "armorSetBonus"
   | "artifact"
@@ -607,6 +629,8 @@ export interface BuildCatalogEntry {
   setName?: string;
   requiredPieces?: number;
   bonuses?: BuildNamedEntry[];
+  traits?: BuildNamedEntry[];
+  row?: 1 | 2;
 }
 
 export interface BuildCatalogManifest {
@@ -621,6 +645,7 @@ export interface BuildCatalogChunk {
   kind: BuildCatalogKind;
   entries: BuildCatalogEntry[];
   weaponPerkHashes?: Record<string, string[]>;
+  spiritHashes?: Record<string, { row1: string[]; row2: string[] }>;
 }
 
 export interface BuildCatalogData {
@@ -651,6 +676,8 @@ export interface BuildEquipmentEntry extends BuildNamedEntry {
   slot: string;
   perks?: string;
   selectedPerks?: BuildNamedEntry[];
+  traits?: BuildNamedEntry[];
+  selectedSpirits?: BuildNamedEntry[];
   exotic?: boolean;
 }
 

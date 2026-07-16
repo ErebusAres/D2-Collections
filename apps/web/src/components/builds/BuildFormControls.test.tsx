@@ -6,7 +6,7 @@ import { ArmorModEditor } from "./BuildFormControls";
 
 describe("ArmorModEditor", () => {
   afterEach(cleanup);
-  it("stacks a selected armor mod to three copies and never past the piece cap", () => {
+  it("expands legacy stacked mods into individual removable sockets", () => {
     const onChange = vi.fn();
     render(<QueryClientProvider client={new QueryClient()}><ArmorModEditor
       slot="helmet"
@@ -15,8 +15,9 @@ describe("ArmorModEditor", () => {
       onChange={onChange}
     /></QueryClientProvider>);
 
-    fireEvent.click(screen.getByRole("button", { name: "Add one Dynamo" }));
-    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ name: "Dynamo", quantity: 3 })]);
+    expect(screen.getAllByText("Dynamo")).toHaveLength(2);
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove Dynamo" })[0]!);
+    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ name: "Dynamo", quantity: undefined })]);
   });
 
   it("disables adding another copy when all three mod sockets are used", () => {
@@ -28,6 +29,7 @@ describe("ArmorModEditor", () => {
     /></QueryClientProvider>);
 
     expect(screen.getByText("Arms mods complete · 3/3 mod sockets")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "Add one Dynamo" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Remove Dynamo" })).toHaveLength(2);
   });
 });

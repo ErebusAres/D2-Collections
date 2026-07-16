@@ -18,7 +18,7 @@ type QuestTooltipState = { questId: string; anchor: HTMLElement; locked: boolean
 const TOOLTIP_CLOSE_DELAY = 180;
 
 export function QuestsPage() {
-  const { session, selectedCharacterId, autoRefresh } = useGuardian();
+  const { session, selectedCharacterId, autoRefresh, preferences, setPreference } = useGuardian();
   const membershipId = session?.guardian?.membershipId || "";
   const storageKey = pinsKey(membershipId, selectedCharacterId);
   const [pins, setPins] = useState<Set<string>>(() => new Set());
@@ -27,7 +27,13 @@ export function QuestsPage() {
   const [tooltip, setTooltip] = useState<QuestTooltipState | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<QuestTooltipPosition | null>(null);
   const closeTimer = useRef<number | null>(null);
-  const [layout, setLayout] = useState<QuestLayout>(() => localStorage.getItem("guardian-nexus:quest-layout") === "list" ? "list" : "grid");
+  const layout: QuestLayout = preferences["quests.layout"] === "list" ? "list" : "grid";
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(preferences["quests.filters"] || "{}") as { filter?: string };
+      if (["all", "pinned", "tracked", "near", "activity"].includes(stored.filter || "")) setFilter(stored.filter as QuestFilter);
+    } catch { /* Keep the all-quests default. */ }
+  }, [preferences]);
   useEffect(() => { try { setPins(new Set(JSON.parse(localStorage.getItem(storageKey) || "[]"))); } catch { setPins(new Set()); } }, [storageKey]);
   const pinnedParam = [...pins].join(",");
   const result = useQuery({
@@ -127,7 +133,7 @@ export function QuestsPage() {
     localStorage.setItem(storageKey, JSON.stringify([...next]));
     return next;
   });
-  const chooseLayout = (value: QuestLayout) => { setLayout(value); localStorage.setItem("guardian-nexus:quest-layout", value); };
+  const chooseLayout = (value: QuestLayout) => setPreference("quests.layout", value);
 
   return <AuthGate>
     <PageHeader eyebrow="Pursuit intelligence" title="Quests" description="Track active quest steps, understand objective progress, and surface the most practical next actions without changing anything in game." actions={<Freshness observedAt={result.data?.freshness.observedAt} />} />
@@ -144,7 +150,7 @@ export function QuestsPage() {
         <label className={styles.search}><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search active quests…" /></label>
         <div className={styles.questFilters}>{([
           ["all", "All", ListFilter], ["pinned", "Site pinned", Bookmark], ["tracked", "In-game tracked", Crosshair], ["near", "Near complete", CheckCircle2], ["activity", "Activity", Activity]
-        ] as const).map(([value, label, Icon]) => <button key={value} className={filter === value ? styles.activeFilter : ""} onClick={() => setFilter(value)}><Icon size={14} />{label}</button>)}</div>
+        ] as const).map(([value, label, Icon]) => <button key={value} className={filter === value ? styles.activeFilter : ""} onClick={() => { setFilter(value); setPreference("quests.filters", JSON.stringify({ filter: value })); }}><Icon size={14} />{label}</button>)}</div>
         <div className={styles.layoutToggle}><button className={layout === "grid" ? styles.activeFilter : ""} onClick={() => chooseLayout("grid")}><LayoutGrid size={14} />Grid</button><button className={layout === "list" ? styles.activeFilter : ""} onClick={() => chooseLayout("list")}><Rows3 size={14} />List</button></div>
       </section>
       <section className={questStyles.questWorkspace}>

@@ -3,12 +3,13 @@ import { z } from "zod";
 import type { Env } from "./types";
 
 const querySchema = z.object({
-  kind: z.enum(["subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "weapon", "weaponPerk", "armor", "armorMod", "armorSetBonus", "artifact", "artifactPerk", "champion", "cosmetic", "icon"]),
+  kind: z.enum(["subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "weapon", "weaponPerk", "armor", "armorTrait", "exoticSpirit", "armorMod", "armorSetBonus", "artifact", "artifactPerk", "champion", "cosmetic", "icon"]),
   q: z.string().trim().max(100).default(""),
   classType: z.enum(["hunter", "titan", "warlock"]).optional(),
   subclass: z.enum(["prismatic", "arc", "solar", "void", "strand", "stasis"]).optional(),
   slot: z.enum(["helmet", "arms", "chest", "legs", "classItem"]).optional(),
-  itemHash: z.string().trim().regex(/^\d+$/).optional()
+  itemHash: z.string().trim().regex(/^\d+$/).optional(),
+  spiritRow: z.coerce.number().int().min(1).max(2).optional()
 });
 
 let indexCache: { value: BuildCatalogManifest; expiresAt: number } | undefined;
@@ -37,16 +38,22 @@ export function searchBuildCatalog(chunk: BuildCatalogChunk, input: z.infer<type
   const allowedPerks = input.kind === "weaponPerk" && input.itemHash
     ? new Set(chunk.weaponPerkHashes?.[input.itemHash] || [])
     : undefined;
+  const allowedSpirits = input.kind === "exoticSpirit" && input.itemHash && input.spiritRow
+    ? new Set(chunk.spiritHashes?.[input.itemHash]?.[input.spiritRow === 1 ? "row1" : "row2"] || [])
+    : undefined;
   const seen = new Set<string>();
   return chunk.entries.filter((entry) => {
     if (allowedPerks && !allowedPerks.has(entry.hash)) return false;
+    if (allowedSpirits && !allowedSpirits.has(entry.hash)) return false;
     if (input.classType && entry.classType && entry.classType !== input.classType) return false;
     if ((input.kind === "subclass" || input.kind === "armor") && input.classType && entry.classType !== input.classType) return false;
     if (input.subclass && abilityKind(input.kind) && entry.subclass !== input.subclass) return false;
     if (input.slot && input.kind === "armorMod" && !entry.applicableSlots?.includes(input.slot)) return false;
     const search = `${entry.name} ${entry.itemType} ${entry.description} ${entry.rarity} ${entry.slot} ${entry.damageType} ${entry.setName || ""}`.toLocaleLowerCase();
     if (query && !search.includes(query)) return false;
-    const key = `${entry.kind}:${entry.name.toLocaleLowerCase()}:${entry.hash}:${entry.requiredPieces || 0}`;
+    const key = entry.kind === "armorMod"
+      ? `${entry.kind}:${entry.name.toLocaleLowerCase()}:${(entry.applicableSlots || []).join(",")}`
+      : `${entry.kind}:${entry.name.toLocaleLowerCase()}:${entry.hash}:${entry.requiredPieces || 0}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

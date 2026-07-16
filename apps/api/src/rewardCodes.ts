@@ -22,6 +22,8 @@ export function normalizeRewardCodeStatus(profile: any, manifest: RewardCodeMani
     manifestVersion: manifest.version,
     source: "bungie-profile-collectibles",
     checkedAt,
+    manualCodes: [],
+    manualCodesConfigured: false,
     limitation: LIMITATION,
     statuses: Object.entries(manifest.definitions).map(([code, definition]) => {
       const hashes = [...new Set(definition.items.map((item) => String(item.collectibleHash || "")).filter(Boolean))];

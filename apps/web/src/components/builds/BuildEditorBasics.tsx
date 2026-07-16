@@ -2,8 +2,8 @@ import type { BuildDocument } from "@guardian-nexus/contracts";
 import { CirclePlus, Link2, MessageSquareText, Tags, Trash2 } from "lucide-react";
 import styles from "../../pages/Builds.module.css";
 import { BuildIdentitySelector } from "./BuildIdentitySelector";
-import { ManifestMultiEditor } from "./ManifestPicker";
 import { BuildTagInput } from "./BuildTagInput";
+import { BuildNotesEditor } from "./BuildNotesEditor";
 
 export function BuildEditorBasics({ value, onChange }: { value: BuildDocument; onChange: (value: BuildDocument) => void }) {
   const set = <K extends keyof BuildDocument>(key: K, next: BuildDocument[K]) => onChange({ ...value, [key]: next });
@@ -29,12 +29,7 @@ export function BuildEditorBasics({ value, onChange }: { value: BuildDocument; o
     </EditorSection>
 
     <EditorSection title="Notes" eyebrow="Readable field guide" icon={<MessageSquareText />}>
-      <div className={styles.notesConceptEditor}>
-        <h3>At-a-glance Destiny concepts</h3>
-        <p>Search the live manifest for status effects, abilities, fragments, mods, or Artifact perks. Selected chips use their official Destiny icons.</p>
-        <ManifestMultiEditor values={value.concepts} onChange={(concepts) => set("concepts", concepts)} kind="icon" label="Destiny icon inserts" addLabel="Icon chips" placeholder="Try Radiant, Devour, Jolt, Woven Mail…" context={{ classType: value.classType, subclass: value.subclass }} max={20} requiredToggle={false} />
-      </div>
-      <label className={styles.notesField}><span>Main build notes · text, Markdown-style formatting, and natural emoji are safe</span><textarea value={value.notes} onChange={(event) => set("notes", event.target.value)} placeholder="Explain the role, ability economy, flexible choices, encounter advice, and any substitutions in one place." /></label>
+      <BuildNotesEditor value={value} onChange={onChange} />
     </EditorSection>
   </>;
 }

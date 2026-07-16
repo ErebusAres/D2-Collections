@@ -37,6 +37,23 @@ BUILD_SUBCLASSES = {
     "warlock": {"prismatic": "Prismatic Warlock", "arc": "Stormcaller", "solar": "Dawnblade", "void": "Voidwalker", "strand": "Broodweaver", "stasis": "Shadebinder"},
 }
 WEAPON_ROLL_TYPES = re.compile(r"(?:trait|intrinsic|barrel|magazine|battery|scope|sight|stock|grip|guard|bowstring|arrow|rail|haft|blade|bolt|handle|tang|power core|weapon mod|praxic blade)", re.IGNORECASE)
+# The current InventoryItem sockets expose only the equipped Spirit per row. Keep the
+# stable class-item row constraints here, then resolve every name/hash/icon/description
+# from the current manifest so the editor never fabricates Destiny presentation data.
+EXOTIC_SPIRIT_POOLS = {
+    "stoicism": {
+        "row1": ["Assassin", "Inmost Light", "Ophidian", "Severance", "Hoarfrost", "Bear", "Abeyant", "Eternal Warrior"],
+        "row2": ["Star-Eater", "Synthoceps", "Verity", "Contact", "Scars", "Horn", "Alpha Lupi", "Armamentarium"],
+    },
+    "solipsism": {
+        "row1": ["Assassin", "Inmost Light", "Ophidian", "Osmiomancy", "Apotheosis", "Necrotic", "Stag", "Filaments"],
+        "row2": ["Star-Eater", "Synthoceps", "Verity", "Harmony", "Starfire", "Swarm", "Vesper", "Claw"],
+    },
+    "relativism": {
+        "row1": ["Assassin", "Inmost Light", "Ophidian", "Dragon", "Galanor", "Foetracer", "Caliban", "Renewal"],
+        "row2": ["Star-Eater", "Synthoceps", "Verity", "Cyrtarachne", "Gyrfalcon", "Liar", "Coyote", "Wormhusk"],
+    },
+}
 
 
 def get_json(url: str) -> dict:
@@ -387,6 +404,58 @@ def socket_plug_hashes(definition: dict, plug_sets: dict[str, dict]) -> set[str]
     return {value for value in hashes if value and value != "0"}
 
 
+def socket_entry_plug_hashes(socket: dict, plug_sets: dict[str, dict]) -> set[str]:
+    hashes = {str(socket.get("singleInitialItemHash") or "")}
+    hashes.update(str(item.get("plugItemHash") or item.get("itemHash") or "") for item in socket.get("reusablePlugItems", []))
+    for key in ("reusablePlugSetHash", "randomizedPlugSetHash", "randomPlugSetHash"):
+        plug_set = plug_sets.get(str(socket.get(key) or ""), {})
+        hashes.update(str(item.get("plugItemHash") or item.get("itemHash") or "") for item in plug_set.get("reusablePlugItems", []))
+    return {value for value in hashes if value and value != "0"}
+
+
+def build_named_entry(item_hash: str, definition: dict, item_type: str | None = None) -> dict:
+    properties = definition.get("displayProperties") or {}
+    return {
+        "hash": item_hash,
+        "name": str(properties.get("name", "")).strip(),
+        "description": str(properties.get("description", "")),
+        "icon": build_icon(str(properties.get("icon", ""))),
+        "itemType": item_type or str(definition.get("itemTypeDisplayName", "")),
+    }
+
+
+def spirit_key(name: str) -> str:
+    return re.sub(r"^spirit of (?:the )?", "", name.strip().lower())
+
+
+def exotic_armor_metadata(definition: dict, inventory: dict[str, dict], plug_sets: dict[str, dict], sandbox_perks: dict[str, dict]) -> tuple[list[dict], list[list[str]]]:
+    traits: dict[str, dict] = {}
+    spirit_rows: list[list[str]] = []
+    for socket in (definition.get("sockets") or {}).get("socketEntries", []):
+        socket_hashes = socket_entry_plug_hashes(socket, plug_sets)
+        spirits = []
+        for item_hash in socket_hashes:
+            plug_definition = inventory.get(item_hash, {})
+            properties = plug_definition.get("displayProperties") or {}
+            name = str(properties.get("name", "")).strip()
+            if name.lower().startswith("spirit of"):
+                spirits.append(item_hash)
+                continue
+            item_type = str(plug_definition.get("itemTypeDisplayName", "")).lower()
+            category = str((plug_definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
+            if name and properties.get("icon") and properties.get("description") and ("intrinsic" in item_type or "intrinsic" in category) and not re.search(r"^(empty|default|locked)", name, re.IGNORECASE):
+                traits[item_hash] = build_named_entry(item_hash, plug_definition)
+        if spirits:
+            spirit_rows.append(sorted(set(spirits), key=lambda value: str((inventory.get(value, {}).get("displayProperties") or {}).get("name", ""))))
+    for perk in definition.get("perks") or []:
+        perk_hash = str(perk.get("perkHash") or perk.get("sandboxPerkHash") or "")
+        perk_definition = sandbox_perks.get(perk_hash, {})
+        properties = perk_definition.get("displayProperties") or {}
+        if perk_hash and properties.get("name") and properties.get("description"):
+            traits[perk_hash] = build_named_entry(perk_hash, perk_definition, "Exotic Trait")
+    return list(traits.values()), spirit_rows[:2]
+
+
 def is_weapon_roll_definition(definition: dict) -> bool:
     properties = definition.get("displayProperties") or {}
     name = str(properties.get("name", "")).strip()
@@ -399,6 +468,9 @@ def is_weapon_roll_definition(definition: dict) -> bool:
 def build_catalog_manifest(inventory: dict[str, dict], damage_types: dict[str, dict], buckets: dict[str, dict], plug_sets: dict[str, dict], item_sets: dict[str, dict], sandbox_perks: dict[str, dict], stat_definitions: dict[str, dict], version: str, generated_at: str) -> dict:
     entries = []
     weapon_perk_hashes: dict[str, list[str]] = {}
+    spirit_hashes: dict[str, dict[str, list[str]]] = {}
+    spirit_rows_by_hash: dict[str, int] = {}
+    all_spirit_hashes: set[str] = set()
     roll_hashes: set[str] = set()
     for item_hash, definition in inventory.items():
         properties = definition.get("displayProperties") or {}
@@ -407,13 +479,59 @@ def build_catalog_manifest(inventory: dict[str, dict], damage_types: dict[str, d
             continue
         kind = build_catalog_kind(definition)
         if kind:
-            entries.append(build_catalog_entry(item_hash, definition, kind, damage_types, buckets))
+            entry = build_catalog_entry(item_hash, definition, kind, damage_types, buckets)
+            if kind == "armor" and entry["exotic"]:
+                traits, spirit_rows = exotic_armor_metadata(definition, inventory, plug_sets, sandbox_perks)
+                if traits:
+                    entry["traits"] = traits
+                if spirit_rows:
+                    row1 = spirit_rows[0] if len(spirit_rows) > 0 else []
+                    row2 = spirit_rows[1] if len(spirit_rows) > 1 else []
+                    spirit_hashes[item_hash] = {"row1": row1, "row2": row2}
+                    for row, hashes in enumerate((row1, row2), 1):
+                        all_spirit_hashes.update(hashes)
+                        for spirit_hash in hashes:
+                            spirit_rows_by_hash.setdefault(spirit_hash, row)
+            entries.append(entry)
+        item_type = str(definition.get("itemTypeDisplayName", "")).lower()
+        if name.lower().startswith("spirit of") and properties.get("icon"):
+            all_spirit_hashes.add(item_hash)
+        if "engram" in item_type and properties.get("icon"):
+            entries.append(build_catalog_entry(item_hash, definition, "icon", damage_types, buckets))
         if int(definition.get("itemType", -1)) == 3:
             available = sorted(value for value in socket_plug_hashes(definition, plug_sets) if value in inventory and is_weapon_roll_definition(inventory[value]))
             if available:
                 weapon_perk_hashes[item_hash] = available
                 roll_hashes.update(available)
     entries.extend(build_catalog_entry(item_hash, inventory[item_hash], "weaponPerk", damage_types, buckets) for item_hash in sorted(roll_hashes))
+    spirit_by_name: dict[str, str] = {}
+    for item_hash in all_spirit_hashes:
+        definition = inventory.get(item_hash, {})
+        name_key = spirit_key(str((definition.get("displayProperties") or {}).get("name", "")))
+        category = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
+        existing = inventory.get(spirit_by_name.get(name_key, ""), {})
+        existing_category = str((existing.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
+        if name_key and (name_key not in spirit_by_name or category == "intrinsics" and existing_category != "intrinsics"):
+            spirit_by_name[name_key] = item_hash
+    selected_spirit_hashes: set[str] = set()
+    for armor_entry in entries:
+        pool = EXOTIC_SPIRIT_POOLS.get(str(armor_entry.get("name", "")).lower())
+        if not pool:
+            continue
+        row1 = [spirit_by_name[name.lower()] for name in pool["row1"] if name.lower() in spirit_by_name]
+        row2 = [spirit_by_name[name.lower()] for name in pool["row2"] if name.lower() in spirit_by_name]
+        spirit_hashes[armor_entry["hash"]] = {"row1": row1, "row2": row2}
+        selected_spirit_hashes.update(row1)
+        selected_spirit_hashes.update(row2)
+        for row, hashes in enumerate((row1, row2), 1):
+            for spirit_hash in hashes:
+                spirit_rows_by_hash[spirit_hash] = row
+    for item_hash in sorted(selected_spirit_hashes):
+        if item_hash not in inventory:
+            continue
+        entry = build_catalog_entry(item_hash, inventory[item_hash], "exoticSpirit", damage_types, buckets)
+        entry["row"] = spirit_rows_by_hash.get(item_hash, 1)
+        entries.append(entry)
     for set_hash, item_set in item_sets.items():
         set_name = str((item_set.get("displayProperties") or {}).get("name", "")).strip()
         if not set_name or item_set.get("redacted"):
@@ -459,7 +577,7 @@ def build_catalog_manifest(inventory: dict[str, dict], damage_types: dict[str, d
         for stat_hash, name in stat_names.items()
     }
     entries.sort(key=lambda entry: (entry["kind"], entry.get("setName", ""), entry["name"], entry["hash"]))
-    return {"version": version, "generatedAt": generated_at, "entries": entries, "weaponPerkHashes": weapon_perk_hashes, "statDefinitions": stats}
+    return {"version": version, "generatedAt": generated_at, "entries": entries, "weaponPerkHashes": weapon_perk_hashes, "spiritHashes": spirit_hashes, "statDefinitions": stats}
 
 
 def write_build_catalog_files(catalog: dict) -> dict:
@@ -471,14 +589,20 @@ def write_build_catalog_files(catalog: dict) -> dict:
         entry for entry in grouped.get("artifactPerk", [])
         if re.search(r"anti[- ]?barrier|overload|unstoppable", f"{entry['name']} {entry['description']}", re.IGNORECASE)
     ]
-    icon_kinds = {"super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "armorMod", "artifactPerk"}
-    grouped["icon"] = [entry for entry in catalog["entries"] if entry["kind"] in icon_kinds]
+    grouped["armorTrait"] = [
+        {**entry, "kind": "armorTrait"} for entry in grouped.get("armor", [])
+        if entry.get("exotic") and entry.get("traits")
+    ]
+    icon_kinds = {"icon", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
+    grouped["icon"] = [entry for entry in catalog["entries"] if entry["kind"] in icon_kinds or entry["kind"] in {"weapon", "armor"} and entry.get("exotic")]
     for kind, entries in grouped.items():
         filename = f"build-catalog-{re.sub(r'([A-Z])', lambda match: '-' + match.group(1).lower(), kind)}.json"
         groups[kind] = filename
         chunk = {"version": catalog["version"], "kind": kind, "entries": entries}
         if kind == "weaponPerk":
             chunk["weaponPerkHashes"] = catalog["weaponPerkHashes"]
+        if kind == "exoticSpirit":
+            chunk["spiritHashes"] = catalog["spiritHashes"]
         BUILD_CATALOG_OUTPUT.with_name(filename).write_text(json.dumps(chunk, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     index = {"version": catalog["version"], "generatedAt": catalog["generatedAt"], "groups": groups, "statDefinitions": catalog["statDefinitions"]}
     BUILD_CATALOG_OUTPUT.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
