@@ -212,7 +212,7 @@ export async function profileFor(row: SessionRow, env: Env, mode: "full" | "sess
     : mode === "mailbox"
       ? "100,200,201"
       : mode === "loadouts"
-        ? "100,102,200,201,202,205,206"
+        ? "100,102,200,201,205,206"
         : mode === "collectibles"
           ? "100,200,800"
     : `100,102,103,104,200,201,202,204,205,300,301,304,305,307${mode === "gear" ? ",310" : ""},800,900,1000,1200`;

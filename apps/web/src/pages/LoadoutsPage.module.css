@@ -57,7 +57,6 @@
 .artifactMod { min-width: 0; min-height: 66px; display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 6px; padding: 6px; border: 1px solid var(--line); background: rgba(255,255,255,.025); }
 .artifactMod > img, .artifactMod > svg { width: 35px; height: 35px; object-fit: cover; color: var(--gold); }
 .artifactMod strong { overflow: hidden; font: 600 11px "Barlow Condensed"; line-height: 1.05; text-overflow: ellipsis; text-transform: uppercase; }
-.artifactNote { margin: 8px 0 0; color: var(--muted); font-size: 7px; }
 .itemUnavailable { border-style: dashed !important; color: var(--gold); }
 .unavailable { min-height: 48px; display: flex; align-items: center; gap: 7px; color: var(--gold); font-size: 9px; }
 .empty { min-height: 260px; display: grid; place-items: center; align-content: center; border: 1px solid var(--line); color: var(--muted); text-align: center; }

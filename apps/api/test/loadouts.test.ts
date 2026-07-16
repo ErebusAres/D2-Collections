@@ -74,7 +74,7 @@ describe("normalizeLoadouts", () => {
     expect(data.loadouts[0]).toMatchObject({ unresolvedItemCount: 1, items: [{ instanceId: "999", name: "Saved item unavailable", equipmentSlot: "Unavailable saved item", definitionAvailable: false }] });
   });
 
-  it("orders equipment, separates Prismatic configuration, and resolves the current artifact mods", () => {
+  it("orders equipment, separates Prismatic configuration, and resolves the Artifact saved with the loadout", () => {
     const equipment = [
       ["100", 10], ["101", 11], ["102", 12], ["103", 13], ["104", 14],
       ["105", 15], ["106", 16], ["107", 17], ["108", 18], ["109", 19]
@@ -84,14 +84,14 @@ describe("normalizeLoadouts", () => {
       characterEquipment: { data: { c1: { items: equipment } } },
       characterProgressions: { data: { c1: { seasonalArtifact: {
         artifactHash: 9000,
-        pointsUsed: 7,
-        tiers: [{ items: [50, 51, 52, 53, 54, 55, 56].map((itemHash) => ({ itemHash, isActive: true, isVisible: true })) }, { items: [{ itemHash: 57, isActive: false, isVisible: true }] }]
+        pointsUsed: 1,
+        tiers: [{ items: [{ itemHash: 57, isActive: true, isVisible: true }] }]
       } } } },
       characterLoadouts: { data: { c1: { loadouts: [{
         nameHash: 1,
         items: savedOrder.map((itemInstanceId) => ({
           itemInstanceId,
-          plugItemHashes: itemInstanceId === "100" ? [30, 31, 32, 33, 34] : itemInstanceId === "101" ? [40, 41, 42] : []
+          plugItemHashes: itemInstanceId === "100" ? [30, 31, 32, 33, 34] : itemInstanceId === "101" ? [40, 41, 42] : itemInstanceId === "109" ? [50, 51, 52, 53, 54, 55, 56, 58] : []
         }))
       }] } } }
     };
@@ -115,7 +115,8 @@ describe("normalizeLoadouts", () => {
         ["40", { displayProperties: { name: "Weapon Ornament", icon: "/ornament.png" }, plug: { plugCategoryIdentifier: "weapon_skins" } }],
         ["41", { displayProperties: { name: "Test Shader", icon: "/shader.png" }, plug: { plugCategoryIdentifier: "shader" } }],
         ["42", { displayProperties: { name: "Backup Mag", icon: "/mod.png" }, plug: { plugCategoryIdentifier: "weapon.mod" } }],
-        ...[50, 51, 52, 53, 54, 55, 56, 57].map((hash) => [String(hash), { displayProperties: { name: `Artifact Mod ${hash}`, icon: `/artifact-${hash}.png` }, plug: { plugCategoryIdentifier: "artifact_perks" } }])
+        ...[50, 51, 52, 53, 54, 55, 56, 57].map((hash) => [String(hash), { displayProperties: { name: `Artifact Mod ${hash}`, icon: `/artifact-${hash}.png` }, plug: { plugCategoryIdentifier: "artifact_perks" } }]),
+        ["58", { displayProperties: { name: "Empty Artifact Mod", icon: "/empty-artifact.png" }, plug: { plugCategoryIdentifier: "artifact_perks" } }]
       ])
     };
     const character: any = { characterId: "c1", className: "Hunter", emblemPath: "", emblemBackgroundPath: "", power: 400, raceName: "Human", dateLastPlayed: "", minutesPlayedThisSession: 0 };
@@ -127,8 +128,11 @@ describe("normalizeLoadouts", () => {
     expect(loadout?.abilities.map((socket) => socket.category)).toEqual(["super"]);
     expect(loadout?.equipment.map((item) => item.equipmentSlot)).toEqual(slots.slice(1, 9));
     expect(loadout?.equipment[0]?.sockets.map((socket) => socket.categoryLabel)).toEqual(["Ornament", "Shader", "Weapon Mod"]);
-    expect(data.artifact).toMatchObject({ item: { name: "Artifacts" }, pointsUsed: 7, source: "current-character-progression" });
-    expect(data.artifact.mods).toHaveLength(7);
-    expect(data.artifact.mods.every((mod) => mod.category === "artifact-perk" && mod.definitionAvailable)).toBe(true);
+    expect(loadout?.artifact).toMatchObject({ name: "Artifacts", equipmentSlot: "Artifacts" });
+    expect(loadout?.artifactMods).toHaveLength(7);
+    expect(loadout?.artifactMods.map((mod) => mod.name)).toEqual(["Artifact Mod 50", "Artifact Mod 51", "Artifact Mod 52", "Artifact Mod 53", "Artifact Mod 54", "Artifact Mod 55", "Artifact Mod 56"]);
+    expect(loadout?.artifactMods.every((mod) => mod.category === "artifact-perk" && mod.definitionAvailable)).toBe(true);
+    expect(loadout?.artifactMods.some((mod) => mod.name === "Artifact Mod 57")).toBe(false);
+    expect(data.artifact).toMatchObject({ mods: [], source: "saved-loadout-compatibility" });
   });
 });

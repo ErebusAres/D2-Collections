@@ -1,14 +1,12 @@
-import type { CompanionManifest, GuardianLoadout, LoadoutArtifact, LoadoutItem, LoadoutSocket, LoadoutSocketCategory, LoadoutsData } from "@guardian-nexus/contracts";
+import type { CompanionManifest, GuardianLoadout, LoadoutItem, LoadoutSocket, LoadoutSocketCategory, LoadoutsData } from "@guardian-nexus/contracts";
 import { imageUrl } from "@guardian-nexus/domain";
 import type { CharacterSummary } from "@guardian-nexus/contracts";
 
 const LOADOUT_EQUIP_RESTRICTION = "Bungie only allows loadout changes while offline, in orbit, or in a social space.";
-const ARTIFACT_LIMITATION = "Bungie returns artifact choices as current character progression, not as part of an individual saved loadout.";
 const EQUIPMENT_SLOT_ORDER = ["Kinetic Weapons", "Energy Weapons", "Power Weapons", "Helmet", "Gauntlets", "Chest Armor", "Leg Armor", "Class Armor"];
 
 export function normalizeLoadouts(profile: any, manifest: CompanionManifest, character: CharacterSummary): LoadoutsData {
   const instances = inventoryInstances(profile);
-  const artifact = normalizeArtifact(profile, manifest, character.characterId, instances);
   const loadoutRows = profile?.characterLoadouts?.data?.[character.characterId]?.loadouts || [];
   const loadouts = (loadoutRows as any[]).flatMap((row, index): GuardianLoadout[] => {
     const savedItems = Array.isArray(row?.items) ? row.items.filter(hasSavedItem) : [];
@@ -16,6 +14,8 @@ export function normalizeLoadouts(profile: any, manifest: CompanionManifest, cha
     const items: LoadoutItem[] = savedItems.map((item: any) => normalizeLoadoutItem(item, instances, manifest));
     const allSockets = dedupeSockets(items.flatMap((item) => item.sockets));
     const subclass = items.find((item) => Number((manifest.itemDefinitions[item.itemHash] as any)?.itemType) === 16 || /subclass/i.test(item.equipmentSlot));
+    const artifact = items.find((item) => /^Artifacts?$/i.test(item.equipmentSlot) || item.sockets.some((socket) => socket.category === "artifact-perk"));
+    const artifactMods = artifact?.sockets.filter((socket) => (socket.category === "artifact-perk" || !socket.definitionAvailable) && !/^Empty Artifact Mod$/i.test(socket.name)) || [];
     const element = elementFromSockets(subclass?.sockets || allSockets, manifest);
     const isPrismatic = element === "Prismatic" || /prismatic/i.test(subclass?.name || "");
     return [{
@@ -27,6 +27,8 @@ export function normalizeLoadouts(profile: any, manifest: CompanionManifest, cha
       items,
       equipment: equipmentItems(items, subclass),
       subclass,
+      artifact,
+      artifactMods,
       isPrismatic,
       transcendence: isPrismatic ? allSockets.find((socket) => socket.category === "transcendence") : undefined,
       prismaticGrenade: isPrismatic ? allSockets.find((socket) => socket.category === "prismatic-grenade") : undefined,
@@ -42,7 +44,11 @@ export function normalizeLoadouts(profile: any, manifest: CompanionManifest, cha
     characterId: character.characterId,
     characterClass: character.className,
     loadouts,
-    artifact,
+    artifact: {
+      mods: [],
+      source: "saved-loadout-compatibility",
+      limitation: "Artifact data is saved per loadout; use each loadout's artifact and artifactMods fields."
+    },
     equipRestriction: LOADOUT_EQUIP_RESTRICTION
   };
 }
@@ -56,24 +62,6 @@ function equipmentItems(items: LoadoutItem[], subclass: LoadoutItem | undefined)
 function equipmentSlotIndex(slot: string): number {
   const index = EQUIPMENT_SLOT_ORDER.findIndex((entry) => entry.toLowerCase() === slot.toLowerCase());
   return index === -1 ? EQUIPMENT_SLOT_ORDER.length : index;
-}
-
-function normalizeArtifact(profile: any, manifest: CompanionManifest, characterId: string, instances: Map<string, any>): LoadoutArtifact {
-  const progression = profile?.characterProgressions?.data?.[characterId]?.seasonalArtifact;
-  const artifactRow = [...(profile?.characterEquipment?.data?.[characterId]?.items || []), ...(profile?.characterInventories?.data?.[characterId]?.items || [])]
-    .find((row: any) => /^Artifacts?$/i.test(String((manifest.itemDefinitions[String(row?.itemHash || "")] as any)?.equipmentSlot || "")));
-  const item = artifactRow ? normalizeLoadoutItem({ itemInstanceId: artifactRow.itemInstanceId, plugItemHashes: [] }, instances, manifest) : undefined;
-  const mods = dedupeSockets((progression?.tiers || []).flatMap((tier: any) => (tier?.items || [])
-    .filter((entry: any) => entry?.isActive && entry?.isVisible !== false)
-    .map((entry: any) => ({ ...normalizeSocket(String(entry?.itemHash || ""), manifest), category: "artifact-perk" as const, categoryLabel: "Artifact Mod" }))));
-  const pointsUsed = Number(progression?.pointsUsed);
-  return {
-    item,
-    mods,
-    pointsUsed: Number.isFinite(pointsUsed) ? pointsUsed : undefined,
-    source: "current-character-progression",
-    limitation: ARTIFACT_LIMITATION
-  };
 }
 
 function hasSavedItem(row: any): boolean {
