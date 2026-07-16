@@ -62,10 +62,10 @@ function ArtifactSection({ loadout }: { loadout: GuardianLoadout }) {
   const artifact = loadout.artifact;
   const artifactMods = loadout.artifactMods || [];
   return <section className={styles.artifactSection}>
-    <div className={styles.sectionHeading}><h3>Artifact</h3><span>{artifactMods.length} saved perk{artifactMods.length === 1 ? "" : "s"}</span></div>
+    <div className={styles.sectionHeading}><h3>Artifact</h3><span>{artifactMods.length} equipped perk{artifactMods.length === 1 ? "" : "s"}</span></div>
     <div className={styles.artifactLayout}>
       {artifact ? <article className={`${styles.artifactItem} ${!artifact.definitionAvailable ? styles.itemUnavailable : ""}`}>{artifact.icon ? <img src={artifact.icon} alt="" loading="lazy" /> : <CircleHelp />}<div><span>Saved with this loadout</span><strong>{artifact.name}</strong><small>{artifact.rarity} · {artifact.itemType}</small></div></article> : <Unavailable text="This saved loadout does not include Artifact data" />}
-      {artifactMods.length ? <div className={styles.artifactMods}>{artifactMods.map((socket) => <article className={`${styles.artifactMod} ${!socket.definitionAvailable ? styles.itemUnavailable : ""}`} key={socket.itemHash} title={socket.description || socket.name}>{socket.icon ? <img src={socket.icon} alt="" loading="lazy" /> : <CircleHelp />}<strong>{socket.name}</strong></article>)}</div> : artifact && <Unavailable text="This saved loadout contains no resolvable Artifact perks" />}
+      {artifactMods.length ? <div className={styles.artifactMods}>{artifactMods.map((socket) => <article className={`${styles.artifactMod} ${!socket.definitionAvailable ? styles.itemUnavailable : ""}`} key={socket.itemHash} title={socket.description || socket.name}>{socket.icon ? <img src={socket.icon} alt="" loading="lazy" /> : <CircleHelp />}<strong>{socket.name}</strong></article>)}</div> : artifact && <Unavailable text="This saved loadout contains no equipped Artifact perks" />}
     </div>
   </section>;
 }

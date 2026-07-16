@@ -4,6 +4,7 @@ import type { CharacterSummary } from "@guardian-nexus/contracts";
 
 const LOADOUT_EQUIP_RESTRICTION = "Bungie only allows loadout changes while offline, in orbit, or in a social space.";
 const EQUIPMENT_SLOT_ORDER = ["Kinetic Weapons", "Energy Weapons", "Power Weapons", "Helmet", "Gauntlets", "Chest Armor", "Leg Armor", "Class Armor"];
+const MAX_EQUIPPED_ARTIFACT_PERKS = 7;
 
 export function normalizeLoadouts(profile: any, manifest: CompanionManifest, character: CharacterSummary): LoadoutsData {
   const instances = inventoryInstances(profile);
@@ -15,7 +16,8 @@ export function normalizeLoadouts(profile: any, manifest: CompanionManifest, cha
     const allSockets = dedupeSockets(items.flatMap((item) => item.sockets));
     const subclass = items.find((item) => Number((manifest.itemDefinitions[item.itemHash] as any)?.itemType) === 16 || /subclass/i.test(item.equipmentSlot));
     const artifact = items.find((item) => /^Artifacts?$/i.test(item.equipmentSlot) || item.sockets.some((socket) => socket.category === "artifact-perk"));
-    const artifactMods = artifact?.sockets.filter((socket) => (socket.category === "artifact-perk" || !socket.definitionAvailable) && !/^Empty Artifact Mod$/i.test(socket.name)) || [];
+    const artifactMods = dedupeSockets(artifact?.sockets.filter((socket) => (socket.category === "artifact-perk" || !socket.definitionAvailable) && !/^Empty Artifact Mod$/i.test(socket.name)) || [])
+      .slice(0, MAX_EQUIPPED_ARTIFACT_PERKS);
     const element = elementFromSockets(subclass?.sockets || allSockets, manifest);
     const isPrismatic = element === "Prismatic" || /prismatic/i.test(subclass?.name || "");
     return [{

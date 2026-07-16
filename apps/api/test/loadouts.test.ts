@@ -74,7 +74,7 @@ describe("normalizeLoadouts", () => {
     expect(data.loadouts[0]).toMatchObject({ unresolvedItemCount: 1, items: [{ instanceId: "999", name: "Saved item unavailable", equipmentSlot: "Unavailable saved item", definitionAvailable: false }] });
   });
 
-  it("orders equipment, separates Prismatic configuration, and resolves the Artifact saved with the loadout", () => {
+  it("orders equipment, separates Prismatic configuration, and keeps only seven equipped Artifact perks", () => {
     const equipment = [
       ["100", 10], ["101", 11], ["102", 12], ["103", 13], ["104", 14],
       ["105", 15], ["106", 16], ["107", 17], ["108", 18], ["109", 19]
@@ -91,7 +91,7 @@ describe("normalizeLoadouts", () => {
         nameHash: 1,
         items: savedOrder.map((itemInstanceId) => ({
           itemInstanceId,
-          plugItemHashes: itemInstanceId === "100" ? [30, 31, 32, 33, 34] : itemInstanceId === "101" ? [40, 41, 42] : itemInstanceId === "109" ? [50, 51, 52, 53, 54, 55, 56, 58] : []
+          plugItemHashes: itemInstanceId === "100" ? [30, 31, 32, 33, 34] : itemInstanceId === "101" ? [40, 41, 42] : itemInstanceId === "109" ? [50, 51, 52, 53, 54, 55, 56, 50, 57, 58, 59, 60, 61, 62, 63] : []
         }))
       }] } } }
     };
@@ -115,7 +115,7 @@ describe("normalizeLoadouts", () => {
         ["40", { displayProperties: { name: "Weapon Ornament", icon: "/ornament.png" }, plug: { plugCategoryIdentifier: "weapon_skins" } }],
         ["41", { displayProperties: { name: "Test Shader", icon: "/shader.png" }, plug: { plugCategoryIdentifier: "shader" } }],
         ["42", { displayProperties: { name: "Backup Mag", icon: "/mod.png" }, plug: { plugCategoryIdentifier: "weapon.mod" } }],
-        ...[50, 51, 52, 53, 54, 55, 56, 57].map((hash) => [String(hash), { displayProperties: { name: `Artifact Mod ${hash}`, icon: `/artifact-${hash}.png` }, plug: { plugCategoryIdentifier: "artifact_perks" } }]),
+        ...[50, 51, 52, 53, 54, 55, 56, 57, 59, 60, 61, 62, 63].map((hash) => [String(hash), { displayProperties: { name: `Artifact Mod ${hash}`, icon: `/artifact-${hash}.png` }, plug: { plugCategoryIdentifier: "artifact_perks" } }]),
         ["58", { displayProperties: { name: "Empty Artifact Mod", icon: "/empty-artifact.png" }, plug: { plugCategoryIdentifier: "artifact_perks" } }]
       ])
     };
