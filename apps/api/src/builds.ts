@@ -17,21 +17,31 @@ import type { Env, RequestContext, SessionRow } from "./types";
 const optionalText = z.string().trim().max(5_000).optional();
 const httpsUrl = z.string().trim().url().max(2_000).refine((value) => value.startsWith("https://"), "Build links must use HTTPS.");
 const optionalUrl = httpsUrl.optional();
-const namedEntrySchema = z.object({
+const namedEntryBaseSchema = z.object({
   name: z.string().trim().min(1).max(160),
   hash: z.string().trim().regex(/^\d+$/).optional(),
   icon: optionalUrl,
   itemType: z.string().trim().max(120).optional(),
   rarity: z.string().trim().max(80).optional(),
   damageType: z.string().trim().max(80).optional(),
+  description: optionalText,
   notes: optionalText,
-  required: z.boolean().optional()
+  required: z.boolean().optional(),
+  quantity: z.number().int().min(1).max(3).optional(),
+  setName: z.string().trim().max(160).optional(),
+  requiredPieces: z.number().int().min(1).max(5).optional()
 });
+const namedEntrySchema = namedEntryBaseSchema.extend({ bonuses: z.array(namedEntryBaseSchema).max(4).optional() });
 const equipmentEntrySchema = namedEntrySchema.extend({
   slot: z.string().trim().min(1).max(80),
   perks: optionalText,
+  selectedPerks: z.array(namedEntrySchema).max(10).optional(),
   exotic: z.boolean().optional()
 });
+const armorModEntriesSchema = z.array(namedEntrySchema).max(3).refine(
+  (entries) => entries.reduce((total, entry) => total + (entry.quantity || 1), 0) <= 3,
+  "Armor pieces support at most three selected mod copies."
+);
 const linkSchema = z.object({
   kind: z.enum(["dim", "mobalytics", "youtube", "twitch", "source", "other"]),
   label: z.string().trim().min(1).max(80),
@@ -67,19 +77,20 @@ export const buildDocumentSchema = z.object({
     armorSets: z.array(namedEntrySchema).max(12).default([])
   }),
   statPriorities: z.array(z.object({
-    stat: z.string().trim().min(1).max(80),
+    stat: z.enum(["Health", "Melee", "Grenade", "Super", "Class", "Weapons"]),
+    icon: optionalUrl,
     target: z.number().int().min(0).max(999).optional(),
     minimum: z.number().int().min(0).max(999).optional(),
     maximum: z.number().int().min(0).max(999).optional(),
-    priority: z.number().int().min(1).max(20),
+    priority: z.number().int().min(1).max(6),
     notes: optionalText
-  })).max(20).default([]),
+  })).max(6).default([]),
   armorMods: z.object({
-    helmet: z.array(namedEntrySchema).max(10).default([]),
-    arms: z.array(namedEntrySchema).max(10).default([]),
-    chest: z.array(namedEntrySchema).max(10).default([]),
-    legs: z.array(namedEntrySchema).max(10).default([]),
-    classItem: z.array(namedEntrySchema).max(10).default([])
+    helmet: armorModEntriesSchema.default([]),
+    arms: armorModEntriesSchema.default([]),
+    chest: armorModEntriesSchema.default([]),
+    legs: armorModEntriesSchema.default([]),
+    classItem: armorModEntriesSchema.default([])
   }),
   artifacts: z.array(namedEntrySchema.extend({
     perks: z.array(namedEntrySchema).max(30).default([]),
