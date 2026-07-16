@@ -470,7 +470,7 @@ export interface RewardCodeStatusData {
   limitation: string;
 }
 
-export type LoadoutSocketCategory = "element" | "super" | "melee" | "grenade" | "class-ability" | "movement" | "aspect" | "fragment" | "modifier" | "other";
+export type LoadoutSocketCategory = "element" | "super" | "melee" | "grenade" | "prismatic-grenade" | "transcendence" | "class-ability" | "movement" | "aspect" | "fragment" | "artifact-perk" | "modifier" | "other";
 
 export interface LoadoutSocket {
   itemHash: string;
@@ -501,7 +501,11 @@ export interface GuardianLoadout {
   color: string;
   element?: string;
   items: LoadoutItem[];
+  equipment: LoadoutItem[];
   subclass?: LoadoutItem;
+  isPrismatic: boolean;
+  transcendence?: LoadoutSocket;
+  prismaticGrenade?: LoadoutSocket;
   abilities: LoadoutSocket[];
   aspects: LoadoutSocket[];
   fragments: LoadoutSocket[];
@@ -509,11 +513,20 @@ export interface GuardianLoadout {
   unresolvedItemCount: number;
 }
 
+export interface LoadoutArtifact {
+  item?: LoadoutItem;
+  mods: LoadoutSocket[];
+  pointsUsed?: number;
+  source: "current-character-progression";
+  limitation: string;
+}
+
 export interface LoadoutsData {
   manifestVersion: string;
   characterId: string;
   characterClass: GuardianClass;
   loadouts: GuardianLoadout[];
+  artifact: LoadoutArtifact;
   equipRestriction: string;
 }
 

@@ -1,6 +1,6 @@
 import type { LoadoutItem, LoadoutSocket } from "@guardian-nexus/contracts";
 import { expect, it } from "vitest";
-import { loadoutItemSockets } from "./loadoutItemSockets";
+import { loadoutItemCosmetics, loadoutItemMods, loadoutItemSockets } from "./loadoutItemSockets";
 
 const socket = (itemHash: string, category: LoadoutSocket["category"], definitionAvailable = true): LoadoutSocket => ({
   itemHash,
@@ -19,4 +19,17 @@ it("keeps resolved item-specific sockets while removing subclass duplicates and 
   } satisfies LoadoutItem;
 
   expect(loadoutItemSockets(item).map((entry) => entry.itemHash)).toEqual(["10", "11"]);
+});
+
+it("separates ornament and shader icons from vertically listed equipment mods", () => {
+  const ornament = { ...socket("10", "other"), categoryLabel: "Ornament" };
+  const shader = { ...socket("11", "other"), categoryLabel: "Shader" };
+  const mod = { ...socket("12", "modifier"), categoryLabel: "Weapon Mod" };
+  const item = {
+    instanceId: "item-1", itemHash: "1", name: "Weapon", icon: "", itemType: "Weapon", rarity: "Legendary", equipmentSlot: "Kinetic Weapons", definitionAvailable: true,
+    sockets: [ornament, shader, mod]
+  } satisfies LoadoutItem;
+
+  expect(loadoutItemCosmetics(item).map((entry) => entry.itemHash)).toEqual(["10", "11"]);
+  expect(loadoutItemMods(item).map((entry) => entry.itemHash)).toEqual(["12"]);
 });

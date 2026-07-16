@@ -1,10 +1,10 @@
-import type { EquipLoadoutRequest, EquipLoadoutResult, GuardianLoadout, LoadoutItem, LoadoutSocket, LoadoutsData } from "@guardian-nexus/contracts";
+import type { EquipLoadoutRequest, EquipLoadoutResult, GuardianLoadout, LoadoutArtifact, LoadoutItem, LoadoutSocket, LoadoutsData } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Boxes, CircleHelp, Cpu, RefreshCw, Sparkles, Zap } from "lucide-react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
-import { loadoutItemSockets } from "../modules/loadouts/loadoutItemSockets";
+import { loadoutItemCosmetics, loadoutItemMods } from "../modules/loadouts/loadoutItemSockets";
 import styles from "./LoadoutsPage.module.css";
 
 export function LoadoutsPage() {
@@ -28,7 +28,7 @@ export function LoadoutsPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.notice}><Zap /><div><span>Hot swap</span><strong>{data.characterClass} · {data.loadouts.length} saved loadout{data.loadouts.length === 1 ? "" : "s"}</strong><p>{data.equipRestriction}</p></div></section>
-      {data.loadouts.length ? <section className={styles.loadoutGrid}>{data.loadouts.map((loadout) => <LoadoutCard key={loadout.index} loadout={loadout} busy={equip.isPending} onEquip={() => window.confirm(`Equip ${loadout.name} on the selected ${data.characterClass}? Bungie will reject the change if the current activity does not allow loadout changes.`) && equip.mutate({ loadoutIndex: loadout.index, characterId: data.characterId })} />)}</section>
+      {data.loadouts.length ? <section className={styles.loadoutGrid}>{data.loadouts.map((loadout) => <LoadoutCard key={loadout.index} loadout={loadout} artifact={data.artifact} busy={equip.isPending} onEquip={() => window.confirm(`Equip ${loadout.name} on the selected ${data.characterClass}? Bungie will reject the change if the current activity does not allow loadout changes.`) && equip.mutate({ loadoutIndex: loadout.index, characterId: data.characterId })} />)}</section>
         : <section className={styles.empty}><Boxes /><h2>No saved loadouts</h2><p>Bungie did not return a configured loadout for this character.</p></section>}
       {equip.data?.data.equipped && <div className={styles.success}><Sparkles /> Loadout equip request completed.</div>}
       {equip.error && <div className={styles.error}><AlertTriangle /> {equip.error.message}</div>}
@@ -36,20 +36,37 @@ export function LoadoutsPage() {
   </AuthGate>;
 }
 
-function LoadoutCard({ loadout, busy, onEquip }: { loadout: GuardianLoadout; busy: boolean; onEquip: () => void }) {
+function LoadoutCard({ loadout, artifact, busy, onEquip }: { loadout: GuardianLoadout; artifact: LoadoutArtifact; busy: boolean; onEquip: () => void }) {
   return <article className={styles.loadoutCard} style={loadout.color ? { "--loadout-color": `url(${loadout.color})` } as React.CSSProperties : undefined}>
     <header>{loadout.icon ? <img src={loadout.icon} alt="" /> : <Cpu />}<div><span>Slot {loadout.index + 1} · {loadout.element || "Element unavailable"}</span><h2>{loadout.name}</h2><small>{loadout.items.length} saved items{loadout.unresolvedItemCount ? ` · ${loadout.unresolvedItemCount} unresolved` : ""}</small></div><button disabled={busy} onClick={onEquip}><Zap /> Equip loadout</button></header>
-    <section className={styles.abilitySection}><h3>Subclass configuration</h3><div>{loadout.abilities.length ? loadout.abilities.map((socket) => <SocketChip key={socket.itemHash} socket={socket} />) : <Unavailable text="Ability data unavailable" />}</div>{loadout.aspects.length > 0 && <><h3>Aspects</h3><div>{loadout.aspects.map((socket) => <SocketChip key={socket.itemHash} socket={socket} />)}</div></>}{loadout.fragments.length > 0 && <><h3>Fragments</h3><div>{loadout.fragments.map((socket) => <SocketChip key={socket.itemHash} socket={socket} />)}</div></>}</section>
-    <section className={styles.gearSection}><h3>Saved equipment</h3><div>{loadout.items.map((item) => <LoadoutItemCard key={item.instanceId} item={item} />)}</div></section>
+    <section className={styles.abilitySection}><h3>Subclass configuration</h3><div className={styles.subclassGrid}>{loadout.subclass ? <SubclassIdentity item={loadout.subclass} element={loadout.element} /> : <Unavailable text="Subclass data unavailable" />}{loadout.isPrismatic && (loadout.transcendence ? <SocketChip socket={loadout.transcendence} /> : <Unavailable text="Transcendence data unavailable" />)}{loadout.isPrismatic && (loadout.prismaticGrenade ? <SocketChip socket={loadout.prismaticGrenade} /> : <Unavailable text="Prismatic Grenade data unavailable" />)}{loadout.abilities.map((socket) => <SocketChip key={socket.itemHash} socket={socket} />)}</div>{loadout.aspects.length > 0 && <><h3>Aspects</h3><div>{loadout.aspects.map((socket) => <SocketChip key={socket.itemHash} socket={socket} />)}</div></>}{loadout.fragments.length > 0 && <><h3>Fragments</h3><div>{loadout.fragments.map((socket) => <SocketChip key={socket.itemHash} socket={socket} />)}</div></>}</section>
+    <section className={styles.gearSection}><h3>Saved equipment</h3>{loadout.equipment.length ? <div className={styles.equipmentGrid}>{loadout.equipment.map((item) => <LoadoutItemCard key={item.instanceId} item={item} />)}</div> : <Unavailable text="Saved equipment data unavailable" />}</section>
+    <ArtifactSection artifact={artifact} />
   </article>;
 }
 
 function LoadoutItemCard({ item }: { item: LoadoutItem }) {
-  const sockets = loadoutItemSockets(item);
+  const cosmetics = loadoutItemCosmetics(item);
+  const mods = loadoutItemMods(item);
   return <article className={`${styles.loadoutItem} ${!item.definitionAvailable ? styles.itemUnavailable : ""}`} title={!item.definitionAvailable ? "This saved loadout still references an item instance that Bungie no longer returns. It may have been deleted or otherwise removed from the character." : undefined}>
-    <div className={styles.itemSummary}>{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <CircleHelp />}<div><span>{item.equipmentSlot}</span><strong>{item.name}</strong><small>{item.definitionAvailable ? `${item.rarity} · ${item.itemType}` : "The loadout reference remains, but the item may have been deleted or removed."}</small></div></div>
-    {sockets.length > 0 && <div className={styles.itemSockets}>{sockets.map((socket) => <div className={styles.itemSocket} key={socket.itemHash} title={socket.description || socket.name}>{socket.icon ? <img src={socket.icon} alt="" loading="lazy" /> : <CircleHelp />}<div><span>{socket.categoryLabel}</span><strong>{socket.name}</strong></div></div>)}</div>}
+    <div className={styles.itemSummary}>{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <CircleHelp />}<div><span>{item.equipmentSlot}</span><strong>{item.name}</strong><small>{item.definitionAvailable ? `${item.rarity} · ${item.itemType}` : "The loadout reference remains, but the item may have been deleted or removed."}</small></div>{cosmetics.length > 0 && <div className={styles.cosmetics} aria-label="Saved ornament and shader">{cosmetics.map((socket) => socket.icon ? <img key={socket.itemHash} src={socket.icon} alt={`${socket.categoryLabel}: ${socket.name}`} title={`${socket.categoryLabel}: ${socket.name}`} loading="lazy" /> : <CircleHelp key={socket.itemHash} aria-label={`${socket.categoryLabel} unavailable`} />)}</div>}</div>
+    {mods.length > 0 && <div className={styles.itemSockets}>{mods.map((socket) => <div className={styles.itemSocket} key={socket.itemHash} title={socket.description || socket.name}>{socket.icon ? <img src={socket.icon} alt="" loading="lazy" /> : <CircleHelp />}<div><span>{socket.categoryLabel}</span><strong>{socket.name}</strong></div></div>)}</div>}
   </article>;
+}
+
+function SubclassIdentity({ item, element }: { item: LoadoutItem; element?: string }) {
+  return <article className={`${styles.socketChip} ${styles.subclassIdentity} ${!item.definitionAvailable ? styles.itemUnavailable : ""}`} title={item.itemType}><>{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <CircleHelp />}</><div><span>Subclass · {element || "Element unavailable"}</span><strong>{item.name}</strong><small>{item.itemType}</small></div></article>;
+}
+
+function ArtifactSection({ artifact }: { artifact: LoadoutArtifact }) {
+  return <section className={styles.artifactSection}>
+    <div className={styles.sectionHeading}><h3>Artifact</h3><span>{artifact.mods.length} active mod{artifact.mods.length === 1 ? "" : "s"}{artifact.pointsUsed !== undefined ? ` · ${artifact.pointsUsed} points used` : ""}</span></div>
+    <div className={styles.artifactLayout}>
+      {artifact.item ? <article className={styles.artifactItem}>{artifact.item.icon ? <img src={artifact.item.icon} alt="" loading="lazy" /> : <CircleHelp />}<div><span>Current artifact</span><strong>{artifact.item.name}</strong><small>{artifact.item.rarity} · {artifact.item.itemType}</small></div></article> : <Unavailable text="Current artifact item unavailable" />}
+      {artifact.mods.length ? <div className={styles.artifactMods}>{artifact.mods.map((socket) => <article className={`${styles.artifactMod} ${!socket.definitionAvailable ? styles.itemUnavailable : ""}`} key={socket.itemHash} title={socket.description || socket.name}>{socket.icon ? <img src={socket.icon} alt="" loading="lazy" /> : <CircleHelp />}<strong>{socket.name}</strong></article>)}</div> : <Unavailable text="Bungie returned no active artifact mods for this character" />}
+    </div>
+    <p className={styles.artifactNote}>{artifact.limitation}</p>
+  </section>;
 }
 
 function SocketChip({ socket }: { socket: LoadoutSocket }) {
