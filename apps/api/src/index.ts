@@ -18,11 +18,12 @@ import type {
   MatrixData,
   MatrixSnapshot,
   QuestData,
+  RewardCodeStatusData,
   RewardsPassData,
   SessionData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardsManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -32,6 +33,7 @@ import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
 import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
 import { normalizeLoadouts } from "./loadouts";
+import { normalizeRewardCodeStatus } from "./rewardCodes";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -102,6 +104,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/collection" && request.method === "GET") return collection(session.row, env, context);
   if (path === "/api/v1/me/quests" && request.method === "GET") return quests(session.row, env, context);
   if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
+  if (path === "/api/v1/me/reward-code-status" && request.method === "GET") return rewardCodeStatus(session.row, env, context);
   if (path === "/api/v1/me/gear" && request.method === "GET") return gear(session.row, env, context);
   if (path === "/api/v1/me/gear/item-state" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateGearState(request, session.row, env, context); }
   if (path === "/api/v1/me/gear/action" && request.method === "POST") { await requireCsrf(request, session.token, env); return gearAction(request, session.row, env, context); }
@@ -334,6 +337,22 @@ async function rewards(row: SessionRow, env: Env, context: RequestContext): Prom
   const data = normalizeRewardsPass({ profile, manifest, rank: snapshot.rank, progress: snapshot.progress, characterId: character?.characterId });
   const warnings = [snapshot.progress.state !== "available" ? snapshot.progress.reason : undefined, data.rewardDataReason].filter((value): value is string => Boolean(value));
   return envelope<RewardsPassData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
+}
+
+async function rewardCodeStatus(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile } = await profileFor(row, env, "collectibles");
+  const manifest = await loadRewardCodeManifest(env);
+  const data = normalizeRewardCodeStatus(profile, manifest);
+  const unavailable = data.statuses.filter((entry) => entry.state === "unavailable").length;
+  const warnings = manifest.version === "unavailable"
+    ? ["Reward-code collectible mappings are unavailable; automatic ownership detection is temporarily disabled."]
+    : unavailable
+      ? [`${unavailable} code rewards could not be mapped to an exact current Destiny collectible and remain manually controllable.`]
+      : [];
+  return envelope<RewardCodeStatusData>(data, env, context, {
+    sourceMintedAt: profile?.responseMintedTimestamp,
+    warnings
+  });
 }
 
 async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

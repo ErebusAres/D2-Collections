@@ -450,6 +450,24 @@ export interface MailboxPullResult {
   pulled: true;
 }
 
+export type RewardCodeAccountState = "reward-owned" | "not-owned" | "unavailable";
+
+export interface RewardCodeAccountStatus {
+  code: string;
+  reward: string;
+  state: RewardCodeAccountState;
+  matchedCollectibleHashes: string[];
+  reason?: string;
+}
+
+export interface RewardCodeStatusData {
+  manifestVersion: string;
+  source: "bungie-profile-collectibles";
+  checkedAt: string;
+  statuses: RewardCodeAccountStatus[];
+  limitation: string;
+}
+
 export type LoadoutSocketCategory = "element" | "super" | "melee" | "grenade" | "class-ability" | "movement" | "aspect" | "fragment" | "modifier" | "other";
 
 export interface LoadoutSocket {

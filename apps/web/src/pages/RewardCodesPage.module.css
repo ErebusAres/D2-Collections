@@ -35,6 +35,7 @@
 .codeGrid footer a:last-child { max-width: 34px; border-right: 0; color: var(--muted); }
 .codeGrid footer svg { width: 11px; }
 .codeGrid footer .redeemedAction { color: var(--gold); }
+.codeGrid footer button:disabled { cursor: default; opacity: .68; color: var(--success); }
 .featured { border-color: rgba(231,200,119,.36) !important; box-shadow: inset 0 2px rgba(231,200,119,.38); }
 .redeemed { border-color: rgba(132,232,188,.25) !important; box-shadow: inset 0 2px rgba(132,232,188,.25); }
 .redeemed main { opacity: .7; }

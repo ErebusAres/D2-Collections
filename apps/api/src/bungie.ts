@@ -9,6 +9,7 @@ let gearManifestCache: { value: GearManifest; expiresAt: number } | null = null;
 let activityManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let questManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let rewardsManifestCache: { value: RewardsManifest; expiresAt: number } | null = null;
+let rewardCodeManifestCache: { value: RewardCodeManifest; expiresAt: number } | null = null;
 let companionManifestCache: { value: CompanionManifest; expiresAt: number } | null = null;
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
@@ -204,7 +205,7 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export async function profileFor(row: SessionRow, env: Env, mode: "full" | "session" | "gear" | "mailbox" | "loadouts" = "full"): Promise<{ profile: any; accessToken: string }> {
+export async function profileFor(row: SessionRow, env: Env, mode: "full" | "session" | "gear" | "mailbox" | "loadouts" | "collectibles" = "full"): Promise<{ profile: any; accessToken: string }> {
   const accessToken = await accessTokenFor(row, env);
   const components = mode === "session"
     ? "100,200,201,202,204,1000"
@@ -212,6 +213,8 @@ export async function profileFor(row: SessionRow, env: Env, mode: "full" | "sess
       ? "100,200,201"
       : mode === "loadouts"
         ? "100,102,200,201,205,206"
+        : mode === "collectibles"
+          ? "100,200,800"
     : `100,102,103,104,200,201,202,204,205,300,301,304,305,307${mode === "gear" ? ",310" : ""},800,900,1000,1200`;
   const profile = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/?components=${components}`, env, accessToken);
   return { profile, accessToken };
@@ -338,6 +341,30 @@ export async function loadRewardsManifest(env: Env): Promise<RewardsManifest> {
     return value;
   } catch {
     return { version: "unavailable", generatedAt: new Date().toISOString(), seasonPassDefinitions: {}, progressionDefinitions: {}, itemDefinitions: {} };
+  }
+}
+
+export interface RewardCodeManifest {
+  version: string;
+  generatedAt: string;
+  definitions: Record<string, {
+    reward: string;
+    items: Array<{ itemHash: string; collectibleHash: string; name: string; icon: string; itemType: string }>;
+  }>;
+}
+
+export async function loadRewardCodeManifest(env: Env): Promise<RewardCodeManifest> {
+  if (rewardCodeManifestCache && rewardCodeManifestCache.expiresAt > Date.now()) return rewardCodeManifestCache.value;
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "reward-code-manifest.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Reward-code manifest request returned ${response.status}.`);
+    const value = await response.json() as RewardCodeManifest;
+    if (!value?.version || !value.definitions) throw new Error("Reward-code manifest artifact is invalid.");
+    rewardCodeManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    return { version: "unavailable", generatedAt: new Date().toISOString(), definitions: {} };
   }
 }
 
