@@ -39,6 +39,8 @@ vi.mock("../../services/api/client", () => {
 });
 
 vi.mock("../reward-codes/RewardCodeMarquee", () => ({ RewardCodeMarquee: () => null }));
+vi.mock("../../modules/reward-codes/rewardCodes", () => ({ activeRewardCodes: () => [{ code: "NEW-CODE" }] }));
+vi.mock("../../modules/reward-codes/rewardCodeStatus", () => ({ useRewardCodeStatus: () => ({ hidden: new Set(["NEW-CODE"]) }) }));
 
 describe("Shell guardian identity", () => {
   it("keeps the square emblem and adds the selected character's matching wide banner", () => {
@@ -54,5 +56,6 @@ describe("Shell guardian identity", () => {
     expect(container.querySelector('img[src="/emblem.svg"]')).toBeTruthy();
     expect(screen.getByTestId("guardian-banner")).toBeTruthy();
     expect(container.querySelector("[style]")?.getAttribute("style")).toContain("--guardian-banner: url(/banner.svg)");
+    expect(screen.getByLabelText("Reward Codes: 0 · Open").getAttribute("href")).toBe("/codes");
   });
 });
