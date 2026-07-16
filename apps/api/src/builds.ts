@@ -57,7 +57,7 @@ export const buildDocumentSchema = z.object({
     movement: namedEntrySchema.optional(),
     melee: namedEntrySchema.optional(),
     grenade: namedEntrySchema.optional(),
-    aspects: z.array(namedEntrySchema).max(10).default([]),
+    aspects: z.array(namedEntrySchema).max(2).default([]),
     fragments: z.array(namedEntrySchema).max(10).default([]),
     notes: optionalText
   }),

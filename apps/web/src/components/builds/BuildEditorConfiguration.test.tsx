@@ -14,4 +14,11 @@ describe("BuildEditorConfiguration", () => {
     expect(screen.queryByText(/Icon URL/i)).toBeNull();
     expect(screen.queryByText(/Selection notes|Why these choices|Fashion notes/i)).toBeNull();
   });
+
+  it("matches Destiny's two equipped Aspect sockets", () => {
+    const value = emptyBuildDocument();
+    value.subclassConfig.aspects = [{ name: "Bleak Watcher" }, { name: "Iceflare Bolts" }];
+    render(<QueryClientProvider client={new QueryClient()}><BuildEditorConfiguration value={value} onChange={() => undefined} /></QueryClientProvider>);
+    expect(screen.getByText("Aspects complete · maximum 2")).toBeTruthy();
+  });
 });

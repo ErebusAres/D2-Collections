@@ -32,6 +32,13 @@ describe("build validation", () => {
     expect(() => buildDocumentSchema.parse({ ...validBuild, tags: [] })).toThrow();
     expect(() => buildDocumentSchema.parse({ ...validBuild, links: [{ kind: "dim", label: "DIM", url: "not-a-url" }] })).toThrow();
   });
+
+  it("enforces Destiny's two equipped Aspect sockets", () => {
+    expect(() => buildDocumentSchema.parse({
+      ...validBuild,
+      subclassConfig: { aspects: [{ name: "One" }, { name: "Two" }, { name: "Three" }], fragments: [] }
+    })).toThrow();
+  });
 });
 
 describe("build presentation helpers", () => {

@@ -25,7 +25,6 @@ export function ManifestPicker({ kind, label, placeholder, onSelect, context, al
   const choose = (entry: BuildCatalogEntry | BuildNamedEntry) => {
     onSelect(entry);
     setQuery("");
-    setFocused(false);
   };
   return <label className={styles.manifestPicker}>
     <span>{label}</span>
