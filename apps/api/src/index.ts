@@ -20,7 +20,9 @@ import type {
   QuestData,
   RewardCodeStatusData,
   RewardsPassData,
-  SessionData
+  SessionData,
+  UpdateUserPreferenceRequest,
+  UserPreferencesData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
 import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
@@ -57,6 +59,10 @@ const gearActionSchema = z.discriminatedUnion("action", [
 ]);
 const mailboxPullSchema = z.object({ itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/), quantity: z.number().int().positive().max(999_999_999) });
 const equipLoadoutSchema = z.object({ loadoutIndex: z.number().int().nonnegative().max(99), characterId: z.string().regex(/^\d+$/) });
+const preferenceSchema = z.discriminatedUnion("key", [
+  z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
+  z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) })
+]);
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -101,6 +107,8 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
 
   const session = await requireSession(request, env);
   if (path === "/api/v1/me/overview" && request.method === "GET") return overview(session.row, env, context);
+  if (path === "/api/v1/me/preferences" && request.method === "GET") return userPreferences(session.row, env, context);
+  if (path === "/api/v1/me/preferences" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateUserPreference(request, session.row, env, context); }
   if (path === "/api/v1/me/collection" && request.method === "GET") return collection(session.row, env, context);
   if (path === "/api/v1/me/quests" && request.method === "GET") return quests(session.row, env, context);
   if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
@@ -353,6 +361,21 @@ async function rewardCodeStatus(row: SessionRow, env: Env, context: RequestConte
     sourceMintedAt: profile?.responseMintedTimestamp,
     warnings
   });
+}
+
+async function userPreferences(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const result = await env.DB.prepare("SELECT preference_key, preference_value FROM user_preferences WHERE membership_id = ?").bind(row.membership_id).all<{ preference_key: string; preference_value: string }>();
+  const values = Object.fromEntries((result.results || []).map((entry) => [entry.preference_key, entry.preference_value])) as UserPreferencesData["values"];
+  return envelope<UserPreferencesData>({ values }, env, context);
+}
+
+async function updateUserPreference(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const input = preferenceSchema.parse(await request.json()) as UpdateUserPreferenceRequest;
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO user_preferences (membership_id, preference_key, preference_value, updated_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(membership_id, preference_key) DO UPDATE SET preference_value = excluded.preference_value, updated_at = excluded.updated_at`)
+    .bind(row.membership_id, input.key, input.value, now).run();
+  return envelope<UserPreferencesData>({ values: { [input.key]: input.value } }, env, context);
 }
 
 async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

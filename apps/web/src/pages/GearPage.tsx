@@ -12,9 +12,10 @@ import styles from "./Pages.module.css";
 const STAT_LABELS: Record<ArmorStatKey, string> = { health: "Health", melee: "Melee", grenade: "Grenade", super: "Super", class: "Class", weapons: "Weapons" };
 
 export function GearPage() {
-  const { selectedCharacterId, session, autoRefresh } = useGuardian();
+  const { selectedCharacterId, session, autoRefresh, preferences, setPreference } = useGuardian();
   const queryClient = useQueryClient();
-  const [search, setSearch] = useState(""); const [searchFocused, setSearchFocused] = useState(false); const [slot, setSlot] = useState("all"); const [location, setLocation] = useState("all"); const [tag, setTag] = useState("all"); const [sort, setSort] = useState("analyzer");
+  const [search, setSearch] = useState(""); const [searchFocused, setSearchFocused] = useState(false); const [slot, setSlot] = useState("all"); const [location, setLocation] = useState("all"); const [tag, setTag] = useState("all");
+  const sort = GEAR_SORTS.has(preferences["gear.sort"] || "") ? preferences["gear.sort"]! : "analyzer";
   const [allClasses, setAllClasses] = useState(false); const [tolerance, setTolerance] = useState(5); const [groupMode, setGroupMode] = useState<ArmorGroupMode>("similar"); const [onlyGrouped, setOnlyGrouped] = useState(false); const [groupId, setGroupId] = useState("");
   const result = useQuery({ queryKey: ["gear", selectedCharacterId], queryFn: () => api<GearData>(`/api/v1/me/gear?characterId=${encodeURIComponent(selectedCharacterId)}`), enabled: Boolean(session?.authenticated && selectedCharacterId), refetchInterval: autoRefresh ? 60_000 : false, refetchIntervalInBackground: false });
   const data = result.data?.data;
@@ -40,7 +41,7 @@ export function GearPage() {
         <select value={slot} onChange={(event) => setSlot(event.target.value)}><option value="all">All slots</option>{slots.map((value) => <option key={value}>{value}</option>)}</select>
         <select value={location} onChange={(event) => setLocation(event.target.value)}><option value="all">All locations</option><option value="equipped">Equipped</option><option value="inventory">Characters</option><option value="vault">Vault</option></select>
         <GearTagFilter value={tag as "all" | "none" | GearTag} onChange={setTag} />
-        <select value={sort} onChange={(event) => setSort(event.target.value)}><option value="analyzer">Group ID (1A–5Z)</option><option value="base">Best base total</option><option value="current">Best current total</option><option value="rank">Best rank</option><option value="tier">Highest tier</option><option value="power">Highest Power</option><option value="grouped">Grouped first</option><option value="untagged">Untagged first</option><option value="slot">Slot order</option><option value="new">Newest</option><option value="name">Name A–Z</option></select>
+        <select value={sort} onChange={(event) => setPreference("gear.sort", event.target.value)}><option value="analyzer">Group ID (1A–5Z)</option><option value="base">Best base total</option><option value="current">Best current total</option><option value="rank">Best rank</option><option value="tier">Highest tier</option><option value="power">Highest Power</option><option value="grouped">Grouped first</option><option value="untagged">Untagged first</option><option value="slot">Slot order</option><option value="new">Newest</option><option value="name">Name A–Z</option></select>
         <button className={allClasses ? styles.gearControlActive : ""} onClick={() => setAllClasses((value) => !value)}>{allClasses ? "All classes" : data.selectedClass}</button>
         <button disabled title="Table layout is planned after the card workspace is validated"><Grid2X2 size={14} /> Cards</button>
       </section>
@@ -97,6 +98,7 @@ function capitalize(value: string): string { return value.charAt(0).toUpperCase(
 
 const GEAR_SLOT_ORDER = ["Helmet", "Gauntlets", "Chest Armor", "Leg Armor", "Class Item"];
 const GEAR_RANK_ORDER = ["S", "A", "B", "C", "D", "F", "—"];
+const GEAR_SORTS = new Set(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]);
 
 function compareGearSort(a: ArmorItem, b: ArmorItem, sort: string, groupedIds: Map<string, ReturnType<typeof groupArmor>[number]>): number {
   const fallback = () => compareGroupOrder(a, b, groupedIds);

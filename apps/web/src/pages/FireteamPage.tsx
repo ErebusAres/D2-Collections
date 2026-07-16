@@ -68,7 +68,7 @@ export function FireteamPage() {
         <div><ShieldCheck /><span>Your sharing</span><strong>{data.sharingMode === "persistent" ? "Always on / background refresh" : data.sharingMode === "temporary" ? "Temporary / 15 minutes" : "Private"}</strong></div>
       </section>
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} />)}</section>
-      <SocialRoster contacts={data.social?.contacts || []} state={data.social?.state || "unavailable"} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
+      <SocialRoster contacts={data.social?.contacts || []} friendsState={data.social?.friendsState || data.social?.state || "unavailable"} clanState={data.social?.clanState || (data.social?.state === "available" ? "available" : "unavailable")} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
       <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Best-effort live status</strong><p>Bungie describes party and current-activity data as transitory and non-authoritative. Guardian Nexus shows timestamps and privacy states instead of presenting it as guaranteed real time.</p></div></section>
     </>}
   </AuthGate>;
@@ -86,14 +86,27 @@ function MemberCard({ member, canManage, copied, onCopy }: { member: FireteamMem
   </article>;
 }
 
-function SocialRoster({ contacts, state, warning, copied, onCopy }: { contacts: FireteamContact[]; state: "available" | "reauthorization-required" | "unavailable"; warning?: string; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {
+function SocialRoster({ contacts, friendsState, clanState, warning, copied, onCopy }: { contacts: FireteamContact[]; friendsState: "available" | "reauthorization-required" | "unavailable"; clanState: "available" | "unavailable"; warning?: string; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {
+  const friends = contacts.filter((contact) => contact.source === "friend" || contact.source === "friend-and-clan");
+  const clan = contacts.filter((contact) => contact.source === "clan" || contact.source === "friend-and-clan");
   return <section className={styles.socialRoster}>
-    <header><div><Users /><span>Social roster</span><h2>Friends & clan</h2></div><p>Online presence from Bungie. Commands are copied for Destiny 2 text chat; the API cannot join or message for you.</p></header>
-    {state === "reauthorization-required" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Reconnect for Bungie friends</strong><p>{warning}</p></div><a href="/api/v1/auth/start?returnTo=%2Ffireteam">Reconnect Bungie</a></div>
-      : state === "unavailable" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Social roster unavailable</strong><p>{warning || "Bungie did not return friends or clan presence."}</p></div></div>
-      : contacts.length ? <div className={styles.socialGrid}>{contacts.map((contact) => <SocialContact key={`${contact.membershipId}-${contact.displayName}`} contact={contact} copied={copied} onCopy={onCopy} />)}</div>
-      : <div className={styles.socialUnavailable}><Users /><div><strong>No friends or clan members returned</strong><p>Your current fireteam remains visible above.</p></div></div>}
+    <header><div><Users /><span>Social roster</span><h2>Friends & clan</h2></div><p>These are Bungie social and clan results—not random site users. Commands are copied for Destiny 2 text chat; the API cannot join or message for you.</p></header>
+    <SocialGroup title="Bungie Friends" count={friends.length}>
+      {friendsState === "reauthorization-required" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Reconnect for Bungie friends</strong><p>{warning || "Bungie did not authorize access to the signed-in account's friend list."}</p></div><a href="/api/v1/auth/start?returnTo=%2Ffireteam">Reconnect Bungie</a></div>
+        : friendsState === "unavailable" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Bungie friends unavailable</strong><p>The friend-list request failed; clan members can still appear below.</p></div></div>
+        : friends.length ? <div className={styles.socialGrid}>{friends.map((contact) => <SocialContact key={`friend-${contact.membershipId}-${contact.displayName}`} contact={contact} copied={copied} onCopy={onCopy} />)}</div>
+        : <div className={styles.socialUnavailable}><Users /><div><strong>No Bungie friends returned</strong><p>Only confirmed contacts returned by Bungie's Friends endpoint appear here.</p></div></div>}
+    </SocialGroup>
+    <SocialGroup title="Clan Members" count={clan.length}>
+      {clanState === "unavailable" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Clan roster unavailable</strong><p>Bungie did not return a clan roster for this Destiny membership.</p></div></div>
+        : clan.length ? <div className={styles.socialGrid}>{clan.map((contact) => <SocialContact key={`clan-${contact.membershipId}-${contact.displayName}`} contact={contact} copied={copied} onCopy={onCopy} />)}</div>
+        : <div className={styles.socialUnavailable}><Users /><div><strong>No clan members returned</strong><p>The signed-in Destiny membership may not currently belong to a clan.</p></div></div>}
+    </SocialGroup>
   </section>;
+}
+
+function SocialGroup({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return <section className={styles.socialGroup}><header><h3>{title}</h3><span>{count}</span></header>{children}</section>;
 }
 
 function SocialContact({ contact, copied, onCopy }: { contact: FireteamContact; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {

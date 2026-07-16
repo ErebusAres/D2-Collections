@@ -2,6 +2,7 @@ import { Check, CheckCircle2, Clock3, Copy, ExternalLink, Eye, EyeOff, Gift, Sea
 import { useMemo, useState } from "react";
 import { PageHeader } from "../components/common/Page";
 import { activeRewardCodes, rewardCodeRedemptionUrl, rewardCodes, type RewardCodeKind } from "../modules/reward-codes/rewardCodes";
+import { rewardCodeManifestItems, useRewardCodeManifest } from "../modules/reward-codes/rewardCodeManifest";
 import { setRewardCodeRedeemed } from "../modules/reward-codes/rewardCodePreferences";
 import { useRewardCodeStatus } from "../modules/reward-codes/rewardCodeStatus";
 import { useGuardian } from "../context/GuardianContext";
@@ -16,6 +17,7 @@ export function RewardCodesPage() {
   const { session, autoRefresh } = useGuardian();
   const membershipId = session?.guardian?.membershipId;
   const { manual, detected, hidden, data: accountStatus, warnings, loading: accountStatusLoading, error: accountStatusError } = useRewardCodeStatus(membershipId, Boolean(session?.authenticated), autoRefresh);
+  const rewardManifest = useRewardCodeManifest();
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<"All" | RewardCodeKind>("All");
   const [copied, setCopied] = useState("");
@@ -40,7 +42,22 @@ export function RewardCodesPage() {
       const isHidden = hidden.has(entry.code);
       const isDetected = detected.has(entry.code);
       const isManual = manual.has(entry.code);
-      return <article key={entry.code} className={`${expired ? styles.expired : ""} ${entry.featured ? styles.featured : ""} ${isHidden ? styles.redeemed : ""}`}><header><span>{entry.kind}</span>{isDetected ? <b><ShieldCheck /> In Collections</b> : isManual ? <b><CheckCircle2 /> Marked used</b> : entry.featured && <b>Featured</b>}</header><main><h2>{entry.reward}</h2><code>{entry.code}</code><p>{expired ? <><TimerOff /> Expired {formatCatalogDate(entry.expiresAt!)}</> : <><Check /> Active · no published expiration</>}</p><small>Verified {formatCatalogDate(entry.verifiedAt)}</small></main><footer><button onClick={() => void copy(entry.code)}>{copied === entry.code ? <Check /> : <Copy />}{copied === entry.code ? "Copied" : "Copy code"}</button><button className={styles.redeemedAction} aria-pressed={isHidden} disabled={isDetected} title={isDetected ? "This exact reward is already acquired in Destiny Collections." : undefined} onClick={() => setRewardCodeRedeemed(membershipId, entry.code, !isManual)}><CheckCircle2 />{isDetected ? "Owned" : isManual ? "Unmark" : "Mark used"}</button><a href={rewardCodeRedemptionUrl(entry.code)} target="_blank" rel="noreferrer" onClick={() => void copy(entry.code)}>Copy & redeem <ExternalLink /></a><a href={entry.sourceUrl} target="_blank" rel="noreferrer" title="Open verification source"><ShieldCheck /></a></footer></article>;
+      const rewardItems = rewardCodeManifestItems(rewardManifest.data, entry.code);
+      return <article key={entry.code} className={`${expired ? styles.expired : ""} ${entry.featured ? styles.featured : ""} ${isHidden ? styles.redeemed : ""}`}>
+        <header><span>{entry.kind}</span>{isDetected ? <b><ShieldCheck /> In Collections</b> : isManual ? <b><CheckCircle2 /> Marked used</b> : entry.featured && <b>Featured</b>}</header>
+        <main>
+          <h2>{entry.reward}</h2>
+          <p>{expired ? <><TimerOff /> Expired {formatCatalogDate(entry.expiresAt!)}</> : <><Check /> Active · no published expiration</>}</p>
+          <code>{entry.code}</code>
+          <section className={styles.rewardExamples} aria-label={`Rewards for ${entry.code}`}>
+            <strong>Redeems for</strong>
+            {rewardItems.length ? <ul>{rewardItems.map((item) => <li key={`${item.itemHash}-${item.collectibleHash}`}><img src={item.icon} alt="" loading="lazy" /><span><b>{item.name}</b><small>{item.itemType || "Destiny reward"}</small></span></li>)}</ul>
+              : <span>{rewardManifest.isLoading ? "Loading verified reward preview…" : rewardManifest.isError ? "Reward preview is temporarily unavailable." : "No exact Bungie item preview is available for this reward."}</span>}
+          </section>
+          <small>Verified {formatCatalogDate(entry.verifiedAt)}</small>
+        </main>
+        <footer><button onClick={() => void copy(entry.code)}>{copied === entry.code ? <Check /> : <Copy />}{copied === entry.code ? "Copied" : "Copy code"}</button><button className={styles.redeemedAction} aria-pressed={isHidden} disabled={isDetected} title={isDetected ? "This exact reward is already acquired in Destiny Collections." : undefined} onClick={() => setRewardCodeRedeemed(membershipId, entry.code, !isManual)}><CheckCircle2 />{isDetected ? "Owned" : isManual ? "Unmark" : "Mark used"}</button><a href={rewardCodeRedemptionUrl(entry.code)} target="_blank" rel="noreferrer" onClick={() => void copy(entry.code)}>Copy & redeem <ExternalLink /></a><a href={entry.sourceUrl} target="_blank" rel="noreferrer" title="Open verification source"><ShieldCheck /></a></footer>
+      </article>;
     })}</section>
     {!filtered.length && <section className={styles.emptyCodes}><CheckCircle2 /><strong>No unredeemed codes match</strong><span>Show hidden codes or clear the current filters to review the full catalog.</span></section>}
   </>;
