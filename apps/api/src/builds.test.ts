@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDocumentSchema, ratingFromCounts, slugifyBuildTitle } from "./builds";
+import { buildDocumentSchema, parseStoredBuildDocument, ratingFromCounts, slugifyBuildTitle } from "./builds";
 
 const validBuild = {
   title: "Prismatic Support Loop",
@@ -83,6 +83,29 @@ describe("build validation", () => {
       ...validBuild,
       artifacts: [{ name: "Tablet of Ruin", perks: Array.from({ length: 8 }, (_, index) => ({ name: `Perk ${index + 1}` })) }]
     })).toThrow();
+  });
+
+  it("reads and canonicalizes builds saved before the stricter set and Artifact rules", () => {
+    const legacy = {
+      ...validBuild,
+      equipment: {
+        ...validBuild.equipment,
+        armorSets: [{
+          name: "Luminopotent · 2 + 4-piece",
+          setName: "Luminopotent",
+          requiredPieces: 4,
+          bonuses: [
+            { name: "Ionic Overclock", setName: "Luminopotent", requiredPieces: 2 },
+            { name: "Shock and Clear", setName: "Luminopotent", requiredPieces: 4 }
+          ]
+        }]
+      },
+      artifacts: [{ name: "Tablet of Ruin", perks: Array.from({ length: 9 }, (_, index) => ({ name: `Perk ${index + 1}` })) }]
+    };
+    const parsed = parseStoredBuildDocument(JSON.stringify(legacy));
+    expect(parsed.equipment.armorSets.map((entry) => entry.requiredPieces)).toEqual([2, 4]);
+    expect(parsed.artifacts[0]?.perks).toHaveLength(7);
+    expect(parsed.artifacts[0]?.perks[6]?.name).toBe("Perk 7");
   });
 });
 

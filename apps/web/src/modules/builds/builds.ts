@@ -1,5 +1,5 @@
 import type { BuildDocument, BuildGuardianClass, BuildSubclass, GuardianBuild } from "@guardian-nexus/contracts";
-import { normalizeArmorSetSelections } from "./armorSetBonuses";
+import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
 import { defaultBuildStatPriorities, normalizeBuildStatPriorities } from "./buildStats";
 
 export type BuildSort = "updated" | "newest" | "top" | "most-voted";

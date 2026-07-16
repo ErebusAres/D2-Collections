@@ -1,7 +1,7 @@
 import type { BuildArmorMods, BuildEquipmentEntry, BuildNamedEntry, GuardianBuild } from "@guardian-nexus/contracts";
 import { CircleHelp, Footprints, Gauge, MessageSquareText, PackageOpen, Sparkles, Swords } from "lucide-react";
 import { buildStatIcon } from "../../modules/builds/buildStats";
-import { normalizeArmorSetSelections } from "../../modules/builds/armorSetBonuses";
+import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
 import styles from "../../pages/Builds.module.css";
 import { expandBuildEntries } from "./BuildFormControls";
 import { BuildIconTooltip } from "./BuildIconTooltip";
