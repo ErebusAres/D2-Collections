@@ -9,6 +9,7 @@ import { BuildEditorConfiguration } from "../components/builds/BuildEditorConfig
 import { ClassIcon, SubclassIcon } from "../components/builds/BuildIcon";
 import { AuthGate, PageHeader, QueryState } from "../components/common/Page";
 import { emptyBuildDocument, prepareBuildDocument, titleCase } from "../modules/builds/builds";
+import { normalizeBuildStatPriorities } from "../modules/builds/buildStats";
 import { useGuardian } from "../context/GuardianContext";
 import { api, mutationHeaders } from "../services/api/client";
 import styles from "./Builds.module.css";
@@ -75,7 +76,7 @@ function documentFromBuild(build: GuardianBuild): BuildDocument {
     links: build.links,
     subclassConfig: build.subclassConfig,
     equipment: build.equipment,
-    statPriorities: build.statPriorities,
+    statPriorities: normalizeBuildStatPriorities(build.statPriorities),
     armorMods: build.armorMods,
     artifacts: build.artifacts,
     gameplayLoop: build.gameplayLoop,
