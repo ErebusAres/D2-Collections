@@ -3,9 +3,9 @@ import { sortCollectionEntries, type CollectionSortMode } from "@guardian-nexus/
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Check, ChevronRight, Coins, Search, Shield, Sparkles, Swords, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api } from "../api/client";
-import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
-import { useGuardian } from "../state/GuardianContext";
+import { api } from "../services/api/client";
+import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
 
 type KindFilter = "all" | "weapon" | "armor";

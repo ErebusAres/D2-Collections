@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { Shell } from "./components/Shell";
+import { Shell } from "./components/layout/Shell";
 import { CollectionPage } from "./pages/CollectionPage";
 import { DevPage } from "./pages/DevPage";
 import { FireteamPage } from "./pages/FireteamPage";

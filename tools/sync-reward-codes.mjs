@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 
 const SOURCE_URL = "https://raw.githubusercontent.com/Manaiakalani/destiny-code-finder/main/public/data/emblems.json";
 const SOURCE_PAGE = "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json";
-const CATALOG_PATH = resolve("apps/web/src/rewardCodesCatalog.json");
+const CATALOG_PATH = resolve("apps/web/src/modules/reward-codes/rewardCodesCatalog.json");
 const CODE_PATTERN = /^[A-Z0-9]{3}(?:-[A-Z0-9]{3}){2}$/;
 const MAX_NEW_CODES_PER_RUN = 25;
 

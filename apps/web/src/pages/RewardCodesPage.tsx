@@ -1,10 +1,10 @@
 import { Check, CheckCircle2, Clock3, Copy, ExternalLink, Eye, EyeOff, Gift, Search, ShieldCheck, TimerOff } from "lucide-react";
 import { useMemo, useState } from "react";
-import { PageHeader } from "../components/Page";
-import { activeRewardCodes, rewardCodeRedemptionUrl, rewardCodes, type RewardCodeKind } from "../rewardCodes";
-import { setRewardCodeRedeemed } from "../rewardCodePreferences";
-import { useRewardCodeStatus } from "../rewardCodeStatus";
-import { useGuardian } from "../state/GuardianContext";
+import { PageHeader } from "../components/common/Page";
+import { activeRewardCodes, rewardCodeRedemptionUrl, rewardCodes, type RewardCodeKind } from "../modules/reward-codes/rewardCodes";
+import { setRewardCodeRedeemed } from "../modules/reward-codes/rewardCodePreferences";
+import { useRewardCodeStatus } from "../modules/reward-codes/rewardCodeStatus";
+import { useGuardian } from "../context/GuardianContext";
 import styles from "./RewardCodesPage.module.css";
 
 function formatCatalogDate(value: string): string {

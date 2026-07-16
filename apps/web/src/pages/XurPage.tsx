@@ -3,9 +3,9 @@ import { xurSchedule } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
 import { Clock3, Coins, MapPin, Shield, Sparkles, Swords } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
-import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
-import { useGuardian } from "../state/GuardianContext";
+import { api } from "../services/api/client";
+import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
 
 export function XurPage() {

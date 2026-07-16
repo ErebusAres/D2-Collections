@@ -2,7 +2,7 @@
 
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { RewardLevelColumn } from "./RewardsPage";
+import { RewardLevelColumn } from "../components/rewards/RewardLevelColumn";
 
 describe("RewardLevelColumn", () => {
   it("marks the current rank rather than the next obtainable rank", () => {

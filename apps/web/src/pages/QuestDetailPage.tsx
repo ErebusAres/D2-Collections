@@ -2,9 +2,9 @@ import type { QuestData, QuestProgress, QuestStepProgress } from "@guardian-nexu
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, CircleDashed, Crosshair, Gift, Lightbulb, ScrollText } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../api/client";
-import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
-import { pinsKey, useGuardian } from "../state/GuardianContext";
+import { api } from "../services/api/client";
+import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { pinsKey, useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
 import questStyles from "./QuestsPage.module.css";
 

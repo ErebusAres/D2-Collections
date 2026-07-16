@@ -1,9 +1,9 @@
 import type { EquipLoadoutRequest, EquipLoadoutResult, GuardianLoadout, LoadoutItem, LoadoutSocket, LoadoutsData } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Boxes, CircleHelp, Cpu, RefreshCw, Sparkles, Zap } from "lucide-react";
-import { api, mutationHeaders, queuedApi } from "../api/client";
-import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
-import { useGuardian } from "../state/GuardianContext";
+import { api, mutationHeaders, queuedApi } from "../services/api/client";
+import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { useGuardian } from "../context/GuardianContext";
 import styles from "./LoadoutsPage.module.css";
 
 export function LoadoutsPage() {

@@ -2,9 +2,9 @@ import type { CatalystState, MatrixData, MatrixGuardian, MatrixSnapshot } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, CircleHelp, GitCompareArrows, RefreshCcw, Search, ShieldX, UserRoundCheck, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { api, mutationHeaders, queuedApi } from "../api/client";
-import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
-import { useGuardian } from "../state/GuardianContext";
+import { api, mutationHeaders, queuedApi } from "../services/api/client";
+import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
 
 export function MatrixPage() {

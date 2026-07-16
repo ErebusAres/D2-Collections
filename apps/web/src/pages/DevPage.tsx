@@ -3,9 +3,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Braces, Download, FlaskConical, Search, Send, ShieldAlert, TimerReset } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { api, mutationHeaders } from "../api/client";
-import { AuthGate, PageHeader } from "../components/Page";
-import { useGuardian } from "../state/GuardianContext";
+import { api, mutationHeaders } from "../services/api/client";
+import { AuthGate, PageHeader } from "../components/common/Page";
+import { useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
 
 const probes: { key: DevProbeKey; label: string; needsHash?: boolean; needsCharacter?: boolean }[] = [

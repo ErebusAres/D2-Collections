@@ -3,10 +3,10 @@ import { applyGearSearchSuggestion, ARMOR_STAT_KEYS, gearSearchSuggestions, grou
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, ArrowUpFromLine, ChevronRight, Grid2X2, Lock, LockOpen, RefreshCw, Search, Shield, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api, mutationHeaders, queuedApi } from "../api/client";
-import { GearTagBadge, GearTagFilter, GearTagPicker } from "../components/GearTagPicker";
-import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
-import { useGuardian } from "../state/GuardianContext";
+import { api, mutationHeaders, queuedApi } from "../services/api/client";
+import { GearTagBadge, GearTagFilter, GearTagPicker } from "../components/gear/GearTagPicker";
+import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
 
 const STAT_LABELS: Record<ArmorStatKey, string> = { health: "Health", melee: "Melee", grenade: "Grenade", super: "Super", class: "Class", weapons: "Weapons" };
