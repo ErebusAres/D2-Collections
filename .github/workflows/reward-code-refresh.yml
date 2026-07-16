@@ -60,3 +60,9 @@ jobs:
           git commit -m "chore: refresh reward code catalog"
           git pull --rebase origin main
           git push origin HEAD:main
+      - name: Deploy updated catalog to Guardian Nexus Pages
+        if: steps.catalog.outputs.changed == 'true'
+        run: pnpm --filter @guardian-nexus/web deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
