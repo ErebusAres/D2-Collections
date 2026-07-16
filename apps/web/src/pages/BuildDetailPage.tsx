@@ -28,7 +28,7 @@ export function BuildDetailPage() {
       <section className={styles.buildHero}>
         <SubclassIcon subclass={build.subclass} icon={build.subclassIcon} large />
         <div><span><ClassIcon classType={build.classType} /> {titleCase(build.classType)} · {titleCase(build.subclass)}</span><div>{build.tags.map((tag) => <b key={tag}>#{tag}</b>)}{build.activityTags.map((tag) => <em key={tag}>{tag}</em>)}</div><p>Authored by <strong>{build.authorDisplayName}</strong>{build.originalCreatorName && <> · original build by <strong>{build.originalCreatorName}</strong></>}</p><small>Updated {new Date(build.updatedAt).toLocaleString()}{build.patch && ` · ${build.patch}`}{build.outdated && " · Marked outdated"}</small></div>
-        <BuildRating buildId={build.id} rating={build.rating} viewerVote={build.viewerVote} onChange={ratingChanged} />
+        <BuildRating buildId={build.id} rating={build.rating} viewerVote={build.viewerVote} disabled={build.status !== "published"} onChange={ratingChanged} />
       </section>
       <nav className={styles.detailNav} aria-label="Build sections">{[["links", "Overview"], ["notes", "Notes"], ["subclass", "Subclass"], ["gear", "Gear"], ["stats", "Stats"], ["mods", "Mods"], ["artifact", "Artifact"], ["loop", "Loop"]].map(([to, label]) => <a key={to} href={`#${to}`}><LinkIcon /> {label}</a>)}</nav>
       <BuildDetailSections build={build} />

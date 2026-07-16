@@ -21,7 +21,7 @@ export function BuildCard({ build, onRatingChange }: { build: GuardianBuild; onR
     <footer>
       <div><span>By {build.authorDisplayName}</span>{build.originalCreatorName && <small>Source: {build.originalCreatorName}</small>}<time><CalendarClock /> {new Date(build.updatedAt).toLocaleDateString()}</time></div>
       <nav>{quickLinks.map((link) => <a key={`${link.kind}-${link.url}`} href={link.url} target="_blank" rel="noreferrer" title={link.label}>{link.kind === "youtube" || link.kind === "twitch" ? <Play /> : <ExternalLink />}<span>{link.label}</span></a>)}{build.canEdit && <Link to={`/builds/${build.slug}/edit`} title="Edit build"><FilePenLine /><span>Edit</span></Link>}</nav>
-      <BuildRating buildId={build.id} rating={build.rating} viewerVote={build.viewerVote} compact onChange={onRatingChange} />
+      <BuildRating buildId={build.id} rating={build.rating} viewerVote={build.viewerVote} compact disabled={build.status !== "published"} onChange={onRatingChange} />
     </footer>
   </article>;
 }
