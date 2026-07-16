@@ -9,7 +9,6 @@
 .marquee span::after { content: "◆"; margin-left: 20px; color: rgba(231,200,119,.55); }
 .marquee span b { color: var(--gold); font: 600 12px "Barlow Condensed"; letter-spacing: .1em; }
 .marquee span small { padding: 1px 4px; border: 1px solid rgba(155,231,226,.2); color: var(--cyan); font-size: 7px; text-transform: uppercase; }
-.complete > div { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 10px; letter-spacing: .04em; }
 @keyframes rewardCodeMarquee { to { transform: translateX(-50%); } }
 :global(html[data-reduced-motion="true"]) .marquee > div > div { animation: none; }
 @media (max-width: 850px) { .marquee { grid-template-columns: 154px minmax(0, 1fr) 76px; } .marquee > strong, .marquee > em { padding-inline: 8px; font-size: 8px; } }

@@ -1,0 +1,578 @@
+[
+  {
+    "code": "VMG-HXK-VAL",
+    "reward": "Broken and Bruised",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "F6K-D44-JH4",
+    "reward": "Gloriabundus",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JRR-7YA-CCC",
+    "reward": "Last Blush",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "FCX-P94-JCV",
+    "reward": "Little Light",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "7LD-PLJ-FN3",
+    "reward": "Lofty Wail",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "J64-HYC-HTD",
+    "reward": "Red Shift Returning",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "9NG-KDD-PNG",
+    "reward": "Tethered Storm",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "3TG-G67-PYD",
+    "reward": "Deadlands Titan Ornament Set",
+    "kind": "Ornament",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "MMX-3HF-CJ4",
+    "reward": "Deadlands Warlock Ornament Set",
+    "kind": "Ornament",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "6MC-A3F-X3R",
+    "reward": "Deadlands Hunter Ornament Set",
+    "kind": "Ornament",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "FPP-NHV-HNC",
+    "reward": "Field Transcriber",
+    "kind": "Ghost Shell",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "7AM-PJR-GMX",
+    "reward": "Mobile Array",
+    "kind": "Sparrow",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "K9P-PVD-NR6",
+    "reward": "Dynamic Equivalence",
+    "kind": "Ship",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "M3L-7DA-67C",
+    "reward": "Evergreen Destrier",
+    "kind": "Sparrow",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "FLK-TXG-P4A",
+    "reward": "Hot and Cold",
+    "kind": "Shader",
+    "verifiedAt": "2026-07-11",
+    "featured": true,
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "YRC-C3D-YNC",
+    "reward": "A Classy Order",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "9FY-KDD-PRT",
+    "reward": "Adventurous Spirit",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "HN3-7K9-93G",
+    "reward": "Airlock Invitation",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "PTD-GKG-CVN",
+    "reward": "Archived",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "ML3-FD4-ND9",
+    "reward": "Be True",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "A67-C7X-3GN",
+    "reward": "Bulbul Tarang",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "VHT-6A7-3MM",
+    "reward": "Conqueror of Infinity",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "PHV-6LF-9CP",
+    "reward": "Countdown to Convergence",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "D97-YCX-7JK",
+    "reward": "Crushed Gamma",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "RA9-XPH-6KJ",
+    "reward": "Cryonautics",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JXJ-HVA-RCX",
+    "reward": "Ever Forward",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "3J9-AMM-7MG",
+    "reward": "Folding Space",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "7LV-GTK-T7J",
+    "reward": "Future in Shadow",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JYN-JAA-Y7D",
+    "reward": "Galilean Excursion",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "3CV-D6K-RD4",
+    "reward": "Gone Home",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "VXN-V3T-MRP",
+    "reward": "Harmonic Commencement",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "L7T-CVV-3RD",
+    "reward": "Heliotrope Warren",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "XVK-RLA-RAM",
+    "reward": "In Urbe Inventa",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "J6P-9YH-LLP",
+    "reward": "In Vino Mendacium",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "TNN-DKM-6LG",
+    "reward": "Jade's Burrow",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "VA7-L7H-PNC",
+    "reward": "Liminal Nadir",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "XMY-G9M-6XH",
+    "reward": "Limitless Horizon",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JND-HLR-L69",
+    "reward": "M:\\>START",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "FMM-44A-RKP",
+    "reward": "Myopia",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "YAA-37T-FCN",
+    "reward": "Neon Mirage",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "L3P-XXR-GJ4",
+    "reward": "Out the Airlock",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "THR-33A-YKC",
+    "reward": "Risen",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "9LX-7YC-6TX",
+    "reward": "Schrödinger's Gun",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JGN-PX4-DFN",
+    "reward": "Secret Signal",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "7D4-PKR-MD7",
+    "reward": "Sequence Flourish",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "XVX-DKJ-CVM",
+    "reward": "Seraphim's Gauntlets",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "F99-KPX-NCF",
+    "reward": "Shadow's Light",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "6LJ-GH7-TPA",
+    "reward": "Sneer of the Oni",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "T67-JXY-PH6",
+    "reward": "Stag's Spirit",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "PKH-JL6-L4R",
+    "reward": "Tangled Web",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "XFV-KHP-N97",
+    "reward": "The Visionary",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "6AJ-XFR-9ND",
+    "reward": "Tigris Fati",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "993-H3H-M6K",
+    "reward": "Visio Spei",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "HG7-YRG-HHF",
+    "reward": "Year of the Snake",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JVG-VNT-GGG",
+    "reward": "Соняшник",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "HVN-VVC-KHL",
+    "reward": "System of Peace",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "9MX-PA4-RKX",
+    "reward": "Parallel Program",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "THR-HTP-LGG",
+    "reward": "Field Recognition",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "6RG-HRH-T9T",
+    "reward": "Together We Ramen",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "J3X-GNT-JAF",
+    "reward": "Emblem of the Hibiscus",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "TCN-HCD-TGY",
+    "reward": "Emblem of the Fleet",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "DXL-XHC-X37",
+    "reward": "Runner",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "3VF-LGC-RLX",
+    "reward": "Insula Thesauria",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "7CP-94V-LFP",
+    "reward": "Lone Focus, Jagged Edge",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "A7L-FYC-44X",
+    "reward": "Flames of Forgotten Truth",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JD7-4CM-HJG",
+    "reward": "Illusion of Light",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JDT-NLC-JKM",
+    "reward": "Ab Aeterno",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JNX-DMH-XLA",
+    "reward": "Field of Light",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "N3L-XN6-PXF",
+    "reward": "The Reflective Proof",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "X9F-GMA-H6D",
+    "reward": "The Unimagined Plane",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "7F9-767-F74",
+    "reward": "Sign of the Finite",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "X4C-FGX-MX3",
+    "reward": "Note of Conquest",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "FJ9-LAM-67F",
+    "reward": "Binding Focus",
+    "kind": "Legacy reward",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "R9J-79M-J6C",
+    "reward": "End of the Rainbow",
+    "kind": "Transmat",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "TK7-D3P-FDF",
+    "reward": "Rainbow Connection",
+    "kind": "Emote",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "D6T-3JR-CKX",
+    "reward": "Prismatic Expanse",
+    "kind": "Shader",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "7MM-VPD-MHP",
+    "reward": "Double Banshee",
+    "kind": "Shader",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "RXC-9XJ-4MH",
+    "reward": "Oracle 99",
+    "kind": "Shader",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "JA9-PRC-XKX",
+    "reward": "Take the Mantle",
+    "kind": "Emblem",
+    "verifiedAt": "2026-07-11",
+    "sourceUrl": "https://github.com/Manaiakalani/destiny-code-finder/blob/main/public/data/emblems.json"
+  },
+  {
+    "code": "ARR-RRR-RRR",
+    "reward": "Three Strange Coins",
+    "kind": "Legacy reward",
+    "verifiedAt": "2016-09-19",
+    "expiresAt": "2016-09-20T00:00:00Z",
+    "sourceUrl": "https://www.bungie.net/pt/Forums/Post/199780021"
+  }
+]

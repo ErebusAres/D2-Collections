@@ -24,6 +24,8 @@ FEATURE_OUTPUT = OUTPUT.with_name("collection-features.json")
 PURSUIT_OUTPUT = OUTPUT.with_name("pursuit-manifest.json")
 REWARDS_OUTPUT = OUTPUT.with_name("rewards-manifest.json")
 COMPANION_OUTPUT = OUTPUT.with_name("companion-manifest.json")
+REWARD_CODE_OUTPUT = OUTPUT.with_name("reward-code-manifest.json")
+REWARD_CODE_CATALOG = OUTPUT.parents[2] / "src" / "rewardCodesCatalog.json"
 COMPANION_CHUNK_COUNT = 24
 ARMOR_STAT_HASHES = {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}
 COLLECTION_FEATURE_PATTERN = re.compile(r"\b(?:stance|faction|lawless|crystal|form|combo|reversal|mode|catalyst)\b", re.IGNORECASE)
@@ -110,6 +112,37 @@ def minimal_reward_item(definition: dict) -> dict:
         "displayProperties": display(definition),
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
     }
+
+
+def minimal_reward_code_item(item_hash: str, definition: dict) -> dict:
+    properties = definition.get("displayProperties") or {}
+    return {
+        "itemHash": item_hash,
+        "collectibleHash": str(definition.get("collectibleHash") or ""),
+        "name": properties.get("name", ""),
+        "icon": properties.get("icon", ""),
+        "itemType": definition.get("itemTypeDisplayName", ""),
+    }
+
+
+def reward_code_manifest(catalog: list[dict], inventory: dict[str, dict], version: str, generated_at: str) -> dict:
+    inventory_by_name: dict[str, list[tuple[str, dict]]] = {}
+    for item_hash, definition in inventory.items():
+        name = str((definition.get("displayProperties") or {}).get("name", "")).strip().casefold()
+        if name and not definition.get("redacted"):
+            inventory_by_name.setdefault(name, []).append((item_hash, definition))
+    definitions = {}
+    for entry in catalog:
+        matches = inventory_by_name.get(str(entry.get("reward", "")).strip().casefold(), [])
+        definitions[str(entry.get("code", ""))] = {
+            "reward": entry.get("reward", ""),
+            "items": [
+                minimal_reward_code_item(item_hash, definition)
+                for item_hash, definition in matches
+                if definition.get("collectibleHash")
+            ],
+        }
+    return {"version": version, "generatedAt": generated_at, "definitions": definitions}
 
 
 def minimal_companion_item(definition: dict, damage_types: dict[str, dict], buckets: dict[str, dict]) -> dict:
@@ -225,7 +258,9 @@ def relevant_armor_plug(definition: dict) -> bool:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build compact Guardian Nexus manifest artifacts.")
     parser.add_argument("--companion-only", action="store_true", help="Only write the mailbox/loadouts companion artifact.")
+    parser.add_argument("--reward-codes-only", action="store_true", help="Only write the reward-code collectible mapping artifact.")
     args = parser.parse_args()
+    reward_code_catalog = json.loads(REWARD_CODE_CATALOG.read_text(encoding="utf-8"))
     envelope = get_json(f"{API_ROOT}/Destiny2/Manifest/")
     if int(envelope.get("ErrorCode", 0)) != 1:
         raise RuntimeError(envelope.get("Message") or "Bungie manifest lookup failed")
@@ -267,6 +302,13 @@ def main() -> None:
             loadout_colors = table_rows(connection, "DestinyLoadoutColorDefinition")
 
     generated_at = datetime.now(timezone.utc).isoformat()
+    reward_code_compact = reward_code_manifest(reward_code_catalog, inventory, version, generated_at)
+    if args.reward_codes_only:
+        OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+        REWARD_CODE_OUTPUT.write_text(json.dumps(reward_code_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
+        print(f"Wrote {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings for manifest {version}.")
+        return
     companion_items = {
         key: minimal_companion_item(value, damage_types, buckets)
         for key, value in inventory.items()
@@ -475,7 +517,9 @@ def main() -> None:
     FEATURE_OUTPUT.write_text(json.dumps(feature_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     PURSUIT_OUTPUT.write_text(json.dumps(pursuit_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     REWARDS_OUTPUT.write_text(json.dumps(rewards_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, and {len(companion_items)} companion item definitions for manifest {version}.")
+    REWARD_CODE_OUTPUT.write_text(json.dumps(reward_code_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
+    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings, and {len(companion_items)} companion item definitions for manifest {version}.")
 
 
 if __name__ == "__main__":

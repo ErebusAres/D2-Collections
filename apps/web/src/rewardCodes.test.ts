@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeRewardCodes, featuredRewardCodes, rewardCodes } from "./rewardCodes";
+import { activeRewardCodes, featuredRewardCodes, rewardCodeRedemptionUrl, rewardCodes } from "./rewardCodes";
 
 describe("reward code catalog", () => {
   it("keeps the marquee limited to active featured codes", () => {
@@ -15,5 +15,9 @@ describe("reward code catalog", () => {
 
     expect(rewardCodes.some((entry) => entry.code === "ARR-RRR-RRR")).toBe(true);
     expect(active.some((entry) => entry.code === "ARR-RRR-RRR")).toBe(false);
+  });
+
+  it("prefills Bungie's official redemption route with the selected code", () => {
+    expect(rewardCodeRedemptionUrl("9FY-KDD-PRT")).toBe("https://www.bungie.net/7/en/Codes/Redeem?token=9FY-KDD-PRT");
   });
 });
