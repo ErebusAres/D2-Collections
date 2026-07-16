@@ -39,6 +39,24 @@ describe("build validation", () => {
       subclassConfig: { aspects: [{ name: "One" }, { name: "Two" }, { name: "Three" }], fragments: [] }
     })).toThrow();
   });
+
+  it("limits stat priority to the fixed six ranks", () => {
+    expect(() => buildDocumentSchema.parse({
+      ...validBuild,
+      statPriorities: [{ stat: "Health", priority: 7 }]
+    })).toThrow();
+  });
+
+  it("allows duplicate armor mods as quantities while enforcing three sockets per piece", () => {
+    expect(buildDocumentSchema.parse({
+      ...validBuild,
+      armorMods: { ...validBuild.armorMods, arms: [{ name: "Radiant Light", quantity: 1 }, { name: "Dynamo", quantity: 2 }] }
+    }).armorMods.arms).toEqual([{ name: "Radiant Light", quantity: 1 }, { name: "Dynamo", quantity: 2 }]);
+    expect(() => buildDocumentSchema.parse({
+      ...validBuild,
+      armorMods: { ...validBuild.armorMods, arms: [{ name: "Dynamo", quantity: 3 }, { name: "Radiant Light", quantity: 1 }] }
+    })).toThrow();
+  });
 });
 
 describe("build presentation helpers", () => {
