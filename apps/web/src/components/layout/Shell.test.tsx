@@ -20,7 +20,7 @@ vi.mock("../../context/GuardianContext", () => ({
         stats: { power: 409, guardianRank: 5, rewardsPassRank: 33, rewardsPassProgress: { state: "available", source: "bungie-profile-character-progressions", progressToNextLevel: 2_750, nextLevelAt: 100_000 }, mailboxCount: 4 },
         isInGame: false
       },
-      roles: { dev: false, matrixWriter: false }
+      roles: { dev: false, matrixWriter: false, buildEditor: false }
     },
     loading: false,
     signIn: vi.fn(),

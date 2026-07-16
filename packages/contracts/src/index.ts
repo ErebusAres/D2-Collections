@@ -107,7 +107,7 @@ export interface SessionData {
   authenticated: boolean;
   guardian?: GuardianSummary;
   csrfToken?: string;
-  roles: { dev: boolean; matrixWriter: boolean };
+  roles: { dev: boolean; matrixWriter: boolean; buildEditor: boolean };
 }
 
 export type ExoticKind = "weapon" | "armor";
@@ -542,6 +542,155 @@ export interface UserPreferencesData {
 export interface UpdateUserPreferenceRequest {
   key: UserPreferenceKey;
   value: string;
+}
+
+export type BuildStatus = "draft" | "published" | "pending_review" | "rejected" | "archived";
+export type BuildVisibility = "private" | "unlisted" | "public";
+export type BuildGuardianClass = "hunter" | "titan" | "warlock";
+export type BuildSubclass = "prismatic" | "arc" | "solar" | "void" | "strand" | "stasis";
+export type BuildVoteValue = "up" | "down";
+export type BuildLinkKind = "dim" | "mobalytics" | "youtube" | "twitch" | "source" | "other";
+
+export interface BuildNamedEntry {
+  name: string;
+  icon?: string;
+  notes?: string;
+  required?: boolean;
+}
+
+export interface BuildLink {
+  kind: BuildLinkKind;
+  label: string;
+  url: string;
+}
+
+export interface BuildSubclassConfig {
+  super?: BuildNamedEntry;
+  classAbility?: BuildNamedEntry;
+  movement?: BuildNamedEntry;
+  melee?: BuildNamedEntry;
+  grenade?: BuildNamedEntry;
+  aspects: BuildNamedEntry[];
+  fragments: BuildNamedEntry[];
+  notes?: string;
+}
+
+export interface BuildEquipmentEntry extends BuildNamedEntry {
+  slot: string;
+  perks?: string;
+  exotic?: boolean;
+}
+
+export interface BuildEquipment {
+  weapons: BuildEquipmentEntry[];
+  armor: BuildEquipmentEntry[];
+  armorSets: BuildNamedEntry[];
+}
+
+export interface BuildStatPriority {
+  stat: string;
+  target?: number;
+  minimum?: number;
+  maximum?: number;
+  priority: number;
+  notes?: string;
+}
+
+export interface BuildArmorMods {
+  helmet: BuildNamedEntry[];
+  arms: BuildNamedEntry[];
+  chest: BuildNamedEntry[];
+  legs: BuildNamedEntry[];
+  classItem: BuildNamedEntry[];
+}
+
+export interface BuildArtifactSelection extends BuildNamedEntry {
+  perks: BuildNamedEntry[];
+  tier?: string;
+}
+
+export interface BuildCosmetics {
+  shader?: BuildNamedEntry;
+  ornaments: BuildNamedEntry[];
+  ghost?: BuildNamedEntry;
+  sparrow?: BuildNamedEntry;
+  ship?: BuildNamedEntry;
+  notes?: string;
+}
+
+export interface BuildGameplayStep {
+  text: string;
+  icon?: string;
+}
+
+export interface BuildChangelogEntry {
+  version?: string;
+  notes: string;
+  date: string;
+}
+
+export interface BuildDocument {
+  title: string;
+  originalCreatorName?: string;
+  classType: BuildGuardianClass;
+  subclass: BuildSubclass;
+  subclassIcon?: string;
+  tags: string[];
+  activityTags: string[];
+  summary: string;
+  notes: string;
+  links: BuildLink[];
+  subclassConfig: BuildSubclassConfig;
+  equipment: BuildEquipment;
+  statPriorities: BuildStatPriority[];
+  armorMods: BuildArmorMods;
+  artifacts: BuildArtifactSelection[];
+  gameplayLoop: BuildGameplayStep[];
+  cosmetics: BuildCosmetics;
+  patch?: string;
+  outdated: boolean;
+  changelog: BuildChangelogEntry[];
+  status: BuildStatus;
+  visibility: BuildVisibility;
+}
+
+export interface BuildRating {
+  upvotes: number;
+  downvotes: number;
+  total: number;
+  score: number;
+  percentPositive?: number;
+}
+
+export interface GuardianBuild extends BuildDocument {
+  id: string;
+  slug: string;
+  authorMembershipId: string;
+  authorDisplayName: string;
+  rating: BuildRating;
+  viewerVote?: BuildVoteValue;
+  canEdit: boolean;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+}
+
+export interface BuildsData {
+  builds: GuardianBuild[];
+  canCreate: boolean;
+}
+
+export interface BuildData {
+  build: GuardianBuild;
+}
+
+export interface BuildVoteRequest {
+  vote: BuildVoteValue;
+}
+
+export interface BuildVoteResult {
+  rating: BuildRating;
+  viewerVote: BuildVoteValue;
 }
 
 export interface EquipLoadoutRequest {
