@@ -25,10 +25,18 @@ PURSUIT_OUTPUT = OUTPUT.with_name("pursuit-manifest.json")
 REWARDS_OUTPUT = OUTPUT.with_name("rewards-manifest.json")
 COMPANION_OUTPUT = OUTPUT.with_name("companion-manifest.json")
 REWARD_CODE_OUTPUT = OUTPUT.with_name("reward-code-manifest.json")
+BUILD_CATALOG_OUTPUT = OUTPUT.with_name("build-catalog.json")
 REWARD_CODE_CATALOG = OUTPUT.parents[2] / "src" / "modules" / "reward-codes" / "rewardCodesCatalog.json"
 COMPANION_CHUNK_COUNT = 24
 ARMOR_STAT_HASHES = {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}
 COLLECTION_FEATURE_PATTERN = re.compile(r"\b(?:stance|faction|lawless|crystal|form|combo|reversal|mode|catalyst)\b", re.IGNORECASE)
+BUILD_CLASSES = {0: "titan", 1: "hunter", 2: "warlock"}
+BUILD_SUBCLASSES = {
+    "hunter": {"prismatic": "Prismatic Hunter", "arc": "Arcstrider", "solar": "Gunslinger", "void": "Nightstalker", "strand": "Threadrunner", "stasis": "Revenant"},
+    "titan": {"prismatic": "Prismatic Titan", "arc": "Striker", "solar": "Sunbreaker", "void": "Sentinel", "strand": "Berserker", "stasis": "Behemoth"},
+    "warlock": {"prismatic": "Prismatic Warlock", "arc": "Stormcaller", "solar": "Dawnblade", "void": "Voidwalker", "strand": "Broodweaver", "stasis": "Shadebinder"},
+}
+WEAPON_ROLL_TYPES = re.compile(r"(?:trait|intrinsic|barrel|magazine|battery|scope|sight|stock|grip|guard|bowstring|arrow|rail|haft|blade|bolt|handle|tang|power core|weapon mod|praxic blade)", re.IGNORECASE)
 
 
 def get_json(url: str) -> dict:
@@ -255,10 +263,233 @@ def relevant_armor_plug(definition: dict) -> bool:
     ))
 
 
+def build_icon(path: str) -> str:
+    if not path:
+        return ""
+    return path if path.startswith("http") else f"{WEB_ROOT}{path}"
+
+
+def build_class(definition: dict) -> str | None:
+    plug = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
+    item_type = str(definition.get("itemTypeDisplayName", "")).lower()
+    for class_name in ("hunter", "titan", "warlock"):
+        if f"{class_name}." in plug or item_type.startswith(f"{class_name} "):
+            return class_name
+    return BUILD_CLASSES.get(definition.get("classType"))
+
+
+def build_subclass(definition: dict, class_name: str | None) -> str | None:
+    name = str((definition.get("displayProperties") or {}).get("name", ""))
+    plug = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
+    item_type = str(definition.get("itemTypeDisplayName", ""))
+    if item_type.endswith(" Subclass") and class_name:
+        for subclass, label in BUILD_SUBCLASSES[class_name].items():
+            if label.casefold() == name.casefold():
+                return subclass
+    if ".prism." in plug or "shared.prism." in plug:
+        return "prismatic"
+    for subclass in ("arc", "solar", "void", "strand", "stasis"):
+        if f".{subclass}." in plug or f"shared.{subclass}." in plug:
+            return subclass
+    return None
+
+
+def build_catalog_kind(definition: dict) -> str | None:
+    item_type = str(definition.get("itemTypeDisplayName", "")).lower()
+    name = str((definition.get("displayProperties") or {}).get("name", "")).lower()
+    plug = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
+    if item_type.endswith(" subclass"):
+        return "subclass"
+    if "super ability" in item_type or plug.endswith(".supers"):
+        return "super"
+    if item_type == "class ability" or "class_abilities" in plug:
+        return "classAbility"
+    if item_type == "movement ability" or plug.endswith(".movement"):
+        return "movement"
+    if ("melee" in item_type or plug.endswith(".melee")) and "weapon" not in item_type:
+        return "melee"
+    if ("grenade" in item_type or "grenade" in plug) and not any(term in item_type for term in ("launcher", "mod", "artifact")):
+        return "grenade"
+    if "aspect" in item_type and "aspect" in plug:
+        return "aspect"
+    if "fragment" in item_type and "fragment" in plug:
+        return "fragment"
+    if int(definition.get("itemType", -1)) == 3:
+        return "weapon"
+    if int(definition.get("itemType", -1)) == 2:
+        return "armor"
+    if "armor mod" in item_type and "deprecated" not in item_type:
+        return "armorMod"
+    if item_type in ("artifact", "seasonal artifact"):
+        return "artifact"
+    if item_type == "artifact perk":
+        return "artifactPerk"
+    if re.search(r"ornament|shader|ghost shell|vehicle|ship", item_type):
+        return "cosmetic"
+    if item_type == "artifact perk" and re.search(r"anti[- ]?barrier|overload|unstoppable", name):
+        return "champion"
+    return None
+
+
+def armor_mod_slots(item_type: str) -> list[str]:
+    lowered = item_type.lower()
+    if item_type in ("General Armor Mod", "Artifice Armor Mod", "Armor Mod"):
+        return ["helmet", "arms", "chest", "legs", "classItem"]
+    if lowered.startswith("helmet"):
+        return ["helmet"]
+    if lowered.startswith("arms"):
+        return ["arms"]
+    if lowered.startswith("chest"):
+        return ["chest"]
+    if lowered.startswith("leg"):
+        return ["legs"]
+    if lowered.startswith("class item"):
+        return ["classItem"]
+    return []
+
+
+def build_catalog_entry(item_hash: str, definition: dict, kind: str, damage_types: dict[str, dict], buckets: dict[str, dict]) -> dict:
+    properties = definition.get("displayProperties") or {}
+    inventory = definition.get("inventory") or {}
+    damage_hash = str(definition.get("defaultDamageTypeHash") or "")
+    bucket_hash = str(inventory.get("bucketTypeHash") or "")
+    class_name = build_class(definition)
+    subclass = build_subclass(definition, class_name)
+    entry = {
+        "hash": item_hash,
+        "name": str(properties.get("name", "")).strip(),
+        "description": str(properties.get("description", "")),
+        "icon": build_icon(str(properties.get("icon", ""))),
+        "itemType": str(definition.get("itemTypeDisplayName", "")),
+        "rarity": str(inventory.get("tierTypeName", "")),
+        "slot": str((buckets.get(bucket_hash, {}).get("displayProperties") or {}).get("name", "")),
+        "damageType": str((damage_types.get(damage_hash, {}).get("displayProperties") or {}).get("name", "")),
+        "kind": kind,
+        "exotic": str(inventory.get("tierTypeName", "")).lower() == "exotic",
+    }
+    if class_name:
+        entry["classType"] = class_name
+    if subclass:
+        entry["subclass"] = subclass
+    if kind == "armorMod":
+        entry["applicableSlots"] = armor_mod_slots(entry["itemType"])
+    return entry
+
+
+def socket_plug_hashes(definition: dict, plug_sets: dict[str, dict]) -> set[str]:
+    hashes: set[str] = set()
+    for socket in (definition.get("sockets") or {}).get("socketEntries", []):
+        hashes.add(str(socket.get("singleInitialItemHash") or ""))
+        hashes.update(str(item.get("plugItemHash") or item.get("itemHash") or "") for item in socket.get("reusablePlugItems", []))
+        for key in ("reusablePlugSetHash", "randomizedPlugSetHash", "randomPlugSetHash"):
+            plug_set = plug_sets.get(str(socket.get(key) or ""), {})
+            hashes.update(str(item.get("plugItemHash") or item.get("itemHash") or "") for item in plug_set.get("reusablePlugItems", []))
+    return {value for value in hashes if value and value != "0"}
+
+
+def is_weapon_roll_definition(definition: dict) -> bool:
+    properties = definition.get("displayProperties") or {}
+    name = str(properties.get("name", "")).strip()
+    item_type = str(definition.get("itemTypeDisplayName", ""))
+    if not name or not properties.get("icon") or not WEAPON_ROLL_TYPES.search(item_type):
+        return False
+    return not re.search(r"^(empty|locked|classified|random perk|deprecated|default)", name, re.IGNORECASE)
+
+
+def build_catalog_manifest(inventory: dict[str, dict], damage_types: dict[str, dict], buckets: dict[str, dict], plug_sets: dict[str, dict], item_sets: dict[str, dict], sandbox_perks: dict[str, dict], stat_definitions: dict[str, dict], version: str, generated_at: str) -> dict:
+    entries = []
+    weapon_perk_hashes: dict[str, list[str]] = {}
+    roll_hashes: set[str] = set()
+    for item_hash, definition in inventory.items():
+        properties = definition.get("displayProperties") or {}
+        name = str(properties.get("name", "")).strip()
+        if definition.get("redacted") or not name or not properties.get("icon") or re.search(r"^(empty|locked|deprecated|unfocused|new subclass:)", name, re.IGNORECASE):
+            continue
+        kind = build_catalog_kind(definition)
+        if kind:
+            entries.append(build_catalog_entry(item_hash, definition, kind, damage_types, buckets))
+        if int(definition.get("itemType", -1)) == 3:
+            available = sorted(value for value in socket_plug_hashes(definition, plug_sets) if value in inventory and is_weapon_roll_definition(inventory[value]))
+            if available:
+                weapon_perk_hashes[item_hash] = available
+                roll_hashes.update(available)
+    entries.extend(build_catalog_entry(item_hash, inventory[item_hash], "weaponPerk", damage_types, buckets) for item_hash in sorted(roll_hashes))
+    for set_hash, item_set in item_sets.items():
+        set_name = str((item_set.get("displayProperties") or {}).get("name", "")).strip()
+        if not set_name or item_set.get("redacted"):
+            continue
+        bonuses = []
+        for set_perk in sorted(item_set.get("setPerks") or [], key=lambda value: int(value.get("requiredSetCount", 0))):
+            perk_hash = str(set_perk.get("sandboxPerkHash") or "")
+            definition = sandbox_perks.get(perk_hash, {})
+            properties = definition.get("displayProperties") or {}
+            if not properties.get("name"):
+                continue
+            bonuses.append({
+                "hash": perk_hash,
+                "name": str(properties.get("name", "")),
+                "description": str(properties.get("description", "")),
+                "icon": build_icon(str(properties.get("icon", ""))),
+                "itemType": f"{int(set_perk.get('requiredSetCount', 0))}-piece Set Bonus",
+                "requiredPieces": int(set_perk.get("requiredSetCount", 0)),
+            })
+        for required_pieces in (2, 4):
+            selected = [bonus for bonus in bonuses if int(bonus["requiredPieces"]) <= required_pieces]
+            if not selected:
+                continue
+            label = "2-piece" if required_pieces == 2 else "2 + 4-piece"
+            entries.append({
+                "hash": set_hash,
+                "name": f"{set_name} · {label}",
+                "description": " ".join(f"{bonus['itemType']}: {bonus['description']}" for bonus in selected),
+                "icon": selected[-1]["icon"],
+                "itemType": "Armor Set Bonus",
+                "rarity": "",
+                "slot": "",
+                "damageType": "",
+                "kind": "armorSetBonus",
+                "exotic": False,
+                "setName": set_name,
+                "requiredPieces": required_pieces,
+                "bonuses": selected,
+            })
+    stat_names = {"392767087": "Health", "4244567218": "Melee", "1735777505": "Grenade", "144602215": "Super", "1943323491": "Class", "2996146975": "Weapons"}
+    stats = {
+        name: {"hash": stat_hash, "name": name, "icon": build_icon(str((stat_definitions.get(stat_hash, {}).get("displayProperties") or {}).get("icon", "")))}
+        for stat_hash, name in stat_names.items()
+    }
+    entries.sort(key=lambda entry: (entry["kind"], entry.get("setName", ""), entry["name"], entry["hash"]))
+    return {"version": version, "generatedAt": generated_at, "entries": entries, "weaponPerkHashes": weapon_perk_hashes, "statDefinitions": stats}
+
+
+def write_build_catalog_files(catalog: dict) -> dict:
+    groups: dict[str, str] = {}
+    grouped: dict[str, list[dict]] = {}
+    for entry in catalog["entries"]:
+        grouped.setdefault(entry["kind"], []).append(entry)
+    grouped["champion"] = [
+        entry for entry in grouped.get("artifactPerk", [])
+        if re.search(r"anti[- ]?barrier|overload|unstoppable", f"{entry['name']} {entry['description']}", re.IGNORECASE)
+    ]
+    icon_kinds = {"super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "armorMod", "artifactPerk"}
+    grouped["icon"] = [entry for entry in catalog["entries"] if entry["kind"] in icon_kinds]
+    for kind, entries in grouped.items():
+        filename = f"build-catalog-{re.sub(r'([A-Z])', lambda match: '-' + match.group(1).lower(), kind)}.json"
+        groups[kind] = filename
+        chunk = {"version": catalog["version"], "kind": kind, "entries": entries}
+        if kind == "weaponPerk":
+            chunk["weaponPerkHashes"] = catalog["weaponPerkHashes"]
+        BUILD_CATALOG_OUTPUT.with_name(filename).write_text(json.dumps(chunk, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    index = {"version": catalog["version"], "generatedAt": catalog["generatedAt"], "groups": groups, "statDefinitions": catalog["statDefinitions"]}
+    BUILD_CATALOG_OUTPUT.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    return index
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build compact Guardian Nexus manifest artifacts.")
     parser.add_argument("--companion-only", action="store_true", help="Only write the mailbox/loadouts companion artifact.")
     parser.add_argument("--reward-codes-only", action="store_true", help="Only write the reward-code collectible mapping artifact.")
+    parser.add_argument("--build-catalog-only", action="store_true", help="Only write the static Build Builder catalog.")
     args = parser.parse_args()
     reward_code_catalog = json.loads(REWARD_CODE_CATALOG.read_text(encoding="utf-8"))
     envelope = get_json(f"{API_ROOT}/Destiny2/Manifest/")
@@ -295,6 +526,8 @@ def main() -> None:
             damage_types = table_rows(connection, "DestinyDamageTypeDefinition")
             stat_definitions = table_rows(connection, "DestinyStatDefinition")
             plug_sets = table_rows(connection, "DestinyPlugSetDefinition")
+            item_sets = table_rows(connection, "DestinyEquipableItemSetDefinition")
+            sandbox_perks = table_rows(connection, "DestinySandboxPerkDefinition")
             season_passes = table_rows(connection, "DestinySeasonPassDefinition")
             progressions = table_rows(connection, "DestinyProgressionDefinition")
             loadout_names = table_rows(connection, "DestinyLoadoutNameDefinition")
@@ -308,6 +541,12 @@ def main() -> None:
         REWARD_CODE_OUTPUT.write_text(json.dumps(reward_code_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
         print(f"Wrote {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings for manifest {version}.")
+        return
+    build_catalog_compact = build_catalog_manifest(inventory, damage_types, buckets, plug_sets, item_sets, sandbox_perks, stat_definitions, version, generated_at)
+    if args.build_catalog_only:
+        OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+        write_build_catalog_files(build_catalog_compact)
+        print(f"Wrote {len(build_catalog_compact['entries'])} Build Builder definitions for manifest {version}.")
         return
     companion_items = {
         key: minimal_companion_item(value, damage_types, buckets)
@@ -518,8 +757,9 @@ def main() -> None:
     PURSUIT_OUTPUT.write_text(json.dumps(pursuit_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     REWARDS_OUTPUT.write_text(json.dumps(rewards_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     REWARD_CODE_OUTPUT.write_text(json.dumps(reward_code_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    write_build_catalog_files(build_catalog_compact)
     resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
-    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings, and {len(companion_items)} companion item definitions for manifest {version}.")
+    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(build_catalog_compact['entries'])} Build Builder definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings, and {len(companion_items)} companion item definitions for manifest {version}.")
 
 
 if __name__ == "__main__":
