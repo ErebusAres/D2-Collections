@@ -1,36 +1,71 @@
-import type { BuildEquipmentEntry, BuildNamedEntry } from "@guardian-nexus/contracts";
-import { CirclePlus, Trash2 } from "lucide-react";
+import type { BuildCatalogEntry, BuildCatalogKind, BuildEquipmentEntry, BuildGuardianClass, BuildNamedEntry, BuildSubclass } from "@guardian-nexus/contracts";
+import { AlertTriangle, Trash2 } from "lucide-react";
+import { namedEntryFromCatalog } from "../../modules/builds/buildCatalog";
 import styles from "../../pages/Builds.module.css";
+import { isCatalogEntry, ManifestMultiEditor, ManifestPicker } from "./ManifestPicker";
 
-export function NamedEntryEditor({ values, onChange, addLabel = "Add choice", slotLabel }: { values: BuildNamedEntry[]; onChange: (values: BuildNamedEntry[]) => void; addLabel?: string; slotLabel?: string }) {
-  return <div className={styles.repeater}>
-    {values.map((entry, index) => <div className={styles.repeaterRow} key={index}>
-      <label><span>{slotLabel || "Name"}</span><input value={entry.name} required onChange={(event) => replace(values, index, { ...entry, name: event.target.value }, onChange)} /></label>
-      <label><span>Icon URL</span><input type="url" value={entry.icon || ""} placeholder="Optional Bungie icon URL" onChange={(event) => replace(values, index, { ...entry, icon: event.target.value || undefined }, onChange)} /></label>
-      <label className={styles.wideField}><span>Notes</span><input value={entry.notes || ""} placeholder="Why this choice matters" onChange={(event) => replace(values, index, { ...entry, notes: event.target.value || undefined }, onChange)} /></label>
-      <label className={styles.checkField}><input type="checkbox" checked={Boolean(entry.required)} onChange={(event) => replace(values, index, { ...entry, required: event.target.checked }, onChange)} /><span>Required</span></label>
-      <button type="button" className={styles.removeField} onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove ${entry.name || "entry"}`}><Trash2 /></button>
-    </div>)}
-    <button type="button" className={styles.addField} onClick={() => onChange([...values, { name: "" }])}><CirclePlus /> {addLabel}</button>
-  </div>;
+interface SelectorContext {
+  classType?: BuildGuardianClass;
+  subclass?: BuildSubclass;
+  slot?: "helmet" | "arms" | "chest" | "legs" | "classItem";
 }
 
-export function EquipmentEditor({ values, onChange, addLabel }: { values: BuildEquipmentEntry[]; onChange: (values: BuildEquipmentEntry[]) => void; addLabel: string }) {
-  return <div className={styles.repeater}>
-    {values.map((entry, index) => <div className={styles.repeaterRow} key={index}>
-      <label><span>Slot</span><input value={entry.slot} required placeholder="Kinetic / Helmet" onChange={(event) => replace(values, index, { ...entry, slot: event.target.value }, onChange)} /></label>
-      <label><span>Item</span><input value={entry.name} required onChange={(event) => replace(values, index, { ...entry, name: event.target.value }, onChange)} /></label>
-      <label><span>Icon URL</span><input type="url" value={entry.icon || ""} onChange={(event) => replace(values, index, { ...entry, icon: event.target.value || undefined }, onChange)} /></label>
-      <label className={styles.wideField}><span>Perks / roll</span><input value={entry.perks || ""} onChange={(event) => replace(values, index, { ...entry, perks: event.target.value || undefined }, onChange)} /></label>
-      <label className={styles.wideField}><span>Notes</span><input value={entry.notes || ""} onChange={(event) => replace(values, index, { ...entry, notes: event.target.value || undefined }, onChange)} /></label>
-      <label className={styles.checkField}><input type="checkbox" checked={Boolean(entry.required)} onChange={(event) => replace(values, index, { ...entry, required: event.target.checked }, onChange)} /><span>Required</span></label>
-      <label className={styles.checkField}><input type="checkbox" checked={Boolean(entry.exotic)} onChange={(event) => replace(values, index, { ...entry, exotic: event.target.checked }, onChange)} /><span>Exotic</span></label>
-      <button type="button" className={styles.removeField} onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove ${entry.name || "item"}`}><Trash2 /></button>
-    </div>)}
-    <button type="button" className={styles.addField} onClick={() => onChange([...values, { name: "", slot: "" }])}><CirclePlus /> {addLabel}</button>
+export function NamedEntryEditor({ values, onChange, kind, label, addLabel = "Add choice", placeholder, context, max = 10, requiredToggle = true }: {
+  values: BuildNamedEntry[];
+  onChange: (values: BuildNamedEntry[]) => void;
+  kind: BuildCatalogKind;
+  label: string;
+  addLabel?: string;
+  placeholder: string;
+  context?: SelectorContext;
+  max?: number;
+  requiredToggle?: boolean;
+}) {
+  return <ManifestMultiEditor values={values} onChange={onChange} kind={kind} label={label} addLabel={addLabel} placeholder={placeholder} context={context} max={max} requiredToggle={requiredToggle} />;
+}
+
+export function EquipmentEditor({ values, onChange, addLabel, kind, context }: {
+  values: BuildEquipmentEntry[];
+  onChange: (values: BuildEquipmentEntry[]) => void;
+  addLabel: string;
+  kind: "weapon" | "armor";
+  context?: SelectorContext;
+}) {
+  const add = (entry: BuildCatalogEntry | BuildNamedEntry) => {
+    const named = isCatalogEntry(entry) ? namedEntryFromCatalog(entry) : entry;
+    if (values.some((value) => value.hash && value.hash === named.hash || value.name.toLocaleLowerCase() === named.name.toLocaleLowerCase())) return;
+    const definition = isCatalogEntry(entry) ? entry : undefined;
+    onChange([...values, {
+      ...named,
+      slot: definition?.slot || defaultSlot(kind),
+      exotic: definition?.exotic || undefined
+    }]);
+  };
+  return <div className={styles.equipmentEditor}>
+    {values.map((entry, index) => <article className={styles.equipmentSelection} key={`${entry.hash || entry.name}-${index}`} data-exotic={entry.exotic}>
+      {entry.icon ? <img src={entry.icon} alt="" /> : <span className={styles.unavailableManifestIcon}><AlertTriangle /></span>}
+      <div className={styles.equipmentIdentity}><strong>{entry.name}</strong><small>{entry.hash ? [entry.itemType, entry.rarity, entry.damageType, `Bungie ${entry.hash}`].filter(Boolean).join(" · ") : "Manual fallback · icon unavailable"}</small></div>
+      <label><span>Slot</span><select value={entry.slot} onChange={(event) => replace(values, index, { ...entry, slot: event.target.value }, onChange)}>{slotOptions(kind, entry.slot).map((slot) => <option key={slot}>{slot}</option>)}</select></label>
+      <label className={styles.equipmentPerks}><span>{kind === "weapon" ? "Perks / roll" : "Set bonus / configuration"}</span><input value={entry.perks || ""} placeholder={kind === "weapon" ? "Optional recommended roll" : "Optional set details"} onChange={(event) => replace(values, index, { ...entry, perks: event.target.value || undefined }, onChange)} /></label>
+      <label className={styles.selectionRequired}><input type="checkbox" checked={Boolean(entry.required)} onChange={(event) => replace(values, index, { ...entry, required: event.target.checked }, onChange)} /> Required</label>
+      {entry.exotic && <em>Exotic</em>}
+      <button type="button" className={styles.removeField} onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove ${entry.name}`}><Trash2 /></button>
+    </article>)}
+    <ManifestPicker kind={kind} label={`${addLabel} · ${values.length}/12`} placeholder={`Search official ${kind} definitions…`} context={context} onSelect={add} />
   </div>;
 }
 
 function replace<T>(values: T[], index: number, value: T, onChange: (values: T[]) => void): void {
   onChange(values.map((entry, entryIndex) => entryIndex === index ? value : entry));
+}
+
+function defaultSlot(kind: "weapon" | "armor"): string {
+  return kind === "weapon" ? "Kinetic Weapons" : "Helmet";
+}
+
+function slotOptions(kind: "weapon" | "armor", current: string): string[] {
+  const values = kind === "weapon"
+    ? ["Kinetic Weapons", "Energy Weapons", "Power Weapons"]
+    : ["Helmet", "Gauntlets", "Chest Armor", "Leg Armor", "Hunter Cloak", "Titan Mark", "Warlock Bond"];
+  return current && !values.includes(current) ? [current, ...values] : values;
 }

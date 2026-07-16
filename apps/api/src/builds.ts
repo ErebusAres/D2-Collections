@@ -1,5 +1,6 @@
 import type {
   ApiEnvelope,
+  BuildCatalogData,
   BuildData,
   BuildDocument,
   BuildRating,
@@ -9,6 +10,7 @@ import type {
   GuardianBuild
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
+import { loadBuildCatalog } from "./buildCatalog";
 import { allowlist, httpError, requireCsrf, sessionFromRequest } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 
@@ -17,7 +19,11 @@ const httpsUrl = z.string().trim().url().max(2_000).refine((value) => value.star
 const optionalUrl = httpsUrl.optional();
 const namedEntrySchema = z.object({
   name: z.string().trim().min(1).max(160),
+  hash: z.string().trim().regex(/^\d+$/).optional(),
   icon: optionalUrl,
+  itemType: z.string().trim().max(120).optional(),
+  rarity: z.string().trim().max(80).optional(),
+  damageType: z.string().trim().max(80).optional(),
   notes: optionalText,
   required: z.boolean().optional()
 });
@@ -42,6 +48,8 @@ export const buildDocumentSchema = z.object({
   activityTags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
   summary: z.string().trim().max(600).default(""),
   notes: z.string().trim().max(20_000).default(""),
+  concepts: z.array(namedEntrySchema).max(30).default([]),
+  championCounters: z.array(namedEntrySchema).max(20).default([]),
   links: z.array(linkSchema).max(20).default([]),
   subclassConfig: z.object({
     super: namedEntrySchema.optional(),
@@ -121,6 +129,12 @@ export async function buildsRoute(request: Request, env: Env, context: RequestCo
   if (!path.startsWith("/api/v1/builds")) return null;
   const session = await sessionFromRequest(request, env);
   const editor = Boolean(session && isBuildEditor(session.row, env));
+
+  if (path === "/api/v1/builds/catalog" && request.method === "GET") {
+    if (!session) throw httpError(401, "authentication_required", "Sign in with Bungie to search the build catalog.");
+    requireBuildEditor(session.row, env);
+    return buildEnvelope<BuildCatalogData>(await loadBuildCatalog(context.url, env), env, context);
+  }
 
   if (path === "/api/v1/builds" && request.method === "GET") return listBuilds(session?.row, editor, env, context);
   if (path === "/api/v1/builds" && request.method === "POST") {

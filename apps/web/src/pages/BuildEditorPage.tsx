@@ -46,9 +46,9 @@ function BuildEditor() {
 
   if (!session?.roles.buildEditor) return <><PageHeader eyebrow="Restricted authoring" title="Build editor" description="Published builds are public, but creation and editing are currently limited to the three approved Guardian Matrix identities." /><section className={styles.editorDenied}><ShieldX /><h2>Browse access only</h2><p>This Bungie identity is not on the Builds editor allowlist.</p></section></>;
   return <>
-    <PageHeader eyebrow={editing ? "Revise Guardian field guide" : "New Guardian field guide"} title={editing ? "Edit build" : "Build creator"} description="Compose a complete, scannable build using the same modular Guardian Nexus visual system. Empty optional sections remain clearly unavailable instead of being filled with dummy data." actions={<button className={styles.secondaryAction} type="button" onClick={() => setPreview((value) => !value)}><Eye /> {preview ? "Return to editor" : "Preview build"}</button>} />
+    <PageHeader eyebrow={editing ? "Revise Guardian field guide" : "New Guardian field guide"} title={editing ? "Edit build" : "Build creator"} description="Select real Destiny abilities, equipment, mods, Artifact perks, and official icons from the current Bungie manifest, then preview the complete field guide before publishing." actions={<button className={styles.secondaryAction} type="button" onClick={() => setPreview((value) => !value)}><Eye /> {preview ? "Return to editor" : "Preview build"}</button>} />
     {editing && <QueryState loading={existing.isLoading} error={existing.error as Error} hasData={Boolean(existing.data)} onRetry={() => void existing.refetch()} />}
-    {(!editing || existing.data) && (preview ? <section className={styles.editorPreview}><header><Eye /><span><strong>Private preview</strong><small>This is not published or saved.</small></span></header><div className={styles.buildHero}><SubclassIcon subclass={previewBuild.subclass} icon={previewBuild.subclassIcon} large /><div><span><ClassIcon classType={previewBuild.classType} /> {titleCase(previewBuild.classType)} · {titleCase(previewBuild.subclass)}</span><h2>{previewBuild.title || "Untitled build"}</h2><p>{previewBuild.summary || "No card summary yet."}</p></div></div><BuildDetailSections build={previewBuild} /></section> : <form ref={formRef} className={styles.buildEditor} onSubmit={(event) => event.preventDefault()}>
+    {(!editing || existing.data) && (preview ? <section className={styles.editorPreview}><header><Eye /><span><strong>Private preview</strong><small>This is not published or saved.</small></span></header><div className={styles.buildHero}><SubclassIcon subclass={previewBuild.subclass} icon={previewBuild.subclassIcon} large /><div><span><ClassIcon classType={previewBuild.classType} icon={previewBuild.subclassIcon} /> {titleCase(previewBuild.classType)} · {titleCase(previewBuild.subclass)}</span><h2>{previewBuild.title || "Untitled build"}</h2><p>{previewBuild.summary || "No card summary yet."}</p></div></div><BuildDetailSections build={previewBuild} /></section> : <form ref={formRef} className={styles.buildEditor} onSubmit={(event) => event.preventDefault()}>
       <BuildEditorBasics value={draft} onChange={setDraft} />
       <BuildEditorConfiguration value={draft} onChange={setDraft} />
       <section className={styles.publishPanel}><div><FilePenLine /><span><strong>Publish / review</strong><small>Save privately as a draft, or publish immediately to the public Builds catalog.</small></span></div><button type="button" disabled={save.isPending} onClick={() => submit("draft")}><Save /> Save draft</button><button type="button" className={styles.publishButton} disabled={save.isPending} onClick={() => submit("published")}><Send /> Publish build</button></section>
@@ -70,6 +70,8 @@ function documentFromBuild(build: GuardianBuild): BuildDocument {
     activityTags: build.activityTags,
     summary: build.summary,
     notes: build.notes,
+    concepts: build.concepts,
+    championCounters: build.championCounters,
     links: build.links,
     subclassConfig: build.subclassConfig,
     equipment: build.equipment,

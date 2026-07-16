@@ -39,6 +39,8 @@ export function emptyBuildDocument(): BuildDocument {
     activityTags: [],
     summary: "",
     notes: "",
+    concepts: [],
+    championCounters: [],
     links: [],
     subclassConfig: { aspects: [], fragments: [] },
     equipment: { weapons: [], armor: [], armorSets: [] },
@@ -85,6 +87,8 @@ function buildSearchText(build: GuardianBuild): string {
     ...build.equipment.armorSets,
     ...build.artifacts,
     ...build.artifacts.flatMap((artifact) => artifact.perks),
+    ...build.concepts,
+    ...build.championCounters,
     ...build.subclassConfig.aspects,
     ...build.subclassConfig.fragments
   ].map((entry) => `${entry.name} ${entry.notes || ""}`).join(" ");
@@ -97,6 +101,8 @@ export function buildDiscordSummary(build: GuardianBuild): string {
   const weapons = build.equipment.weapons.map((item) => `- ${item.slot}: ${item.name}${item.required ? " (required)" : ""}`).join("\n");
   const stats = [...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => `- ${stat.stat}: ${stat.target ?? stat.minimum ?? "priority"}`).join("\n");
   const artifacts = build.artifacts.map((artifact) => `- ${artifact.name}: ${artifact.perks.map((perk) => perk.name).join(", ") || "no perks listed"}`).join("\n");
+  const champions = build.championCounters.map((entry) => entry.name).join(", ");
+  const concepts = build.concepts.map((entry) => entry.name).join(", ");
   const loop = build.gameplayLoop.map((step, index) => `${index + 1}. ${step.text}`).join("\n");
   return [
     `**${build.title}** · ${titleCase(build.classType)} / ${titleCase(build.subclass)}`,
@@ -106,6 +112,8 @@ export function buildDiscordSummary(build: GuardianBuild): string {
     weapons && `**Weapons**\n${weapons}`,
     stats && `**Stat priorities**\n${stats}`,
     artifacts && `**Artifact**\n${artifacts}`,
+    champions && `**Champion counters**\n${champions}`,
+    concepts && `**At a glance**\n${concepts}`,
     loop && `**Gameplay loop**\n${loop}`,
     build.notes && `**Notes**\n${build.notes}`
   ].filter(Boolean).join("\n\n");
@@ -116,7 +124,19 @@ export function titleCase(value: string): string {
 }
 
 export function splitTags(value: string): string[] {
-  return [...new Set(value.split(/[,#\n]/).map((entry) => entry.trim()).filter(Boolean))].slice(0, 20);
+  const tags: string[] = [];
+  for (const segment of value.split(/[,\n]+/)) {
+    const trimmed = segment.trim();
+    if (!trimmed) continue;
+    const hashtags = [...trimmed.matchAll(/#([^#\s,]+)/g)].map((match) => match[1]!.trim()).filter(Boolean);
+    if (trimmed.startsWith("#") && hashtags.length === 1) tags.push(trimmed.slice(1).trim());
+    else if (hashtags.length) {
+      const plain = trimmed.replace(/#[^#\s,]+/g, " ").trim();
+      if (plain) tags.push(plain);
+      tags.push(...hashtags);
+    } else tags.push(trimmed.replace(/^#+/, "").trim());
+  }
+  return [...new Set(tags.filter(Boolean))].slice(0, 20);
 }
 
 export function prepareBuildDocument(value: BuildDocument): BuildDocument {
@@ -127,6 +147,8 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
     title: value.title.trim(),
     tags: value.tags.map((entry) => entry.trim()).filter(Boolean),
     activityTags: value.activityTags.map((entry) => entry.trim()).filter(Boolean),
+    concepts: named(value.concepts),
+    championCounters: named(value.championCounters),
     links: value.links.filter((entry) => entry.label.trim() && entry.url.trim()).map((entry) => clean(entry)),
     subclassConfig: {
       ...value.subclassConfig,

@@ -1,9 +1,9 @@
 import type { BuildDocument } from "@guardian-nexus/contracts";
 import { CirclePlus, Link2, MessageSquareText, Tags, Trash2 } from "lucide-react";
-import { splitTags, titleCase } from "../../modules/builds/builds";
 import styles from "../../pages/Builds.module.css";
-
-const concepts = ["⚔️ damage", "🛡️ survivability", "💥 add clear", "🎯 boss DPS", "◆ champion", "◉ orb generation", "👊 melee loop", "◌ grenade loop", "◇ class ability loop", "✨ super spam", "▣ ammo economy", "✚ healing", "woven mail", "devour", "radiant", "volatile", "jolt", "scorch / ignition", "freeze / shatter", "sever / unravel", "suspend"];
+import { BuildIdentitySelector } from "./BuildIdentitySelector";
+import { ManifestMultiEditor } from "./ManifestPicker";
+import { BuildTagInput } from "./BuildTagInput";
 
 export function BuildEditorBasics({ value, onChange }: { value: BuildDocument; onChange: (value: BuildDocument) => void }) {
   const set = <K extends keyof BuildDocument>(key: K, next: BuildDocument[K]) => onChange({ ...value, [key]: next });
@@ -11,12 +11,10 @@ export function BuildEditorBasics({ value, onChange }: { value: BuildDocument; o
     <EditorSection title="Basics" eyebrow="Required identity" icon={<Tags />} open>
       <div className={styles.formGrid}>
         <label className={styles.wideField}><span>Build title *</span><input value={value.title} required minLength={3} maxLength={120} onChange={(event) => set("title", event.target.value)} placeholder="e.g. Prismatic GM support loop" /></label>
-        <label><span>Class *</span><select value={value.classType} onChange={(event) => set("classType", event.target.value as BuildDocument["classType"])}>{["hunter", "titan", "warlock"].map((entry) => <option key={entry} value={entry}>{titleCase(entry)}</option>)}</select></label>
-        <label><span>Subclass *</span><select value={value.subclass} onChange={(event) => set("subclass", event.target.value as BuildDocument["subclass"])}>{["prismatic", "arc", "solar", "void", "strand", "stasis"].map((entry) => <option key={entry} value={entry}>{titleCase(entry)}</option>)}</select></label>
-        <label><span>Subclass icon URL</span><input type="url" value={value.subclassIcon || ""} onChange={(event) => set("subclassIcon", event.target.value || undefined)} placeholder="Optional manifest icon" /></label>
+        <div className={styles.fullField}><BuildIdentitySelector value={value} onChange={onChange} /></div>
         <label><span>Original creator</span><input value={value.originalCreatorName || ""} onChange={(event) => set("originalCreatorName", event.target.value || undefined)} placeholder="If different from the editor" /></label>
-        <label className={styles.wideField}><span>Tags * · comma or # separated</span><input value={value.tags.join(", ")} required onChange={(event) => set("tags", splitTags(event.target.value))} placeholder="support, GM, ability-loop" /></label>
-        <label className={styles.wideField}><span>Activities</span><input value={value.activityTags.join(", ")} onChange={(event) => set("activityTags", splitTags(event.target.value))} placeholder="PvE, Raid, Dungeon, GM, Solo" /></label>
+        <div className={styles.wideField}><BuildTagInput label="Tags * · commas, #hashtags, or pasted lists" values={value.tags} required onChange={(tags) => set("tags", tags)} placeholder="pve, #gm, boss-dps, grenade spam" /></div>
+        <div className={styles.wideField}><BuildTagInput label="Activities" values={value.activityTags} onChange={(activityTags) => set("activityTags", activityTags)} placeholder="PvE, Raid, Dungeon, GM, Solo" /></div>
         <label className={styles.fullField}><span>Card summary</span><textarea value={value.summary} maxLength={600} onChange={(event) => set("summary", event.target.value)} placeholder="A short at-a-glance explanation of what this build does." /></label>
       </div>
     </EditorSection>
@@ -31,8 +29,12 @@ export function BuildEditorBasics({ value, onChange }: { value: BuildDocument; o
     </EditorSection>
 
     <EditorSection title="Notes" eyebrow="Readable field guide" icon={<MessageSquareText />}>
-      <div className={styles.quickConcepts}>{concepts.map((concept) => <button type="button" key={concept} onClick={() => set("notes", `${value.notes}${value.notes ? "\n" : ""}${concept}`)}>{concept}</button>)}</div>
-      <label className={styles.notesField}><span>Build notes · plain text and emoji render safely</span><textarea value={value.notes} onChange={(event) => set("notes", event.target.value)} placeholder="Explain the role, ability economy, flexible choices, and encounter advice." /></label>
+      <div className={styles.notesConceptEditor}>
+        <h3>At-a-glance Destiny concepts</h3>
+        <p>Search the live manifest for status effects, abilities, fragments, mods, or Artifact perks. Selected chips use their official Destiny icons.</p>
+        <ManifestMultiEditor values={value.concepts} onChange={(concepts) => set("concepts", concepts)} kind="icon" label="Destiny icon inserts" addLabel="Icon chips" placeholder="Try Radiant, Devour, Jolt, Woven Mail…" context={{ classType: value.classType, subclass: value.subclass }} max={20} requiredToggle={false} />
+      </div>
+      <label className={styles.notesField}><span>Main build notes · text, Markdown-style formatting, and natural emoji are safe</span><textarea value={value.notes} onChange={(event) => set("notes", event.target.value)} placeholder="Explain the role, ability economy, flexible choices, encounter advice, and any substitutions in one place." /></label>
     </EditorSection>
   </>;
 }

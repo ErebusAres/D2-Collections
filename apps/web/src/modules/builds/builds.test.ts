@@ -33,12 +33,16 @@ describe("build catalog filters", () => {
 
   it("normalizes comma, hashtag, and line-delimited tags", () => {
     expect(splitTags("GM, support\n#boss DPS, GM")).toEqual(["GM", "support", "boss DPS"]);
+    expect(splitTags("#pve #gm #boss-dps")).toEqual(["pve", "gm", "boss-dps"]);
+    expect(splitTags("grenade spam, support, solo")).toEqual(["grenade spam", "support", "solo"]);
   });
 
   it("converts a build into a Discord-friendly sharing summary", () => {
-    const summary = buildDiscordSummary(build({ equipment: { weapons: [{ slot: "Energy", name: "No Hesitation" }], armor: [], armorSets: [] }, gameplayLoop: [{ text: "Keep the fireteam alive" }] }));
+    const summary = buildDiscordSummary(build({ equipment: { weapons: [{ slot: "Energy", name: "No Hesitation" }], armor: [], armorSets: [] }, concepts: [{ name: "Radiant" }], championCounters: [{ name: "Anti-Barrier Hand Cannon" }], gameplayLoop: [{ text: "Keep the fireteam alive" }] }));
     expect(summary).toContain("**Arc Loop**");
     expect(summary).toContain("Energy: No Hesitation");
+    expect(summary).toContain("Anti-Barrier Hand Cannon");
+    expect(summary).toContain("Radiant");
     expect(summary).toContain("1. Keep the fireteam alive");
   });
 });
