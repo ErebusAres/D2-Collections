@@ -12,6 +12,7 @@ import type {
 } from "@guardian-nexus/contracts";
 
 export * from "./gearSearch";
+export * from "./buildArmorSets";
 
 export const ARMOR_STAT_KEYS: ArmorStatKey[] = ["health", "melee", "grenade", "super", "class", "weapons"];
 

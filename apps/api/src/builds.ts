@@ -9,6 +9,7 @@ import type {
   BuildVoteValue,
   GuardianBuild
 } from "@guardian-nexus/contracts";
+import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
 import { z } from "zod";
 import { loadBuildCatalog } from "./buildCatalog";
 import { allowlist, httpError, requireCsrf, sessionFromRequest } from "./security";
@@ -133,6 +134,16 @@ export const buildDocumentSchema = z.object({
   visibility: z.enum(["private", "public"])
 }).strict();
 
+const storedBuildDocumentSchema = buildDocumentSchema.extend({
+  equipment: buildDocumentSchema.shape.equipment.extend({
+    armorSets: z.array(namedEntrySchema).max(12).default([])
+  }),
+  artifacts: z.array(namedEntrySchema.extend({
+    perks: z.array(namedEntrySchema).max(30).default([]),
+    tier: z.string().trim().max(80).optional()
+  })).max(6).default([])
+});
+
 const voteSchema = z.object({ vote: z.enum(["up", "down"]) }).strict();
 
 interface BuildRow {
@@ -192,16 +203,25 @@ async function listBuilds(viewer: SessionRow | undefined, editor: boolean, env: 
   const rows = await env.DB.prepare(`${buildSelect()} WHERE ${where} GROUP BY b.id ORDER BY b.updated_at DESC`)
     .bind(viewer?.membership_id || "")
     .all<BuildRow>();
-  return buildEnvelope<BuildsData>({
-    builds: (rows.results || []).map((row) => buildFromRow(row, editor)),
-    canCreate: editor
-  }, env, context);
+  const builds: GuardianBuild[] = [];
+  let invalidCount = 0;
+  for (const row of rows.results || []) {
+    try { builds.push(buildFromRow(row, editor)); }
+    catch (error) { invalidCount += 1; logStoredBuildIssue(row, error); }
+  }
+  return buildEnvelope<BuildsData>({ builds, canCreate: editor }, env, context, invalidCount
+    ? [`${invalidCount} saved build${invalidCount === 1 ? " was" : "s were"} omitted because stored data could not be normalized safely.`]
+    : []);
 }
 
 async function readBuild(identifier: string, viewer: SessionRow | undefined, editor: boolean, env: Env, context: RequestContext): Promise<Response> {
   const row = await findBuild(identifier, viewer?.membership_id || "", env);
   if (!row || (!editor && !isPublic(row))) throw httpError(404, "build_not_found", "This build is unavailable or has not been published.");
-  return buildEnvelope<BuildData>({ build: buildFromRow(row, editor) }, env, context);
+  try { return buildEnvelope<BuildData>({ build: buildFromRow(row, editor) }, env, context); }
+  catch (error) {
+    logStoredBuildIssue(row, error);
+    throw httpError(500, "build_data_invalid", "A saved build could not be read safely.");
+  }
 }
 
 async function createBuild(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -284,9 +304,27 @@ function buildFromRow(row: BuildRow, canEdit: boolean): GuardianBuild {
   };
 }
 
+export function parseStoredBuildDocument(value: string): BuildDocument {
+  const stored = storedBuildDocumentSchema.parse(JSON.parse(value));
+  return buildDocumentSchema.parse({
+    ...stored,
+    equipment: {
+      ...stored.equipment,
+      armorSets: normalizeArmorSetSelections(stored.equipment.armorSets)
+    },
+    artifacts: stored.artifacts.map((artifact) => ({ ...artifact, perks: artifact.perks.slice(0, 7) }))
+  });
+}
+
 function parseDocument(value: string): BuildDocument {
-  try { return buildDocumentSchema.parse(JSON.parse(value)); }
-  catch { throw httpError(500, "build_data_invalid", "A saved build could not be read safely."); }
+  return parseStoredBuildDocument(value);
+}
+
+function logStoredBuildIssue(row: Pick<BuildRow, "id">, error: unknown): void {
+  const issues = error instanceof z.ZodError
+    ? error.issues.map((issue) => ({ path: issue.path.join("."), code: issue.code }))
+    : [{ path: "document", code: error instanceof SyntaxError ? "invalid_json" : "unknown" }];
+  console.error("Stored build data could not be normalized.", { buildId: row.id, issues });
 }
 
 function normalizePublication(document: z.infer<typeof buildDocumentSchema>): BuildDocument {
@@ -334,12 +372,12 @@ export function slugifyBuildTitle(value: string): string {
   return value.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 72) || "guardian-build";
 }
 
-function buildEnvelope<T>(data: T, env: Env, context: RequestContext): Response {
+function buildEnvelope<T>(data: T, env: Env, context: RequestContext, warnings: string[] = []): Response {
   const observedAt = new Date().toISOString();
   const body: ApiEnvelope<T> = {
     data,
     freshness: { state: "fresh", observedAt, ageSeconds: 0 },
-    warnings: [],
+    warnings,
     requestId: context.requestId
   };
   return new Response(JSON.stringify(body), {

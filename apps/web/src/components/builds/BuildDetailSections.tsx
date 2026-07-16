@@ -2,7 +2,7 @@ import type { BuildArmorMods, BuildNamedEntry, GuardianBuild } from "@guardian-n
 import { AlertTriangle, CircleHelp, ExternalLink, Film, Footprints, Gauge, Link2, MessageSquareText, PackageOpen, Palette, Play, Puzzle, Sparkles, Swords } from "lucide-react";
 import type { ReactNode } from "react";
 import { buildStatIcon } from "../../modules/builds/buildStats";
-import { normalizeArmorSetSelections } from "../../modules/builds/armorSetBonuses";
+import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
 import { expandBuildEntries } from "./BuildFormControls";
 import { BuildRichNotes } from "./BuildRichNotes";
 import styles from "../../pages/Builds.module.css";

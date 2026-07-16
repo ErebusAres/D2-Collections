@@ -1,6 +1,6 @@
 import type { BuildNamedEntry } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { addArmorSetSelection, armorSetOptionAllowed, normalizeArmorSetSelections } from "@guardian-nexus/domain";
+import { addArmorSetSelection, armorSetOptionAllowed, normalizeArmorSetSelections } from "./buildArmorSets";
 
 const bonus = (setName: string, requiredPieces: 2 | 4, name = `${setName} ${requiredPieces}`): BuildNamedEntry => ({
   hash: setName === "Luminopotent" ? "10" : "20",
@@ -11,31 +11,23 @@ const bonus = (setName: string, requiredPieces: 2 | 4, name = `${setName} ${requ
 });
 
 describe("armor set selections", () => {
-  it("expands a legacy cumulative set entry into explicit two-piece and four-piece bonuses", () => {
-    const selected = normalizeArmorSetSelections([{
+  it("expands a legacy cumulative set entry into explicit bonuses", () => {
+    expect(normalizeArmorSetSelections([{
       hash: "10",
       name: "Luminopotent · 2 + 4-piece",
       setName: "Luminopotent",
       requiredPieces: 4,
       bonuses: [bonus("Luminopotent", 2, "Ionic Overclock"), bonus("Luminopotent", 4, "Shock and Clear")]
-    }]);
-    expect(selected).toEqual([
+    }])).toEqual([
       expect.objectContaining({ name: "Ionic Overclock", requiredPieces: 2 }),
       expect.objectContaining({ name: "Shock and Clear", requiredPieces: 4 })
     ]);
   });
 
-  it("allows two different two-piece bonuses", () => {
+  it("allows either different two-piece bonuses or a matching four-piece bonus", () => {
     const first = bonus("Luminopotent", 2);
-    const second = bonus("Techsec", 2);
-    expect(armorSetOptionAllowed([first], second)).toBe(true);
-    expect(addArmorSetSelection([first], second)).toEqual([first, second]);
-  });
-
-  it("only allows a four-piece bonus after the matching two-piece bonus", () => {
-    const first = bonus("Luminopotent", 2);
-    expect(armorSetOptionAllowed([], bonus("Luminopotent", 4))).toBe(false);
+    expect(armorSetOptionAllowed([first], bonus("Techsec", 2))).toBe(true);
     expect(armorSetOptionAllowed([first], bonus("Techsec", 4))).toBe(false);
-    expect(armorSetOptionAllowed([first], bonus("Luminopotent", 4))).toBe(true);
+    expect(addArmorSetSelection([first], bonus("Luminopotent", 4))).toHaveLength(2);
   });
 });

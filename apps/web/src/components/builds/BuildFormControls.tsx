@@ -1,8 +1,8 @@
 import type { BuildArmorSlot, BuildCatalogEntry, BuildCatalogKind, BuildEquipmentEntry, BuildGuardianClass, BuildNamedEntry, BuildSubclass } from "@guardian-nexus/contracts";
 import { AlertTriangle, Trash2 } from "lucide-react";
+import { addArmorSetSelection, armorSetOptionAllowed, normalizeArmorSetSelections } from "@guardian-nexus/domain";
 import { namedEntryFromCatalog } from "../../modules/builds/buildCatalog";
 import styles from "../../pages/Builds.module.css";
-import { addArmorSetSelection, armorSetOptionAllowed, normalizeArmorSetSelections } from "../../modules/builds/armorSetBonuses";
 import { isCatalogEntry, ManifestMultiEditor, ManifestPicker, ManifestSingleEditor } from "./ManifestPicker";
 
 interface SelectorContext {
