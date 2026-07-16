@@ -2,9 +2,9 @@ import type { FireteamContact, FireteamData, FireteamMember, FireteamSharingMode
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, CheckCircle2, Copy, Crown, EyeOff, Link2, LogIn, MessageSquare, Radio, Repeat2, Share2, ShieldCheck, Timer, UserMinus, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, mutationHeaders, queuedApi } from "../api/client";
-import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
-import { pinsKey, useGuardian } from "../state/GuardianContext";
+import { api, mutationHeaders, queuedApi } from "../services/api/client";
+import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { pinsKey, useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
 
 export function FireteamPage() {

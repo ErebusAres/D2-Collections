@@ -368,7 +368,7 @@ export async function loadRewardCodeManifest(env: Env): Promise<RewardCodeManife
   }
 }
 
-export interface SeasonPassSnapshot {
+interface SeasonPassSnapshot {
   rank: number;
   progress: RewardsPassProgress;
 }

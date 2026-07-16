@@ -1,9 +1,9 @@
 import type { MailboxData, MailboxItem, MailboxPullRequest, MailboxPullResult } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ArchiveRestore, Inbox, Mail, PackageOpen, RefreshCw } from "lucide-react";
-import { api, mutationHeaders, queuedApi } from "../api/client";
-import { AuthGate, Freshness, PageHeader, QueryState } from "../components/Page";
-import { useGuardian } from "../state/GuardianContext";
+import { api, mutationHeaders, queuedApi } from "../services/api/client";
+import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { useGuardian } from "../context/GuardianContext";
 import styles from "./MailboxPage.module.css";
 
 export function MailboxPage() {

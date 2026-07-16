@@ -4,7 +4,7 @@ import type { QuestProgress } from "@guardian-nexus/contracts";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { getQuestTooltipPosition, QuestInspectPanel } from "./QuestsPage";
+import { getQuestTooltipPosition, QuestInspectPanel } from "../components/quests/QuestInspectPanel";
 
 const quest: QuestProgress = {
   instanceId: "quest-instance",

@@ -2,15 +2,24 @@
 
 Guardian Nexus is a desktop-first Destiny 2 companion for personal Exotic collections, quest progress, opt-in fireteam coordination, and three-Guardian collection comparison.
 
-This is a greenfield application. The prior D2 Collections implementation is preserved under `archive/` for historical API and feature reference only. Active code must never import or read archived source or assets.
-
 ## Workspace
 
-- `apps/web` — React and TypeScript interface deployed to Cloudflare Pages.
-- `apps/api` — Cloudflare Worker API and new D1 schema.
+- `apps/web` — React, TypeScript, and Vite interface deployed to Cloudflare Pages.
+- `apps/api` — Cloudflare Worker API and D1 schema.
 - `packages/contracts` — shared API and domain types.
 - `packages/domain` — pure normalization and recommendation rules.
-- `tools` — archive-boundary and Bungie manifest tooling.
+- `tools` — Bungie manifest and reward-code tooling.
+
+The web application follows a feature-oriented frontend structure:
+
+- `src/components` — reusable presentation, layout, and feature components.
+- `src/context` — application-wide React context providers.
+- `src/modules` — feature-specific state and pure helpers.
+- `src/pages` — route-level page composition.
+- `src/services` — external API clients and connection state.
+- `src/styles` — global theme and application styles.
+
+Cloudflare entrypoints remain outside that structure: `apps/web/functions` is the Pages API proxy and `apps/api/src/index.ts` is the Worker entrypoint.
 
 ## Local setup
 

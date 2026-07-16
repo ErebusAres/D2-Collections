@@ -2,7 +2,7 @@ import type { CompanionManifest, GuardianLoadout, LoadoutItem, LoadoutSocket, Lo
 import { imageUrl } from "@guardian-nexus/domain";
 import type { CharacterSummary } from "@guardian-nexus/contracts";
 
-export const LOADOUT_EQUIP_RESTRICTION = "Bungie only allows loadout changes while offline, in orbit, or in a social space.";
+const LOADOUT_EQUIP_RESTRICTION = "Bungie only allows loadout changes while offline, in orbit, or in a social space.";
 
 export function normalizeLoadouts(profile: any, manifest: CompanionManifest, character: CharacterSummary): LoadoutsData {
   const instances = inventoryInstances(profile);

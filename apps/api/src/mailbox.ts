@@ -2,7 +2,7 @@ import type { CompanionManifest, MailboxData, MailboxItem } from "@guardian-nexu
 import { imageUrl } from "@guardian-nexus/domain";
 import { charactersFromProfile } from "./normalize";
 
-export const POSTMASTER_BUCKET_HASH = "215593132";
+const POSTMASTER_BUCKET_HASH = "215593132";
 
 export function postmasterItemsForCharacter(profile: any, characterId: string): any[] {
   return (profile?.characterInventories?.data?.[characterId]?.items || [])
