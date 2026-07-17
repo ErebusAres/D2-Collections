@@ -33,6 +33,8 @@ describe("BuildCompactView", () => {
     expect(screen.getAllByText("Slice").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Exotic Spirits").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Spirit of the Abeyant").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Titan Mark: Stoicism").querySelector("b")).toBeNull();
+    expect(screen.getByLabelText("Spirit row 1: Spirit of the Abeyant").querySelector("b")).toBeNull();
     expect(screen.getAllByLabelText(/Helmet socket .*: Dynamo/)).toHaveLength(2);
     expect(screen.getByLabelText("Grenade, priority 1 of 6, any value")).toBeTruthy();
     expect(screen.getByLabelText("Grenade stat: Grenade")).toBeTruthy();
