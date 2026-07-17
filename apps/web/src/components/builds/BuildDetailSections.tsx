@@ -1,7 +1,7 @@
 import type { BuildArmorMods, BuildNamedEntry, GuardianBuild } from "@guardian-nexus/contracts";
 import { AlertTriangle, CircleHelp, ExternalLink, Film, Footprints, Gauge, Link2, MessageSquareText, PackageOpen, Palette, Play, Puzzle, Sparkles, Swords } from "lucide-react";
 import type { ReactNode } from "react";
-import { buildStatIcon } from "../../modules/builds/buildStats";
+import { buildStatIcon, buildStatValueLabels } from "../../modules/builds/buildStats";
 import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
 import { expandBuildEntries } from "./BuildFormControls";
 import { BuildRichNotes } from "./BuildRichNotes";
@@ -54,7 +54,7 @@ export function BuildDetailSections({ build, showEmpty = false }: { build: Guard
     </BuildSection>
 
     <BuildSection id="stats" eyebrow="Target thresholds" title="Stat priorities" icon={<Gauge />} empty={!build.statPriorities.length} showEmpty={showEmpty}>
-      <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`} data-priority={stat.priority}><i><b>{stat.priority}</b><small>of 6</small></i><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>{stat.priority === 1 ? "Highest priority" : stat.priority === 6 ? "Lowest priority" : `Priority ${stat.priority}`}</small><strong>{stat.stat}</strong></span><b>{stat.target ?? stat.minimum ?? stat.maximum ?? "Any"}</b><small>{stat.minimum === undefined && stat.target === undefined && stat.maximum === undefined ? "Any value · no fixed threshold" : <>{stat.minimum !== undefined && `Min ${stat.minimum}`}{stat.minimum !== undefined && stat.target !== undefined && " · "}{stat.target !== undefined && `Target ${stat.target}`}{stat.maximum !== undefined && ` · Max ${stat.maximum}`}</>}</small></article>)}</div>
+      <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`} data-priority={stat.priority}><i><b>{stat.priority}</b><small>of 6</small></i><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>{stat.priority === 1 ? "Highest priority" : stat.priority === 6 ? "Lowest priority" : `Priority ${stat.priority}`}</small><strong>{stat.stat}</strong></span><b>{buildStatValueLabels(stat).map((value) => value.text).join(" · ")}</b></article>)}</div>
     </BuildSection>
 
     <BuildSection id="mods" eyebrow="Armor energy" title="Armor mods" icon={<Puzzle />} empty={!Object.values(build.armorMods).some((entries) => entries.length)} showEmpty={showEmpty}>

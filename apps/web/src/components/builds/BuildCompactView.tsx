@@ -1,6 +1,6 @@
 import type { BuildArmorMods, BuildNamedEntry, GuardianBuild } from "@guardian-nexus/contracts";
 import { CircleHelp, Footprints, Gauge, MessageSquareText, PackageOpen, Sparkles, Swords } from "lucide-react";
-import { buildStatIcon } from "../../modules/builds/buildStats";
+import { buildStatIcon, buildStatValueLabels } from "../../modules/builds/buildStats";
 import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
 import styles from "../../pages/Builds.module.css";
 import { expandBuildEntries } from "./BuildFormControls";
@@ -67,12 +67,12 @@ function StatPriorityPath({ stats }: { stats: GuardianBuild["statPriorities"] })
 }
 
 function StatPriority({ stat, index, total }: { stat: GuardianBuild["statPriorities"][number]; index: number; total: number }) {
-  const values = statValueLabels(stat);
+  const values = buildStatValueLabels(stat);
   const position = statInvestmentLabel(index, total);
-  return <article className={styles.statPriorityNode} data-primary={index === 0} style={statGlowStyle(stat)} aria-label={`${stat.stat}, ${position}, ${values.length ? values.join(", ") : "no value requirement"}`}>
+  return <article className={styles.statPriorityNode} data-primary={index === 0} style={statGlowStyle(stat)} aria-label={`${stat.stat}, ${position}, ${values.map((value) => value.text).join(", ")}`}>
     <BuildIconTooltip entry={{ name: stat.stat, icon: stat.icon || buildStatIcon(stat.stat), itemType: position, description: statDescription(stat) }} label={`${stat.stat} stat`} />
     <span className={styles.statPriorityIdentity}><strong>{stat.stat}</strong><small>{index === 0 ? "Focus first" : index === total - 1 ? "Flexible" : "Then invest"}</small></span>
-    <span className={styles.statPriorityValues}>{values.length ? values.map((value) => <b key={value} data-target={value.startsWith("Target")}>{value}</b>) : <b>Any value</b>}</span>
+    <span className={styles.statPriorityValues}>{values.map((value) => <b key={value.text} data-target={value.target}>{value.text}</b>)}</span>
   </article>;
 }
 
@@ -81,16 +81,6 @@ function slotLabel(slot: keyof BuildArmorMods): string { return slot === "classI
 function statDescription(stat: GuardianBuild["statPriorities"][number]): string {
   if (stat.minimum === undefined && stat.target === undefined && stat.maximum === undefined) return "Any value is acceptable for this stat.";
   return [stat.minimum !== undefined && `Minimum ${stat.minimum}`, stat.target !== undefined && `Target ${stat.target}`, stat.maximum !== undefined && `Maximum ${stat.maximum}`].filter(Boolean).join(" · ");
-}
-
-function statValueLabels(stat: GuardianBuild["statPriorities"][number]): string[] {
-  const range = stat.minimum !== undefined && stat.maximum !== undefined ? [`Range ${stat.minimum}–${stat.maximum}`] : [];
-  return [
-    ...range,
-    stat.minimum !== undefined && stat.maximum === undefined ? `Min ${stat.minimum}` : false,
-    stat.target !== undefined ? `Target ${stat.target}` : false,
-    stat.maximum !== undefined && stat.minimum === undefined ? `Max ${stat.maximum}` : false
-  ].filter((value): value is string => Boolean(value));
 }
 
 function statInvestmentLabel(index: number, total: number): string {
