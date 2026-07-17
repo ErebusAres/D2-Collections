@@ -40,6 +40,7 @@ describe("BuildCompactView", () => {
     expect(screen.getByLabelText("Grenade stat: Grenade")).toBeTruthy();
     expect(screen.getByText("Focus first")).toBeTruthy();
     expect(screen.getByText("Range 40–80")).toBeTruthy();
+    expect(screen.queryByText(/priority 2 of/i)).toBeNull();
     expect(screen.getByLabelText("Luminopotent · 2-piece bonus: Ionic Overclock")).toBeTruthy();
     expect(screen.getByLabelText("Luminopotent · 4-piece bonus: Shock and Clear")).toBeTruthy();
     expect(screen.getByLabelText("Luminopotent · 2-piece bonus: Ionic Overclock").querySelector("b")).toBeNull();
