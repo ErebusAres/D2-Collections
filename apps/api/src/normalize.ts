@@ -33,9 +33,10 @@ export function selectedCharacter(characters: CharacterSummary[], requested?: st
 export function guardianOnlineState(
   character: Pick<CharacterSummary, "minutesPlayedThisSession"> | undefined,
   activity: string | undefined,
-  observedDirectly: boolean
+  observedDirectly: boolean,
+  observedInParty = false
 ): "online" | "offline" | "unknown" {
-  if (activity) return "online";
+  if (activity || observedInParty || Number(character?.minutesPlayedThisSession || 0) > 0) return "online";
   if (observedDirectly && character) return "offline";
   return "unknown";
 }
@@ -44,10 +45,9 @@ export function activityName(profile: any, manifest: CompactManifest, characterI
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
   const characterActivities = profile?.characterActivities?.data || {};
   const preferred = characterId ? characterActivities[characterId] : undefined;
-  const otherActivities = Object.entries(characterActivities)
-    .filter(([id]) => id !== characterId)
-    .map(([, activity]) => activity as any);
-  const components = [preferred, ...otherActivities].filter(Boolean);
+  const components = characterId
+    ? [preferred].filter(Boolean)
+    : Object.values(characterActivities);
   const hashes = [
     transitory?.currentActivity?.activityHash,
     ...components.map((activity: any) => activity?.currentActivityHash),
@@ -59,6 +59,22 @@ export function activityName(profile: any, manifest: CompactManifest, characterI
     if (name) return name;
   }
   return undefined;
+}
+
+export function guardianLocation(
+  profile: any,
+  manifest: CompactManifest,
+  characterId: string | undefined,
+  onlineState: "online" | "offline" | "unknown"
+): string | undefined {
+  if (onlineState === "offline") return undefined;
+  const resolved = activityName(profile, manifest, characterId);
+  if (resolved) return resolved;
+  if (onlineState !== "online") return undefined;
+
+  const activity = characterId ? profile?.characterActivities?.data?.[characterId] : undefined;
+  if (activity && Number(activity.currentActivityHash || 0) === 0 && Number(activity.currentPlaylistActivityHash || 0) === 0) return "Orbit";
+  return "Online · location unavailable";
 }
 
 export function normalizeGuardian(args: {

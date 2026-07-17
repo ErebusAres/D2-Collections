@@ -28,7 +28,7 @@ import type {
 import { z } from "zod";
 import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
-import { activityName, charactersFromProfile, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
+import { activityName, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { normalizeGear, type GearStateRow } from "./gear";
@@ -630,11 +630,16 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     membershipId: String(member.membershipId || member.destinyMembershipId || ""),
     displayName: String(member.displayName || member.bungieGlobalDisplayName || "").trim(),
     emblemHash: String(member.emblemHash || ""),
-    status: Number(member.status || 0)
+    status: Number(member.status || 0),
+    observedInParty: true
   })).filter((member: any) => member.membershipId);
-  if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, displayName: row.bungie_name || row.display_name, emblemHash: "", status: 1 });
+  if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, displayName: row.bungie_name || row.display_name, emblemHash: "", status: 1, observedInParty: false });
   const ownCharacter = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
-  const fireteamActivity = activityName(profile, manifest, ownCharacter?.characterId);
+  const activeOwnCharacter = charactersFromProfile(profile).find((character) => character.minutesPlayedThisSession > 0) || ownCharacter;
+  const ownOnlineState = guardianOnlineState(activeOwnCharacter, activityName(profile, manifest, activeOwnCharacter?.characterId), true, party.some((member: any) => member.membershipId === row.membership_id && member.observedInParty));
+  const fireteamActivity = guardianLocation(profile, manifest, activeOwnCharacter?.characterId, ownOnlineState);
+  const social = await socialRosterFor(row, accessToken, env);
+  const socialByMembership = new Map((social.contacts || []).map((contact) => [contact.membershipId, contact]));
   const questCounts = new Map<string, number>();
   for (const member of party) {
     const share: any = shares.get(member.membershipId);
@@ -647,16 +652,19 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     try { payload = share ? JSON.parse(share.payload_json) : null; } catch { payload = null; }
     const memberQuests = payload?.quests || [];
     const isSelf = member.membershipId === row.membership_id;
-    const publicProfile = !isSelf && (!share || !member.displayName)
-      ? (await publicProfileFor(member.membershipId, row.membership_type, env, accessToken)).profile
+    const socialContact = socialByMembership.get(member.membershipId);
+    const publicProfile = !isSelf
+      ? (await publicProfileFor(member.membershipId, socialContact?.membershipType || row.membership_type, env, accessToken)).profile
       : undefined;
     const publicCharacters = publicProfile ? charactersFromProfile(publicProfile) : [];
     const publicCharacter = publicCharacters.find((entry) => entry.minutesPlayedThisSession > 0) || publicCharacters[0];
-    const publicActivity = publicProfile ? activityName(publicProfile, manifest, publicCharacter?.characterId) : undefined;
     const character = payload?.character || publicCharacter || (isSelf ? ownCharacter : undefined);
-    const directActivity = isSelf ? fireteamActivity : publicActivity || payload?.activity;
-    const onlineState = guardianOnlineState(character, directActivity, isSelf || Boolean(publicProfile));
-    const activity = onlineState === "offline" ? undefined : directActivity || fireteamActivity;
+    const directProfile = isSelf ? profile : publicProfile;
+    const directCharacter = isSelf ? activeOwnCharacter : publicCharacter;
+    const rawActivity = directProfile ? activityName(directProfile, manifest, directCharacter?.characterId) : undefined;
+    const onlineState = guardianOnlineState(directCharacter || character, rawActivity || payload?.activity, isSelf || Boolean(publicProfile), Boolean(member.observedInParty));
+    const publicLocation = directProfile ? guardianLocation(directProfile, manifest, directCharacter?.characterId, onlineState) : undefined;
+    const activity = onlineState === "offline" ? undefined : publicLocation || payload?.activity || (onlineState === "online" ? "Online · location unavailable" : undefined);
     const publicName = destinyDisplayName(publicProfile?.profile?.data?.userInfo);
     const inGameName = member.displayName || publicName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
     return {
@@ -668,7 +676,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       onlineState,
       character,
       activity,
-      activitySource: publicActivity ? "public" : fireteamActivity ? "fireteam" : payload?.activity ? "shared" : "unavailable",
+      activitySource: publicLocation ? "public" : payload?.activity ? "shared" : "unavailable",
       isSelf,
       isLeader: (member.status & 8) !== 0,
       syncState: share ? "synced" : "not-synced",
@@ -685,7 +693,6 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     };
   }));
   const ownShare = shares.get(row.membership_id);
-  const social = await socialRosterFor(row, accessToken, env);
   const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, activity: fireteamActivity, members, social };
   return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(social.warning ? [social.warning] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
 }

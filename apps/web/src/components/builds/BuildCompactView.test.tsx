@@ -40,6 +40,8 @@ describe("BuildCompactView", () => {
     expect(screen.getByLabelText("Grenade stat: Grenade")).toBeTruthy();
     expect(screen.getByLabelText("Luminopotent · 2-piece bonus: Ionic Overclock")).toBeTruthy();
     expect(screen.getByLabelText("Luminopotent · 4-piece bonus: Shock and Clear")).toBeTruthy();
+    expect(screen.getByLabelText("Luminopotent · 2-piece bonus: Ionic Overclock").querySelector("b")).toBeNull();
+    expect(screen.getByLabelText("Luminopotent · 4-piece bonus: Shock and Clear").querySelector("b")).toBeNull();
     expect(screen.queryByText("2+4")).toBeNull();
     expect(screen.getByText("Cast Barricade")).toBeTruthy();
   });

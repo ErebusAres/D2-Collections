@@ -454,7 +454,7 @@ export async function socialRosterFor(row: SessionRow, accessToken: string, env:
         membershipType: Number(friend?.lastSeenAsBungieMembershipType || 0) || undefined,
         displayName: name,
         source: "friend",
-        onlineState: Number(friend?.onlineStatus || 0) === 1 ? "online" : "offline",
+        onlineState: Number(friend?.onlineStatus || 0) === 1 ? "online" : "unknown",
         inDestiny2: (Number(friend?.onlineTitle || 0) & 2) !== 0
       });
     }
@@ -484,7 +484,11 @@ export async function socialRosterFor(row: SessionRow, accessToken: string, env:
             displayName: existing?.displayName || name,
             source: existing?.source === "friend" || existing?.source === "friend-and-clan" ? "friend-and-clan" : "clan",
             clanName: mergeClanNames(existing?.clanName, clanName),
-            onlineState: existing?.onlineState === "online" || clanOnlineState === "online" ? "online" : existing?.onlineState || clanOnlineState,
+            onlineState: existing?.onlineState === "online" || clanOnlineState === "online"
+              ? "online"
+              : existing?.onlineState === "offline" || clanOnlineState === "offline"
+                ? "offline"
+                : "unknown",
             inDestiny2: existing?.inDestiny2 || false
           });
         }

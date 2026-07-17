@@ -146,6 +146,18 @@ describe("socialRosterFor", () => {
     expect(result.contacts.map((contact) => contact.membershipId)).toEqual(["page-1", "page-2"]);
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(expect.arrayContaining([expect.stringContaining("currentpage=1"), expect.stringContaining("currentpage=2")]));
   });
+
+  it("does not label Bungie's offline-or-unknown friend presence as confirmed offline", async () => {
+    const responses = [
+      { friends: [{ lastSeenAsMembershipId: "hidden-friend", lastSeenAsBungieMembershipType: 3, bungieGlobalDisplayName: "Hidden", onlineStatus: 0, onlineTitle: 0 }] },
+      { results: [] }
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: responses.shift() }), { status: 200, headers: { "Content-Type": "application/json" } }))));
+
+    const result = await socialRosterFor({ membership_type: 3, membership_id: "hidden-social-member" } as SessionRow, "access", { BUNGIE_API_KEY: "test" } as Env);
+
+    expect(result.contacts).toMatchObject([{ membershipId: "hidden-friend", onlineState: "unknown", inDestiny2: false }]);
+  });
 });
 
 describe("manifest overlays", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest } from "@guardian-nexus/contracts";
-import { activityName, guardianOnlineState, normalizeGuardian, normalizeQuests } from "../src/normalize";
+import { activityName, guardianLocation, guardianOnlineState, normalizeGuardian, normalizeQuests } from "../src/normalize";
 
 const manifest = {
   version: "test",
@@ -33,9 +33,17 @@ describe("activityName", () => {
 describe("guardianOnlineState", () => {
   it("distinguishes an observed offline Guardian from online orbit and unknown presence", () => {
     expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, undefined, true)).toBe("offline");
-    expect(guardianOnlineState({ minutesPlayedThisSession: 12 }, undefined, true)).toBe("offline");
+    expect(guardianOnlineState({ minutesPlayedThisSession: 12 }, undefined, true)).toBe("online");
     expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, "The Tower", true)).toBe("online");
+    expect(guardianOnlineState(undefined, undefined, false, true)).toBe("online");
     expect(guardianOnlineState(undefined, undefined, false)).toBe("unknown");
+  });
+
+  it("reports Orbit only when Bungie returned an online character with empty activity hashes", () => {
+    const orbitProfile = { characterActivities: { data: { c1: { currentActivityHash: 0, currentPlaylistActivityHash: 0 } } } };
+    expect(guardianLocation(orbitProfile, manifest, "c1", "online")).toBe("Orbit");
+    expect(guardianLocation({}, manifest, "c1", "online")).toBe("Online · location unavailable");
+    expect(guardianLocation(orbitProfile, manifest, "c1", "offline")).toBeUndefined();
   });
 });
 
