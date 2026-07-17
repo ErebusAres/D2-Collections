@@ -24,6 +24,14 @@ describe("build manifest catalog", () => {
     expect(searchBuildCatalog(chunk, { kind: "exoticSpirit", q: "", itemHash: "100", spiritRow: 2 }).map((value) => value.name)).toEqual(["Spirit of the Horn"]);
   });
 
+  it("uses the Guardian class Spirit pool for a legacy class-item hash", () => {
+    const chunk = {
+      ...catalog("exoticSpirit", [entry("30", "Spirit of Caliban", "exoticSpirit", { row: 1 }), entry("31", "Spirit of Gyrfalcon", "exoticSpirit", { row: 2 }), entry("32", "Spirit of Synthoceps", "exoticSpirit", { row: 2 })]),
+      spiritHashesByClass: { hunter: { row1: ["30"], row2: ["31"] }, titan: { row1: [], row2: ["32"] } }
+    };
+    expect(searchBuildCatalog(chunk, { kind: "exoticSpirit", q: "", itemHash: "legacy-hash", classType: "hunter", spiritRow: 2 }).map((value) => value.name)).toEqual(["Spirit of Gyrfalcon"]);
+  });
+
   it("limits searchable roll perks to the selected weapon's real pool", () => {
     const chunk = { ...catalog("weaponPerk", [entry("10", "Incandescent", "weaponPerk"), entry("11", "Headstone", "weaponPerk")]), weaponPerkHashes: { "100": ["10"], "200": ["11"] } };
     expect(searchBuildCatalog(chunk, { kind: "weaponPerk", q: "", itemHash: "100" }).map((value) => value.name)).toEqual(["Incandescent"]);

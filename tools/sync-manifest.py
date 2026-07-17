@@ -531,6 +531,7 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
         if name_key and (name_key not in spirit_by_name or category == "intrinsics" and existing_category != "intrinsics"):
             spirit_by_name[name_key] = item_hash
     selected_spirit_hashes: set[str] = set()
+    spirit_hashes_by_class: dict[str, dict[str, list[str]]] = {}
     for armor_entry in entries:
         pool = EXOTIC_SPIRIT_POOLS.get(str(armor_entry.get("name", "")).lower())
         if not pool:
@@ -538,6 +539,9 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
         row1 = [spirit_by_name[name.lower()] for name in pool["row1"] if name.lower() in spirit_by_name]
         row2 = [spirit_by_name[name.lower()] for name in pool["row2"] if name.lower() in spirit_by_name]
         spirit_hashes[armor_entry["hash"]] = {"row1": row1, "row2": row2}
+        class_type = str(armor_entry.get("classType", ""))
+        if class_type in {"hunter", "titan", "warlock"}:
+            spirit_hashes_by_class[class_type] = {"row1": row1, "row2": row2}
         selected_spirit_hashes.update(row1)
         selected_spirit_hashes.update(row2)
         for row, hashes in enumerate((row1, row2), 1):
@@ -594,7 +598,7 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
         for stat_hash, name in stat_names.items()
     }
     entries.sort(key=lambda entry: (entry["kind"], entry.get("setName", ""), entry["name"], entry["hash"]))
-    return {"version": version, "generatedAt": generated_at, "entries": entries, "weaponPerkHashes": weapon_perk_hashes, "spiritHashes": spirit_hashes, "statDefinitions": stats}
+    return {"version": version, "generatedAt": generated_at, "entries": entries, "weaponPerkHashes": weapon_perk_hashes, "spiritHashes": spirit_hashes, "spiritHashesByClass": spirit_hashes_by_class, "statDefinitions": stats}
 
 
 def write_build_catalog_files(catalog: dict) -> dict:
@@ -642,6 +646,7 @@ def write_build_catalog_files(catalog: dict) -> dict:
             chunk["weaponPerkHashes"] = catalog["weaponPerkHashes"]
         if kind == "exoticSpirit":
             chunk["spiritHashes"] = catalog["spiritHashes"]
+            chunk["spiritHashesByClass"] = catalog["spiritHashesByClass"]
         BUILD_CATALOG_OUTPUT.with_name(filename).write_text(json.dumps(chunk, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     index = {"version": catalog["version"], "generatedAt": catalog["generatedAt"], "groups": groups, "statDefinitions": catalog["statDefinitions"]}
     BUILD_CATALOG_OUTPUT.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

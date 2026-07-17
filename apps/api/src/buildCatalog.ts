@@ -38,8 +38,11 @@ export function searchBuildCatalog(chunk: BuildCatalogChunk, input: z.infer<type
   const allowedPerks = input.kind === "weaponPerk" && input.itemHash
     ? new Set(chunk.weaponPerkHashes?.[input.itemHash] || [])
     : undefined;
-  const allowedSpirits = input.kind === "exoticSpirit" && input.itemHash && input.spiritRow
-    ? new Set(chunk.spiritHashes?.[input.itemHash]?.[input.spiritRow === 1 ? "row1" : "row2"] || [])
+  const spiritPool = input.kind === "exoticSpirit"
+    ? input.itemHash && chunk.spiritHashes?.[input.itemHash] || input.classType && chunk.spiritHashesByClass?.[input.classType]
+    : undefined;
+  const allowedSpirits = spiritPool && input.spiritRow
+    ? new Set(spiritPool[input.spiritRow === 1 ? "row1" : "row2"])
     : undefined;
   const seen = new Set<string>();
   return chunk.entries.filter((entry) => {

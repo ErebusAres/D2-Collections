@@ -654,6 +654,7 @@ export interface BuildCatalogChunk {
   entries: BuildCatalogEntry[];
   weaponPerkHashes?: Record<string, string[]>;
   spiritHashes?: Record<string, { row1: string[]; row2: string[] }>;
+  spiritHashesByClass?: Partial<Record<BuildGuardianClass, { row1: string[]; row2: string[] }>>;
 }
 
 export interface BuildCatalogData {
