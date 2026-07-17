@@ -1,5 +1,4 @@
 import type { BuildEquipmentEntry, BuildNamedEntry } from "@guardian-nexus/contracts";
-import { Star } from "lucide-react";
 import styles from "../../pages/Builds.module.css";
 import { BuildIconTooltip } from "./BuildIconTooltip";
 
@@ -9,22 +8,22 @@ export function BuildEquipmentSummary({ entry }: { entry: BuildEquipmentEntry })
   const groups = equipmentGroups(entry);
   return <article className={styles.equipmentSummary}>
     <header>
-      <BuildIconTooltip entry={entry} label={entry.slot || "Equipment"} badge={entry.exotic ? "★" : undefined} />
+      <BuildIconTooltip entry={entry} label={entry.slot || "Equipment"} />
       <span>
         <small>{[entry.slot, entry.itemType, entry.damageType].filter(Boolean).join(" · ")}</small>
         <strong>{entry.name}</strong>
         {entry.required && <em>Required</em>}
+        {groups.length > 0 && <div className={styles.equipmentPerkGroups}>
+          {groups.map((group) => <section key={group.label}>
+            <small>{group.label}</small>
+            <div>{group.entries.map((perk, index) => <span className={styles.equipmentPerkToken} key={`${perk.hash || perk.name}-${index}`}>
+              <BuildIconTooltip entry={perk} label={perk.row ? `Spirit row ${perk.row}` : group.label} />
+            </span>)}</div>
+          </section>)}
+        </div>}
       </span>
-      {entry.exotic && <b><Star /> Exotic</b>}
+      {entry.exotic && <b>Exotic</b>}
     </header>
-    {groups.length > 0 && <div className={styles.equipmentPerkGroups}>
-      {groups.map((group) => <section key={group.label}>
-        <small>{group.label}</small>
-        <div>{group.entries.map((perk, index) => <span className={styles.equipmentPerkToken} key={`${perk.hash || perk.name}-${index}`}>
-          <BuildIconTooltip entry={perk} label={perk.row ? `Spirit row ${perk.row}` : group.label} badge={perk.row ? String(perk.row) : undefined} />
-        </span>)}</div>
-      </section>)}
-    </div>}
   </article>;
 }
 
