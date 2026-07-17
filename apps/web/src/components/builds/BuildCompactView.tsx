@@ -31,7 +31,7 @@ export function BuildCompactView({ build }: { build: GuardianBuild }) {
       </div>
     </CompactSection>
 
-    <CompactSection title="Stats & armor mods" icon={<Gauge />} wide>
+    <CompactSection title="Stats & armor mods" icon={<Gauge />}>
       <CompactSubgroup label="Stat investment · highest priority → most flexible"><StatPriorityPath stats={build.statPriorities} /></CompactSubgroup>
       <div className={styles.compactModGroups}>{modGroups.map(([slot, entries]) => entries.length > 0 && <CompactSubgroup key={slot} label={slotLabel(slot)}><IconRail>{expandBuildEntries(entries).map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${index}`} entry={entry} label={`${slotLabel(slot)} socket ${index + 1}`} />)}</IconRail></CompactSubgroup>)}</div>
     </CompactSection>
@@ -47,8 +47,8 @@ export function BuildCompactView({ build }: { build: GuardianBuild }) {
   </div>;
 }
 
-function CompactSection({ title, icon, children, wide = false }: { title: string; icon: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
-  return <section className={`${styles.compactSection} ${wide ? styles.compactSectionWide : ""}`}><header>{icon}<h2>{title}</h2></header><div>{children}</div></section>;
+function CompactSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return <section className={styles.compactSection}><header>{icon}<h2>{title}</h2></header><div>{children}</div></section>;
 }
 
 function CompactSubgroup({ label, children }: { label: string; children: React.ReactNode }) {
@@ -68,7 +68,7 @@ function StatPriorityPath({ stats }: { stats: GuardianBuild["statPriorities"] })
 
 function StatPriority({ stat, index, total }: { stat: GuardianBuild["statPriorities"][number]; index: number; total: number }) {
   const values = statValueLabels(stat);
-  const position = index === 0 ? "highest priority" : index === total - 1 ? "most flexible" : `priority ${index + 1} of ${total}`;
+  const position = statInvestmentLabel(index, total);
   return <article className={styles.statPriorityNode} data-primary={index === 0} aria-label={`${stat.stat}, ${position}, ${values.length ? values.join(", ") : "no value requirement"}`}>
     <BuildIconTooltip entry={{ name: stat.stat, icon: stat.icon || buildStatIcon(stat.stat), itemType: position, description: statDescription(stat) }} label={`${stat.stat} stat`} />
     <span className={styles.statPriorityIdentity}><strong>{stat.stat}</strong><small>{index === 0 ? "Focus first" : index === total - 1 ? "Flexible" : "Then invest"}</small></span>
@@ -91,4 +91,14 @@ function statValueLabels(stat: GuardianBuild["statPriorities"][number]): string[
     stat.target !== undefined ? `Target ${stat.target}` : false,
     stat.maximum !== undefined && stat.minimum === undefined ? `Max ${stat.maximum}` : false
   ].filter((value): value is string => Boolean(value));
+}
+
+function statInvestmentLabel(index: number, total: number): string {
+  if (index === 0) return "highest priority";
+  if (index === total - 1) return "most flexible";
+  const progress = index / Math.max(total - 1, 1);
+  if (progress <= .25) return "strong investment";
+  if (progress <= .5) return "moderate investment";
+  if (progress <= .75) return "supporting investment";
+  return "lower investment";
 }
