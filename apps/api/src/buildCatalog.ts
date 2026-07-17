@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Env } from "./types";
 
 const querySchema = z.object({
-  kind: z.enum(["subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "weapon", "weaponPerk", "armor", "armorTrait", "exoticSpirit", "armorMod", "armorSetBonus", "artifact", "artifactPerk", "champion", "cosmetic", "icon"]),
+  kind: z.enum(["class", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "weapon", "weaponPerk", "armor", "armorTrait", "exoticSpirit", "armorMod", "armorSetBonus", "artifact", "artifactPerk", "champion", "cosmetic", "icon"]),
   q: z.string().trim().max(100).default(""),
   classType: z.enum(["hunter", "titan", "warlock"]).optional(),
   subclass: z.enum(["prismatic", "arc", "solar", "void", "strand", "stasis"]).optional(),
@@ -46,7 +46,7 @@ export function searchBuildCatalog(chunk: BuildCatalogChunk, input: z.infer<type
     if (allowedPerks && !allowedPerks.has(entry.hash)) return false;
     if (allowedSpirits && !allowedSpirits.has(entry.hash)) return false;
     if (input.classType && entry.classType && entry.classType !== input.classType) return false;
-    if ((input.kind === "subclass" || input.kind === "armor") && input.classType && entry.classType !== input.classType) return false;
+    if ((input.kind === "class" || input.kind === "subclass" || input.kind === "armor") && input.classType && entry.classType !== input.classType) return false;
     if (input.subclass && abilityKind(input.kind) && entry.subclass !== input.subclass) return false;
     if (input.slot && input.kind === "armorMod" && !entry.applicableSlots?.includes(input.slot)) return false;
     const search = `${entry.name} ${entry.itemType} ${entry.description} ${entry.rarity} ${entry.slot} ${entry.damageType} ${entry.setName || ""}`.toLocaleLowerCase();

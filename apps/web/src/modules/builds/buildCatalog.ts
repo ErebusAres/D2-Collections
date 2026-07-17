@@ -67,7 +67,7 @@ export function searchBuildCatalogChunk(chunk: BuildCatalogChunk, input: Omit<Bu
     if (allowedPerks && !allowedPerks.has(entry.hash)) return false;
     if (allowedSpirits && !allowedSpirits.has(entry.hash)) return false;
     if (input.classType && entry.classType && entry.classType !== input.classType) return false;
-    if ((input.kind === "subclass" || input.kind === "armor") && input.classType && entry.classType !== input.classType) return false;
+    if ((input.kind === "class" || input.kind === "subclass" || input.kind === "armor") && input.classType && entry.classType !== input.classType) return false;
     if (input.subclass && abilityKind(input.kind) && entry.subclass !== input.subclass) return false;
     if (input.slot && input.kind === "armorMod" && !entry.applicableSlots?.includes(input.slot)) return false;
     const search = `${entry.name} ${entry.itemType} ${entry.description} ${entry.rarity} ${entry.slot} ${entry.damageType} ${entry.setName || ""}`.toLocaleLowerCase();

@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import { searchBuildCatalog } from "./buildCatalog";
 
 describe("build manifest catalog", () => {
+  it("returns only the requested official Guardian class definition", () => {
+    const chunk = catalog("class", [entry("0", "Titan", "class", { classType: "titan" }), entry("1", "Hunter", "class", { classType: "hunter" })]);
+    expect(searchBuildCatalog(chunk, { kind: "class", q: "", classType: "titan" })).toEqual([expect.objectContaining({ name: "Titan" })]);
+  });
+
   it("filters official subclass and ability definitions by class and subclass", () => {
     const chunk = catalog("subclass", [entry("1", "Prismatic Hunter", "subclass", { classType: "hunter", subclass: "prismatic" }), entry("2", "Prismatic Titan", "subclass", { classType: "titan", subclass: "prismatic" })]);
     expect(searchBuildCatalog(chunk, { kind: "subclass", q: "", classType: "hunter" })).toEqual([expect.objectContaining({ hash: "1", name: "Prismatic Hunter" })]);

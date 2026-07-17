@@ -465,13 +465,30 @@ def is_weapon_roll_definition(definition: dict) -> bool:
     return not re.search(r"^(empty|locked|classified|random perk|deprecated|default)", name, re.IGNORECASE)
 
 
-def build_catalog_manifest(inventory: dict[str, dict], damage_types: dict[str, dict], buckets: dict[str, dict], plug_sets: dict[str, dict], item_sets: dict[str, dict], sandbox_perks: dict[str, dict], stat_definitions: dict[str, dict], version: str, generated_at: str) -> dict:
+def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[str, dict], damage_types: dict[str, dict], buckets: dict[str, dict], plug_sets: dict[str, dict], item_sets: dict[str, dict], sandbox_perks: dict[str, dict], stat_definitions: dict[str, dict], version: str, generated_at: str) -> dict:
     entries = []
     weapon_perk_hashes: dict[str, list[str]] = {}
     spirit_hashes: dict[str, dict[str, list[str]]] = {}
     spirit_rows_by_hash: dict[str, int] = {}
     all_spirit_hashes: set[str] = set()
     roll_hashes: set[str] = set()
+    for class_hash, definition in class_definitions.items():
+        properties = definition.get("displayProperties") or {}
+        class_type = BUILD_CLASSES.get(definition.get("classType"))
+        if class_type and properties.get("name") and properties.get("icon"):
+            entries.append({
+                "hash": class_hash,
+                "name": str(properties.get("name", "")),
+                "description": str(properties.get("description", "")),
+                "icon": build_icon(str(properties.get("icon", ""))),
+                "itemType": "Guardian Class",
+                "rarity": "",
+                "slot": "",
+                "damageType": "",
+                "kind": "class",
+                "classType": class_type,
+                "exotic": False,
+            })
     for item_hash, definition in inventory.items():
         properties = definition.get("displayProperties") or {}
         name = str(properties.get("name", "")).strip()
@@ -593,7 +610,7 @@ def write_build_catalog_files(catalog: dict) -> dict:
         {**entry, "kind": "armorTrait"} for entry in grouped.get("armor", [])
         if entry.get("exotic") and entry.get("traits")
     ]
-    icon_kinds = {"icon", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "weaponPerk", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
+    icon_kinds = {"icon", "class", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "weaponPerk", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
     icon_entries = [entry for entry in catalog["entries"] if entry["kind"] in icon_kinds or entry["kind"] in {"weapon", "armor"} and entry.get("exotic")]
     for armor in grouped.get("armor", []):
         for trait in armor.get("traits") or []:
@@ -664,6 +681,7 @@ def main() -> None:
             bundle_path.replace(database_path)
         with closing(sqlite3.connect(database_path)) as connection:
             inventory = table_rows(connection, "DestinyInventoryItemDefinition")
+            class_definitions = table_rows(connection, "DestinyClassDefinition")
             collectibles = table_rows(connection, "DestinyCollectibleDefinition")
             records = table_rows(connection, "DestinyRecordDefinition")
             objectives = table_rows(connection, "DestinyObjectiveDefinition")
@@ -688,7 +706,7 @@ def main() -> None:
         resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
         print(f"Wrote {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings for manifest {version}.")
         return
-    build_catalog_compact = build_catalog_manifest(inventory, damage_types, buckets, plug_sets, item_sets, sandbox_perks, stat_definitions, version, generated_at)
+    build_catalog_compact = build_catalog_manifest(inventory, class_definitions, damage_types, buckets, plug_sets, item_sets, sandbox_perks, stat_definitions, version, generated_at)
     if args.build_catalog_only:
         OUTPUT.parent.mkdir(parents=True, exist_ok=True)
         write_build_catalog_files(build_catalog_compact)

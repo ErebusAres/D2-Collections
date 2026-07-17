@@ -1,6 +1,6 @@
 import type { BuildVoteResult, BuildsData } from "@guardian-nexus/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CirclePlus, Filter, Search, Sparkles } from "lucide-react";
+import { ChevronDown, CirclePlus, Filter, Search, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { BuildCard } from "../components/builds/BuildCard";
@@ -14,6 +14,7 @@ export function BuildsPage() {
   const queryClient = useQueryClient();
   const { preferences, setPreference } = useGuardian();
   const [filters, setFilters] = useState<BuildFilters>(defaultBuildFilters);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const loadedPreference = useRef("");
   useEffect(() => {
     const stored = preferences["builds.filters"] || "";
@@ -36,27 +37,35 @@ export function BuildsPage() {
     return next;
   });
   const ratingChanged = (_result: BuildVoteResult) => void queryClient.invalidateQueries({ queryKey: ["builds"] });
+  const clearFilters = () => { setFilters(defaultBuildFilters); setPreference("builds.filters", JSON.stringify(defaultBuildFilters)); };
+  const activeFilters = activeBuildFilters(filters);
 
   return <>
     <PageHeader eyebrow="Guardian-authored combat library" title="Builds" description="Browse compact, field-tested Destiny 2 configurations from the Guardian Nexus team. Published builds are available to everyone; authoring remains restricted to the approved roster." actions={result.data?.data.canCreate && <Link className={styles.primaryAction} to="/builds/new"><CirclePlus /> Create build</Link>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
-      <section className={styles.buildCommandBar}>
+      <section className={styles.buildFilterPanel}>
+      <div className={styles.buildCommandBar}>
         <label className={styles.buildSearch}><Search /><input value={filters.search} onChange={(event) => update("search", event.target.value)} placeholder="Search titles, tags, creators, gear, notes, or Artifact perks…" /></label>
         <label><span>Class</span><select value={filters.classType} onChange={(event) => update("classType", event.target.value as BuildFilters["classType"])}><option value="all">All classes</option>{["hunter", "titan", "warlock"].map((entry) => <option key={entry} value={entry}>{titleCase(entry)}</option>)}</select></label>
         <label><span>Subclass</span><select value={filters.subclass} onChange={(event) => update("subclass", event.target.value as BuildFilters["subclass"])}><option value="all">All subclasses</option>{["prismatic", "arc", "solar", "void", "strand", "stasis"].map((entry) => <option key={entry} value={entry}>{titleCase(entry)}</option>)}</select></label>
         <label><span>Activity</span><select value={filters.activity} onChange={(event) => update("activity", event.target.value)}><option value="all">All activities</option>{activities.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
+        <label><span>Sort</span><select value={filters.sort} onChange={(event) => update("sort", event.target.value as BuildFilters["sort"])}><option value="updated">Recently updated</option><option value="newest">Newest</option><option value="top">Top rated</option><option value="most-voted">Most voted</option></select></label>
+        <button type="button" className={styles.advancedFilterToggle} data-open={advancedOpen} onClick={() => setAdvancedOpen((value) => !value)}><Filter /> More filters{activeFilters.filter((entry) => !["search", "classType", "subclass", "activity"].includes(entry.key)).length > 0 && <b>{activeFilters.filter((entry) => !["search", "classType", "subclass", "activity"].includes(entry.key)).length}</b>}<ChevronDown /></button>
+        <strong>{filtered.length} / {builds.length}</strong>
+      </div>
+      {advancedOpen && <div className={styles.advancedBuildFilters}>
         <label><span>Creator</span><select value={filters.author} onChange={(event) => update("author", event.target.value)}><option value="all">All creators</option>{authors.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
         <label><span>Tag</span><select value={filters.tag} onChange={(event) => update("tag", event.target.value)}><option value="all">All tags</option>{tags.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
         <label><span>Exotic armor</span><select value={filters.exoticArmor} onChange={(event) => update("exoticArmor", event.target.value)}><option value="all">Any armor</option>{exoticArmor.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
         <label><span>Exotic weapon</span><select value={filters.exoticWeapon} onChange={(event) => update("exoticWeapon", event.target.value)}><option value="all">Any weapon</option>{exoticWeapons.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
         <label><span>Artifact</span><select value={filters.artifact} onChange={(event) => update("artifact", event.target.value)}><option value="all">Any Artifact</option>{artifacts.map((entry) => <option key={entry}>{entry}</option>)}</select></label>
         <label><span>Includes</span><select value={filters.feature} onChange={(event) => update("feature", event.target.value as BuildFilters["feature"])}><option value="all">Any content</option><option value="dim">DIM link</option><option value="video">Video link</option><option value="notes">Build notes</option></select></label>
-        <label><span>Sort</span><select value={filters.sort} onChange={(event) => update("sort", event.target.value as BuildFilters["sort"])}><option value="updated">Recently updated</option><option value="newest">Newest</option><option value="top">Top rated</option><option value="most-voted">Most voted</option></select></label>
-        <strong><Filter /> {filtered.length} / {builds.length}</strong>
+      </div>}
+      {(activeFilters.length > 0 || filters.search) && <div className={styles.activeBuildFilters}>{filters.search && <button type="button" onClick={() => update("search", "")}><Search />“{filters.search}”<X /></button>}{activeFilters.map((entry) => <button type="button" key={entry.key} onClick={() => update(entry.key as keyof BuildFilters, "all" as never)}><span>{entry.label}</span>{entry.value}<X /></button>)}<button type="button" className={styles.clearBuildFilters} onClick={clearFilters}>Clear all</button></div>}
       </section>
       {filtered.length ? <section className={styles.buildGrid}>{filtered.map((build) => <BuildCard key={build.id} build={build} onRatingChange={ratingChanged} />)}</section>
-        : <section className={styles.emptyBuilds}><Sparkles /><h2>{builds.length ? "No builds match these filters" : "The Builds library is ready"}</h2><p>{builds.length ? "Clear or adjust the current filters to reveal more configurations." : result.data.data.canCreate ? "Create the first real Guardian Nexus build. No sample or fabricated build data has been inserted." : "The approved editors have not published a build yet. Check back after their first field guide is ready."}</p>{builds.length > 0 && <button type="button" onClick={() => { setFilters(defaultBuildFilters); setPreference("builds.filters", JSON.stringify(defaultBuildFilters)); }}>Clear filters</button>}</section>}
+        : <section className={styles.emptyBuilds}><Sparkles /><h2>{builds.length ? "No builds match these filters" : "The Builds library is ready"}</h2><p>{builds.length ? "Clear or adjust the current filters to reveal more configurations." : result.data.data.canCreate ? "Create the first real Guardian Nexus build. No sample or fabricated build data has been inserted." : "The approved editors have not published a build yet. Check back after their first field guide is ready."}</p>{builds.length > 0 && <button type="button" onClick={clearFilters}>Clear filters</button>}</section>}
     </>}
   </>;
 }
@@ -68,4 +77,11 @@ function readBuildFilters(raw: string): BuildFilters {
     const value = JSON.parse(raw) as Partial<BuildFilters>;
     return { ...defaultBuildFilters, ...Object.fromEntries(Object.entries(value).filter(([, entry]) => typeof entry === "string")) } as BuildFilters;
   } catch { return defaultBuildFilters; }
+}
+
+function activeBuildFilters(filters: BuildFilters): { key: string; label: string; value: string }[] {
+  const labels: Partial<Record<keyof BuildFilters, string>> = { classType: "Class", subclass: "Subclass", activity: "Activity", author: "Creator", tag: "Tag", exoticArmor: "Armor", exoticWeapon: "Weapon", artifact: "Artifact", feature: "Includes" };
+  return Object.entries(filters).flatMap(([key, value]) => key !== "search" && key !== "sort" && value !== "all"
+    ? [{ key, label: labels[key as keyof BuildFilters] || key, value: titleCase(value) }]
+    : []);
 }

@@ -591,6 +591,7 @@ export type BuildArmorSlot = "helmet" | "arms" | "chest" | "legs" | "classItem";
 export type BuildStatName = "Health" | "Melee" | "Grenade" | "Super" | "Class" | "Weapons";
 
 export type BuildCatalogKind =
+  | "class"
   | "subclass"
   | "super"
   | "classAbility"
@@ -734,6 +735,7 @@ export interface BuildDocument {
   title: string;
   originalCreatorName?: string;
   classType: BuildGuardianClass;
+  classIcon?: string;
   subclass: BuildSubclass;
   subclassIcon?: string;
   tags: string[];
@@ -785,6 +787,22 @@ export interface BuildsData {
 
 export interface BuildData {
   build: GuardianBuild;
+}
+
+export interface BuildWorkingDraft {
+  buildId: string;
+  document: BuildDocument;
+  baseUpdatedAt: string;
+  savedAt: string;
+}
+
+export interface BuildWorkingDraftData {
+  draft?: BuildWorkingDraft;
+}
+
+export interface SaveBuildWorkingDraftRequest {
+  document: BuildDocument;
+  baseUpdatedAt: string;
 }
 
 export interface BuildVoteRequest {

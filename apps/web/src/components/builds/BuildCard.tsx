@@ -1,5 +1,5 @@
 import type { BuildVoteResult, GuardianBuild } from "@guardian-nexus/contracts";
-import { CalendarClock, ExternalLink, FilePenLine, Play, Swords } from "lucide-react";
+import { CalendarClock, ExternalLink, FilePenLine, Play, Shield, Swords } from "lucide-react";
 import { Link } from "react-router-dom";
 import { titleCase } from "../../modules/builds/builds";
 import { BuildRating } from "./BuildRating";
@@ -11,11 +11,11 @@ export function BuildCard({ build, onRatingChange }: { build: GuardianBuild; onR
   const weapons = build.equipment.weapons.slice(0, 3);
   const quickLinks = build.links.filter((link) => ["dim", "mobalytics", "youtube", "twitch"].includes(link.kind)).slice(0, 3);
   return <article className={styles.buildCard} data-status={build.status}>
-    <header><SubclassIcon subclass={build.subclass} icon={build.subclassIcon} /><div><span><ClassIcon classType={build.classType} icon={build.subclassIcon} /> {titleCase(build.classType)} · {titleCase(build.subclass)}</span><Link to={`/builds/${build.slug}`}><h2>{build.title}</h2></Link></div>{build.status !== "published" && <em>{build.status.replace("_", " ")}</em>}</header>
+    <header><SubclassIcon subclass={build.subclass} icon={build.subclassIcon} /><div><span><ClassIcon classType={build.classType} icon={build.classIcon} /> {titleCase(build.classType)} · {titleCase(build.subclass)}</span><Link to={`/builds/${build.slug}`}><h2 title={build.title}>{build.title}</h2></Link></div>{build.status !== "published" && <em>{build.status.replace("_", " ")}</em>}</header>
     <div className={styles.cardTags}>{build.activityTags.map((tag) => <b key={`activity-${tag}`}>{tag}</b>)}{build.tags.slice(0, 5).map((tag) => <span key={tag}>#{tag}</span>)}</div>
     <p>{build.summary || "No summary has been added to this build yet."}</p>
     <section className={styles.cardGear}>
-      {exotic && <div><Swords /><span><small>Key armor</small><strong>{exotic.name}</strong></span></div>}
+      {exotic && <div>{exotic.icon ? <img src={exotic.icon} alt="" /> : <Shield />}<span><small>Key armor</small><strong>{exotic.name}</strong></span></div>}
       {weapons.length > 0 && <div><Swords /><span><small>Weapons</small><strong>{weapons.map((item) => item.name).join(" · ")}</strong></span></div>}
     </section>
     <footer>
