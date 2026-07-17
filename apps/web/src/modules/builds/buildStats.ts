@@ -33,3 +33,18 @@ export function normalizeBuildStatPriorities(values: BuildStatPriority[]): Build
     icon: byName.get(stat)?.icon || buildStatIcon(stat)
   }));
 }
+
+export type BuildStatValueLabel = { text: string; target: boolean };
+
+export function buildStatValueLabels(stat: BuildStatPriority): BuildStatValueLabel[] {
+  const labels: BuildStatValueLabel[] = [];
+  if (stat.minimum !== undefined && stat.maximum !== undefined) {
+    labels.push({ text: stat.minimum === stat.maximum ? `${stat.minimum}` : `${stat.minimum}–${stat.maximum}`, target: false });
+  } else if (stat.minimum !== undefined) {
+    labels.push({ text: `${stat.minimum}+`, target: false });
+  } else if (stat.maximum !== undefined) {
+    labels.push({ text: stat.maximum === 0 ? "0" : `0–${stat.maximum}`, target: false });
+  }
+  if (stat.target !== undefined) labels.push({ text: `Target ${stat.target}`, target: true });
+  return labels.length ? labels : [{ text: "Any", target: false }];
+}
