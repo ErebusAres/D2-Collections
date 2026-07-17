@@ -25,6 +25,6 @@ export function BuildNotesEditor({ value, onChange }: { value: BuildDocument; on
   return <div className={styles.notesInsertEditor}>
     {value.concepts.length > 0 && <p className={styles.legacyConceptNotice}>Existing at-a-glance icons are retained for compatibility. New icons are inserted directly into the note at the cursor.</p>}
     <label className={styles.notesField}><span>Main build notes · Markdown-style text, natural emoji, and inline Destiny icons</span><textarea ref={textarea} value={value.notes} onChange={(event) => onChange({ ...value, notes: event.target.value })} placeholder="Explain the gameplay loop, flexible choices, encounter advice, and substitutions in one field guide." /></label>
-    <ManifestPicker kind="icon" label="Insert an official Destiny icon at the cursor" placeholder="Search traits, perks, elements, champions, abilities, gear, mods, Artifacts, or engrams…" context={{ classType: value.classType, subclass: value.subclass }} allowManual={false} onSelect={(entry) => insert(entry)} />
+    <ManifestPicker kind="noteIcon" label="Insert an official Destiny icon at the cursor" placeholder="Search elements, weapons, weapon perks, armor, Spirits, abilities, mods, Artifacts, champions, and more…" context={{ classType: value.classType, subclass: value.subclass }} allowManual={false} onSelect={(entry) => insert(entry)} />
   </div>;
 }

@@ -8,21 +8,33 @@ import { BuildNotesEditor } from "./BuildNotesEditor";
 afterEach(() => vi.unstubAllGlobals());
 
 describe("BuildNotesEditor", () => {
-  it("searches manifest-backed traits and inserts their official icon token into notes", async () => {
+  it("searches elements, weapons, perks, and armor and inserts their official icon tokens", async () => {
+    const entries = [
+      catalogEntry("1", "Solar", "Element / Damage Type", "solar"),
+      catalogEntry("2", "Fatebringer", "Hand Cannon", "weapon"),
+      catalogEntry("3", "Incandescent", "Weapon Trait", "perk"),
+      catalogEntry("4", "Celestial Nighthawk", "Helmet", "armor")
+    ];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input), "https://guardian-nexus.pages.dev");
-      if (url.pathname.endsWith("build-catalog.json")) return new Response(JSON.stringify({ version: "test", generatedAt: "2026-07-16T00:00:00.000Z", groups: { icon: "build-catalog-icon.json" }, statDefinitions: {} }), { status: 200 });
-      return new Response(JSON.stringify({ version: "test", kind: "icon", entries: [{ hash: "123", kind: "icon", name: "Puppeteer's Control", icon: "https://www.bungie.net/trait.png", description: "Improves Drengr's Lash.", itemType: "Intrinsic", rarity: "", slot: "", damageType: "", exotic: false }] }), { status: 200 });
+      if (url.pathname.endsWith("build-catalog.json")) return new Response(JSON.stringify({ version: "test", generatedAt: "2026-07-16T00:00:00.000Z", groups: { noteIcon: "build-catalog-note-icon.json" }, statDefinitions: {} }), { status: 200 });
+      return new Response(JSON.stringify({ version: "test", kind: "noteIcon", entries }), { status: 200 });
     }));
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
     const onChange = vi.fn();
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><BuildNotesEditor value={emptyBuildDocument()} onChange={onChange} /></QueryClientProvider>);
 
-    const search = screen.getByPlaceholderText(/Search traits, perks/);
+    const search = screen.getByPlaceholderText(/Search elements, weapons/);
     fireEvent.focus(search);
-    fireEvent.change(search, { target: { value: "Puppeteer" } });
-    fireEvent.click(await screen.findByRole("button", { name: /Puppeteer's Control/ }));
+    for (const entry of entries) {
+      fireEvent.change(search, { target: { value: entry.name } });
+      fireEvent.click(await screen.findByRole("button", { name: new RegExp(entry.name) }));
+    }
 
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ notes: expect.stringContaining("Puppeteer's%20Control") }));
+    for (const entry of entries) expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ notes: expect.stringContaining(encodeURIComponent(entry.name)) }));
   });
 });
+
+function catalogEntry(hash: string, name: string, itemType: string, icon: string) {
+  return { hash, kind: "noteIcon", name, icon: `https://www.bungie.net/${icon}.png`, description: "", itemType, rarity: "", slot: "", damageType: name === "Solar" ? "Solar" : "", exotic: name === "Celestial Nighthawk" };
+}

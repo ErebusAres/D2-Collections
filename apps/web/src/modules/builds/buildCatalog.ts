@@ -15,7 +15,7 @@ export interface BuildCatalogQuery {
 
 export function useBuildCatalog(input: BuildCatalogQuery) {
   const query = useDeferredValue(input.query.trim());
-  const enabled = input.enabled !== false && (input.kind !== "icon" || query.length >= 2);
+  const enabled = input.enabled !== false && (!["icon", "noteIcon"].includes(input.kind) || query.length >= 2);
   const index = useQuery({
     queryKey: ["build-catalog-index"],
     queryFn: () => staticJson<BuildCatalogManifest>("/data/build-catalog.json"),

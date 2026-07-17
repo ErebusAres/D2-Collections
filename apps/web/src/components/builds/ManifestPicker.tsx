@@ -38,7 +38,7 @@ export function ManifestPicker({ kind, label, placeholder, onSelect, context, al
       {!result.isLoading && !result.error && entries.map((entry) => <button type="button" key={`${entry.kind}-${entry.hash}-${entry.requiredPieces || 0}`} onMouseDown={(event) => event.preventDefault()} onClick={() => choose(entry)}>
         <img src={entry.icon} alt="" loading="lazy" /><span><strong>{entry.name}</strong><small>{[entry.itemType, entry.rarity, entry.slot, entry.damageType].filter(Boolean).join(" · ")}</small>{entry.description && <small>{entry.description}</small>}</span>{entry.exotic && <em>Exotic</em>}
       </button>)}
-      {!result.isLoading && !result.error && focused && !entries.length && <p>{kind === "icon" && query.trim().length < 2 ? "Type at least two characters to find a Destiny icon." : "No official definition matches this search."}</p>}
+      {!result.isLoading && !result.error && focused && !entries.length && <p>{["icon", "noteIcon"].includes(kind) && query.trim().length < 2 ? "Type at least two characters to find a Destiny icon." : "No official definition matches this search."}</p>}
       {allowManual && query.trim().length >= 2 && <button type="button" className={styles.manualManifestEntry} onMouseDown={(event) => event.preventDefault()} onClick={() => choose({ name: query.trim() })}><Wrench /><span><strong>Use “{query.trim()}” manually</strong><small>No fabricated or placeholder icon will be added.</small></span></button>}
     </div>}
   </label>;

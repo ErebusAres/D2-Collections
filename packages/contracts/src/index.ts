@@ -618,6 +618,7 @@ export type BuildCatalogKind =
   | "artifactPerk"
   | "champion"
   | "cosmetic"
+  | "noteIcon"
   | "icon";
 
 export interface BuildCatalogEntry {

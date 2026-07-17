@@ -489,6 +489,21 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
                 "classType": class_type,
                 "exotic": False,
             })
+    for damage_hash, definition in damage_types.items():
+        properties = definition.get("displayProperties") or {}
+        if properties.get("name") and properties.get("icon"):
+            entries.append({
+                "hash": damage_hash,
+                "name": str(properties.get("name", "")),
+                "description": str(properties.get("description", "")),
+                "icon": build_icon(str(properties.get("icon", ""))),
+                "itemType": "Element / Damage Type",
+                "rarity": "",
+                "slot": "",
+                "damageType": str(properties.get("name", "")),
+                "kind": "noteIcon",
+                "exotic": False,
+            })
     for item_hash, definition in inventory.items():
         properties = definition.get("displayProperties") or {}
         name = str(properties.get("name", "")).strip()
@@ -616,6 +631,7 @@ def write_build_catalog_files(catalog: dict) -> dict:
     ]
     icon_kinds = {"icon", "class", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "weaponPerk", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
     icon_entries = [entry for entry in catalog["entries"] if entry["kind"] in icon_kinds or entry["kind"] in {"weapon", "armor"} and entry.get("exotic")]
+    note_icon_entries = [entry for entry in catalog["entries"] if entry.get("icon")]
     for armor in grouped.get("armor", []):
         for trait in armor.get("traits") or []:
             icon_entries.append({
@@ -630,6 +646,18 @@ def write_build_catalog_files(catalog: dict) -> dict:
                 "kind": "icon",
                 "exotic": False,
             })
+            note_icon_entries.append({
+                "hash": trait.get("hash", ""),
+                "name": trait.get("name", ""),
+                "description": "",
+                "icon": trait.get("icon", ""),
+                "itemType": f"Armor Trait · {trait.get('itemType', 'Intrinsic')}",
+                "rarity": "",
+                "slot": "",
+                "damageType": "",
+                "kind": "noteIcon",
+                "exotic": False,
+            })
     seen_icons: set[tuple[str, str]] = set()
     grouped["icon"] = []
     for entry in icon_entries:
@@ -638,6 +666,30 @@ def write_build_catalog_files(catalog: dict) -> dict:
             continue
         seen_icons.add(key)
         grouped["icon"].append(entry)
+    seen_note_icons: set[tuple[str, str]] = set()
+    grouped["noteIcon"] = []
+    for entry in note_icon_entries:
+        key = (str(entry.get("hash", "")), str(entry.get("name", "")).lower())
+        if not entry.get("name") or not entry.get("icon") or key in seen_note_icons:
+            continue
+        seen_note_icons.add(key)
+        note_entry = {
+            "hash": str(entry.get("hash", "")),
+            "name": str(entry.get("name", "")),
+            "description": "",
+            "icon": str(entry.get("icon", "")),
+            "itemType": str(entry.get("itemType", "")),
+            "rarity": str(entry.get("rarity", "")),
+            "slot": str(entry.get("slot", "")),
+            "damageType": str(entry.get("damageType", "")),
+            "kind": "noteIcon",
+            "exotic": bool(entry.get("exotic")),
+        }
+        if entry.get("classType"):
+            note_entry["classType"] = entry["classType"]
+        if entry.get("subclass"):
+            note_entry["subclass"] = entry["subclass"]
+        grouped["noteIcon"].append(note_entry)
     for kind, entries in grouped.items():
         filename = f"build-catalog-{re.sub(r'([A-Z])', lambda match: '-' + match.group(1).lower(), kind)}.json"
         groups[kind] = filename
