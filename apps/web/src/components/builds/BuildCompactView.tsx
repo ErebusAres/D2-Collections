@@ -25,8 +25,10 @@ export function BuildCompactView({ build }: { build: GuardianBuild }) {
 
     <CompactSection title="Weapons & armor" icon={<Swords />}>
       <CompactSubgroup label="Weapons"><div className={styles.equipmentSummaryList}>{build.equipment.weapons.map((entry, index) => <BuildEquipmentSummary key={`${entry.hash}-${index}`} entry={entry} />)}</div></CompactSubgroup>
-      <CompactSubgroup label="Exotic armor & key pieces"><div className={styles.equipmentSummaryList}>{build.equipment.armor.map((entry, index) => <BuildEquipmentSummary key={`${entry.hash}-${index}`} entry={entry} />)}</div></CompactSubgroup>
-      <CompactSubgroup label="Selected set bonuses"><div className={styles.armorSetIconRail}><IconRail>{armorSets.map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${entry.requiredPieces}-${index}`} entry={entry} label={`${entry.setName || "Armor set"} · ${entry.requiredPieces}-piece bonus`} badge={String(entry.requiredPieces || "?")} />)}</IconRail></div></CompactSubgroup>
+      <div className={styles.compactArmorRow}>
+        <CompactSubgroup label="Exotic armor & key pieces"><div className={styles.equipmentSummaryList}>{build.equipment.armor.map((entry, index) => <BuildEquipmentSummary key={`${entry.hash}-${index}`} entry={entry} />)}</div></CompactSubgroup>
+        <CompactSubgroup label="Selected set bonuses"><div className={styles.armorSetIconRail}><IconRail>{armorSets.map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${entry.requiredPieces}-${index}`} entry={entry} label={`${entry.setName || "Armor set"} · ${entry.requiredPieces}-piece bonus`} />)}</IconRail></div></CompactSubgroup>
+      </div>
     </CompactSection>
 
     <CompactSection title="Stats & armor mods" icon={<Gauge />}>
