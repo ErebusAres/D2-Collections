@@ -4,6 +4,7 @@ import type {
   BuildData,
   BuildDocument,
   BuildRating,
+  BuildWorkingDraftData,
   BuildsData,
   BuildVoteResult,
   BuildVoteValue,
@@ -67,6 +68,7 @@ export const buildDocumentSchema = z.object({
   title: z.string().trim().min(3).max(120),
   originalCreatorName: z.string().trim().max(120).optional(),
   classType: z.enum(["hunter", "titan", "warlock"]),
+  classIcon: optionalUrl,
   subclass: z.enum(["prismatic", "arc", "solar", "void", "strand", "stasis"]),
   subclassIcon: optionalUrl,
   tags: z.array(z.string().trim().min(1).max(40)).min(1).max(20),
@@ -145,6 +147,7 @@ const storedBuildDocumentSchema = buildDocumentSchema.extend({
 });
 
 const voteSchema = z.object({ vote: z.enum(["up", "down"]) }).strict();
+const workingDraftSchema = z.object({ document: buildDocumentSchema, baseUpdatedAt: z.string().datetime() }).strict();
 
 interface BuildRow {
   id: string;
@@ -180,13 +183,21 @@ export async function buildsRoute(request: Request, env: Env, context: RequestCo
     return createBuild(request, session.row, env, context);
   }
 
-  const match = path.match(/^\/api\/v1\/builds\/([^/]+)(\/vote)?$/);
+  const match = path.match(/^\/api\/v1\/builds\/([^/]+)(\/(?:vote|working-draft))?$/);
   if (!match) return null;
   const identifier = decodeURIComponent(match[1] || "");
   if (match[2] === "/vote" && request.method === "POST") {
     if (!session) throw httpError(401, "authentication_required", "Sign in with Bungie to rate a build.");
     await requireCsrf(request, session.token, env);
     return voteOnBuild(request, identifier, session.row, env, context);
+  }
+  if (match[2] === "/working-draft") {
+    if (!session) throw httpError(401, "authentication_required", "Sign in with Bungie to manage build drafts.");
+    requireBuildEditor(session.row, env);
+    if (request.method === "GET") return readWorkingDraft(identifier, session.row, env, context);
+    await requireCsrf(request, session.token, env);
+    if (request.method === "PUT") return saveWorkingDraft(request, identifier, session.row, env, context);
+    if (request.method === "DELETE") return deleteWorkingDraft(identifier, session.row, env, context);
   }
   if (!match[2] && request.method === "GET") return readBuild(identifier, session?.row, editor, env, context);
   if (!match[2] && request.method === "PUT") {
@@ -213,6 +224,8 @@ async function listBuilds(viewer: SessionRow | undefined, editor: boolean, env: 
     ? [`${invalidCount} saved build${invalidCount === 1 ? " was" : "s were"} omitted because stored data could not be normalized safely.`]
     : []);
 }
+
+interface WorkingDraftRow { build_id: string; build_json: string; base_updated_at: string; saved_at: string }
 
 async function readBuild(identifier: string, viewer: SessionRow | undefined, editor: boolean, env: Env, context: RequestContext): Promise<Response> {
   const row = await findBuild(identifier, viewer?.membership_id || "", env);
@@ -251,11 +264,41 @@ async function updateBuild(request: Request, identifier: string, editorRow: Sess
     env.DB.prepare("INSERT INTO build_revisions (build_id, editor_membership_id, build_json, created_at) VALUES (?, ?, ?, ?)")
       .bind(existing.id, editorRow.membership_id, JSON.stringify(previous), now),
     env.DB.prepare(`UPDATE builds SET title = ?, class_type = ?, subclass = ?, summary = ?, status = ?, visibility = ?, build_json = ?, updated_at = ?, published_at = ? WHERE id = ?`)
-      .bind(document.title, document.classType, document.subclass, document.summary, document.status, document.visibility, JSON.stringify(document), now, publishedAt, existing.id)
+      .bind(document.title, document.classType, document.subclass, document.summary, document.status, document.visibility, JSON.stringify(document), now, publishedAt, existing.id),
+    env.DB.prepare("DELETE FROM build_working_drafts WHERE build_id = ? AND editor_membership_id = ?")
+      .bind(existing.id, editorRow.membership_id)
   ]);
   const updated = await findBuild(existing.id, editorRow.membership_id, env);
   if (!updated) throw httpError(500, "build_update_failed", "The build was saved but could not be read back.");
   return buildEnvelope<BuildData>({ build: buildFromRow(updated, true) }, env, context);
+}
+
+async function readWorkingDraft(identifier: string, editorRow: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const build = await findBuild(identifier, editorRow.membership_id, env);
+  if (!build) throw httpError(404, "build_not_found", "This build could not be found.");
+  const row = await env.DB.prepare("SELECT build_id, build_json, base_updated_at, saved_at FROM build_working_drafts WHERE build_id = ? AND editor_membership_id = ?")
+    .bind(build.id, editorRow.membership_id).first<WorkingDraftRow>();
+  return buildEnvelope<BuildWorkingDraftData>({ draft: row ? { buildId: row.build_id, document: parseStoredBuildDocument(row.build_json), baseUpdatedAt: row.base_updated_at, savedAt: row.saved_at } : undefined }, env, context);
+}
+
+async function saveWorkingDraft(request: Request, identifier: string, editorRow: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const build = await findBuild(identifier, editorRow.membership_id, env);
+  if (!build) throw httpError(404, "build_not_found", "This build could not be found.");
+  const input = workingDraftSchema.parse(await request.json());
+  if (build.updated_at !== input.baseUpdatedAt) throw httpError(409, "build_draft_conflict", "The published build changed after this editing session began. Reload before replacing it.");
+  const now = new Date().toISOString();
+  const document = normalizePublication({ ...input.document, status: "draft", visibility: "private" });
+  await env.DB.prepare(`INSERT INTO build_working_drafts (build_id, editor_membership_id, build_json, base_updated_at, saved_at)
+    VALUES (?, ?, ?, ?, ?) ON CONFLICT(build_id, editor_membership_id) DO UPDATE SET build_json = excluded.build_json, base_updated_at = excluded.base_updated_at, saved_at = excluded.saved_at`)
+    .bind(build.id, editorRow.membership_id, JSON.stringify(document), input.baseUpdatedAt, now).run();
+  return buildEnvelope<BuildWorkingDraftData>({ draft: { buildId: build.id, document, baseUpdatedAt: input.baseUpdatedAt, savedAt: now } }, env, context);
+}
+
+async function deleteWorkingDraft(identifier: string, editorRow: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const build = await findBuild(identifier, editorRow.membership_id, env);
+  if (!build) throw httpError(404, "build_not_found", "This build could not be found.");
+  await env.DB.prepare("DELETE FROM build_working_drafts WHERE build_id = ? AND editor_membership_id = ?").bind(build.id, editorRow.membership_id).run();
+  return buildEnvelope<BuildWorkingDraftData>({}, env, context);
 }
 
 async function voteOnBuild(request: Request, identifier: string, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

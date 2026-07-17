@@ -7,19 +7,34 @@ import { expandBuildEntries } from "./BuildFormControls";
 import { BuildRichNotes } from "./BuildRichNotes";
 import styles from "../../pages/Builds.module.css";
 
-export function BuildDetailSections({ build }: { build: GuardianBuild }) {
+export function buildDetailNavigation(build: GuardianBuild): { id: string; label: string }[] {
+  return [
+    { id: "links", label: "Links", present: build.links.length > 0 },
+    { id: "notes", label: "Notes", present: Boolean(build.notes || build.concepts.length) },
+    { id: "subclass", label: "Subclass", present: hasSubclassData(build) },
+    { id: "gear", label: "Gear", present: Boolean(build.equipment.weapons.length || build.equipment.armor.length || build.equipment.armorSets.length) },
+    { id: "stats", label: "Stats", present: build.statPriorities.length > 0 },
+    { id: "mods", label: "Mods", present: Object.values(build.armorMods).some((entries) => entries.length > 0) },
+    { id: "artifact", label: "Artifact", present: Boolean(build.artifacts.length || build.championCounters.length) },
+    { id: "loop", label: "Loop", present: build.gameplayLoop.length > 0 },
+    { id: "cosmetics", label: "Cosmetics", present: hasCosmetics(build) },
+    { id: "changelog", label: "History", present: Boolean(build.patch || build.changelog.length) }
+  ].filter((entry) => entry.present).map(({ id, label }) => ({ id, label }));
+}
+
+export function BuildDetailSections({ build, showEmpty = false }: { build: GuardianBuild; showEmpty?: boolean }) {
   const mediaLinks = build.links.filter((link) => ["youtube", "twitch", "source", "other", "dim", "mobalytics"].includes(link.kind));
   return <div className={styles.detailSections}>
-    <BuildSection id="links" eyebrow="Sources and tools" title="Media & external links" icon={<Film />} empty={!mediaLinks.length}>
+    <BuildSection id="links" eyebrow="Sources and tools" title="Media & external links" icon={<Film />} empty={!mediaLinks.length} showEmpty={showEmpty}>
       <div className={styles.linkGrid}>{mediaLinks.map((link) => <a key={`${link.kind}-${link.url}`} href={link.url} target="_blank" rel="noreferrer"><i>{link.kind === "youtube" || link.kind === "twitch" ? <Play /> : <ExternalLink />}</i><span>{link.kind}</span><strong>{link.label}</strong><small>{safeHost(link.url)}</small></a>)}</div>
     </BuildSection>
 
-    <BuildSection id="notes" eyebrow="Creator field notes" title="Notes" icon={<MessageSquareText />} empty={!build.notes && !build.concepts.length}>
+    <BuildSection id="notes" eyebrow="Creator field notes" title="Notes" icon={<MessageSquareText />} empty={!build.notes && !build.concepts.length} showEmpty={showEmpty}>
       {build.concepts.length > 0 && <NamedGroup title="At a glance" entries={build.concepts} />}
       {build.notes && <BuildRichNotes value={build.notes} />}
     </BuildSection>
 
-    <BuildSection id="subclass" eyebrow="Ability configuration" title="Subclass" icon={<Sparkles />} empty={!hasSubclassData(build)}>
+    <BuildSection id="subclass" eyebrow="Ability configuration" title="Subclass" icon={<Sparkles />} empty={!hasSubclassData(build)} showEmpty={showEmpty}>
       <EntryGrid entries={[
         ["Super", build.subclassConfig.super],
         ["Class ability", build.subclassConfig.classAbility],
@@ -32,41 +47,42 @@ export function BuildDetailSections({ build }: { build: GuardianBuild }) {
       {build.subclassConfig.notes && <p className={styles.sectionNotes}>{build.subclassConfig.notes}</p>}
     </BuildSection>
 
-    <BuildSection id="gear" eyebrow="Saved equipment" title="Equipment" icon={<Swords />} empty={!build.equipment.weapons.length && !build.equipment.armor.length && !build.equipment.armorSets.length}>
+    <BuildSection id="gear" eyebrow="Saved equipment" title="Equipment" icon={<Swords />} empty={!build.equipment.weapons.length && !build.equipment.armor.length && !build.equipment.armorSets.length} showEmpty={showEmpty}>
       <EquipmentGroup title="Weapons" entries={build.equipment.weapons} />
       <EquipmentGroup title="Armor" entries={build.equipment.armor} />
       <ArmorSetBonusGroup entries={build.equipment.armorSets} />
     </BuildSection>
 
-    <BuildSection id="stats" eyebrow="Target thresholds" title="Stat priorities" icon={<Gauge />} empty={!build.statPriorities.length}>
+    <BuildSection id="stats" eyebrow="Target thresholds" title="Stat priorities" icon={<Gauge />} empty={!build.statPriorities.length} showEmpty={showEmpty}>
       <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`} data-priority={stat.priority}><i><b>{stat.priority}</b><small>of 6</small></i><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>{stat.priority === 1 ? "Highest priority" : stat.priority === 6 ? "Lowest priority" : `Priority ${stat.priority}`}</small><strong>{stat.stat}</strong></span><b>{stat.target ?? stat.minimum ?? stat.maximum ?? "Any"}</b><small>{stat.minimum === undefined && stat.target === undefined && stat.maximum === undefined ? "Any value · no fixed threshold" : <>{stat.minimum !== undefined && `Min ${stat.minimum}`}{stat.minimum !== undefined && stat.target !== undefined && " · "}{stat.target !== undefined && `Target ${stat.target}`}{stat.maximum !== undefined && ` · Max ${stat.maximum}`}</>}</small></article>)}</div>
     </BuildSection>
 
-    <BuildSection id="mods" eyebrow="Armor energy" title="Armor mods" icon={<Puzzle />} empty={!Object.values(build.armorMods).some((entries) => entries.length)}>
+    <BuildSection id="mods" eyebrow="Armor energy" title="Armor mods" icon={<Puzzle />} empty={!Object.values(build.armorMods).some((entries) => entries.length)} showEmpty={showEmpty}>
       <div className={styles.modColumns}>{(Object.entries(build.armorMods) as [keyof BuildArmorMods, BuildNamedEntry[]][]).map(([slot, entries]) => entries.length > 0 && <NamedGroup key={slot} title={armorSlotLabel(slot)} entries={expandBuildEntries(entries)} />)}</div>
     </BuildSection>
 
-    <BuildSection id="artifact" eyebrow="Seasonal configuration" title="Artifact" icon={<PackageOpen />} empty={!build.artifacts.length && !build.championCounters.length}>
+    <BuildSection id="artifact" eyebrow="Seasonal configuration" title="Artifact" icon={<PackageOpen />} empty={!build.artifacts.length && !build.championCounters.length} showEmpty={showEmpty}>
       <div className={styles.artifactGrid}>{build.artifacts.map((artifact) => <article key={artifact.name}><header>{artifact.icon ? <img src={artifact.icon} alt="" /> : <span className={styles.unavailableManifestIcon} title="Official Artifact icon unavailable"><AlertTriangle /></span>}<span><small>{artifact.tier || "Artifact / tablet"}</small><strong>{artifact.name}</strong></span></header>{artifact.notes && <p>{artifact.notes}</p>}<NamedGroup title="Selected perks" entries={artifact.perks} /></article>)}</div>
       <NamedGroup title="Champion counters" entries={build.championCounters} />
     </BuildSection>
 
-    <BuildSection id="loop" eyebrow="Combat rotation" title="Gameplay loop" icon={<Footprints />} empty={!build.gameplayLoop.length}>
+    <BuildSection id="loop" eyebrow="Combat rotation" title="Gameplay loop" icon={<Footprints />} empty={!build.gameplayLoop.length} showEmpty={showEmpty}>
       <ol className={styles.gameplayLoop}>{build.gameplayLoop.map((step, index) => <li key={`${index}-${step.text}`}><i>{step.icon ? <img src={step.icon} alt="" /> : index + 1}</i><span>{step.text}</span></li>)}</ol>
     </BuildSection>
 
-    <BuildSection id="cosmetics" eyebrow="Guardian presentation" title="Cosmetics" icon={<Palette />} empty={!hasCosmetics(build)}>
+    <BuildSection id="cosmetics" eyebrow="Guardian presentation" title="Cosmetics" icon={<Palette />} empty={!hasCosmetics(build)} showEmpty={showEmpty}>
       <NamedGroup title="Style" entries={[build.cosmetics.shader, ...build.cosmetics.ornaments, build.cosmetics.ghost, build.cosmetics.sparrow, build.cosmetics.ship].filter((entry): entry is BuildNamedEntry => Boolean(entry))} />
       {build.cosmetics.notes && <p className={styles.sectionNotes}>{build.cosmetics.notes}</p>}
     </BuildSection>
 
-    <BuildSection id="changelog" eyebrow="Build history" title="Version & changelog" icon={<Link2 />} empty={!build.patch && !build.changelog.length}>
+    <BuildSection id="changelog" eyebrow="Build history" title="Version & changelog" icon={<Link2 />} empty={!build.patch && !build.changelog.length} showEmpty={showEmpty}>
       <div className={styles.changelog}>{build.patch && <article><strong>{build.patch}</strong><span>{build.outdated ? "Marked outdated" : "Current build version"}</span></article>}{build.changelog.map((entry, index) => <article key={`${entry.date}-${index}`}><strong>{entry.version || new Date(entry.date).toLocaleDateString()}</strong><span>{entry.notes}</span><time>{new Date(entry.date).toLocaleDateString()}</time></article>)}</div>
     </BuildSection>
   </div>;
 }
 
-function BuildSection({ id, eyebrow, title, icon, empty, children }: { id: string; eyebrow: string; title: string; icon: ReactNode; empty: boolean; children: ReactNode }) {
+function BuildSection({ id, eyebrow, title, icon, empty, showEmpty, children }: { id: string; eyebrow: string; title: string; icon: ReactNode; empty: boolean; showEmpty: boolean; children: ReactNode }) {
+  if (empty && !showEmpty) return null;
   return <section id={id} className={styles.buildSection}><header><i>{icon}</i><div><span>{eyebrow}</span><h2>{title}</h2></div></header>{empty ? <div className={styles.sectionEmpty}><CircleHelp /> No information has been added for this section.</div> : children}</section>;
 }
 

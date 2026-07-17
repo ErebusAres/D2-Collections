@@ -1,4 +1,4 @@
-import type { BuildArmorMods, BuildEquipmentEntry, BuildNamedEntry, GuardianBuild } from "@guardian-nexus/contracts";
+import type { BuildArmorMods, BuildNamedEntry, GuardianBuild } from "@guardian-nexus/contracts";
 import { CircleHelp, Footprints, Gauge, MessageSquareText, PackageOpen, Sparkles, Swords } from "lucide-react";
 import { buildStatIcon } from "../../modules/builds/buildStats";
 import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
@@ -6,6 +6,7 @@ import styles from "../../pages/Builds.module.css";
 import { expandBuildEntries } from "./BuildFormControls";
 import { BuildIconTooltip } from "./BuildIconTooltip";
 import { BuildRichNotes } from "./BuildRichNotes";
+import { BuildEquipmentSummary } from "./BuildEquipmentSummary";
 
 export function BuildCompactView({ build }: { build: GuardianBuild }) {
   const abilities: [string, BuildNamedEntry | undefined][] = [
@@ -23,8 +24,8 @@ export function BuildCompactView({ build }: { build: GuardianBuild }) {
     </CompactSection>
 
     <CompactSection title="Weapons & armor" icon={<Swords />}>
-      <CompactSubgroup label="Weapons"><IconRail>{build.equipment.weapons.map((entry, index) => <EquipmentIcon key={`${entry.hash}-${index}`} entry={entry} label={entry.slot || "Weapon"} />)}</IconRail></CompactSubgroup>
-      <CompactSubgroup label="Armor"><IconRail>{build.equipment.armor.map((entry, index) => <EquipmentIcon key={`${entry.hash}-${index}`} entry={entry} label={entry.slot || "Armor"} />)}</IconRail></CompactSubgroup>
+      <CompactSubgroup label="Weapons"><div className={styles.equipmentSummaryList}>{build.equipment.weapons.map((entry, index) => <BuildEquipmentSummary key={`${entry.hash}-${index}`} entry={entry} />)}</div></CompactSubgroup>
+      <CompactSubgroup label="Exotic armor & key pieces"><div className={styles.equipmentSummaryList}>{build.equipment.armor.map((entry, index) => <BuildEquipmentSummary key={`${entry.hash}-${index}`} entry={entry} />)}</div></CompactSubgroup>
       <CompactSubgroup label="Selected set bonuses"><IconRail>{armorSets.map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${entry.requiredPieces}-${index}`} entry={entry} label={`${entry.setName || "Armor set"} · ${entry.requiredPieces}-piece bonus`} badge={String(entry.requiredPieces || "?")} />)}</IconRail></CompactSubgroup>
     </CompactSection>
 
@@ -55,10 +56,6 @@ function CompactSubgroup({ label, children }: { label: string; children: React.R
 
 function IconRail({ children }: { children: React.ReactNode }) {
   return <div className={styles.buildIconRail}>{children}</div>;
-}
-
-function EquipmentIcon({ entry, label }: { entry: BuildEquipmentEntry; label: string }) {
-  return <BuildIconTooltip entry={entry} label={label} related={[...(entry.traits || []), ...(entry.selectedPerks || []), ...(entry.selectedSpirits || [])]} badge={entry.exotic ? "★" : undefined} />;
 }
 
 function StatPriority({ stat }: { stat: GuardianBuild["statPriorities"][number] }) {

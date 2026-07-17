@@ -11,7 +11,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test && node --test tools/sync-reward-codes.test.mjs",
     "lint": "eslint apps packages tools --max-warnings=0",
-    "audit": "pnpm typecheck && pnpm test && pnpm build",
+    "audit": "pnpm archive:audit && pnpm typecheck && pnpm test && pnpm build",
+    "archive:audit": "node tools/check-no-archive-imports.mjs",
     "manifest:sync": "python tools/sync-manifest.py",
     "codes:sync": "node tools/sync-reward-codes.mjs",
     "cf:deploy": "pnpm --filter @guardian-nexus/api run deploy && pnpm --filter @guardian-nexus/web run deploy"

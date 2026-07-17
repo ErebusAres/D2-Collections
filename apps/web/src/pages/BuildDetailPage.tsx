@@ -1,10 +1,11 @@
 import type { BuildData, BuildVoteResult } from "@guardian-nexus/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ClipboardCopy, FilePenLine, LayoutGrid, Link as LinkIcon, PanelsTopLeft, Share2 } from "lucide-react";
+import { Check, ClipboardCopy, FilePenLine, LayoutGrid, Link as LinkIcon, ListTree, PanelsTopLeft, Share2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { BuildDetailSections } from "../components/builds/BuildDetailSections";
+import { BuildDetailSections, buildDetailNavigation } from "../components/builds/BuildDetailSections";
 import { BuildCompactView } from "../components/builds/BuildCompactView";
+import { BuildOverview } from "../components/builds/BuildOverview";
 import { BuildLinkActions } from "../components/builds/BuildLinkActions";
 import { ClassIcon, SubclassIcon } from "../components/builds/BuildIcon";
 import { BuildRating } from "../components/builds/BuildRating";
@@ -24,7 +25,8 @@ export function BuildDetailPage() {
   const build = result.data?.data.build;
   const resolvedBuild = useBuildArmorTraits(build);
   const dimLink = build?.links.find((link) => link.kind === "dim");
-  const layout = preferences["build.detail.layout"] === "detailed" ? "detailed" : "standard";
+  const savedLayout = preferences["build.detail.layout"];
+  const layout = savedLayout === "detailed" || savedLayout === "compact" ? savedLayout : "overview";
   const copy = async (label: string, text: string) => { await navigator.clipboard.writeText(text); setCopied(label); window.setTimeout(() => setCopied(""), 1_800); };
   const ratingChanged = (_vote: BuildVoteResult) => { void queryClient.invalidateQueries({ queryKey: ["build", buildId] }); void queryClient.invalidateQueries({ queryKey: ["builds"] }); };
   return <>
@@ -34,11 +36,13 @@ export function BuildDetailPage() {
       <PageHeader eyebrow={`${titleCase(build.classType)} · ${titleCase(build.subclass)}`} title={build.title} description={build.summary || "No short summary has been added."} actions={<div className={styles.buildTitleActions}><BuildLinkActions links={build.links} />{dimLink && <button className={styles.buildUtilityAction} onClick={() => void copy("dim", dimLink.url)} aria-label="Copy DIM link">{copied === "dim" ? <Check /> : <ClipboardCopy />}<span role="tooltip">{copied === "dim" ? "DIM link copied" : "Copy DIM link"}</span></button>}<button className={styles.buildUtilityAction} onClick={() => void copy("link", window.location.href)} aria-label="Copy build link">{copied === "link" ? <Check /> : <Share2 />}<span role="tooltip">{copied === "link" ? "Link copied" : "Copy build link"}</span></button><button className={styles.buildUtilityAction} onClick={() => void copy("discord", buildDiscordSummary(build))} aria-label="Copy Discord summary">{copied === "discord" ? <Check /> : <ClipboardCopy />}<span role="tooltip">{copied === "discord" ? "Discord summary copied" : "Copy for Discord"}</span></button>{build.canEdit && <Link className={styles.buildUtilityAction} to={`/builds/${build.slug}/edit`} aria-label="Edit build"><FilePenLine /><span role="tooltip">Edit build</span></Link>}</div>} />
       <section className={styles.buildHero}>
         <SubclassIcon subclass={build.subclass} icon={build.subclassIcon} large />
-        <div><span><ClassIcon classType={build.classType} icon={build.subclassIcon} /> {titleCase(build.classType)} · {titleCase(build.subclass)}</span><div>{build.tags.map((tag) => <b key={tag}>#{tag}</b>)}{build.activityTags.map((tag) => <em key={tag}>{tag}</em>)}</div><p>Authored by <strong>{build.authorDisplayName}</strong>{build.originalCreatorName && <> · original build by <strong>{build.originalCreatorName}</strong></>}</p><small>Updated {new Date(build.updatedAt).toLocaleString()}{build.patch && ` · ${build.patch}`}{build.outdated && " · Marked outdated"}</small></div>
+        <div><span><ClassIcon classType={build.classType} icon={build.classIcon} /> {titleCase(build.classType)} · {titleCase(build.subclass)}</span><div>{build.tags.map((tag) => <b key={tag}>#{tag}</b>)}{build.activityTags.map((tag) => <em key={tag}>{tag}</em>)}</div><p>Authored by <strong>{build.authorDisplayName}</strong>{build.originalCreatorName && <> · original build by <strong>{build.originalCreatorName}</strong></>}</p><small>Updated {new Date(build.updatedAt).toLocaleString()}{build.patch && ` · ${build.patch}`}{build.outdated && " · Marked outdated"}</small></div>
         <BuildRating buildId={build.id} rating={build.rating} viewerVote={build.viewerVote} disabled={build.status !== "published"} onChange={ratingChanged} />
       </section>
-      <div className={styles.buildLayoutToggle} role="group" aria-label="Build presentation"><button type="button" data-active={layout === "standard"} onClick={() => setPreference("build.detail.layout", "standard")}><LayoutGrid /> Standard <span>all build icons at once</span></button><button type="button" data-active={layout === "detailed"} onClick={() => setPreference("build.detail.layout", "detailed")}><PanelsTopLeft /> Detailed <span>expanded sections</span></button></div>
-      {layout === "detailed" ? <><nav className={styles.detailNav} aria-label="Build sections">{[["links", "Overview"], ["notes", "Notes"], ["subclass", "Subclass"], ["gear", "Gear"], ["stats", "Stats"], ["mods", "Mods"], ["artifact", "Artifact"], ["loop", "Loop"]].map(([to, label]) => <a key={to} href={`#${to}`}><LinkIcon /> {label}</a>)}</nav><BuildDetailSections build={resolvedBuild || build} /></> : <BuildCompactView build={resolvedBuild || build} />}
+      <div className={styles.buildLayoutToggle} role="group" aria-label="Build presentation"><button type="button" data-active={layout === "overview"} onClick={() => setPreference("build.detail.layout", "overview")}><PanelsTopLeft /> Overview <span>names and essentials</span></button><button type="button" data-active={layout === "compact"} onClick={() => setPreference("build.detail.layout", "compact")}><LayoutGrid /> Compact <span>all icons at once</span></button><button type="button" data-active={layout === "detailed"} onClick={() => setPreference("build.detail.layout", "detailed")}><ListTree /> Full breakdown <span>expanded sections</span></button></div>
+      {layout === "overview" && <BuildOverview build={resolvedBuild || build} />}
+      {layout === "compact" && <BuildCompactView build={resolvedBuild || build} />}
+      {layout === "detailed" && <><nav className={styles.detailNav} aria-label="Build sections">{buildDetailNavigation(resolvedBuild || build).map(({ id, label }) => <a key={id} href={`#${id}`}><LinkIcon /> {label}</a>)}</nav><BuildDetailSections build={resolvedBuild || build} /></>}
     </>}
   </>;
 }

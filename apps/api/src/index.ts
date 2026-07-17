@@ -66,7 +66,7 @@ const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
   z.object({ key: z.enum(["gear.filters", "collection.filters", "quests.filters", "rewardCodes.filters", "builds.filters"]), value: z.string().max(4_000) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
-  z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "detailed"]) }),
+  z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion"]), value: z.enum(["true", "false"]) }),
   z.object({ key: z.literal("site.character"), value: z.string().regex(/^\d+$/) })
 ]);

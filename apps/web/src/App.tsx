@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { lazy, Suspense } from "react";
+import { LoaderCircle } from "lucide-react";
 import { Shell } from "./components/layout/Shell";
 import { CollectionPage } from "./pages/CollectionPage";
 import { DevPage } from "./pages/DevPage";
@@ -18,6 +19,10 @@ const BuildsPage = lazy(() => import("./pages/BuildsPage").then((module) => ({ d
 const BuildDetailPage = lazy(() => import("./pages/BuildDetailPage").then((module) => ({ default: module.BuildDetailPage })));
 const BuildEditorPage = lazy(() => import("./pages/BuildEditorPage").then((module) => ({ default: module.BuildEditorPage })));
 
+function BuildRouteFallback() {
+  return <section aria-live="polite" style={{ minHeight: 360, display: "grid", placeItems: "center", border: "1px solid var(--line)", background: "rgba(5,13,19,.55)", color: "var(--muted)" }}><span style={{ display: "grid", placeItems: "center", gap: 10, textTransform: "uppercase", letterSpacing: ".1em", fontSize: 11 }}><LoaderCircle className="spin" /> Loading Guardian builds</span></section>;
+}
+
 export function App() {
   return (
     <Routes>
@@ -33,10 +38,10 @@ export function App() {
         <Route path="matrix" element={<MatrixPage />} />
         <Route path="gear" element={<GearPage />} />
         <Route path="loadouts" element={<LoadoutsPage />} />
-        <Route path="builds" element={<Suspense fallback={null}><BuildsPage /></Suspense>} />
-        <Route path="builds/new" element={<Suspense fallback={null}><BuildEditorPage /></Suspense>} />
-        <Route path="builds/:buildId/edit" element={<Suspense fallback={null}><BuildEditorPage /></Suspense>} />
-        <Route path="builds/:buildId" element={<Suspense fallback={null}><BuildDetailPage /></Suspense>} />
+        <Route path="builds" element={<Suspense fallback={<BuildRouteFallback />}><BuildsPage /></Suspense>} />
+        <Route path="builds/new" element={<Suspense fallback={<BuildRouteFallback />}><BuildEditorPage /></Suspense>} />
+        <Route path="builds/:buildId/edit" element={<Suspense fallback={<BuildRouteFallback />}><BuildEditorPage /></Suspense>} />
+        <Route path="builds/:buildId" element={<Suspense fallback={<BuildRouteFallback />}><BuildDetailPage /></Suspense>} />
         <Route path="mailbox" element={<MailboxPage />} />
         <Route path="dev" element={<DevPage />} />
         <Route path="*" element={<Navigate to="/collection" replace />} />
