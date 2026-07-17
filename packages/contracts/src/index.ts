@@ -309,10 +309,17 @@ export interface MatrixGuardian {
   syncedAt?: string;
 }
 
+export interface AudienceMetrics {
+  uniqueVisitors: number;
+  uniqueLogins: number;
+  visitorsTrackingSince: string;
+}
+
 export interface MatrixData {
   guardians: MatrixGuardian[];
   snapshots: MatrixSnapshot[];
   canSync: boolean;
+  audience?: AudienceMetrics;
 }
 
 export type ArmorStatKey = "health" | "melee" | "grenade" | "super" | "class" | "weapons";

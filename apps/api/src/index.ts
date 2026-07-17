@@ -38,6 +38,7 @@ import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
 import { normalizeLoadouts } from "./loadouts";
 import { normalizeRewardCodeStatus } from "./rewardCodes";
 import { buildsRoute } from "./builds";
+import { canViewAudienceMetrics, readAudienceMetrics, recordAudienceVisitor } from "./audience";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -267,8 +268,9 @@ async function finishAuth(request: Request, env: Env, context: RequestContext): 
 }
 
 async function readSession(request: Request, env: Env, context: RequestContext): Promise<Response> {
+  const visitorCookie = await recordAudienceVisitor(request, env, context);
   const session = await sessionFromRequest(request, env);
-  if (!session) return envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false } }, env, context);
+  if (!session) return withSetCookie(envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false } }, env, context), visitorCookie);
   const { profile, accessToken } = await profileFor(session.row, env, "session");
   const manifest = await loadActivityManifest(env);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
@@ -282,7 +284,7 @@ async function readSession(request: Request, env: Env, context: RequestContext):
     rewardsPass: await seasonPassProgress(profile, accessToken, env, requestedCharacterId),
     manifest
   });
-  return envelope<SessionData>({
+  return withSetCookie(envelope<SessionData>({
     authenticated: true,
     guardian,
     csrfToken: await csrfToken(session.token, env),
@@ -291,7 +293,14 @@ async function readSession(request: Request, env: Env, context: RequestContext):
       matrixWriter: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id),
       buildEditor: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id)
     }
-  }, env, context, { sourceMintedAt: profile?.responseMintedTimestamp });
+  }, env, context, { sourceMintedAt: profile?.responseMintedTimestamp }), visitorCookie);
+}
+
+function withSetCookie(response: Response, value?: string): Response {
+  if (!value) return response;
+  const headers = new Headers(response.headers);
+  headers.append("Set-Cookie", value);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 async function deleteSession(request: Request, env: Env, context: RequestContext): Promise<Response> {
@@ -710,7 +719,8 @@ async function matrix(row: SessionRow, env: Env, context: RequestContext): Promi
     snapshots,
     { membershipId: row.membership_id, displayName: row.display_name }
   );
-  return envelope<MatrixData>({ guardians, snapshots, canSync: permittedMembershipIds.has(row.membership_id) }, env, context, {
+  const audience = canViewAudienceMetrics(row.membership_id, env.DEV_MEMBERSHIP_IDS) ? await readAudienceMetrics(env) : undefined;
+  return envelope<MatrixData>({ guardians, snapshots, canSync: permittedMembershipIds.has(row.membership_id), ...(audience ? { audience } : {}) }, env, context, {
     warnings: snapshots.some((snapshot: MatrixSnapshot) => Date.now() - Date.parse(snapshot.syncedAt) > 86_400_000) ? ["One or more Guardian snapshots are older than 24 hours."] : []
   });
 }

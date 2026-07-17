@@ -1,6 +1,6 @@
 import type { CatalystState, MatrixData, MatrixGuardian, MatrixSnapshot } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleHelp, GitCompareArrows, RefreshCcw, Search, ShieldX, UserRoundCheck, Users } from "lucide-react";
+import { Check, CircleHelp, Eye, GitCompareArrows, LogIn, RefreshCcw, Search, ShieldX, UserRoundCheck, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
@@ -70,6 +70,11 @@ export function MatrixPage() {
   return <AuthGate>
     <PageHeader eyebrow="Guardian comparison" title="Guardian Matrix" description="Compare FearsRedemption, ErebusAres, and IceeDedPple side by side by default, then tailor the roster for your own Exotic and catalyst review." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />{result.data?.data.canSync && <button className={styles.primaryAction} onClick={() => sync.mutate()} disabled={sync.isPending}><RefreshCcw size={15} />{sync.isPending ? "Synchronizing…" : "Sync my Matrix"}</button>}</>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
+    {result.data?.data.audience && <section className={styles.audiencePulse} aria-label="Private Guardian Nexus audience counters" title="Private to the three approved site maintainers. Visitors use an anonymous first-party browser identifier; no IP address or browsing history is stored.">
+      <span><Eye /><small>Unique visitors</small><strong>{result.data.data.audience.uniqueVisitors.toLocaleString()}</strong></span>
+      <span><LogIn /><small>Unique logins</small><strong>{result.data.data.audience.uniqueLogins.toLocaleString()}</strong></span>
+      <time dateTime={result.data.data.audience.visitorsTrackingSince}>Visitors counted since {new Date(result.data.data.audience.visitorsTrackingSince).toLocaleDateString()}</time>
+    </section>}
     {guardians.length > 0 && <section className={styles.matrixRoster}>
       <header><div><Users /><span><strong>Choose your comparison</strong><small>Your selection is saved only in this browser.</small></span></div><nav><button type="button" onClick={() => selectGuardians(currentMembershipId && guardians.some((guardian) => guardian.membershipId === currentMembershipId) ? [currentMembershipId] : [guardians[0]!.membershipId])}>Just me</button><button type="button" onClick={() => selectGuardians(guardians.map((guardian) => guardian.membershipId))}>Compare all</button></nav></header>
       <div>{guardians.map((guardian) => {
