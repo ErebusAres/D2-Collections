@@ -806,12 +806,12 @@ export interface SaveBuildWorkingDraftRequest {
 }
 
 export interface BuildVoteRequest {
-  vote: BuildVoteValue;
+  vote: BuildVoteValue | null;
 }
 
 export interface BuildVoteResult {
   rating: BuildRating;
-  viewerVote: BuildVoteValue;
+  viewerVote: BuildVoteValue | null;
 }
 
 export interface EquipLoadoutRequest {

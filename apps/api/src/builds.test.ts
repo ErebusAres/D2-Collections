@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDocumentSchema, parseStoredBuildDocument, ratingFromCounts, slugifyBuildTitle } from "./builds";
+import { buildDocumentSchema, buildVoteSchema, parseStoredBuildDocument, ratingFromCounts, slugifyBuildTitle } from "./builds";
 
 const validBuild = {
   title: "Prismatic Support Loop",
@@ -110,6 +110,12 @@ describe("build validation", () => {
 });
 
 describe("build presentation helpers", () => {
+  it("accepts upvotes, downvotes, and an explicit abstention", () => {
+    expect(buildVoteSchema.parse({ vote: "up" })).toEqual({ vote: "up" });
+    expect(buildVoteSchema.parse({ vote: "down" })).toEqual({ vote: "down" });
+    expect(buildVoteSchema.parse({ vote: null })).toEqual({ vote: null });
+  });
+
   it("creates stable URL-safe title stems", () => {
     expect(slugifyBuildTitle("  Saint's Solar Support!  ")).toBe("saint-s-solar-support");
   });
