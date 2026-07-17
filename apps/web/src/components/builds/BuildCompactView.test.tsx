@@ -36,7 +36,9 @@ describe("BuildCompactView", () => {
     expect(screen.getByLabelText("Titan Mark: Stoicism").querySelector("b")).toBeNull();
     expect(screen.getByLabelText("Spirit row 1: Spirit of the Abeyant").querySelector("b")).toBeNull();
     expect(screen.getAllByLabelText(/Helmet socket .*: Dynamo/)).toHaveLength(2);
-    expect(screen.getByLabelText("Grenade, highest priority, Min 70, Target 100")).toBeTruthy();
+    const grenadePriority = screen.getByLabelText("Grenade, highest priority, Min 70, Target 100");
+    expect(grenadePriority).toBeTruthy();
+    expect(grenadePriority.style.getPropertyValue("--stat-glow-radius")).toBe("6.0px");
     expect(screen.getByLabelText("Grenade stat: Grenade")).toBeTruthy();
     expect(screen.getByText("Focus first")).toBeTruthy();
     expect(screen.getByText("Range 40–80")).toBeTruthy();
