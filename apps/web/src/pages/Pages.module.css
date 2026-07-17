@@ -94,3 +94,5 @@
 
 @media(max-width:1200px){.questGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.compactPursuits>div{grid-template-columns:repeat(2,minmax(0,1fr))}.socialGrid{grid-template-columns:1fr}.rewardsHero{grid-template-columns:160px 1fr}.rewardsHero>a{grid-column:1/-1;border-top:1px solid var(--line)}.rewardsTrack>div{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:850px){.matrixRoster>header{align-items:flex-start;flex-direction:column}.matrixRoster>div{grid-template-columns:1fr}.matrixRoster>div>button{border-right:0;border-bottom:1px solid var(--line)}.matrixGuardians{grid-template-columns:1fr}.questGrid{grid-template-columns:1fr}.compactPursuits>div{grid-template-columns:1fr}.questDetailGrid{grid-template-columns:1fr}.socialContact{grid-template-columns:8px minmax(0,1fr)}.socialContact>div:last-child{grid-column:2}.rewardsHero{grid-template-columns:1fr}.rewardsProgress{border-top:1px solid var(--line)}.rewardsTrack>div{grid-template-columns:repeat(2,1fr)}}
+
+.questDetailStep main>div small{grid-column:2/-1;color:var(--gold);font-size:8px;line-height:1.35}

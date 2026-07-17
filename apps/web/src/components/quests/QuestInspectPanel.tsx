@@ -1,6 +1,7 @@
 import type { QuestObjective, QuestProgress } from "@guardian-nexus/contracts";
 import { CheckCircle2, ChevronRight, CircleHelp, Crosshair, Gift, X } from "lucide-react";
 import { Link } from "react-router-dom";
+import { questProgressPresentation } from "../../modules/quests/questProgress";
 import styles from "../../pages/QuestsPage.module.css";
 
 const TOOLTIP_GAP = 10;
@@ -32,6 +33,7 @@ export function getQuestTooltipPosition(
 }
 
 export function QuestInspectPanel({ quest, position, onClose, onPointerEnter, onPointerLeave }: { quest: QuestProgress; position?: QuestTooltipPosition; onClose: () => void; onPointerEnter?: () => void; onPointerLeave?: () => void }) {
+  const progress = questProgressPresentation(quest);
   return <>
     <button className={styles.questInspectScrim} onClick={onClose} aria-label="Close quest details" />
     <aside className={styles.questInspectPanel} style={position} aria-label={`${quest.name} details`} data-quest-inspect onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave} onFocusCapture={onPointerEnter} onBlurCapture={onPointerLeave}>
@@ -44,26 +46,26 @@ export function QuestInspectPanel({ quest, position, onClose, onPointerEnter, on
         <p className={styles.questInspectDescription}>{quest.description || quest.currentStep || "Bungie did not provide a description for this quest step."}</p>
         {quest.flavorText && <blockquote>{quest.flavorText}</blockquote>}
         <section className={styles.inspectObjectives}>
-          <header><span>Objectives</span><strong>{quest.objectives.filter((objective) => objective.complete).length}/{quest.objectives.length}</strong></header>
-          {quest.objectives.length ? quest.objectives.map((objective) => <InspectObjective key={objective.objectiveHash} objective={objective} />) : <div className={styles.inspectUnavailable}><CircleHelp /><span>Bungie returned no live objectives for this item.</span></div>}
+          <header><span>{progress.heading}</span><strong>{progress.progressKnown ? `${progress.objectives.filter((objective) => objective.complete).length}/${progress.objectives.length}` : progress.value}</strong></header>
+          {progress.objectives.length ? <>{!progress.progressKnown && <div className={styles.inspectProgressNote}><CircleHelp /><span>Bungie does not expose a live counter for this step. These manifest requirements are still useful, while completion is recorded in Destiny.</span></div>}{progress.objectives.map((objective) => <InspectObjective key={objective.objectiveHash} objective={objective} progressKnown={progress.progressKnown} />)}</> : <div className={styles.inspectProgressNote}><CircleHelp /><span><b>No numeric counter for this step.</b> Follow the current instruction: {progress.instruction}</span></div>}
         </section>
-        <section className={styles.inspectRewards}>
+        {quest.rewards.length > 0 && <section className={styles.inspectRewards}>
           <header><Gift /><span>Rewards</span></header>
-          {quest.rewards.length ? <div>{quest.rewards.map((reward, index) => <article key={`${reward.itemHash}-${index}`}>
+          <div>{quest.rewards.map((reward, index) => <article key={`${reward.itemHash}-${index}`}>
             <div className={styles.inspectRewardArt}>{reward.definitionAvailable && reward.icon ? <img src={reward.icon} alt="" loading="lazy" /> : <span>Image unavailable</span>}</div>
             <main><strong>{reward.name}</strong>{reward.quantity > 1 && <b>×{reward.quantity.toLocaleString()}</b>}{!reward.definitionAvailable && <small>Manifest definition unavailable</small>}</main>
-          </article>)}</div> : <div className={styles.inspectUnavailable}><CircleHelp /><span>Bungie does not list a reward for this quest step.</span></div>}
-        </section>
+          </article>)}</div>
+        </section>}
         <Link className={styles.questInspectLink} to={`/quests/${encodeURIComponent(quest.instanceId)}`}>Open full quest timeline <ChevronRight /></Link>
       </div>
     </aside>
   </>;
 }
 
-function InspectObjective({ objective }: { objective: QuestObjective }) {
+function InspectObjective({ objective, progressKnown }: { objective: QuestObjective; progressKnown: boolean }) {
   const value = objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : objective.complete ? "Complete" : `${objective.percent}%`;
-  return <article className={objective.complete ? styles.inspectObjectiveComplete : ""}>
-    <div><span>{objective.name}</span><strong>{value}</strong>{objective.complete && <CheckCircle2 />}</div>
-    <i><span style={{ width: `${objective.percent}%` }} /></i>
+  return <article className={`${objective.complete ? styles.inspectObjectiveComplete : ""} ${!progressKnown ? styles.inspectObjectiveRequirement : ""}`}>
+    <div><span>{objective.name}</span><strong>{progressKnown ? value : "Tracked in Destiny"}</strong>{objective.complete && <CheckCircle2 />}</div>
+    {progressKnown && <i><span style={{ width: `${objective.percent}%` }} /></i>}
   </article>;
 }
