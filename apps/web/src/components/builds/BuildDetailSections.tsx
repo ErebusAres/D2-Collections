@@ -15,7 +15,7 @@ export function buildDetailNavigation(build: GuardianBuild): { id: string; label
     { id: "gear", label: "Gear", present: Boolean(build.equipment.weapons.length || build.equipment.armor.length || build.equipment.armorSets.length) },
     { id: "stats", label: "Stats", present: build.statPriorities.length > 0 },
     { id: "mods", label: "Mods", present: Object.values(build.armorMods).some((entries) => entries.length > 0) },
-    { id: "artifact", label: "Artifact", present: Boolean(build.artifacts.length || build.championCounters.length) },
+    { id: "artifact", label: "Artifact", present: build.artifacts.length > 0 },
     { id: "loop", label: "Loop", present: build.gameplayLoop.length > 0 },
     { id: "cosmetics", label: "Cosmetics", present: hasCosmetics(build) },
     { id: "changelog", label: "History", present: Boolean(build.patch || build.changelog.length) }
@@ -61,9 +61,8 @@ export function BuildDetailSections({ build, showEmpty = false }: { build: Guard
       <div className={styles.modColumns}>{(Object.entries(build.armorMods) as [keyof BuildArmorMods, BuildNamedEntry[]][]).map(([slot, entries]) => entries.length > 0 && <NamedGroup key={slot} title={armorSlotLabel(slot)} entries={expandBuildEntries(entries)} />)}</div>
     </BuildSection>
 
-    <BuildSection id="artifact" eyebrow="Seasonal configuration" title="Artifact" icon={<PackageOpen />} empty={!build.artifacts.length && !build.championCounters.length} showEmpty={showEmpty}>
+    <BuildSection id="artifact" eyebrow="Seasonal configuration" title="Artifact" icon={<PackageOpen />} empty={!build.artifacts.length} showEmpty={showEmpty}>
       <div className={styles.artifactGrid}>{build.artifacts.map((artifact) => <article key={artifact.name}><header>{artifact.icon ? <img src={artifact.icon} alt="" /> : <span className={styles.unavailableManifestIcon} title="Official Artifact icon unavailable"><AlertTriangle /></span>}<span><small>{artifact.tier || "Artifact / tablet"}</small><strong>{artifact.name}</strong></span></header>{artifact.notes && <p>{artifact.notes}</p>}<NamedGroup title="Selected perks" entries={artifact.perks} /></article>)}</div>
-      <NamedGroup title="Champion counters" entries={build.championCounters} />
     </BuildSection>
 
     <BuildSection id="loop" eyebrow="Combat rotation" title="Gameplay loop" icon={<Footprints />} empty={!build.gameplayLoop.length} showEmpty={showEmpty}>

@@ -1,11 +1,10 @@
 import type { BuildData, BuildVoteResult } from "@guardian-nexus/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ClipboardCopy, FilePenLine, LayoutGrid, Link as LinkIcon, ListTree, PanelsTopLeft, Share2 } from "lucide-react";
+import { Check, ClipboardCopy, FilePenLine, LayoutGrid, Link as LinkIcon, ListTree, Share2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { BuildDetailSections, buildDetailNavigation } from "../components/builds/BuildDetailSections";
 import { BuildCompactView } from "../components/builds/BuildCompactView";
-import { BuildOverview } from "../components/builds/BuildOverview";
 import { BuildLinkActions } from "../components/builds/BuildLinkActions";
 import { ClassIcon, SubclassIcon } from "../components/builds/BuildIcon";
 import { BuildRating } from "../components/builds/BuildRating";
@@ -26,7 +25,7 @@ export function BuildDetailPage() {
   const resolvedBuild = useBuildArmorTraits(build);
   const dimLink = build?.links.find((link) => link.kind === "dim");
   const savedLayout = preferences["build.detail.layout"];
-  const layout = savedLayout === "detailed" || savedLayout === "compact" ? savedLayout : "overview";
+  const layout = savedLayout === "detailed" ? "detailed" : "compact";
   const copy = async (label: string, text: string) => { await navigator.clipboard.writeText(text); setCopied(label); window.setTimeout(() => setCopied(""), 1_800); };
   const ratingChanged = (_vote: BuildVoteResult) => { void queryClient.invalidateQueries({ queryKey: ["build", buildId] }); void queryClient.invalidateQueries({ queryKey: ["builds"] }); };
   return <>
@@ -39,8 +38,7 @@ export function BuildDetailPage() {
         <div><span><ClassIcon classType={build.classType} icon={build.classIcon} /> {titleCase(build.classType)} · {titleCase(build.subclass)}</span><div>{build.tags.map((tag) => <b key={tag}>#{tag}</b>)}{build.activityTags.map((tag) => <em key={tag}>{tag}</em>)}</div><p>Authored by <strong>{build.authorDisplayName}</strong>{build.originalCreatorName && <> · original build by <strong>{build.originalCreatorName}</strong></>}</p><small>Updated {new Date(build.updatedAt).toLocaleString()}{build.patch && ` · ${build.patch}`}{build.outdated && " · Marked outdated"}</small></div>
         <BuildRating buildId={build.id} rating={build.rating} viewerVote={build.viewerVote} disabled={build.status !== "published"} onChange={ratingChanged} />
       </section>
-      <div className={styles.buildLayoutToggle} role="group" aria-label="Build presentation"><button type="button" data-active={layout === "overview"} onClick={() => setPreference("build.detail.layout", "overview")}><PanelsTopLeft /> Overview <span>names and essentials</span></button><button type="button" data-active={layout === "compact"} onClick={() => setPreference("build.detail.layout", "compact")}><LayoutGrid /> Compact <span>all icons at once</span></button><button type="button" data-active={layout === "detailed"} onClick={() => setPreference("build.detail.layout", "detailed")}><ListTree /> Full breakdown <span>expanded sections</span></button></div>
-      {layout === "overview" && <BuildOverview build={resolvedBuild || build} />}
+      <div className={styles.buildLayoutToggle} role="group" aria-label="Build presentation"><button type="button" data-active={layout === "compact"} onClick={() => setPreference("build.detail.layout", "compact")}><LayoutGrid /> Standard <span>complete build at a glance</span></button><button type="button" data-active={layout === "detailed"} onClick={() => setPreference("build.detail.layout", "detailed")}><ListTree /> Full breakdown <span>expanded sections</span></button></div>
       {layout === "compact" && <BuildCompactView build={resolvedBuild || build} />}
       {layout === "detailed" && <><nav className={styles.detailNav} aria-label="Build sections">{buildDetailNavigation(resolvedBuild || build).map(({ id, label }) => <a key={id} href={`#${id}`}><LinkIcon /> {label}</a>)}</nav><BuildDetailSections build={resolvedBuild || build} /></>}
     </>}

@@ -96,7 +96,6 @@ function buildSearchText(build: GuardianBuild): string {
     ...build.artifacts,
     ...build.artifacts.flatMap((artifact) => artifact.perks),
     ...build.concepts,
-    ...build.championCounters,
     ...subclassChoices,
     ...build.subclassConfig.aspects,
     ...build.subclassConfig.fragments,
@@ -112,7 +111,6 @@ export function buildDiscordSummary(build: GuardianBuild): string {
   const weapons = build.equipment.weapons.map((item) => `- ${item.slot}: ${item.name}${item.selectedPerks?.length ? ` — ${item.selectedPerks.map((perk) => perk.name).join(", ")}` : item.perks ? ` — ${item.perks}` : ""}${item.required ? " (required)" : ""}`).join("\n");
   const stats = [...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => `- ${stat.stat}: ${stat.target ?? stat.minimum ?? "priority"}`).join("\n");
   const artifacts = build.artifacts.map((artifact) => `- ${artifact.name}: ${artifact.perks.map((perk) => perk.name).join(", ") || "no perks listed"}`).join("\n");
-  const champions = build.championCounters.map((entry) => entry.name).join(", ");
   const concepts = build.concepts.map((entry) => entry.name).join(", ");
   const loop = build.gameplayLoop.map((step, index) => `${index + 1}. ${step.text}`).join("\n");
   return [
@@ -123,7 +121,6 @@ export function buildDiscordSummary(build: GuardianBuild): string {
     weapons && `**Weapons**\n${weapons}`,
     stats && `**Stat priorities**\n${stats}`,
     artifacts && `**Artifact**\n${artifacts}`,
-    champions && `**Champion counters**\n${champions}`,
     concepts && `**At a glance**\n${concepts}`,
     loop && `**Gameplay loop**\n${loop}`,
     build.notes && `**Notes**\n${build.notes}`
