@@ -241,11 +241,11 @@ export function mergeCollection(
     visibleRecordHashes: ReadonlySet<string>;
     xurSaleItemHashes?: ReadonlySet<string>;
   },
-  selectedClass: GuardianClass,
+  selectedClass?: GuardianClass,
   guides: Record<string, GuideEntry> = {}
 ): ExoticCollectionEntry[] {
   const grouped = new Map<string, CompactManifest["items"]>();
-  for (const item of manifest.items.filter((entry) => entry.kind === "weapon" || entry.className === selectedClass)) {
+  for (const item of manifest.items.filter((entry) => entry.kind === "weapon" || !selectedClass || entry.className === selectedClass)) {
     const key = [item.kind, item.className ?? "", item.slot, item.name.trim().toLocaleLowerCase()].join("|");
     const variants = grouped.get(key) ?? [];
     variants.push(item);

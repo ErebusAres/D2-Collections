@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
+import { collectionClassScope, groupCollectionEntries, scopeCollectionEntries, type CollectionClassScope } from "../modules/collection/collectionGroups";
 import styles from "./Pages.module.css";
 
 type KindFilter = "all" | "weapon" | "armor";
@@ -19,18 +20,24 @@ export function CollectionPage() {
   const [owned, setOwned] = useState<OwnedFilter>("all");
   const [catalyst, setCatalyst] = useState<"all" | CatalystState>("all");
   const [availability, setAvailability] = useState<AvailabilityFilter>("all");
+  const selectedGuardianClass = session?.guardian?.characters.find((character) => character.characterId === selectedCharacterId)?.className;
+  const [classScope, setClassScope] = useState<CollectionClassScope>("all");
   useEffect(() => {
     const raw = preferences["collection.filters"];
-    if (!raw) return;
+    if (!raw) {
+      setClassScope(collectionClassScope(selectedGuardianClass));
+      return;
+    }
     try {
       const stored = JSON.parse(raw) as Record<string, string>;
       if (["all", "weapon", "armor"].includes(stored.kind || "")) setKind(stored.kind as KindFilter);
       if (["all", "owned", "missing"].includes(stored.owned || "")) setOwned(stored.owned as OwnedFilter);
       if (["all", "missing", "obtained", "complete", "unavailable"].includes(stored.catalyst || "")) setCatalyst(stored.catalyst as "all" | CatalystState);
       if (["all", "xur"].includes(stored.availability || "")) setAvailability(stored.availability as AvailabilityFilter);
+      setClassScope(["hunter", "titan", "warlock", "all"].includes(stored.classScope || "") ? stored.classScope as CollectionClassScope : collectionClassScope(selectedGuardianClass));
     } catch { /* Ignore malformed historical preferences. */ }
-  }, [preferences]);
-  const saveFilters = (next: Partial<{ kind: KindFilter; owned: OwnedFilter; catalyst: "all" | CatalystState; availability: AvailabilityFilter }>) => setPreference("collection.filters", JSON.stringify({ kind, owned, catalyst, availability, ...next }));
+  }, [preferences, selectedGuardianClass]);
+  const saveFilters = (next: Partial<{ kind: KindFilter; owned: OwnedFilter; catalyst: "all" | CatalystState; availability: AvailabilityFilter; classScope: CollectionClassScope }>) => setPreference("collection.filters", JSON.stringify({ kind, owned, catalyst, availability, classScope, ...next }));
   const sort = COLLECTION_SORTS.has(preferences["collection.sort"] as CollectionSortMode) ? preferences["collection.sort"] as CollectionSortMode : "position";
   const [selected, setSelected] = useState<ExoticCollectionEntry | null>(null);
   const result = useQuery({
@@ -40,27 +47,37 @@ export function CollectionPage() {
     refetchInterval: autoRefresh ? 5 * 60_000 : false,
     refetchIntervalInBackground: false
   });
-  const entries = useMemo(() => sortCollectionEntries((result.data?.data.entries || []).filter((entry) => {
+  const scopedEntries = useMemo(() => scopeCollectionEntries(result.data?.data.entries || [], classScope), [result.data, classScope]);
+  const entries = useMemo(() => sortCollectionEntries(scopedEntries.filter((entry) => {
     const text = `${entry.name} ${entry.itemType} ${entry.slot} ${entry.source}`.toLowerCase();
     return (!query || text.includes(query.toLowerCase()))
       && (kind === "all" || entry.kind === kind)
       && (owned === "all" || (owned === "owned" ? entry.owned : !entry.owned))
       && (catalyst === "all" || (entry.kind === "weapon" && entry.catalyst === catalyst))
       && (availability === "all" || entry.xurSelling);
-  }), sort), [result.data, query, kind, owned, catalyst, availability, sort]);
+  }), sort), [scopedEntries, query, kind, owned, catalyst, availability, sort]);
+  const groups = useMemo(() => groupCollectionEntries(entries, classScope), [entries, classScope]);
+  const totals = useMemo(() => ({
+    owned: scopedEntries.filter((entry) => entry.owned).length,
+    available: scopedEntries.length,
+    catalystsAvailable: scopedEntries.filter((entry) => entry.kind === "weapon" && entry.catalyst !== "unavailable").length,
+    catalystsOwned: scopedEntries.filter((entry) => entry.kind === "weapon" && (entry.catalyst === "obtained" || entry.catalyst === "complete")).length,
+    catalystsComplete: scopedEntries.filter((entry) => entry.kind === "weapon" && entry.catalyst === "complete").length
+  }), [scopedEntries]);
   const data = result.data?.data;
 
   return <AuthGate>
-    <PageHeader eyebrow="Personal archive" title="Collection" description="Every current Exotic weapon and class-valid armor piece, reconciled against your Bungie collection with catalyst progress kept separate." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Personal archive" title="Collection" description="Every current Exotic weapon and every class's armor, reconciled against your Bungie collection with catalyst progress kept separate." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.summaryGrid}>
-        <Summary label="Exotics owned" value={`${data.totals.owned}/${data.totals.available}`} progress={data.totals.available ? data.totals.owned / data.totals.available : 0} icon={<Sparkles />} />
-        <Summary label="Catalysts found" value={`${data.totals.catalystsOwned}/${data.totals.catalystsAvailable}`} progress={data.totals.catalystsAvailable ? data.totals.catalystsOwned / data.totals.catalystsAvailable : 0} icon={<BookOpen />} />
-        <Summary label="Catalysts complete" value={String(data.totals.catalystsComplete)} progress={data.totals.catalystsOwned ? data.totals.catalystsComplete / data.totals.catalystsOwned : 0} icon={<Check />} />
+        <Summary label="Exotics owned" value={`${totals.owned}/${totals.available}`} progress={totals.available ? totals.owned / totals.available : 0} icon={<Sparkles />} />
+        <Summary label="Catalysts found" value={`${totals.catalystsOwned}/${totals.catalystsAvailable}`} progress={totals.catalystsAvailable ? totals.catalystsOwned / totals.catalystsAvailable : 0} icon={<BookOpen />} />
+        <Summary label="Catalysts complete" value={String(totals.catalystsComplete)} progress={totals.catalystsOwned ? totals.catalystsComplete / totals.catalystsOwned : 0} icon={<Check />} />
         <Summary label="Manifest" value={data.manifestVersion === "offline-fallback" || data.manifestVersion === "unavailable" ? "Offline" : "Current"} progress={data.entries.length ? 1 : 0} icon={<Shield />} />
       </section>
       <section className={styles.commandBar}>
+        <FilterGroup label="Class" value={classScope} values={["hunter", "titan", "warlock", "all"]} onChange={(value) => { const next = value as CollectionClassScope; setClassScope(next); saveFilters({ classScope: next }); }} />
         <label className={styles.search}><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Exotics, slots, sources…" /></label>
         <FilterGroup label="Type" value={kind} values={["all", "weapon", "armor"]} onChange={(value) => { const next = value as KindFilter; setKind(next); saveFilters({ kind: next }); }} />
         <FilterGroup label="Collection" value={owned} values={["all", "owned", "missing"]} onChange={(value) => { const next = value as OwnedFilter; setOwned(next); saveFilters({ owned: next }); }} />
@@ -69,9 +86,12 @@ export function CollectionPage() {
         <label className={styles.selectFilter}><span>Sort</span><select value={sort} onChange={(event) => setPreference("collection.sort", event.target.value)}><option value="position">Position + A–Z</option><option value="type">Type + A–Z</option><option value="alpha">Name A–Z</option><option value="missing">Missing first</option><option value="owned">Owned first</option><option value="source">Acquisition source</option></select></label>
         <strong className={styles.resultCount}>{entries.length} shown</strong>
       </section>
-      {entries.length ? <section className={styles.itemGrid}>
-        {entries.map((entry) => <ItemCard key={`${entry.itemHash}-${entry.className || "weapon"}`} entry={entry} onOpen={() => setSelected(entry)} />)}
-      </section> : <div className={styles.inlineEmpty}><Sparkles /><h2>No Exotics match this view</h2><p>Adjust filters, or run the manifest sync if the catalog reports Offline.</p></div>}
+      {entries.length ? <div className={styles.collectionSections}>
+        {groups.map((group) => <section className={styles.collectionSection} key={group.id}>
+          <header><div><span>{group.eyebrow}</span><h2>{group.title}</h2></div><strong>{group.entries.length} shown</strong></header>
+          <div className={styles.itemGrid}>{group.entries.map((entry) => <ItemCard key={`${entry.itemHash}-${entry.className || "weapon"}`} entry={entry} onOpen={() => setSelected(entry)} />)}</div>
+        </section>)}
+      </div> : <div className={styles.inlineEmpty}><Sparkles /><h2>No Exotics match this view</h2><p>Adjust filters, or run the manifest sync if the catalog reports Offline.</p></div>}
     </>}
     <GuideDrawer entry={selected} onClose={() => setSelected(null)} />
   </AuthGate>;

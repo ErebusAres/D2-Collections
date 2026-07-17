@@ -133,7 +133,7 @@ function recordSets(profile: any): { completed: Set<string>; visible: Set<string
   return { completed, visible };
 }
 
-export function normalizeCollection(profile: any, manifest: CompactManifest, selectedClass: CharacterSummary["className"], xurSaleItemHashes = new Set<string>()): CollectionData {
+export function normalizeCollection(profile: any, manifest: CompactManifest, selectedClass?: CharacterSummary["className"], xurSaleItemHashes = new Set<string>()): CollectionData {
   const states = collectibleStates(profile);
   const records = recordSets(profile);
   const entries = mergeCollection(manifest, {

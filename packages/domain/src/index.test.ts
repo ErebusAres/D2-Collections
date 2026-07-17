@@ -104,6 +104,20 @@ describe("recommendQuests", () => {
 });
 
 describe("mergeCollection", () => {
+  it("returns every class armor when no class scope is requested", () => {
+    const items: CompactManifest["items"] = [
+      { itemHash: "weapon", name: "Shared Weapon", description: "", icon: "", kind: "weapon", slot: "Kinetic", itemType: "Auto Rifle", source: "", catalystRecordHashes: [] },
+      { itemHash: "hunter", name: "Hunter Helm", description: "", icon: "", kind: "armor", className: "Hunter", slot: "Helmet", itemType: "Helmet", source: "", catalystRecordHashes: [] },
+      { itemHash: "titan", name: "Titan Helm", description: "", icon: "", kind: "armor", className: "Titan", slot: "Helmet", itemType: "Helmet", source: "", catalystRecordHashes: [] },
+      { itemHash: "warlock", name: "Warlock Helm", description: "", icon: "", kind: "armor", className: "Warlock", slot: "Helmet", itemType: "Helmet", source: "", catalystRecordHashes: [] }
+    ];
+    const entries = mergeCollection({ version: "test", generatedAt: "now", items, itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} }, {
+      ownedCollectibleHashes: new Set(), completedRecordHashes: new Set(), visibleRecordHashes: new Set()
+    });
+
+    expect(entries.map((entry) => entry.itemHash).sort()).toEqual(["hunter", "titan", "warlock", "weapon"]);
+  });
+
   it("consolidates legacy variants and preserves ownership across their collectible hashes", () => {
     const variants: CompactManifest["items"] = [
       { itemHash: "old", name: "Phoenix Protocol", description: "", icon: "/old.png", kind: "armor", className: "Warlock", slot: "Chest", itemType: "Chest Armor", source: "", catalystRecordHashes: ["not-a-real-armor-catalyst"] },
