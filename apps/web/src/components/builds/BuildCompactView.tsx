@@ -69,7 +69,7 @@ function StatPriorityPath({ stats }: { stats: GuardianBuild["statPriorities"] })
 function StatPriority({ stat, index, total }: { stat: GuardianBuild["statPriorities"][number]; index: number; total: number }) {
   const values = statValueLabels(stat);
   const position = statInvestmentLabel(index, total);
-  return <article className={styles.statPriorityNode} data-primary={index === 0} aria-label={`${stat.stat}, ${position}, ${values.length ? values.join(", ") : "no value requirement"}`}>
+  return <article className={styles.statPriorityNode} data-primary={index === 0} style={statGlowStyle(stat)} aria-label={`${stat.stat}, ${position}, ${values.length ? values.join(", ") : "no value requirement"}`}>
     <BuildIconTooltip entry={{ name: stat.stat, icon: stat.icon || buildStatIcon(stat.stat), itemType: position, description: statDescription(stat) }} label={`${stat.stat} stat`} />
     <span className={styles.statPriorityIdentity}><strong>{stat.stat}</strong><small>{index === 0 ? "Focus first" : index === total - 1 ? "Flexible" : "Then invest"}</small></span>
     <span className={styles.statPriorityValues}>{values.length ? values.map((value) => <b key={value} data-target={value.startsWith("Target")}>{value}</b>) : <b>Any value</b>}</span>
@@ -101,4 +101,16 @@ function statInvestmentLabel(index: number, total: number): string {
   if (progress <= .5) return "moderate investment";
   if (progress <= .75) return "supporting investment";
   return "lower investment";
+}
+
+function statGlowStyle(stat: GuardianBuild["statPriorities"][number]): React.CSSProperties {
+  const value = stat.target ?? stat.maximum ?? stat.minimum ?? 0;
+  const strength = Math.max(0, Math.min(1, value / 200));
+  return {
+    "--stat-border-alpha": (.18 + strength * .62).toFixed(3),
+    "--stat-glow-alpha": (.015 + strength * .18).toFixed(3),
+    "--stat-glow-radius": `${(2 + strength * 8).toFixed(1)}px`,
+    "--stat-icon-glow-alpha": (.04 + strength * .24).toFixed(3),
+    "--stat-icon-glow-radius": `${(2 + strength * 4).toFixed(1)}px`
+  } as React.CSSProperties;
 }
