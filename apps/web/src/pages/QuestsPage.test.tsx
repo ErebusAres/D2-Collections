@@ -54,6 +54,17 @@ describe("QuestInspectPanel", () => {
     expect(screen.getByText("Active objective").closest("article")?.querySelector("i span")?.getAttribute("style")).toContain("40%");
   });
 
+  it("shows manifest requirements without inventing progress and hides an empty rewards section", () => {
+    const view = render(<MemoryRouter><QuestInspectPanel quest={{ ...quest, objectives: [], rewards: [], percent: 0, stepNumber: 2, stepCount: 4, steps: [{ itemHash: "100", stepNumber: 2, name: "Current", description: "Defeat combatants in the activity.", status: "current", objectives: [{ objectiveHash: "3", name: "Combatants defeated", progress: 0, completionValue: 50, complete: false, percent: 0 }], percent: 0, progressKnown: false }] }} onClose={vi.fn()} /></MemoryRouter>);
+
+    expect(screen.getByText("Step requirements")).toBeTruthy();
+    expect(screen.getByText("Step 2/4")).toBeTruthy();
+    expect(screen.getByText("Combatants defeated")).toBeTruthy();
+    expect(screen.getByText("Tracked in Destiny")).toBeTruthy();
+    expect(screen.queryByText("Bungie returned no live objectives for this item.")).toBeNull();
+    expect(view.container.textContent).not.toContain("Rewards");
+  });
+
   it("places the desktop tooltip beside its quest while keeping it inside the quest board", () => {
     expect(getQuestTooltipPosition(
       { top: 180, left: 120, right: 360 },
