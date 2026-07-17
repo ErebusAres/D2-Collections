@@ -55,7 +55,7 @@ describe("build catalog filters", () => {
     const summary = buildDiscordSummary(build({ equipment: { weapons: [{ slot: "Energy", name: "No Hesitation" }], armor: [], armorSets: [] }, concepts: [{ name: "Radiant" }], championCounters: [{ name: "Anti-Barrier Hand Cannon" }], gameplayLoop: [{ text: "Keep the fireteam alive" }] }));
     expect(summary).toContain("**Arc Loop**");
     expect(summary).toContain("Energy: No Hesitation");
-    expect(summary).toContain("Anti-Barrier Hand Cannon");
+    expect(summary).not.toContain("Anti-Barrier Hand Cannon");
     expect(summary).toContain("Radiant");
     expect(summary).toContain("1. Keep the fireteam alive");
   });

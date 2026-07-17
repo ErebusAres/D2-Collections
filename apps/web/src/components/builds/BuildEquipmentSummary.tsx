@@ -1,5 +1,5 @@
 import type { BuildEquipmentEntry, BuildNamedEntry } from "@guardian-nexus/contracts";
-import { CircleHelp, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import styles from "../../pages/Builds.module.css";
 import { BuildIconTooltip } from "./BuildIconTooltip";
 
@@ -13,19 +13,18 @@ export function BuildEquipmentSummary({ entry }: { entry: BuildEquipmentEntry })
       <span>
         <small>{[entry.slot, entry.itemType, entry.damageType].filter(Boolean).join(" · ")}</small>
         <strong>{entry.name}</strong>
-        <em>{entry.required ? "Required" : "Alternative allowed"}</em>
+        {entry.required && <em>Required</em>}
       </span>
       {entry.exotic && <b><Star /> Exotic</b>}
     </header>
-    {groups.length > 0 ? <div className={styles.equipmentPerkGroups}>
+    {groups.length > 0 && <div className={styles.equipmentPerkGroups}>
       {groups.map((group) => <section key={group.label}>
         <small>{group.label}</small>
         <div>{group.entries.map((perk, index) => <span className={styles.equipmentPerkToken} key={`${perk.hash || perk.name}-${index}`}>
           <BuildIconTooltip entry={perk} label={perk.row ? `Spirit row ${perk.row}` : group.label} badge={perk.row ? String(perk.row) : undefined} />
-          <strong>{perk.name}</strong>
         </span>)}</div>
       </section>)}
-    </div> : entry.perks ? <p className={styles.equipmentRollNote}><strong>Roll note</strong>{entry.perks}</p> : <p className={styles.equipmentNoRoll}><CircleHelp /> No specific roll selected</p>}
+    </div>}
   </article>;
 }
 

@@ -10,7 +10,7 @@ export function buildCompletion(document: BuildDocument): BuildCompletionSection
   ];
   const hasSubclass = Boolean(document.subclassConfig.super || document.subclassConfig.aspects.length || document.subclassConfig.fragments.length);
   const hasEquipment = Boolean(document.equipment.weapons.length || document.equipment.armor.length || document.equipment.armorSets.length);
-  const hasArtifact = Boolean(document.artifacts.length || document.championCounters.length);
+  const hasArtifact = document.artifacts.length > 0;
   const hasGameplay = Boolean(document.gameplayLoop.length || document.notes.trim());
   return [
     section("basics", "Basics", basics.length ? "needs-attention" : "complete", basics),

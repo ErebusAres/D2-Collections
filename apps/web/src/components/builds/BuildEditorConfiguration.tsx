@@ -37,8 +37,6 @@ export function BuildEditorConfiguration({ value, onChange }: { value: BuildDocu
         <h3>Equipped perks · up to 7</h3><ManifestMultiEditor kind="artifactPerk" label="Artifact perks" placeholder="Search official Artifact perks…" values={artifact.perks} onChange={(perks) => updateArtifact(value, artifactIndex, { ...artifact, perks }, set)} addLabel="Artifact perks" max={7} />
       </article>)}</div>
       <ManifestPicker kind="artifact" label={`Add Artifact / tablet · ${value.artifacts.length}/6`} placeholder="Search official Artifact definitions…" onSelect={(entry) => addArtifact(value, entry, set)} />
-      <h3>Champion counters</h3>
-      <ManifestMultiEditor kind="champion" label="Barrier · Overload · Unstoppable" placeholder="Search anti-Barrier, Overload, or Unstoppable counters…" values={value.championCounters} onChange={(championCounters) => set("championCounters", championCounters)} addLabel="Champion counters" max={12} />
     </EditorSection>
 
     <EditorSection title="Gameplay loop" eyebrow="Ordered combat rotation" icon={<Footprints />}>

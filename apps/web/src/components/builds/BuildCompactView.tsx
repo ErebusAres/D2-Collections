@@ -34,9 +34,8 @@ export function BuildCompactView({ build }: { build: GuardianBuild }) {
       <div className={styles.compactModGroups}>{modGroups.map(([slot, entries]) => entries.length > 0 && <CompactSubgroup key={slot} label={slotLabel(slot)}><IconRail>{expandBuildEntries(entries).map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${index}`} entry={entry} label={`${slotLabel(slot)} socket ${index + 1}`} />)}</IconRail></CompactSubgroup>)}</div>
     </CompactSection>
 
-    <CompactSection title="Artifact & counters" icon={<PackageOpen />}>
+    <CompactSection title="Artifact" icon={<PackageOpen />}>
       {build.artifacts.map((artifact, index) => <CompactSubgroup key={`${artifact.hash}-${index}`} label={artifact.name}><IconRail><BuildIconTooltip entry={artifact} label="Artifact" />{artifact.perks.map((entry, perkIndex) => <BuildIconTooltip key={`${entry.hash}-${perkIndex}`} entry={entry} label="Equipped Artifact perk" />)}</IconRail></CompactSubgroup>)}
-      <CompactSubgroup label="Champion counters"><IconRail>{build.championCounters.map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${index}`} entry={entry} label="Champion counter" />)}</IconRail></CompactSubgroup>
     </CompactSection>
 
     <section className={styles.compactFieldGuide}>
