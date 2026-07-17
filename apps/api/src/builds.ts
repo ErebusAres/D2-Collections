@@ -146,7 +146,7 @@ const storedBuildDocumentSchema = buildDocumentSchema.extend({
   })).max(6).default([])
 });
 
-const voteSchema = z.object({ vote: z.enum(["up", "down"]) }).strict();
+export const buildVoteSchema = z.object({ vote: z.enum(["up", "down"]).nullable() }).strict();
 const workingDraftSchema = z.object({ document: buildDocumentSchema, baseUpdatedAt: z.string().datetime() }).strict();
 
 interface BuildRow {
@@ -302,15 +302,21 @@ async function deleteWorkingDraft(identifier: string, editorRow: SessionRow, env
 }
 
 async function voteOnBuild(request: Request, identifier: string, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const input = voteSchema.parse(await request.json());
+  const input = buildVoteSchema.parse(await request.json());
   const build = await findBuild(identifier, row.membership_id, env);
   if (!build || !isPublic(build)) throw httpError(404, "build_not_found", "Only published builds can be rated.");
   const now = new Date().toISOString();
-  const value = input.vote === "up" ? 1 : -1;
-  await env.DB.prepare(`INSERT INTO build_votes (build_id, membership_id, vote, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(build_id, membership_id) DO UPDATE SET vote = excluded.vote, updated_at = excluded.updated_at`)
-    .bind(build.id, row.membership_id, value, now, now)
-    .run();
+  if (input.vote === null) {
+    await env.DB.prepare("DELETE FROM build_votes WHERE build_id = ? AND membership_id = ?")
+      .bind(build.id, row.membership_id)
+      .run();
+  } else {
+    const value = input.vote === "up" ? 1 : -1;
+    await env.DB.prepare(`INSERT INTO build_votes (build_id, membership_id, vote, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(build_id, membership_id) DO UPDATE SET vote = excluded.vote, updated_at = excluded.updated_at`)
+      .bind(build.id, row.membership_id, value, now, now)
+      .run();
+  }
   const updated = await findBuild(build.id, row.membership_id, env);
   if (!updated) throw httpError(500, "build_vote_failed", "The rating was saved but could not be read back.");
   return buildEnvelope<BuildVoteResult>({ rating: ratingFromCounts(updated.upvotes, updated.downvotes), viewerVote: input.vote }, env, context);
