@@ -31,8 +31,8 @@ export function BuildCompactView({ build }: { build: GuardianBuild }) {
       </div>
     </CompactSection>
 
-    <CompactSection title="Stats & armor mods" icon={<Gauge />}>
-      <CompactSubgroup label="Priority scale · 1 highest → 6 lowest"><div className={styles.compactStatPriorities}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <StatPriority key={stat.stat} stat={stat} />)}</div></CompactSubgroup>
+    <CompactSection title="Stats & armor mods" icon={<Gauge />} wide>
+      <CompactSubgroup label="Stat investment · highest priority → most flexible"><StatPriorityPath stats={build.statPriorities} /></CompactSubgroup>
       <div className={styles.compactModGroups}>{modGroups.map(([slot, entries]) => entries.length > 0 && <CompactSubgroup key={slot} label={slotLabel(slot)}><IconRail>{expandBuildEntries(entries).map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${index}`} entry={entry} label={`${slotLabel(slot)} socket ${index + 1}`} />)}</IconRail></CompactSubgroup>)}</div>
     </CompactSection>
 
@@ -47,8 +47,8 @@ export function BuildCompactView({ build }: { build: GuardianBuild }) {
   </div>;
 }
 
-function CompactSection({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return <section className={styles.compactSection}><header>{icon}<h2>{title}</h2></header><div>{children}</div></section>;
+function CompactSection({ title, icon, children, wide = false }: { title: string; icon: React.ReactNode; children: React.ReactNode; wide?: boolean }) {
+  return <section className={`${styles.compactSection} ${wide ? styles.compactSectionWide : ""}`}><header>{icon}<h2>{title}</h2></header><div>{children}</div></section>;
 }
 
 function CompactSubgroup({ label, children }: { label: string; children: React.ReactNode }) {
@@ -59,13 +59,20 @@ function IconRail({ children }: { children: React.ReactNode }) {
   return <div className={styles.buildIconRail}>{children}</div>;
 }
 
-function StatPriority({ stat }: { stat: GuardianBuild["statPriorities"][number] }) {
-  const value = stat.target ?? stat.minimum ?? stat.maximum;
-  const priorityLabel = stat.priority === 1 ? "Highest" : stat.priority === 6 ? "Lowest" : "Priority";
-  return <article className={styles.compactStatPriority} data-priority={stat.priority} aria-label={`${stat.stat}, priority ${stat.priority} of 6, ${value === undefined ? "any value" : `value ${value}`}`}>
-    <span className={styles.compactStatRank}><small>Priority</small><b>{stat.priority}</b><em>of 6</em></span>
-    <BuildIconTooltip entry={{ name: stat.stat, icon: stat.icon || buildStatIcon(stat.stat), itemType: `Priority ${stat.priority} of 6 · ${priorityLabel}`, description: statDescription(stat) }} label={`${stat.stat} stat`} />
-    <span className={styles.compactStatValue}><strong>{stat.stat}</strong><b>{value === undefined ? "Any" : value}</b><small>{priorityLabel}</small></span>
+function StatPriorityPath({ stats }: { stats: GuardianBuild["statPriorities"] }) {
+  const ordered = [...stats].sort((a, b) => a.priority - b.priority);
+  return <div className={styles.statPriorityPath} style={{ "--stat-count": Math.max(ordered.length, 1) } as React.CSSProperties}>
+    {ordered.map((stat, index) => <StatPriority key={stat.stat} stat={stat} index={index} total={ordered.length} />)}
+  </div>;
+}
+
+function StatPriority({ stat, index, total }: { stat: GuardianBuild["statPriorities"][number]; index: number; total: number }) {
+  const values = statValueLabels(stat);
+  const position = index === 0 ? "highest priority" : index === total - 1 ? "most flexible" : `priority ${index + 1} of ${total}`;
+  return <article className={styles.statPriorityNode} data-primary={index === 0} aria-label={`${stat.stat}, ${position}, ${values.length ? values.join(", ") : "no value requirement"}`}>
+    <BuildIconTooltip entry={{ name: stat.stat, icon: stat.icon || buildStatIcon(stat.stat), itemType: position, description: statDescription(stat) }} label={`${stat.stat} stat`} />
+    <span className={styles.statPriorityIdentity}><strong>{stat.stat}</strong><small>{index === 0 ? "Focus first" : index === total - 1 ? "Flexible" : "Then invest"}</small></span>
+    <span className={styles.statPriorityValues}>{values.length ? values.map((value) => <b key={value} data-target={value.startsWith("Target")}>{value}</b>) : <b>Any value</b>}</span>
   </article>;
 }
 
@@ -74,4 +81,14 @@ function slotLabel(slot: keyof BuildArmorMods): string { return slot === "classI
 function statDescription(stat: GuardianBuild["statPriorities"][number]): string {
   if (stat.minimum === undefined && stat.target === undefined && stat.maximum === undefined) return "Any value is acceptable for this stat.";
   return [stat.minimum !== undefined && `Minimum ${stat.minimum}`, stat.target !== undefined && `Target ${stat.target}`, stat.maximum !== undefined && `Maximum ${stat.maximum}`].filter(Boolean).join(" · ");
+}
+
+function statValueLabels(stat: GuardianBuild["statPriorities"][number]): string[] {
+  const range = stat.minimum !== undefined && stat.maximum !== undefined ? [`Range ${stat.minimum}–${stat.maximum}`] : [];
+  return [
+    ...range,
+    stat.minimum !== undefined && stat.maximum === undefined ? `Min ${stat.minimum}` : false,
+    stat.target !== undefined ? `Target ${stat.target}` : false,
+    stat.maximum !== undefined && stat.minimum === undefined ? `Max ${stat.maximum}` : false
+  ].filter((value): value is string => Boolean(value));
 }
