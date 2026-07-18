@@ -1,13 +1,16 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BuildDocument } from "@guardian-nexus/contracts";
 import { emptyBuildDocument } from "../../modules/builds/builds";
 import { BuildIdentitySelector } from "./BuildIdentitySelector";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("BuildIdentitySelector", () => {
   it("automatically adds the class-specific official Transcendence icon to Prismatic builds", async () => {
@@ -22,6 +25,17 @@ describe("BuildIdentitySelector", () => {
 
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Harness /></QueryClientProvider>);
     await waitFor(() => expect(screen.getByTestId("transcendence-icon").textContent).toBe("https://www.bungie.net/transcendence.png"));
+  });
+
+  it("uses the in-game class glyph when a catalog has no class icon", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input), "https://guardian-nexus.pages.dev").pathname;
+      if (path.endsWith("build-catalog.json")) return response({ version: "test", generatedAt: "now", groups: { subclass: "subclass.json" }, statDefinitions: {} });
+      return response({ version: "test", kind: "subclass", entries: [] });
+    }));
+
+    const { container } = render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><Harness /></QueryClientProvider>);
+    await waitFor(() => expect(container.querySelector("img")?.getAttribute("src")).toBe("/icons/destiny/class-hunter.svg"));
   });
 });
 

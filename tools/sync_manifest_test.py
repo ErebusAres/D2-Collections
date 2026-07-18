@@ -60,6 +60,16 @@ class BuildCatalogClassificationTests(unittest.TestCase):
 
         self.assertEqual(SYNC_MANIFEST.canonical_subclass_entries([banner, playable]), [playable])
 
+    def test_class_catalog_uses_the_in_game_glyph_when_manifest_icon_is_missing(self) -> None:
+        entry = SYNC_MANIFEST.build_class_catalog_entry("671679327", {
+            "classType": 1,
+            "displayProperties": {"name": "Hunter", "description": ""},
+        })
+
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry["icon"], "/icons/destiny/class-hunter.svg")
+        self.assertEqual(entry["classType"], "hunter")
+
     def test_every_exotic_class_item_has_two_complete_spirit_columns(self) -> None:
         self.assertEqual(set(SYNC_MANIFEST.EXOTIC_SPIRIT_POOLS), {"relativism", "stoicism", "solipsism"})
         for class_item, rows in SYNC_MANIFEST.EXOTIC_SPIRIT_POOLS.items():

@@ -31,6 +31,11 @@ COMPANION_CHUNK_COUNT = 24
 ARMOR_STAT_HASHES = {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}
 COLLECTION_FEATURE_PATTERN = re.compile(r"\b(?:stance|faction|lawless|crystal|form|combo|reversal|mode|catalyst)\b", re.IGNORECASE)
 BUILD_CLASSES = {0: "titan", 1: "hunter", 2: "warlock"}
+BUILD_CLASS_ICONS = {
+    "hunter": "/icons/destiny/class-hunter.svg",
+    "titan": "/icons/destiny/class-titan.svg",
+    "warlock": "/icons/destiny/class-warlock.svg",
+}
 BUILD_SUBCLASSES = {
     "hunter": {"prismatic": "Prismatic Hunter", "arc": "Arcstrider", "solar": "Gunslinger", "void": "Nightstalker", "strand": "Threadrunner", "stasis": "Revenant"},
     "titan": {"prismatic": "Prismatic Titan", "arc": "Striker", "solar": "Sunbreaker", "void": "Sentinel", "strand": "Berserker", "stasis": "Behemoth"},
@@ -294,6 +299,27 @@ def build_icon(path: str) -> str:
     return path if path.startswith("http") else f"{WEB_ROOT}{path}"
 
 
+def build_class_catalog_entry(class_hash: str, definition: dict) -> dict | None:
+    properties = definition.get("displayProperties") or {}
+    class_type = BUILD_CLASSES.get(definition.get("classType"))
+    if not class_type or not properties.get("name"):
+        return None
+    manifest_icon = str(properties.get("icon", ""))
+    return {
+        "hash": class_hash,
+        "name": str(properties.get("name", "")),
+        "description": str(properties.get("description", "")),
+        "icon": build_icon(manifest_icon) if manifest_icon else BUILD_CLASS_ICONS[class_type],
+        "itemType": "Guardian Class",
+        "rarity": "",
+        "slot": "",
+        "damageType": "",
+        "kind": "class",
+        "classType": class_type,
+        "exotic": False,
+    }
+
+
 def build_class(definition: dict) -> str | None:
     plug = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
     item_type = str(definition.get("itemTypeDisplayName", "")).lower()
@@ -529,22 +555,9 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
         for hashes in pool["tiers"].values():
             active_artifact_perks.update(hashes)
     for class_hash, definition in class_definitions.items():
-        properties = definition.get("displayProperties") or {}
-        class_type = BUILD_CLASSES.get(definition.get("classType"))
-        if class_type and properties.get("name") and properties.get("icon"):
-            entries.append({
-                "hash": class_hash,
-                "name": str(properties.get("name", "")),
-                "description": str(properties.get("description", "")),
-                "icon": build_icon(str(properties.get("icon", ""))),
-                "itemType": "Guardian Class",
-                "rarity": "",
-                "slot": "",
-                "damageType": "",
-                "kind": "class",
-                "classType": class_type,
-                "exotic": False,
-            })
+        class_entry = build_class_catalog_entry(class_hash, definition)
+        if class_entry:
+            entries.append(class_entry)
     for damage_hash, definition in damage_types.items():
         properties = definition.get("displayProperties") or {}
         if properties.get("name") and properties.get("icon"):
