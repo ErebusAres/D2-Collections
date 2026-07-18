@@ -1,7 +1,7 @@
 import type { RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { Badge, Boxes, Coins, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
-import { useState, useSyncExternalStore } from "react";
+import { ArrowUp, Badge, Boxes, Coins, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
 import { hasClaimableReward, rewardLevelProgress } from "../../modules/rewards/rewardsProgress";
@@ -41,6 +41,7 @@ export function Shell() {
   const claimableReward = hasClaimableReward(rewards.data?.data.rewards);
   const { hidden: hiddenRewardCodes } = useRewardCodeStatus(guardian?.membershipId, Boolean(session?.authenticated), autoRefresh);
   const availableRewardCodeCount = activeRewardCodes().filter((entry) => !hiddenRewardCodes.has(entry.code)).length;
+  const showScrollTop = usePageUtilities();
 
   return (
     <div className={styles.shell} style={character?.emblemBackgroundPath ? { "--guardian-banner": `url(${character.emblemBackgroundPath})` } as React.CSSProperties : undefined}>
@@ -75,10 +76,39 @@ export function Shell() {
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>
+      {showScrollTop && <button type="button" className={styles.scrollTop} aria-label="Scroll to top" title="Scroll to top" onClick={() => window.scrollTo({ top: 0, behavior: document.documentElement.dataset.reducedMotion === "true" ? "auto" : "smooth" })}><ArrowUp /></button>}
       <footer className={styles.footer}><span>Guardian Nexus</span><span>Destiny companion</span><span>Activity data may be delayed</span></footer>
       <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} />
     </div>
   );
+}
+
+function usePageUtilities(): boolean {
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const updateScrollTop = () => setShowScrollTop(window.scrollY > 640 && document.documentElement.scrollHeight > window.innerHeight + 480);
+    const focusPageSearch = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || !(event.ctrlKey || event.metaKey) || event.key.toLocaleLowerCase() !== "f") return;
+      const search = Array.from(document.querySelectorAll<HTMLInputElement>("main input")).find((input) => !input.disabled && !input.closest('[aria-hidden="true"]') && (input.type === "search" || input.hasAttribute("data-page-search") || input.placeholder.toLocaleLowerCase().includes("search")));
+      if (!search) return;
+      event.preventDefault();
+      search.focus();
+      search.select();
+    };
+
+    updateScrollTop();
+    window.addEventListener("scroll", updateScrollTop, { passive: true });
+    window.addEventListener("resize", updateScrollTop);
+    window.addEventListener("keydown", focusPageSearch);
+    return () => {
+      window.removeEventListener("scroll", updateScrollTop);
+      window.removeEventListener("resize", updateScrollTop);
+      window.removeEventListener("keydown", focusPageSearch);
+    };
+  }, []);
+
+  return showScrollTop;
 }
 
 function HeaderStat({ label, value, icon, accent = false, to, claimable = false }: { label: string; value?: number | string; icon: React.ReactNode; accent?: boolean; to?: string; claimable?: boolean }) {

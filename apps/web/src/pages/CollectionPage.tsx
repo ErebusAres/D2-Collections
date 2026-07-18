@@ -76,9 +76,9 @@ export function CollectionPage() {
         <Summary label="Catalysts complete" value={String(totals.catalystsComplete)} progress={totals.catalystsOwned ? totals.catalystsComplete / totals.catalystsOwned : 0} icon={<Check />} />
         <Summary label="Manifest" value={data.manifestVersion === "offline-fallback" || data.manifestVersion === "unavailable" ? "Offline" : "Current"} progress={data.entries.length ? 1 : 0} icon={<Shield />} />
       </section>
-      <section className={styles.commandBar}>
+      <section className={`${styles.commandBar} ${styles.collectionCommandBar}`} aria-label="Collection search and filters">
         <FilterGroup label="Class" value={classScope} values={["hunter", "titan", "warlock", "all"]} onChange={(value) => { const next = value as CollectionClassScope; setClassScope(next); saveFilters({ classScope: next }); }} />
-        <label className={styles.search}><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Exotics, slots, sources…" /></label>
+        <label className={styles.search}><Search size={16} /><input type="search" data-page-search value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Exotics, slots, sources…" /></label>
         <FilterGroup label="Type" value={kind} values={["all", "weapon", "armor"]} onChange={(value) => { const next = value as KindFilter; setKind(next); saveFilters({ kind: next }); }} />
         <FilterGroup label="Collection" value={owned} values={["all", "owned", "missing"]} onChange={(value) => { const next = value as OwnedFilter; setOwned(next); saveFilters({ owned: next }); }} />
         <FilterGroup label="Availability" value={availability} values={["all", "xur"]} labels={{ xur: "Xûr" }} onChange={(value) => { const next = value as AvailabilityFilter; setAvailability(next); saveFilters({ availability: next }); }} />
