@@ -1,9 +1,10 @@
 import type { BuildVoteResult, GuardianBuild } from "@guardian-nexus/contracts";
-import { CalendarClock, ExternalLink, FilePenLine, Play, Shield, Swords } from "lucide-react";
+import { CalendarClock, FilePenLine, Shield, Swords } from "lucide-react";
 import { Link } from "react-router-dom";
 import { titleCase } from "../../modules/builds/builds";
 import { BuildRating } from "./BuildRating";
 import { ClassIcon, SubclassIcon } from "./BuildIcon";
+import { BuildServiceIcon } from "./BuildLinkActions";
 import styles from "../../pages/Builds.module.css";
 
 export function BuildCard({ build, onRatingChange }: { build: GuardianBuild; onRatingChange: (result: BuildVoteResult) => void }) {
@@ -21,7 +22,7 @@ export function BuildCard({ build, onRatingChange }: { build: GuardianBuild; onR
     </section>
     <footer>
       <div><span>By {build.authorDisplayName}</span>{build.originalCreatorName && <small>Source: {build.originalCreatorName}</small>}<time><CalendarClock /> {new Date(build.updatedAt).toLocaleDateString()}</time></div>
-      <nav>{quickLinks.map((link) => <a key={`${link.kind}-${link.url}`} href={link.url} target="_blank" rel="noreferrer" title={link.label}>{link.kind === "youtube" || link.kind === "twitch" ? <Play /> : <ExternalLink />}<span>{link.label}</span></a>)}{build.canEdit && <Link to={`/builds/${build.slug}/edit`} title="Edit build"><FilePenLine /><span>Edit</span></Link>}</nav>
+      <nav>{quickLinks.map((link) => <a key={`${link.kind}-${link.url}`} href={link.url} target="_blank" rel="noreferrer" title={link.label} aria-label={`Open ${link.label}`}><BuildServiceIcon link={link} /><span>{link.label}</span></a>)}{build.canEdit && <Link to={`/builds/${build.slug}/edit`} title="Edit build"><FilePenLine /><span>Edit</span></Link>}</nav>
       <BuildRating buildId={build.id} rating={build.rating} viewerVote={build.viewerVote} compact disabled={build.status !== "published"} onChange={onRatingChange} />
     </footer>
   </article>;

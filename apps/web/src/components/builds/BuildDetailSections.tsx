@@ -1,5 +1,5 @@
 import type { BuildArmorMods, BuildNamedEntry, GuardianBuild } from "@guardian-nexus/contracts";
-import { AlertTriangle, CircleHelp, ExternalLink, Film, Footprints, Gauge, Link2, MessageSquareText, PackageOpen, Palette, Play, Puzzle, Sparkles, Swords } from "lucide-react";
+import { AlertTriangle, CircleHelp, Film, Footprints, Gauge, Link2, MessageSquareText, PackageOpen, Palette, Puzzle, Sparkles, Swords } from "lucide-react";
 import type { ReactNode } from "react";
 import { buildStatIcon, buildStatValueLabels } from "../../modules/builds/buildStats";
 import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
@@ -7,6 +7,7 @@ import { expandBuildEntries } from "./BuildFormControls";
 import { BuildRichNotes } from "./BuildRichNotes";
 import styles from "../../pages/Builds.module.css";
 import { useBuildTranscendence } from "../../modules/builds/buildCatalog";
+import { BuildServiceIcon } from "./BuildLinkActions";
 
 export function buildDetailNavigation(build: GuardianBuild): { id: string; label: string }[] {
   return [
@@ -28,7 +29,7 @@ export function BuildDetailSections({ build, showEmpty = false }: { build: Guard
   const transcendence = useBuildTranscendence(build.classType, build.subclass, build.subclassConfig.transcendence);
   return <div className={styles.detailSections}>
     <BuildSection id="links" eyebrow="Sources and tools" title="Media & external links" icon={<Film />} empty={!mediaLinks.length} showEmpty={showEmpty}>
-      <div className={styles.linkGrid}>{mediaLinks.map((link) => <a key={`${link.kind}-${link.url}`} href={link.url} target="_blank" rel="noreferrer"><i>{link.kind === "youtube" || link.kind === "twitch" ? <Play /> : <ExternalLink />}</i><span>{link.kind}</span><strong>{link.label}</strong><small>{safeHost(link.url)}</small></a>)}</div>
+      <div className={styles.linkGrid}>{mediaLinks.map((link) => <a key={`${link.kind}-${link.url}`} href={link.url} target="_blank" rel="noreferrer"><i><BuildServiceIcon link={link} /></i><span>{link.kind}</span><strong>{link.label}</strong><small>{safeHost(link.url)}</small></a>)}</div>
     </BuildSection>
 
     <BuildSection id="notes" eyebrow="Creator field notes" title="Notes" icon={<MessageSquareText />} empty={!build.notes && !build.concepts.length} showEmpty={showEmpty}>
