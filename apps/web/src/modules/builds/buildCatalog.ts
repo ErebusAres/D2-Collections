@@ -20,14 +20,14 @@ export function useBuildCatalog(input: BuildCatalogQuery) {
   const enabled = input.enabled !== false && (input.allowEmpty || !["icon", "noteIcon"].includes(input.kind) || query.length >= 2);
   const index = useQuery({
     queryKey: ["build-catalog-index"],
-    queryFn: () => staticJson<BuildCatalogManifest>("/data/build-catalog.json"),
+    queryFn: () => staticJson<BuildCatalogManifest>("/data/build-catalog.json", "no-store"),
     enabled,
     staleTime: Infinity
   });
   const path = index.data?.groups[input.kind];
   const chunk = useQuery({
-    queryKey: ["build-catalog-chunk", path],
-    queryFn: () => staticJson<BuildCatalogChunk>(`/data/${path}`),
+    queryKey: ["build-catalog-chunk", path, index.data?.generatedAt],
+    queryFn: () => staticJson<BuildCatalogChunk>(`/data/${path}?catalog=${encodeURIComponent(index.data?.generatedAt || index.data?.version || "current")}`),
     enabled: enabled && Boolean(path),
     staleTime: Infinity
   });
@@ -46,9 +46,9 @@ export function useBuildCatalog(input: BuildCatalogQuery) {
 }
 
 export function useBuildArmorTraits(build: GuardianBuild | undefined): GuardianBuild | undefined {
-  const index = useQuery({ queryKey: ["build-catalog-index"], queryFn: () => staticJson<BuildCatalogManifest>("/data/build-catalog.json"), enabled: Boolean(build), staleTime: Infinity });
+  const index = useQuery({ queryKey: ["build-catalog-index"], queryFn: () => staticJson<BuildCatalogManifest>("/data/build-catalog.json", "no-store"), enabled: Boolean(build), staleTime: Infinity });
   const path = index.data?.groups.armorTrait;
-  const traits = useQuery({ queryKey: ["build-catalog-chunk", path], queryFn: () => staticJson<BuildCatalogChunk>(`/data/${path}`), enabled: Boolean(build && path), staleTime: Infinity });
+  const traits = useQuery({ queryKey: ["build-catalog-chunk", path, index.data?.generatedAt], queryFn: () => staticJson<BuildCatalogChunk>(`/data/${path}?catalog=${encodeURIComponent(index.data?.generatedAt || index.data?.version || "current")}`), enabled: Boolean(build && path), staleTime: Infinity });
   return useMemo(() => {
     if (!build || !traits.data) return build;
     const byHash = new Map(traits.data.entries.map((entry) => [entry.hash, entry.traits || []]));
@@ -114,8 +114,8 @@ export function namedEntryFromCatalog(entry: BuildCatalogEntry): BuildNamedEntry
   };
 }
 
-async function staticJson<T>(path: string): Promise<T> {
-  const response = await fetch(path, { cache: "force-cache" });
+async function staticJson<T>(path: string, cache: RequestCache = "force-cache"): Promise<T> {
+  const response = await fetch(path, { cache });
   if (!response.ok) throw new Error(`Destiny build catalog request returned ${response.status}.`);
   return response.json() as Promise<T>;
 }
