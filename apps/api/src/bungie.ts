@@ -19,6 +19,7 @@ const publicMembershipTypeCache = new Map<string, number>();
 const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; offers?: any[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
 const socialRosterCache = new Map<string, { value: FireteamSocialData; expiresAt: number }>();
 const XUR_VENDOR_HASH = "2190858386";
+const XUR_GEAR_VENDOR_HASH = "3751514131";
 const XUR_ARMOR_STATS: Record<string, { name: string; icon: string }> = {
   "392767087": { name: "Health", icon: "https://www.bungie.net/common/destiny2_content/icons/717b8b218cc14325a54869bef21d2964.png" },
   "4244567218": { name: "Melee", icon: "https://www.bungie.net/common/destiny2_content/icons/fa534aca76d7f2d7e7b4ba4df4271b42.png" },
@@ -127,25 +128,41 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
   if (cached && cached.expiresAt > Date.now()) return cached;
   const checkedAt = new Date().toISOString();
   try {
-    const response = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/Character/${characterId}/Vendors/${XUR_VENDOR_HASH}/?components=304,305,400,402`, env, accessToken);
-    const enabled = Boolean(response?.vendor?.data?.enabled);
-    const sales = enabled ? Object.entries(response?.sales?.data || {}) as Array<[string, any]> : [];
+    const storefronts: Array<{ vendorHash: string; response: any }> = [];
+    const storefrontWarnings: string[] = [];
+    for (const vendorHash of [XUR_VENDOR_HASH, XUR_GEAR_VENDOR_HASH]) {
+      try {
+        const response = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/Character/${characterId}/Vendors/${vendorHash}/?components=304,305,400,401,402`, env, accessToken);
+        storefronts.push({ vendorHash, response });
+      } catch (error) {
+        if (vendorHash === XUR_VENDOR_HASH) throw error;
+        storefrontWarnings.push("Xûr's Strange Gear storefront could not be refreshed.");
+      }
+    }
+    const enabledStorefronts = storefronts.filter(({ response }) => Boolean(response?.vendor?.data?.enabled));
+    const enabled = enabledStorefronts.length > 0;
+    const sales = enabledStorefronts.flatMap(({ vendorHash, response }) => Object.entries(response?.sales?.data || {}).map(([saleIndex, sale]) => ({
+      vendorHash,
+      saleIndex: String(saleIndex),
+      sale: sale as any,
+      response
+    })));
     const itemHashes = enabled
-      ? [...new Set(sales.map(([, sale]) => String(sale?.itemHash || "")).filter(Boolean))]
+      ? [...new Set(sales.map(({ sale }) => String(sale?.itemHash || "")).filter(Boolean))]
       : [];
     let offers: any[] | undefined;
     if (enabled && includeDetails) {
-      const socketsBySale = response?.itemComponents?.sockets?.data || {};
-      const socketHashes = Object.values(socketsBySale).flatMap((component: any) => (component?.sockets || [])
+      const socketHashes = sales.flatMap(({ saleIndex, response }) => (response?.itemComponents?.sockets?.data?.[saleIndex]?.sockets || [])
         .filter((socket: any) => socket?.isVisible !== false && socket?.isEnabled !== false)
         .map((socket: any) => String(socket?.plugHash || "")).filter(Boolean));
-      const costHashes = sales.flatMap(([, sale]) => (sale?.costs || []).map((cost: any) => String(cost?.itemHash || "")).filter(Boolean));
+      const costHashes = sales.flatMap(({ sale }) => (sale?.costs || []).map((cost: any) => String(cost?.itemHash || "")).filter(Boolean));
       const [definitions, exoticManifest] = await Promise.all([companionItemDefinitionsFor(env, [...new Set([...itemHashes, ...socketHashes, ...costHashes])]), loadManifest(env)]);
       const classes = ["Titan", "Hunter", "Warlock"] as const;
-      offers = sales.flatMap(([saleIndex, sale]) => {
+      offers = sales.flatMap(({ vendorHash, saleIndex, sale, response }) => {
         const hash = String(sale?.itemHash || "");
-        const definition: any = definitions[hash];
+        const definition: any = definitions[hash] || exoticManifest.itemDefinitions[hash];
         if (!hash || !definition) return [];
+        const socketsBySale = response?.itemComponents?.sockets?.data || {};
         const rarity = String(definition.inventory?.tierTypeName || "Unknown");
         const itemTypeName = String(definition.itemTypeDisplayName || "Vendor item");
         const slot = String(definition.equipmentSlot || "Miscellaneous");
@@ -171,7 +188,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
           return [{ itemHash, name, description: String(plug?.displayProperties?.description || ""), icon: imageUrl(plug?.displayProperties?.icon) }];
         }).filter((perk: any, index: number, all: any[]) => all.findIndex((other) => other.itemHash === perk.itemHash) === index);
         return [{
-          saleIndex, itemHash: hash, name, description: String(definition.displayProperties?.description || ""),
+          saleIndex: `${vendorHash}:${saleIndex}`, itemHash: hash, name, description: String(definition.displayProperties?.description || ""),
           icon: imageUrl(definition.displayProperties?.icon), rarity, itemType: itemTypeName, slot,
           ...(classType >= 0 && classType <= 2 ? { className: classes[classType] } : {}), quantity: Math.max(1, Number(sale?.quantity || 1)), category,
           costs, stats, ...(stats.length ? { statTotal: stats.reduce((sum: number, stat: any) => sum + stat.value, 0) } : {}), perks
@@ -183,7 +200,8 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
       itemHashes,
       ...(offers ? { offers } : {}),
       checkedAt,
-      nextRefreshAt: response?.vendor?.data?.nextRefreshDate,
+      nextRefreshAt: enabledStorefronts.map(({ response }) => response?.vendor?.data?.nextRefreshDate).filter(Boolean).sort()[0],
+      ...(storefrontWarnings[0] ? { warning: storefrontWarnings[0] } : {}),
       expiresAt: Date.now() + 5 * 60_000
     };
     xurInventoryCache.set(cacheKey, result);
@@ -236,11 +254,10 @@ export function mergeXurInventories(inventories: XurInventoryResult[]): XurInven
 
   for (const inventory of source) {
     for (const offer of inventory.offers || []) {
-      const roll = [
-        ...(offer.stats || []).map((stat: any) => `${stat.statHash}:${stat.value}`),
-        ...(offer.perks || []).map((perk: any) => perk.itemHash)
-      ].join(",");
-      const key = `${offer.category}:${offer.className || "any"}:${offer.itemHash}:${roll}`;
+      // The same vendor sale can return character-dependent socket visibility.
+      // Its vendor hash + sale index is the stable storefront identity; item
+      // hash keeps class-specific offers at shared indexes distinct.
+      const key = `${offer.saleIndex}:${offer.itemHash}`;
       const existing = offers.get(key);
       if (!existing || offerCompleteness(offer) > offerCompleteness(existing)) offers.set(key, offer);
     }
@@ -376,12 +393,15 @@ export function xurCategoryFor(definition: any): XurOffer["category"] {
   const itemTypeName = String(definition?.itemTypeDisplayName || "Vendor item");
   const slot = String(definition?.equipmentSlot || "Miscellaneous");
   const name = String(definition?.displayProperties?.name || "Unknown offer");
+  const isWeapon = itemType === 3 || / weapons?$/i.test(slot) || /^(auto rifle|combat bow|bow|fusion rifle|glaive|grenade launcher|hand cannon|linear fusion rifle|machine gun|pulse rifle|rocket launcher|scout rifle|shotgun|sidearm|sniper rifle|submachine gun|sword|trace rifle)$/i.test(itemTypeName);
+  const isArmor = itemType === 2 || /^(helmet|gauntlets|chest armor|leg armor|class armor|titan mark|hunter cloak|warlock bond)$/i.test(itemTypeName);
+  const isClassArmor = /class armor/i.test(slot) || /^(class armor|titan mark|hunter cloak|warlock bond)$/i.test(itemTypeName);
   if (/catalyst/i.test(`${name} ${itemTypeName}`)) return "exotic-catalyst";
-  if (rarity === "Exotic" && itemType === 2 && /class armor/i.test(slot)) return "exotic-class-item";
-  if (rarity === "Exotic" && itemType === 3) return "exotic-weapon";
-  if (rarity === "Exotic" && itemType === 2) return "exotic-armor";
-  if (itemType === 3) return "legendary-weapon";
-  if (itemType === 2) return "legendary-armor";
+  if (rarity === "Exotic" && isArmor && isClassArmor) return "exotic-class-item";
+  if (rarity === "Exotic" && isWeapon) return "exotic-weapon";
+  if (rarity === "Exotic" && isArmor) return "exotic-armor";
+  if (isWeapon) return "legendary-weapon";
+  if (isArmor) return "legendary-armor";
   return "other";
 }
 

@@ -36,11 +36,11 @@ describe("bungieGet", () => {
 
 describe("xurInventoryFor", () => {
   it("reads Xûr's enabled live sales from the character vendor endpoint", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    const fetchMock = vi.fn().mockImplementation((url: string) => new Response(JSON.stringify({
       ErrorCode: 1,
       Response: {
         vendor: { data: { enabled: true, nextRefreshDate: "2026-07-17T17:00:00Z" } },
-        sales: { data: { 0: { itemHash: 111 }, 1: { itemHash: 222 }, 2: { itemHash: 111 } } }
+        sales: { data: url.includes("3751514131") ? { 10: { itemHash: 222 } } : { 0: { itemHash: 111 } } }
       }
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
@@ -49,7 +49,10 @@ describe("xurInventoryFor", () => {
     const result = await xurInventoryFor(row, "character-xur-test", { BUNGIE_API_KEY: "test" } as Env, "access");
 
     expect(result).toMatchObject({ state: "available", itemHashes: ["111", "222"], nextRefreshAt: "2026-07-17T17:00:00Z" });
-    expect(fetchMock.mock.calls[0]?.[0]).toContain("/Vendors/2190858386/?components=304,305,400,402");
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual(expect.arrayContaining([
+      expect.stringContaining("/Vendors/2190858386/?components=304,305,400,401,402"),
+      expect.stringContaining("/Vendors/3751514131/?components=304,305,400,401,402")
+    ]));
   });
 });
 
@@ -57,6 +60,7 @@ describe("xurCategoryFor", () => {
   it("separates catalysts and Exotic class items from materials", () => {
     expect(xurCategoryFor({ displayProperties: { name: "Prometheus Catalyst" }, itemTypeDisplayName: "Exotic Catalyst", inventory: { tierTypeName: "Exotic" } })).toBe("exotic-catalyst");
     expect(xurCategoryFor({ displayProperties: { name: "Stoicism" }, itemType: 2, equipmentSlot: "Class Armor", inventory: { tierTypeName: "Exotic" } })).toBe("exotic-class-item");
+    expect(xurCategoryFor({ displayProperties: { name: "Kept Confidence" }, itemType: 30, itemTypeDisplayName: "Hand Cannon", inventory: { tierTypeName: "Legendary" } })).toBe("legendary-weapon");
     expect(xurCategoryFor({ displayProperties: { name: "Enhancement Core" }, itemType: 0, itemTypeDisplayName: "Material", inventory: { tierTypeName: "Legendary" } })).toBe("other");
   });
 
@@ -98,15 +102,26 @@ describe("mergeXurInventories", () => {
     ]);
   });
 
-  it("retains distinct rolls of the same item", () => {
+  it("retains distinct sale slots of the same item", () => {
     const base = { state: "available" as const, checkedAt: "2026-07-18T17:00:00Z", itemHashes: ["100"] };
     const offer = { saleIndex: "0", itemHash: "100", category: "legendary-weapon", stats: [], costs: [] };
     const result = mergeXurInventories([
-      { ...base, offers: [{ ...offer, perks: [{ itemHash: "perk-a" }] }] },
-      { ...base, offers: [{ ...offer, perks: [{ itemHash: "perk-b" }] }] }
+      { ...base, offers: [{ ...offer, saleIndex: "3751514131:1", perks: [{ itemHash: "perk-a" }] }] },
+      { ...base, offers: [{ ...offer, saleIndex: "3751514131:2", perks: [{ itemHash: "perk-b" }] }] }
     ] as any);
 
     expect(result.offers).toHaveLength(2);
+  });
+
+  it("deduplicates the same sale when character-specific sockets differ", () => {
+    const base = { state: "available" as const, checkedAt: "2026-07-18T17:00:00Z", itemHashes: ["100"] };
+    const offer = { saleIndex: "2190858386:7", itemHash: "100", category: "exotic-armor", className: "Titan", stats: [], costs: [] };
+    const result = mergeXurInventories([
+      { ...base, offers: [{ ...offer, perks: [{ itemHash: "visible-on-one" }] }] },
+      { ...base, offers: [{ ...offer, perks: [{ itemHash: "visible-on-two" }, { itemHash: "extra" }] }] }
+    ] as any);
+
+    expect(result.offers).toEqual([expect.objectContaining({ itemHash: "100", perks: [{ itemHash: "visible-on-two" }, { itemHash: "extra" }] })]);
   });
 });
 
