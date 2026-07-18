@@ -718,11 +718,32 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
     return {"version": version, "generatedAt": generated_at, "entries": entries, "weaponPerkHashes": weapon_perk_hashes, "spiritHashes": spirit_hashes, "spiritHashesByClass": spirit_hashes_by_class, "artifactPerkPools": artifact_perk_pools, "statDefinitions": stats}
 
 
+def canonical_subclass_entries(entries: list[dict]) -> list[dict]:
+    canonical: dict[tuple[str, str], dict] = {}
+    for entry in entries:
+        key = (str(entry.get("classType", "")), str(entry.get("subclass", "")))
+        if key == ("", ""):
+            continue
+        current = canonical.get(key)
+        if current is None or subclass_icon_score(entry) > subclass_icon_score(current):
+            canonical[key] = entry
+    return list(canonical.values())
+
+
+def subclass_icon_score(entry: dict) -> int:
+    return (8 if str(entry.get("slot", "")).lower() == "subclass" else 0) + (4 if str(entry.get("rarity", "")).lower() == "common" else 0) + (2 if re.search(r"\.png(?:\?|$)", str(entry.get("icon", "")), re.IGNORECASE) else 0)
+
+
 def write_build_catalog_files(catalog: dict) -> dict:
     groups: dict[str, str] = {}
     grouped: dict[str, list[dict]] = {}
     for entry in catalog["entries"]:
         grouped.setdefault(entry["kind"], []).append(entry)
+    # Inventory definitions also contain old square presentation banners for
+    # several subclasses. Ship only the equipped Subclass-bucket identity for
+    # each class/element so the Builder uses Destiny's diamond/circle icons.
+    if grouped.get("subclass"):
+        grouped["subclass"] = canonical_subclass_entries(grouped["subclass"])
     grouped["champion"] = [
         entry for entry in grouped.get("artifactPerk", [])
         if re.search(r"anti[- ]?barrier|overload|unstoppable", f"{entry['name']} {entry['description']}", re.IGNORECASE)

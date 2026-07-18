@@ -13,6 +13,7 @@ import type {
 
 export * from "./gearSearch";
 export * from "./buildArmorSets";
+export * from "./buildCatalog";
 
 export const ARMOR_STAT_KEYS: ArmorStatKey[] = ["health", "melee", "grenade", "super", "class", "weapons"];
 

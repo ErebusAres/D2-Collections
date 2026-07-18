@@ -54,6 +54,12 @@ class BuildCatalogClassificationTests(unittest.TestCase):
         self.assertEqual(SYNC_MANIFEST.build_catalog_kind(definition), "transcendence")
         self.assertEqual(SYNC_MANIFEST.build_subclass(definition, "hunter"), "prismatic")
 
+    def test_catalog_writer_prefers_playable_subclass_icons(self) -> None:
+        banner = {"hash": "banner", "kind": "subclass", "classType": "warlock", "subclass": "solar", "slot": "", "rarity": "", "icon": "https://www.bungie.net/dawnblade.jpg"}
+        playable = {"hash": "playable", "kind": "subclass", "classType": "warlock", "subclass": "solar", "slot": "Subclass", "rarity": "Common", "icon": "https://www.bungie.net/dawnblade.png"}
+
+        self.assertEqual(SYNC_MANIFEST.canonical_subclass_entries([banner, playable]), [playable])
+
     def test_every_exotic_class_item_has_two_complete_spirit_columns(self) -> None:
         self.assertEqual(set(SYNC_MANIFEST.EXOTIC_SPIRIT_POOLS), {"relativism", "stoicism", "solipsism"})
         for class_item, rows in SYNC_MANIFEST.EXOTIC_SPIRIT_POOLS.items():

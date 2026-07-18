@@ -24,6 +24,16 @@ describe("build manifest catalog", () => {
     expect(searchBuildCatalog(chunk, { kind: "exoticSpirit", q: "", itemHash: "100", spiritRow: 2 }).map((value) => value.name)).toEqual(["Spirit of the Horn"]);
   });
 
+  it("uses the playable diamond subclass definition instead of duplicate banner art", () => {
+    const chunk = catalog("subclass", [
+      entry("banner", "Dawnblade", "subclass", { classType: "warlock", subclass: "solar", icon: "https://www.bungie.net/dawnblade.jpg" }),
+      entry("diamond", "Dawnblade", "subclass", { classType: "warlock", subclass: "solar", icon: "https://www.bungie.net/dawnblade.png", slot: "Subclass", rarity: "Common" })
+    ]);
+    expect(searchBuildCatalog(chunk, { kind: "subclass", q: "", classType: "warlock" })).toEqual([
+      expect.objectContaining({ hash: "diamond", icon: "https://www.bungie.net/dawnblade.png" })
+    ]);
+  });
+
   it("uses the Guardian class Spirit pool for a legacy class-item hash", () => {
     const chunk = {
       ...catalog("exoticSpirit", [entry("30", "Spirit of Caliban", "exoticSpirit", { row: 1 }), entry("31", "Spirit of Gyrfalcon", "exoticSpirit", { row: 2 }), entry("32", "Spirit of Synthoceps", "exoticSpirit", { row: 2 })]),

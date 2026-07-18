@@ -190,6 +190,15 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
     return result;
   } catch (error: any) {
     const expectedAbsence = /vendor.*(not found|unavailable)|x[uû]r.*(not found|unavailable)/i.test(String(error?.message || ""));
+    if (cached && (cached.offers?.length || cached.itemHashes.length)) {
+      const stale = {
+        ...cached,
+        warning: "Xûr's latest inventory refresh failed; showing the last verified storefront.",
+        expiresAt: Date.now() + 60_000
+      };
+      xurInventoryCache.set(cacheKey, stale);
+      return stale;
+    }
     const result = {
       state: expectedAbsence ? "away" as const : "unavailable" as const,
       itemHashes: [],
@@ -200,6 +209,21 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
     xurInventoryCache.set(cacheKey, result);
     return result;
   }
+}
+
+export async function xurInventoriesForCharacters(
+  row: SessionRow,
+  characterIds: string[],
+  env: Env,
+  accessToken: string,
+  includeDetails = false
+): Promise<XurInventoryResult[]> {
+  const inventories: XurInventoryResult[] = [];
+  // Detail enrichment can touch many compact-manifest chunks. Keep this
+  // sequential so each class reuses the first class's definition cache and the
+  // Worker stays below Cloudflare's subrequest ceiling.
+  for (const characterId of characterIds) inventories.push(await xurInventoryFor(row, characterId, env, accessToken, includeDetails));
+  return inventories;
 }
 
 type XurInventoryResult = Awaited<ReturnType<typeof xurInventoryFor>>;

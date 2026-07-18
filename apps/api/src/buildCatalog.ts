@@ -1,4 +1,5 @@
 import type { BuildCatalogChunk, BuildCatalogData, BuildCatalogEntry, BuildCatalogKind, BuildCatalogManifest } from "@guardian-nexus/contracts";
+import { canonicalBuildCatalogEntries } from "@guardian-nexus/domain";
 import { z } from "zod";
 import type { Env } from "./types";
 
@@ -52,7 +53,7 @@ export function searchBuildCatalog(chunk: BuildCatalogChunk, input: z.infer<type
     ? new Map(Object.entries(artifactPool.tiers).flatMap(([tier, hashes]) => hashes.map((hash) => [hash, Number(tier) as 1 | 2 | 3])))
     : undefined;
   const seen = new Set<string>();
-  return chunk.entries.filter((entry) => {
+  return canonicalBuildCatalogEntries(chunk.entries).filter((entry) => {
     if (allowedPerks && !allowedPerks.has(entry.hash)) return false;
     if (allowedSpirits && !allowedSpirits.has(entry.hash)) return false;
     if (artifactTierByHash && !artifactTierByHash.has(entry.hash)) return false;

@@ -1,4 +1,5 @@
 import type { BuildArmorSlot, BuildCatalogChunk, BuildCatalogData, BuildCatalogEntry, BuildCatalogKind, BuildCatalogManifest, BuildGuardianClass, BuildNamedEntry, BuildSubclass, GuardianBuild } from "@guardian-nexus/contracts";
+import { canonicalBuildCatalogEntries } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useMemo } from "react";
 
@@ -74,7 +75,7 @@ export function searchBuildCatalogChunk(chunk: BuildCatalogChunk, input: Omit<Bu
     ? new Map(Object.entries(artifactPool.tiers).flatMap(([tier, hashes]) => hashes.map((hash) => [hash, Number(tier) as 1 | 2 | 3])))
     : undefined;
   const seen = new Set<string>();
-  return chunk.entries.filter((entry) => {
+  return canonicalBuildCatalogEntries(chunk.entries).filter((entry) => {
     if (allowedPerks && !allowedPerks.has(entry.hash)) return false;
     if (allowedSpirits && !allowedSpirits.has(entry.hash)) return false;
     if (artifactTierByHash && !artifactTierByHash.has(entry.hash)) return false;

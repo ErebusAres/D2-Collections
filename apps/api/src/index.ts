@@ -28,7 +28,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -346,7 +346,7 @@ async function collection(row: SessionRow, env: Env, context: RequestContext): P
   const manifest = await loadManifest(env);
   const characters = uniqueXurCharacters(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   const xur = characters.length
-    ? mergeXurInventories(await Promise.all(characters.map((character) => xurInventoryFor(row, character.characterId, env, accessToken))))
+    ? mergeXurInventories(await xurInventoriesForCharacters(row, characters.map((character) => character.characterId), env, accessToken))
     : { state: "unavailable" as const, itemHashes: [], checkedAt: new Date().toISOString(), warning: "Xûr inventory requires a selected character." };
   const data = normalizeCollection(profile, manifest, undefined, new Set(xur.itemHashes));
   data.xur = { state: xur.state, checkedAt: xur.checkedAt, nextRefreshAt: xur.nextRefreshAt };
@@ -361,7 +361,7 @@ async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<
   const { profile, accessToken } = await profileFor(row, env, "session");
   const characters = uniqueXurCharacters(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   if (!characters.length) return envelope<XurData>({ state: "unavailable", checkedAt: new Date().toISOString(), offers: [] }, env, context, { warnings: ["Xûr inventory requires a selected character."] });
-  const inventory = mergeXurInventories(await Promise.all(characters.map((character) => xurInventoryFor(row, character.characterId, env, accessToken, true))));
+  const inventory = mergeXurInventories(await xurInventoriesForCharacters(row, characters.map((character) => character.characterId), env, accessToken, true));
   return envelope<XurData>({ state: inventory.state, checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: inventory.offers || [] }, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
 }
 

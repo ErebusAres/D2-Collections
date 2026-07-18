@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -58,6 +58,27 @@ describe("xurCategoryFor", () => {
     expect(xurCategoryFor({ displayProperties: { name: "Prometheus Catalyst" }, itemTypeDisplayName: "Exotic Catalyst", inventory: { tierTypeName: "Exotic" } })).toBe("exotic-catalyst");
     expect(xurCategoryFor({ displayProperties: { name: "Stoicism" }, itemType: 2, equipmentSlot: "Class Armor", inventory: { tierTypeName: "Exotic" } })).toBe("exotic-class-item");
     expect(xurCategoryFor({ displayProperties: { name: "Enhancement Core" }, itemType: 0, itemTypeDisplayName: "Material", inventory: { tierTypeName: "Legendary" } })).toBe("other");
+  });
+
+  it("loads class storefronts sequentially to stay within the Worker subrequest budget", async () => {
+    let active = 0;
+    let maximumActive = 0;
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => {
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return new Response(JSON.stringify({ ErrorCode: 1, Response: { vendor: { data: { enabled: false } }, sales: { data: {} } } }), { status: 200 });
+    }));
+
+    await xurInventoriesForCharacters(
+      { membership_type: 3, membership_id: "sequential-member" } as SessionRow,
+      ["sequential-one", "sequential-two", "sequential-three"],
+      { BUNGIE_API_KEY: "test" } as Env,
+      "access"
+    );
+
+    expect(maximumActive).toBe(1);
   });
 });
 

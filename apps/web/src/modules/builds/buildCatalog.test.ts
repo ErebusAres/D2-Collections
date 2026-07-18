@@ -32,6 +32,21 @@ describe("build catalog search", () => {
     expect(searchBuildCatalogChunk(chunk, { kind: "fragment", query: "", subclass: "stasis" }).map((entry) => entry.name)).toEqual(["Whisper of Fissures"]);
   });
 
+  it("returns one playable subclass icon per element and discards presentation banners", () => {
+    const chunk: BuildCatalogChunk = {
+      version: "test",
+      kind: "subclass",
+      entries: [
+        { ...catalogEntry("banner", "Stormcaller", "subclass"), classType: "warlock", subclass: "arc", icon: "https://www.bungie.net/stormcaller.jpg" },
+        { ...catalogEntry("diamond", "Stormcaller", "subclass"), classType: "warlock", subclass: "arc", icon: "https://www.bungie.net/stormcaller.png", slot: "Subclass", rarity: "Common" }
+      ]
+    };
+
+    expect(searchBuildCatalogChunk(chunk, { kind: "subclass", query: "", classType: "warlock" })).toEqual([
+      expect.objectContaining({ hash: "diamond", icon: "https://www.bungie.net/stormcaller.png" })
+    ]);
+  });
+
   it("limits Artifact perks to the selected current Artifact and assigns tiers", () => {
     const chunk: BuildCatalogChunk = {
       version: "test",
