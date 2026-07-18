@@ -104,7 +104,7 @@ function Summary({ label, value, progress, icon }: { label: string; value: strin
 }
 
 function FilterGroup({ label, value, values, labels = {}, onChange }: { label: string; value: string; values: string[]; labels?: Record<string, string>; onChange: (value: string) => void }) {
-  return <div className={styles.filterGroup}><span>{label}</span><div>{values.map((entry) => <button key={entry} className={value === entry ? styles.activeFilter : ""} onClick={() => onChange(entry)}>{labels[entry] || entry}</button>)}</div></div>;
+  return <div className={styles.filterGroup}><span>{label}</span><div>{values.map((entry) => <button type="button" key={entry} aria-pressed={value === entry} className={value === entry ? styles.activeFilter : ""} onClick={() => onChange(entry)}>{labels[entry] || entry}</button>)}</div></div>;
 }
 
 function ItemCard({ entry, onOpen }: { entry: ExoticCollectionEntry; onOpen: () => void }) {
