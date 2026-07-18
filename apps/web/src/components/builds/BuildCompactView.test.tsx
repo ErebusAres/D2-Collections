@@ -56,4 +56,13 @@ describe("BuildCompactView", () => {
     render(<BuildRichNotes value={build().notes} />);
     expect(screen.getByLabelText("Destiny reference: Radiant")).toBeTruthy();
   });
+
+  it("renders shorthand game symbols immediately with the build's class context", () => {
+    render(<BuildRichNotes value="Use :arc: :power: :overcharge: :shield: :prismatic: now." classType="warlock" />);
+    expect(screen.getByLabelText(":arc:: Arc")).toBeTruthy();
+    expect(screen.getByLabelText(":power:: Power")).toBeTruthy();
+    expect(screen.getByLabelText(":overcharge:: Overload Champion")).toBeTruthy();
+    expect(screen.getByLabelText(":shield:: Barrier Champion")).toBeTruthy();
+    expect(screen.getByLabelText(":prismatic:: Prismatic Warlock")).toBeTruthy();
+  });
 });

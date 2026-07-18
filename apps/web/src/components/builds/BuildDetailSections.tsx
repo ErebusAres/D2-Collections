@@ -33,7 +33,7 @@ export function BuildDetailSections({ build, showEmpty = false }: { build: Guard
 
     <BuildSection id="notes" eyebrow="Creator field notes" title="Notes" icon={<MessageSquareText />} empty={!build.notes && !build.concepts.length} showEmpty={showEmpty}>
       {build.concepts.length > 0 && <NamedGroup title="At a glance" entries={build.concepts} />}
-      {build.notes && <BuildRichNotes value={build.notes} />}
+      {build.notes && <BuildRichNotes value={build.notes} classType={build.classType} />}
     </BuildSection>
 
     <BuildSection id="subclass" eyebrow="Ability configuration" title="Subclass" icon={<Sparkles />} empty={!hasSubclassData(build)} showEmpty={showEmpty}>

@@ -43,7 +43,7 @@ export function BuildCompactView({ build }: { build: GuardianBuild }) {
     </CompactSection>
 
     <section className={styles.compactFieldGuide}>
-      <article><header><MessageSquareText /><span><small>Creator field guide</small><strong>Notes & build concepts</strong></span></header>{build.concepts.length > 0 && <IconRail>{build.concepts.map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${index}`} entry={entry} label="Build concept" />)}</IconRail>}{build.notes ? <BuildRichNotes value={build.notes} /> : <p className={styles.compactEmpty}><CircleHelp /> No notes have been added.</p>}</article>
+      <article><header><MessageSquareText /><span><small>Creator field guide</small><strong>Notes & build concepts</strong></span></header>{build.concepts.length > 0 && <IconRail>{build.concepts.map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${index}`} entry={entry} label="Build concept" />)}</IconRail>}{build.notes ? <BuildRichNotes value={build.notes} classType={build.classType} /> : <p className={styles.compactEmpty}><CircleHelp /> No notes have been added.</p>}</article>
       <article><header><Footprints /><span><small>Combat rotation</small><strong>Gameplay loop</strong></span></header>{build.gameplayLoop.length ? <ol>{build.gameplayLoop.map((step, index) => <li key={`${index}-${step.text}`}><b>{index + 1}</b><span>{step.text}</span></li>)}</ol> : <p className={styles.compactEmpty}><CircleHelp /> No gameplay loop has been added.</p>}</article>
     </section>
   </div>;

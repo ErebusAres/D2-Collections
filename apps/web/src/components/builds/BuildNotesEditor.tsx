@@ -45,6 +45,14 @@ export function BuildNotesEditor({ value, onChange }: { value: BuildDocument; on
     const end = field?.selectionEnd ?? start;
     replace(emoji, start, end);
   };
+  const insertAlias = (alias: string) => {
+    const field = textarea.current;
+    const start = field?.selectionStart ?? value.notes.length;
+    const end = field?.selectionEnd ?? start;
+    const spacingBefore = start > 0 && !/\s/.test(value.notes[start - 1] || "") ? " " : "";
+    const spacingAfter = end < value.notes.length && !/\s/.test(value.notes[end] || "") ? " " : "";
+    replace(`${spacingBefore}:${alias}:${spacingAfter}`, start, end);
+  };
   return <div className={styles.notesInsertEditor}>
     {value.concepts.length > 0 && <p className={styles.legacyConceptNotice}>Existing at-a-glance icons are retained for compatibility. New icons are inserted directly into the note at the cursor.</p>}
     <div className={styles.notesToolbar} role="toolbar" aria-label="Build notes formatting">
@@ -66,6 +74,6 @@ export function BuildNotesEditor({ value, onChange }: { value: BuildDocument; on
       <button type="button" className={styles.notesEmojiButton} data-active={showIcons} title="Emoji and Destiny icons" aria-label="Emoji and Destiny icons" aria-expanded={showIcons} onClick={() => setShowIcons((current) => !current)}><Smile /></button>
     </div>
     <label className={styles.notesField}><span>Main build notes · Markdown, safe BBCode, natural emoji, and inline Destiny icons</span><textarea ref={textarea} value={value.notes} onChange={(event) => onChange({ ...value, notes: event.target.value })} placeholder="Explain the gameplay loop, flexible choices, encounter advice, and substitutions in one field guide." /></label>
-    {showIcons && <BuildNotesIconPicker classType={value.classType} subclass={value.subclass} onIcon={insert} onEmoji={insertEmoji} />}
+    {showIcons && <BuildNotesIconPicker classType={value.classType} subclass={value.subclass} onIcon={insert} onEmoji={insertEmoji} onAlias={insertAlias} />}
   </div>;
 }

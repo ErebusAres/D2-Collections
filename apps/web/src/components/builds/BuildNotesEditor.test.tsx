@@ -10,7 +10,6 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe("BuildNotesEditor", () => {
   it("searches categorized build definitions and inserts official icon tokens", async () => {
     const entries = {
-      noteIcon: [catalogEntry("1", "Solar", "Element / Damage Type", "solar", "noteIcon")],
       weapon: [catalogEntry("2", "Fatebringer", "Hand Cannon", "weapon", "weapon")],
       weaponPerk: [catalogEntry("3", "Incandescent", "Weapon Trait", "perk", "weaponPerk")],
       armor: [catalogEntry("4", "Celestial Nighthawk", "Helmet", "armor", "armor")],
@@ -28,7 +27,10 @@ describe("BuildNotesEditor", () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><BuildNotesEditor value={emptyBuildDocument()} onChange={onChange} /></QueryClientProvider>);
 
     fireEvent.click(screen.getByRole("button", { name: "Emoji and Destiny icons" }));
-    for (const [category, entry] of [["Game symbols", entries.noteIcon[0]!], ["Weapons", entries.weapon[0]!], ["Weapon perks", entries.weaponPerk[0]!], ["Armor", entries.armor[0]!], ["Spirits", entries.exoticSpirit[0]!] ] as const) {
+    fireEvent.change(screen.getByPlaceholderText("Search destiny symbols…"), { target: { value: "Solar" } });
+    fireEvent.click(screen.getByRole("button", { name: "Insert :solar: Solar symbol" }));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ notes: ":solar:" }));
+    for (const [category, entry] of [["Weapons", entries.weapon[0]!], ["Weapon perks", entries.weaponPerk[0]!], ["Armor", entries.armor[0]!], ["Spirits", entries.exoticSpirit[0]!] ] as const) {
       fireEvent.click(screen.getByRole("button", { name: category }));
       const search = screen.getByPlaceholderText(new RegExp(`Search ${category.toLocaleLowerCase()}`));
       fireEvent.change(search, { target: { value: entry.name } });
@@ -50,6 +52,6 @@ describe("BuildNotesEditor", () => {
   });
 });
 
-function catalogEntry(hash: string, name: string, itemType: string, icon: string, kind: "noteIcon" | "weapon" | "weaponPerk" | "armor" | "exoticSpirit") {
+function catalogEntry(hash: string, name: string, itemType: string, icon: string, kind: "weapon" | "weaponPerk" | "armor" | "exoticSpirit") {
   return { hash, kind, name, icon: `https://www.bungie.net/${icon}.png`, description: "", itemType, rarity: "", slot: "", damageType: name === "Solar" ? "Solar" : "", exotic: name === "Celestial Nighthawk", ...(["armor", "exoticSpirit"].includes(kind) ? { classType: "hunter" as const } : {}) };
 }
