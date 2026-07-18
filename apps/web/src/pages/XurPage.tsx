@@ -25,27 +25,28 @@ export function XurPage() {
   });
   const data = result.data?.data;
   const items = useMemo(() => data?.offers || [], [data]);
+  const storefrontItems = useMemo(() => items.filter(isStorefrontItem), [items]);
   const sections = useMemo(() => [
     { title: "Exotic weapons", icon: <Swords />, items: items.filter((entry) => entry.category === "exotic-weapon") },
-    ...(["Titan", "Hunter", "Warlock"] as const).map((className) => ({ title: `${className} Exotic armor`, icon: <Shield />, items: items.filter((entry) => entry.category === "exotic-armor" && entry.className === className) })),
+    { title: "Exotic catalysts", icon: <Sparkles />, items: items.filter((entry) => entry.category === "exotic-catalyst") },
+    { title: "Exotic class items", icon: <Shield />, items: items.filter((entry) => entry.category === "exotic-class-item") },
+    ...(["Titan", "Hunter", "Warlock"] as const).map((className) => ({ title: `${className} armor`, icon: <Shield />, items: items.filter((entry) => ["exotic-armor", "legendary-armor"].includes(entry.category) && entry.className === className) })),
+    { title: "Other armor", icon: <Shield />, items: items.filter((entry) => ["exotic-armor", "legendary-armor"].includes(entry.category) && !entry.className) },
     { title: "Legendary weapons", icon: <Swords />, items: items.filter((entry) => entry.category === "legendary-weapon") },
-    { title: "Legendary armor", icon: <Shield />, items: items.filter((entry) => entry.category === "legendary-armor") },
-    { title: "Materials & other offers", icon: <Coins />, items: items.filter((entry) => entry.category === "other") }
+    { title: "Strange gear offers", icon: <Coins />, items: items.filter((entry) => entry.category === "other" && /engram/i.test(`${entry.name} ${entry.itemType}`)) }
   ], [items]);
 
   return <AuthGate>
-    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="Track Xûr's Tower visit, complete live inventory, class-specific armor, and transparent roll guidance from one Guardian-specific view." actions={<Freshness observedAt={data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="Track Xûr's Tower visit and browse his live weapons, catalysts, Exotic class items, and class-specific armor without material clutter." actions={<Freshness observedAt={data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={`${styles.xurHero} ${schedule.active ? styles.xurActive : ""}`}>
         <div className={styles.xurCountdown}><Coins /><span>{schedule.active ? "Xûr departs in" : "Xûr arrives in"}</span><strong>{countdown(schedule.target, now)}</strong><small>{new Date(schedule.target).toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</small></div>
         <div><MapPin /><span>Current location</span><strong>Tower Bazaar</strong><small>Alley beside the Ramen Shop</small></div>
-        <div><Clock3 /><span>Vendor signal</span><strong>{data.state === "available" ? "Inventory live" : data.state === "away" ? "Xûr is away" : "Signal unavailable"}</strong><small>{items.length} total offers returned</small></div>
+        <div><Clock3 /><span>Vendor signal</span><strong>{data.state === "available" ? "Inventory live" : data.state === "away" ? "Xûr is away" : "Signal unavailable"}</strong><small>{storefrontItems.length} relevant gear offers</small></div>
       </section>
 
-      {items.length > 0 ? sections.map((section) => <XurSection key={section.title} {...section} />) : <section className={styles.xurEmpty}><Sparkles /><h2>{schedule.active ? "Awaiting Xûr's inventory" : "Xûr is away"}</h2><p>{schedule.active ? "Bungie has not returned an enabled Xûr vendor inventory for this Guardian yet. Try another character or refresh after reset." : "Inventory will populate from Bungie's live vendor data when Xûr returns Friday at reset."}</p></section>}
-
-      <section className={styles.xurRollNotice}><Sparkles /><div><span>Roll intelligence</span><h2>Explainable ratings, not invented god rolls</h2><p>Exotic weapons have fixed identities, while armor needs live vendor stat components before it can be graded responsibly. A future curated-wishlist pass will evaluate random Legendary perk combinations for PvE and PvP and show the exact matching perks behind every recommendation.</p></div></section>
+      {storefrontItems.length > 0 ? sections.map((section) => <XurSection key={section.title} {...section} />) : <section className={styles.xurEmpty}><Sparkles /><h2>{schedule.active ? "Awaiting Xûr's inventory" : "Xûr is away"}</h2><p>{schedule.active ? "Bungie has not returned an enabled Xûr gear inventory for this Guardian yet. Try another character or refresh after reset." : "Inventory will populate from Bungie's live vendor data when Xûr returns Friday at reset."}</p></section>}
     </>}
   </AuthGate>;
 }
@@ -62,6 +63,10 @@ function XurSection({ title, icon, items }: { title: string; icon: React.ReactNo
     {item.perks.length > 0 && <div className={styles.xurPerks} aria-label={`${item.name} vendor roll`}>{item.perks.map((perk) => <span key={perk.itemHash} title={perk.description || perk.name}>{perk.icon && <img src={perk.icon} alt="" />}<b>{perk.name}</b></span>)}</div>}
     {item.costs.length > 0 && <footer className={styles.xurCosts}><span>Cost</span>{item.costs.map((cost) => <b key={cost.itemHash}>{cost.icon && <img src={cost.icon} alt="" />}{cost.quantity.toLocaleString()} {cost.name}</b>)}</footer>}
   </article>)}</div></section>;
+}
+
+function isStorefrontItem(item: XurOffer): boolean {
+  return item.category !== "other" || /engram/i.test(`${item.name} ${item.itemType}`);
 }
 
 function countdown(target: string, now: Date): string {

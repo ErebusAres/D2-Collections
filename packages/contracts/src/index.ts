@@ -668,7 +668,7 @@ export interface XurOffer {
   itemType: string;
   slot: string;
   className?: GuardianClass;
-  category: "exotic-weapon" | "exotic-armor" | "legendary-weapon" | "legendary-armor" | "other";
+  category: "exotic-weapon" | "exotic-armor" | "exotic-class-item" | "exotic-catalyst" | "legendary-weapon" | "legendary-armor" | "other";
   quantity: number;
   costs: Array<{ itemHash: string; name: string; icon: string; quantity: number }>;
   stats: Array<{ statHash: string; name: string; icon: string; value: number }>;

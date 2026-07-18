@@ -1,4 +1,4 @@
-import type { CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, RewardsManifest, RewardsPassProgress } from "@guardian-nexus/contracts";
+import type { CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 import { imageUrl } from "@guardian-nexus/domain";
@@ -147,8 +147,10 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
         const definition: any = definitions[hash];
         if (!hash || !definition) return [];
         const rarity = String(definition.inventory?.tierTypeName || "Unknown");
-        const itemType = Number(definition.itemType);
-        const category = rarity === "Exotic" && itemType === 3 ? "exotic-weapon" : rarity === "Exotic" && itemType === 2 ? "exotic-armor" : itemType === 3 ? "legendary-weapon" : itemType === 2 ? "legendary-armor" : "other";
+        const itemTypeName = String(definition.itemTypeDisplayName || "Vendor item");
+        const slot = String(definition.equipmentSlot || "Miscellaneous");
+        const name = String(definition.displayProperties?.name || "Unknown offer");
+        const category = xurCategoryFor(definition);
         const classType = Number(definition.classType ?? (exoticManifest.itemDefinitions[hash] as any)?.classType);
         const costs = (sale?.costs || []).map((cost: any) => {
           const itemHash = String(cost?.itemHash || "");
@@ -169,8 +171,8 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
           return [{ itemHash, name, description: String(plug?.displayProperties?.description || ""), icon: imageUrl(plug?.displayProperties?.icon) }];
         }).filter((perk: any, index: number, all: any[]) => all.findIndex((other) => other.itemHash === perk.itemHash) === index);
         return [{
-          saleIndex, itemHash: hash, name: String(definition.displayProperties?.name || "Unknown offer"), description: String(definition.displayProperties?.description || ""),
-          icon: imageUrl(definition.displayProperties?.icon), rarity, itemType: String(definition.itemTypeDisplayName || "Vendor item"), slot: String(definition.equipmentSlot || "Miscellaneous"),
+          saleIndex, itemHash: hash, name, description: String(definition.displayProperties?.description || ""),
+          icon: imageUrl(definition.displayProperties?.icon), rarity, itemType: itemTypeName, slot,
           ...(classType >= 0 && classType <= 2 ? { className: classes[classType] } : {}), quantity: Math.max(1, Number(sale?.quantity || 1)), category,
           costs, stats, ...(stats.length ? { statTotal: stats.reduce((sum: number, stat: any) => sum + stat.value, 0) } : {}), perks
         }];
@@ -305,6 +307,21 @@ export async function loadCompanionManifest(env: Env): Promise<CompanionManifest
       loadoutColorDefinitions: {}
     };
   }
+}
+
+export function xurCategoryFor(definition: any): XurOffer["category"] {
+  const rarity = String(definition?.inventory?.tierTypeName || "Unknown");
+  const itemType = Number(definition?.itemType);
+  const itemTypeName = String(definition?.itemTypeDisplayName || "Vendor item");
+  const slot = String(definition?.equipmentSlot || "Miscellaneous");
+  const name = String(definition?.displayProperties?.name || "Unknown offer");
+  if (/catalyst/i.test(`${name} ${itemTypeName}`)) return "exotic-catalyst";
+  if (rarity === "Exotic" && itemType === 2 && /class armor/i.test(slot)) return "exotic-class-item";
+  if (rarity === "Exotic" && itemType === 3) return "exotic-weapon";
+  if (rarity === "Exotic" && itemType === 2) return "exotic-armor";
+  if (itemType === 3) return "legendary-weapon";
+  if (itemType === 2) return "legendary-armor";
+  return "other";
 }
 
 async function companionItemDefinitionsFor(env: Env, itemHashes: string[]): Promise<Record<string, Record<string, unknown>>> {

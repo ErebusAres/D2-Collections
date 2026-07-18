@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, seasonPassProgress, socialRosterFor, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -50,6 +50,14 @@ describe("xurInventoryFor", () => {
 
     expect(result).toMatchObject({ state: "available", itemHashes: ["111", "222"], nextRefreshAt: "2026-07-17T17:00:00Z" });
     expect(fetchMock.mock.calls[0]?.[0]).toContain("/Vendors/2190858386/?components=304,305,400,402");
+  });
+});
+
+describe("xurCategoryFor", () => {
+  it("separates catalysts and Exotic class items from materials", () => {
+    expect(xurCategoryFor({ displayProperties: { name: "Prometheus Catalyst" }, itemTypeDisplayName: "Exotic Catalyst", inventory: { tierTypeName: "Exotic" } })).toBe("exotic-catalyst");
+    expect(xurCategoryFor({ displayProperties: { name: "Stoicism" }, itemType: 2, equipmentSlot: "Class Armor", inventory: { tierTypeName: "Exotic" } })).toBe("exotic-class-item");
+    expect(xurCategoryFor({ displayProperties: { name: "Enhancement Core" }, itemType: 0, itemTypeDisplayName: "Material", inventory: { tierTypeName: "Legendary" } })).toBe("other");
   });
 });
 
