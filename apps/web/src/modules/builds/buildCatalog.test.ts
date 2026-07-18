@@ -31,6 +31,17 @@ describe("build catalog search", () => {
 
     expect(searchBuildCatalogChunk(chunk, { kind: "fragment", query: "", subclass: "stasis" }).map((entry) => entry.name)).toEqual(["Whisper of Fissures"]);
   });
+
+  it("limits Artifact perks to the selected current Artifact and assigns tiers", () => {
+    const chunk: BuildCatalogChunk = {
+      version: "test",
+      kind: "artifactPerk",
+      entries: [catalogEntry("50", "Tier One", "artifactPerk"), catalogEntry("51", "Tier Two", "artifactPerk"), catalogEntry("52", "Other Artifact", "artifactPerk")],
+      artifactPerkPools: { "100": { tiers: { "1": ["50"], "2": ["51"], "3": [] }, slots: { "1": 2, "2": 3, "3": 2 } } }
+    };
+
+    expect(searchBuildCatalogChunk(chunk, { kind: "artifactPerk", query: "", itemHash: "100" }).map((entry) => [entry.name, entry.artifactTier])).toEqual([["Tier One", 1], ["Tier Two", 2]]);
+  });
 });
 
 function spirit(hash: string, name: string, row: 1 | 2): BuildCatalogEntry {

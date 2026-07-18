@@ -9,6 +9,7 @@ export interface BuildCatalogQuery {
   subclass?: BuildSubclass;
   slot?: BuildArmorSlot;
   itemHash?: string;
+  itemName?: string;
   spiritRow?: 1 | 2;
   enabled?: boolean;
   allowEmpty?: boolean;
@@ -36,7 +37,7 @@ export function useBuildCatalog(input: BuildCatalogQuery) {
       available: true,
       results: searchBuildCatalogChunk(chunk.data, { ...input, query })
     } satisfies BuildCatalogData
-  } : undefined, [chunk.data, index.data, input.kind, input.classType, input.subclass, input.slot, input.itemHash, input.spiritRow, query]);
+  } : undefined, [chunk.data, index.data, input.kind, input.classType, input.subclass, input.slot, input.itemHash, input.itemName, input.spiritRow, query]);
   return {
     data,
     isLoading: enabled && (index.isLoading || Boolean(path) && chunk.isLoading),
@@ -66,10 +67,17 @@ export function searchBuildCatalogChunk(chunk: BuildCatalogChunk, input: Omit<Bu
   const allowedSpirits = spiritPool
     ? new Set(input.spiritRow ? spiritPool[input.spiritRow === 1 ? "row1" : "row2"] : [...spiritPool.row1, ...spiritPool.row2])
     : undefined;
+  const artifactPool = input.kind === "artifactPerk"
+    ? input.itemHash && chunk.artifactPerkPools?.[input.itemHash] || input.itemName && chunk.artifactPerkPools?.[`name:${input.itemName.toLocaleLowerCase()}`]
+    : undefined;
+  const artifactTierByHash = artifactPool
+    ? new Map(Object.entries(artifactPool.tiers).flatMap(([tier, hashes]) => hashes.map((hash) => [hash, Number(tier) as 1 | 2 | 3])))
+    : undefined;
   const seen = new Set<string>();
   return chunk.entries.filter((entry) => {
     if (allowedPerks && !allowedPerks.has(entry.hash)) return false;
     if (allowedSpirits && !allowedSpirits.has(entry.hash)) return false;
+    if (artifactTierByHash && !artifactTierByHash.has(entry.hash)) return false;
     if (input.classType && entry.classType && entry.classType !== input.classType) return false;
     if ((input.kind === "class" || input.kind === "subclass" || input.kind === "armor") && input.classType && entry.classType !== input.classType) return false;
     if (input.subclass && abilityKind(input.kind) && entry.subclass !== input.subclass) return false;
@@ -82,7 +90,7 @@ export function searchBuildCatalogChunk(chunk: BuildCatalogChunk, input: Omit<Bu
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).sort((left, right) => {
+  }).map((entry) => artifactTierByHash?.has(entry.hash) ? { ...entry, artifactTier: artifactTierByHash.get(entry.hash) } : entry).sort((left, right) => {
     const leftExact = query && left.name.toLocaleLowerCase() === query ? 0 : query && left.name.toLocaleLowerCase().startsWith(query) ? 1 : 2;
     const rightExact = query && right.name.toLocaleLowerCase() === query ? 0 : query && right.name.toLocaleLowerCase().startsWith(query) ? 1 : 2;
     return leftExact - rightExact || Number(right.exotic) - Number(left.exotic) || left.name.localeCompare(right.name) || Number(left.requiredPieces || 0) - Number(right.requiredPieces || 0);
@@ -101,7 +109,8 @@ export function namedEntryFromCatalog(entry: BuildCatalogEntry): BuildNamedEntry
     setName: entry.setName,
     requiredPieces: entry.requiredPieces,
     bonuses: entry.bonuses,
-    row: entry.row
+    row: entry.row,
+    artifactTier: entry.artifactTier
   };
 }
 

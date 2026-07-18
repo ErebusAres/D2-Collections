@@ -9,6 +9,7 @@ const querySchema = z.object({
   subclass: z.enum(["prismatic", "arc", "solar", "void", "strand", "stasis"]).optional(),
   slot: z.enum(["helmet", "arms", "chest", "legs", "classItem"]).optional(),
   itemHash: z.string().trim().regex(/^\d+$/).optional(),
+  itemName: z.string().trim().max(160).optional(),
   spiritRow: z.coerce.number().int().min(1).max(2).optional()
 });
 
@@ -44,10 +45,17 @@ export function searchBuildCatalog(chunk: BuildCatalogChunk, input: z.infer<type
   const allowedSpirits = spiritPool
     ? new Set(input.spiritRow ? spiritPool[input.spiritRow === 1 ? "row1" : "row2"] : [...spiritPool.row1, ...spiritPool.row2])
     : undefined;
+  const artifactPool = input.kind === "artifactPerk"
+    ? input.itemHash && chunk.artifactPerkPools?.[input.itemHash] || input.itemName && chunk.artifactPerkPools?.[`name:${input.itemName.toLocaleLowerCase()}`]
+    : undefined;
+  const artifactTierByHash = artifactPool
+    ? new Map(Object.entries(artifactPool.tiers).flatMap(([tier, hashes]) => hashes.map((hash) => [hash, Number(tier) as 1 | 2 | 3])))
+    : undefined;
   const seen = new Set<string>();
   return chunk.entries.filter((entry) => {
     if (allowedPerks && !allowedPerks.has(entry.hash)) return false;
     if (allowedSpirits && !allowedSpirits.has(entry.hash)) return false;
+    if (artifactTierByHash && !artifactTierByHash.has(entry.hash)) return false;
     if (input.classType && entry.classType && entry.classType !== input.classType) return false;
     if ((input.kind === "class" || input.kind === "subclass" || input.kind === "armor") && input.classType && entry.classType !== input.classType) return false;
     if (input.subclass && abilityKind(input.kind) && entry.subclass !== input.subclass) return false;
@@ -60,7 +68,7 @@ export function searchBuildCatalog(chunk: BuildCatalogChunk, input: z.infer<type
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).sort((left, right) => {
+  }).map((entry) => artifactTierByHash?.has(entry.hash) ? { ...entry, artifactTier: artifactTierByHash.get(entry.hash) } : entry).sort((left, right) => {
     const leftExact = query && left.name.toLocaleLowerCase() === query ? 0 : query && left.name.toLocaleLowerCase().startsWith(query) ? 1 : 2;
     const rightExact = query && right.name.toLocaleLowerCase() === query ? 0 : query && right.name.toLocaleLowerCase().startsWith(query) ? 1 : 2;
     return leftExact - rightExact || Number(right.exotic) - Number(left.exotic) || left.name.localeCompare(right.name) || Number(left.requiredPieces || 0) - Number(right.requiredPieces || 0);

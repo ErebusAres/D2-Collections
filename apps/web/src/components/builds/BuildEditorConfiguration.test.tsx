@@ -10,7 +10,7 @@ describe("BuildEditorConfiguration", () => {
     render(<QueryClientProvider client={new QueryClient()}><BuildEditorConfiguration value={emptyBuildDocument()} onChange={() => undefined} /></QueryClientProvider>);
     expect(screen.getByPlaceholderText("Search super definitions…")).toBeTruthy();
     expect(screen.getByPlaceholderText("Search official weapon definitions…")).toBeTruthy();
-    expect(screen.getByPlaceholderText("Search official Artifact definitions…")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Search the seven current Artifact definitions…")).toBeTruthy();
     expect(screen.getByPlaceholderText("Search armor set bonuses…")).toBeTruthy();
     expect(screen.getByText("Drag the six fixed Destiny stats into priority order. Priority 1 is highest; priority 6 is lowest.")).toBeTruthy();
     expect(screen.queryByText(/Icon URL/i)).toBeNull();

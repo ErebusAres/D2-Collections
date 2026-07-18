@@ -32,7 +32,8 @@ const namedEntryBaseSchema = z.object({
   quantity: z.number().int().min(1).max(3).optional(),
   setName: z.string().trim().max(160).optional(),
   requiredPieces: z.number().int().min(1).max(5).optional(),
-  row: z.union([z.literal(1), z.literal(2)]).optional()
+  row: z.union([z.literal(1), z.literal(2)]).optional(),
+  artifactTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional()
 });
 const namedEntrySchema = namedEntryBaseSchema.extend({ bonuses: z.array(namedEntryBaseSchema).max(4).optional() });
 const equipmentEntrySchema = namedEntrySchema.extend({
@@ -102,7 +103,7 @@ export const buildDocumentSchema = z.object({
     maximum: z.number().int().min(0).max(999).optional(),
     priority: z.number().int().min(1).max(6),
     notes: optionalText
-  })).max(6).default([]),
+  })).max(7).default([]),
   armorMods: z.object({
     helmet: armorModEntriesSchema.default([]),
     arms: armorModEntriesSchema.default([]),
@@ -144,7 +145,7 @@ const storedBuildDocumentSchema = buildDocumentSchema.extend({
   artifacts: z.array(namedEntrySchema.extend({
     perks: z.array(namedEntrySchema).max(30).default([]),
     tier: z.string().trim().max(80).optional()
-  })).max(6).default([])
+  })).max(7).default([])
 });
 
 export const buildVoteSchema = z.object({ vote: z.enum(["up", "down"]).nullable() }).strict();

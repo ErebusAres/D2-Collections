@@ -479,6 +479,34 @@ def is_weapon_roll_definition(definition: dict) -> bool:
     return not re.search(r"^(empty|locked|classified|random perk|deprecated|default)", name, re.IGNORECASE)
 
 
+def artifact_perk_pool(definition: dict, inventory: dict[str, dict], plug_sets: dict[str, dict]) -> dict | None:
+    """Extract the three Artifact 2.0 buckets and equipped-slot counts."""
+    ordered_sets: list[str] = []
+    perks_by_set: dict[str, list[str]] = {}
+    slot_counts: dict[str, int] = {}
+    for socket in (definition.get("sockets") or {}).get("socketEntries", []):
+        set_hash = str(socket.get("reusablePlugSetHash") or "")
+        if not set_hash:
+            continue
+        hashes = []
+        for value in plug_sets.get(set_hash, {}).get("reusablePlugItems") or []:
+            item_hash = str(value.get("plugItemHash") or value.get("itemHash") or "")
+            if str(inventory.get(item_hash, {}).get("itemTypeDisplayName", "")).lower() == "artifact perk":
+                hashes.append(item_hash)
+        if not hashes:
+            continue
+        if set_hash not in perks_by_set:
+            ordered_sets.append(set_hash)
+            perks_by_set[set_hash] = list(dict.fromkeys(hashes))
+        slot_counts[set_hash] = slot_counts.get(set_hash, 0) + 1
+    if len(ordered_sets) != 3 or [slot_counts[value] for value in ordered_sets] != [2, 3, 2]:
+        return None
+    return {
+        "tiers": {str(index + 1): perks_by_set[set_hash] for index, set_hash in enumerate(ordered_sets)},
+        "slots": {str(index + 1): slot_counts[set_hash] for index, set_hash in enumerate(ordered_sets)},
+    }
+
+
 def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[str, dict], damage_types: dict[str, dict], buckets: dict[str, dict], plug_sets: dict[str, dict], item_sets: dict[str, dict], sandbox_perks: dict[str, dict], stat_definitions: dict[str, dict], version: str, generated_at: str) -> dict:
     entries = []
     weapon_perk_hashes: dict[str, list[str]] = {}
@@ -486,6 +514,20 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
     spirit_rows_by_hash: dict[str, int] = {}
     all_spirit_hashes: set[str] = set()
     roll_hashes: set[str] = set()
+    artifact_perk_pools: dict[str, dict] = {}
+    active_artifact_perks: set[str] = set()
+    for item_hash, definition in inventory.items():
+        if build_catalog_kind(definition) != "artifact":
+            continue
+        pool = artifact_perk_pool(definition, inventory, plug_sets)
+        if not pool:
+            continue
+        artifact_perk_pools[item_hash] = pool
+        artifact_name = str((definition.get("displayProperties") or {}).get("name", "")).strip().lower()
+        if artifact_name:
+            artifact_perk_pools[f"name:{artifact_name}"] = pool
+        for hashes in pool["tiers"].values():
+            active_artifact_perks.update(hashes)
     for class_hash, definition in class_definitions.items():
         properties = definition.get("displayProperties") or {}
         class_type = BUILD_CLASSES.get(definition.get("classType"))
@@ -550,6 +592,10 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
         if definition.get("redacted") or not name or not properties.get("icon") or re.search(r"^(empty|locked|deprecated|unfocused|new subclass:)", name, re.IGNORECASE):
             continue
         kind = build_catalog_kind(definition)
+        if kind == "artifact" and item_hash not in artifact_perk_pools:
+            continue
+        if kind == "artifactPerk" and item_hash not in active_artifact_perks:
+            continue
         if kind:
             entry = build_catalog_entry(item_hash, definition, kind, damage_types, buckets)
             if kind == "armor" and entry["exotic"]:
@@ -669,7 +715,7 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
                 "exotic": False,
             })
     entries.sort(key=lambda entry: (entry["kind"], entry.get("setName", ""), entry["name"], entry["hash"]))
-    return {"version": version, "generatedAt": generated_at, "entries": entries, "weaponPerkHashes": weapon_perk_hashes, "spiritHashes": spirit_hashes, "spiritHashesByClass": spirit_hashes_by_class, "statDefinitions": stats}
+    return {"version": version, "generatedAt": generated_at, "entries": entries, "weaponPerkHashes": weapon_perk_hashes, "spiritHashes": spirit_hashes, "spiritHashesByClass": spirit_hashes_by_class, "artifactPerkPools": artifact_perk_pools, "statDefinitions": stats}
 
 
 def write_build_catalog_files(catalog: dict) -> dict:
@@ -743,6 +789,8 @@ def write_build_catalog_files(catalog: dict) -> dict:
         if kind == "exoticSpirit":
             chunk["spiritHashes"] = catalog["spiritHashes"]
             chunk["spiritHashesByClass"] = catalog["spiritHashesByClass"]
+        if kind == "artifactPerk":
+            chunk["artifactPerkPools"] = catalog["artifactPerkPools"]
         BUILD_CATALOG_OUTPUT.with_name(filename).write_text(json.dumps(chunk, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     index = {"version": catalog["version"], "generatedAt": catalog["generatedAt"], "groups": groups, "statDefinitions": catalog["statDefinitions"]}
     BUILD_CATALOG_OUTPUT.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

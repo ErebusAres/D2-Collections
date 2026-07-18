@@ -3,7 +3,8 @@ import { CalendarClock, CirclePlus, Footprints, Gauge, PackageOpen, Palette, Puz
 import { namedEntryFromCatalog } from "../../modules/builds/buildCatalog";
 import { EditorSection } from "./BuildEditorBasics";
 import { ArmorModEditor, ArmorSetBonusEditor, EquipmentEditor, NamedEntryEditor } from "./BuildFormControls";
-import { isCatalogEntry, ManifestMultiEditor, ManifestPicker, ManifestSingleEditor } from "./ManifestPicker";
+import { isCatalogEntry, ManifestPicker, ManifestSingleEditor } from "./ManifestPicker";
+import { ArtifactPerkPicker } from "./ArtifactPerkPicker";
 import { BuildStatPriorityEditor } from "./BuildStatPriorityEditor";
 import styles from "../../pages/Builds.module.css";
 
@@ -37,9 +38,9 @@ export function BuildEditorConfiguration({ value, onChange }: { value: BuildDocu
     <EditorSection title="Artifact" eyebrow="Post-June-9 tablets and perks" icon={<PackageOpen />}>
       <div className={styles.artifactEditors}>{value.artifacts.map((artifact, artifactIndex) => <article key={artifactIndex}>
         <header><span className={styles.artifactIdentity}>{artifact.icon ? <img src={artifact.icon} alt="" /> : <PackageOpen />}<span><small>{artifact.tier || "Artifact / tablet"}</small><strong>{artifact.name}</strong></span></span><button type="button" onClick={() => set("artifacts", value.artifacts.filter((_, index) => index !== artifactIndex))}><Trash2 /> Remove</button></header>
-        <h3>Equipped perks · up to 7</h3><ManifestMultiEditor kind="artifactPerk" label="Artifact perks" placeholder="Search official Artifact perks…" values={artifact.perks} onChange={(perks) => updateArtifact(value, artifactIndex, { ...artifact, perks }, set)} addLabel="Artifact perks" max={7} />
+        <ArtifactPerkPicker artifactHash={artifact.hash} artifactName={artifact.name} values={artifact.perks} onChange={(perks) => updateArtifact(value, artifactIndex, { ...artifact, perks }, set)} />
       </article>)}</div>
-      <ManifestPicker kind="artifact" label={`Add Artifact / tablet · ${value.artifacts.length}/6`} placeholder="Search official Artifact definitions…" onSelect={(entry) => addArtifact(value, entry, set)} />
+      <ManifestPicker kind="artifact" label={`Add current Artifact · ${value.artifacts.length}/7`} placeholder="Search the seven current Artifact definitions…" onSelect={(entry) => addArtifact(value, entry, set)} allowManual={false} />
     </EditorSection>
 
     <EditorSection title="Gameplay loop" eyebrow="Ordered combat rotation" icon={<Footprints />}>
@@ -69,7 +70,7 @@ function updateArtifact(value: BuildDocument, index: number, artifact: BuildDocu
 function addArtifact(value: BuildDocument, entry: BuildCatalogEntry | BuildNamedEntry, set: <K extends keyof BuildDocument>(key: K, next: BuildDocument[K]) => void): void {
   const named = isCatalogEntry(entry) ? namedEntryFromCatalog(entry) : entry;
   if (value.artifacts.some((artifact) => artifact.hash && artifact.hash === named.hash || artifact.name.toLocaleLowerCase() === named.name.toLocaleLowerCase())) return;
-  set("artifacts", [...value.artifacts, { ...named, tier: isCatalogEntry(entry) ? entry.itemType : undefined, perks: [] }].slice(0, 6));
+  set("artifacts", [...value.artifacts, { ...named, tier: isCatalogEntry(entry) ? entry.itemType : undefined, perks: [] }].slice(0, 7));
 }
 
 function labelFor(value: string): string {

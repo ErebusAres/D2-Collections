@@ -591,6 +591,7 @@ export interface BuildNamedEntry {
   setName?: string;
   requiredPieces?: number;
   row?: 1 | 2;
+  artifactTier?: 1 | 2 | 3;
   bonuses?: BuildNamedEntry[];
 }
 
@@ -641,6 +642,12 @@ export interface BuildCatalogEntry {
   bonuses?: BuildNamedEntry[];
   traits?: BuildNamedEntry[];
   row?: 1 | 2;
+  artifactTier?: 1 | 2 | 3;
+}
+
+export interface BuildArtifactPerkPool {
+  tiers: Record<"1" | "2" | "3", string[]>;
+  slots: Record<"1" | "2" | "3", number>;
 }
 
 export interface BuildCatalogManifest {
@@ -657,6 +664,7 @@ export interface BuildCatalogChunk {
   weaponPerkHashes?: Record<string, string[]>;
   spiritHashes?: Record<string, { row1: string[]; row2: string[] }>;
   spiritHashesByClass?: Partial<Record<BuildGuardianClass, { row1: string[]; row2: string[] }>>;
+  artifactPerkPools?: Record<string, BuildArtifactPerkPool>;
 }
 
 export interface XurOffer {

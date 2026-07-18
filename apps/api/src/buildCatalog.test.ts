@@ -37,6 +37,11 @@ describe("build manifest catalog", () => {
     expect(searchBuildCatalog(chunk, { kind: "weaponPerk", q: "", itemHash: "100" }).map((value) => value.name)).toEqual(["Incandescent"]);
   });
 
+  it("uses the current Artifact-specific 2 / 3 / 2 perk pool", () => {
+    const chunk = { ...catalog("artifactPerk", [entry("10", "Tier One", "artifactPerk"), entry("11", "Tier Three", "artifactPerk"), entry("12", "Old Perk", "artifactPerk")]), artifactPerkPools: { "name:test artifact": { tiers: { "1": ["10"], "2": [], "3": ["11"] }, slots: { "1": 2, "2": 3, "3": 2 } } } };
+    expect(searchBuildCatalog(chunk, { kind: "artifactPerk", q: "", itemName: "Test Artifact" }).map((value) => [value.name, value.artifactTier])).toEqual([["Tier One", 1], ["Tier Three", 3]]);
+  });
+
   it("returns separate two-piece and four-piece set choices", () => {
     const chunk = catalog("armorSetBonus", [
       entry("20", "Luminopotent · 2-piece", "armorSetBonus", { setName: "Luminopotent", requiredPieces: 2 }),
