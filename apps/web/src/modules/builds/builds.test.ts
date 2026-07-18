@@ -75,4 +75,11 @@ describe("build catalog filters", () => {
       expect.objectContaining({ name: "Shock and Clear", requiredPieces: 4 })
     ]);
   });
+
+  it("removes Transcendence from non-Prismatic saved builds", () => {
+    const value = emptyBuildDocument();
+    value.subclass = "solar";
+    value.subclassConfig.transcendence = { name: "Transcendence", hash: "1190101211", icon: "https://www.bungie.net/transcendence.png" };
+    expect(prepareBuildDocument(value).subclassConfig.transcendence).toBeUndefined();
+  });
 });

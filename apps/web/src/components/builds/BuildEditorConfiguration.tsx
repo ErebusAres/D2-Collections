@@ -1,5 +1,5 @@
 import type { BuildArmorMods, BuildCatalogEntry, BuildCatalogKind, BuildDocument, BuildNamedEntry } from "@guardian-nexus/contracts";
-import { CalendarClock, CirclePlus, Footprints, Gauge, PackageOpen, Palette, Puzzle, Sparkles, Swords, Trash2 } from "lucide-react";
+import { BadgeCheck, CalendarClock, CirclePlus, Footprints, Gauge, PackageOpen, Palette, Puzzle, Sparkles, Swords, Trash2 } from "lucide-react";
 import { namedEntryFromCatalog } from "../../modules/builds/buildCatalog";
 import { EditorSection } from "./BuildEditorBasics";
 import { ArmorModEditor, ArmorSetBonusEditor, EquipmentEditor, NamedEntryEditor } from "./BuildFormControls";
@@ -16,7 +16,9 @@ export function BuildEditorConfiguration({ value, onChange }: { value: BuildDocu
     : (["super", "classAbility", "movement", "melee", "grenade"] as const);
   return <>
     <EditorSection title="Subclass" eyebrow="Ability configuration" icon={<Sparkles />}>
-      <div className={styles.subsectionGrid}>{abilityKeys.map((key) => <div key={key}><h3>{labelFor(key)}</h3><OptionalEntry kind={key} label={labelFor(key)} placeholder={`Search ${labelFor(key).toLowerCase()} definitions…`} context={{ classType: value.classType, subclass: value.subclass }} value={value.subclassConfig[key]} onChange={(entry) => setSubclass(key, entry)} /></div>)}</div>
+      <div className={styles.subsectionGrid}>{abilityKeys.map((key) => <div key={key}><h3>{labelFor(key)}</h3>{key === "transcendence"
+        ? <div className={styles.identityManifestPreview}>{value.subclassConfig.transcendence?.icon ? <img src={value.subclassConfig.transcendence.icon} alt="" /> : <Sparkles />}<span><strong>Transcendence</strong><small><BadgeCheck /> Included automatically for Prismatic</small></span></div>
+        : <OptionalEntry kind={key} label={labelFor(key)} placeholder={`Search ${labelFor(key).toLowerCase()} definitions…`} context={{ classType: value.classType, subclass: value.subclass }} value={value.subclassConfig[key]} onChange={(entry) => setSubclass(key, entry)} />}</div>)}</div>
       <h3>Aspects</h3><NamedEntryEditor kind="aspect" label="Selected aspects" placeholder="Search official aspects…" context={{ classType: value.classType, subclass: value.subclass }} values={value.subclassConfig.aspects} onChange={(entries) => setSubclass("aspects", entries)} addLabel="Aspects" max={2} />
       <h3>Fragments</h3><NamedEntryEditor kind="fragment" label="Selected fragments" placeholder="Search official fragments…" context={{ classType: value.classType, subclass: value.subclass }} values={value.subclassConfig.fragments} onChange={(entries) => setSubclass("fragments", entries)} addLabel="Fragments" max={8} />
     </EditorSection>

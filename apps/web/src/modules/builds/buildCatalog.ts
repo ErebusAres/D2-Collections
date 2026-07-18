@@ -123,3 +123,12 @@ async function staticJson<T>(path: string, cache: RequestCache = "force-cache"):
 function abilityKind(kind: BuildCatalogKind): boolean {
   return ["super", "classAbility", "movement", "melee", "grenade", "transcendence", "aspect", "fragment"].includes(kind);
 }
+
+export function useBuildTranscendence(classType: BuildGuardianClass, subclass: BuildSubclass, saved?: BuildNamedEntry): BuildNamedEntry | undefined {
+  const catalog = useBuildCatalog({ kind: "transcendence", query: "", classType, subclass: "prismatic", enabled: subclass === "prismatic", allowEmpty: true });
+  if (subclass !== "prismatic") return undefined;
+  const definition = catalog.data?.data.results.find((entry) => entry.classType === classType && entry.subclass === "prismatic");
+  if (!definition) return saved;
+  const official = namedEntryFromCatalog(definition);
+  return saved ? { ...saved, ...official, notes: saved.notes, required: saved.required } : official;
+}

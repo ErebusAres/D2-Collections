@@ -1,7 +1,7 @@
 import type { BuildDocument, BuildGuardianClass, BuildSubclass } from "@guardian-nexus/contracts";
 import { AlertTriangle, BadgeCheck } from "lucide-react";
 import { useEffect } from "react";
-import { useBuildCatalog } from "../../modules/builds/buildCatalog";
+import { useBuildCatalog, useBuildTranscendence } from "../../modules/builds/buildCatalog";
 import { titleCase } from "../../modules/builds/builds";
 import styles from "../../pages/Builds.module.css";
 
@@ -13,13 +13,17 @@ export function BuildIdentitySelector({ value, onChange }: { value: BuildDocumen
   const classCatalog = useBuildCatalog({ kind: "class", query: "", classType: value.classType });
   const definition = catalog.data?.data.results.find((entry) => entry.subclass === value.subclass);
   const classDefinition = classCatalog.data?.data.results.find((entry) => entry.classType === value.classType);
+  const transcendence = useBuildTranscendence(value.classType, value.subclass, value.subclassConfig.transcendence);
   useEffect(() => {
     const subclassIcon = definition?.icon || value.subclassIcon;
     const classIcon = classDefinition?.icon || value.classIcon;
-    if (subclassIcon !== value.subclassIcon || classIcon !== value.classIcon) onChange({ ...value, subclassIcon, classIcon });
-  }, [classDefinition?.icon, definition?.icon, onChange, value]);
-  const setClass = (classType: BuildGuardianClass) => onChange({ ...value, classType, classIcon: undefined, subclassIcon: undefined });
-  const setSubclass = (subclass: BuildSubclass) => onChange({ ...value, subclass, subclassIcon: undefined });
+    const nextTranscendence = value.subclass === "prismatic" ? transcendence : undefined;
+    if (subclassIcon !== value.subclassIcon || classIcon !== value.classIcon || nextTranscendence?.hash !== value.subclassConfig.transcendence?.hash || nextTranscendence?.icon !== value.subclassConfig.transcendence?.icon || Boolean(nextTranscendence) !== Boolean(value.subclassConfig.transcendence)) {
+      onChange({ ...value, subclassIcon, classIcon, subclassConfig: { ...value.subclassConfig, transcendence: nextTranscendence } });
+    }
+  }, [classDefinition?.icon, definition?.icon, onChange, transcendence, value]);
+  const setClass = (classType: BuildGuardianClass) => onChange({ ...value, classType, classIcon: undefined, subclassIcon: undefined, subclassConfig: { ...value.subclassConfig, transcendence: undefined } });
+  const setSubclass = (subclass: BuildSubclass) => onChange({ ...value, subclass, subclassIcon: undefined, subclassConfig: { ...value.subclassConfig, transcendence: subclass === "prismatic" ? value.subclassConfig.transcendence : undefined } });
   return <div className={styles.identitySelectors}>
     <label><span>Class *</span><select value={value.classType} onChange={(event) => setClass(event.target.value as BuildGuardianClass)}>{classes.map((entry) => <option key={entry} value={entry}>{titleCase(entry)}</option>)}</select></label>
     <label><span>Subclass *</span><select value={value.subclass} onChange={(event) => setSubclass(event.target.value as BuildSubclass)}>{subclasses.map((entry) => <option key={entry} value={entry}>{titleCase(entry)}</option>)}</select></label>

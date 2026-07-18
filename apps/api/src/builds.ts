@@ -359,6 +359,10 @@ export function parseStoredBuildDocument(value: string): BuildDocument {
   const stored = storedBuildDocumentSchema.parse(JSON.parse(value));
   return buildDocumentSchema.parse({
     ...stored,
+    subclassConfig: {
+      ...stored.subclassConfig,
+      transcendence: stored.subclass === "prismatic" ? stored.subclassConfig.transcendence : undefined
+    },
     equipment: {
       ...stored.equipment,
       armorSets: normalizeArmorSetSelections(stored.equipment.armorSets)
@@ -381,6 +385,10 @@ function logStoredBuildIssue(row: Pick<BuildRow, "id">, error: unknown): void {
 function normalizePublication(document: z.infer<typeof buildDocumentSchema>): BuildDocument {
   return {
     ...document,
+    subclassConfig: {
+      ...document.subclassConfig,
+      transcendence: document.subclass === "prismatic" ? document.subclassConfig.transcendence : undefined
+    },
     tags: unique(document.tags),
     activityTags: unique(document.activityTags),
     visibility: document.status === "published" ? "public" : "private"

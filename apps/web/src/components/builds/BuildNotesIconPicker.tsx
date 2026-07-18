@@ -40,7 +40,8 @@ export function BuildNotesIconPicker({ classType, subclass, onIcon, onEmoji }: {
 }) {
   const [categoryId, setCategoryId] = useState("emoji");
   const [query, setQuery] = useState("");
-  const category = CATEGORIES.find((entry) => entry.id === categoryId) || CATEGORIES[0]!;
+  const categories = CATEGORIES.filter((entry) => entry.id !== "transcendence" || subclass === "prismatic");
+  const category = categories.find((entry) => entry.id === categoryId) || categories[0]!;
   const catalog = useBuildCatalog({
     kind: category.kind || "noteIcon",
     query,
@@ -52,7 +53,7 @@ export function BuildNotesIconPicker({ classType, subclass, onIcon, onEmoji }: {
   const native = NATIVE_EMOJI.filter(([, keywords]) => !query.trim() || keywords.includes(query.trim().toLocaleLowerCase()));
   const results = catalog.data?.data.results || [];
   return <section className={styles.notesIconPicker} aria-label="Emoji and Destiny icon picker">
-    <nav>{CATEGORIES.map((entry) => <button type="button" key={entry.id} data-active={entry.id === categoryId} onClick={() => { setCategoryId(entry.id); setQuery(""); }}>{entry.label}</button>)}</nav>
+    <nav>{categories.map((entry) => <button type="button" key={entry.id} data-active={entry.id === category.id} onClick={() => { setCategoryId(entry.id); setQuery(""); }}>{entry.label}</button>)}</nav>
     <label><Search /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${category.label.toLocaleLowerCase()}…`} autoFocus /></label>
     <div className={styles.notesIconResults}>
       {!category.kind && native.map(([emoji, keywords]) => <button type="button" key={emoji} title={keywords} aria-label={`Insert ${keywords.split(" ")[0]} emoji`} onClick={() => onEmoji(emoji)}><b>{emoji}</b><span>{keywords.split(" ")[0]}</span></button>)}

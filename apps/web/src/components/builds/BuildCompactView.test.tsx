@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import type { GuardianBuild } from "@guardian-nexus/contracts";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { emptyBuildDocument } from "../../modules/builds/builds";
@@ -25,7 +26,7 @@ function build(): GuardianBuild {
 describe("BuildCompactView", () => {
   afterEach(cleanup);
   it("shows all major build groups as tooltip-backed icons and expands repeated mods", () => {
-    render(<BuildCompactView build={build()} />);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><BuildCompactView build={build()} /></QueryClientProvider>);
     expect(screen.getByRole("heading", { name: "Subclass & abilities" })).toBeTruthy();
     expect(screen.getByLabelText("Titan Mark: Stoicism")).toBeTruthy();
     expect(screen.getAllByText("Inherent perks").length).toBeGreaterThan(0);

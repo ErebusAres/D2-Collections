@@ -6,6 +6,7 @@ import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
 import { expandBuildEntries } from "./BuildFormControls";
 import { BuildRichNotes } from "./BuildRichNotes";
 import styles from "../../pages/Builds.module.css";
+import { useBuildTranscendence } from "../../modules/builds/buildCatalog";
 
 export function buildDetailNavigation(build: GuardianBuild): { id: string; label: string }[] {
   return [
@@ -24,6 +25,7 @@ export function buildDetailNavigation(build: GuardianBuild): { id: string; label
 
 export function BuildDetailSections({ build, showEmpty = false }: { build: GuardianBuild; showEmpty?: boolean }) {
   const mediaLinks = build.links.filter((link) => ["youtube", "twitch", "source", "other", "dim", "mobalytics"].includes(link.kind));
+  const transcendence = useBuildTranscendence(build.classType, build.subclass, build.subclassConfig.transcendence);
   return <div className={styles.detailSections}>
     <BuildSection id="links" eyebrow="Sources and tools" title="Media & external links" icon={<Film />} empty={!mediaLinks.length} showEmpty={showEmpty}>
       <div className={styles.linkGrid}>{mediaLinks.map((link) => <a key={`${link.kind}-${link.url}`} href={link.url} target="_blank" rel="noreferrer"><i>{link.kind === "youtube" || link.kind === "twitch" ? <Play /> : <ExternalLink />}</i><span>{link.kind}</span><strong>{link.label}</strong><small>{safeHost(link.url)}</small></a>)}</div>
@@ -37,7 +39,7 @@ export function BuildDetailSections({ build, showEmpty = false }: { build: Guard
     <BuildSection id="subclass" eyebrow="Ability configuration" title="Subclass" icon={<Sparkles />} empty={!hasSubclassData(build)} showEmpty={showEmpty}>
       <EntryGrid entries={[
         ["Super", build.subclassConfig.super],
-        ["Transcendence", build.subclassConfig.transcendence],
+        ...(build.subclass === "prismatic" ? [["Transcendence", transcendence] as [string, BuildNamedEntry | undefined]] : []),
         ["Class ability", build.subclassConfig.classAbility],
         ["Movement", build.subclassConfig.movement],
         ["Melee", build.subclassConfig.melee],

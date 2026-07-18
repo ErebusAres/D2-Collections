@@ -85,6 +85,11 @@ describe("build validation", () => {
     })).toThrow();
   });
 
+  it("does not expose stale Transcendence data on non-Prismatic stored builds", () => {
+    const stored = { ...validBuild, subclass: "solar", subclassConfig: { ...validBuild.subclassConfig, transcendence: { name: "Transcendence", hash: "3696633656", icon: "https://www.bungie.net/transcendence.png" } } };
+    expect(parseStoredBuildDocument(JSON.stringify(stored)).subclassConfig.transcendence).toBeUndefined();
+  });
+
   it("reads and canonicalizes builds saved before the stricter set and Artifact rules", () => {
     const legacy = {
       ...validBuild,

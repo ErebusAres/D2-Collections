@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import type { GuardianBuild } from "@guardian-nexus/contracts";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { emptyBuildDocument } from "../../modules/builds/builds";
@@ -32,7 +33,7 @@ const build: GuardianBuild = {
 
 describe("BuildDetailSections", () => {
   it("renders the requested detail groups using real saved build fields", () => {
-    render(<BuildDetailSections build={build} />);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><BuildDetailSections build={build} /></QueryClientProvider>);
     for (const heading of ["Media & external links", "Notes", "Subclass", "Equipment", "Stat priorities", "Armor mods", "Artifact", "Gameplay loop", "Cosmetics", "Version & changelog"]) {
       expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
     }
@@ -41,5 +42,11 @@ describe("BuildDetailSections", () => {
     expect(screen.getByText("Speaker's Sight")).toBeTruthy();
     expect(screen.getByText("200")).toBeTruthy();
     expect(screen.queryByText(/\bMin(?:imum)?\b|\bRange\b/)).toBeNull();
+  });
+
+  it("hides stale Transcendence selections on non-Prismatic builds", () => {
+    const solar = { ...build, subclass: "solar" as const, subclassConfig: { ...build.subclassConfig, transcendence: { name: "Transcendence" } } };
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><BuildDetailSections build={solar} /></QueryClientProvider>);
+    expect(screen.queryByText("Transcendence")).toBeNull();
   });
 });

@@ -7,11 +7,13 @@ import { expandBuildEntries } from "./BuildFormControls";
 import { BuildIconTooltip } from "./BuildIconTooltip";
 import { BuildRichNotes } from "./BuildRichNotes";
 import { BuildEquipmentSummary } from "./BuildEquipmentSummary";
+import { useBuildTranscendence } from "../../modules/builds/buildCatalog";
 
 export function BuildCompactView({ build }: { build: GuardianBuild }) {
+  const transcendence = useBuildTranscendence(build.classType, build.subclass, build.subclassConfig.transcendence);
   const abilities: [string, BuildNamedEntry | undefined][] = [
     ["Subclass", { name: build.subclass, icon: build.subclassIcon, itemType: `${build.classType} subclass` }],
-    ["Super", build.subclassConfig.super], ["Transcendence", build.subclassConfig.transcendence], ["Class ability", build.subclassConfig.classAbility],
+    ["Super", build.subclassConfig.super], ...(build.subclass === "prismatic" ? [["Transcendence", transcendence] as [string, BuildNamedEntry | undefined]] : []), ["Class ability", build.subclassConfig.classAbility],
     ["Movement", build.subclassConfig.movement], ["Melee", build.subclassConfig.melee], ["Grenade", build.subclassConfig.grenade]
   ];
   const modGroups = Object.entries(build.armorMods) as [keyof BuildArmorMods, BuildNamedEntry[]][];
