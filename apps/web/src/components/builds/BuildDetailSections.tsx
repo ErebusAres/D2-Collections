@@ -53,7 +53,7 @@ export function BuildDetailSections({ build, showEmpty = false }: { build: Guard
       <ArmorSetBonusGroup entries={build.equipment.armorSets} />
     </BuildSection>
 
-    <BuildSection id="stats" eyebrow="Target thresholds" title="Stat priorities" icon={<Gauge />} empty={!build.statPriorities.length} showEmpty={showEmpty}>
+    <BuildSection id="stats" eyebrow="Preferred values" title="Stat priorities" icon={<Gauge />} empty={!build.statPriorities.length} showEmpty={showEmpty}>
       <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`} data-priority={stat.priority}><i><b>{stat.priority}</b><small>of 6</small></i><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>{stat.priority === 1 ? "Highest priority" : stat.priority === 6 ? "Lowest priority" : `Priority ${stat.priority}`}</small><strong>{stat.stat}</strong></span><b>{buildStatValueLabels(stat).map((value) => value.text).join(" · ")}</b></article>)}</div>
     </BuildSection>
 

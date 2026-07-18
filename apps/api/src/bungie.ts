@@ -19,6 +19,14 @@ const publicMembershipTypeCache = new Map<string, number>();
 const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; offers?: any[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
 const socialRosterCache = new Map<string, { value: FireteamSocialData; expiresAt: number }>();
 const XUR_VENDOR_HASH = "2190858386";
+const XUR_ARMOR_STATS: Record<string, { name: string; icon: string }> = {
+  "392767087": { name: "Health", icon: "https://www.bungie.net/common/destiny2_content/icons/717b8b218cc14325a54869bef21d2964.png" },
+  "4244567218": { name: "Melee", icon: "https://www.bungie.net/common/destiny2_content/icons/fa534aca76d7f2d7e7b4ba4df4271b42.png" },
+  "1735777505": { name: "Grenade", icon: "https://www.bungie.net/common/destiny2_content/icons/065cdaabef560e5808e821cefaeaa22c.png" },
+  "144602215": { name: "Super", icon: "https://www.bungie.net/common/destiny2_content/icons/585ae4ede9c3da96b34086fccccdc8cd.png" },
+  "1943323491": { name: "Class", icon: "https://www.bungie.net/common/destiny2_content/icons/7eb845acb5b3a4a9b7e0b2f05f5c43f1.png" },
+  "2996146975": { name: "Weapons", icon: "https://www.bungie.net/common/destiny2_content/icons/bc69675acdae9e6b9a68a02fb4d62e07.png" }
+};
 
 export async function bungieGet(path: string, env: Env, accessToken?: string): Promise<any> {
   if (!env.BUNGIE_API_KEY) throw httpError(503, "bungie_api_unconfigured", "Bungie API access is not configured.");
@@ -119,7 +127,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
   if (cached && cached.expiresAt > Date.now()) return cached;
   const checkedAt = new Date().toISOString();
   try {
-    const response = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/Character/${characterId}/Vendors/${XUR_VENDOR_HASH}/?components=400,402`, env, accessToken);
+    const response = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/Character/${characterId}/Vendors/${XUR_VENDOR_HASH}/?components=304,305,400,402`, env, accessToken);
     const enabled = Boolean(response?.vendor?.data?.enabled);
     const sales = enabled ? Object.entries(response?.sales?.data || {}) as Array<[string, any]> : [];
     const itemHashes = enabled
@@ -127,7 +135,12 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
       : [];
     let offers: any[] | undefined;
     if (enabled && includeDetails) {
-      const [definitions, exoticManifest] = await Promise.all([companionItemDefinitionsFor(env, itemHashes), loadManifest(env)]);
+      const socketsBySale = response?.itemComponents?.sockets?.data || {};
+      const socketHashes = Object.values(socketsBySale).flatMap((component: any) => (component?.sockets || [])
+        .filter((socket: any) => socket?.isVisible !== false && socket?.isEnabled !== false)
+        .map((socket: any) => String(socket?.plugHash || "")).filter(Boolean));
+      const costHashes = sales.flatMap(([, sale]) => (sale?.costs || []).map((cost: any) => String(cost?.itemHash || "")).filter(Boolean));
+      const [definitions, exoticManifest] = await Promise.all([companionItemDefinitionsFor(env, [...new Set([...itemHashes, ...socketHashes, ...costHashes])]), loadManifest(env)]);
       const classes = ["Titan", "Hunter", "Warlock"] as const;
       offers = sales.flatMap(([saleIndex, sale]) => {
         const hash = String(sale?.itemHash || "");
@@ -137,10 +150,29 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
         const itemType = Number(definition.itemType);
         const category = rarity === "Exotic" && itemType === 3 ? "exotic-weapon" : rarity === "Exotic" && itemType === 2 ? "exotic-armor" : itemType === 3 ? "legendary-weapon" : itemType === 2 ? "legendary-armor" : "other";
         const classType = Number(definition.classType ?? (exoticManifest.itemDefinitions[hash] as any)?.classType);
+        const costs = (sale?.costs || []).map((cost: any) => {
+          const itemHash = String(cost?.itemHash || "");
+          const costDefinition: any = definitions[itemHash];
+          return { itemHash, name: String(costDefinition?.displayProperties?.name || "Unknown currency"), icon: imageUrl(costDefinition?.displayProperties?.icon), quantity: Math.max(0, Number(cost?.quantity || 0)) };
+        }).filter((cost: any) => cost.itemHash);
+        const stats = Object.entries(response?.itemComponents?.stats?.data?.[saleIndex]?.stats || {}).flatMap(([statHash, stat]: [string, any]) => {
+          const definition = XUR_ARMOR_STATS[statHash];
+          if (!definition) return [];
+          return [{ statHash, ...definition, value: Number(stat?.value || 0) }];
+        });
+        const perks = (socketsBySale[saleIndex]?.sockets || []).flatMap((socket: any) => {
+          if (!socket?.plugHash || socket?.isVisible === false || socket?.isEnabled === false) return [];
+          const itemHash = String(socket.plugHash);
+          const plug: any = definitions[itemHash];
+          const name = String(plug?.displayProperties?.name || "").trim();
+          if (!name || /empty|default shader|no mod/i.test(name)) return [];
+          return [{ itemHash, name, description: String(plug?.displayProperties?.description || ""), icon: imageUrl(plug?.displayProperties?.icon) }];
+        }).filter((perk: any, index: number, all: any[]) => all.findIndex((other) => other.itemHash === perk.itemHash) === index);
         return [{
           saleIndex, itemHash: hash, name: String(definition.displayProperties?.name || "Unknown offer"), description: String(definition.displayProperties?.description || ""),
           icon: imageUrl(definition.displayProperties?.icon), rarity, itemType: String(definition.itemTypeDisplayName || "Vendor item"), slot: String(definition.equipmentSlot || "Miscellaneous"),
-          ...(classType >= 0 && classType <= 2 ? { className: classes[classType] } : {}), quantity: Math.max(1, Number(sale?.quantity || 1)), category
+          ...(classType >= 0 && classType <= 2 ? { className: classes[classType] } : {}), quantity: Math.max(1, Number(sale?.quantity || 1)), category,
+          costs, stats, ...(stats.length ? { statTotal: stats.reduce((sum: number, stat: any) => sum + stat.value, 0) } : {}), perks
         }];
       });
     }

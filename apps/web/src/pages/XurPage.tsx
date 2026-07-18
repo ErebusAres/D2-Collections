@@ -53,9 +53,14 @@ export function XurPage() {
 function XurSection({ title, icon, items }: { title: string; icon: React.ReactNode; items: XurOffer[] }) {
   if (!items.length) return null;
   return <section className={styles.xurSection}><header><div>{icon}<h2>{title}</h2></div><strong>{items.length}</strong></header><div>{items.map((item) => <article key={`${item.saleIndex}-${item.itemHash}`} className={styles.xurItem}>
-    <div className={styles.xurItemArt}>{item.icon ? <img src={item.icon} alt="" /> : item.category.includes("weapon") ? <Swords /> : <Shield />}</div>
-    <div><span>{item.className ? `${item.className} · ` : ""}{item.slot}</span><h3>{item.name}</h3><p>{item.rarity} · {item.itemType}</p></div>
-    <aside><b>{item.className || item.rarity}</b><small>{item.quantity > 1 ? `Quantity ${item.quantity}` : item.category.includes("weapon") ? "Vendor weapon roll" : item.category.includes("armor") ? "Vendor armor roll" : "Vendor offer"}</small></aside>
+    <div className={styles.xurItemLead}>
+      <div className={styles.xurItemArt}>{item.icon ? <img src={item.icon} alt="" /> : item.category.includes("weapon") ? <Swords /> : <Shield />}</div>
+      <div><span>{item.className ? `${item.className} · ` : ""}{item.slot}</span><h3>{item.name}</h3><p>{item.rarity} · {item.itemType}</p></div>
+      <aside><b>{item.statTotal !== undefined ? `${item.statTotal} total` : item.className || item.rarity}</b><small>{item.quantity > 1 ? `Quantity ${item.quantity}` : item.perks.length ? `${item.perks.length} live perks` : "Vendor offer"}</small></aside>
+    </div>
+    {item.stats.length > 0 && <div className={styles.xurStats} aria-label={`${item.name} armor stats`}>{item.stats.map((stat) => <span key={stat.statHash} title={stat.name}>{stat.icon && <img src={stat.icon} alt="" />}<small>{stat.name}</small><b>{stat.value}</b></span>)}</div>}
+    {item.perks.length > 0 && <div className={styles.xurPerks} aria-label={`${item.name} vendor roll`}>{item.perks.map((perk) => <span key={perk.itemHash} title={perk.description || perk.name}>{perk.icon && <img src={perk.icon} alt="" />}<b>{perk.name}</b></span>)}</div>}
+    {item.costs.length > 0 && <footer className={styles.xurCosts}><span>Cost</span>{item.costs.map((cost) => <b key={cost.itemHash}>{cost.icon && <img src={cost.icon} alt="" />}{cost.quantity.toLocaleString()} {cost.name}</b>)}</footer>}
   </article>)}</div></section>;
 }
 

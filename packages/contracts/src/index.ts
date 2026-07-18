@@ -670,6 +670,10 @@ export interface XurOffer {
   className?: GuardianClass;
   category: "exotic-weapon" | "exotic-armor" | "legendary-weapon" | "legendary-armor" | "other";
   quantity: number;
+  costs: Array<{ itemHash: string; name: string; icon: string; quantity: number }>;
+  stats: Array<{ statHash: string; name: string; icon: string; value: number }>;
+  statTotal?: number;
+  perks: Array<{ itemHash: string; name: string; description: string; icon: string }>;
 }
 
 export interface XurData {

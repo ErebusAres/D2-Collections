@@ -49,7 +49,7 @@ describe("xurInventoryFor", () => {
     const result = await xurInventoryFor(row, "character-xur-test", { BUNGIE_API_KEY: "test" } as Env, "access");
 
     expect(result).toMatchObject({ state: "available", itemHashes: ["111", "222"], nextRefreshAt: "2026-07-17T17:00:00Z" });
-    expect(fetchMock.mock.calls[0]?.[0]).toContain("/Vendors/2190858386/?components=400,402");
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/Vendors/2190858386/?components=304,305,400,402");
   });
 });
 
