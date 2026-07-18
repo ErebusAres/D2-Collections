@@ -1,6 +1,6 @@
 import type { BuildStatName, BuildStatPriority } from "@guardian-nexus/contracts";
 
-export const BUILD_STAT_NAMES: BuildStatName[] = ["Health", "Melee", "Grenade", "Super", "Class", "Weapons"];
+export const BUILD_STAT_NAMES: BuildStatName[] = ["Grenade", "Super", "Class", "Weapons", "Melee", "Health"];
 
 const STAT_ICONS: Record<BuildStatName, string> = {
   Health: "https://www.bungie.net/common/destiny2_content/icons/717b8b218cc14325a54869bef21d2964.png",

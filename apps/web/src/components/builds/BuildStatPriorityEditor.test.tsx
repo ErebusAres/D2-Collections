@@ -10,14 +10,14 @@ describe("BuildStatPriorityEditor", () => {
     const onChange = vi.fn();
     render(<BuildStatPriorityEditor values={[]} onChange={onChange} />);
 
-    for (const stat of ["Health", "Melee", "Grenade", "Super", "Class", "Weapons"]) {
+    for (const stat of ["Grenade", "Super", "Class", "Weapons", "Melee", "Health"]) {
       expect(screen.getByText(stat)).toBeTruthy();
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "Move Health down" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move Grenade down" }));
     expect(onChange).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ stat: "Melee", priority: 1 }),
-      expect.objectContaining({ stat: "Health", priority: 2 })
+      expect.objectContaining({ stat: "Super", priority: 1 }),
+      expect.objectContaining({ stat: "Grenade", priority: 2 })
     ]));
   });
 
