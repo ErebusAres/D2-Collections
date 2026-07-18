@@ -202,6 +202,43 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
   }
 }
 
+type XurInventoryResult = Awaited<ReturnType<typeof xurInventoryFor>>;
+
+/** Merge Bungie's character-scoped Xur storefronts into one complete inventory. */
+export function mergeXurInventories(inventories: XurInventoryResult[]): XurInventoryResult {
+  const available = inventories.filter((inventory) => inventory.state === "available");
+  const source = available.length ? available : inventories;
+  const offers = new Map<string, NonNullable<XurInventoryResult["offers"]>[number]>();
+
+  for (const inventory of source) {
+    for (const offer of inventory.offers || []) {
+      const roll = [
+        ...(offer.stats || []).map((stat: any) => `${stat.statHash}:${stat.value}`),
+        ...(offer.perks || []).map((perk: any) => perk.itemHash)
+      ].join(",");
+      const key = `${offer.category}:${offer.className || "any"}:${offer.itemHash}:${roll}`;
+      const existing = offers.get(key);
+      if (!existing || offerCompleteness(offer) > offerCompleteness(existing)) offers.set(key, offer);
+    }
+  }
+
+  const checkedAt = source.map((inventory) => inventory.checkedAt).sort().at(-1) || new Date().toISOString();
+  const refreshDates = source.map((inventory) => inventory.nextRefreshAt).filter((value): value is string => Boolean(value)).sort();
+  const warnings = [...new Set(source.map((inventory) => inventory.warning).filter(Boolean))];
+  return {
+    state: available.length ? "available" : inventories.length > 0 && inventories.every((inventory) => inventory.state === "away") ? "away" : "unavailable",
+    itemHashes: [...new Set(source.flatMap((inventory) => inventory.itemHashes))],
+    ...(source.some((inventory) => inventory.offers) ? { offers: [...offers.values()] } : {}),
+    checkedAt,
+    ...(refreshDates[0] ? { nextRefreshAt: refreshDates[0] } : {}),
+    ...(warnings[0] ? { warning: warnings[0] } : {})
+  };
+}
+
+function offerCompleteness(offer: any): number {
+  return (offer.stats?.length || 0) + (offer.perks?.length || 0) + (offer.costs?.length || 0);
+}
+
 export async function exchangeCode(code: string, env: Env): Promise<any> {
   return tokenRequest({ grant_type: "authorization_code", code }, env);
 }

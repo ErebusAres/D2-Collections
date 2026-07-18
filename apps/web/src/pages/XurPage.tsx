@@ -3,10 +3,16 @@ import { xurSchedule } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
 import { Clock3, Coins, MapPin, Shield, Sparkles, Swords } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
+import { api } from "../services/api/client";
 import styles from "./Pages.module.css";
+
+type StoreSection = {
+  title: string;
+  icon: React.ReactNode;
+  items: XurOffer[];
+};
 
 export function XurPage() {
   const { selectedCharacterId, session, autoRefresh } = useGuardian();
@@ -25,48 +31,74 @@ export function XurPage() {
   });
   const data = result.data?.data;
   const items = useMemo(() => data?.offers || [], [data]);
-  const storefrontItems = useMemo(() => items.filter(isStorefrontItem), [items]);
-  const sections = useMemo(() => [
-    { title: "Exotic weapons", icon: <Swords />, items: items.filter((entry) => entry.category === "exotic-weapon") },
-    { title: "Exotic catalysts", icon: <Sparkles />, items: items.filter((entry) => entry.category === "exotic-catalyst") },
-    { title: "Exotic class items", icon: <Shield />, items: items.filter((entry) => entry.category === "exotic-class-item") },
-    ...(["Titan", "Hunter", "Warlock"] as const).map((className) => ({ title: `${className} armor`, icon: <Shield />, items: items.filter((entry) => ["exotic-armor", "legendary-armor"].includes(entry.category) && entry.className === className) })),
-    { title: "Other armor", icon: <Shield />, items: items.filter((entry) => ["exotic-armor", "legendary-armor"].includes(entry.category) && !entry.className) },
-    { title: "Legendary weapons", icon: <Swords />, items: items.filter((entry) => entry.category === "legendary-weapon") },
-    { title: "Strange gear offers", icon: <Coins />, items: items.filter((entry) => entry.category === "other" && /engram/i.test(`${entry.name} ${entry.itemType}`)) }
-  ], [items]);
+  const sections = useMemo(() => storefrontSections(items), [items]);
+  const storefrontCount = sections.reduce((total, section) => total + section.items.length, 0);
 
   return <AuthGate>
-    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="Track Xûr's Tower visit and browse his live weapons, catalysts, Exotic class items, and class-specific armor without material clutter." actions={<Freshness observedAt={data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="A complete, live storefront: Exotic armor and class items, weapons, catalysts, the weekly quest, and Strange Gear—without materials clutter." actions={<Freshness observedAt={data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={`${styles.xurHero} ${schedule.active ? styles.xurActive : ""}`}>
         <div className={styles.xurCountdown}><Coins /><span>{schedule.active ? "Xûr departs in" : "Xûr arrives in"}</span><strong>{countdown(schedule.target, now)}</strong><small>{new Date(schedule.target).toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</small></div>
         <div><MapPin /><span>Current location</span><strong>Tower Bazaar</strong><small>Alley beside the Ramen Shop</small></div>
-        <div><Clock3 /><span>Vendor signal</span><strong>{data.state === "available" ? "Inventory live" : data.state === "away" ? "Xûr is away" : "Signal unavailable"}</strong><small>{storefrontItems.length} relevant gear offers</small></div>
+        <div><Clock3 /><span>Vendor signal</span><strong>{data.state === "available" ? "Inventory live" : data.state === "away" ? "Xûr is away" : "Signal unavailable"}</strong><small>{storefrontCount} storefront offers across your classes</small></div>
       </section>
 
-      {storefrontItems.length > 0 ? sections.map((section) => <XurSection key={section.title} {...section} />) : <section className={styles.xurEmpty}><Sparkles /><h2>{schedule.active ? "Awaiting Xûr's inventory" : "Xûr is away"}</h2><p>{schedule.active ? "Bungie has not returned an enabled Xûr gear inventory for this Guardian yet. Try another character or refresh after reset." : "Inventory will populate from Bungie's live vendor data when Xûr returns Friday at reset."}</p></section>}
+      {storefrontCount > 0
+        ? sections.map((section) => <XurSection key={section.title} {...section} />)
+        : <section className={styles.xurEmpty}><Sparkles /><h2>{schedule.active ? "Awaiting Xûr's inventory" : "Xûr is away"}</h2><p>{schedule.active ? "Bungie has not returned an enabled Xûr gear inventory for this account yet. Refresh after reset to check again." : "Inventory will populate from Bungie's live vendor data when Xûr returns Friday at reset."}</p></section>}
     </>}
   </AuthGate>;
 }
 
-function XurSection({ title, icon, items }: { title: string; icon: React.ReactNode; items: XurOffer[] }) {
-  if (!items.length) return null;
-  return <section className={styles.xurSection}><header><div>{icon}<h2>{title}</h2></div><strong>{items.length}</strong></header><div>{items.map((item) => <article key={`${item.saleIndex}-${item.itemHash}`} className={styles.xurItem}>
-    <div className={styles.xurItemLead}>
-      <div className={styles.xurItemArt}>{item.icon ? <img src={item.icon} alt="" /> : item.category.includes("weapon") ? <Swords /> : <Shield />}</div>
-      <div><span>{item.className ? `${item.className} · ` : ""}{item.slot}</span><h3>{item.name}</h3><p>{item.rarity} · {item.itemType}</p></div>
-      <aside><b>{item.statTotal !== undefined ? `${item.statTotal} total` : item.className || item.rarity}</b><small>{item.quantity > 1 ? `Quantity ${item.quantity}` : item.perks.length ? `${item.perks.length} live perks` : "Vendor offer"}</small></aside>
-    </div>
-    {item.stats.length > 0 && <div className={styles.xurStats} aria-label={`${item.name} armor stats`}>{item.stats.map((stat) => <span key={stat.statHash} title={stat.name}>{stat.icon && <img src={stat.icon} alt="" />}<small>{stat.name}</small><b>{stat.value}</b></span>)}</div>}
-    {item.perks.length > 0 && <div className={styles.xurPerks} aria-label={`${item.name} vendor roll`}>{item.perks.map((perk) => <span key={perk.itemHash} title={perk.description || perk.name}>{perk.icon && <img src={perk.icon} alt="" />}<b>{perk.name}</b></span>)}</div>}
-    {item.costs.length > 0 && <footer className={styles.xurCosts}><span>Cost</span>{item.costs.map((cost) => <b key={cost.itemHash}>{cost.icon && <img src={cost.icon} alt="" />}{cost.quantity.toLocaleString()} {cost.name}</b>)}</footer>}
-  </article>)}</div></section>;
+export function storefrontSections(items: XurOffer[]): StoreSection[] {
+  const exoticQuests = items.filter(isExoticQuest);
+  return [
+    { title: "Exotic armor", icon: <Shield />, items: sortOffers(items.filter((item) => item.category === "exotic-armor")) },
+    { title: "Exotic class items", icon: <Shield />, items: sortOffers(items.filter((item) => item.category === "exotic-class-item")) },
+    { title: "Exotic weapons", icon: <Swords />, items: sortOffers([...items.filter((item) => item.category === "exotic-weapon"), ...exoticQuests]) },
+    { title: "Exotic catalysts", icon: <Sparkles />, items: sortOffers(items.filter((item) => item.category === "exotic-catalyst")) },
+    { title: "Strange Gear offers", icon: <Coins />, items: sortOffers(items.filter((item) => item.category === "legendary-weapon" || item.category === "legendary-armor")) }
+  ].filter((section) => section.items.length > 0);
 }
 
-function isStorefrontItem(item: XurOffer): boolean {
-  return item.category !== "other" || /engram/i.test(`${item.name} ${item.itemType}`);
+function XurSection({ title, icon, items }: StoreSection) {
+  return <section className={styles.xurSection}>
+    <header><div>{icon}<h2>{title}</h2></div><strong>{items.length} {items.length === 1 ? "offer" : "offers"}</strong></header>
+    <div className={styles.xurStoreGrid}>{items.map((item) => <XurCard key={`${item.saleIndex}-${item.itemHash}-${item.className || "any"}`} item={item} />)}</div>
+  </section>;
+}
+
+function XurCard({ item }: { item: XurOffer }) {
+  const quest = isExoticQuest(item);
+  const detailLabel = quest ? "Weekly quest" : item.slot && item.slot !== "Miscellaneous" ? item.slot : item.itemType;
+  return <article className={styles.xurCard} data-rarity={item.rarity.toLowerCase()} data-class={item.className?.toLowerCase()}>
+    <div className={styles.xurCardArt}>{item.icon ? <img src={item.icon} alt="" /> : item.category.includes("weapon") ? <Swords /> : <Shield />}</div>
+    <div className={styles.xurCardBody}>
+      <span>{detailLabel}</span>
+      <h3>{item.name}</h3>
+      <div className={styles.xurCardBadges}>
+        {item.className && <b>{item.className}</b>}
+        {quest && <b>Exotic quest</b>}
+        {item.statTotal !== undefined && <b>{item.statTotal} total</b>}
+      </div>
+      {item.perks.length > 0 && <div className={styles.xurCardPerks} aria-label={`${item.name} live roll`}>{item.perks.slice(0, 5).map((perk) => <img key={perk.itemHash} src={perk.icon} alt={perk.name} title={`${perk.name}${perk.description ? ` — ${perk.description}` : ""}`} />)}</div>}
+      {item.stats.length > 0 && <div className={styles.xurCardStats} aria-label={`${item.name} armor stats`}>{item.stats.map((stat) => <span key={stat.statHash} title={stat.name}>{stat.icon && <img src={stat.icon} alt="" />}<b>{stat.value}</b></span>)}</div>}
+    </div>
+    {item.costs.length > 0 && <footer>{item.costs.map((cost) => <span key={cost.itemHash}>{cost.icon && <img src={cost.icon} alt="" />}{cost.quantity.toLocaleString()} {cost.name}</span>)}</footer>}
+  </article>;
+}
+
+function isExoticQuest(item: XurOffer): boolean {
+  return item.category === "other" && item.rarity.toLowerCase() === "exotic" && (/quest/i.test(item.itemType) || /xenology/i.test(item.name));
+}
+
+function sortOffers(items: XurOffer[]): XurOffer[] {
+  const classOrder = { Titan: 0, Hunter: 1, Warlock: 2, Unknown: 3 } as const;
+  return [...items].sort((left, right) => {
+    const classDifference = (left.className ? classOrder[left.className] : 3) - (right.className ? classOrder[right.className] : 3);
+    return classDifference || left.name.localeCompare(right.name);
+  });
 }
 
 function countdown(target: string, now: Date): string {

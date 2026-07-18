@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -58,6 +58,34 @@ describe("xurCategoryFor", () => {
     expect(xurCategoryFor({ displayProperties: { name: "Prometheus Catalyst" }, itemTypeDisplayName: "Exotic Catalyst", inventory: { tierTypeName: "Exotic" } })).toBe("exotic-catalyst");
     expect(xurCategoryFor({ displayProperties: { name: "Stoicism" }, itemType: 2, equipmentSlot: "Class Armor", inventory: { tierTypeName: "Exotic" } })).toBe("exotic-class-item");
     expect(xurCategoryFor({ displayProperties: { name: "Enhancement Core" }, itemType: 0, itemTypeDisplayName: "Material", inventory: { tierTypeName: "Legendary" } })).toBe("other");
+  });
+});
+
+describe("mergeXurInventories", () => {
+  it("combines class storefronts and removes shared duplicate offers", () => {
+    const shared = { saleIndex: "0", itemHash: "100", category: "exotic-weapon", perks: [], stats: [], costs: [] };
+    const base = { state: "available" as const, checkedAt: "2026-07-18T17:00:00Z", itemHashes: ["100"] };
+    const result = mergeXurInventories([
+      { ...base, offers: [shared, { ...shared, saleIndex: "1", itemHash: "200", category: "exotic-armor", className: "Titan" }] },
+      { ...base, offers: [shared, { ...shared, saleIndex: "2", itemHash: "300", category: "exotic-armor", className: "Hunter" }] }
+    ] as any);
+
+    expect(result.offers).toEqual([
+      shared,
+      expect.objectContaining({ itemHash: "200", className: "Titan" }),
+      expect.objectContaining({ itemHash: "300", className: "Hunter" })
+    ]);
+  });
+
+  it("retains distinct rolls of the same item", () => {
+    const base = { state: "available" as const, checkedAt: "2026-07-18T17:00:00Z", itemHashes: ["100"] };
+    const offer = { saleIndex: "0", itemHash: "100", category: "legendary-weapon", stats: [], costs: [] };
+    const result = mergeXurInventories([
+      { ...base, offers: [{ ...offer, perks: [{ itemHash: "perk-a" }] }] },
+      { ...base, offers: [{ ...offer, perks: [{ itemHash: "perk-b" }] }] }
+    ] as any);
+
+    expect(result.offers).toHaveLength(2);
   });
 });
 
