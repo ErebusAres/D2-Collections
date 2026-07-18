@@ -1,5 +1,6 @@
 import type {
   ApiEnvelope,
+  AudienceDetailData,
   CollectionData,
   DevProbeKey,
   DevProbeResult,
@@ -23,7 +24,8 @@ import type {
   SessionData,
   UpdateUserPreferenceRequest,
   UpdateRewardCodePreferenceRequest,
-  UserPreferencesData
+  UserPreferencesData,
+  XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
 import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoryFor } from "./bungie";
@@ -38,7 +40,7 @@ import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
 import { normalizeLoadouts } from "./loadouts";
 import { normalizeRewardCodeStatus } from "./rewardCodes";
 import { buildsRoute } from "./builds";
-import { canViewAudienceMetrics, readAudienceMetrics, recordAudienceVisitor } from "./audience";
+import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -121,6 +123,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/preferences" && request.method === "GET") return userPreferences(session.row, env, context);
   if (path === "/api/v1/me/preferences" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateUserPreference(request, session.row, env, context); }
   if (path === "/api/v1/me/collection" && request.method === "GET") return collection(session.row, env, context);
+  if (path === "/api/v1/me/xur" && request.method === "GET") return xur(session.row, env, context);
   if (path === "/api/v1/me/quests" && request.method === "GET") return quests(session.row, env, context);
   if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "GET") return rewardCodeStatus(session.row, env, context);
@@ -143,6 +146,10 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     return envelope({ sharing: false }, env, context);
   }
   if (path === "/api/v1/matrix" && request.method === "GET") return matrix(session.row, env, context);
+  if (path === "/api/v1/audience" && request.method === "GET") {
+    if (!canViewAudienceMetrics(session.row.membership_id, env.DEV_MEMBERSHIP_IDS)) throw httpError(403, "audience_forbidden", "Audience details are restricted to approved site maintainers.");
+    return envelope<AudienceDetailData>(await readAudienceDetails(env), env, context);
+  }
   if (path === "/api/v1/matrix/sync" && request.method === "POST") {
     await requireCsrf(request, session.token, env);
     return syncMatrix(session.row, env, context);
@@ -284,6 +291,7 @@ async function readSession(request: Request, env: Env, context: RequestContext):
     rewardsPass: await seasonPassProgress(profile, accessToken, env, requestedCharacterId),
     manifest
   });
+  await rememberAudienceGuardian(env, guardian);
   return withSetCookie(envelope<SessionData>({
     authenticated: true,
     guardian,
@@ -329,6 +337,7 @@ async function overview(row: SessionRow, env: Env, context: RequestContext): Pro
     rewardsPass: await seasonPassProgress(profile, accessToken, env, requestedCharacterId),
     manifest
   });
+  await rememberAudienceGuardian(env, guardian);
   return envelope(guardian, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: transitoryWarning(profile) });
 }
 
@@ -346,6 +355,14 @@ async function collection(row: SessionRow, env: Env, context: RequestContext): P
     ...(xur.warning ? [xur.warning] : [])
   ];
   return envelope<CollectionData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
+}
+
+async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile, accessToken } = await profileFor(row, env, "session");
+  const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
+  if (!character) return envelope<XurData>({ state: "unavailable", checkedAt: new Date().toISOString(), offers: [] }, env, context, { warnings: ["Xûr inventory requires a selected character."] });
+  const inventory = await xurInventoryFor(row, character.characterId, env, accessToken, true);
+  return envelope<XurData>({ state: inventory.state, checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: inventory.offers || [] }, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
 }
 
 async function quests(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -685,7 +702,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       onlineState,
       character,
       activity,
-      activitySource: publicLocation ? "public" : payload?.activity ? "shared" : "unavailable",
+      activitySource: onlineState === "offline" ? "unavailable" : publicLocation ? "public" : payload?.activity ? "shared" : "unavailable",
       isSelf,
       isLeader: (member.status & 8) !== 0,
       syncState: share ? "synced" : "not-synced",

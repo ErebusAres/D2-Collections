@@ -239,6 +239,7 @@ export function mergeCollection(
     ownedCollectibleHashes: ReadonlySet<string>;
     completedRecordHashes: ReadonlySet<string>;
     visibleRecordHashes: ReadonlySet<string>;
+    ownedItemHashes?: ReadonlySet<string>;
     xurSaleItemHashes?: ReadonlySet<string>;
   },
   selectedClass?: GuardianClass,
@@ -261,7 +262,10 @@ export function mergeCollection(
       const catalystAvailable = catalystRecordHashes.length > 0;
       const catalystComplete = catalystAvailable && catalystRecordHashes.every((hash) => state.completedRecordHashes.has(hash));
       const catalystOwned = catalystRecordHashes.some((hash) => state.visibleRecordHashes.has(hash));
-      const owned = variants.some((variant) => variant.collectibleHash && state.ownedCollectibleHashes.has(variant.collectibleHash));
+      const owned = catalystOwned || catalystComplete || variants.some((variant) =>
+        Boolean(variant.collectibleHash && state.ownedCollectibleHashes.has(variant.collectibleHash))
+        || Boolean(state.ownedItemHashes?.has(variant.itemHash))
+      );
       const xurSelling = variants.some((variant) => state.xurSaleItemHashes?.has(variant.itemHash));
       const guide = variants.map((variant) => guides[variant.itemHash]).find(Boolean) ?? fallbackGuide({ ...item, catalystRecordHashes });
       const catalysts = catalystRecordHashes.map((recordHash) => {

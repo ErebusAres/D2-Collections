@@ -39,7 +39,7 @@ describe("BuildDetailSections", () => {
     expect(screen.getByText("Volatile Wake")).toBeTruthy();
     expect(screen.queryByText("Anti-Barrier Hand Cannon")).toBeNull();
     expect(screen.getByText("Speaker's Sight")).toBeTruthy();
-    expect(screen.getByText("Target 200")).toBeTruthy();
+    expect(screen.getByText("200")).toBeTruthy();
     expect(screen.queryByText(/\bMin(?:imum)?\b|\bRange\b/)).toBeNull();
   });
 });

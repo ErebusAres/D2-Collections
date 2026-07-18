@@ -1,6 +1,7 @@
 import type { CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, RewardsManifest, RewardsPassProgress } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
+import { imageUrl } from "@guardian-nexus/domain";
 
 const API_ROOT = "https://www.bungie.net/Platform";
 const TOKEN_URL = `${API_ROOT}/App/OAuth/Token/`;
@@ -11,10 +12,11 @@ let questManifestCache: { value: CompactManifest; expiresAt: number } | null = n
 let rewardsManifestCache: { value: RewardsManifest; expiresAt: number } | null = null;
 let rewardCodeManifestCache: { value: RewardCodeManifest; expiresAt: number } | null = null;
 let companionManifestCache: { value: CompanionManifest; expiresAt: number } | null = null;
+const companionDefinitionCache = new Map<string, { value: Record<string, unknown>; expiresAt: number }>();
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
 const publicMembershipTypeCache = new Map<string, number>();
-const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
+const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; offers?: any[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
 const socialRosterCache = new Map<string, { value: FireteamSocialData; expiresAt: number }>();
 const XUR_VENDOR_HASH = "2190858386";
 
@@ -104,26 +106,48 @@ export async function publicProfileFor(
   return unavailable;
 }
 
-export async function xurInventoryFor(row: SessionRow, characterId: string, env: Env, accessToken: string): Promise<{
+export async function xurInventoryFor(row: SessionRow, characterId: string, env: Env, accessToken: string, includeDetails = false): Promise<{
   state: "available" | "away" | "unavailable";
   itemHashes: string[];
   checkedAt: string;
   nextRefreshAt?: string;
   warning?: string;
+  offers?: any[];
 }> {
-  const cacheKey = `${row.membership_type}:${row.membership_id}:${characterId}`;
+  const cacheKey = `${row.membership_type}:${row.membership_id}:${characterId}:${includeDetails ? "details" : "hashes"}`;
   const cached = xurInventoryCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached;
   const checkedAt = new Date().toISOString();
   try {
     const response = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/Character/${characterId}/Vendors/${XUR_VENDOR_HASH}/?components=400,402`, env, accessToken);
     const enabled = Boolean(response?.vendor?.data?.enabled);
+    const sales = enabled ? Object.entries(response?.sales?.data || {}) as Array<[string, any]> : [];
     const itemHashes = enabled
-      ? [...new Set(Object.values(response?.sales?.data || {}).map((sale: any) => String(sale?.itemHash || "")).filter(Boolean))]
+      ? [...new Set(sales.map(([, sale]) => String(sale?.itemHash || "")).filter(Boolean))]
       : [];
+    let offers: any[] | undefined;
+    if (enabled && includeDetails) {
+      const [definitions, exoticManifest] = await Promise.all([companionItemDefinitionsFor(env, itemHashes), loadManifest(env)]);
+      const classes = ["Titan", "Hunter", "Warlock"] as const;
+      offers = sales.flatMap(([saleIndex, sale]) => {
+        const hash = String(sale?.itemHash || "");
+        const definition: any = definitions[hash];
+        if (!hash || !definition) return [];
+        const rarity = String(definition.inventory?.tierTypeName || "Unknown");
+        const itemType = Number(definition.itemType);
+        const category = rarity === "Exotic" && itemType === 3 ? "exotic-weapon" : rarity === "Exotic" && itemType === 2 ? "exotic-armor" : itemType === 3 ? "legendary-weapon" : itemType === 2 ? "legendary-armor" : "other";
+        const classType = Number(definition.classType ?? (exoticManifest.itemDefinitions[hash] as any)?.classType);
+        return [{
+          saleIndex, itemHash: hash, name: String(definition.displayProperties?.name || "Unknown offer"), description: String(definition.displayProperties?.description || ""),
+          icon: imageUrl(definition.displayProperties?.icon), rarity, itemType: String(definition.itemTypeDisplayName || "Vendor item"), slot: String(definition.equipmentSlot || "Miscellaneous"),
+          ...(classType >= 0 && classType <= 2 ? { className: classes[classType] } : {}), quantity: Math.max(1, Number(sale?.quantity || 1)), category
+        }];
+      });
+    }
     const result = {
       state: enabled ? "available" as const : "away" as const,
       itemHashes,
+      ...(offers ? { offers } : {}),
       checkedAt,
       nextRefreshAt: response?.vendor?.data?.nextRefreshDate,
       expiresAt: Date.now() + 5 * 60_000
@@ -249,6 +273,36 @@ export async function loadCompanionManifest(env: Env): Promise<CompanionManifest
       loadoutColorDefinitions: {}
     };
   }
+}
+
+async function companionItemDefinitionsFor(env: Env, itemHashes: string[]): Promise<Record<string, Record<string, unknown>>> {
+  const now = Date.now();
+  const output: Record<string, Record<string, unknown>> = {};
+  const missing = itemHashes.filter((hash) => {
+    const cached = companionDefinitionCache.get(hash);
+    if (cached && cached.expiresAt > now) { output[hash] = cached.value; return false; }
+    return true;
+  });
+  if (!missing.length) return output;
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "companion-manifest.json");
+  const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+  if (!response.ok) throw new Error(`Companion manifest request returned ${response.status}.`);
+  const index = await response.json() as CompanionManifest;
+  const chunks = index.itemDefinitionChunks || [];
+  if (!chunks.length) return { ...output, ...index.itemDefinitions };
+  const wanted = new Set(missing);
+  const chunkIndexes = [...new Set(missing.map((hash) => Number(hash) % chunks.length))];
+  for (const chunkIndex of chunkIndexes) {
+    const chunkResponse = await fetch(new URL(chunks[chunkIndex]!, url).toString(), { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!chunkResponse.ok) continue;
+    const chunk = await chunkResponse.json() as Pick<CompanionManifest, "itemDefinitions">;
+    for (const [hash, definition] of Object.entries(chunk.itemDefinitions || {})) {
+      if (!wanted.has(hash)) continue;
+      output[hash] = definition;
+      companionDefinitionCache.set(hash, { value: definition, expiresAt: now + 300_000 });
+    }
+  }
+  return output;
 }
 
 export async function loadActivityManifest(env: Env): Promise<CompactManifest> {

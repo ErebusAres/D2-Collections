@@ -34,9 +34,14 @@ describe("guardianOnlineState", () => {
   it("distinguishes an observed offline Guardian from online orbit and unknown presence", () => {
     expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, undefined, true)).toBe("offline");
     expect(guardianOnlineState({ minutesPlayedThisSession: 12 }, undefined, true)).toBe("online");
-    expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, "The Tower", true)).toBe("online");
+    expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, "The Tower", true)).toBe("offline");
     expect(guardianOnlineState(undefined, undefined, false, true)).toBe("online");
     expect(guardianOnlineState(undefined, undefined, false)).toBe("unknown");
+  });
+
+  it("does not revive an offline Guardian from a cached activity component", () => {
+    expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, "A Story Mission", true, false)).toBe("offline");
+    expect(guardianOnlineState({ minutesPlayedThisSession: 0 }, "A Story Mission", true, true)).toBe("online");
   });
 
   it("reports Orbit only when Bungie returned an online character with empty activity hashes", () => {
@@ -102,5 +107,24 @@ describe("normalizeQuests", () => {
       { stepNumber: 2, status: "current", percent: 40, objectives: [{ progress: 4, completionValue: 10 }] },
       { stepNumber: 3, status: "future", percent: 0, objectives: [{ progress: 0, completionValue: 1 }] }
     ]);
+  });
+
+  it("reads character-scoped objectives for uninstanced quests", () => {
+    const questManifest = { ...manifest, itemDefinitions: {
+      "44": { displayProperties: { name: "An Uninstanced Quest", description: "Complete the objective." }, itemType: 12, itemTypeDisplayName: "Quest", objectives: { objectiveHashes: ["104"] } }
+    }, objectiveDefinitions: {
+      "104": { progressDescription: "Objectives completed", completionValue: 20 }
+    } } satisfies CompactManifest;
+    const profile = {
+      responseMintedTimestamp: "2026-07-15T00:00:00Z",
+      characterInventories: { data: { c1: { items: [{ itemHash: 44 }] } } },
+      characterUninstancedItemComponents: {
+        c1: { objectives: { data: { "44": { objectives: [{ objectiveHash: 104, progress: 15, completionValue: 20, complete: false }] } } } }
+      }
+    };
+
+    const quest = normalizeQuests(profile, questManifest, "c1").quests[0]!;
+    expect(quest).toMatchObject({ instanceId: "44", percent: 75 });
+    expect(quest.objectives).toMatchObject([{ objectiveHash: "104", progress: 15, completionValue: 20, percent: 75 }]);
   });
 });

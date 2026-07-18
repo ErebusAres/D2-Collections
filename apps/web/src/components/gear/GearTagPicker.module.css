@@ -10,8 +10,11 @@
 .menu button > svg:last-child { width: 11px; color: var(--cyan); }
 .filter .trigger { width: 100%; min-height: 36px; background: #101c24; }
 .filter .menu { top: calc(100% + 5px); bottom: auto; }
-.badge { position: absolute; top: 3px; right: 3px; z-index: 4; width: 23px; height: 23px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.82); background: var(--tag-color); color: var(--tag-ink,#071015); box-shadow: 0 1px 6px rgba(0,0,0,.78); }
-.badge svg { width: 14px; height: 14px; stroke-width: 3; }
+.compact .trigger { min-width: 0; width: 28px; height: 28px; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: transparent; }
+.compact .trigger span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.compact .trigger:hover,.compact .trigger:focus-visible,.compact .trigger[aria-expanded="true"] { background: color-mix(in srgb,var(--tag-color, var(--cyan)) 16%,transparent); outline: 1px solid color-mix(in srgb,var(--tag-color, var(--cyan)) 55%,transparent); }
+.badge { position: absolute; top: 5px; right: 5px; z-index: 4; width: 21px; height: 21px; display: grid; place-items: center; border-radius: 50%; color: var(--tag-color); background: rgba(5,12,17,.72); filter: drop-shadow(0 1px 3px #000); }
+.badge svg { width: 14px; height: 14px; stroke-width: 2.5; }
 .all { --tag-color: #8ab7c7; }
 .none { --tag-color: #788891; }
 .favorite { --tag-color: #f1c94f; --tag-ink: #191203; }

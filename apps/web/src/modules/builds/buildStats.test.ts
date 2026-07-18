@@ -8,7 +8,7 @@ describe("buildStatValueLabels", () => {
   it("uses compact range, minimum, target, and any notation", () => {
     expect(buildStatValueLabels(stat({ minimum: 40, maximum: 80 }))).toEqual([{ text: "40–80", target: false }]);
     expect(buildStatValueLabels(stat({ minimum: 70 }))).toEqual([{ text: "70+", target: false }]);
-    expect(buildStatValueLabels(stat({ target: 100 }))).toEqual([{ text: "Target 100", target: true }]);
+    expect(buildStatValueLabels(stat({ target: 100 }))).toEqual([{ text: "100", target: true }]);
     expect(buildStatValueLabels(stat({}))).toEqual([{ text: "Any", target: false }]);
   });
 

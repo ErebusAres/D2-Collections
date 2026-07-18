@@ -1,4 +1,4 @@
-import type { AudienceMetrics } from "@guardian-nexus/contracts";
+import type { AudienceDetailData, AudienceMetrics, GuardianSummary } from "@guardian-nexus/contracts";
 import { allowlist, cookie, parseCookies, randomToken, sha256 } from "./security";
 import type { Env, RequestContext } from "./types";
 
@@ -30,5 +30,34 @@ export async function readAudienceMetrics(env: Env): Promise<AudienceMetrics> {
     uniqueVisitors: Number(visitors?.total || 0),
     uniqueLogins: Number(logins?.total || 0),
     visitorsTrackingSince: visitors?.tracking_since || new Date().toISOString()
+  };
+}
+
+export async function rememberAudienceGuardian(env: Env, guardian: GuardianSummary): Promise<void> {
+  const selected = guardian.characters.find((character) => character.characterId === guardian.selectedCharacterId);
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - 15 * 60_000).toISOString();
+  await env.DB.prepare(`UPDATE users SET last_profile_at = ?, last_character_class = ?, last_power = ?, last_guardian_rank = ?, last_rewards_pass_rank = ?, last_emblem_path = ?
+    WHERE membership_id = ? AND (last_profile_at IS NULL OR last_profile_at <= ?)`)
+    .bind(now.toISOString(), selected?.className || null, guardian.stats.power, guardian.stats.guardianRank, guardian.stats.rewardsPassRank, selected?.emblemPath || null, guardian.membershipId, cutoff).run();
+}
+
+export async function readAudienceDetails(env: Env): Promise<AudienceDetailData> {
+  const [metrics, logins, visitors] = await Promise.all([
+    readAudienceMetrics(env),
+    env.DB.prepare(`SELECT membership_id, membership_type, display_name, bungie_name, created_at, updated_at,
+      last_profile_at, last_character_class, last_power, last_guardian_rank, last_rewards_pass_rank, last_emblem_path
+      FROM users ORDER BY updated_at DESC`).all<any>(),
+    env.DB.prepare("SELECT substr(visitor_hash, 1, 12) AS visitor_id, created_at FROM audience_visitors ORDER BY created_at DESC LIMIT 500").all<any>()
+  ]);
+  return {
+    ...metrics,
+    logins: (logins.results || []).map((row: any) => ({
+      membershipId: String(row.membership_id), membershipType: Number(row.membership_type), displayName: String(row.display_name), bungieName: String(row.bungie_name || ""),
+      firstLoginAt: String(row.created_at), lastLoginAt: String(row.updated_at), lastProfileAt: row.last_profile_at || undefined,
+      characterClass: row.last_character_class || undefined, power: row.last_power == null ? undefined : Number(row.last_power), guardianRank: row.last_guardian_rank == null ? undefined : Number(row.last_guardian_rank),
+      rewardsPassRank: row.last_rewards_pass_rank == null ? undefined : Number(row.last_rewards_pass_rank), emblemPath: row.last_emblem_path || undefined
+    })),
+    visitors: (visitors.results || []).map((row: any) => ({ visitorId: String(row.visitor_id), firstSeenAt: String(row.created_at) }))
   };
 }

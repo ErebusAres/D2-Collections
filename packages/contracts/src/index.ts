@@ -658,6 +658,52 @@ export interface BuildCatalogChunk {
   spiritHashesByClass?: Partial<Record<BuildGuardianClass, { row1: string[]; row2: string[] }>>;
 }
 
+export interface XurOffer {
+  saleIndex: string;
+  itemHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: string;
+  itemType: string;
+  slot: string;
+  className?: GuardianClass;
+  category: "exotic-weapon" | "exotic-armor" | "legendary-weapon" | "legendary-armor" | "other";
+  quantity: number;
+}
+
+export interface XurData {
+  state: "available" | "away" | "unavailable";
+  checkedAt: string;
+  nextRefreshAt?: string;
+  offers: XurOffer[];
+}
+
+export interface AudienceLoginRow {
+  membershipId: string;
+  membershipType: number;
+  displayName: string;
+  bungieName: string;
+  firstLoginAt: string;
+  lastLoginAt: string;
+  lastProfileAt?: string;
+  characterClass?: string;
+  power?: number;
+  guardianRank?: number;
+  rewardsPassRank?: number;
+  emblemPath?: string;
+}
+
+export interface AudienceVisitorRow {
+  visitorId: string;
+  firstSeenAt: string;
+}
+
+export interface AudienceDetailData extends AudienceMetrics {
+  logins: AudienceLoginRow[];
+  visitors: AudienceVisitorRow[];
+}
+
 export interface BuildCatalogData {
   manifestVersion: string;
   available: boolean;

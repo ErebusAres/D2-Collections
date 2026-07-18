@@ -45,6 +45,6 @@ export function buildStatValueLabels(stat: BuildStatPriority): BuildStatValueLab
   } else if (stat.maximum !== undefined) {
     labels.push({ text: stat.maximum === 0 ? "0" : `0–${stat.maximum}`, target: false });
   }
-  if (stat.target !== undefined) labels.push({ text: `Target ${stat.target}`, target: true });
+  if (stat.target !== undefined) labels.push({ text: `${stat.target}`, target: true });
   return labels.length ? labels : [{ text: "Any", target: false }];
 }

@@ -13,7 +13,7 @@ const GEAR_TAGS: ReadonlyArray<{ value: GearTag; label: string }> = [
 
 type GearTagFilterValue = "all" | "none" | GearTag;
 
-export function GearTagPicker({ value, onChange, disabled = false }: { value?: GearTag; onChange: (value?: GearTag) => void; disabled?: boolean }) {
+export function GearTagPicker({ value, onChange, disabled = false, compact = false }: { value?: GearTag; onChange: (value?: GearTag) => void; disabled?: boolean; compact?: boolean }) {
   const options: Array<{ value?: GearTag; label: string }> = [{ label: "No tag" }, ...GEAR_TAGS];
   const selected = GEAR_TAGS.find((option) => option.value === value);
   return <TagSelector
@@ -22,6 +22,7 @@ export function GearTagPicker({ value, onChange, disabled = false }: { value?: G
     options={options.map((option) => ({ value: option.value || "none", label: option.label, tag: option.value }))}
     onChange={(next) => onChange(next === "none" ? undefined : next as GearTag)}
     disabled={disabled}
+    compact={compact}
   />;
 }
 
@@ -41,13 +42,14 @@ export function GearTagBadge({ tag }: { tag?: GearTag }) {
   return <span className={`${styles.badge} ${styles[tag]}`} title={`${label} tag`} aria-label={`${label} tag`}><TagIcon tag={tag} /></span>;
 }
 
-function TagSelector({ value, label, options, onChange, disabled = false, filter = false }: {
+function TagSelector({ value, label, options, onChange, disabled = false, filter = false, compact = false }: {
   value: string;
   label: string;
   options: Array<{ value: string; label: string; tag?: GearTag }>;
   onChange: (value: string) => void;
   disabled?: boolean;
   filter?: boolean;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -60,8 +62,8 @@ function TagSelector({ value, label, options, onChange, disabled = false, filter
     window.addEventListener("keydown", closeOnEscape);
     return () => { window.removeEventListener("pointerdown", closeOutside); window.removeEventListener("keydown", closeOnEscape); };
   }, [open]);
-  return <div ref={root} className={`${styles.picker} ${filter ? styles.filter : ""} ${styles[selectedTag || value] || styles.none}`}>
-    <button type="button" className={styles.trigger} disabled={disabled} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((current) => !current)}>{selectedTag ? <TagIcon tag={selectedTag} /> : filter && value === "all" ? <Tags /> : filter ? <CircleOff /> : <Tag />}<span>{label}</span></button>
+  return <div ref={root} className={`${styles.picker} ${filter ? styles.filter : ""} ${compact ? styles.compact : ""} ${styles[selectedTag || value] || styles.none}`}>
+    <button type="button" className={styles.trigger} disabled={disabled} aria-label={compact ? label : undefined} title={compact ? label : undefined} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((current) => !current)}>{selectedTag ? <TagIcon tag={selectedTag} /> : filter && value === "all" ? <Tags /> : filter ? <CircleOff /> : <Tag />}<span>{label}</span></button>
     {open && <div className={styles.menu} role="menu">{options.map((option) => <button key={option.value} type="button" role="menuitemradio" aria-checked={option.value === value} className={`${option.value === value ? styles.selected : ""} ${styles[option.tag || option.value] || styles.none}`} onClick={() => { onChange(option.value); setOpen(false); }}>{option.tag ? <TagIcon tag={option.tag} /> : option.value === "all" ? <Tags /> : <CircleOff />}<span>{option.label}</span>{option.value === value && <Check />}</button>)}</div>}
   </div>;
 }

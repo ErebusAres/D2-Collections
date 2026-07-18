@@ -1,7 +1,8 @@
 import type { CatalystState, MatrixData, MatrixGuardian, MatrixSnapshot } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, CircleHelp, Eye, GitCompareArrows, LogIn, RefreshCcw, Search, ShieldX, UserRoundCheck, Users } from "lucide-react";
+import { ArrowRight, Check, CircleHelp, Eye, GitCompareArrows, LogIn, RefreshCcw, Search, ShieldX, UserRoundCheck, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
@@ -74,6 +75,7 @@ export function MatrixPage() {
       <span><Eye /><small>Unique visitors</small><strong>{result.data.data.audience.uniqueVisitors.toLocaleString()}</strong></span>
       <span><LogIn /><small>Unique logins</small><strong>{result.data.data.audience.uniqueLogins.toLocaleString()}</strong></span>
       <time dateTime={result.data.data.audience.visitorsTrackingSince}>Visitors counted since {new Date(result.data.data.audience.visitorsTrackingSince).toLocaleDateString()}</time>
+      <Link to="/audience">Details <ArrowRight /></Link>
     </section>}
     {guardians.length > 0 && <section className={styles.matrixRoster}>
       <header><div><Users /><span><strong>Choose your comparison</strong><small>Your selection is saved only in this browser.</small></span></div><nav><button type="button" onClick={() => selectGuardians(currentMembershipId && guardians.some((guardian) => guardian.membershipId === currentMembershipId) ? [currentMembershipId] : [guardians[0]!.membershipId])}>Just me</button><button type="button" onClick={() => selectGuardians(guardians.map((guardian) => guardian.membershipId))}>Compare all</button></nav></header>

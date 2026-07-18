@@ -184,6 +184,7 @@ def minimal_companion_item(definition: dict, damage_types: dict[str, dict], buck
         },
         "itemType": definition.get("itemType"),
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
+        "classType": definition.get("classType"),
         "inventory": {
             "tierTypeName": inventory.get("tierTypeName", ""),
             "bucketTypeHash": bucket_hash,
@@ -258,10 +259,17 @@ def minimal_plug(definition: dict) -> dict:
         "displayProperties": {"name": props.get("name", ""), "description": props.get("description", ""), "icon": props.get("icon", "")},
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
         "investmentStats": [
-            {"statTypeHash": stat.get("statTypeHash"), "value": stat.get("value", stat.get("statValue", 0))}
+            {
+                "statTypeHash": stat.get("statTypeHash"),
+                "value": stat.get("value", stat.get("statValue", 0)),
+                "isConditionallyActive": bool(stat.get("isConditionallyActive", False)),
+            }
             for stat in definition.get("investmentStats") or [] if str(stat.get("statTypeHash") or "") in ARMOR_STAT_HASHES
         ],
-        "plug": {"plugCategoryIdentifier": (definition.get("plug") or {}).get("plugCategoryIdentifier", "")},
+        "plug": {
+            "plugCategoryIdentifier": (definition.get("plug") or {}).get("plugCategoryIdentifier", ""),
+            "plugCategoryHash": (definition.get("plug") or {}).get("plugCategoryHash"),
+        },
     }
 
 
@@ -504,6 +512,32 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
                 "kind": "noteIcon",
                 "exotic": False,
             })
+    for champion_hash, name, icon in (
+        ("guardian-nexus-overload", "Overload Champion", "/icons/destiny/overload.svg"),
+        ("guardian-nexus-barrier", "Barrier Champion", "/icons/destiny/barrier.svg"),
+        ("guardian-nexus-unstoppable", "Unstoppable Champion", "/icons/destiny/unstoppable.svg"),
+    ):
+        entries.append({
+            "hash": champion_hash, "name": name, "description": f"Destiny {name} counter symbol",
+            "icon": icon, "itemType": "Champion Counter", "rarity": "", "slot": "", "damageType": "",
+            "kind": "noteIcon", "exotic": False,
+        })
+    for bucket_hash, definition in buckets.items():
+        properties = definition.get("displayProperties") or {}
+        name = str(properties.get("name", ""))
+        if name in {"Kinetic Weapons", "Energy Weapons", "Power Weapons"} and properties.get("icon"):
+            entries.append({
+                "hash": bucket_hash,
+                "name": name,
+                "description": str(properties.get("description", "")),
+                "icon": build_icon(str(properties.get("icon", ""))),
+                "itemType": "Equipment Slot",
+                "rarity": "",
+                "slot": name,
+                "damageType": "",
+                "kind": "noteIcon",
+                "exotic": False,
+            })
     for item_hash, definition in inventory.items():
         properties = definition.get("displayProperties") or {}
         name = str(properties.get("name", "")).strip()
@@ -612,6 +646,22 @@ def build_catalog_manifest(inventory: dict[str, dict], class_definitions: dict[s
         name: {"hash": stat_hash, "name": name, "icon": build_icon(str((stat_definitions.get(stat_hash, {}).get("displayProperties") or {}).get("icon", "")))}
         for stat_hash, name in stat_names.items()
     }
+    for stat_hash, name in stat_names.items():
+        definition = stat_definitions.get(stat_hash, {})
+        properties = definition.get("displayProperties") or {}
+        if properties.get("icon"):
+            entries.append({
+                "hash": stat_hash,
+                "name": name,
+                "description": str(properties.get("description", "")),
+                "icon": build_icon(str(properties.get("icon", ""))),
+                "itemType": "Guardian Stat",
+                "rarity": "",
+                "slot": "",
+                "damageType": "",
+                "kind": "noteIcon",
+                "exotic": False,
+            })
     entries.sort(key=lambda entry: (entry["kind"], entry.get("setName", ""), entry["name"], entry["hash"]))
     return {"version": version, "generatedAt": generated_at, "entries": entries, "weaponPerkHashes": weapon_perk_hashes, "spiritHashes": spirit_hashes, "spiritHashesByClass": spirit_hashes_by_class, "statDefinitions": stats}
 
@@ -629,9 +679,9 @@ def write_build_catalog_files(catalog: dict) -> dict:
         {**entry, "kind": "armorTrait"} for entry in grouped.get("armor", [])
         if entry.get("exotic") and entry.get("traits")
     ]
-    icon_kinds = {"icon", "class", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "weaponPerk", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
+    icon_kinds = {"icon", "class", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
     icon_entries = [entry for entry in catalog["entries"] if entry["kind"] in icon_kinds or entry["kind"] in {"weapon", "armor"} and entry.get("exotic")]
-    note_icon_entries = [entry for entry in catalog["entries"] if entry.get("icon")]
+    note_icon_entries = [entry for entry in catalog["entries"] if entry.get("icon") and entry["kind"] == "noteIcon"]
     for armor in grouped.get("armor", []):
         for trait in armor.get("traits") or []:
             icon_entries.append({
@@ -644,18 +694,6 @@ def write_build_catalog_files(catalog: dict) -> dict:
                 "slot": "",
                 "damageType": "",
                 "kind": "icon",
-                "exotic": False,
-            })
-            note_icon_entries.append({
-                "hash": trait.get("hash", ""),
-                "name": trait.get("name", ""),
-                "description": "",
-                "icon": trait.get("icon", ""),
-                "itemType": f"Armor Trait · {trait.get('itemType', 'Intrinsic')}",
-                "rarity": "",
-                "slot": "",
-                "damageType": "",
-                "kind": "noteIcon",
                 "exotic": False,
             })
     seen_icons: set[tuple[str, str]] = set()

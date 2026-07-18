@@ -11,11 +11,12 @@ export interface BuildCatalogQuery {
   itemHash?: string;
   spiritRow?: 1 | 2;
   enabled?: boolean;
+  allowEmpty?: boolean;
 }
 
 export function useBuildCatalog(input: BuildCatalogQuery) {
   const query = useDeferredValue(input.query.trim());
-  const enabled = input.enabled !== false && (!["icon", "noteIcon"].includes(input.kind) || query.length >= 2);
+  const enabled = input.enabled !== false && (input.allowEmpty || !["icon", "noteIcon"].includes(input.kind) || query.length >= 2);
   const index = useQuery({
     queryKey: ["build-catalog-index"],
     queryFn: () => staticJson<BuildCatalogManifest>("/data/build-catalog.json"),
@@ -62,8 +63,8 @@ export function searchBuildCatalogChunk(chunk: BuildCatalogChunk, input: Omit<Bu
   const spiritPool = input.kind === "exoticSpirit"
     ? input.itemHash && chunk.spiritHashes?.[input.itemHash] || input.classType && chunk.spiritHashesByClass?.[input.classType]
     : undefined;
-  const allowedSpirits = spiritPool && input.spiritRow
-    ? new Set(spiritPool[input.spiritRow === 1 ? "row1" : "row2"])
+  const allowedSpirits = spiritPool
+    ? new Set(input.spiritRow ? spiritPool[input.spiritRow === 1 ? "row1" : "row2"] : [...spiritPool.row1, ...spiritPool.row2])
     : undefined;
   const seen = new Set<string>();
   return chunk.entries.filter((entry) => {

@@ -180,6 +180,19 @@ describe("mergeCollection", () => {
     expect(entries[0]?.catalyst).toBe("obtained");
     expect(entries[0]?.catalysts).toMatchObject([{ name: "First Catalyst", state: "complete" }, { name: "Second Catalyst", state: "obtained" }]);
   });
+
+  it("treats a live inventory instance or acquired catalyst as proof that the item is owned", () => {
+    const items: CompactManifest["items"] = [
+      { itemHash: "inventory-weapon", collectibleHash: "missing-one", name: "Inventory Weapon", description: "", icon: "", kind: "weapon", slot: "Kinetic", itemType: "Auto Rifle", source: "", catalystRecordHashes: [] },
+      { itemHash: "catalyst-weapon", collectibleHash: "missing-two", name: "Catalyst Weapon", description: "", icon: "", kind: "weapon", slot: "Energy", itemType: "Trace Rifle", source: "", catalystRecordHashes: ["catalyst"] }
+    ];
+    const entries = mergeCollection({ version: "test", generatedAt: "now", items, itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} }, {
+      ownedCollectibleHashes: new Set(), completedRecordHashes: new Set(), visibleRecordHashes: new Set(["catalyst"]), ownedItemHashes: new Set(["inventory-weapon"])
+    });
+
+    expect(entries.find((entry) => entry.name === "Inventory Weapon")?.owned).toBe(true);
+    expect(entries.find((entry) => entry.name === "Catalyst Weapon")?.owned).toBe(true);
+  });
 });
 
 describe("sortCollectionEntries", () => {

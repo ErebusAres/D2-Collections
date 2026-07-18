@@ -41,4 +41,35 @@ describe("normalizeGear", () => {
     const item = normalizeGear(profile, manifest, "character", "Warlock", new Map(), "2026-07-15T00:00:00Z").items[0];
     expect(item).toMatchObject({ icon: "https://www.bungie.net/ornament.png", masterworked: true, gearTier: 5, tunedStat: "grenade" });
   });
+
+  it("keeps archetype stats in base and applies Armor 3.0 masterwork only to zero-base secondary stats", () => {
+    const profile = {
+      profileInventory: { data: { items: [{ itemHash: 10, itemInstanceId: "100", state: 4 }] } },
+      itemComponents: {
+        stats: { data: { "100": { stats: {
+          "392767087": { value: 20 }, "4244567218": { value: 15 }, "1735777505": { value: 10 },
+          "144602215": { value: 5 }, "1943323491": { value: 15 }, "2996146975": { value: 5 }
+        } } } },
+        sockets: { data: { "100": { sockets: [{ plugHash: 50 }, { plugHash: 51 }, { plugHash: 52 }] } } },
+        instances: { data: { "100": { gearTier: 5 } } }, state: { data: {} }
+      }
+    };
+    const conditionalMasterworkStats = [144602215, 1943323491, 2996146975].map((statTypeHash) => ({ statTypeHash, value: 5, isConditionallyActive: true }));
+    const manifest: any = {
+      version: "test", generatedAt: "now",
+      gearItemDefinitions: { "10": { itemType: 2, classType: 2, itemTypeDisplayName: "Helmet", inventory: { tierTypeName: "Legendary" }, displayProperties: { name: "Test Helm" } } },
+      plugDefinitions: {
+        "50": { hash: 50, displayProperties: { name: "Paragon" }, plug: { plugCategoryIdentifier: "armor.archetype" }, investmentStats: [{ statTypeHash: 392767087, value: 20 }, { statTypeHash: 4244567218, value: 15 }, { statTypeHash: 1735777505, value: 10 }] },
+        "51": { hash: 51, displayProperties: { name: "Tier 5 Armor Masterwork" }, plug: { plugCategoryIdentifier: "v460.plugs.armor.masterworks" }, investmentStats: conditionalMasterworkStats },
+        "52": { hash: 52, displayProperties: { name: "Class Mod" }, plug: { plugCategoryIdentifier: "armor.mod" }, investmentStats: [{ statTypeHash: 1943323491, value: 10 }] }
+      }, statDefinitions: {}
+    };
+
+    const item = normalizeGear(profile, manifest, "character", "Warlock", new Map(), "2026-07-15T00:00:00Z").items[0]!;
+    expect(item.baseStats).toMatchObject({ health: 20, melee: 15, grenade: 10, super: 0, class: 0, weapons: 0 });
+    expect(item.adjustments).toEqual(expect.arrayContaining([
+      { type: "masterwork", stats: expect.objectContaining({ super: 5, class: 5, weapons: 5 }) },
+      { type: "mod", stats: expect.objectContaining({ class: 10 }) }
+    ]));
+  });
 });

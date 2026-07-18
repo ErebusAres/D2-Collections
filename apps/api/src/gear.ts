@@ -33,10 +33,12 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
     const activePlugHashes = itemSockets.map((socket: any) => hashOf(socket?.plugHash || socket?.plugItemHash)).filter((hash: string) => hash !== "0");
     const activePlugs = activePlugHashes.map((hash: string) => plugs[hash]).filter(Boolean) as any[];
     const currentStats = statsFromComponent(stats[instanceId]?.stats || {});
-    const adjustments = adjustmentsFromPlugs(activePlugs);
+    const archetypeDef = activePlugs.find((plug) => ARCHETYPES.has(normalize(plug?.displayProperties?.name)) || normalize(plug?.plug?.plugCategoryIdentifier).includes("archetype"));
+    // Armor archetypes/intrinsics define the roll itself. DIM treats those as
+    // base stats, so only removable enhancement plugs belong in adjustments.
+    const adjustments = adjustmentsFromPlugs(activePlugs.filter((plug) => plug !== archetypeDef), currentStats);
     const totalAdjustments = sumAdjustments(adjustments);
     const baseStats = mapStats((key) => Math.max(0, currentStats[key] - totalAdjustments[key]));
-    const archetypeDef = activePlugs.find((plug) => ARCHETYPES.has(normalize(plug?.displayProperties?.name)) || normalize(plug?.plug?.plugCategoryIdentifier).includes("archetype"));
     const tuningDef = activePlugs.find(isTuningPlug);
     const tunedStat = resolveTunedStat(itemSockets, reusablePlugs[instanceId]?.plugs || {}, plugs, tuningDef);
     const ornamentDef = activePlugs.find(isEquippedArmorOrnament);
@@ -83,11 +85,27 @@ function isEquippedArmorOrnament(plug: any): boolean {
 }
 function hashOf(value: unknown): string { return String(Number(value || 0) >>> 0); }
 
-function adjustmentsFromPlugs(plugs: any[]): ArmorAdjustment[] {
-  return plugs.map((plug) => {
+function adjustmentsFromPlugs(plugs: any[], currentStats: ArmorStats): ArmorAdjustment[] {
+  const raw = plugs.map((plug) => {
     const text = normalize(`${plug?.displayProperties?.name} ${plug?.itemTypeDisplayName} ${plug?.plug?.plugCategoryIdentifier}`);
     const type: ArmorAdjustment["type"] = text.includes("tuning") ? "tuning" : text.includes("artifice") ? "artifice" : text.includes("masterwork") ? "masterwork" : text.includes("mod") ? "mod" : "other";
-    return { type, stats: statsFromInvestment(plug?.investmentStats || []) };
+    return { type, plug, stats: statsFromInvestment((plug?.investmentStats || []).filter((stat: any) => !stat?.isConditionallyActive)) };
+  });
+  const unconditional = sumAdjustments(raw.map(({ type, stats }) => ({ type, stats })));
+  return raw.map(({ type, plug, stats }) => {
+    const conditional = (plug?.investmentStats || []).filter((stat: any) => stat?.isConditionallyActive);
+    if (conditional.length) {
+      for (const stat of conditional) {
+        const key = STAT_HASHES[String(Number(stat?.statTypeHash) >>> 0)];
+        const value = Number(stat?.value || stat?.statValue || 0);
+        if (!key || !value) continue;
+        // Armor 3.0 masterwork and Balanced Tuning values apply only when the
+        // underlying stat is zero. Remove ordinary mods first, then recognize
+        // the applied conditional bonus by its exact remaining value.
+        if (currentStats[key] - unconditional[key] === value) stats[key] += value;
+      }
+    }
+    return { type, stats };
   }).filter((entry) => Object.values(entry.stats).some(Boolean));
 }
 function statsFromComponent(value: Record<string, any>): ArmorStats { return mapStats((key) => Number(value[Object.keys(STAT_HASHES).find((hash) => STAT_HASHES[hash] === key) || ""]?.value || 0)); }

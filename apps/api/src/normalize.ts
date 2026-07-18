@@ -36,8 +36,13 @@ export function guardianOnlineState(
   observedDirectly: boolean,
   observedInParty = false
 ): "online" | "offline" | "unknown" {
-  if (activity || observedInParty || Number(character?.minutesPlayedThisSession || 0) > 0) return "online";
+  // Party membership is the strongest available live signal. Character
+  // activity components can remain populated after sign-out, so never let a
+  // cached activity override an observed zero-minute session.
+  if (observedInParty) return "online";
+  if (character && Number(character.minutesPlayedThisSession || 0) > 0) return "online";
   if (observedDirectly && character) return "offline";
+  if (activity && !observedDirectly) return "unknown";
   return "unknown";
 }
 
@@ -133,6 +138,18 @@ function recordSets(profile: any): { completed: Set<string>; visible: Set<string
   return { completed, visible };
 }
 
+function ownedItemHashes(profile: any): Set<string> {
+  const hashes = new Set<string>();
+  const apply = (component: any) => (component?.items || []).forEach((item: any) => {
+    const hash = String(item?.itemHash || "");
+    if (hash && hash !== "0") hashes.add(hash);
+  });
+  apply(profile?.profileInventory?.data);
+  Object.values(profile?.characterInventories?.data || {}).forEach(apply);
+  Object.values(profile?.characterEquipment?.data || {}).forEach(apply);
+  return hashes;
+}
+
 export function normalizeCollection(profile: any, manifest: CompactManifest, selectedClass?: CharacterSummary["className"], xurSaleItemHashes = new Set<string>()): CollectionData {
   const states = collectibleStates(profile);
   const records = recordSets(profile);
@@ -140,6 +157,7 @@ export function normalizeCollection(profile: any, manifest: CompactManifest, sel
     ownedCollectibleHashes: new Set([...states].filter(([, state]) => (state & 1) === 0).map(([hash]) => hash)),
     completedRecordHashes: records.completed,
     visibleRecordHashes: records.visible,
+    ownedItemHashes: ownedItemHashes(profile),
     xurSaleItemHashes
   }, selectedClass);
   return {
@@ -222,6 +240,7 @@ function stepDescription(definition: any): string { return String(definition?.se
 export function normalizeQuests(profile: any, manifest: CompactManifest, characterId: string, pinnedIds = new Set<string>()): QuestData {
   const inventory = profile?.characterInventories?.data?.[characterId]?.items || [];
   const itemObjectives = profile?.itemComponents?.objectives?.data || {};
+  const uninstancedObjectives = profile?.characterUninstancedItemComponents?.[characterId]?.objectives?.data || {};
   const currentActivity = activityName(profile, manifest, characterId);
   const updatedAt = profile?.responseMintedTimestamp || new Date().toISOString();
   const quests: QuestProgress[] = inventory.flatMap((item: any) => {
@@ -230,7 +249,13 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
     const typeName = String(definition?.itemTypeDisplayName || definition?.itemTypeAndTierDisplayName || "");
     if (Number(definition?.itemType) !== 12 && !/quest|mission|pursuit|bounty|order/i.test(typeName)) return [];
     const instanceId = String(item.itemInstanceId || hash);
-    const objectives = objectiveRows(itemObjectives[instanceId], manifest);
+    // Bungie keys ordinary item objectives by instance ID, but many quest and
+    // pursuit objectives are returned in the character-scoped uninstanced map
+    // and keyed by the quest definition hash.
+    const objectives = objectiveRows(
+      itemObjectives[instanceId] || uninstancedObjectives[hash] || itemObjectives[hash],
+      manifest
+    );
     const stepPosition = questStepPosition(definition, hash);
     const steps = questSteps(definition, hash, objectives, manifest);
     const activityHash = String(definition?.traitHashes?.[0] || definition?.activityHash || "");

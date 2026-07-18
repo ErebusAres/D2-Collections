@@ -41,8 +41,8 @@ export function searchBuildCatalog(chunk: BuildCatalogChunk, input: z.infer<type
   const spiritPool = input.kind === "exoticSpirit"
     ? input.itemHash && chunk.spiritHashes?.[input.itemHash] || input.classType && chunk.spiritHashesByClass?.[input.classType]
     : undefined;
-  const allowedSpirits = spiritPool && input.spiritRow
-    ? new Set(spiritPool[input.spiritRow === 1 ? "row1" : "row2"])
+  const allowedSpirits = spiritPool
+    ? new Set(input.spiritRow ? spiritPool[input.spiritRow === 1 ? "row1" : "row2"] : [...spiritPool.row1, ...spiritPool.row2])
     : undefined;
   const seen = new Set<string>();
   return chunk.entries.filter((entry) => {

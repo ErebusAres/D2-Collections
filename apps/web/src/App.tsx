@@ -14,6 +14,7 @@ import { QuestDetailPage } from "./pages/QuestDetailPage";
 import { RewardsPage } from "./pages/RewardsPage";
 import { RewardCodesPage } from "./pages/RewardCodesPage";
 import { XurPage } from "./pages/XurPage";
+import { AudiencePage } from "./pages/AudiencePage";
 
 const BuildsPage = lazy(() => import("./pages/BuildsPage").then((module) => ({ default: module.BuildsPage })));
 const BuildDetailPage = lazy(() => import("./pages/BuildDetailPage").then((module) => ({ default: module.BuildDetailPage })));
@@ -36,6 +37,7 @@ export function App() {
         <Route path="codes" element={<RewardCodesPage />} />
         <Route path="fireteam" element={<FireteamPage />} />
         <Route path="matrix" element={<MatrixPage />} />
+        <Route path="audience" element={<AudiencePage />} />
         <Route path="gear" element={<GearPage />} />
         <Route path="loadouts" element={<LoadoutsPage />} />
         <Route path="builds" element={<Suspense fallback={<BuildRouteFallback />}><BuildsPage /></Suspense>} />
