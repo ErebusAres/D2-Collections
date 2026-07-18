@@ -37,6 +37,7 @@ export function BuildDetailSections({ build, showEmpty = false }: { build: Guard
     <BuildSection id="subclass" eyebrow="Ability configuration" title="Subclass" icon={<Sparkles />} empty={!hasSubclassData(build)} showEmpty={showEmpty}>
       <EntryGrid entries={[
         ["Super", build.subclassConfig.super],
+        ["Transcendence", build.subclassConfig.transcendence],
         ["Class ability", build.subclassConfig.classAbility],
         ["Movement", build.subclassConfig.movement],
         ["Melee", build.subclassConfig.melee],
@@ -113,7 +114,7 @@ function ArmorSetBonusGroup({ entries }: { entries: BuildNamedEntry[] }) {
 
 function hasSubclassData(build: GuardianBuild): boolean {
   const value = build.subclassConfig;
-  return Boolean(value.super || value.classAbility || value.movement || value.melee || value.grenade || value.aspects.length || value.fragments.length || value.notes);
+  return Boolean(value.super || value.classAbility || value.movement || value.melee || value.grenade || value.transcendence || value.aspects.length || value.fragments.length || value.notes);
 }
 
 function hasCosmetics(build: GuardianBuild): boolean {

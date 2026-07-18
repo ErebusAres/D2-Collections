@@ -8,7 +8,7 @@ export function buildCompletion(document: BuildDocument): BuildCompletionSection
     ...(!document.title.trim() || document.title.trim().length < 3 ? ["Add a title with at least three characters."] : []),
     ...(!document.tags.length ? ["Add at least one tag."] : [])
   ];
-  const hasSubclass = Boolean(document.subclassConfig.super || document.subclassConfig.aspects.length || document.subclassConfig.fragments.length);
+  const hasSubclass = Boolean(document.subclassConfig.super || document.subclassConfig.transcendence || document.subclassConfig.aspects.length || document.subclassConfig.fragments.length);
   const hasEquipment = Boolean(document.equipment.weapons.length || document.equipment.armor.length || document.equipment.armorSets.length);
   const hasArtifact = document.artifacts.length > 0;
   const hasGameplay = Boolean(document.gameplayLoop.length || document.notes.trim());

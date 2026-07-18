@@ -84,7 +84,7 @@ export function filterBuilds(builds: GuardianBuild[], filters: BuildFilters): Gu
 
 function buildSearchText(build: GuardianBuild): string {
   const armorMods = Object.values(build.armorMods).flat();
-  const subclassChoices = [build.subclassConfig.super, build.subclassConfig.classAbility, build.subclassConfig.movement, build.subclassConfig.melee, build.subclassConfig.grenade]
+  const subclassChoices = [build.subclassConfig.super, build.subclassConfig.classAbility, build.subclassConfig.movement, build.subclassConfig.melee, build.subclassConfig.grenade, build.subclassConfig.transcendence]
     .flatMap((entry) => entry ? [entry] : []);
   const named = [
     ...build.equipment.weapons,
@@ -166,6 +166,7 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
       movement: optionalNamed(value.subclassConfig.movement),
       melee: optionalNamed(value.subclassConfig.melee),
       grenade: optionalNamed(value.subclassConfig.grenade),
+      transcendence: value.subclass === "prismatic" ? optionalNamed(value.subclassConfig.transcendence) : undefined,
       aspects: named(value.subclassConfig.aspects),
       fragments: named(value.subclassConfig.fragments)
     },

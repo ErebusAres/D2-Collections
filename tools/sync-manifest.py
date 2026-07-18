@@ -323,6 +323,7 @@ def build_catalog_kind(definition: dict) -> str | None:
     item_type = str(definition.get("itemTypeDisplayName", "")).lower()
     name = str((definition.get("displayProperties") or {}).get("name", "")).lower()
     plug = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
+    trait_ids = {str(value).lower() for value in definition.get("traitIds") or []}
     if item_type.endswith(" subclass"):
         return "subclass"
     if "super ability" in item_type or plug.endswith(".supers"):
@@ -333,11 +334,16 @@ def build_catalog_kind(definition: dict) -> str | None:
         return "movement"
     if ("melee" in item_type or plug.endswith(".melee")) and "weapon" not in item_type:
         return "melee"
-    if ("grenade" in item_type or "grenade" in plug) and not any(term in item_type for term in ("launcher", "mod", "artifact")):
+    if item_type.endswith(" grenade") or plug.endswith(".grenades") or plug.endswith(".prism_grenade"):
         return "grenade"
-    if "aspect" in item_type and "aspect" in plug:
+    if item_type == "utility ability" and plug.endswith(".transcendence"):
+        return "transcendence"
+    # Stasis still uses the legacy ``*.stasis.totems`` and
+    # ``shared.stasis.trinkets`` plug categories. The manifest's item plug
+    # traits are the stable cross-subclass identifiers for these definitions.
+    if "item.plug.aspect" in trait_ids or "aspect" in item_type and "aspect" in plug:
         return "aspect"
-    if "fragment" in item_type and "fragment" in plug:
+    if "item.plug.fragment" in trait_ids or "fragment" in item_type and "fragment" in plug:
         return "fragment"
     if int(definition.get("itemType", -1)) == 3:
         return "weapon"
@@ -679,7 +685,7 @@ def write_build_catalog_files(catalog: dict) -> dict:
         {**entry, "kind": "armorTrait"} for entry in grouped.get("armor", [])
         if entry.get("exotic") and entry.get("traits")
     ]
-    icon_kinds = {"icon", "class", "subclass", "super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
+    icon_kinds = {"icon", "class", "subclass", "super", "classAbility", "movement", "melee", "grenade", "transcendence", "aspect", "fragment", "armorMod", "artifact", "artifactPerk", "champion", "exoticSpirit"}
     icon_entries = [entry for entry in catalog["entries"] if entry["kind"] in icon_kinds or entry["kind"] in {"weapon", "armor"} and entry.get("exotic")]
     note_icon_entries = [entry for entry in catalog["entries"] if entry.get("icon") and entry["kind"] == "noteIcon"]
     for armor in grouped.get("armor", []):

@@ -11,8 +11,8 @@ import { BuildEquipmentSummary } from "./BuildEquipmentSummary";
 export function BuildCompactView({ build }: { build: GuardianBuild }) {
   const abilities: [string, BuildNamedEntry | undefined][] = [
     ["Subclass", { name: build.subclass, icon: build.subclassIcon, itemType: `${build.classType} subclass` }],
-    ["Super", build.subclassConfig.super], ["Class ability", build.subclassConfig.classAbility], ["Movement", build.subclassConfig.movement],
-    ["Melee", build.subclassConfig.melee], ["Grenade", build.subclassConfig.grenade]
+    ["Super", build.subclassConfig.super], ["Transcendence", build.subclassConfig.transcendence], ["Class ability", build.subclassConfig.classAbility],
+    ["Movement", build.subclassConfig.movement], ["Melee", build.subclassConfig.melee], ["Grenade", build.subclassConfig.grenade]
   ];
   const modGroups = Object.entries(build.armorMods) as [keyof BuildArmorMods, BuildNamedEntry[]][];
   const armorSets = normalizeArmorSetSelections(build.equipment.armorSets);

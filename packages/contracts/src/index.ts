@@ -605,6 +605,7 @@ export type BuildCatalogKind =
   | "movement"
   | "melee"
   | "grenade"
+  | "transcendence"
   | "aspect"
   | "fragment"
   | "weapon"
@@ -727,6 +728,7 @@ export interface BuildSubclassConfig {
   movement?: BuildNamedEntry;
   melee?: BuildNamedEntry;
   grenade?: BuildNamedEntry;
+  transcendence?: BuildNamedEntry;
   aspects: BuildNamedEntry[];
   fragments: BuildNamedEntry[];
   notes?: string;

@@ -9,7 +9,7 @@
     "dev:api": "pnpm --filter @guardian-nexus/api dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test && node --test tools/sync-reward-codes.test.mjs",
+    "test": "pnpm -r test && node --test tools/sync-reward-codes.test.mjs && python -m unittest tools/sync_manifest_test.py",
     "lint": "eslint apps packages tools --max-warnings=0",
     "audit": "pnpm archive:audit && pnpm typecheck && pnpm test && pnpm build",
     "archive:audit": "node tools/check-no-archive-imports.mjs",

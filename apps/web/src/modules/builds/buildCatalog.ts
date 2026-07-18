@@ -112,5 +112,5 @@ async function staticJson<T>(path: string): Promise<T> {
 }
 
 function abilityKind(kind: BuildCatalogKind): boolean {
-  return ["super", "classAbility", "movement", "melee", "grenade", "aspect", "fragment"].includes(kind);
+  return ["super", "classAbility", "movement", "melee", "grenade", "transcendence", "aspect", "fragment"].includes(kind);
 }
