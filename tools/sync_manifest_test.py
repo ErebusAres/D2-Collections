@@ -97,6 +97,24 @@ class BuildCatalogClassificationTests(unittest.TestCase):
             "slots": {"1": 2, "2": 3, "3": 2},
         })
 
+    def test_artifact_two_removes_perks_repeated_by_cumulative_plug_sets(self) -> None:
+        inventory = {str(value): item_definition(name=f"Perk {value}", item_type="Artifact Perk", plug="artifact_perks") for value in range(10, 16)}
+        plug_sets = {
+            "a": {"reusablePlugItems": [{"plugItemHash": 10}, {"plugItemHash": 11}]},
+            "b": {"reusablePlugItems": [{"plugItemHash": value} for value in range(10, 14)]},
+            "c": {"reusablePlugItems": [{"plugItemHash": value} for value in range(10, 16)]},
+        }
+        definition = {"sockets": {"socketEntries": [
+            {"reusablePlugSetHash": "a"}, {"reusablePlugSetHash": "a"},
+            {"reusablePlugSetHash": "b"}, {"reusablePlugSetHash": "b"}, {"reusablePlugSetHash": "b"},
+            {"reusablePlugSetHash": "c"}, {"reusablePlugSetHash": "c"},
+        ]}}
+
+        self.assertEqual(SYNC_MANIFEST.artifact_perk_pool(definition, inventory, plug_sets), {
+            "tiers": {"1": ["10", "11"], "2": ["12", "13"], "3": ["14", "15"]},
+            "slots": {"1": 2, "2": 3, "3": 2},
+        })
+
 
 def item_definition(*, name: str, item_type: str, plug: str, trait_id: str | None = None) -> dict:
     return {

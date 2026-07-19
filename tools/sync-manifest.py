@@ -506,7 +506,13 @@ def is_weapon_roll_definition(definition: dict) -> bool:
 
 
 def artifact_perk_pool(definition: dict, inventory: dict[str, dict], plug_sets: dict[str, dict]) -> dict | None:
-    """Extract the three Artifact 2.0 buckets and equipped-slot counts."""
+    """Extract the three Artifact 2.0 buckets and equipped-slot counts.
+
+    Bungie's reusable plug sets are cumulative: the second tier also contains
+    the first tier, and the third contains all preceding tiers. Store only the
+    perks introduced by each tier so the picker does not repeat every earlier
+    perk in the final column.
+    """
     ordered_sets: list[str] = []
     perks_by_set: dict[str, list[str]] = {}
     slot_counts: dict[str, int] = {}
@@ -527,8 +533,15 @@ def artifact_perk_pool(definition: dict, inventory: dict[str, dict], plug_sets: 
         slot_counts[set_hash] = slot_counts.get(set_hash, 0) + 1
     if len(ordered_sets) != 3 or [slot_counts[value] for value in ordered_sets] != [2, 3, 2]:
         return None
+    seen_hashes: set[str] = set()
+    tier_hashes: dict[str, list[str]] = {}
+    for index, set_hash in enumerate(ordered_sets, 1):
+        tier_hashes[str(index)] = [item_hash for item_hash in perks_by_set[set_hash] if item_hash not in seen_hashes]
+        seen_hashes.update(perks_by_set[set_hash])
+    if any(not hashes for hashes in tier_hashes.values()):
+        return None
     return {
-        "tiers": {str(index + 1): perks_by_set[set_hash] for index, set_hash in enumerate(ordered_sets)},
+        "tiers": tier_hashes,
         "slots": {str(index + 1): slot_counts[set_hash] for index, set_hash in enumerate(ordered_sets)},
     }
 
