@@ -1,8 +1,8 @@
 import type { BuildData, BuildDocument, BuildWorkingDraftData, GuardianBuild } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Circle, CloudOff, Eye, FilePenLine, RotateCcw, Save, Send, ShieldX, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Circle, CloudOff, Eye, FileInput, FilePenLine, RotateCcw, Save, Send, ShieldX, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BuildDetailSections } from "../components/builds/BuildDetailSections";
 import { BuildEditorBasics } from "../components/builds/BuildEditorBasics";
 import { BuildEditorConfiguration } from "../components/builds/BuildEditorConfiguration";
@@ -13,6 +13,7 @@ import { buildCompletion } from "../modules/builds/buildCompletion";
 import { clearBuildRecovery, readBuildRecovery, writeBuildRecovery, type BuildRecoveryRecord } from "../modules/builds/buildDraftRecovery";
 import { emptyBuildDocument, prepareBuildDocument, titleCase } from "../modules/builds/builds";
 import { normalizeBuildStatPriorities } from "../modules/builds/buildStats";
+import { readLoadoutBuildImport, removeLoadoutBuildImport } from "../modules/loadouts/loadoutBuildImport";
 import { api, mutationHeaders } from "../services/api/client";
 import styles from "./Builds.module.css";
 
@@ -24,11 +25,14 @@ function BuildEditor() {
   const { session } = useGuardian();
   const membershipId = session?.guardian?.membershipId || "";
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const importToken = editing ? "" : searchParams.get("fromLoadout") || "";
+  const loadoutImport = useMemo(() => readLoadoutBuildImport(importToken), [importToken]);
   const queryClient = useQueryClient();
   const formRef = useRef<HTMLFormElement>(null);
   const hydrated = useRef(false);
-  const draftRef = useRef<BuildDocument>(emptyBuildDocument());
-  const [draft, setDraftState] = useState<BuildDocument>(emptyBuildDocument);
+  const draftRef = useRef<BuildDocument>(loadoutImport?.document || emptyBuildDocument());
+  const [draft, setDraftState] = useState<BuildDocument>(() => loadoutImport?.document || emptyBuildDocument());
   const [preview, setPreview] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [recovery, setRecovery] = useState<BuildRecoveryRecord>();
@@ -57,7 +61,12 @@ function BuildEditor() {
     const saved = readBuildRecovery(membershipId, buildId || "new");
     if (saved && JSON.stringify(saved.document) !== JSON.stringify(draftRef.current)) setRecovery(saved);
     hydrated.current = true;
-  }, [buildId, editing, existingBuild, membershipId, working.data, working.isFetched]);
+    if (loadoutImport) setDirty(true);
+  }, [buildId, editing, existingBuild, loadoutImport, membershipId, working.data, working.isFetched]);
+
+  useEffect(() => {
+    if (hydrated.current && importToken) removeLoadoutBuildImport(importToken);
+  }, [importToken, membershipId]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -148,6 +157,7 @@ function BuildEditor() {
   return <>
     <PageHeader eyebrow={editing ? "Revise Guardian field guide" : "New Guardian field guide"} title={editing ? "Edit build" : "Build creator"} description="Select official Destiny configuration data, review completion, and publish without risking the live build." actions={<button className={styles.secondaryAction} type="button" onClick={() => setPreview((value) => !value)}><Eye /> {preview ? "Hide preview" : "Preview build"}</button>} />
     {editing && <QueryState loading={existing.isLoading || working.isLoading} error={(existing.error || working.error) as Error} hasData={Boolean(existing.data && working.isFetched)} onRetry={() => { void existing.refetch(); void working.refetch(); }} />}
+    {loadoutImport && <section className={`${styles.recoveryBanner} ${styles.importBanner}`}><FileInput /><span><strong>Imported from {loadoutImport.sourceName}</strong><small>Saved equipment, subclass choices, mods, cosmetics, and Artifact perks were prefilled. Complete the guide details, stats, tags, and gameplay notes before publishing.</small></span></section>}
     {recovery && <section className={styles.recoveryBanner}><RotateCcw /><span><strong>Unsaved recovery found</strong><small>Saved locally {new Date(recovery.savedAt).toLocaleString()}.</small></span><button type="button" onClick={() => { setDraft(recovery.document); setRecovery(undefined); }}>Restore</button><button type="button" onClick={() => { clearBuildRecovery(membershipId, buildId || "new"); setRecovery(undefined); }}><Trash2 /> Discard</button></section>}
     {serverAutosave && existingBuild?.status === "published" && <section className={styles.recoveryBanner}><Save /><span><strong>Private working draft active</strong><small>The published build remains unchanged until Review &amp; Publish.</small></span><span /><button type="button" disabled={discardWorking.isPending} onClick={() => discardWorking.mutate()}><Trash2 /> Discard working draft</button></section>}
     {(!editing || existing.data) && <>

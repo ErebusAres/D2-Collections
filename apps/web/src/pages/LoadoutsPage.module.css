@@ -15,7 +15,9 @@
 .loadoutCard > header span { color: var(--cyan); font-size: 8px; text-transform: uppercase; letter-spacing: .11em; }
 .loadoutCard > header h2 { margin: 2px 0 0; font: 600 23px "Barlow Condensed"; text-transform: uppercase; }
 .loadoutCard > header small { color: var(--muted); font-size: 8px; }
-.loadoutCard > header button { height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid rgba(231,200,119,.45); background: rgba(231,200,119,.07); color: var(--gold); font-size: 8px; text-transform: uppercase; }
+.loadoutActions { display: flex; align-items: center; gap: 6px; }
+.loadoutCard > header .loadoutActions button { height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid rgba(231,200,119,.45); background: rgba(231,200,119,.07); color: var(--gold); font-size: 8px; text-transform: uppercase; }
+.loadoutCard > header .loadoutActions .createBuild { border-color: rgba(155,231,226,.45); background: rgba(155,231,226,.07); color: var(--cyan); }
 .loadoutCard > header button:disabled { opacity: .45; }
 .abilitySection, .gearSection, .artifactSection { padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .loadoutCard section > h3 { margin: 0 0 8px; color: var(--cyan); font-size: 8px; text-transform: uppercase; letter-spacing: .13em; }
@@ -76,7 +78,8 @@
 @media (max-width: 650px) {
   .loadoutCard > header { grid-template-columns: 42px minmax(0, 1fr); }
   .loadoutCard > header > img, .loadoutCard > header > svg { width: 40px; height: 40px; }
-  .loadoutCard > header button { grid-column: 1 / -1; justify-content: center; }
+  .loadoutActions { grid-column: 1 / -1; }
+  .loadoutCard > header .loadoutActions button { flex: 1; justify-content: center; }
   .abilitySection > div, .equipmentGrid { grid-template-columns: 1fr; }
   .artifactMods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sectionHeading { align-items: flex-start; flex-direction: column; gap: 3px; }

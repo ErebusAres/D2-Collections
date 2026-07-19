@@ -1,15 +1,18 @@
 import type { EquipLoadoutRequest, EquipLoadoutResult, GuardianLoadout, LoadoutItem, LoadoutSocket, LoadoutsData } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Boxes, CircleHelp, Cpu, RefreshCw, Sparkles, Zap } from "lucide-react";
+import { AlertTriangle, Boxes, CircleHelp, Cpu, FilePlus2, RefreshCw, Sparkles, Zap } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import { loadoutItemCosmetics, loadoutItemMods } from "../modules/loadouts/loadoutItemSockets";
+import { buildDocumentFromLoadout, storeLoadoutBuildImport } from "../modules/loadouts/loadoutBuildImport";
 import styles from "./LoadoutsPage.module.css";
 
 export function LoadoutsPage() {
   const { session, selectedCharacterId, autoRefresh } = useGuardian();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const result = useQuery({
     queryKey: ["loadouts", selectedCharacterId],
     queryFn: () => api<LoadoutsData>(`/api/v1/me/loadouts?characterId=${encodeURIComponent(selectedCharacterId)}`),
@@ -28,7 +31,10 @@ export function LoadoutsPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.notice}><Zap /><div><span>Hot swap</span><strong>{data.characterClass} · {data.loadouts.length} saved loadout{data.loadouts.length === 1 ? "" : "s"}</strong><p>{data.equipRestriction}</p></div></section>
-      {data.loadouts.length ? <section className={styles.loadoutGrid}>{data.loadouts.map((loadout) => <LoadoutCard key={loadout.index} loadout={loadout} busy={equip.isPending} onEquip={() => window.confirm(`Equip ${loadout.name} on the selected ${data.characterClass}? Bungie will reject the change if the current activity does not allow loadout changes.`) && equip.mutate({ loadoutIndex: loadout.index, characterId: data.characterId })} />)}</section>
+      {data.loadouts.length ? <section className={styles.loadoutGrid}>{data.loadouts.map((loadout) => <LoadoutCard key={loadout.index} loadout={loadout} busy={equip.isPending} canCreateBuild={Boolean(session?.roles.buildEditor)} onCreateBuild={() => {
+        const token = storeLoadoutBuildImport({ version: 1, sourceName: loadout.name, sourceIndex: loadout.index, document: buildDocumentFromLoadout(loadout, data.characterClass) });
+        navigate(`/builds/new?fromLoadout=${encodeURIComponent(token)}`);
+      }} onEquip={() => window.confirm(`Equip ${loadout.name} on the selected ${data.characterClass}? Bungie will reject the change if the current activity does not allow loadout changes.`) && equip.mutate({ loadoutIndex: loadout.index, characterId: data.characterId })} />)}</section>
         : <section className={styles.empty}><Boxes /><h2>No saved loadouts</h2><p>Bungie did not return a configured loadout for this character.</p></section>}
       {equip.data?.data.equipped && <div className={styles.success}><Sparkles /> Loadout equip request completed.</div>}
       {equip.error && <div className={styles.error}><AlertTriangle /> {equip.error.message}</div>}
@@ -36,9 +42,9 @@ export function LoadoutsPage() {
   </AuthGate>;
 }
 
-function LoadoutCard({ loadout, busy, onEquip }: { loadout: GuardianLoadout; busy: boolean; onEquip: () => void }) {
+function LoadoutCard({ loadout, busy, canCreateBuild, onCreateBuild, onEquip }: { loadout: GuardianLoadout; busy: boolean; canCreateBuild: boolean; onCreateBuild: () => void; onEquip: () => void }) {
   return <article className={styles.loadoutCard} style={loadout.color ? { "--loadout-color": `url(${loadout.color})` } as React.CSSProperties : undefined}>
-    <header>{loadout.icon ? <img src={loadout.icon} alt="" /> : <Cpu />}<div><span>Slot {loadout.index + 1} · {loadout.element || "Element unavailable"}</span><h2>{loadout.name}</h2><small>{loadout.items.length} saved items{loadout.unresolvedItemCount ? ` · ${loadout.unresolvedItemCount} unresolved` : ""}</small></div><button disabled={busy} onClick={onEquip}><Zap /> Equip loadout</button></header>
+    <header>{loadout.icon ? <img src={loadout.icon} alt="" /> : <Cpu />}<div><span>Slot {loadout.index + 1} · {loadout.element || "Element unavailable"}</span><h2>{loadout.name}</h2><small>{loadout.items.length} saved items{loadout.unresolvedItemCount ? ` · ${loadout.unresolvedItemCount} unresolved` : ""}</small></div><div className={styles.loadoutActions}>{canCreateBuild && <button className={styles.createBuild} onClick={onCreateBuild}><FilePlus2 /> Create build</button>}<button disabled={busy} onClick={onEquip}><Zap /> Equip loadout</button></div></header>
     <section className={styles.abilitySection}><h3>Subclass configuration</h3><div className={styles.subclassGrid}>{loadout.subclass ? <SubclassIdentity item={loadout.subclass} element={loadout.element} /> : <Unavailable text="Subclass data unavailable" />}{loadout.isPrismatic && (loadout.transcendence ? <SocketChip socket={loadout.transcendence} /> : <Unavailable text="Transcendence data unavailable" />)}{loadout.isPrismatic && (loadout.prismaticGrenade ? <SocketChip socket={loadout.prismaticGrenade} /> : <Unavailable text="Prismatic Grenade data unavailable" />)}{loadout.abilities.map((socket) => <SocketChip key={socket.itemHash} socket={socket} />)}</div>{loadout.aspects.length > 0 && <><h3>Aspects</h3><div>{loadout.aspects.map((socket) => <SocketChip key={socket.itemHash} socket={socket} />)}</div></>}{loadout.fragments.length > 0 && <><h3>Fragments</h3><div>{loadout.fragments.map((socket) => <SocketChip key={socket.itemHash} socket={socket} />)}</div></>}</section>
     <section className={styles.gearSection}><h3>Saved equipment</h3>{loadout.equipment.length ? <div className={styles.equipmentGrid}>{loadout.equipment.map((item) => <LoadoutItemCard key={item.instanceId} item={item} />)}</div> : <Unavailable text="Saved equipment data unavailable" />}</section>
     <ArtifactSection loadout={loadout} />
