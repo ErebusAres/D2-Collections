@@ -573,11 +573,14 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
     const hashes = [rewardProgressionHash, prestigeProgressionHash].filter((value) => value && value !== "0");
     if (!hashes.length) return unavailable("The current DestinySeasonPassDefinition did not identify a reward progression.");
     const progressionRows = hashes.map((progressionHash) => {
-      const selected = characterId ? profile.characterProgressions.data?.[characterId]?.progressions?.[progressionHash] : undefined;
-      const rows = selected ? [selected] : Object.values(profile.characterProgressions.data || {})
+      const selectedCharacter = characterId ? profile.characterProgressions.data?.[characterId]?.progressions?.[progressionHash] : undefined;
+      const rows = Object.values(profile.characterProgressions.data || {})
         .map((component: any) => component?.progressions?.[progressionHash])
         .filter(Boolean)
-        .sort((a: any, b: any) => Number(b?.level || 0) - Number(a?.level || 0) || Number(b?.progressToNextLevel || 0) - Number(a?.progressToNextLevel || 0));
+        .sort((a: any, b: any) => Number(b?.level || 0) - Number(a?.level || 0)
+          || Number(b?.progressToNextLevel || 0) - Number(a?.progressToNextLevel || 0)
+          || Number(b?.currentProgress || 0) - Number(a?.currentProgress || 0));
+      if (selectedCharacter && rows.length === 0) rows.push(selectedCharacter);
       return rows[0] ? { hash: progressionHash, value: rows[0] } : undefined;
     }).filter((entry): entry is { hash: string; value: any } => Boolean(entry));
     if (!progressionRows.length) return unavailable("Bungie's characterProgressions component did not contain the current Rewards Pass progression.");
@@ -601,7 +604,7 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
     const prestigeActive = Boolean(prestigeProgressionHash) && active.hash === prestigeProgressionHash;
     const segmentsPerRank = prestigeActive ? 5 : undefined;
     const rank = prestigeActive && segmentsPerRank
-      ? rewardLevel + Math.floor(rawActiveLevel / segmentsPerRank) + 1
+      ? rewardLevel + Math.floor(rawActiveLevel / segmentsPerRank)
       : progressionRows.reduce((total, entry) => total + Math.max(0, Number(entry.value?.level || 0)), 0);
     const progressToNextLevel = prestigeActive && segmentsPerRank
       ? (rawActiveLevel % segmentsPerRank) * rawNextLevelAt + rawProgressToNextLevel
