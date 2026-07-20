@@ -150,7 +150,7 @@ describe("seasonPassProgress", () => {
 
   it("normalizes prestige chunks into visible post-100 rank pips", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ErrorCode: 1, Response: { rewardProgressionHash: 11, prestigeProgressionHash: 22 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
-    const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: { c1: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 9, progressToNextLevel: 0, nextLevelAt: 100_000 } } } } } };
+    const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: { c1: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 14, progressToNextLevel: 0, nextLevelAt: 100_000 } } } } } };
 
     await expect(seasonPassProgress(profile, "access", { BUNGIE_API_KEY: "test" } as Env, "c1")).resolves.toEqual({
       rank: 101,
@@ -166,9 +166,24 @@ describe("seasonPassProgress", () => {
         nextLevelAt: 500_000,
         percent: 80,
         progressionMode: "bright-engram",
-        activeLevel: 9,
+        activeLevel: 14,
         levelsPerBrightEngram: 5,
         segmentsPerRank: 5
+      }
+    });
+  });
+
+  it("advances the visible post-100 rank only after the fifth pip is complete", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ErrorCode: 1, Response: { rewardProgressionHash: 11, prestigeProgressionHash: 22 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: { c1: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 15, progressToNextLevel: 0, nextLevelAt: 100_000 } } } } } };
+
+    await expect(seasonPassProgress(profile, "access", { BUNGIE_API_KEY: "test" } as Env, "c1")).resolves.toMatchObject({
+      rank: 102,
+      progress: {
+        progressToNextLevel: 0,
+        nextLevelAt: 500_000,
+        percent: 0,
+        activeLevel: 15
       }
     });
   });
@@ -177,7 +192,7 @@ describe("seasonPassProgress", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ErrorCode: 1, Response: { rewardProgressionHash: 11, prestigeProgressionHash: 22 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
     const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: {
       stale: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 5, progressToNextLevel: 0, nextLevelAt: 100_000 } } },
-      fresh: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 9, progressToNextLevel: 50_000, nextLevelAt: 100_000 } } }
+      fresh: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 14, progressToNextLevel: 50_000, nextLevelAt: 100_000 } } }
     } } };
 
     await expect(seasonPassProgress(profile, "access", { BUNGIE_API_KEY: "test" } as Env, "stale")).resolves.toMatchObject({
@@ -186,7 +201,7 @@ describe("seasonPassProgress", () => {
         progressToNextLevel: 450_000,
         nextLevelAt: 500_000,
         percent: 90,
-        activeLevel: 9
+        activeLevel: 14
       }
     });
   });

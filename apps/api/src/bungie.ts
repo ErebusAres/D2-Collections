@@ -603,8 +603,9 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
     const currentProgress = Math.max(0, Number(active.value?.currentProgress || 0));
     const prestigeActive = Boolean(prestigeProgressionHash) && active.hash === prestigeProgressionHash;
     const segmentsPerRank = prestigeActive ? 5 : undefined;
+    const completedPrestigeRanks = segmentsPerRank ? Math.max(0, Math.floor((rawActiveLevel - segmentsPerRank) / segmentsPerRank)) : 0;
     const rank = prestigeActive && segmentsPerRank
-      ? rewardLevel + Math.floor(rawActiveLevel / segmentsPerRank)
+      ? rewardLevel + completedPrestigeRanks
       : progressionRows.reduce((total, entry) => total + Math.max(0, Number(entry.value?.level || 0)), 0);
     const progressToNextLevel = prestigeActive && segmentsPerRank
       ? (rawActiveLevel % segmentsPerRank) * rawNextLevelAt + rawProgressToNextLevel
