@@ -18,18 +18,16 @@ export function rewardLevelProgress(progress?: RewardsPassProgress): RewardLevel
   const supplied = Number(progress?.percent);
   const levelPercent = Math.max(0, Math.min(100, Number.isFinite(supplied) ? Math.round(supplied) : calculated));
   if (progress?.progressionMode === "bright-engram") {
-    const cycleSize = Math.max(1, Math.round(Number(progress.levelsPerBrightEngram) || 5));
-    const completedLevels = Math.max(0, Math.round(Number(progress.activeLevel) || 0)) % cycleSize;
-    const cycleCurrent = completedLevels * required + Math.max(0, current);
-    const cycleRequired = cycleSize * required;
+    const cycleSize = Math.max(1, Math.round(Number(progress.segmentsPerRank || progress.levelsPerBrightEngram) || 5));
+    const scaledProgress = (Math.max(0, current) / required) * cycleSize;
     return {
       mode: "bright-engram",
-      current: cycleCurrent,
-      required: cycleRequired,
-      percent: Math.max(0, Math.min(100, Math.round((cycleCurrent / cycleRequired) * 100))),
+      current: Math.max(0, current),
+      required,
+      percent: levelPercent,
       levelCurrent: Math.max(0, current),
       levelRequired: required,
-      segments: Array.from({ length: cycleSize }, (_, index) => index < completedLevels ? 100 : index === completedLevels ? levelPercent : 0)
+      segments: Array.from({ length: cycleSize }, (_, index) => Math.max(0, Math.min(100, Math.round((scaledProgress - index) * 100))))
     };
   }
   return {

@@ -21,24 +21,24 @@ describe("rewardLevelProgress", () => {
     })).toEqual({ mode: "reward-rank", current: 0, required: 100_000, percent: 0, levelCurrent: 0, levelRequired: 100_000 });
   });
 
-  it("groups the repeatable prestige track into Bungie's five-step Bright Engram cycle", () => {
+  it("splits post-100 rank XP into five in-game progress pips", () => {
     expect(rewardLevelProgress({
       state: "available",
       source: "bungie-profile-character-progressions",
       progressionMode: "bright-engram",
-      activeLevel: 7,
+      activeLevel: 101,
       levelsPerBrightEngram: 5,
-      progressToNextLevel: 25_000,
-      nextLevelAt: 100_000,
-      percent: 25
+      progressToNextLevel: 400_000,
+      nextLevelAt: 500_000,
+      percent: 80
     })).toEqual({
       mode: "bright-engram",
-      current: 225_000,
+      current: 400_000,
       required: 500_000,
-      percent: 45,
-      levelCurrent: 25_000,
-      levelRequired: 100_000,
-      segments: [100, 100, 25, 0, 0]
+      percent: 80,
+      levelCurrent: 400_000,
+      levelRequired: 500_000,
+      segments: [100, 100, 100, 100, 0]
     });
   });
 

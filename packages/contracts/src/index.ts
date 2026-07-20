@@ -56,6 +56,7 @@ export interface RewardsPassProgress {
   progressionMode?: "reward-rank" | "bright-engram";
   activeLevel?: number;
   levelsPerBrightEngram?: number;
+  segmentsPerRank?: number;
   reason?: string;
 }
 

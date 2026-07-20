@@ -167,7 +167,8 @@ describe("seasonPassProgress", () => {
         percent: 25,
         progressionMode: "bright-engram",
         activeLevel: 5,
-        levelsPerBrightEngram: 5
+        levelsPerBrightEngram: 5,
+        segmentsPerRank: 5
       }
     });
   });

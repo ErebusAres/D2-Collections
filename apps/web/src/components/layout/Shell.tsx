@@ -121,9 +121,7 @@ function HeaderStat({ label, value, icon, accent = false, to, claimable = false 
 function RewardsProgress({ rank, progress }: { rank: number; progress: import("@guardian-nexus/contracts").RewardsPassProgress }) {
   const levelProgress = rewardLevelProgress(progress);
   const label = levelProgress
-    ? levelProgress.mode === "bright-engram"
-      ? `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP · ${levelProgress.percent}% to next Bright Engram`
-      : `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP · ${levelProgress.percent}% to rank ${rank + 1}`
+    ? `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP · ${levelProgress.percent}% to rank ${rank + 1}`
     : progress.reason || "Rewards Pass XP is unavailable from Bungie.";
   return <NavLink to="/rewards" className={`${styles.rewardProgress} ${levelProgress ? "" : styles.rewardProgressUnavailable}`} title={`${label} · Open Rewards Pass`}>
     {levelProgress?.segments
