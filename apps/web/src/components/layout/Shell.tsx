@@ -39,6 +39,9 @@ export function Shell() {
     refetchIntervalInBackground: false
   });
   const claimableReward = hasClaimableReward(rewards.data?.data.rewards);
+  const liveRewards = rewards.data?.data;
+  const rewardsPassRank = liveRewards?.rank ?? guardian?.stats.rewardsPassRank ?? 0;
+  const rewardsPassProgress = liveRewards?.progress ?? guardian?.stats.rewardsPassProgress;
   const { hidden: hiddenRewardCodes } = useRewardCodeStatus(guardian?.membershipId, Boolean(session?.authenticated), autoRefresh);
   const availableRewardCodeCount = activeRewardCodes().filter((entry) => !hiddenRewardCodes.has(entry.code)).length;
   const showScrollTop = usePageUtilities();
@@ -57,7 +60,7 @@ export function Shell() {
             {guardian ? (
               <>
                 <img src={character?.emblemPath || ""} alt="" />
-                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small>{character?.emblemBackgroundPath && <div className={styles.guardianBanner} data-testid="guardian-banner" aria-hidden="true" />}<div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={guardian.stats.rewardsPassProgress.state === "unavailable" && !guardian.stats.rewardsPassRank ? undefined : guardian.stats.rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /><HeaderStat label="Mailbox" value={guardian.stats.mailboxCount} icon={<Mail />} to="/mailbox" /><HeaderStat label="Reward Codes" value={availableRewardCodeCount} icon={<Gift />} to="/codes" claimable={availableRewardCodeCount > 0} /></div><RewardsProgress rank={guardian.stats.rewardsPassRank} progress={guardian.stats.rewardsPassProgress} /></div>
+                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small>{character?.emblemBackgroundPath && <div className={styles.guardianBanner} data-testid="guardian-banner" aria-hidden="true" />}<div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={rewardsPassProgress?.state === "unavailable" && !rewardsPassRank ? undefined : rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /><HeaderStat label="Mailbox" value={guardian.stats.mailboxCount} icon={<Mail />} to="/mailbox" /><HeaderStat label="Reward Codes" value={availableRewardCodeCount} icon={<Gift />} to="/codes" claimable={availableRewardCodeCount > 0} /></div>{rewardsPassProgress && <RewardsProgress rank={rewardsPassRank} progress={rewardsPassProgress} />}</div>
                 {guardian.isInGame && <em>In game</em>}
               </>
             ) : (
@@ -124,7 +127,7 @@ function RewardsProgress({ rank, progress }: { rank: number; progress: import("@
   const totalSegments = levelProgress?.totalSegments ?? levelProgress?.segments?.length ?? 0;
   const label = levelProgress
     ? levelProgress.segments
-      ? `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP in rank ${rank} · ${completedSegments}/${totalSegments} pips toward rank ${rank + 1}`
+      ? `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP toward rank ${rank + 1} · ${completedSegments}/${totalSegments} pips beyond rank ${rank}`
       : `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP · ${levelProgress.percent}% to rank ${rank + 1}`
     : progress.reason || "Rewards Pass XP is unavailable from Bungie.";
   return <NavLink to="/rewards" className={`${styles.rewardProgress} ${levelProgress ? "" : styles.rewardProgressUnavailable}`} title={`${label} · Open Rewards Pass`}>

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../services/api/client";
 import { Shell } from "./Shell";
 
 vi.mock("../../context/GuardianContext", () => ({
@@ -62,6 +63,31 @@ describe("Shell guardian identity", () => {
     expect(screen.getByTestId("guardian-banner")).toBeTruthy();
     expect(container.querySelector("[style]")?.getAttribute("style")).toContain("--guardian-banner: url(/banner.svg)");
     expect(screen.getByLabelText("Reward Codes: 0 · Open").getAttribute("href")).toBe("/codes");
+  });
+
+  it("uses the live rewards rank when the session snapshot is stale", async () => {
+    vi.mocked(api).mockResolvedValueOnce({
+      data: {
+        rank: 101,
+        progress: {
+          state: "available",
+          source: "bungie-profile-character-progressions",
+          progressionMode: "bright-engram",
+          progressToNextLevel: 439_174,
+          nextLevelAt: 500_000,
+          segmentsPerRank: 5
+        },
+        rewards: []
+      },
+      freshness: { state: "fresh", observedAt: "2026-07-20T00:00:00Z" },
+      warnings: [],
+      requestId: "rank-test"
+    });
+
+    renderShell(<div>Page</div>);
+
+    expect(await screen.findByLabelText("Rewards Pass: 101 · Open")).toBeTruthy();
+    expect(screen.getByTitle(/4\/5 pips beyond rank 101/)).toBeTruthy();
   });
 
   it("focuses the page search for Ctrl+F and reveals a scroll-to-top control on long pages", async () => {
