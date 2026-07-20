@@ -28,9 +28,9 @@ export function RewardLevelColumn({ entry, currentRank, currentRankSegments }: {
 function rewardLevelSegments(level: number, currentRank: number, currentRankSegments?: number[]): number[] | undefined {
   if (level <= 100) return undefined;
   const segmentCount = Math.max(1, currentRankSegments?.length || 5);
-  if (level < currentRank) return Array.from({ length: segmentCount }, () => 100);
-  if (level > currentRank) return Array.from({ length: segmentCount }, () => 0);
-  return currentRankSegments || Array.from({ length: segmentCount }, () => 0);
+  if (level <= currentRank) return Array.from({ length: segmentCount }, () => 100);
+  if (level === currentRank + 1) return currentRankSegments || Array.from({ length: segmentCount }, () => 0);
+  return Array.from({ length: segmentCount }, () => 0);
 }
 
 function RewardCard({ reward }: { reward: RewardsPassReward }) {
