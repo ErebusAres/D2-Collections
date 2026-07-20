@@ -602,15 +602,15 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
     const rawNextLevelAt = Math.max(0, Number(active.value?.nextLevelAt || 0));
     const currentProgress = Math.max(0, Number(active.value?.currentProgress || 0));
     const prestigeActive = Boolean(prestigeProgressionHash) && active.hash === prestigeProgressionHash;
-    const segmentsPerRank = prestigeActive ? 5 : undefined;
-    const completedPrestigeRanks = segmentsPerRank ? Math.max(0, Math.floor((rawActiveLevel - segmentsPerRank) / segmentsPerRank)) : 0;
-    const rank = prestigeActive && segmentsPerRank
-      ? rewardLevel + completedPrestigeRanks
-      : progressionRows.reduce((total, entry) => total + Math.max(0, Number(entry.value?.level || 0)), 0);
-    const progressToNextLevel = prestigeActive && segmentsPerRank
-      ? (rawActiveLevel % segmentsPerRank) * rawNextLevelAt + rawProgressToNextLevel
-      : rawProgressToNextLevel;
-    const nextLevelAt = prestigeActive && segmentsPerRank ? rawNextLevelAt * segmentsPerRank : rawNextLevelAt;
+    const rewardActive = active.hash === rewardProgressionHash;
+    const rank = rewardActive
+      ? rawActiveLevel
+      : prestigeActive
+        ? rewardLevel + rawActiveLevel
+        : progressionRows.reduce((total, entry) => total + Math.max(0, Number(entry.value?.level || 0)), 0);
+    const progressToNextLevel = rawProgressToNextLevel;
+    const nextLevelAt = rawNextLevelAt;
+    const segmentsPerRank = rank >= 100 && nextLevelAt >= 500_000 ? 5 : undefined;
     const base = {
       source: "bungie-profile-character-progressions" as const,
       passHash: hash,
@@ -621,9 +621,9 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
       progressToNextLevel,
       nextLevelAt: nextLevelAt || undefined,
       percent: nextLevelAt ? Math.max(0, Math.min(100, progressToNextLevel >= nextLevelAt ? 100 : Math.floor((progressToNextLevel / nextLevelAt) * 100))) : undefined,
-      progressionMode: prestigeActive ? "bright-engram" as const : "reward-rank" as const,
+      progressionMode: segmentsPerRank ? "bright-engram" as const : "reward-rank" as const,
       activeLevel: rawActiveLevel,
-      levelsPerBrightEngram: prestigeActive ? 5 : undefined,
+      levelsPerBrightEngram: segmentsPerRank,
       segmentsPerRank
     };
     return nextLevelAt
