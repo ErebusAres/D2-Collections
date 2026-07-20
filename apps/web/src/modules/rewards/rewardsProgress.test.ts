@@ -8,7 +8,7 @@ describe("rewardLevelProgress", () => {
       source: "bungie-profile-character-progressions",
       progressToNextLevel: 62_500,
       nextLevelAt: 100_000
-    })).toEqual({ mode: "reward-rank", current: 62_500, required: 100_000, percent: 63, levelCurrent: 62_500, levelRequired: 100_000 });
+    })).toEqual({ mode: "reward-rank", current: 62_500, required: 100_000, percent: 62, levelCurrent: 62_500, levelRequired: 100_000 });
   });
 
   it("keeps zero-percent level progress available", () => {
@@ -38,7 +38,25 @@ describe("rewardLevelProgress", () => {
       percent: 80,
       levelCurrent: 400_000,
       levelRequired: 500_000,
-      segments: [100, 100, 100, 100, 0]
+      segments: [100, 100, 100, 100, 0],
+      completedSegments: 4,
+      totalSegments: 5
+    });
+  });
+
+  it("does not round the final post-100 pip into the next rank early", () => {
+    expect(rewardLevelProgress({
+      state: "available",
+      source: "bungie-profile-character-progressions",
+      progressionMode: "bright-engram",
+      levelsPerBrightEngram: 5,
+      progressToNextLevel: 499_999,
+      nextLevelAt: 500_000
+    })).toMatchObject({
+      percent: 99,
+      segments: [100, 100, 100, 100, 99],
+      completedSegments: 4,
+      totalSegments: 5
     });
   });
 

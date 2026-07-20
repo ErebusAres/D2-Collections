@@ -581,7 +581,6 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
       return rows[0] ? { hash: progressionHash, value: rows[0] } : undefined;
     }).filter((entry): entry is { hash: string; value: any } => Boolean(entry));
     if (!progressionRows.length) return unavailable("Bungie's characterProgressions component did not contain the current Rewards Pass progression.");
-    const rank = progressionRows.reduce((total, entry) => total + Math.max(0, Number(entry.value?.level || 0)), 0);
     const rewardProgression = progressionRows.find((entry) => entry.hash === rewardProgressionHash);
     const prestigeProgression = progressionRows.find((entry) => entry.hash === prestigeProgressionHash);
     const rewardLevel = Math.max(0, Number(rewardProgression?.value?.level || 0));
@@ -595,10 +594,19 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
       : rewardProgression && Number(rewardProgression.value?.nextLevelAt || 0) > 0
         ? rewardProgression
         : progressionRows.find((entry) => Number(entry.value?.nextLevelAt || 0) > 0) || progressionRows[0]!;
-    const progressToNextLevel = Math.max(0, Number(active.value?.progressToNextLevel || 0));
-    const nextLevelAt = Math.max(0, Number(active.value?.nextLevelAt || 0));
+    const rawActiveLevel = Math.max(0, Number(active.value?.level || 0));
+    const rawProgressToNextLevel = Math.max(0, Number(active.value?.progressToNextLevel || 0));
+    const rawNextLevelAt = Math.max(0, Number(active.value?.nextLevelAt || 0));
     const currentProgress = Math.max(0, Number(active.value?.currentProgress || 0));
     const prestigeActive = Boolean(prestigeProgressionHash) && active.hash === prestigeProgressionHash;
+    const segmentsPerRank = prestigeActive ? 5 : undefined;
+    const rank = prestigeActive && segmentsPerRank
+      ? rewardLevel + Math.floor(rawActiveLevel / segmentsPerRank) + 1
+      : progressionRows.reduce((total, entry) => total + Math.max(0, Number(entry.value?.level || 0)), 0);
+    const progressToNextLevel = prestigeActive && segmentsPerRank
+      ? (rawActiveLevel % segmentsPerRank) * rawNextLevelAt + rawProgressToNextLevel
+      : rawProgressToNextLevel;
+    const nextLevelAt = prestigeActive && segmentsPerRank ? rawNextLevelAt * segmentsPerRank : rawNextLevelAt;
     const base = {
       source: "bungie-profile-character-progressions" as const,
       passHash: hash,
@@ -608,11 +616,11 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
       currentProgress,
       progressToNextLevel,
       nextLevelAt: nextLevelAt || undefined,
-      percent: nextLevelAt ? Math.max(0, Math.min(100, Math.round((progressToNextLevel / nextLevelAt) * 100))) : undefined,
+      percent: nextLevelAt ? Math.max(0, Math.min(100, progressToNextLevel >= nextLevelAt ? 100 : Math.floor((progressToNextLevel / nextLevelAt) * 100))) : undefined,
       progressionMode: prestigeActive ? "bright-engram" as const : "reward-rank" as const,
-      activeLevel: Math.max(0, Number(active.value?.level || 0)),
+      activeLevel: rawActiveLevel,
       levelsPerBrightEngram: prestigeActive ? 5 : undefined,
-      segmentsPerRank: prestigeActive ? 5 : undefined
+      segmentsPerRank
     };
     return nextLevelAt
       ? { rank, progress: { ...base, state: "available" } }

@@ -141,19 +141,19 @@ describe("seasonPassProgress", () => {
         currentProgress: 3_362_500,
         progressToNextLevel: 62_500,
         nextLevelAt: 100_000,
-        percent: 63,
+        percent: 62,
         progressionMode: "reward-rank",
         activeLevel: 33
       }
     });
   });
 
-  it("combines reward and prestige ranks while reporting current XP progress", async () => {
+  it("normalizes prestige chunks into visible post-100 rank pips", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ ErrorCode: 1, Response: { rewardProgressionHash: 11, prestigeProgressionHash: 22 } }), { status: 200, headers: { "Content-Type": "application/json" } })));
-    const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: { c1: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 5, progressToNextLevel: 250, nextLevelAt: 1000 } } } } } };
+    const profile = { profile: { data: { currentSeasonPassHash: 99 } }, characterProgressions: { data: { c1: { progressions: { 11: { level: 100, progressToNextLevel: 0, nextLevelAt: 0 }, 22: { level: 4, progressToNextLevel: 0, nextLevelAt: 100_000 } } } } } };
 
     await expect(seasonPassProgress(profile, "access", { BUNGIE_API_KEY: "test" } as Env, "c1")).resolves.toEqual({
-      rank: 105,
+      rank: 101,
       progress: {
         state: "available",
         source: "bungie-profile-character-progressions",
@@ -162,11 +162,11 @@ describe("seasonPassProgress", () => {
         prestigeProgressionHash: "22",
         activeProgressionHash: "22",
         currentProgress: 0,
-        progressToNextLevel: 250,
-        nextLevelAt: 1000,
-        percent: 25,
+        progressToNextLevel: 400_000,
+        nextLevelAt: 500_000,
+        percent: 80,
         progressionMode: "bright-engram",
-        activeLevel: 5,
+        activeLevel: 4,
         levelsPerBrightEngram: 5,
         segmentsPerRank: 5
       }

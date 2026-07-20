@@ -8,34 +8,37 @@ export interface RewardLevelProgress {
   levelCurrent: number;
   levelRequired: number;
   segments?: number[];
+  completedSegments?: number;
+  totalSegments?: number;
 }
 
 export function rewardLevelProgress(progress?: RewardsPassProgress): RewardLevelProgress | null {
   const current = Number(progress?.progressToNextLevel);
   const required = Number(progress?.nextLevelAt);
   if (!Number.isFinite(current) || !Number.isFinite(required) || required <= 0) return null;
-  const calculated = Math.round((Math.max(0, current) / required) * 100);
-  const supplied = Number(progress?.percent);
-  const levelPercent = Math.max(0, Math.min(100, Number.isFinite(supplied) ? Math.round(supplied) : calculated));
+  const safeCurrent = Math.max(0, current);
+  const levelPercent = Math.max(0, Math.min(100, safeCurrent >= required ? 100 : Math.floor((safeCurrent / required) * 100)));
   if (progress?.progressionMode === "bright-engram") {
     const cycleSize = Math.max(1, Math.round(Number(progress.segmentsPerRank || progress.levelsPerBrightEngram) || 5));
-    const scaledProgress = (Math.max(0, current) / required) * cycleSize;
+    const scaledProgress = Math.min(cycleSize, (safeCurrent / required) * cycleSize);
     return {
       mode: "bright-engram",
-      current: Math.max(0, current),
+      current: safeCurrent,
       required,
       percent: levelPercent,
-      levelCurrent: Math.max(0, current),
+      levelCurrent: safeCurrent,
       levelRequired: required,
-      segments: Array.from({ length: cycleSize }, (_, index) => Math.max(0, Math.min(100, Math.round((scaledProgress - index) * 100))))
+      segments: Array.from({ length: cycleSize }, (_, index) => Math.max(0, Math.min(100, Math.floor((scaledProgress - index) * 100)))),
+      completedSegments: Math.max(0, Math.min(cycleSize, Math.floor(scaledProgress))),
+      totalSegments: cycleSize
     };
   }
   return {
     mode: "reward-rank",
-    current: Math.max(0, current),
+    current: safeCurrent,
     required,
     percent: levelPercent,
-    levelCurrent: Math.max(0, current),
+    levelCurrent: safeCurrent,
     levelRequired: required
   };
 }
