@@ -36,10 +36,9 @@ export async function readAudienceMetrics(env: Env): Promise<AudienceMetrics> {
 export async function rememberAudienceGuardian(env: Env, guardian: GuardianSummary): Promise<void> {
   const selected = guardian.characters.find((character) => character.characterId === guardian.selectedCharacterId);
   const now = new Date();
-  const cutoff = new Date(now.getTime() - 15 * 60_000).toISOString();
   await env.DB.prepare(`UPDATE users SET last_profile_at = ?, last_character_class = ?, last_power = ?, last_guardian_rank = ?, last_rewards_pass_rank = ?, last_emblem_path = ?
-    WHERE membership_id = ? AND (last_profile_at IS NULL OR last_profile_at <= ?)`)
-    .bind(now.toISOString(), selected?.className || null, guardian.stats.power, guardian.stats.guardianRank, guardian.stats.rewardsPassRank, selected?.emblemPath || null, guardian.membershipId, cutoff).run();
+    WHERE membership_id = ?`)
+    .bind(now.toISOString(), selected?.className || null, guardian.stats.power, guardian.stats.guardianRank, guardian.stats.rewardsPassRank, selected?.emblemPath || null, guardian.membershipId).run();
 }
 
 export async function readAudienceDetails(env: Env): Promise<AudienceDetailData> {
