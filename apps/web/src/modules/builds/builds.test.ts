@@ -82,4 +82,18 @@ describe("build catalog filters", () => {
     value.subclassConfig.transcendence = { name: "Transcendence", hash: "1190101211", icon: "https://www.bungie.net/transcendence.png" };
     expect(prepareBuildDocument(value).subclassConfig.transcendence).toBeUndefined();
   });
+
+  it("keeps all seven Artifacts while removing duplicate perk selections", () => {
+    const value = emptyBuildDocument();
+    value.artifacts = Array.from({ length: 7 }, (_, index) => ({
+      name: `Artifact ${index + 1}`,
+      perks: index ? [] : [
+        { name: "First", hash: "1", artifactTier: 1, artifactSlot: 1 },
+        { name: "Duplicate", hash: "1", artifactTier: 1, artifactSlot: 2 }
+      ]
+    }));
+    const prepared = prepareBuildDocument(value);
+    expect(prepared.artifacts).toHaveLength(7);
+    expect(prepared.artifacts[0]?.perks).toEqual([{ name: "First", hash: "1", artifactTier: 1, artifactSlot: 1 }]);
+  });
 });

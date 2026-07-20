@@ -53,6 +53,9 @@ export interface RewardsPassProgress {
   progressToNextLevel?: number;
   nextLevelAt?: number;
   percent?: number;
+  progressionMode?: "reward-rank" | "bright-engram";
+  activeLevel?: number;
+  levelsPerBrightEngram?: number;
   reason?: string;
 }
 
@@ -592,6 +595,7 @@ export interface BuildNamedEntry {
   requiredPieces?: number;
   row?: 1 | 2;
   artifactTier?: 1 | 2 | 3;
+  artifactSlot?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
   bonuses?: BuildNamedEntry[];
 }
 

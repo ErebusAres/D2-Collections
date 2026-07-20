@@ -46,6 +46,9 @@
 .rewardsProgress header b small { margin-top: 2px; color: #7f9ba8; font-size: 0.56rem; font-weight: 500; letter-spacing: 0.09em; text-transform: uppercase; }
 .rewardsProgress > i { display: block; height: 6px; margin-top: 12px; overflow: hidden; border-radius: 999px; background: rgba(142, 173, 188, 0.16); }
 .rewardsProgress > i span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #62a7c3, #79d5d6); box-shadow: 0 0 12px rgba(112, 208, 213, 0.42); }
+.rewardsProgressSegments { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 12px; }
+.rewardsProgressSegments > i { height: 6px; overflow: hidden; border-radius: 999px; background: rgba(142, 173, 188, 0.16); }
+.rewardsProgressSegments span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #d8b85d, #f2d985); box-shadow: 0 0 9px rgba(226, 196, 105, 0.38); }
 .rewardsProgress p { margin: 9px 0 0; color: #a9bdc8; font-size: 0.74rem; }
 .rewardsProgressUnavailable > i span { background: #697984; box-shadow: none; }
 .rewardsProgressUnavailable p { color: #d3b88c; }

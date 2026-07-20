@@ -85,6 +85,26 @@ describe("build validation", () => {
     })).toThrow();
   });
 
+  it("accepts all seven current Artifacts and validates progressive perk slots", () => {
+    const artifacts = Array.from({ length: 7 }, (_, index) => ({
+      name: `Artifact ${index + 1}`,
+      perks: index === 0 ? [
+        { name: "Tier One", hash: "1", artifactTier: 1, artifactSlot: 1 },
+        { name: "Tier Two", hash: "2", artifactTier: 2, artifactSlot: 3 },
+        { name: "Tier Three", hash: "3", artifactTier: 3, artifactSlot: 6 }
+      ] : []
+    }));
+    expect(buildDocumentSchema.parse({ ...validBuild, artifacts }).artifacts).toHaveLength(7);
+    expect(() => buildDocumentSchema.parse({
+      ...validBuild,
+      artifacts: [{ name: "Artifact", perks: [{ name: "Too early", hash: "3", artifactTier: 3, artifactSlot: 1 }] }]
+    })).toThrow(/accepts Tier 1 or lower/);
+    expect(() => buildDocumentSchema.parse({
+      ...validBuild,
+      artifacts: [{ name: "Artifact", perks: [{ name: "One", hash: "1", artifactTier: 1, artifactSlot: 1 }, { name: "Duplicate", hash: "1", artifactTier: 1, artifactSlot: 2 }] }]
+    })).toThrow(/cannot be selected more than once/);
+  });
+
   it("does not expose stale Transcendence data on non-Prismatic stored builds", () => {
     const stored = { ...validBuild, subclass: "solar", subclassConfig: { ...validBuild.subclassConfig, transcendence: { name: "Transcendence", hash: "3696633656", icon: "https://www.bungie.net/transcendence.png" } } };
     expect(parseStoredBuildDocument(JSON.stringify(stored)).subclassConfig.transcendence).toBeUndefined();

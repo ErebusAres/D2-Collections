@@ -1,5 +1,5 @@
 import type { BuildDocument, BuildGuardianClass, BuildSubclass } from "@guardian-nexus/contracts";
-import { AlertTriangle, BadgeCheck } from "lucide-react";
+import { BadgeCheck } from "lucide-react";
 import { useEffect } from "react";
 import { useBuildCatalog, useBuildTranscendence } from "../../modules/builds/buildCatalog";
 import { titleCase } from "../../modules/builds/builds";

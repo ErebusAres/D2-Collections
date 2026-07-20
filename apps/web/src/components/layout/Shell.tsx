@@ -121,7 +121,14 @@ function HeaderStat({ label, value, icon, accent = false, to, claimable = false 
 function RewardsProgress({ rank, progress }: { rank: number; progress: import("@guardian-nexus/contracts").RewardsPassProgress }) {
   const levelProgress = rewardLevelProgress(progress);
   const label = levelProgress
-    ? `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP · ${levelProgress.percent}% to rank ${rank + 1}`
+    ? levelProgress.mode === "bright-engram"
+      ? `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP · ${levelProgress.percent}% to next Bright Engram`
+      : `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP · ${levelProgress.percent}% to rank ${rank + 1}`
     : progress.reason || "Rewards Pass XP is unavailable from Bungie.";
-  return <NavLink to="/rewards" className={`${styles.rewardProgress} ${levelProgress ? "" : styles.rewardProgressUnavailable}`} title={`${label} · Open Rewards Pass`}><i><span style={{ width: `${levelProgress?.percent || 0}%` }} /></i><b>{levelProgress ? `${label} · Open pass →` : "XP unavailable · Open pass →"}</b></NavLink>;
+  return <NavLink to="/rewards" className={`${styles.rewardProgress} ${levelProgress ? "" : styles.rewardProgressUnavailable}`} title={`${label} · Open Rewards Pass`}>
+    {levelProgress?.segments
+      ? <i className={styles.rewardProgressSegments}>{levelProgress.segments.map((percent, index) => <span key={index} style={{ "--segment-progress": `${percent}%` } as React.CSSProperties} />)}</i>
+      : <i><span style={{ width: `${levelProgress?.percent || 0}%` }} /></i>}
+    <b>{levelProgress ? `${label} · Open pass →` : "XP unavailable · Open pass →"}</b>
+  </NavLink>;
 }

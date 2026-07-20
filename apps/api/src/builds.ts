@@ -19,6 +19,8 @@ import type { Env, RequestContext, SessionRow } from "./types";
 const optionalText = z.string().trim().max(5_000).optional();
 const httpsUrl = z.string().trim().url().max(2_000).refine((value) => value.startsWith("https://"), "Build links must use HTTPS.");
 const optionalUrl = httpsUrl.optional();
+const artifactSlotSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]);
+const artifactSlotAccess = [1, 1, 2, 2, 2, 3, 3] as const;
 const namedEntryBaseSchema = z.object({
   name: z.string().trim().min(1).max(160),
   hash: z.string().trim().regex(/^\d+$/).optional(),
@@ -33,9 +35,27 @@ const namedEntryBaseSchema = z.object({
   setName: z.string().trim().max(160).optional(),
   requiredPieces: z.number().int().min(1).max(5).optional(),
   row: z.union([z.literal(1), z.literal(2)]).optional(),
-  artifactTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional()
+  artifactTier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional(),
+  artifactSlot: artifactSlotSchema.optional()
 });
 const namedEntrySchema = namedEntryBaseSchema.extend({ bonuses: z.array(namedEntryBaseSchema).max(4).optional() });
+const artifactSelectionSchema = namedEntrySchema.extend({
+  perks: z.array(namedEntrySchema).max(7).default([]),
+  tier: z.string().trim().max(80).optional()
+}).superRefine((artifact, context) => {
+  const identities = new Set<string>();
+  const slots = new Set<number>();
+  artifact.perks.forEach((perk, index) => {
+    const identity = perk.hash ? `hash:${perk.hash}` : `name:${perk.name.toLocaleLowerCase()}`;
+    if (identities.has(identity)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["perks", index], message: "Artifact perks cannot be selected more than once." });
+    identities.add(identity);
+    if (!perk.artifactSlot) return;
+    if (slots.has(perk.artifactSlot)) context.addIssue({ code: z.ZodIssueCode.custom, path: ["perks", index, "artifactSlot"], message: "Each Artifact perk slot can contain only one perk." });
+    slots.add(perk.artifactSlot);
+    const maxTier = artifactSlotAccess[perk.artifactSlot - 1]!;
+    if (perk.artifactTier && perk.artifactTier > maxTier) context.addIssue({ code: z.ZodIssueCode.custom, path: ["perks", index, "artifactTier"], message: `Slot ${perk.artifactSlot} accepts Tier ${maxTier} or lower perks.` });
+  });
+});
 const equipmentEntrySchema = namedEntrySchema.extend({
   slot: z.string().trim().min(1).max(80),
   perks: optionalText,
@@ -111,10 +131,7 @@ export const buildDocumentSchema = z.object({
     legs: armorModEntriesSchema.default([]),
     classItem: armorModEntriesSchema.default([])
   }),
-  artifacts: z.array(namedEntrySchema.extend({
-    perks: z.array(namedEntrySchema).max(7).default([]),
-    tier: z.string().trim().max(80).optional()
-  })).max(6).default([]),
+  artifacts: z.array(artifactSelectionSchema).max(7).default([]),
   gameplayLoop: z.array(z.object({
     text: z.string().trim().min(1).max(600),
     icon: optionalUrl
@@ -240,7 +257,7 @@ async function readBuild(identifier: string, viewer: SessionRow | undefined, edi
 }
 
 async function createBuild(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const document = normalizePublication(buildDocumentSchema.parse(await request.json()));
+  const document = normalizePublication(parseBuildInput(await request.json()));
   const id = crypto.randomUUID();
   const slug = `${slugifyBuildTitle(document.title)}-${id.slice(0, 8)}`;
   const now = new Date().toISOString();
@@ -258,7 +275,7 @@ async function createBuild(request: Request, row: SessionRow, env: Env, context:
 async function updateBuild(request: Request, identifier: string, editorRow: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const existing = await findBuild(identifier, editorRow.membership_id, env);
   if (!existing) throw httpError(404, "build_not_found", "This build could not be found.");
-  const document = normalizePublication(buildDocumentSchema.parse(await request.json()));
+  const document = normalizePublication(parseBuildInput(await request.json()));
   const now = new Date().toISOString();
   const previous = parseDocument(existing.build_json);
   const publishedAt = document.status === "published" ? existing.published_at || now : null;
@@ -286,7 +303,7 @@ async function readWorkingDraft(identifier: string, editorRow: SessionRow, env: 
 async function saveWorkingDraft(request: Request, identifier: string, editorRow: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const build = await findBuild(identifier, editorRow.membership_id, env);
   if (!build) throw httpError(404, "build_not_found", "This build could not be found.");
-  const input = workingDraftSchema.parse(await request.json());
+  const input = parseBuildWorkingDraft(await request.json());
   if (build.updated_at !== input.baseUpdatedAt) throw httpError(409, "build_draft_conflict", "The published build changed after this editing session began. Reload before replacing it.");
   const now = new Date().toISOString();
   const document = normalizePublication({ ...input.document, status: "draft", visibility: "private" });
@@ -367,8 +384,25 @@ export function parseStoredBuildDocument(value: string): BuildDocument {
       ...stored.equipment,
       armorSets: normalizeArmorSetSelections(stored.equipment.armorSets)
     },
-    artifacts: stored.artifacts.map((artifact) => ({ ...artifact, perks: artifact.perks.slice(0, 7) }))
+    artifacts: stored.artifacts.map((artifact) => ({ ...artifact, perks: normalizeStoredArtifactPerks(artifact.perks) }))
   });
+}
+
+function normalizeStoredArtifactPerks(perks: z.infer<typeof namedEntrySchema>[]): z.infer<typeof namedEntrySchema>[] {
+  const identities = new Set<string>();
+  const slots = new Set<number>();
+  const normalized: z.infer<typeof namedEntrySchema>[] = [];
+  for (const perk of perks) {
+    const identity = perk.hash ? `hash:${perk.hash}` : `name:${perk.name.toLocaleLowerCase()}`;
+    if (identities.has(identity)) continue;
+    identities.add(identity);
+    const maxTier = perk.artifactSlot ? artifactSlotAccess[perk.artifactSlot - 1] : undefined;
+    const invalidSlot = Boolean(perk.artifactSlot && (slots.has(perk.artifactSlot) || (perk.artifactTier && maxTier && perk.artifactTier > maxTier)));
+    if (perk.artifactSlot && !invalidSlot) slots.add(perk.artifactSlot);
+    normalized.push(invalidSlot ? { ...perk, artifactSlot: undefined } : perk);
+    if (normalized.length === 7) break;
+  }
+  return normalized;
 }
 
 function parseDocument(value: string): BuildDocument {
@@ -393,6 +427,22 @@ function normalizePublication(document: z.infer<typeof buildDocumentSchema>): Bu
     activityTags: unique(document.activityTags),
     visibility: document.status === "published" ? "public" : "private"
   };
+}
+
+function parseBuildInput(value: unknown): z.infer<typeof buildDocumentSchema> {
+  return parseBuildSchema(buildDocumentSchema, value);
+}
+
+function parseBuildWorkingDraft(value: unknown): z.infer<typeof workingDraftSchema> {
+  return parseBuildSchema(workingDraftSchema, value);
+}
+
+function parseBuildSchema<Schema extends z.ZodTypeAny>(schema: Schema, value: unknown): z.infer<Schema> {
+  const result = schema.safeParse(value);
+  if (result.success) return result.data;
+  const first = result.error.issues[0];
+  const field = first?.path.length ? `${first.path.join(".")}: ` : "";
+  throw httpError(400, "build_validation_failed", `Build could not be saved. ${field}${first?.message || "Review the required fields and try again."}`);
 }
 
 function unique(values: string[]): string[] {

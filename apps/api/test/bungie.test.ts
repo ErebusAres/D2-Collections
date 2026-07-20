@@ -141,7 +141,9 @@ describe("seasonPassProgress", () => {
         currentProgress: 3_362_500,
         progressToNextLevel: 62_500,
         nextLevelAt: 100_000,
-        percent: 63
+        percent: 63,
+        progressionMode: "reward-rank",
+        activeLevel: 33
       }
     });
   });
@@ -162,7 +164,10 @@ describe("seasonPassProgress", () => {
         currentProgress: 0,
         progressToNextLevel: 250,
         nextLevelAt: 1000,
-        percent: 25
+        percent: 25,
+        progressionMode: "bright-engram",
+        activeLevel: 5,
+        levelsPerBrightEngram: 5
       }
     });
   });

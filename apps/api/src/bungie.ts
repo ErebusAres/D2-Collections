@@ -598,6 +598,7 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
     const progressToNextLevel = Math.max(0, Number(active.value?.progressToNextLevel || 0));
     const nextLevelAt = Math.max(0, Number(active.value?.nextLevelAt || 0));
     const currentProgress = Math.max(0, Number(active.value?.currentProgress || 0));
+    const prestigeActive = Boolean(prestigeProgressionHash) && active.hash === prestigeProgressionHash;
     const base = {
       source: "bungie-profile-character-progressions" as const,
       passHash: hash,
@@ -607,7 +608,10 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
       currentProgress,
       progressToNextLevel,
       nextLevelAt: nextLevelAt || undefined,
-      percent: nextLevelAt ? Math.max(0, Math.min(100, Math.round((progressToNextLevel / nextLevelAt) * 100))) : undefined
+      percent: nextLevelAt ? Math.max(0, Math.min(100, Math.round((progressToNextLevel / nextLevelAt) * 100))) : undefined,
+      progressionMode: prestigeActive ? "bright-engram" as const : "reward-rank" as const,
+      activeLevel: Math.max(0, Number(active.value?.level || 0)),
+      levelsPerBrightEngram: prestigeActive ? 5 : undefined
     };
     return nextLevelAt
       ? { rank, progress: { ...base, state: "available" } }

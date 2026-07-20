@@ -183,7 +183,10 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
       legs: named(expanded(value.armorMods.legs)).slice(0, 3),
       classItem: named(expanded(value.armorMods.classItem)).slice(0, 3)
     },
-    artifacts: named(value.artifacts).map((artifact) => ({ ...artifact, perks: named(artifact.perks).slice(0, 7) })),
+    artifacts: named(value.artifacts).slice(0, 7).map((artifact) => ({
+      ...artifact,
+      perks: uniqueNamed(named(artifact.perks)).slice(0, 7).sort((left, right) => (left.artifactSlot || 8) - (right.artifactSlot || 8))
+    })),
     gameplayLoop: value.gameplayLoop.filter((entry) => entry.text.trim()).map((entry) => clean(entry)),
     cosmetics: {
       ...value.cosmetics,
@@ -195,6 +198,16 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
     },
     changelog: value.changelog.filter((entry) => entry.notes.trim()).map((entry) => clean(entry)),
     visibility: value.status === "published" ? "public" : "private"
+  });
+}
+
+function uniqueNamed<T extends { name: string; hash?: string }>(values: T[]): T[] {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const identity = value.hash ? `hash:${value.hash}` : `name:${value.name.trim().toLocaleLowerCase()}`;
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
   });
 }
 

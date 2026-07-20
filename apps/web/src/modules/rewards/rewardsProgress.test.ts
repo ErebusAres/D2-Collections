@@ -8,7 +8,7 @@ describe("rewardLevelProgress", () => {
       source: "bungie-profile-character-progressions",
       progressToNextLevel: 62_500,
       nextLevelAt: 100_000
-    })).toEqual({ current: 62_500, required: 100_000, percent: 63 });
+    })).toEqual({ mode: "reward-rank", current: 62_500, required: 100_000, percent: 63, levelCurrent: 62_500, levelRequired: 100_000 });
   });
 
   it("keeps zero-percent level progress available", () => {
@@ -18,7 +18,28 @@ describe("rewardLevelProgress", () => {
       progressToNextLevel: 0,
       nextLevelAt: 100_000,
       percent: 0
-    })).toEqual({ current: 0, required: 100_000, percent: 0 });
+    })).toEqual({ mode: "reward-rank", current: 0, required: 100_000, percent: 0, levelCurrent: 0, levelRequired: 100_000 });
+  });
+
+  it("groups the repeatable prestige track into Bungie's five-step Bright Engram cycle", () => {
+    expect(rewardLevelProgress({
+      state: "available",
+      source: "bungie-profile-character-progressions",
+      progressionMode: "bright-engram",
+      activeLevel: 7,
+      levelsPerBrightEngram: 5,
+      progressToNextLevel: 25_000,
+      nextLevelAt: 100_000,
+      percent: 25
+    })).toEqual({
+      mode: "bright-engram",
+      current: 225_000,
+      required: 500_000,
+      percent: 45,
+      levelCurrent: 25_000,
+      levelRequired: 100_000,
+      segments: [100, 100, 25, 0, 0]
+    });
   });
 
   it("returns unavailable when Bungie omits the next-level threshold", () => {
