@@ -11,7 +11,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test && node --test tools/sync-reward-codes.test.mjs && python -m unittest tools/sync_manifest_test.py",
     "lint": "eslint apps packages tools --max-warnings=0",
-    "audit": "pnpm archive:audit && pnpm typecheck && pnpm test && pnpm build",
+    "audit": "pnpm archive:audit && pnpm typecheck && pnpm test && pnpm build && node tools/check-web-performance-budgets.mjs",
     "archive:audit": "node tools/check-no-archive-imports.mjs",
     "manifest:sync": "python tools/sync-manifest.py",
     "codes:sync": "node tools/sync-reward-codes.mjs",

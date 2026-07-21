@@ -336,7 +336,7 @@ async function deleteSession(request: Request, env: Env, context: RequestContext
 
 async function overview(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { profile, accessToken } = await profileFor(row, env);
-  const [manifest, pvpManifest] = await Promise.all([loadManifest(env), loadRewardsManifest(env)]);
+  const [manifest, pvpManifest] = await Promise.all([loadActivityManifest(env), loadRewardsManifest(env)]);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
   const selectedId = selectedCharacter(charactersFromProfile(profile), requestedCharacterId)?.characterId;
   const guardian = normalizeGuardian({
@@ -709,7 +709,7 @@ async function refreshPersistentShares(env: Env): Promise<void> {
 
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { profile, accessToken } = await profileFor(row, env, "fireteam");
-  const manifest = await loadManifest(env);
+  const manifest = await loadActivityManifest(env);
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
   const now = new Date().toISOString();
   const { results = [] } = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error FROM fireteam_shares WHERE sharing_mode = 'persistent' OR expires_at > ?").bind(now).all<any>();

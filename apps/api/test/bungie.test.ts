@@ -310,17 +310,20 @@ describe("manifest overlays", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://example.test/data/companion-manifest-00.json");
   });
 
-  it("keeps social features and pursuit definitions outside the core manifest payload", async () => {
-    const values = [
-      { version: "overlay-test", generatedAt: "now", items: [], itemDefinitions: { base: {} }, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} },
-      { version: "overlay-test", collectionFeatureDefinitions: { weapon: [{ itemHash: "feature", name: "Weapon mode", description: "Mode", icon: "/mode.png" }] } },
-      { version: "overlay-test", itemDefinitions: { bounty: { itemTypeDisplayName: "Bounty" } }, objectiveDefinitions: { objective: { completionValue: 10 } } }
-    ];
-    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(values.shift()), { status: 200, headers: { "Content-Type": "application/json" } }))));
+  it("combines the compact pursuit and activity artifacts without loading the full collection manifest", async () => {
+    const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      const value = url.endsWith("activity-manifest.json")
+        ? { version: "overlay-test", generatedAt: "now", items: [], itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: { activity: { displayProperties: { name: "Activity" } } }, recordDefinitions: {} }
+        : { version: "overlay-test", generatedAt: "now", items: [], itemDefinitions: { bounty: { itemTypeDisplayName: "Bounty" } }, objectiveDefinitions: { objective: { completionValue: 10 } } };
+      return Promise.resolve(new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     const result = await loadQuestManifest({ GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env);
 
-    expect(result.itemDefinitions).toMatchObject({ base: {}, bounty: { itemTypeDisplayName: "Bounty" } });
-    expect(result.collectionFeatureDefinitions?.weapon?.[0]?.name).toBe("Weapon mode");
+    expect(result.itemDefinitions).toMatchObject({ bounty: { itemTypeDisplayName: "Bounty" } });
+    expect(result.activityDefinitions).toHaveProperty("activity");
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("https://example.test/data/manifest.json");
   });
 });

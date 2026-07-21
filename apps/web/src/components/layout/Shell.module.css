@@ -59,6 +59,12 @@
   .main { width: min(1680px, calc(100% - 48px)); }
 }
 
+/* Shared shell readability floor for dense desktop metadata. */
+.headerStat::after{font-size:10px}
+.rewardProgress{font-size:9px}
+.optionsButton span{font-size:10px}
+.footer{font-size:10px}
+
 @media (max-width: 1220px) {
   .brand { min-width: 58px; flex-basis: 58px; }
   .brand > span:last-child { display: none; }

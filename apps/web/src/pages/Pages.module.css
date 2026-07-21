@@ -6,6 +6,7 @@
 .filterGroup { display: grid; gap: 4px; }.filterGroup > span, .selectFilter > span { color: var(--faint); font-size: 8px; letter-spacing: .13em; text-transform: uppercase; }.filterGroup > div { display: flex; height: 27px; }.filterGroup button, .questFilters button { position: relative; border: 1px solid var(--line); background: rgba(255,255,255,.02); color: var(--muted); text-transform: capitalize; font-size: 10px; padding: 0 10px; }.filterGroup button + button { margin-left: -1px; }.filterGroup button:hover, .filterGroup button:focus-visible, .filterGroup button.activeFilter, .questFilters button.activeFilter { z-index: 1; color: var(--cyan-bright); border-color: rgba(155,231,226,.58); background: rgba(155,231,226,.1); }.filterGroup button.activeFilter { box-shadow: inset 0 0 0 1px rgba(155,231,226,.1), 0 0 10px rgba(155,231,226,.08); }.filterGroup button:focus-visible { outline: 1px solid var(--cyan); outline-offset: 2px; }
 .selectFilter { display: grid; gap: 4px; }.selectFilter select { height: 27px; min-width: 125px; border: 1px solid var(--line); background: #101c24; color: var(--muted); font-size: 10px; padding: 0 7px; }.resultCount { margin-left: auto; color: var(--muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .itemGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 8px; }
+.itemGrid .itemCard { content-visibility: auto; contain-intrinsic-size: auto 104px; }
 .collectionSections { display: grid; gap: 22px; }
 .collectionSection { display: grid; gap: 9px; }
 .collectionSection > header { min-height: 54px; display: flex; align-items: end; justify-content: space-between; gap: 20px; padding: 9px 12px; border: 1px solid var(--line); border-left: 3px solid var(--cyan); background: linear-gradient(90deg, rgba(155,231,226,.07), rgba(5,13,19,.68) 44%); }
@@ -115,3 +116,15 @@
 .xurCardArt img{width:min(74px,62%);height:min(74px,70%);object-fit:contain;object-position:center;filter:drop-shadow(0 8px 12px rgba(0,0,0,.35))}
 @media(max-width:1400px){.xurSection>.xurStoreGrid{grid-template-columns:repeat(auto-fill,minmax(158px,1fr))}}
 @media(prefers-reduced-motion:reduce){.xurCard{transition:none}.xurCard:hover,.xurCard:focus-within{transform:none}}
+
+/* Keep long inventory and pursuit pages cheap without changing their visual layout. */
+.questGridCard{content-visibility:auto;contain-intrinsic-size:auto 205px}
+.questCard{content-visibility:auto;contain-intrinsic-size:auto 164px}
+.compactPursuit{content-visibility:auto;contain-intrinsic-size:auto 62px}
+.xurCard{content-visibility:auto;contain-intrinsic-size:auto 260px}
+
+/* Dense comparison text stays readable at the 1280px desktop target. */
+.matrixRoster>header small,.matrixRoster>div>button small{font-size:10px}
+.matrixRoster>div>button span,.matrixGuardians span{font-size:9px}
+.matrixTable thead th,.matrixCell{font-size:10px}
+.matrixTable tbody th span{font-size:9px}

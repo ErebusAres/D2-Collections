@@ -527,22 +527,29 @@ export async function loadManifest(env: Env): Promise<CompactManifest> {
 
 export async function loadQuestManifest(env: Env): Promise<CompactManifest> {
   if (questManifestCache && questManifestCache.expiresAt > Date.now()) return questManifestCache.value;
-  const base = await loadManifest(env);
   try {
-    const response = await fetch(env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "pursuit-manifest.json"), { cf: { cacheTtl: 300, cacheEverything: true } });
+    const [activity, response] = await Promise.all([
+      loadActivityManifest(env),
+      fetch(env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "pursuit-manifest.json"), { cf: { cacheTtl: 300, cacheEverything: true } })
+    ]);
     if (!response.ok) throw new Error(`Pursuit manifest returned ${response.status}.`);
     const overlay = await response.json() as any;
-    if (overlay?.version !== base.version) throw new Error("Pursuit manifest version does not match.");
+    if (!overlay?.version || overlay.version !== activity.version) throw new Error("Pursuit and activity manifest versions do not match.");
     const value: CompactManifest = {
-      ...base,
-      itemDefinitions: { ...base.itemDefinitions, ...(overlay.itemDefinitions || {}) },
-      objectiveDefinitions: { ...base.objectiveDefinitions, ...(overlay.objectiveDefinitions || {}) }
+      version: overlay.version,
+      generatedAt: overlay.generatedAt || activity.generatedAt,
+      items: overlay.items || [],
+      itemDefinitions: overlay.itemDefinitions || {},
+      objectiveDefinitions: overlay.objectiveDefinitions || {},
+      activityDefinitions: activity.activityDefinitions || {},
+      recordDefinitions: {}
     };
     questManifestCache = { value, expiresAt: Date.now() + 300_000 };
     return value;
   } catch {
-    questManifestCache = { value: base, expiresAt: Date.now() + 60_000 };
-    return base;
+    const fallback = await loadManifest(env);
+    questManifestCache = { value: fallback, expiresAt: Date.now() + 60_000 };
+    return fallback;
   }
 }
 
