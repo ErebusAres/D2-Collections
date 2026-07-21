@@ -42,24 +42,7 @@ export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManif
     overlayImage: "",
     presentationNodeHash: ""
   });
-  const maximumRank = lastDefinedRank.rankNumber
-    ? Math.max(nonNegative(manifest.maximumRank), lastDefinedRank.rankNumber + 1)
-    : nonNegative(manifest.maximumRank);
-  if (maximumRank > lastDefinedRank.rankNumber) {
-    ranks.push({
-      rankHash: `terminal-${maximumRank}`,
-      rankNumber: maximumRank,
-      name: "Maximum",
-      description: `Rank ${maximumRank} is the highest achievable Guardian Rank. No additional objectives are required after reaching it.`,
-      icon: "/icons/destiny/guardian-rank-12.svg",
-      foregroundImage: imageUrl(lastDefinedRank.foregroundImage),
-      overlayImage: imageUrl(lastDefinedRank.overlayImage),
-      state: tierState(maximumRank, currentRank),
-      completed: 0,
-      total: 0,
-      categories: []
-    });
-  }
+  const maximumRank = lastDefinedRank.rankNumber || nonNegative(manifest.maximumRank);
   const currentTier = ranks.find((rank) => rank.rankNumber === currentRank);
   const suggestedRank = currentTier?.rankNumber
     ?? ranks.find((rank) => rank.rankNumber === currentRank + 1)?.rankNumber
