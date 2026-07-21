@@ -16,11 +16,29 @@ vi.mock("../services/api/client", () => ({ api: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("Guardian Rank page", () => {
+  it("keeps rank 7 selected while showing its progress toward rank 8", async () => {
+    const response = envelope();
+    response.data.currentRank = 7;
+    response.data.renewedRank = 7;
+    response.data.suggestedRank = 7;
+    response.data.ranks[0]!.state = "previous";
+    response.data.ranks[1]!.state = "current";
+    response.data.ranks[2]!.state = "next";
+    vi.mocked(api).mockResolvedValue(response);
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Elite" })).toBeTruthy();
+    expect(screen.getByText("Current rank · objectives unlock rank 8")).toBeTruthy();
+    expect(screen.getByText("Progress to rank 8")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View rank 7: Elite" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
   it("opens on the current rank quests, keeps future ranks available, and saves tracked objectives", async () => {
     vi.mocked(api).mockResolvedValue(envelope());
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: "7 · Elite" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Veteran" })).toBeTruthy();
     expect(screen.getByText("Current / renewed rank")).toBeTruthy();
     expect(screen.getByText("Rank selector starts here")).toBeTruthy();
     expect(screen.getByText("Highest rank achieved")).toBeTruthy();
@@ -33,17 +51,17 @@ describe("Guardian Rank page", () => {
     expect(previousRank.textContent).not.toContain("6");
 
     fireEvent.click(screen.getByRole("button", { name: "View rank 7: Elite" }));
-    expect(await screen.findByRole("heading", { name: "8 · Justiciar" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Elite" })).toBeTruthy();
     expect(screen.getByText("Progress to rank 8")).toBeTruthy();
     expect(screen.getByText("4 / 10")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Track Service" }));
     expect(setPreference).toHaveBeenCalledWith("guardianRank.tracked", JSON.stringify(["record7"]));
 
     fireEvent.click(previousRank);
-    expect(await screen.findByRole("heading", { name: "7 · Elite" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Veteran" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "View rank 8: Justiciar" }));
-    expect(await screen.findByRole("heading", { name: "Requirements for Rank 9" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Justiciar" })).toBeTruthy();
     expect(screen.getByTestId("selected-rank-artwork").querySelector("img")?.getAttribute("src")).toBe("/eight.png");
     expect(screen.getByText("Progress to rank 9")).toBeTruthy();
   });

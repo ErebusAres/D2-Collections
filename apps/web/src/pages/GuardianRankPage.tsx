@@ -28,8 +28,6 @@ export function GuardianRankPage() {
   }, [data, selectedRankNumber]);
   const tracked = useMemo(() => parseTracked(preferences["guardianRank.tracked"]), [preferences]);
   const selectedRank = data?.ranks.find((rank) => rank.rankNumber === selectedRankNumber) || data?.ranks.find((rank) => rank.rankNumber === data.suggestedRank);
-  const unlockRankNumber = selectedRank ? Math.min(selectedRank.rankNumber + 1, data?.maximumRank || selectedRank.rankNumber + 1) : undefined;
-  const unlockRank = data?.ranks.find((rank) => rank.rankNumber === unlockRankNumber);
   const visibleCategories = useMemo(() => selectedRank?.categories.map((category) => ({
     ...category,
     quests: category.quests.filter((quest) => {
@@ -85,12 +83,12 @@ export function GuardianRankPage() {
       {selectedRank && <section className={styles.rankWorkspace}>
         <header className={styles.rankHero}>
           <div className={styles.rankArtwork} data-testid="selected-rank-artwork">
-            <RankEmblem rank={unlockRank || selectedRank} />
+            <RankEmblem rank={selectedRank} />
           </div>
           <div>
             <span>{rankEyebrow(selectedRank, data.currentRank, data.maximumRank)}</span>
-            <h2>{unlockRank ? `${unlockRank.rankNumber} · ${unlockRank.name}` : `Requirements for Rank ${unlockRankNumber}`}</h2>
-            <p>{unlockRank?.description || `Complete the objectives below to advance from rank ${selectedRank.rankNumber} to rank ${unlockRankNumber}.`}</p>
+            <h2>{selectedRank.name}</h2>
+            <p>{selectedRank.description}</p>
           </div>
           <RankCompletion rank={selectedRank} currentRank={data.currentRank} maximumRank={data.maximumRank} />
         </header>
