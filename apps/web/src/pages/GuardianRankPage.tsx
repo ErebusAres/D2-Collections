@@ -39,9 +39,7 @@ export function GuardianRankPage() {
       return textMatch && filterMatch;
     })
   })).filter((category) => category.quests.length) || [], [filter, search, selectedRank, tracked]);
-  const currentRank = data?.ranks.find((rank) => rank.rankNumber === data.currentRank);
-  const highestAchievedRank = data?.ranks.find((rank) => rank.rankNumber === data.highestAchievedRank);
-  const lifetimeHighestRank = data?.ranks.find((rank) => rank.rankNumber === data.lifetimeHighestRank);
+  const nextRank = data?.ranks.find((rank) => rank.rankNumber === data.currentRank + 1);
 
   const toggleTracked = (recordHash: string) => {
     const next = new Set(tracked);
@@ -59,9 +57,12 @@ export function GuardianRankPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.overview}>
-        <RankSummary label="Current / renewed rank" rank={currentRank} detail="Your active seasonal journey" emphasis />
-        <RankSummary label="Highest rank achieved" rank={highestAchievedRank} detail="Bungie's displayed rank for this season" />
-        {data.lifetimeHighestRank !== data.highestAchievedRank && <RankSummary label="Lifetime highest" rank={lifetimeHighestRank} detail="Historical best · never decreases" />}
+        <div className={styles.currentMedallion}><ShieldCheck /><span>Current / renewed rank</span><strong>{data.currentRank}</strong></div>
+        <div><span>Current journey</span><strong>{data.ranks.find((rank) => rank.rankNumber === data.currentRank)?.name || "Unavailable"}</strong><small>Seasonal renewedGuardianRank</small></div>
+        <div><span>Next rank</span><strong>{nextRank ? `${nextRank.rankNumber} · ${nextRank.name}` : `${data.maximumRank} · Maximum`}</strong><small>{nextRank?.rankNumber === data.maximumRank ? `Highest achievable rank · no objectives beyond ${data.maximumRank}` : nextRank?.total ? `${nextRank.completed}/${nextRank.total} objectives complete` : "Maximum Guardian Rank achieved"}</small></div>
+        <div><span>Highest rank achieved</span><strong>{data.highestAchievedRank}</strong><small>Bungie's displayed rank for this season</small></div>
+        <div><span>Lifetime highest</span><strong>{data.lifetimeHighestRank}</strong><small>Historical best · never decreases</small></div>
+        <div><span>Site tracked</span><strong>{tracked.size}</strong><small>Saved to your Guardian Nexus profile</small></div>
       </section>
 
       <section className={styles.rankRail} aria-label="Guardian Rank history">
@@ -74,14 +75,15 @@ export function GuardianRankPage() {
         >
           <RankEmblem rank={rank} />
           <small>{rank.name}</small>
-          <em>{rank.state === "previous" ? <><Check /> Previous</> : rank.state === "current" ? "Current" : rank.state === "next" ? "Rank up" : <><LockKeyhole /> Future</>}</em>
+          <em>{rank.state === "previous" ? <><Check /> Previous</> : rank.state === "current" ? "Current" : rank.state === "next" ? "Upcoming" : <><LockKeyhole /> Future</>}</em>
         </button>)}
       </section>
 
       {selectedRank && <section className={styles.rankWorkspace}>
         <header className={styles.rankHero}>
-          <div className={styles.rankArtwork} style={{ "--rank-art": selectedRank.foregroundImage ? `url(${selectedRank.foregroundImage})` : "none" } as React.CSSProperties}>
+          <div className={styles.rankArtwork} data-testid="selected-rank-artwork">
             <RankEmblem rank={selectedRank} />
+            <strong data-testid="selected-rank-badge">{selectedRank.rankNumber}</strong>
           </div>
           <div>
             <span>{rankEyebrow(selectedRank, data.currentRank, data.maximumRank)}</span>
@@ -104,18 +106,9 @@ export function GuardianRankPage() {
           <div>{category.quests.map((quest) => <QuestCard key={quest.recordHash} quest={quest} tracked={tracked.has(quest.recordHash)} onTrack={() => toggleTracked(quest.recordHash)} />)}</div>
         </section>)}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
       </section>}
-      <footer className={styles.sourceNote}>Current journey progress uses renewedGuardianRank when Bungie returns it. Highest achieved uses currentGuardianRank, and lifetime highest remains separate. Objective names and hierarchy come from Bungie's Guardian Rank manifest nodes; completion and counters come from live profile records. Missing record rows are shown as unavailable, not estimated.</footer>
+      <footer className={styles.sourceNote}>Current journey progress uses renewedGuardianRank when Bungie returns it. Each objective-backed rank shows the quests completed from that rank to unlock the next; rank {data.maximumRank} is terminal. Objective names and hierarchy come from Bungie's Guardian Rank manifest nodes, while completion and counters come from live profile records. Missing record rows are shown as unavailable, not estimated.</footer>
     </>}
   </AuthGate>;
-}
-
-function RankSummary({ label, rank, detail, emphasis = false }: { label: string; rank?: GuardianRankTier; detail: string; emphasis?: boolean }) {
-  return <div className={`${styles.rankSummary} ${emphasis ? styles.currentSummary : ""}`}>
-    {rank ? <RankEmblem rank={rank} /> : <span className={styles.rankEmblem} aria-hidden="true"><ShieldCheck /></span>}
-    <span>{label}</span>
-    <strong>{rank?.name || "Unavailable"}</strong>
-    <small>{detail}</small>
-  </div>;
 }
 
 function RankEmblem({ rank }: { rank: GuardianRankTier }) {
@@ -143,15 +136,15 @@ function RankCompletion({ rank, currentRank, maximumRank }: { rank: GuardianRank
     return <div className={styles.rankCompletion}><span>Rank ceiling</span><strong>{achieved ? "Maximum achieved" : `Rank ${maximumRank}`}</strong><i><span style={{ width: achieved ? "100%" : "0%" }} /></i><small>{achieved ? "Complete" : "No further objectives"}</small></div>;
   }
   const percent = rank.total ? Math.round((rank.completed / rank.total) * 100) : rank.state === "previous" || rank.state === "current" ? 100 : 0;
-  return <div className={styles.rankCompletion}><span>Objective completion</span><strong>{rank.completed} / {rank.total}</strong><i><span style={{ width: `${percent}%` }} /></i><small>{percent}%</small></div>;
+  return <div className={styles.rankCompletion}><span>Progress to rank {Math.min(rank.rankNumber + 1, maximumRank)}</span><strong>{rank.completed} / {rank.total}</strong><i><span style={{ width: `${percent}%` }} /></i><small>{percent}%</small></div>;
 }
 
 function rankEyebrow(rank: GuardianRankTier, currentRank: number, maximumRank: number): string {
   if (rank.rankNumber === maximumRank) return currentRank >= maximumRank ? "Maximum Guardian Rank achieved" : "Highest achievable Guardian Rank";
-  if (rank.rankNumber < currentRank) return "Previous rank · completed journey";
-  if (rank.rankNumber === currentRank) return "Current Guardian Rank";
-  if (rank.rankNumber === currentRank + 1) return "Objectives required to rank up";
-  return "Future Guardian Rank";
+  const unlocks = Math.min(rank.rankNumber + 1, maximumRank);
+  if (rank.rankNumber < currentRank) return `Previous rank · unlocked rank ${unlocks}`;
+  if (rank.rankNumber === currentRank) return `Current rank · objectives unlock rank ${unlocks}`;
+  return `Future rank · objectives unlock rank ${unlocks}`;
 }
 
 function parseTracked(value?: string): Set<string> {

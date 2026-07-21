@@ -16,24 +16,35 @@ vi.mock("../services/api/client", () => ({ api: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("Guardian Rank page", () => {
-  it("opens on the next rank, keeps previous ranks available, and saves tracked objectives", async () => {
+  it("opens on the current rank quests, keeps future ranks available, and saves tracked objectives", async () => {
     vi.mocked(api).mockResolvedValue(envelope());
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: "Elite" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Veteran" })).toBeTruthy();
     expect(screen.getByText("Current / renewed rank")).toBeTruthy();
     expect(screen.getByText("Highest rank achieved")).toBeTruthy();
     expect(screen.getByRole("button", { name: "View rank 12: Maximum" })).toBeTruthy();
-    expect(screen.getByText("4 / 10")).toBeTruthy();
+    expect(screen.getByText("Site tracked")).toBeTruthy();
+    expect(screen.getByText("Progress to rank 7")).toBeTruthy();
+    expect(screen.getByText("Ascension")).toBeTruthy();
     const previousRank = screen.getByRole("button", { name: "View rank 6: Veteran" });
     expect(previousRank.textContent).not.toContain("6");
-    expect(screen.getByText("Highest rank achieved").closest("div")?.textContent).not.toContain("8");
+    expect(screen.getByTestId("selected-rank-badge").textContent).toBe("6");
+
+    fireEvent.click(screen.getByRole("button", { name: "View rank 7: Elite" }));
+    expect(await screen.findByRole("heading", { name: "Elite" })).toBeTruthy();
+    expect(screen.getByText("Progress to rank 8")).toBeTruthy();
+    expect(screen.getByText("4 / 10")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Track Service" }));
     expect(setPreference).toHaveBeenCalledWith("guardianRank.tracked", JSON.stringify(["record7"]));
 
     fireEvent.click(previousRank);
     expect(await screen.findByRole("heading", { name: "Veteran" })).toBeTruthy();
-    expect(screen.getByText("Ascension")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "View rank 12: Maximum" }));
+    expect(await screen.findByRole("heading", { name: "Maximum" })).toBeTruthy();
+    expect(screen.getByTestId("selected-rank-artwork").textContent).toBe("1212");
+    expect(screen.getByTestId("selected-rank-artwork").getAttribute("style")).toBeNull();
   });
 });
 
@@ -48,7 +59,7 @@ function envelope() {
     highestAchievedRank: 8,
     lifetimeHighestRank: 8,
     maximumRank: 12,
-    suggestedRank: 7,
+    suggestedRank: 6,
     ranks: [
       { rankHash: "6", rankNumber: 6, name: "Veteran", description: "Current rank", icon: "/six.png", foregroundImage: "", overlayImage: "", state: "current", completed: 1, total: 1, categories: [{ nodeHash: "cat6", name: "Power", description: "", icon: "", seasonal: false, completed: 1, total: 1, quests: [{ recordHash: "record6", name: "Ascension", description: "Reach the target.", icon: "", state: "completed", trackedInDestiny: false, objectives: [{ objectiveHash: "objective6", name: "Reach Power", progress: 1, completionValue: 1, percent: 100, complete: true, progressAvailable: true }] }] }] },
       { rankHash: "7", rankNumber: 7, name: "Elite", description: "Next rank", icon: "/seven.png", foregroundImage: "", overlayImage: "", state: "next", completed: 0, total: 1, categories: [{ nodeHash: "cat7", name: "Journey", description: "", icon: "", seasonal: false, completed: 0, total: 1, quests: [{ recordHash: "record7", name: "Service", description: "Complete activities.", icon: "", state: "in-progress", trackedInDestiny: false, objectives: [{ objectiveHash: "objective7", name: "Activities", progress: 4, completionValue: 10, percent: 40, complete: false, progressAvailable: true }] }] }] },

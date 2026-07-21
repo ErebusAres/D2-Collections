@@ -36,7 +36,7 @@ describe("normalizeGuardianRanks", () => {
     };
 
     const data = normalizeGuardianRanks(profile, manifest, "c1");
-    expect(data).toMatchObject({ currentRank: 6, renewedRank: 6, highestAchievedRank: 8, lifetimeHighestRank: 8, maximumRank: 8, suggestedRank: 7 });
+    expect(data).toMatchObject({ currentRank: 6, renewedRank: 6, highestAchievedRank: 8, lifetimeHighestRank: 8, maximumRank: 8, suggestedRank: 6 });
     expect(data.ranks[0]).toMatchObject({ state: "current", completed: 1, total: 1 });
     expect(data.ranks[1]).toMatchObject({ state: "next", completed: 0, total: 1 });
     expect(data.ranks[2]).toMatchObject({ rankNumber: 8, name: "Maximum", state: "future", total: 0, categories: [] });
@@ -48,7 +48,7 @@ describe("normalizeGuardianRanks", () => {
     expect(data.ranks[1]?.categories[0]?.quests[0]).toMatchObject({ state: "unavailable", objectives: [{ progress: 0, progressAvailable: false }] });
   });
 
-  it("keeps the final objective-backed rank selected until terminal rank progress is complete", () => {
+  it("keeps the current objective-backed rank selected until the next rank is unlocked", () => {
     const data = normalizeGuardianRanks({ profile: { data: { currentGuardianRank: 8, renewedGuardianRank: 7, lifetimeHighestGuardianRank: 8 } } }, manifest, "c1");
 
     expect(data).toMatchObject({ currentRank: 7, highestAchievedRank: 8, maximumRank: 8, suggestedRank: 7 });

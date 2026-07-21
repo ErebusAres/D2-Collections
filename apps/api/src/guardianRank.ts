@@ -61,11 +61,8 @@ export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManif
     });
   }
   const currentTier = ranks.find((rank) => rank.rankNumber === currentRank);
-  const nextTier = ranks.find((rank) => rank.rankNumber === currentRank + 1);
-  const suggestedRank = nextTier?.rankNumber === maximumRank && currentTier?.total
-    ? currentTier.rankNumber
-    : nextTier?.rankNumber
-    ?? ranks.find((rank) => rank.rankNumber === currentRank)?.rankNumber
+  const suggestedRank = currentTier?.rankNumber
+    ?? ranks.find((rank) => rank.rankNumber === currentRank + 1)?.rankNumber
     ?? ranks[0]?.rankNumber
     ?? currentRank;
 
