@@ -42,10 +42,13 @@ export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManif
     overlayImage: "",
     presentationNodeHash: ""
   });
-  const maximumRank = lastDefinedRank.rankNumber || nonNegative(manifest.maximumRank);
+  const maximumRank = lastDefinedRank.rankNumber
+    ? Math.max(nonNegative(manifest.maximumRank), lastDefinedRank.rankNumber + 1)
+    : nonNegative(manifest.maximumRank);
   const currentTier = ranks.find((rank) => rank.rankNumber === currentRank);
   const suggestedRank = currentTier?.rankNumber
     ?? ranks.find((rank) => rank.rankNumber === currentRank + 1)?.rankNumber
+    ?? [...ranks].reverse().find((rank) => rank.rankNumber <= currentRank)?.rankNumber
     ?? ranks[0]?.rankNumber
     ?? currentRank;
 

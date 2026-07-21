@@ -59,7 +59,7 @@ export function GuardianRankPage() {
       <section className={styles.overview}>
         <div className={styles.currentMedallion}><ShieldCheck /><span>Current / renewed rank</span><strong>{data.currentRank}</strong></div>
         <div><span>Current journey</span><strong>{data.ranks.find((rank) => rank.rankNumber === data.currentRank)?.name || "Unavailable"}</strong><small>Seasonal renewedGuardianRank</small></div>
-        <div><span>Next rank</span><strong>{nextRank ? `${nextRank.rankNumber} · ${nextRank.name}` : `${data.maximumRank} · Maximum`}</strong><small>{nextRank?.rankNumber === data.maximumRank ? `Highest achievable rank · no objectives beyond ${data.maximumRank}` : nextRank?.total ? `${nextRank.completed}/${nextRank.total} objectives complete` : "Maximum Guardian Rank achieved"}</small></div>
+        <div><span>Next rank</span><strong>{nextRank ? `${nextRank.rankNumber} · ${nextRank.name}` : `${data.maximumRank} · Maximum`}</strong><small>{nextRank?.rankNumber === data.maximumRank ? `Highest achievable rank · no objectives beyond ${data.maximumRank}` : nextRank?.total ? `${nextRank.completed}/${nextRank.total} objectives complete` : data.currentRank < data.maximumRank ? `Complete rank ${data.currentRank} objectives to reach ${data.maximumRank}` : "Maximum Guardian Rank achieved"}</small></div>
         <div><span>Highest rank achieved</span><strong>{data.highestAchievedRank}</strong><small>Bungie's displayed rank for this season</small></div>
         <div><span>Lifetime highest</span><strong>{data.lifetimeHighestRank}</strong><small>Historical best · never decreases</small></div>
         <div><span>Site tracked</span><strong>{tracked.size}</strong><small>Saved to your Guardian Nexus profile</small></div>

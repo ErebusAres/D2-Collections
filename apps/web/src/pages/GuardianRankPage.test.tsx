@@ -44,6 +44,7 @@ describe("Guardian Rank page", () => {
     fireEvent.click(screen.getByRole("button", { name: "View rank 8: Justiciar" }));
     expect(await screen.findByRole("heading", { name: "Justiciar" })).toBeTruthy();
     expect(screen.getByTestId("selected-rank-artwork").querySelector("img")?.getAttribute("src")).toBe("/eight.png");
+    expect(screen.getByText("Progress to rank 9")).toBeTruthy();
   });
 });
 
@@ -57,7 +58,7 @@ function envelope() {
     renewedRank: 6,
     highestAchievedRank: 8,
     lifetimeHighestRank: 8,
-    maximumRank: 8,
+    maximumRank: 9,
     suggestedRank: 6,
     ranks: [
       { rankHash: "6", rankNumber: 6, name: "Veteran", description: "Current rank", icon: "/six.png", foregroundImage: "", overlayImage: "", state: "current", completed: 1, total: 1, categories: [{ nodeHash: "cat6", name: "Power", description: "", icon: "", seasonal: false, completed: 1, total: 1, quests: [{ recordHash: "record6", name: "Ascension", description: "Reach the target.", icon: "", state: "completed", trackedInDestiny: false, objectives: [{ objectiveHash: "objective6", name: "Reach Power", progress: 1, completionValue: 1, percent: 100, complete: true, progressAvailable: true }] }] }] },
