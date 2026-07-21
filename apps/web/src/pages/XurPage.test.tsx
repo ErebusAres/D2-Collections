@@ -1,6 +1,6 @@
 import type { XurOffer } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { storefrontSections } from "./XurPage";
+import { storefrontSections, xurInventoryPresentation } from "./XurPage";
 
 function offer(name: string, category: XurOffer["category"], overrides: Partial<XurOffer> = {}): XurOffer {
   return {
@@ -47,5 +47,19 @@ describe("storefrontSections", () => {
     expect(sections).toHaveLength(1);
     expect(sections[0]?.title).toBe("Exotic weapons");
     expect(sections[0]?.items[0]?.name).toBe("Xenology");
+  });
+});
+
+describe("Xur inventory presentation", () => {
+  it("labels preserved offers as the last shipment after Xur leaves", () => {
+    expect(xurInventoryPresentation({ state: "away", inventoryStatus: "last-shipment", offers: [offer("Hawkmoon", "exotic-weapon")] }, false)).toEqual({
+      lastShipment: true,
+      locationLabel: "Last known location",
+      signalLabel: "Last shipment"
+    });
+  });
+
+  it("keeps an active storefront labeled as live", () => {
+    expect(xurInventoryPresentation({ state: "available", inventoryStatus: "live", offers: [offer("Hawkmoon", "exotic-weapon")] }, true).signalLabel).toBe("Inventory live");
   });
 });

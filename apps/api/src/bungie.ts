@@ -143,22 +143,28 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
     }
     const enabledStorefronts = storefronts.filter(({ response }) => Boolean(response?.vendor?.data?.enabled));
     const enabled = enabledStorefronts.length > 0;
-    const sales = enabledStorefronts.flatMap(({ vendorHash, response }) => Object.entries(response?.sales?.data || {}).map(([saleIndex, sale]) => ({
+    const salesFor = (sources: typeof storefronts) => sources.flatMap(({ vendorHash, response }) => Object.entries(response?.sales?.data || {}).map(([saleIndex, sale]) => ({
       vendorHash,
       saleIndex: String(saleIndex),
       sale: sale as any,
       response
     })));
+    const liveSales = salesFor(enabledStorefronts);
+    // Bungie can leave the departed vendor's most recent sales readable while
+    // marking the storefront disabled. Detail requests retain those offers as
+    // historical inventory; collection availability only uses liveSales.
+    const sales = includeDetails ? salesFor(storefronts) : liveSales;
     const itemHashes = enabled
-      ? [...new Set(sales.map(({ sale }) => String(sale?.itemHash || "")).filter(Boolean))]
+      ? [...new Set(liveSales.map(({ sale }) => String(sale?.itemHash || "")).filter(Boolean))]
       : [];
     let offers: any[] | undefined;
-    if (enabled && includeDetails) {
+    if (sales.length > 0 && includeDetails) {
+      const offeredItemHashes = [...new Set(sales.map(({ sale }) => String(sale?.itemHash || "")).filter(Boolean))];
       const socketHashes = sales.flatMap(({ saleIndex, response }) => (response?.itemComponents?.sockets?.data?.[saleIndex]?.sockets || [])
         .filter((socket: any) => socket?.isVisible !== false && socket?.isEnabled !== false)
         .map((socket: any) => String(socket?.plugHash || "")).filter(Boolean));
       const costHashes = sales.flatMap(({ sale }) => (sale?.costs || []).map((cost: any) => String(cost?.itemHash || "")).filter(Boolean));
-      const definitions = await companionItemDefinitionsFor(env, [...new Set([...itemHashes, ...socketHashes, ...costHashes])]);
+      const definitions = await companionItemDefinitionsFor(env, [...new Set([...offeredItemHashes, ...socketHashes, ...costHashes])]);
       const classes = ["Titan", "Hunter", "Warlock"] as const;
       offers = sales.flatMap(({ vendorHash, saleIndex, sale, response }) => {
         const hash = String(sale?.itemHash || "");

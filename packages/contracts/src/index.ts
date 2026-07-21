@@ -856,7 +856,9 @@ export interface XurOffer {
 
 export interface XurData {
   state: "available" | "away" | "unavailable";
+  inventoryStatus?: "live" | "last-shipment";
   checkedAt: string;
+  inventoryCapturedAt?: string;
   nextRefreshAt?: string;
   offers: XurOffer[];
 }

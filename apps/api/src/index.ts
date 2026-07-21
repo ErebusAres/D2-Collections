@@ -47,6 +47,7 @@ import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recor
 import { normalizePvpData, normalizePvpProgressions } from "./pvp";
 import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizePower, powerItemHashes } from "./power";
+import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -375,7 +376,20 @@ async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<
   const characters = uniqueXurCharacters(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   if (!characters.length) return envelope<XurData>({ state: "unavailable", checkedAt: new Date().toISOString(), offers: [] }, env, context, { warnings: ["Xûr inventory requires a selected character."] });
   const inventory = mergeXurInventories(await xurInventoriesForCharacters(row, characters.map((character) => character.characterId), env, accessToken, true));
-  return envelope<XurData>({ state: inventory.state, checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: inventory.offers || [] }, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
+  const observedOffers = inventory.offers || [];
+  if (observedOffers.length > 0) {
+    const observedData: XurData = inventory.state === "available"
+      ? { state: "available", inventoryStatus: "live", checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers }
+      : { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers };
+    await saveLatestXurShipment(env, observedData);
+    return envelope<XurData>(observedData, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
+  }
+  const previous = await readLatestXurShipment(env);
+  const liveData: XurData = { state: inventory.state, checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: [] };
+  const data: XurData = previous
+    ? { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: previous.capturedAt, nextRefreshAt: inventory.nextRefreshAt, offers: previous.offers }
+    : liveData;
+  return envelope<XurData>(data, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
 }
 
 function uniqueXurCharacters(characters: ReturnType<typeof charactersFromProfile>, requestedCharacterId?: string) {

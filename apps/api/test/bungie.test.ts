@@ -67,6 +67,40 @@ describe("xurInventoryFor", () => {
       expect.stringContaining("/Vendors/3751514131/?components=304,305,400,401,402")
     ]));
   });
+
+  it("retains readable sales as historical offers when the vendor is disabled", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("companion-manifest.json")) return Promise.resolve(new Response(JSON.stringify({
+        version: "xur-history-test",
+        itemDefinitionChunks: [],
+        itemDefinitions: {
+          987654: {
+            displayProperties: { name: "Hawkmoon", description: "A remembered roll", icon: "/hawkmoon.png" },
+            inventory: { tierTypeName: "Exotic" },
+            itemType: 3,
+            itemTypeDisplayName: "Hand Cannon",
+            equipmentSlot: "Kinetic Weapons",
+            classType: 3
+          }
+        }
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      const sales = url.includes("2190858386") ? { 0: { itemHash: 987654 } } : {};
+      return Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: { vendor: { data: { enabled: false } }, sales: { data: sales } } }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    }));
+
+    const result = await xurInventoryFor(
+      { membership_type: 3, membership_id: "departed-member" } as SessionRow,
+      "departed-character",
+      { BUNGIE_API_KEY: "test", GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env,
+      "access",
+      true
+    );
+
+    expect(result.state).toBe("away");
+    expect(result.itemHashes).toEqual([]);
+    expect(result.offers).toEqual([expect.objectContaining({ itemHash: "987654", name: "Hawkmoon", category: "exotic-weapon" })]);
+  });
 });
 
 describe("xurCategoryFor", () => {
