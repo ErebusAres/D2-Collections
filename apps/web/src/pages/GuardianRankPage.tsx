@@ -28,6 +28,8 @@ export function GuardianRankPage() {
   }, [data, selectedRankNumber]);
   const tracked = useMemo(() => parseTracked(preferences["guardianRank.tracked"]), [preferences]);
   const selectedRank = data?.ranks.find((rank) => rank.rankNumber === selectedRankNumber) || data?.ranks.find((rank) => rank.rankNumber === data.suggestedRank);
+  const unlockRankNumber = selectedRank ? Math.min(selectedRank.rankNumber + 1, data?.maximumRank || selectedRank.rankNumber + 1) : undefined;
+  const unlockRank = data?.ranks.find((rank) => rank.rankNumber === unlockRankNumber);
   const visibleCategories = useMemo(() => selectedRank?.categories.map((category) => ({
     ...category,
     quests: category.quests.filter((quest) => {
@@ -58,8 +60,8 @@ export function GuardianRankPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.overview}>
-        <div className={styles.currentMedallion}><ShieldCheck /><span>Current Guardian Rank</span><strong>{data.currentRank}</strong></div>
-        <div><span>Current journey</span><strong>{currentRankTier?.name || "Unavailable"}</strong><small>Renewal floor: rank {data.renewedRank}</small></div>
+        <div className={styles.currentMedallion}><ShieldCheck /><span>Current / renewed rank</span><strong>{data.currentRank}</strong></div>
+        <div><span>Current journey</span><strong>{currentRankTier?.name || "Unavailable"}</strong><small>Rank selector starts here</small></div>
         <div><span>Next rank</span><strong>{nextRank ? `${nextRank.rankNumber} · ${nextRank.name}` : `${data.maximumRank} · Maximum`}</strong><small>{data.currentRank >= data.maximumRank ? "Maximum Guardian Rank achieved" : currentRankTier?.total ? `${currentRankTier.completed}/${currentRankTier.total} requirements complete` : `Complete rank ${data.currentRank} requirements to unlock rank ${Math.min(data.currentRank + 1, data.maximumRank)}`}</small></div>
         <div><span>Highest rank achieved</span><strong>{data.highestAchievedRank}</strong><small>Bungie's displayed rank for this season</small></div>
         <div><span>Lifetime highest</span><strong>{data.lifetimeHighestRank}</strong><small>Historical best · never decreases</small></div>
@@ -83,12 +85,12 @@ export function GuardianRankPage() {
       {selectedRank && <section className={styles.rankWorkspace}>
         <header className={styles.rankHero}>
           <div className={styles.rankArtwork} data-testid="selected-rank-artwork">
-            <RankEmblem rank={selectedRank} />
+            <RankEmblem rank={unlockRank || selectedRank} />
           </div>
           <div>
             <span>{rankEyebrow(selectedRank, data.currentRank, data.maximumRank)}</span>
-            <h2>{selectedRank.name}</h2>
-            <p>{selectedRank.description}</p>
+            <h2>{unlockRank ? `${unlockRank.rankNumber} · ${unlockRank.name}` : `Requirements for Rank ${unlockRankNumber}`}</h2>
+            <p>{unlockRank?.description || `Complete the objectives below to advance from rank ${selectedRank.rankNumber} to rank ${unlockRankNumber}.`}</p>
           </div>
           <RankCompletion rank={selectedRank} currentRank={data.currentRank} maximumRank={data.maximumRank} />
         </header>
@@ -106,7 +108,7 @@ export function GuardianRankPage() {
           <div>{category.quests.map((quest) => <QuestCard key={quest.recordHash} quest={quest} tracked={tracked.has(quest.recordHash)} onTrack={() => toggleTracked(quest.recordHash)} />)}</div>
         </section>)}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
       </section>}
-      <footer className={styles.sourceNote}>Current journey progress uses Bungie's currentGuardianRank. The seasonal renewal floor is shown separately. Each objective-backed rank shows the requirements completed from that rank to unlock the next; rank {data.maximumRank} is terminal. Objective names and hierarchy come from Bungie's Guardian Rank manifest nodes, while completion and counters come from live profile records. Missing record rows are shown as unavailable, not estimated.</footer>
+      <footer className={styles.sourceNote}>The rank selector starts at Bungie's renewed Guardian Rank when available, while the historical displayed and lifetime-highest ranks remain separate. Selecting a rank shows the requirements to unlock the following rank; rank {data.maximumRank} is terminal. Objective names and hierarchy come from Bungie's Guardian Rank manifest nodes, while completion and counters come from live profile records. Missing record rows are shown as unavailable, not estimated.</footer>
     </>}
   </AuthGate>;
 }

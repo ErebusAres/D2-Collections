@@ -3,8 +3,8 @@ import { imageUrl } from "@guardian-nexus/domain";
 
 export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManifest, characterId: string): GuardianRankData {
   const profileData = profile?.profile?.data || {};
-  const currentRank = nonNegative(profileData.currentGuardianRank)
-    || nonNegative(profileData.renewedGuardianRank)
+  const currentRank = nonNegative(profileData.renewedGuardianRank)
+    || nonNegative(profileData.currentGuardianRank)
     || nonNegative(profileData.lifetimeHighestGuardianRank);
   const highestAchievedRank = nonNegative(profileData.currentGuardianRank) || currentRank;
   const renewedRank = nonNegative(profileData.renewedGuardianRank) || currentRank;

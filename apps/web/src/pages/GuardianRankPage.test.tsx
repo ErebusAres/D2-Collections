@@ -20,9 +20,9 @@ describe("Guardian Rank page", () => {
     vi.mocked(api).mockResolvedValue(envelope());
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: "Veteran" })).toBeTruthy();
-    expect(screen.getByText("Current Guardian Rank")).toBeTruthy();
-    expect(screen.getByText("Renewal floor: rank 6")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "7 · Elite" })).toBeTruthy();
+    expect(screen.getByText("Current / renewed rank")).toBeTruthy();
+    expect(screen.getByText("Rank selector starts here")).toBeTruthy();
     expect(screen.getByText("Highest rank achieved")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /View rank 12/ })).toBeNull();
     expect(screen.getByRole("button", { name: "View rank 8: Justiciar" })).toBeTruthy();
@@ -33,17 +33,17 @@ describe("Guardian Rank page", () => {
     expect(previousRank.textContent).not.toContain("6");
 
     fireEvent.click(screen.getByRole("button", { name: "View rank 7: Elite" }));
-    expect(await screen.findByRole("heading", { name: "Elite" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "8 · Justiciar" })).toBeTruthy();
     expect(screen.getByText("Progress to rank 8")).toBeTruthy();
     expect(screen.getByText("4 / 10")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Track Service" }));
     expect(setPreference).toHaveBeenCalledWith("guardianRank.tracked", JSON.stringify(["record7"]));
 
     fireEvent.click(previousRank);
-    expect(await screen.findByRole("heading", { name: "Veteran" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "7 · Elite" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "View rank 8: Justiciar" }));
-    expect(await screen.findByRole("heading", { name: "Justiciar" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Requirements for Rank 9" })).toBeTruthy();
     expect(screen.getByTestId("selected-rank-artwork").querySelector("img")?.getAttribute("src")).toBe("/eight.png");
     expect(screen.getByText("Progress to rank 9")).toBeTruthy();
   });
