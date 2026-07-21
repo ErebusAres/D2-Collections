@@ -95,7 +95,9 @@ export interface GuardianRankTier {
 export interface GuardianRankData {
   currentRank: number;
   renewedRank: number;
+  highestAchievedRank: number;
   lifetimeHighestRank: number;
+  maximumRank: number;
   suggestedRank: number;
   ranks: GuardianRankTier[];
   sources: {
@@ -1158,6 +1160,7 @@ export interface GuardianRankManifest {
   version: string;
   generatedAt: string;
   rootNodeHash: string;
+  maximumRank: number;
   ranks: Array<{
     hash: string;
     rankNumber: number;

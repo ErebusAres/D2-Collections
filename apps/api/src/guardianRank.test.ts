@@ -6,6 +6,7 @@ const manifest: GuardianRankManifest = {
   version: "test",
   generatedAt: "now",
   rootNodeHash: "root",
+  maximumRank: 8,
   ranks: [
     { hash: "6", rankNumber: 6, name: "Veteran", description: "Rank six", icon: "/six.png", foregroundImage: "", overlayImage: "", presentationNodeHash: "rank6" },
     { hash: "7", rankNumber: 7, name: "Elite", description: "Rank seven", icon: "/seven.png", foregroundImage: "", overlayImage: "", presentationNodeHash: "rank7" }
@@ -27,22 +28,31 @@ const manifest: GuardianRankManifest = {
 };
 
 describe("normalizeGuardianRanks", () => {
-  it("uses the API rank and live profile/character record objectives without estimating progress", () => {
+  it("uses renewed progress separately from the displayed highest rank without estimating objectives", () => {
     const profile = {
-      profile: { data: { currentGuardianRank: 6, renewedGuardianRank: 5, lifetimeHighestGuardianRank: 8 } },
+      profile: { data: { currentGuardianRank: 8, renewedGuardianRank: 6, lifetimeHighestGuardianRank: 8 } },
       profileRecords: { data: { trackedRecordHash: 100, records: { record6: { state: 1, objectives: [{ objectiveHash: "objective6", progress: 1, completionValue: 1, complete: true }] } } } },
       characterRecords: { data: { c1: { trackedRecordHash: "record7", records: { record7: { state: 4, objectives: [{ objectiveHash: "objective7", progress: 4, completionValue: 10, complete: false }] } } } } }
     };
 
     const data = normalizeGuardianRanks(profile, manifest, "c1");
-    expect(data).toMatchObject({ currentRank: 6, renewedRank: 5, lifetimeHighestRank: 8, suggestedRank: 7 });
+    expect(data).toMatchObject({ currentRank: 6, renewedRank: 6, highestAchievedRank: 8, lifetimeHighestRank: 8, maximumRank: 8, suggestedRank: 7 });
     expect(data.ranks[0]).toMatchObject({ state: "current", completed: 1, total: 1 });
     expect(data.ranks[1]).toMatchObject({ state: "next", completed: 0, total: 1 });
+    expect(data.ranks[2]).toMatchObject({ rankNumber: 8, name: "Maximum", state: "future", total: 0, categories: [] });
     expect(data.ranks[1]?.categories[0]?.quests[0]).toMatchObject({ state: "in-progress", trackedInDestiny: true, objectives: [{ progress: 4, completionValue: 10, percent: 40, progressAvailable: true }] });
   });
 
   it("marks missing live rows unavailable instead of inventing completion", () => {
     const data = normalizeGuardianRanks({ profile: { data: { currentGuardianRank: 6 } } }, manifest, "c1");
     expect(data.ranks[1]?.categories[0]?.quests[0]).toMatchObject({ state: "unavailable", objectives: [{ progress: 0, progressAvailable: false }] });
+  });
+
+  it("keeps the final objective-backed rank selected until terminal rank progress is complete", () => {
+    const data = normalizeGuardianRanks({ profile: { data: { currentGuardianRank: 8, renewedGuardianRank: 7, lifetimeHighestGuardianRank: 8 } } }, manifest, "c1");
+
+    expect(data).toMatchObject({ currentRank: 7, highestAchievedRank: 8, maximumRank: 8, suggestedRank: 7 });
+    expect(data.ranks[1]).toMatchObject({ rankNumber: 7, state: "current", total: 1 });
+    expect(data.ranks[2]).toMatchObject({ rankNumber: 8, state: "next", total: 0 });
   });
 });

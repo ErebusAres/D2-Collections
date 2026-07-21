@@ -37,6 +37,7 @@ class BuildCatalogClassificationTests(unittest.TestCase):
         )
 
         self.assertEqual([rank["rankNumber"] for rank in compact["ranks"]], [1, 2])
+        self.assertEqual(compact["maximumRank"], 3)
         self.assertEqual(compact["nodes"]["102"]["childNodeHashes"], ["103"])
         self.assertEqual(compact["nodes"]["103"]["recordHashes"], ["203"])
         self.assertEqual(compact["records"]["203"]["objectiveHashes"], ["301"])

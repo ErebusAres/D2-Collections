@@ -107,7 +107,7 @@ export function normalizeGuardian(args: {
     characters,
     stats: {
       power: selected?.power || 0,
-      guardianRank: Number(profileData.currentGuardianRank || profileData.renewedGuardianRank || profileData.lifetimeHighestGuardianRank || 0),
+      guardianRank: Number(profileData.renewedGuardianRank || profileData.currentGuardianRank || profileData.lifetimeHighestGuardianRank || 0),
       crucibleRank: args.crucibleRank,
       rewardsPassRank: args.rewardsPass.rank,
       rewardsPassProgress: args.rewardsPass.progress,

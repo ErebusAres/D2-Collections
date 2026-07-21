@@ -566,7 +566,7 @@ export async function loadGuardianRankManifest(env: Env): Promise<GuardianRankMa
     guardianRankManifestCache = { value, expiresAt: Date.now() + 300_000 };
     return value;
   } catch {
-    return { version: "unavailable", generatedAt: new Date().toISOString(), rootNodeHash: "", ranks: [], nodes: {}, records: {}, objectives: {} };
+    return { version: "unavailable", generatedAt: new Date().toISOString(), rootNodeHash: "", maximumRank: 0, ranks: [], nodes: {}, records: {}, objectives: {} };
   }
 }
 

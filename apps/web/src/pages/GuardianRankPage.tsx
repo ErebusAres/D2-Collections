@@ -57,10 +57,11 @@ export function GuardianRankPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.overview}>
-        <div className={styles.currentMedallion}><ShieldCheck /><span>Current rank</span><strong>{data.currentRank}</strong></div>
-        <div><span>Current title</span><strong>{data.ranks.find((rank) => rank.rankNumber === data.currentRank)?.name || "Unavailable"}</strong><small>Bungie currentGuardianRank</small></div>
-        <div><span>Next rank</span><strong>{nextRank ? `${nextRank.rankNumber} · ${nextRank.name}` : "Maximum"}</strong><small>{nextRank?.total ? `${nextRank.completed}/${nextRank.total} objectives complete` : "No additional rank returned"}</small></div>
-        <div><span>Lifetime highest</span><strong>{data.lifetimeHighestRank}</strong><small>Renewed rank {data.renewedRank}</small></div>
+        <div className={styles.currentMedallion}><ShieldCheck /><span>Current / renewed rank</span><strong>{data.currentRank}</strong></div>
+        <div><span>Current journey</span><strong>{data.ranks.find((rank) => rank.rankNumber === data.currentRank)?.name || "Unavailable"}</strong><small>Seasonal renewedGuardianRank</small></div>
+        <div><span>Next rank</span><strong>{nextRank ? `${nextRank.rankNumber} · ${nextRank.name}` : `${data.maximumRank} · Maximum`}</strong><small>{nextRank?.rankNumber === data.maximumRank ? `Highest achievable rank · no objectives beyond ${data.maximumRank}` : nextRank?.total ? `${nextRank.completed}/${nextRank.total} objectives complete` : "Maximum Guardian Rank achieved"}</small></div>
+        <div><span>Highest rank achieved</span><strong>{data.highestAchievedRank}</strong><small>Bungie's displayed rank for this season</small></div>
+        <div><span>Lifetime highest</span><strong>{data.lifetimeHighestRank}</strong><small>Historical best · never decreases</small></div>
         <div><span>Site tracked</span><strong>{tracked.size}</strong><small>Saved to your Guardian Nexus profile</small></div>
       </section>
 
@@ -86,11 +87,11 @@ export function GuardianRankPage() {
             <strong>{selectedRank.rankNumber}</strong>
           </div>
           <div>
-            <span>{rankEyebrow(selectedRank, data.currentRank)}</span>
+            <span>{rankEyebrow(selectedRank, data.currentRank, data.maximumRank)}</span>
             <h2>{selectedRank.name}</h2>
             <p>{selectedRank.description}</p>
           </div>
-          <RankCompletion rank={selectedRank} />
+          <RankCompletion rank={selectedRank} currentRank={data.currentRank} maximumRank={data.maximumRank} />
         </header>
 
         <div className={styles.commandBar}>
@@ -104,9 +105,9 @@ export function GuardianRankPage() {
           <header><div>{category.icon ? <img src={category.icon} alt="" /> : <Sparkles />}</div><span><small>{category.seasonal ? "Seasonal objectives" : "Rank objectives"}</small><h3>{category.name}</h3></span><strong>{category.completed}/{category.total}</strong></header>
           {category.description && <p>{category.description}</p>}
           <div>{category.quests.map((quest) => <QuestCard key={quest.recordHash} quest={quest} tracked={tracked.has(quest.recordHash)} onTrack={() => toggleTracked(quest.recordHash)} />)}</div>
-        </section>)}</div> : <section className={styles.empty}><History /><h2>No objectives match this view</h2><p>{selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
+        </section>)}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
       </section>}
-      <footer className={styles.sourceNote}>Rank numbers come directly from DestinyProfileComponent. Objective names and hierarchy come from Bungie's Guardian Rank manifest nodes; completion and counters come from live profile records. Missing record rows are shown as unavailable, not estimated.</footer>
+      <footer className={styles.sourceNote}>Current journey progress uses renewedGuardianRank when Bungie returns it. Highest achieved uses currentGuardianRank, and lifetime highest remains separate. Objective names and hierarchy come from Bungie's Guardian Rank manifest nodes; completion and counters come from live profile records. Missing record rows are shown as unavailable, not estimated.</footer>
     </>}
   </AuthGate>;
 }
@@ -124,12 +125,17 @@ function QuestCard({ quest, tracked, onTrack }: { quest: GuardianRankQuest; trac
   </article>;
 }
 
-function RankCompletion({ rank }: { rank: GuardianRankTier }) {
+function RankCompletion({ rank, currentRank, maximumRank }: { rank: GuardianRankTier; currentRank: number; maximumRank: number }) {
+  if (rank.rankNumber === maximumRank) {
+    const achieved = currentRank >= maximumRank;
+    return <div className={styles.rankCompletion}><span>Rank ceiling</span><strong>{achieved ? "Maximum achieved" : `Rank ${maximumRank}`}</strong><i><span style={{ width: achieved ? "100%" : "0%" }} /></i><small>{achieved ? "Complete" : "No further objectives"}</small></div>;
+  }
   const percent = rank.total ? Math.round((rank.completed / rank.total) * 100) : rank.state === "previous" || rank.state === "current" ? 100 : 0;
   return <div className={styles.rankCompletion}><span>Objective completion</span><strong>{rank.completed} / {rank.total}</strong><i><span style={{ width: `${percent}%` }} /></i><small>{percent}%</small></div>;
 }
 
-function rankEyebrow(rank: GuardianRankTier, currentRank: number): string {
+function rankEyebrow(rank: GuardianRankTier, currentRank: number, maximumRank: number): string {
+  if (rank.rankNumber === maximumRank) return currentRank >= maximumRank ? "Maximum Guardian Rank achieved" : "Highest achievable Guardian Rank";
   if (rank.rankNumber < currentRank) return "Previous rank · completed journey";
   if (rank.rankNumber === currentRank) return "Current Guardian Rank";
   if (rank.rankNumber === currentRank + 1) return "Objectives required to rank up";

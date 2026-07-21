@@ -3,9 +3,10 @@ import { imageUrl } from "@guardian-nexus/domain";
 
 export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManifest, characterId: string): GuardianRankData {
   const profileData = profile?.profile?.data || {};
-  const currentRank = nonNegative(profileData.currentGuardianRank ?? profileData.renewedGuardianRank ?? profileData.lifetimeHighestGuardianRank);
-  const renewedRank = nonNegative(profileData.renewedGuardianRank ?? currentRank);
-  const lifetimeHighestRank = nonNegative(profileData.lifetimeHighestGuardianRank ?? currentRank);
+  const highestAchievedRank = nonNegative(profileData.currentGuardianRank ?? profileData.renewedGuardianRank ?? profileData.lifetimeHighestGuardianRank);
+  const renewedRank = nonNegative(profileData.renewedGuardianRank) || highestAchievedRank;
+  const currentRank = renewedRank;
+  const lifetimeHighestRank = nonNegative(profileData.lifetimeHighestGuardianRank) || highestAchievedRank;
   const tracked = new Set([
     String(profile?.profileRecords?.data?.trackedRecordHash || ""),
     String(profile?.characterRecords?.data?.[characterId]?.trackedRecordHash || "")
@@ -31,7 +32,39 @@ export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManif
       categories
     };
   });
-  const suggestedRank = ranks.find((rank) => rank.rankNumber === currentRank + 1)?.rankNumber
+  const lastDefinedRank = manifest.ranks.reduce((highest, rank) => rank.rankNumber > highest.rankNumber ? rank : highest, manifest.ranks[0] || {
+    hash: "",
+    rankNumber: 0,
+    name: "",
+    description: "",
+    icon: "",
+    foregroundImage: "",
+    overlayImage: "",
+    presentationNodeHash: ""
+  });
+  const maximumRank = lastDefinedRank.rankNumber
+    ? Math.max(nonNegative(manifest.maximumRank), lastDefinedRank.rankNumber + 1)
+    : nonNegative(manifest.maximumRank);
+  if (maximumRank > lastDefinedRank.rankNumber) {
+    ranks.push({
+      rankHash: `terminal-${maximumRank}`,
+      rankNumber: maximumRank,
+      name: "Maximum",
+      description: `Rank ${maximumRank} is the highest achievable Guardian Rank. No additional objectives are required after reaching it.`,
+      icon: "",
+      foregroundImage: imageUrl(lastDefinedRank.foregroundImage),
+      overlayImage: imageUrl(lastDefinedRank.overlayImage),
+      state: tierState(maximumRank, currentRank),
+      completed: 0,
+      total: 0,
+      categories: []
+    });
+  }
+  const currentTier = ranks.find((rank) => rank.rankNumber === currentRank);
+  const nextTier = ranks.find((rank) => rank.rankNumber === currentRank + 1);
+  const suggestedRank = nextTier?.rankNumber === maximumRank && currentTier?.total
+    ? currentTier.rankNumber
+    : nextTier?.rankNumber
     ?? ranks.find((rank) => rank.rankNumber === currentRank)?.rankNumber
     ?? ranks[0]?.rankNumber
     ?? currentRank;
@@ -39,7 +72,9 @@ export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManif
   return {
     currentRank,
     renewedRank,
+    highestAchievedRank,
     lifetimeHighestRank,
+    maximumRank,
     suggestedRank,
     ranks,
     sources: {

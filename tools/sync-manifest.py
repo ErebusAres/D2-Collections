@@ -226,6 +226,10 @@ def guardian_rank_manifest(constants: dict[str, dict], ranks: dict[str, dict], n
         "version": version,
         "generatedAt": generated_at,
         "rootNodeHash": str(constant.get("rootNodeHash") or ""),
+        "maximumRank": max(
+            [int(constant.get("rankCount") or 0), *[int(rank.get("rankNumber") or 0) for rank in ordered_ranks]],
+            default=0,
+        ) + 1,
         "ranks": [{
             "hash": str(rank.get("hash") or ""),
             "rankNumber": int(rank.get("rankNumber") or 0),
