@@ -23,6 +23,7 @@ ACTIVITY_OUTPUT = OUTPUT.with_name("activity-manifest.json")
 FEATURE_OUTPUT = OUTPUT.with_name("collection-features.json")
 PURSUIT_OUTPUT = OUTPUT.with_name("pursuit-manifest.json")
 REWARDS_OUTPUT = OUTPUT.with_name("rewards-manifest.json")
+GUARDIAN_RANK_OUTPUT = OUTPUT.with_name("guardian-rank-manifest.json")
 COMPANION_OUTPUT = OUTPUT.with_name("companion-manifest.json")
 REWARD_CODE_OUTPUT = OUTPUT.with_name("reward-code-manifest.json")
 BUILD_CATALOG_OUTPUT = OUTPUT.with_name("build-catalog.json")
@@ -141,6 +142,101 @@ def minimal_reward_item(definition: dict) -> dict:
         "hash": str(definition.get("hash", "")),
         "displayProperties": display(definition),
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
+    }
+
+
+def guardian_rank_manifest(constants: dict[str, dict], ranks: dict[str, dict], nodes: dict[str, dict], records: dict[str, dict], objectives: dict[str, dict], version: str, generated_at: str) -> dict:
+    constant = max(constants.values(), key=lambda value: int(value.get("rankCount") or 0), default={})
+    ordered_hashes = [str(value) for value in constant.get("guardianRankHashes") or []]
+    ordered_ranks = [ranks[value] for value in ordered_hashes if value in ranks]
+    if not ordered_ranks:
+        ordered_ranks = sorted(ranks.values(), key=lambda value: int(value.get("rankNumber") or 0))
+
+    node_hashes: set[str] = set()
+    record_hashes: set[str] = set()
+    pending = [str(constant.get("rootNodeHash") or ""), *[str(value.get("presentationNodeHash") or "") for value in ordered_ranks]]
+    while pending:
+        node_hash = pending.pop()
+        if not node_hash or node_hash in node_hashes or node_hash not in nodes:
+            continue
+        node_hashes.add(node_hash)
+        node = nodes[node_hash]
+        children = node.get("children") or {}
+        child_nodes = [str(value.get("presentationNodeHash") or "") for value in children.get("presentationNodes") or []]
+        child_records = [str(value.get("recordHash") or "") for value in children.get("records") or []]
+        pending.extend(value for value in child_nodes if value)
+        record_hashes.update(value for value in child_records if value)
+        completion_hash = str(node.get("completionRecordHash") or "")
+        if completion_hash:
+            record_hashes.add(completion_hash)
+
+    objective_hashes = {
+        str(value)
+        for record_hash in record_hashes
+        for value in (records.get(record_hash, {}).get("objectiveHashes") or [])
+    }
+
+    def properties(definition: dict) -> dict:
+        value = definition.get("displayProperties") or {}
+        return {
+            "name": str(value.get("name") or ""),
+            "description": str(value.get("description") or ""),
+            "icon": str(value.get("icon") or ""),
+        }
+
+    compact_nodes = {}
+    for node_hash in node_hashes:
+        node = nodes[node_hash]
+        children = node.get("children") or {}
+        compact_nodes[node_hash] = {
+            "hash": node_hash,
+            **properties(node),
+            "seasonal": bool(node.get("isSeasonal")),
+            **({"completionRecordHash": str(node.get("completionRecordHash"))} if node.get("completionRecordHash") else {}),
+            "childNodeHashes": [str(value.get("presentationNodeHash")) for value in children.get("presentationNodes") or [] if value.get("presentationNodeHash")],
+            "recordHashes": [str(value.get("recordHash")) for value in children.get("records") or [] if value.get("recordHash")],
+        }
+
+    compact_records = {}
+    for record_hash in record_hashes:
+        record = records.get(record_hash)
+        if not record:
+            continue
+        compact_records[record_hash] = {
+            "hash": record_hash,
+            **properties(record),
+            "scope": int(record.get("scope") or 0),
+            "objectiveHashes": [str(value) for value in record.get("objectiveHashes") or []],
+        }
+
+    compact_objectives = {}
+    for objective_hash in objective_hashes:
+        objective = objectives.get(objective_hash)
+        if not objective:
+            continue
+        objective_properties = properties(objective)
+        compact_objectives[objective_hash] = {
+            "hash": objective_hash,
+            "name": str(objective.get("progressDescription") or objective_properties["name"]),
+            "description": objective_properties["description"],
+            "completionValue": int(objective.get("completionValue") or 0),
+        }
+
+    return {
+        "version": version,
+        "generatedAt": generated_at,
+        "rootNodeHash": str(constant.get("rootNodeHash") or ""),
+        "ranks": [{
+            "hash": str(rank.get("hash") or ""),
+            "rankNumber": int(rank.get("rankNumber") or 0),
+            **properties(rank),
+            "foregroundImage": str(rank.get("foregroundImagePath") or ""),
+            "overlayImage": str(rank.get("overlayImagePath") or ""),
+            "presentationNodeHash": str(rank.get("presentationNodeHash") or ""),
+        } for rank in ordered_ranks],
+        "nodes": compact_nodes,
+        "records": compact_records,
+        "objectives": compact_objectives,
     }
 
 
@@ -937,6 +1033,9 @@ def main() -> None:
             loadout_names = table_rows(connection, "DestinyLoadoutNameDefinition")
             loadout_icons = table_rows(connection, "DestinyLoadoutIconDefinition")
             loadout_colors = table_rows(connection, "DestinyLoadoutColorDefinition")
+            guardian_rank_constants = table_rows(connection, "DestinyGuardianRankConstantsDefinition")
+            guardian_ranks = table_rows(connection, "DestinyGuardianRankDefinition")
+            presentation_nodes = table_rows(connection, "DestinyPresentationNodeDefinition")
 
     generated_at = datetime.now(timezone.utc).isoformat()
     reward_code_compact = reward_code_manifest(reward_code_catalog, inventory, version, generated_at)
@@ -1154,6 +1253,15 @@ def main() -> None:
             if key in inventory and not inventory[key].get("redacted")
         },
     }
+    guardian_rank_compact = guardian_rank_manifest(
+        guardian_rank_constants,
+        guardian_ranks,
+        presentation_nodes,
+        records,
+        objectives,
+        version,
+        compact["generatedAt"],
+    )
     activity_compact = {
         "version": version,
         "generatedAt": compact["generatedAt"],
@@ -1169,10 +1277,11 @@ def main() -> None:
     FEATURE_OUTPUT.write_text(json.dumps(feature_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     PURSUIT_OUTPUT.write_text(json.dumps(pursuit_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     REWARDS_OUTPUT.write_text(json.dumps(rewards_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    GUARDIAN_RANK_OUTPUT.write_text(json.dumps(guardian_rank_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     REWARD_CODE_OUTPUT.write_text(json.dumps(reward_code_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     write_build_catalog_files(build_catalog_compact)
     resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
-    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(build_catalog_compact['entries'])} Build Builder definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, {len(pvp_progressions)} PvP progressions, {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings, and {len(companion_items)} companion item definitions for manifest {version}.")
+    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(build_catalog_compact['entries'])} Build Builder definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, {len(pvp_progressions)} PvP progressions, {len(guardian_rank_compact['ranks'])} Guardian Ranks, {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings, and {len(companion_items)} companion item definitions for manifest {version}.")
 
 
 if __name__ == "__main__":

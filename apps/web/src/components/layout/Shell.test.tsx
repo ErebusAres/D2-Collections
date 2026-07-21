@@ -64,8 +64,10 @@ describe("Shell guardian identity", () => {
     expect(container.querySelector("[style]")?.getAttribute("style")).toContain("--guardian-banner: url(/banner.svg)");
     expect(screen.getByLabelText("Reward Codes: 0 · Open").getAttribute("href")).toBe("/codes");
     expect(screen.getByLabelText("Crucible Rank: 7 · Brave II · Open").getAttribute("href")).toBe("/pvp");
+    expect(screen.getByLabelText("Light Level: 409 · Open").getAttribute("href")).toBe("/power");
+    expect(screen.getByLabelText("Guardian Rank: 5 · Open").getAttribute("href")).toBe("/guardian-rank");
     const statLabels = [...screen.getByLabelText("Guardian stats").children].map((entry) => entry.getAttribute("aria-label"));
-    expect(statLabels.slice(1, 4)).toEqual(["Guardian Rank: 5", "Crucible Rank: 7 · Brave II · Open", "Rewards Pass: 33 · Open"]);
+    expect(statLabels.slice(1, 4)).toEqual(["Guardian Rank: 5 · Open", "Crucible Rank: 7 · Brave II · Open", "Rewards Pass: 33 · Open"]);
   });
 
   it("uses the live rewards rank when the session snapshot is stale", async () => {

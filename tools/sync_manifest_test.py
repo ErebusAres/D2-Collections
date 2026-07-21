@@ -13,6 +13,35 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_guardian_rank_manifest_follows_rank_nodes_to_categories_and_records(self) -> None:
+        compact = SYNC_MANIFEST.guardian_rank_manifest(
+            {"1": {"rankCount": 2, "guardianRankHashes": [1, 2], "rootNodeHash": 100}},
+            {
+                "1": {"hash": 1, "rankNumber": 1, "presentationNodeHash": 101, "displayProperties": {"name": "New Light"}},
+                "2": {"hash": 2, "rankNumber": 2, "presentationNodeHash": 102, "displayProperties": {"name": "Explorer"}},
+            },
+            {
+                "100": {"hash": 100, "children": {"presentationNodes": [{"presentationNodeHash": 101}, {"presentationNodeHash": 102}]}},
+                "101": {"hash": 101, "completionRecordHash": 201, "children": {}},
+                "102": {"hash": 102, "completionRecordHash": 202, "children": {"presentationNodes": [{"presentationNodeHash": 103}]}},
+                "103": {"hash": 103, "isSeasonal": True, "displayProperties": {"name": "Ranking Up"}, "children": {"records": [{"recordHash": 203}]}},
+            },
+            {
+                "201": {"hash": 201, "objectiveHashes": []},
+                "202": {"hash": 202, "objectiveHashes": []},
+                "203": {"hash": 203, "scope": 1, "objectiveHashes": [301], "displayProperties": {"name": "The Vanguard"}},
+            },
+            {"301": {"hash": 301, "progressDescription": "Complete the introduction", "completionValue": 1}},
+            "test",
+            "now",
+        )
+
+        self.assertEqual([rank["rankNumber"] for rank in compact["ranks"]], [1, 2])
+        self.assertEqual(compact["nodes"]["102"]["childNodeHashes"], ["103"])
+        self.assertEqual(compact["nodes"]["103"]["recordHashes"], ["203"])
+        self.assertEqual(compact["records"]["203"]["objectiveHashes"], ["301"])
+        self.assertEqual(compact["objectives"]["301"]["name"], "Complete the introduction")
+
     def test_pvp_progressions_are_classified_from_manifest_and_faction_text(self) -> None:
         factions = {
             "10": {"displayProperties": {"name": "Crucible", "description": "Earn reputation with Lord Shaxx."}},

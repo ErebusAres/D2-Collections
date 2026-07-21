@@ -43,6 +43,116 @@ export interface HeaderStats {
   mailboxCount: number;
 }
 
+export type GuardianRankQuestState = "completed" | "in-progress" | "not-started" | "unavailable";
+export type GuardianRankTierState = "previous" | "current" | "next" | "future";
+
+export interface GuardianRankQuestObjective {
+  objectiveHash: string;
+  name: string;
+  progress: number;
+  completionValue: number;
+  percent: number;
+  complete: boolean;
+  progressAvailable: boolean;
+}
+
+export interface GuardianRankQuest {
+  recordHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  state: GuardianRankQuestState;
+  stateFlags?: number;
+  trackedInDestiny: boolean;
+  objectives: GuardianRankQuestObjective[];
+}
+
+export interface GuardianRankCategory {
+  nodeHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  seasonal: boolean;
+  completed: number;
+  total: number;
+  quests: GuardianRankQuest[];
+}
+
+export interface GuardianRankTier {
+  rankHash: string;
+  rankNumber: number;
+  name: string;
+  description: string;
+  icon: string;
+  foregroundImage: string;
+  overlayImage: string;
+  state: GuardianRankTierState;
+  completed: number;
+  total: number;
+  categories: GuardianRankCategory[];
+}
+
+export interface GuardianRankData {
+  currentRank: number;
+  renewedRank: number;
+  lifetimeHighestRank: number;
+  suggestedRank: number;
+  ranks: GuardianRankTier[];
+  sources: {
+    ranks: "DestinyProfileComponent and DestinyGuardianRankDefinition";
+    objectives: "DestinyPresentationNodeDefinition, DestinyRecordDefinition, and profile records (component 900)";
+  };
+}
+
+export type PowerSlotKind = "kinetic" | "energy" | "power" | "helmet" | "gauntlets" | "chest" | "legs" | "class-item";
+export type PowerItemLocation = "vault" | "inventory" | "equipped";
+
+export interface PowerItem {
+  instanceId: string;
+  itemHash: string;
+  name: string;
+  icon: string;
+  power: number;
+  slot: PowerSlotKind;
+  location: PowerItemLocation;
+  ownerCharacterId?: string;
+}
+
+export interface PowerSlot {
+  kind: PowerSlotKind;
+  label: string;
+  power: number;
+  deficit: number;
+  lowest: boolean;
+  item?: PowerItem;
+  vaultBest?: PowerItem;
+}
+
+export interface CharacterPowerCeiling {
+  characterId: string;
+  className: GuardianClass;
+  emblemPath: string;
+  emblemBackgroundPath: string;
+  currentPower: number;
+  maximumPower: number;
+  averagePower: number;
+  progressToNextPower: number;
+  lowestSlotPower: number;
+  slots: PowerSlot[];
+}
+
+export interface PowerData {
+  selectedCharacterId: string;
+  accountMaximumPower: number;
+  highestItemPower: number;
+  vaultHighestItemPower: number;
+  characters: CharacterPowerCeiling[];
+  sources: {
+    items: "Destiny2.GetProfile inventories, equipment, and item instances";
+    definitions: "DestinyInventoryItemDefinition manifest data";
+  };
+}
+
 export interface RewardsPassProgress {
   state: "available" | "partial" | "unavailable";
   source: "bungie-profile-character-progressions";
@@ -609,6 +719,7 @@ export type UserPreferenceKey =
   | "collection.filters"
   | "quests.layout"
   | "quests.filters"
+  | "guardianRank.tracked"
   | "rewardCodes.filters"
   | "builds.filters"
   | "build.detail.layout"
@@ -1014,4 +1125,50 @@ export interface RewardsManifest {
   progressionDefinitions: Record<string, Record<string, unknown>>;
   pvpProgressionDefinitions?: Record<string, Record<string, unknown>>;
   itemDefinitions: Record<string, Record<string, unknown>>;
+}
+
+export interface GuardianRankManifestNode {
+  hash: string;
+  name: string;
+  description: string;
+  icon: string;
+  seasonal: boolean;
+  completionRecordHash?: string;
+  childNodeHashes: string[];
+  recordHashes: string[];
+}
+
+export interface GuardianRankManifestRecord {
+  hash: string;
+  name: string;
+  description: string;
+  icon: string;
+  scope: number;
+  objectiveHashes: string[];
+}
+
+export interface GuardianRankManifestObjective {
+  hash: string;
+  name: string;
+  description: string;
+  completionValue: number;
+}
+
+export interface GuardianRankManifest {
+  version: string;
+  generatedAt: string;
+  rootNodeHash: string;
+  ranks: Array<{
+    hash: string;
+    rankNumber: number;
+    name: string;
+    description: string;
+    icon: string;
+    foregroundImage: string;
+    overlayImage: string;
+    presentationNodeHash: string;
+  }>;
+  nodes: Record<string, GuardianRankManifestNode>;
+  records: Record<string, GuardianRankManifestRecord>;
+  objectives: Record<string, GuardianRankManifestObjective>;
 }

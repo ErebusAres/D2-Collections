@@ -10,6 +10,7 @@ import type {
   GearActionRequest,
   GearActionResult,
   GearData,
+  GuardianRankData,
   EquipLoadoutRequest,
   EquipLoadoutResult,
   LoadoutsData,
@@ -19,6 +20,7 @@ import type {
   MatrixData,
   MatrixSnapshot,
   PvpData,
+  PowerData,
   QuestData,
   RewardCodeStatusData,
   RewardsPassData,
@@ -29,7 +31,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -43,6 +45,8 @@ import { normalizeRewardCodeStatus } from "./rewardCodes";
 import { buildsRoute } from "./builds";
 import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
 import { normalizePvpData, normalizePvpProgressions } from "./pvp";
+import { normalizeGuardianRanks } from "./guardianRank";
+import { normalizePower, powerItemHashes } from "./power";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -69,7 +73,7 @@ const equipLoadoutSchema = z.object({ loadoutIndex: z.number().int().nonnegative
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
-  z.object({ key: z.enum(["gear.filters", "collection.filters", "quests.filters", "rewardCodes.filters", "builds.filters"]), value: z.string().max(4_000) }),
+  z.object({ key: z.enum(["gear.filters", "collection.filters", "quests.filters", "guardianRank.tracked", "rewardCodes.filters", "builds.filters"]), value: z.string().max(4_000) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion"]), value: z.enum(["true", "false"]) }),
@@ -127,6 +131,8 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/collection" && request.method === "GET") return collection(session.row, env, context);
   if (path === "/api/v1/me/xur" && request.method === "GET") return xur(session.row, env, context);
   if (path === "/api/v1/me/quests" && request.method === "GET") return quests(session.row, env, context);
+  if (path === "/api/v1/me/guardian-rank" && request.method === "GET") return guardianRank(session.row, env, context);
+  if (path === "/api/v1/me/power" && request.method === "GET") return power(session.row, env, context);
   if (path === "/api/v1/me/pvp" && request.method === "GET") return pvp(session.row, env, context);
   if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "GET") return rewardCodeStatus(session.row, env, context);
@@ -385,6 +391,32 @@ async function quests(row: SessionRow, env: Env, context: RequestContext): Promi
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const pinned = new Set((context.url.searchParams.get("pinned") || "").split(",").filter(Boolean));
   return envelope<QuestData>(normalizeQuests(profile, manifest, character.characterId, pinned), env, context, { sourceMintedAt: profile?.responseMintedTimestamp });
+}
+
+async function guardianRank(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const [{ profile }, manifest] = await Promise.all([profileFor(row, env, "guardian-rank"), loadGuardianRankManifest(env)]);
+  const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const data = normalizeGuardianRanks(profile, manifest, character.characterId);
+  const warnings = manifest.version === "unavailable" ? ["Current Guardian Rank definitions are unavailable from the deployed Bungie manifest."] : [];
+  return envelope<GuardianRankData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
+}
+
+async function power(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile } = await profileFor(row, env, "power");
+  const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  let definitions: Record<string, Record<string, unknown>> = {};
+  let warning: string | undefined;
+  try {
+    definitions = await companionItemDefinitionsFor(env, powerItemHashes(profile));
+  } catch {
+    warning = "Current item definitions are unavailable, so Power slot ceilings cannot be identified.";
+  }
+  return envelope<PowerData>(normalizePower(profile, definitions, character.characterId), env, context, {
+    sourceMintedAt: profile?.responseMintedTimestamp,
+    warnings: warning ? [warning] : []
+  });
 }
 
 async function pvp(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

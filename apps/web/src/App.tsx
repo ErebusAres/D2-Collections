@@ -16,6 +16,8 @@ import { RewardCodesPage } from "./pages/RewardCodesPage";
 import { XurPage } from "./pages/XurPage";
 import { AudiencePage } from "./pages/AudiencePage";
 import { PvpPage } from "./pages/PvpPage";
+import { GuardianRankPage } from "./pages/GuardianRankPage";
+import { PowerPage } from "./pages/PowerPage";
 
 const BuildsPage = lazy(() => import("./pages/BuildsPage").then((module) => ({ default: module.BuildsPage })));
 const BuildDetailPage = lazy(() => import("./pages/BuildDetailPage").then((module) => ({ default: module.BuildDetailPage })));
@@ -34,6 +36,8 @@ export function App() {
         <Route path="xur" element={<XurPage />} />
         <Route path="quests" element={<QuestsPage />} />
         <Route path="quests/:questId" element={<QuestDetailPage />} />
+        <Route path="guardian-rank" element={<GuardianRankPage />} />
+        <Route path="power" element={<PowerPage />} />
         <Route path="pvp" element={<PvpPage />} />
         <Route path="rewards" element={<RewardsPage />} />
         <Route path="codes" element={<RewardCodesPage />} />

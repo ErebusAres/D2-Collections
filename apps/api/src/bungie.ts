@@ -1,4 +1,4 @@
-import type { CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
+import type { CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, GuardianRankManifest, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 import { imageUrl } from "@guardian-nexus/domain";
@@ -10,6 +10,7 @@ let gearManifestCache: { value: GearManifest; expiresAt: number } | null = null;
 let activityManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let questManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let rewardsManifestCache: { value: RewardsManifest; expiresAt: number } | null = null;
+let guardianRankManifestCache: { value: GuardianRankManifest; expiresAt: number } | null = null;
 let rewardCodeManifestCache: { value: RewardCodeManifest; expiresAt: number } | null = null;
 let companionManifestCache: { value: CompanionManifest; expiresAt: number } | null = null;
 const companionDefinitionCache = new Map<string, { value: Record<string, unknown>; expiresAt: number }>();
@@ -363,7 +364,7 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export async function profileFor(row: SessionRow, env: Env, mode: "full" | "session" | "gear" | "mailbox" | "loadouts" | "collectibles" = "full"): Promise<{ profile: any; accessToken: string }> {
+export async function profileFor(row: SessionRow, env: Env, mode: "full" | "session" | "gear" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" = "full"): Promise<{ profile: any; accessToken: string }> {
   const accessToken = await accessTokenFor(row, env);
   const components = mode === "session"
     ? "100,200,201,202,204,1000"
@@ -373,6 +374,10 @@ export async function profileFor(row: SessionRow, env: Env, mode: "full" | "sess
         ? "100,102,200,201,205,206"
         : mode === "collectibles"
           ? "100,200,800"
+          : mode === "guardian-rank"
+            ? "100,200,900"
+            : mode === "power"
+              ? "100,102,103,104,200,201,205,300"
     : `100,102,103,104,200,201,202,204,205,300,301,304,305,307${mode === "gear" ? ",310" : ""},800,900,1000,1200`;
   const profile = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/?components=${components}`, env, accessToken);
   return { profile, accessToken };
@@ -427,7 +432,7 @@ export function xurCategoryFor(definition: any): XurOffer["category"] {
   return "other";
 }
 
-async function companionItemDefinitionsFor(env: Env, itemHashes: string[]): Promise<Record<string, Record<string, unknown>>> {
+export async function companionItemDefinitionsFor(env: Env, itemHashes: string[]): Promise<Record<string, Record<string, unknown>>> {
   const now = Date.now();
   const output: Record<string, Record<string, unknown>> = {};
   const missing = itemHashes.filter((hash) => {
@@ -547,6 +552,21 @@ export async function loadRewardsManifest(env: Env): Promise<RewardsManifest> {
     return value;
   } catch {
     return { version: "unavailable", generatedAt: new Date().toISOString(), seasonPassDefinitions: {}, progressionDefinitions: {}, itemDefinitions: {} };
+  }
+}
+
+export async function loadGuardianRankManifest(env: Env): Promise<GuardianRankManifest> {
+  if (guardianRankManifestCache && guardianRankManifestCache.expiresAt > Date.now()) return guardianRankManifestCache.value;
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "guardian-rank-manifest.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Guardian Rank manifest request returned ${response.status}.`);
+    const value = await response.json() as GuardianRankManifest;
+    if (!value?.version || !Array.isArray(value.ranks) || !value.nodes || !value.records || !value.objectives) throw new Error("Guardian Rank manifest artifact is invalid.");
+    guardianRankManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    return { version: "unavailable", generatedAt: new Date().toISOString(), rootNodeHash: "", ranks: [], nodes: {}, records: {}, objectives: {} };
   }
 }
 
