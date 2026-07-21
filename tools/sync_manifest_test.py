@@ -13,6 +13,22 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_quest_definitions_follow_the_official_inventory_bucket_after_type_changes(self) -> None:
+        self.assertTrue(SYNC_MANIFEST.is_quest_definition({"itemType": 12, "inventory": {}}))
+        self.assertTrue(SYNC_MANIFEST.is_quest_definition({"itemType": 26, "itemTypeDisplayName": "", "inventory": {"bucketTypeHash": 1345459588}}))
+        self.assertFalse(SYNC_MANIFEST.is_quest_definition({"itemType": 26, "itemTypeDisplayName": "Tower Order", "inventory": {"bucketTypeHash": 635141261}}))
+
+    def test_compact_pursuit_manifest_keeps_true_quests_and_temporary_orders(self) -> None:
+        definitions = SYNC_MANIFEST.compact_pursuit_definitions(
+            {"quest": {"hash": 1, "itemType": 12, "displayProperties": {"name": "Story Quest"}}},
+            {"order": {"hash": 2, "itemType": 26, "itemTypeDisplayName": "Tower Order", "displayProperties": {"name": "Daily Order"}}},
+            {"reward": {"hash": 3, "itemTypeDisplayName": "Currency", "displayProperties": {"name": "Reward"}}},
+        )
+
+        self.assertEqual(set(definitions), {"quest", "order", "reward"})
+        self.assertEqual(definitions["quest"]["itemType"], 12)
+        self.assertEqual(definitions["order"]["itemTypeDisplayName"], "Tower Order")
+
     def test_guardian_rank_manifest_follows_rank_nodes_to_categories_and_records(self) -> None:
         compact = SYNC_MANIFEST.guardian_rank_manifest(
             {"1": {"rankCount": 2, "guardianRankHashes": [1, 2], "rootNodeHash": 100}},

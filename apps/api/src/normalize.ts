@@ -13,6 +13,7 @@ import type {
 import { className, imageUrl, mergeCollection, objectivePercent, questPercent, questStepPosition, recommendQuests } from "@guardian-nexus/domain";
 
 const raceNames: Record<number, string> = { 0: "Human", 1: "Awoken", 2: "Exo" };
+export const QUEST_BUCKET_HASH = "1345459588";
 
 export function charactersFromProfile(profile: any): CharacterSummary[] {
   return Object.values(profile?.characters?.data || {}).map((character: any) => ({
@@ -241,7 +242,7 @@ function stepRequirement(definition: any, stepNumber: number): string {
 function stepDescription(definition: any): string { return String(definition?.setData?.questStepSummary || definition?.displayProperties?.description || "Bungie does not expose additional instructions for this step."); }
 
 export function normalizeQuests(profile: any, manifest: CompactManifest, characterId: string, pinnedIds = new Set<string>()): QuestData {
-  const inventory = profile?.characterInventories?.data?.[characterId]?.items || [];
+  const inventory = questInventoryItems(profile, characterId);
   const itemObjectives = profile?.itemComponents?.objectives?.data || {};
   const uninstancedObjectives = profile?.characterUninstancedItemComponents?.[characterId]?.objectives?.data || {};
   const currentActivity = activityName(profile, manifest, characterId);
@@ -250,7 +251,7 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
     const hash = String(item.itemHash || "");
     const definition = definitionFor(manifest, hash);
     const typeName = String(definition?.itemTypeDisplayName || definition?.itemTypeAndTierDisplayName || "");
-    if (Number(definition?.itemType) !== 12 && !/quest|mission|pursuit|bounty|order/i.test(typeName)) return [];
+    if (String(item?.bucketHash || "") !== QUEST_BUCKET_HASH && Number(definition?.itemType) !== 12 && !/quest|mission|pursuit|bounty|order/i.test(typeName)) return [];
     const instanceId = String(item.itemInstanceId || hash);
     // Bungie keys ordinary item objectives by instance ID, but many quest and
     // pursuit objectives are returned in the character-scoped uninstanced map
@@ -303,4 +304,20 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
     return [result];
   });
   return { quests, recommendations: recommendQuests(quests, { pinnedIds, currentActivity }), currentActivity };
+}
+
+export function questInventoryItems(profile: any, characterId: string): any[] {
+  const characterItems = Array.isArray(profile?.characterInventories?.data?.[characterId]?.items)
+    ? profile.characterInventories.data[characterId].items
+    : [];
+  const characterHashes = new Set(characterItems.map((item: any) => String(item?.itemHash || "")).filter(Boolean));
+  const profileItems = Array.isArray(profile?.profileInventory?.data?.items) ? profile.profileInventory.data.items : [];
+  const seenProfileHashes = new Set<string>();
+  const accountOnly = profileItems.filter((item: any) => {
+    const hash = String(item?.itemHash || "");
+    if (!hash || characterHashes.has(hash) || seenProfileHashes.has(hash)) return false;
+    seenProfileHashes.add(hash);
+    return true;
+  });
+  return [...characterItems, ...accountOnly];
 }

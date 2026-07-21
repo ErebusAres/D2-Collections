@@ -379,7 +379,7 @@ export function profileComponentsFor(mode: ProfileMode): string {
     : mode === "collection"
       ? "100,102,200,201,800,900"
       : mode === "quests"
-        ? "100,200,201,204,301"
+        ? "100,102,200,201,204,301,310"
         : mode === "fireteam"
           ? "100,200,204,1000"
     : mode === "mailbox"

@@ -29,6 +29,7 @@ REWARD_CODE_OUTPUT = OUTPUT.with_name("reward-code-manifest.json")
 BUILD_CATALOG_OUTPUT = OUTPUT.with_name("build-catalog.json")
 REWARD_CODE_CATALOG = OUTPUT.parents[2] / "src" / "modules" / "reward-codes" / "rewardCodesCatalog.json"
 COMPANION_CHUNK_COUNT = 24
+QUEST_BUCKET_HASH = "1345459588"
 ARMOR_STAT_HASHES = {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}
 COLLECTION_FEATURE_PATTERN = re.compile(r"\b(?:stance|faction|lawless|crystal|form|combo|reversal|mode|catalyst)\b", re.IGNORECASE)
 BUILD_CLASSES = {0: "titan", 1: "hunter", 2: "warlock"}
@@ -134,6 +135,19 @@ def minimal_pursuit_item(definition: dict) -> dict:
         "traitHashes": definition.get("traitHashes") or [],
         "sourceData": definition.get("sourceData") or {},
         "flavorText": definition.get("flavorText", ""),
+    }
+
+
+def is_quest_definition(definition: dict) -> bool:
+    inventory = definition.get("inventory") or {}
+    return int(definition.get("itemType", -1)) == 12 or str(inventory.get("bucketTypeHash") or "") == QUEST_BUCKET_HASH
+
+
+def compact_pursuit_definitions(quest_defs: dict[str, dict], pursuit_defs: dict[str, dict], related_defs: dict[str, dict]) -> dict[str, dict]:
+    return {
+        **{key: minimal_reward_item(value) for key, value in related_defs.items()},
+        **{key: minimal_item(value) for key, value in quest_defs.items()},
+        **{key: minimal_pursuit_item(value) for key, value in pursuit_defs.items()},
     }
 
 
@@ -1089,10 +1103,10 @@ def main() -> None:
         key: value for key, value in records.items()
         if "catalyst" in (value.get("displayProperties") or {}).get("name", "").lower()
     }
-    quest_defs = {key: value for key, value in inventory.items() if int(value.get("itemType", -1)) == 12}
+    quest_defs = {key: value for key, value in inventory.items() if is_quest_definition(value)}
     pursuit_defs = {
         key: value for key, value in inventory.items()
-        if int(value.get("itemType", -1)) != 12
+        if not is_quest_definition(value)
         and any(term in str(value.get("itemTypeDisplayName") or value.get("itemTypeAndTierDisplayName") or "").lower() for term in ("quest", "mission", "pursuit", "bounty", "order"))
     }
     all_quest_defs = {**quest_defs, **pursuit_defs}
@@ -1201,13 +1215,10 @@ def main() -> None:
     pursuit_compact = {
         "version": version,
         "generatedAt": compact["generatedAt"],
-        "itemDefinitions": {
-            **{key: minimal_pursuit_item(value) for key, value in pursuit_defs.items()},
-            **{key: minimal_reward_item(value) for key, value in related_defs.items()},
-        },
+        "itemDefinitions": compact_pursuit_definitions(quest_defs, pursuit_defs, related_defs),
         "objectiveDefinitions": {
             key: {"hash": key, "displayProperties": display(value), "progressDescription": value.get("progressDescription", ""), "completionValue": value.get("completionValue", 0)}
-            for key, value in objectives.items() if key in pursuit_objective_hashes
+            for key, value in objectives.items() if key in base_objective_hashes or key in pursuit_objective_hashes
         },
     }
     gear_compact = {

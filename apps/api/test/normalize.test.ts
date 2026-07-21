@@ -83,6 +83,39 @@ describe("normalizeGuardian", () => {
 });
 
 describe("normalizeQuests", () => {
+  it("merges account-scoped quests with character bounties after the inventory migration", () => {
+    const questManifest = { ...manifest, itemDefinitions: {
+      "44": { displayProperties: { name: "Account Quest", description: "Continue the story." }, itemType: 26, itemTypeDisplayName: "", inventory: { bucketTypeHash: 1345459588 }, objectives: { objectiveHashes: ["104"] } },
+      "55": { displayProperties: { name: "Character Bounty", description: "Complete the bounty." }, itemType: 26, itemTypeDisplayName: "Daily Bounty", objectives: { objectiveHashes: ["105"] } }
+    }, objectiveDefinitions: {
+      "104": { progressDescription: "Story progress", completionValue: 10 },
+      "105": { progressDescription: "Bounty progress", completionValue: 5 }
+    } } satisfies CompactManifest;
+    const profile = {
+      profileInventory: { data: { items: [{ itemHash: 44, bucketHash: 1345459588 }] } },
+      characterInventories: { data: { c1: { items: [{ itemHash: 55, itemInstanceId: "bounty-1" }] } } },
+      characterUninstancedItemComponents: { c1: { objectives: { data: { "44": { objectives: [{ objectiveHash: 104, progress: 4, completionValue: 10 }] } } } } },
+      itemComponents: { objectives: { data: { "bounty-1": { objectives: [{ objectiveHash: 105, progress: 1, completionValue: 5 }] } } } }
+    };
+
+    expect(normalizeQuests(profile, questManifest, "c1").quests).toMatchObject([
+      { name: "Character Bounty", category: "bounty", percent: 20 },
+      { name: "Account Quest", category: "quest", percent: 40 }
+    ]);
+  });
+
+  it("does not duplicate a quest exposed at both profile and character scope", () => {
+    const questManifest = { ...manifest, itemDefinitions: {
+      "44": { displayProperties: { name: "Shared Quest", description: "Continue." }, itemType: 12, itemTypeDisplayName: "Quest" }
+    } } satisfies CompactManifest;
+    const profile = {
+      profileInventory: { data: { items: [{ itemHash: 44, bucketHash: 1345459588 }] } },
+      characterInventories: { data: { c1: { items: [{ itemHash: 44, bucketHash: 1345459588 }] } } }
+    };
+
+    expect(normalizeQuests(profile, questManifest, "c1").quests).toHaveLength(1);
+  });
+
   it("builds quest steps and resolves flavor text plus multiple real reward definitions", () => {
     const chainManifest = { ...manifest, itemDefinitions: {
       "11": { displayProperties: { name: "A Quest", description: "Finish the introduction." }, objectives: { objectiveHashes: ["101"] } },

@@ -14,7 +14,7 @@ describe("destinyDisplayName", () => {
 describe("profileComponentsFor", () => {
   it("keeps common pages on narrow Bungie component sets", () => {
     expect(profileComponentsFor("collection")).toBe("100,102,200,201,800,900");
-    expect(profileComponentsFor("quests")).toBe("100,200,201,204,301");
+    expect(profileComponentsFor("quests")).toBe("100,102,200,201,204,301,310");
     expect(profileComponentsFor("fireteam")).toBe("100,200,204,1000");
   });
 
