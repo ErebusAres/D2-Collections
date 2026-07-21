@@ -37,10 +37,43 @@ describe("normalizeGuardianRanks", () => {
 
     const data = normalizeGuardianRanks(profile, manifest, "c1");
     expect(data).toMatchObject({ currentRank: 6, renewedRank: 6, highestAchievedRank: 8, lifetimeHighestRank: 8, maximumRank: 8, suggestedRank: 6 });
-    expect(data.ranks[0]).toMatchObject({ state: "current", completed: 1, total: 1 });
+    expect(data.ranks[0]).toMatchObject({ state: "current", completed: 0, total: 1 });
     expect(data.ranks[1]).toMatchObject({ state: "next", completed: 0, total: 1 });
     expect(data.ranks).toHaveLength(2);
+    expect(data.ranks[0]?.categories[0]?.quests[0]).toMatchObject({ recordHash: "record7", objectives: [{ progress: 4, completionValue: 10, percent: 40 }] });
     expect(data.ranks[1]?.categories[0]?.quests[0]).toMatchObject({ state: "in-progress", trackedInDestiny: true, objectives: [{ progress: 4, completionValue: 10, percent: 40, progressAvailable: true }] });
+  });
+
+  it("maps rank 1 to rank 2 requirements and rank 7 to rank 8 requirements", () => {
+    const mappingManifest: GuardianRankManifest = {
+      version: "mapping",
+      generatedAt: "now",
+      rootNodeHash: "root",
+      maximumRank: 9,
+      ranks: [
+        { hash: "1", rankNumber: 1, name: "New Light", description: "", icon: "", foregroundImage: "", overlayImage: "", presentationNodeHash: "rank1" },
+        { hash: "2", rankNumber: 2, name: "Explorer", description: "", icon: "", foregroundImage: "", overlayImage: "", presentationNodeHash: "rank2" },
+        { hash: "7", rankNumber: 7, name: "Elite", description: "", icon: "", foregroundImage: "", overlayImage: "", presentationNodeHash: "rank7" },
+        { hash: "8", rankNumber: 8, name: "Justiciar", description: "", icon: "", foregroundImage: "", overlayImage: "", presentationNodeHash: "rank8" }
+      ],
+      nodes: {
+        rank1: { hash: "rank1", name: "Rank 1", description: "", icon: "", seasonal: false, childNodeHashes: [], recordHashes: ["record1"] },
+        rank2: { hash: "rank2", name: "Rank 2", description: "", icon: "", seasonal: false, childNodeHashes: [], recordHashes: ["record2"] },
+        rank7: { hash: "rank7", name: "Rank 7", description: "", icon: "", seasonal: false, childNodeHashes: [], recordHashes: ["record7"] },
+        rank8: { hash: "rank8", name: "Rank 8", description: "", icon: "", seasonal: false, childNodeHashes: [], recordHashes: ["record8"] }
+      },
+      records: {
+        record1: { hash: "record1", name: "Rank 1 requirement", description: "", icon: "", scope: 0, objectiveHashes: [] },
+        record2: { hash: "record2", name: "Rank 2 requirement", description: "", icon: "", scope: 0, objectiveHashes: [] },
+        record7: { hash: "record7", name: "Rank 7 requirement", description: "", icon: "", scope: 0, objectiveHashes: [] },
+        record8: { hash: "record8", name: "Rank 8 requirement", description: "", icon: "", scope: 0, objectiveHashes: [] }
+      },
+      objectives: {}
+    };
+
+    const data = normalizeGuardianRanks({ profile: { data: { currentGuardianRank: 7, renewedGuardianRank: 7 } } }, mappingManifest, "c1");
+    expect(data.ranks.find((rank) => rank.rankNumber === 1)?.categories[0]?.quests[0]?.recordHash).toBe("record2");
+    expect(data.ranks.find((rank) => rank.rankNumber === 7)?.categories[0]?.quests[0]?.recordHash).toBe("record8");
   });
 
   it("marks missing live rows unavailable instead of inventing completion", () => {

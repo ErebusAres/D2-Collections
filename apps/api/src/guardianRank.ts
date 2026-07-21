@@ -15,7 +15,13 @@ export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManif
   ].filter(Boolean));
 
   const ranks = manifest.ranks.map((rank) => {
-    const rankNode = manifest.nodes[rank.presentationNodeHash];
+    const nextRank = manifest.ranks.find((candidate) => candidate.rankNumber === rank.rankNumber + 1);
+    // Bungie's rank presentation node describes the requirements for attaining
+    // that rank. The selector represents the Guardian's current rank, so its
+    // objective panel must read from the following rank's node. The final
+    // implicit rank has no separate definition; retain the last node there.
+    const requirementNodeHash = nextRank?.presentationNodeHash || rank.presentationNodeHash;
+    const rankNode = manifest.nodes[requirementNodeHash];
     const categoryHashes = rankNode?.childNodeHashes?.length ? rankNode.childNodeHashes : rankNode ? [rankNode.hash] : [];
     const categories = categoryHashes.map((nodeHash) => categoryFor(nodeHash, profile, manifest, characterId, tracked)).filter((category) => category.total > 0);
     const total = categories.reduce((sum, category) => sum + category.total, 0);
