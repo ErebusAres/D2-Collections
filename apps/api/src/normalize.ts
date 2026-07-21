@@ -7,6 +7,7 @@ import type {
   QuestObjective,
   QuestProgress,
   QuestStepProgress,
+  PvpProgression,
   RewardsPassProgress
 } from "@guardian-nexus/contracts";
 import { className, imageUrl, mergeCollection, objectivePercent, questPercent, questStepPosition, recommendQuests } from "@guardian-nexus/domain";
@@ -90,6 +91,7 @@ export function normalizeGuardian(args: {
   bungieName: string;
   requestedCharacterId?: string;
   rewardsPass: { rank: number; progress: RewardsPassProgress };
+  crucibleRank?: PvpProgression;
   manifest: CompactManifest;
 }): GuardianSummary {
   const characters = charactersFromProfile(args.profile);
@@ -106,6 +108,7 @@ export function normalizeGuardian(args: {
     stats: {
       power: selected?.power || 0,
       guardianRank: Number(profileData.currentGuardianRank || profileData.renewedGuardianRank || profileData.lifetimeHighestGuardianRank || 0),
+      crucibleRank: args.crucibleRank,
       rewardsPassRank: args.rewardsPass.rank,
       rewardsPassProgress: args.rewardsPass.progress,
       mailboxCount: (args.profile?.characterInventories?.data?.[selected?.characterId || ""]?.items || [])

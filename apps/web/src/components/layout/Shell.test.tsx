@@ -18,7 +18,7 @@ vi.mock("../../context/GuardianContext", () => ({
         bungieName: "FearsRedemption#9656",
         selectedCharacterId: "hunter",
         characters: [{ characterId: "hunter", className: "Hunter", raceName: "Human", emblemPath: "/emblem.svg", emblemBackgroundPath: "/banner.svg", power: 409, dateLastPlayed: "2026-07-16T00:00:00Z", minutesPlayedThisSession: 1 }],
-        stats: { power: 409, guardianRank: 5, rewardsPassRank: 33, rewardsPassProgress: { state: "available", source: "bungie-profile-character-progressions", progressToNextLevel: 2_750, nextLevelAt: 100_000 }, mailboxCount: 4 },
+        stats: { power: 409, guardianRank: 5, crucibleRank: { kind: "crucible", progressionHash: "10", name: "Crucible Rank", description: "", icon: "", rankName: "Brave II", level: 7, stepIndex: 1, currentProgress: 4_250, progressToNextLevel: 250, nextLevelAt: 500, percent: 50, resets: 2 }, rewardsPassRank: 33, rewardsPassProgress: { state: "available", source: "bungie-profile-character-progressions", progressToNextLevel: 2_750, nextLevelAt: 100_000 }, mailboxCount: 4 },
         isInGame: false
       },
       roles: { dev: false, matrixWriter: false, buildEditor: false }
@@ -63,6 +63,9 @@ describe("Shell guardian identity", () => {
     expect(screen.getByTestId("guardian-banner")).toBeTruthy();
     expect(container.querySelector("[style]")?.getAttribute("style")).toContain("--guardian-banner: url(/banner.svg)");
     expect(screen.getByLabelText("Reward Codes: 0 · Open").getAttribute("href")).toBe("/codes");
+    expect(screen.getByLabelText("Crucible Rank: 7 · Brave II · Open").getAttribute("href")).toBe("/pvp");
+    const statLabels = [...screen.getByLabelText("Guardian stats").children].map((entry) => entry.getAttribute("aria-label"));
+    expect(statLabels.slice(1, 4)).toEqual(["Guardian Rank: 5", "Crucible Rank: 7 · Brave II · Open", "Rewards Pass: 33 · Open"]);
   });
 
   it("uses the live rewards rank when the session snapshot is stale", async () => {

@@ -13,6 +13,28 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_pvp_progressions_are_classified_from_manifest_and_faction_text(self) -> None:
+        factions = {
+            "10": {"displayProperties": {"name": "Crucible", "description": "Earn reputation with Lord Shaxx."}},
+            "20": {"displayProperties": {"name": "Iron Banner"}},
+        }
+
+        self.assertEqual(SYNC_MANIFEST.pvp_progression_kind({"factionHash": 10, "displayProperties": {"name": "Rank"}}, factions), "crucible")
+        self.assertEqual(SYNC_MANIFEST.pvp_progression_kind({"factionHash": 20, "displayProperties": {"name": "Seasonal Reputation"}}, factions), "iron-banner")
+        self.assertEqual(SYNC_MANIFEST.pvp_progression_kind({"displayProperties": {"name": "Competitive Division Rank"}}, factions), "competitive")
+        self.assertEqual(SYNC_MANIFEST.pvp_progression_kind({"displayProperties": {"name": "Trials of Osiris Rank"}}, factions), "trials")
+        self.assertIsNone(SYNC_MANIFEST.pvp_progression_kind({"displayProperties": {"name": "Vanguard Rank"}}, factions))
+
+    def test_minimal_pvp_progression_keeps_rank_labels_and_thresholds(self) -> None:
+        value = SYNC_MANIFEST.minimal_pvp_progression({
+            "hash": 123,
+            "displayProperties": {"name": "Crucible Rank"},
+            "steps": [{"stepName": "Brave II", "progressTotal": 375, "icon": "/rank.png"}],
+        }, "crucible")
+
+        self.assertEqual(value["kind"], "crucible")
+        self.assertEqual(value["steps"], [{"stepName": "Brave II", "progressTotal": 375, "icon": "/rank.png"}])
+
     def test_stasis_aspect_uses_manifest_trait_when_plug_is_legacy_totem(self) -> None:
         definition = item_definition(
             name="Bleak Watcher",

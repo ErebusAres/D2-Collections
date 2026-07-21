@@ -334,6 +334,28 @@ export async function membershipsFor(accessToken: string, env: Env): Promise<any
   return bungieGet("/User/GetMembershipsForCurrentUser/", env, accessToken);
 }
 
+export async function pvpHistoricalStatsFor(
+  row: SessionRow,
+  characterIds: string[],
+  env: Env,
+  accessToken: string
+): Promise<{ responses: any[]; warnings: string[] }> {
+  const results = await Promise.all(characterIds.map(async (characterId) => {
+    try {
+      const response = await bungieGet(`/Destiny2/${row.membership_type}/Account/${row.membership_id}/Character/${characterId}/Stats/?groups=1&modes=5,69,84,19`, env, accessToken);
+      return { response };
+    } catch (error: any) {
+      return { warning: Number(error?.status) === 429
+        ? "Bungie throttled part of the Crucible history request. Some character totals may be missing."
+        : "Bungie did not return Crucible history for one character. The profile may have no PvP history or may restrict historical stats." };
+    }
+  }));
+  return {
+    responses: results.map((result) => result.response).filter(Boolean),
+    warnings: [...new Set(results.map((result) => result.warning).filter((warning): warning is string => Boolean(warning)))]
+  };
+}
+
 export function primaryMembership(memberships: any): any {
   const entries = memberships?.destinyMemberships || [];
   return entries.find((entry: any) => String(entry.membershipId) === String(memberships?.primaryMembershipId))

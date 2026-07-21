@@ -244,6 +244,49 @@ def minimal_progression(definition: dict) -> dict:
     }
 
 
+def pvp_progression_kind(definition: dict, factions: dict[str, dict] | None = None) -> str | None:
+    properties = definition.get("displayProperties") or {}
+    faction = (factions or {}).get(str(definition.get("factionHash") or ""), {})
+    faction_properties = faction.get("displayProperties") or {}
+    text = " ".join(str(value or "") for value in (
+        properties.get("name"),
+        properties.get("description"),
+        definition.get("source"),
+        faction_properties.get("name"),
+        faction_properties.get("description"),
+    )).casefold()
+    if "trials of osiris" in text or "trials rank" in text:
+        return "trials"
+    if "iron banner" in text:
+        return "iron-banner"
+    if "competitive division" in text or "competitive rank" in text or "glory rank" in text:
+        return "competitive"
+    if "crucible" in text or "valor rank" in text:
+        return "crucible"
+    return None
+
+
+def minimal_pvp_progression(definition: dict, kind: str) -> dict:
+    return {
+        "hash": str(definition.get("hash", "")),
+        "kind": kind,
+        "displayProperties": display(definition),
+        "source": definition.get("source", ""),
+        "scope": definition.get("scope"),
+        "visible": bool(definition.get("visible")),
+        "repeatLastStep": bool(definition.get("repeatLastStep")),
+        "factionHash": str(definition.get("factionHash") or ""),
+        "steps": [
+            {
+                "stepName": step.get("stepName", ""),
+                "progressTotal": step.get("progressTotal", 0),
+                "icon": step.get("icon", ""),
+            }
+            for step in definition.get("steps") or []
+        ],
+    }
+
+
 def minimal_gear_item(definition: dict) -> dict:
     inventory = definition.get("inventory") or {}
     props = definition.get("displayProperties") or {}
@@ -890,6 +933,7 @@ def main() -> None:
             sandbox_perks = table_rows(connection, "DestinySandboxPerkDefinition")
             season_passes = table_rows(connection, "DestinySeasonPassDefinition")
             progressions = table_rows(connection, "DestinyProgressionDefinition")
+            factions = table_rows(connection, "DestinyFactionDefinition")
             loadout_names = table_rows(connection, "DestinyLoadoutNameDefinition")
             loadout_icons = table_rows(connection, "DestinyLoadoutIconDefinition")
             loadout_colors = table_rows(connection, "DestinyLoadoutColorDefinition")
@@ -1086,6 +1130,11 @@ def main() -> None:
         for reward in progression.get("rewardItems") or []
         if reward.get("itemHash")
     }
+    pvp_progressions = {
+        key: (value, kind)
+        for key, value in progressions.items()
+        if (kind := pvp_progression_kind(value, factions))
+    }
     rewards_compact = {
         "version": version,
         "generatedAt": compact["generatedAt"],
@@ -1095,6 +1144,10 @@ def main() -> None:
             if not value.get("redacted") and str(value.get("rewardProgressionHash") or "") in reward_progressions
         },
         "progressionDefinitions": {key: minimal_progression(value) for key, value in reward_progressions.items()},
+        "pvpProgressionDefinitions": {
+            key: minimal_pvp_progression(value, kind)
+            for key, (value, kind) in pvp_progressions.items()
+        },
         "itemDefinitions": {
             key: minimal_reward_item(inventory[key])
             for key in reward_item_hashes
@@ -1119,7 +1172,7 @@ def main() -> None:
     REWARD_CODE_OUTPUT.write_text(json.dumps(reward_code_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     write_build_catalog_files(build_catalog_compact)
     resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
-    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(build_catalog_compact['entries'])} Build Builder definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings, and {len(companion_items)} companion item definitions for manifest {version}.")
+    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(build_catalog_compact['entries'])} Build Builder definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, {len(pvp_progressions)} PvP progressions, {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings, and {len(companion_items)} companion item definitions for manifest {version}.")
 
 
 if __name__ == "__main__":

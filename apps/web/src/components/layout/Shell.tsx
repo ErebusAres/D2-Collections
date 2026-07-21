@@ -1,6 +1,6 @@
 import type { RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUp, Badge, Boxes, Coins, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
+import { ArrowUp, Badge, Boxes, Coins, Crosshair, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
@@ -60,7 +60,7 @@ export function Shell() {
             {guardian ? (
               <>
                 <img src={character?.emblemPath || ""} alt="" />
-                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small>{character?.emblemBackgroundPath && <div className={styles.guardianBanner} data-testid="guardian-banner" aria-hidden="true" />}<div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Rewards Pass" value={rewardsPassProgress?.state === "unavailable" && !rewardsPassRank ? undefined : rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /><HeaderStat label="Mailbox" value={guardian.stats.mailboxCount} icon={<Mail />} to="/mailbox" /><HeaderStat label="Reward Codes" value={availableRewardCodeCount} icon={<Gift />} to="/codes" claimable={availableRewardCodeCount > 0} /></div>{rewardsPassProgress && <RewardsProgress rank={rewardsPassRank} progress={rewardsPassProgress} />}</div>
+                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small>{character?.emblemBackgroundPath && <div className={styles.guardianBanner} data-testid="guardian-banner" aria-hidden="true" />}<div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} /><HeaderStat label="Crucible Rank" value={guardian.stats.crucibleRank?.level} detail={guardian.stats.crucibleRank?.rankName} icon={<Crosshair />} to="/pvp" /><HeaderStat label="Rewards Pass" value={rewardsPassProgress?.state === "unavailable" && !rewardsPassRank ? undefined : rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /><HeaderStat label="Mailbox" value={guardian.stats.mailboxCount} icon={<Mail />} to="/mailbox" /><HeaderStat label="Reward Codes" value={availableRewardCodeCount} icon={<Gift />} to="/codes" claimable={availableRewardCodeCount > 0} /></div>{rewardsPassProgress && <RewardsProgress rank={rewardsPassRank} progress={rewardsPassProgress} />}</div>
                 {guardian.isInGame && <em>In game</em>}
               </>
             ) : (
@@ -114,8 +114,8 @@ function usePageUtilities(): boolean {
   return showScrollTop;
 }
 
-function HeaderStat({ label, value, icon, accent = false, to, claimable = false }: { label: string; value?: number | string; icon: React.ReactNode; accent?: boolean; to?: string; claimable?: boolean }) {
-  const tooltip = `${label}: ${value ?? "Unavailable"}${to ? " · Open" : ""}`;
+function HeaderStat({ label, value, detail, icon, accent = false, to, claimable = false }: { label: string; value?: number | string; detail?: string; icon: React.ReactNode; accent?: boolean; to?: string; claimable?: boolean }) {
+  const tooltip = `${label}: ${value ?? "Unavailable"}${detail ? ` · ${detail}` : ""}${to ? " · Open" : ""}`;
   const className = `${styles.headerStat} ${to ? styles.linkedStat : ""} ${accent ? styles.accentStat : ""} ${claimable ? styles.claimableStat : ""}`;
   const content = <><i aria-hidden="true">{icon}</i><strong>{value ?? "—"}</strong></>;
   return to ? <NavLink to={to} className={className} data-tooltip={label} aria-label={tooltip} title={tooltip}>{content}</NavLink> : <div className={className} data-tooltip={label} aria-label={tooltip} title={tooltip}>{content}</div>;

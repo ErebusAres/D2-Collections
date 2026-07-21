@@ -18,6 +18,7 @@ import type {
   MailboxPullResult,
   MatrixData,
   MatrixSnapshot,
+  PvpData,
   QuestData,
   RewardCodeStatusData,
   RewardsPassData,
@@ -28,7 +29,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -41,6 +42,7 @@ import { normalizeLoadouts } from "./loadouts";
 import { normalizeRewardCodeStatus } from "./rewardCodes";
 import { buildsRoute } from "./builds";
 import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
+import { normalizePvpData, normalizePvpProgressions } from "./pvp";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -125,6 +127,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/collection" && request.method === "GET") return collection(session.row, env, context);
   if (path === "/api/v1/me/xur" && request.method === "GET") return xur(session.row, env, context);
   if (path === "/api/v1/me/quests" && request.method === "GET") return quests(session.row, env, context);
+  if (path === "/api/v1/me/pvp" && request.method === "GET") return pvp(session.row, env, context);
   if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "GET") return rewardCodeStatus(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateRewardCodePreference(request, session.row, env, context); }
@@ -279,8 +282,9 @@ async function readSession(request: Request, env: Env, context: RequestContext):
   const session = await sessionFromRequest(request, env);
   if (!session) return withSetCookie(envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false } }, env, context), visitorCookie);
   const { profile, accessToken } = await profileFor(session.row, env, "session");
-  const manifest = await loadActivityManifest(env);
+  const [manifest, pvpManifest] = await Promise.all([loadActivityManifest(env), loadRewardsManifest(env)]);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
+  const selectedId = selectedCharacter(charactersFromProfile(profile), requestedCharacterId)?.characterId;
   const guardian = normalizeGuardian({
     profile,
     membershipId: session.row.membership_id,
@@ -289,6 +293,7 @@ async function readSession(request: Request, env: Env, context: RequestContext):
     bungieName: session.row.bungie_name,
     requestedCharacterId,
     rewardsPass: await seasonPassProgress(profile, accessToken, env, requestedCharacterId),
+    crucibleRank: normalizePvpProgressions(profile, pvpManifest, selectedId).find((entry) => entry.kind === "crucible"),
     manifest
   });
   await rememberAudienceGuardian(env, guardian);
@@ -325,8 +330,9 @@ async function deleteSession(request: Request, env: Env, context: RequestContext
 
 async function overview(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { profile, accessToken } = await profileFor(row, env);
-  const manifest = await loadManifest(env);
+  const [manifest, pvpManifest] = await Promise.all([loadManifest(env), loadRewardsManifest(env)]);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
+  const selectedId = selectedCharacter(charactersFromProfile(profile), requestedCharacterId)?.characterId;
   const guardian = normalizeGuardian({
     profile,
     membershipId: row.membership_id,
@@ -335,6 +341,7 @@ async function overview(row: SessionRow, env: Env, context: RequestContext): Pro
     bungieName: row.bungie_name,
     requestedCharacterId,
     rewardsPass: await seasonPassProgress(profile, accessToken, env, requestedCharacterId),
+    crucibleRank: normalizePvpProgressions(profile, pvpManifest, selectedId).find((entry) => entry.kind === "crucible"),
     manifest
   });
   await rememberAudienceGuardian(env, guardian);
@@ -378,6 +385,23 @@ async function quests(row: SessionRow, env: Env, context: RequestContext): Promi
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const pinned = new Set((context.url.searchParams.get("pinned") || "").split(",").filter(Boolean));
   return envelope<QuestData>(normalizeQuests(profile, manifest, character.characterId, pinned), env, context, { sourceMintedAt: profile?.responseMintedTimestamp });
+}
+
+async function pvp(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile, accessToken } = await profileFor(row, env, "session");
+  const characters = charactersFromProfile(profile);
+  const character = selectedCharacter(characters, context.url.searchParams.get("characterId") || undefined);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const [manifest, historical] = await Promise.all([
+    loadRewardsManifest(env),
+    pvpHistoricalStatsFor(row, characters.map((entry) => entry.characterId), env, accessToken)
+  ]);
+  const data = normalizePvpData({ profile, manifest, characterId: character.characterId, historicalStats: historical.responses });
+  const warnings = [
+    ...(manifest.version === "unavailable" ? ["Current Crucible rank definitions are unavailable from the deployed Bungie manifest."] : []),
+    ...historical.warnings
+  ];
+  return envelope<PvpData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
 }
 
 async function rewards(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

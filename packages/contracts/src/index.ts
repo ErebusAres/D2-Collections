@@ -37,6 +37,7 @@ export interface CharacterSummary {
 export interface HeaderStats {
   power: number;
   guardianRank: number;
+  crucibleRank?: PvpProgression;
   rewardsPassRank: number;
   rewardsPassProgress: RewardsPassProgress;
   mailboxCount: number;
@@ -92,6 +93,56 @@ export interface RewardsPassData {
     rankAndXp: "Destiny2.GetProfile characterProgressions (component 202)";
     rewards: "DestinySeasonPassDefinition and DestinyProgressionDefinition manifest data";
     claimingSupported: false;
+  };
+}
+
+export type PvpProgressionKind = "crucible" | "competitive" | "trials" | "iron-banner";
+
+export interface PvpProgression {
+  kind: PvpProgressionKind;
+  progressionHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  rankName: string;
+  level: number;
+  stepIndex: number;
+  currentProgress: number;
+  progressToNextLevel: number;
+  nextLevelAt?: number;
+  percent?: number;
+  resets: number;
+}
+
+export interface PvpModeStats {
+  kind: "all" | "competitive" | "trials" | "iron-banner";
+  name: string;
+  mode: number;
+  matches: number;
+  wins: number;
+  winRate: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kd: number;
+  efficiency: number;
+  precisionKills: number;
+  bestSingleGameKills: number;
+  longestKillSpree: number;
+  combatRating?: number;
+}
+
+export interface PvpData {
+  characterId: string;
+  manifestVersion: string;
+  primaryRank?: PvpProgression;
+  progressions: PvpProgression[];
+  overall: PvpModeStats;
+  modes: PvpModeStats[];
+  hasActivity: boolean;
+  sources: {
+    ranks: "Destiny2.GetProfile characterProgressions (component 202) and DestinyProgressionDefinition manifest data";
+    stats: "Destiny2.GetHistoricalStats across the account's characters";
   };
 }
 
@@ -961,5 +1012,6 @@ export interface RewardsManifest {
   generatedAt: string;
   seasonPassDefinitions: Record<string, Record<string, unknown>>;
   progressionDefinitions: Record<string, Record<string, unknown>>;
+  pvpProgressionDefinitions?: Record<string, Record<string, unknown>>;
   itemDefinitions: Record<string, Record<string, unknown>>;
 }

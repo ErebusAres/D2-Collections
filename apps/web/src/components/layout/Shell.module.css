@@ -13,7 +13,7 @@
 .guardianIdentity { min-width: 430px; flex: 1 1 760px; display: flex; align-items: center; gap: 12px; position: relative; }
 .guardianIdentity::before { content: ""; position: absolute; inset: 11px 0 11px -14px; border-left: 1px solid var(--line); }
 .guardianIdentity img { width: 52px; height: 52px; object-fit: cover; background: rgba(255,255,255,.06); clip-path: polygon(10% 0,100% 0,90% 100%,0 100%); }
-.identityDetails { min-width: 0; flex:1; display: grid; grid-template-columns:minmax(150px,.7fr) minmax(150px,238px) minmax(345px,1fr); grid-template-rows:auto auto auto; column-gap:16px; align-content:center; }.identityDetails > span,.identityDetails > strong,.identityDetails > small{grid-column:1}.guardianIdentity span { color: var(--muted); font-size: 10px; letter-spacing: .17em; text-transform: uppercase; }
+.identityDetails { min-width: 0; flex:1; display: grid; grid-template-columns:minmax(150px,.7fr) minmax(150px,238px) minmax(410px,1fr); grid-template-rows:auto auto auto; column-gap:16px; align-content:center; }.identityDetails > span,.identityDetails > strong,.identityDetails > small{grid-column:1}.guardianIdentity span { color: var(--muted); font-size: 10px; letter-spacing: .17em; text-transform: uppercase; }
 .guardianIdentity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: "Barlow Condensed"; font-size: 20px; letter-spacing: .04em; }.guardianIdentity small { color: var(--muted); font-size: 12px; }
 .guardianIdentity em { margin-left: auto; color: var(--success); font-size: 10px; font-style: normal; letter-spacing: .12em; text-transform: uppercase; }
 .guardianBanner { grid-column:2; grid-row:1/4; align-self:center; width:100%; height:48px; position:relative; overflow:hidden; background-image:linear-gradient(90deg,rgba(5,12,18,.08),transparent 55%,rgba(5,12,18,.28)),var(--guardian-banner); background-size:cover; background-position:center; border:1px solid rgba(255,255,255,.13); clip-path:polygon(4% 0,100% 0,96% 100%,0 100%); box-shadow:inset 0 0 16px rgba(0,0,0,.22); }
@@ -51,7 +51,7 @@
   .identityBar { gap: 12px; }
   .brand { min-width: 150px; flex-basis: 175px; }
   .guardianIdentity { min-width:380px;flex-basis:680px; }
-  .identityDetails { grid-template-columns:minmax(130px,.65fr) minmax(135px,190px) minmax(320px,1fr); column-gap:12px; }
+  .identityDetails { grid-template-columns:minmax(130px,.65fr) minmax(135px,190px) minmax(390px,1fr); column-gap:12px; }
   .guardianIdentity em { display: none; }
   .headerStat { min-width:64px; }
   .tabs { padding-inline: 22px; }
@@ -64,7 +64,7 @@
   .brand > span:last-child { display: none; }
   .guardianIdentity { min-width: 440px; }
   .guardianBanner { display:none; }
-  .identityDetails{grid-template-columns:minmax(130px,.7fr) minmax(310px,1fr)}
+  .identityDetails{grid-template-columns:minmax(130px,.7fr) minmax(370px,1fr)}
   .identityStats,.rewardProgress{grid-column:2}
   .headerStat { min-width:62px; padding-inline: 7px; }
   .signIn { padding-inline: 10px; font-size: 9px; }
@@ -78,8 +78,8 @@
   .brandMark { width: 30px; height: 30px; }
   .guardianIdentity { min-width: 0; flex-basis: auto; gap: 8px; }
   .guardianIdentity img { width: 44px; height: 44px; }
-  .identityDetails { grid-template-columns: minmax(110px, 1fr) minmax(290px, 1.15fr); column-gap: 8px; }
-  .headerStat { min-width: 58px; padding-inline: 5px; }
+  .identityDetails { grid-template-columns: minmax(110px, 1fr) minmax(324px, 1.15fr); column-gap: 8px; }
+  .headerStat { min-width: 54px; padding-inline: 4px; }
   .rewardProgress > b { display: none; }
   .optionsButton { width: 92px; min-width: 92px; height: 72px; }
   .tabs { overflow-x: auto; justify-content: flex-start; padding-inline: 14px; }
@@ -89,7 +89,7 @@
 
 @media (max-width: 650px) {
   .brand, .guardianIdentity img, .connectionStatus { display: none; }
-  .identityDetails { grid-template-columns: minmax(232px, 1fr); }
+  .identityDetails { grid-template-columns: minmax(276px, 1fr); }
   .identityDetails > span, .identityDetails > strong, .identityDetails > small { display: none; }
   .identityStats { grid-column: 1; grid-row: 1 / 3; }
   .rewardProgress { grid-column: 1; grid-row: 3; }
