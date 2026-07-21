@@ -39,6 +39,7 @@ export function GuardianRankPage() {
       return textMatch && filterMatch;
     })
   })).filter((category) => category.quests.length) || [], [filter, search, selectedRank, tracked]);
+  const currentRankTier = data?.ranks.find((rank) => rank.rankNumber === data.currentRank);
   const nextRank = data?.ranks.find((rank) => rank.rankNumber === data.currentRank + 1);
 
   const toggleTracked = (recordHash: string) => {
@@ -57,9 +58,9 @@ export function GuardianRankPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.overview}>
-        <div className={styles.currentMedallion}><ShieldCheck /><span>Current / renewed rank</span><strong>{data.currentRank}</strong></div>
-        <div><span>Current journey</span><strong>{data.ranks.find((rank) => rank.rankNumber === data.currentRank)?.name || "Unavailable"}</strong><small>Seasonal renewedGuardianRank</small></div>
-        <div><span>Next rank</span><strong>{nextRank ? `${nextRank.rankNumber} · ${nextRank.name}` : `${data.maximumRank} · Maximum`}</strong><small>{nextRank?.rankNumber === data.maximumRank ? `Highest achievable rank · no objectives beyond ${data.maximumRank}` : nextRank?.total ? `${nextRank.completed}/${nextRank.total} objectives complete` : data.currentRank < data.maximumRank ? `Complete rank ${data.currentRank} objectives to reach ${data.maximumRank}` : "Maximum Guardian Rank achieved"}</small></div>
+        <div className={styles.currentMedallion}><ShieldCheck /><span>Current Guardian Rank</span><strong>{data.currentRank}</strong></div>
+        <div><span>Current journey</span><strong>{currentRankTier?.name || "Unavailable"}</strong><small>Renewal floor: rank {data.renewedRank}</small></div>
+        <div><span>Next rank</span><strong>{nextRank ? `${nextRank.rankNumber} · ${nextRank.name}` : `${data.maximumRank} · Maximum`}</strong><small>{data.currentRank >= data.maximumRank ? "Maximum Guardian Rank achieved" : currentRankTier?.total ? `${currentRankTier.completed}/${currentRankTier.total} requirements complete` : `Complete rank ${data.currentRank} requirements to unlock rank ${Math.min(data.currentRank + 1, data.maximumRank)}`}</small></div>
         <div><span>Highest rank achieved</span><strong>{data.highestAchievedRank}</strong><small>Bungie's displayed rank for this season</small></div>
         <div><span>Lifetime highest</span><strong>{data.lifetimeHighestRank}</strong><small>Historical best · never decreases</small></div>
         <div><span>Site tracked</span><strong>{tracked.size}</strong><small>Saved to your Guardian Nexus profile</small></div>
@@ -105,7 +106,7 @@ export function GuardianRankPage() {
           <div>{category.quests.map((quest) => <QuestCard key={quest.recordHash} quest={quest} tracked={tracked.has(quest.recordHash)} onTrack={() => toggleTracked(quest.recordHash)} />)}</div>
         </section>)}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
       </section>}
-      <footer className={styles.sourceNote}>Current journey progress uses renewedGuardianRank when Bungie returns it. Each objective-backed rank shows the quests completed from that rank to unlock the next; rank {data.maximumRank} is terminal. Objective names and hierarchy come from Bungie's Guardian Rank manifest nodes, while completion and counters come from live profile records. Missing record rows are shown as unavailable, not estimated.</footer>
+      <footer className={styles.sourceNote}>Current journey progress uses Bungie's currentGuardianRank. The seasonal renewal floor is shown separately. Each objective-backed rank shows the requirements completed from that rank to unlock the next; rank {data.maximumRank} is terminal. Objective names and hierarchy come from Bungie's Guardian Rank manifest nodes, while completion and counters come from live profile records. Missing record rows are shown as unavailable, not estimated.</footer>
     </>}
   </AuthGate>;
 }

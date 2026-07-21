@@ -3,9 +3,11 @@ import { imageUrl } from "@guardian-nexus/domain";
 
 export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManifest, characterId: string): GuardianRankData {
   const profileData = profile?.profile?.data || {};
-  const highestAchievedRank = nonNegative(profileData.currentGuardianRank ?? profileData.renewedGuardianRank ?? profileData.lifetimeHighestGuardianRank);
-  const renewedRank = nonNegative(profileData.renewedGuardianRank) || highestAchievedRank;
-  const currentRank = renewedRank;
+  const currentRank = nonNegative(profileData.currentGuardianRank)
+    || nonNegative(profileData.renewedGuardianRank)
+    || nonNegative(profileData.lifetimeHighestGuardianRank);
+  const highestAchievedRank = nonNegative(profileData.currentGuardianRank) || currentRank;
+  const renewedRank = nonNegative(profileData.renewedGuardianRank) || currentRank;
   const lifetimeHighestRank = nonNegative(profileData.lifetimeHighestGuardianRank) || highestAchievedRank;
   const tracked = new Set([
     String(profile?.profileRecords?.data?.trackedRecordHash || ""),

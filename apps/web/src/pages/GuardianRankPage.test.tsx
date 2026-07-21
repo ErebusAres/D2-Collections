@@ -21,7 +21,8 @@ describe("Guardian Rank page", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Veteran" })).toBeTruthy();
-    expect(screen.getByText("Current / renewed rank")).toBeTruthy();
+    expect(screen.getByText("Current Guardian Rank")).toBeTruthy();
+    expect(screen.getByText("Renewal floor: rank 6")).toBeTruthy();
     expect(screen.getByText("Highest rank achieved")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /View rank 12/ })).toBeNull();
     expect(screen.getByRole("button", { name: "View rank 8: Justiciar" })).toBeTruthy();

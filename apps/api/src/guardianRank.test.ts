@@ -28,7 +28,7 @@ const manifest: GuardianRankManifest = {
 };
 
 describe("normalizeGuardianRanks", () => {
-  it("uses renewed progress separately from the displayed highest rank without estimating objectives", () => {
+  it("uses the current displayed rank while retaining the renewed floor separately", () => {
     const profile = {
       profile: { data: { currentGuardianRank: 8, renewedGuardianRank: 6, lifetimeHighestGuardianRank: 8 } },
       profileRecords: { data: { trackedRecordHash: 100, records: { record6: { state: 1, objectives: [{ objectiveHash: "objective6", progress: 1, completionValue: 1, complete: true }] } } } },
@@ -36,9 +36,9 @@ describe("normalizeGuardianRanks", () => {
     };
 
     const data = normalizeGuardianRanks(profile, manifest, "c1");
-    expect(data).toMatchObject({ currentRank: 6, renewedRank: 6, highestAchievedRank: 8, lifetimeHighestRank: 8, maximumRank: 8, suggestedRank: 6 });
-    expect(data.ranks[0]).toMatchObject({ state: "current", completed: 1, total: 1 });
-    expect(data.ranks[1]).toMatchObject({ state: "next", completed: 0, total: 1 });
+    expect(data).toMatchObject({ currentRank: 8, renewedRank: 6, highestAchievedRank: 8, lifetimeHighestRank: 8, maximumRank: 8, suggestedRank: 7 });
+    expect(data.ranks[0]).toMatchObject({ state: "previous", completed: 1, total: 1 });
+    expect(data.ranks[1]).toMatchObject({ state: "previous", completed: 0, total: 1 });
     expect(data.ranks).toHaveLength(2);
     expect(data.ranks[1]?.categories[0]?.quests[0]).toMatchObject({ state: "in-progress", trackedInDestiny: true, objectives: [{ progress: 4, completionValue: 10, percent: 40, progressAvailable: true }] });
   });
@@ -48,15 +48,15 @@ describe("normalizeGuardianRanks", () => {
     expect(data.ranks[1]?.categories[0]?.quests[0]).toMatchObject({ state: "unavailable", objectives: [{ progress: 0, progressAvailable: false }] });
   });
 
-  it("keeps the current objective-backed rank selected until the next rank is unlocked", () => {
-    const data = normalizeGuardianRanks({ profile: { data: { currentGuardianRank: 8, renewedGuardianRank: 7, lifetimeHighestGuardianRank: 8 } } }, manifest, "c1");
+  it("defaults to the objective-backed current rank and shows its next-rank requirements", () => {
+    const data = normalizeGuardianRanks({ profile: { data: { currentGuardianRank: 7, renewedGuardianRank: 6, lifetimeHighestGuardianRank: 8 } } }, manifest, "c1");
 
-    expect(data).toMatchObject({ currentRank: 7, highestAchievedRank: 8, maximumRank: 8, suggestedRank: 7 });
+    expect(data).toMatchObject({ currentRank: 7, renewedRank: 6, highestAchievedRank: 7, maximumRank: 8, suggestedRank: 7 });
     expect(data.ranks[1]).toMatchObject({ rankNumber: 7, state: "current", total: 1 });
     expect(data.ranks).toHaveLength(2);
   });
 
-  it("selects the highest objective-backed rank when the renewed rank is the hidden terminal rank", () => {
+  it("selects the highest objective-backed rank when the current rank is the hidden terminal rank", () => {
     const data = normalizeGuardianRanks({ profile: { data: { currentGuardianRank: 8, renewedGuardianRank: 8, lifetimeHighestGuardianRank: 8 } } }, manifest, "c1");
 
     expect(data).toMatchObject({ currentRank: 8, maximumRank: 8, suggestedRank: 7 });
