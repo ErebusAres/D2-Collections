@@ -83,7 +83,6 @@ export function GuardianRankPage() {
         <header className={styles.rankHero}>
           <div className={styles.rankArtwork} data-testid="selected-rank-artwork">
             <RankEmblem rank={selectedRank} />
-            <strong data-testid="selected-rank-badge">{selectedRank.rankNumber}</strong>
           </div>
           <div>
             <span>{rankEyebrow(selectedRank, data.currentRank, data.maximumRank)}</span>

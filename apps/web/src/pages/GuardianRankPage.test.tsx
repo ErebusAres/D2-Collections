@@ -29,7 +29,6 @@ describe("Guardian Rank page", () => {
     expect(screen.getByText("Ascension")).toBeTruthy();
     const previousRank = screen.getByRole("button", { name: "View rank 6: Veteran" });
     expect(previousRank.textContent).not.toContain("6");
-    expect(screen.getByTestId("selected-rank-badge").textContent).toBe("6");
 
     fireEvent.click(screen.getByRole("button", { name: "View rank 7: Elite" }));
     expect(await screen.findByRole("heading", { name: "Elite" })).toBeTruthy();
@@ -43,7 +42,8 @@ describe("Guardian Rank page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "View rank 12: Maximum" }));
     expect(await screen.findByRole("heading", { name: "Maximum" })).toBeTruthy();
-    expect(screen.getByTestId("selected-rank-artwork").textContent).toBe("1212");
+    expect(screen.getByTestId("selected-rank-artwork").textContent).toBe("");
+    expect(screen.getByTestId("selected-rank-artwork").querySelector("img")?.getAttribute("src")).toBe("/icons/destiny/guardian-rank-12.svg");
     expect(screen.getByTestId("selected-rank-artwork").getAttribute("style")).toBeNull();
   });
 });
@@ -64,7 +64,7 @@ function envelope() {
       { rankHash: "6", rankNumber: 6, name: "Veteran", description: "Current rank", icon: "/six.png", foregroundImage: "", overlayImage: "", state: "current", completed: 1, total: 1, categories: [{ nodeHash: "cat6", name: "Power", description: "", icon: "", seasonal: false, completed: 1, total: 1, quests: [{ recordHash: "record6", name: "Ascension", description: "Reach the target.", icon: "", state: "completed", trackedInDestiny: false, objectives: [{ objectiveHash: "objective6", name: "Reach Power", progress: 1, completionValue: 1, percent: 100, complete: true, progressAvailable: true }] }] }] },
       { rankHash: "7", rankNumber: 7, name: "Elite", description: "Next rank", icon: "/seven.png", foregroundImage: "", overlayImage: "", state: "next", completed: 0, total: 1, categories: [{ nodeHash: "cat7", name: "Journey", description: "", icon: "", seasonal: false, completed: 0, total: 1, quests: [{ recordHash: "record7", name: "Service", description: "Complete activities.", icon: "", state: "in-progress", trackedInDestiny: false, objectives: [{ objectiveHash: "objective7", name: "Activities", progress: 4, completionValue: 10, percent: 40, complete: false, progressAvailable: true }] }] }] },
       { rankHash: "8", rankNumber: 8, name: "Justiciar", description: "Highest rank", icon: "/eight.png", foregroundImage: "", overlayImage: "", state: "future", completed: 0, total: 0, categories: [] },
-      { rankHash: "terminal-12", rankNumber: 12, name: "Maximum", description: "Highest achievable rank.", icon: "", foregroundImage: "", overlayImage: "", state: "future", completed: 0, total: 0, categories: [] }
+      { rankHash: "terminal-12", rankNumber: 12, name: "Maximum", description: "Highest achievable rank.", icon: "/icons/destiny/guardian-rank-12.svg", foregroundImage: "", overlayImage: "", state: "future", completed: 0, total: 0, categories: [] }
     ],
     sources: { ranks: "DestinyProfileComponent and DestinyGuardianRankDefinition", objectives: "DestinyPresentationNodeDefinition, DestinyRecordDefinition, and profile records (component 900)" }
   };

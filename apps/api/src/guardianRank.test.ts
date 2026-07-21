@@ -39,7 +39,7 @@ describe("normalizeGuardianRanks", () => {
     expect(data).toMatchObject({ currentRank: 6, renewedRank: 6, highestAchievedRank: 8, lifetimeHighestRank: 8, maximumRank: 8, suggestedRank: 6 });
     expect(data.ranks[0]).toMatchObject({ state: "current", completed: 1, total: 1 });
     expect(data.ranks[1]).toMatchObject({ state: "next", completed: 0, total: 1 });
-    expect(data.ranks[2]).toMatchObject({ rankNumber: 8, name: "Maximum", state: "future", total: 0, categories: [] });
+    expect(data.ranks[2]).toMatchObject({ rankNumber: 8, name: "Maximum", icon: "/icons/destiny/guardian-rank-12.svg", state: "future", total: 0, categories: [] });
     expect(data.ranks[1]?.categories[0]?.quests[0]).toMatchObject({ state: "in-progress", trackedInDestiny: true, objectives: [{ progress: 4, completionValue: 10, percent: 40, progressAvailable: true }] });
   });
 

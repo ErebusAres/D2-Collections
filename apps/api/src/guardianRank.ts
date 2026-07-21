@@ -51,7 +51,7 @@ export function normalizeGuardianRanks(profile: any, manifest: GuardianRankManif
       rankNumber: maximumRank,
       name: "Maximum",
       description: `Rank ${maximumRank} is the highest achievable Guardian Rank. No additional objectives are required after reaching it.`,
-      icon: "",
+      icon: "/icons/destiny/guardian-rank-12.svg",
       foregroundImage: imageUrl(lastDefinedRank.foregroundImage),
       overlayImage: imageUrl(lastDefinedRank.overlayImage),
       state: tierState(maximumRank, currentRank),
