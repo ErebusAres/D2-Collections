@@ -19,6 +19,7 @@ const publicProfileCache = new Map<string, { profile?: any; membershipType?: num
 const publicMembershipTypeCache = new Map<string, number>();
 const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; offers?: any[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
 const socialRosterCache = new Map<string, { value: FireteamSocialData; expiresAt: number }>();
+const profileRequestCache = new Map<string, { promise: Promise<{ profile: any; accessToken: string }>; expiresAt: number }>();
 const XUR_VENDOR_HASH = "2190858386";
 const XUR_GEAR_VENDOR_HASH = "3751514131";
 const XUR_ARMOR_STATS: Record<string, { name: string; icon: string }> = {
@@ -157,11 +158,11 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
         .filter((socket: any) => socket?.isVisible !== false && socket?.isEnabled !== false)
         .map((socket: any) => String(socket?.plugHash || "")).filter(Boolean));
       const costHashes = sales.flatMap(({ sale }) => (sale?.costs || []).map((cost: any) => String(cost?.itemHash || "")).filter(Boolean));
-      const [definitions, exoticManifest] = await Promise.all([companionItemDefinitionsFor(env, [...new Set([...itemHashes, ...socketHashes, ...costHashes])]), loadManifest(env)]);
+      const definitions = await companionItemDefinitionsFor(env, [...new Set([...itemHashes, ...socketHashes, ...costHashes])]);
       const classes = ["Titan", "Hunter", "Warlock"] as const;
       offers = sales.flatMap(({ vendorHash, saleIndex, sale, response }) => {
         const hash = String(sale?.itemHash || "");
-        const definition: any = definitions[hash] || exoticManifest.itemDefinitions[hash];
+        const definition: any = definitions[hash];
         if (!hash || !definition) return [];
         const socketsBySale = response?.itemComponents?.sockets?.data || {};
         const rarity = String(definition.inventory?.tierTypeName || "Unknown");
@@ -169,7 +170,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
         const slot = String(definition.equipmentSlot || "Miscellaneous");
         const name = String(definition.displayProperties?.name || "Unknown offer");
         const category = xurCategoryFor(definition);
-        const classType = Number(definition.classType ?? (exoticManifest.itemDefinitions[hash] as any)?.classType);
+        const classType = Number(definition.classType);
         const costs = (sale?.costs || []).map((cost: any) => {
           const itemHash = String(cost?.itemHash || "");
           const costDefinition: any = definitions[itemHash];
@@ -364,10 +365,17 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export async function profileFor(row: SessionRow, env: Env, mode: "full" | "session" | "gear" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" = "full"): Promise<{ profile: any; accessToken: string }> {
-  const accessToken = await accessTokenFor(row, env);
-  const components = mode === "session"
+export type ProfileMode = "full" | "session" | "collection" | "quests" | "fireteam" | "gear" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power";
+
+export function profileComponentsFor(mode: ProfileMode): string {
+  return mode === "session"
     ? "100,200,201,202,204,1000"
+    : mode === "collection"
+      ? "100,102,200,201,800,900"
+      : mode === "quests"
+        ? "100,200,201,204,301"
+        : mode === "fireteam"
+          ? "100,200,204,1000"
     : mode === "mailbox"
       ? "100,200,201"
       : mode === "loadouts"
@@ -379,8 +387,21 @@ export async function profileFor(row: SessionRow, env: Env, mode: "full" | "sess
             : mode === "power"
               ? "100,102,103,104,200,201,205,300"
     : `100,102,103,104,200,201,202,204,205,300,301,304,305,307${mode === "gear" ? ",310" : ""},800,900,1000,1200`;
-  const profile = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/?components=${components}`, env, accessToken);
-  return { profile, accessToken };
+}
+
+export async function profileFor(row: SessionRow, env: Env, mode: ProfileMode = "full"): Promise<{ profile: any; accessToken: string }> {
+  const components = profileComponentsFor(mode);
+  const cacheKey = `${row.membership_type}:${row.membership_id}:${components}`;
+  const cached = profileRequestCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) return cached.promise;
+  const promise = (async () => {
+    const accessToken = await accessTokenFor(row, env);
+    const profile = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/?components=${components}`, env, accessToken);
+    return { profile, accessToken };
+  })();
+  profileRequestCache.set(cacheKey, { promise, expiresAt: Date.now() + 15_000 });
+  try { return await promise; }
+  catch (error) { profileRequestCache.delete(cacheKey); throw error; }
 }
 
 export async function loadCompanionManifest(env: Env): Promise<CompanionManifest> {

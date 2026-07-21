@@ -355,7 +355,7 @@ async function overview(row: SessionRow, env: Env, context: RequestContext): Pro
 }
 
 async function collection(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile, accessToken } = await profileFor(row, env);
+  const { profile, accessToken } = await profileFor(row, env, "collection");
   const manifest = await loadManifest(env);
   const characters = uniqueXurCharacters(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   const xur = characters.length
@@ -385,7 +385,7 @@ function uniqueXurCharacters(characters: ReturnType<typeof charactersFromProfile
 }
 
 async function quests(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile } = await profileFor(row, env);
+  const { profile } = await profileFor(row, env, "quests");
   const manifest = await loadQuestManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
@@ -664,7 +664,7 @@ async function upsertShare(request: Request, row: SessionRow, env: Env, context:
 }
 
 async function storeShare(row: SessionRow, env: Env, characterId: string, sitePinnedQuestIds: string[], mode: FireteamSharingMode): Promise<{ expiresAt: string; sharedQuestCount: number; sourceMintedAt?: string }> {
-  const { profile } = await profileFor(row, env);
+  const { profile } = await profileFor(row, env, "quests");
   const manifest = await loadQuestManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), characterId);
   if (!character || character.characterId !== characterId) throw httpError(400, "character_invalid", "The selected character does not belong to this Guardian.");
@@ -708,7 +708,7 @@ async function refreshPersistentShares(env: Env): Promise<void> {
 }
 
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile, accessToken } = await profileFor(row, env);
+  const { profile, accessToken } = await profileFor(row, env, "fireteam");
   const manifest = await loadManifest(env);
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
   const now = new Date().toISOString();
@@ -806,7 +806,7 @@ async function matrix(row: SessionRow, env: Env, context: RequestContext): Promi
 
 async function syncMatrix(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   if (!allowlist(env.MATRIX_MEMBERSHIP_IDS).has(row.membership_id)) throw httpError(403, "matrix_update_forbidden", "This Guardian may view but cannot update Guardian Matrix.");
-  const { profile } = await profileFor(row, env);
+  const { profile } = await profileFor(row, env, "collection");
   const manifest = await loadManifest(env);
   const characters = charactersFromProfile(profile);
   const classEntries = characters.flatMap((character) => normalizeCollection(profile, manifest, character.className).entries);

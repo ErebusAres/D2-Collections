@@ -1,6 +1,6 @@
 import type { MatrixGuardian } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { defaultMatrixSelection } from "./MatrixPage";
+import { defaultMatrixSelection, matrixRowsForPage } from "./MatrixPage";
 
 const guardians: MatrixGuardian[] = [
   { membershipId: "1", displayName: "FearsRedemption", hasSnapshot: true },
@@ -15,5 +15,13 @@ describe("defaultMatrixSelection", () => {
 
   it("restores valid comparisons and discards Guardians outside the roster", () => {
     expect(defaultMatrixSelection(guardians, "1", ["1", "3", "not-approved", "3"])).toEqual(["1", "3"]);
+  });
+});
+
+describe("matrixRowsForPage", () => {
+  it("renders a bounded initial batch instead of the entire Matrix", () => {
+    const rows = Array.from({ length: 240 }, (_, index) => index);
+    expect(matrixRowsForPage(rows, 80)).toEqual(rows.slice(0, 80));
+    expect(matrixRowsForPage(rows, 160)).toEqual(rows.slice(0, 160));
   });
 });

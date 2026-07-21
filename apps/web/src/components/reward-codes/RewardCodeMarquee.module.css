@@ -1,20 +1,11 @@
 .marquee { height: 34px; display: grid; grid-template-columns: 182px minmax(0, 1fr) 90px; align-items: stretch; overflow: hidden; border-bottom: 1px solid rgba(231,200,119,.24); background: linear-gradient(90deg, rgba(231,200,119,.13), rgba(20,28,30,.96) 30%, rgba(155,231,226,.06)); color: var(--ink); text-decoration: none; }
-.marquee > strong, .marquee > em { position: relative; z-index: 2; display: flex; align-items: center; gap: 7px; padding: 0 13px; background: #171a18; color: var(--gold); font-size: 9px; font-style: normal; letter-spacing: .09em; text-transform: uppercase; }
+.marquee > strong, .marquee > em { position: relative; z-index: 2; display: flex; align-items: center; gap: 7px; padding: 0 13px; background: #171a18; color: var(--gold); font-size: 10px; font-style: normal; letter-spacing: .09em; text-transform: uppercase; }
 .marquee > strong svg, .marquee > em svg { width: 13px; }
 .marquee > em { justify-content: flex-end; background: #0d171c; color: var(--cyan); }
-.viewport { position: relative; min-width: 0; overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); }
-.track, .measure { height: 100%; display: flex; align-items: center; }
-.track { width: max-content; }
-.scrolling { animation: rewardCodeMarquee var(--marquee-duration, 72s) linear infinite; }
-.static { width: 100%; justify-content: center; }
-.measure { position: absolute; width: max-content; visibility: hidden; pointer-events: none; }
-.marquee:hover .scrolling, .marquee:focus-visible .scrolling { animation-play-state: paused; }
-.marquee span { display: flex; align-items: center; gap: 8px; margin-right: 32px; color: #c1cdd1; font-size: 9px; white-space: nowrap; }
-.marquee span::after { content: "◆"; margin-left: 20px; color: rgba(231,200,119,.55); }
-.static span:last-child, .measure span:last-child { margin-right: 0; }
-.static span:last-child::after, .measure span:last-child::after { display: none; }
+.preview { min-width: 0; display: flex; align-items: center; justify-content: center; gap: clamp(12px,2vw,28px); padding: 0 14px; overflow: hidden; }
+.marquee span { min-width: 0; display: flex; align-items: center; gap: 8px; color: #c1cdd1; font-size: 10px; white-space: nowrap; }
+.marquee span + span::before { content: "◆"; margin-right: clamp(4px,1vw,12px); color: rgba(231,200,119,.55); }
 .marquee span b { color: var(--gold); font: 600 12px "Barlow Condensed"; letter-spacing: .1em; }
-.marquee span small { padding: 1px 4px; border: 1px solid rgba(155,231,226,.2); color: var(--cyan); font-size: 7px; text-transform: uppercase; }
-@keyframes rewardCodeMarquee { to { transform: translateX(-50%); } }
-:global(html[data-reduced-motion="true"]) .scrolling { animation: none; }
-@media (max-width: 850px) { .marquee { grid-template-columns: 154px minmax(0, 1fr) 76px; } .marquee > strong, .marquee > em { padding-inline: 8px; font-size: 8px; } }
+.marquee span small { padding: 1px 4px; border: 1px solid rgba(155,231,226,.2); color: var(--cyan); font-size: 9px; text-transform: uppercase; }
+.marquee .remaining { flex: 0 0 auto; color: var(--cyan); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+@media (max-width: 850px) { .marquee { grid-template-columns: 154px minmax(0, 1fr) 76px; } .marquee > strong, .marquee > em { padding-inline: 8px; font-size: 9px; } }

@@ -20,4 +20,14 @@ describe("API client", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("error code: 1102 Worker exceeded resource limits", { status: 500 }));
     await expect(api("/api/v1/session")).rejects.toMatchObject({ status: 500, code: "worker_resource_limit", message: "Guardian services are temporarily over capacity." });
   });
+
+  it("coalesces identical simultaneous reads", async () => {
+    let release!: (response: Response) => void;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise<Response>((resolve) => { release = resolve; }));
+    const first = api<{ ok: boolean }>("/api/v1/coalesced");
+    const second = api<{ ok: boolean }>("/api/v1/coalesced");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    release(new Response(JSON.stringify({ data: { ok: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "r" }), { status: 200 }));
+    await expect(Promise.all([first, second])).resolves.toEqual([expect.objectContaining({ data: { ok: true } }), expect.objectContaining({ data: { ok: true } })]);
+  });
 });

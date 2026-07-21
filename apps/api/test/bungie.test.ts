@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -8,6 +8,19 @@ describe("destinyDisplayName", () => {
   it("formats Bungie's public global display name and discriminator", () => {
     expect(destinyDisplayName({ bungieGlobalDisplayName: "Guardian", bungieGlobalDisplayNameCode: 42 })).toBe("Guardian#0042");
     expect(destinyDisplayName({ displayName: "PlatformGuardian" })).toBe("PlatformGuardian");
+  });
+});
+
+describe("profileComponentsFor", () => {
+  it("keeps common pages on narrow Bungie component sets", () => {
+    expect(profileComponentsFor("collection")).toBe("100,102,200,201,800,900");
+    expect(profileComponentsFor("quests")).toBe("100,200,201,204,301");
+    expect(profileComponentsFor("fireteam")).toBe("100,200,204,1000");
+  });
+
+  it("retains item sockets and stats for gear", () => {
+    expect(profileComponentsFor("gear")).toContain("310");
+    expect(profileComponentsFor("gear")).toContain("305");
   });
 });
 

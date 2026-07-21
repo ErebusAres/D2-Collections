@@ -1,12 +1,14 @@
 import type { CatalystState, MatrixData, MatrixGuardian, MatrixSnapshot } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, CircleHelp, Eye, GitCompareArrows, LogIn, RefreshCcw, Search, ShieldX, UserRoundCheck, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
+
+const MATRIX_PAGE_SIZE = 80;
 
 export function MatrixPage() {
   const { session } = useGuardian();
@@ -14,6 +16,8 @@ export function MatrixPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "difference" | "missing">("all");
   const [selectedMembershipIds, setSelectedMembershipIds] = useState<string[]>([]);
+  const [visibleRowCount, setVisibleRowCount] = useState(MATRIX_PAGE_SIZE);
+  const deferredSearch = useDeferredValue(search);
   const result = useQuery({ queryKey: ["matrix"], queryFn: () => api<MatrixData>("/api/v1/matrix"), enabled: Boolean(session?.authenticated) });
   const sync = useMutation({ mutationFn: () => queuedApi("/api/v1/matrix/sync", { method: "POST", headers: mutationHeaders(session?.csrfToken) }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["matrix"] }) });
   const currentMembershipId = session?.guardian?.membershipId || "";
@@ -48,13 +52,16 @@ export function MatrixPage() {
       items.set(entry.itemHash, row);
     }));
     return [...items.values()].filter((row) => {
-      const matches = !search || `${row.name} ${row.kind}`.toLowerCase().includes(search.toLowerCase());
+      const matches = !deferredSearch || `${row.name} ${row.kind}`.toLowerCase().includes(deferredSearch.toLowerCase());
       const states = selectedGuardians.map((guardian) => row.states.get(guardian.membershipId)?.owned);
       const differs = new Set(states).size > 1;
       const anyMissing = states.some((owned) => owned === false);
       return matches && (status === "all" || (status === "difference" && differs) || (status === "missing" && anyMissing));
     }).sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name));
-  }, [selectedSnapshots, selectedGuardians, search, status]);
+  }, [selectedSnapshots, selectedGuardians, deferredSearch, status]);
+  const visibleRows = matrixRowsForPage(rows, visibleRowCount);
+
+  useEffect(() => { setVisibleRowCount(MATRIX_PAGE_SIZE); }, [deferredSearch, status, selectedMembershipIds]);
 
   const selectGuardians = (membershipIds: string[]) => {
     const next = defaultMatrixSelection(guardians, currentMembershipId, membershipIds);
@@ -90,7 +97,8 @@ export function MatrixPage() {
       <section className={styles.matrixGuardians}>{selectedGuardians.map((guardian) => <GuardianColumn key={guardian.membershipId} guardian={guardian} snapshot={snapshotsByMembership.get(guardian.membershipId)} isSelf={guardian.membershipId === currentMembershipId} />)}</section>
       {selectedSnapshots.length === 0 ? <div className={styles.inlineEmpty}><GitCompareArrows /><h2>Selected Matrix awaiting sync</h2><p>Use “Sync my Matrix” to publish your snapshot. Each comparison Guardian keeps their own independent snapshot.</p></div> : <>
       <section className={styles.commandBar}><label className={styles.search}><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search compared Exotics…" /></label><div className={styles.questFilters}>{(["all", "difference", "missing"] as const).map((value) => <button key={value} className={status === value ? styles.activeFilter : ""} onClick={() => setStatus(value)}>{value === "all" ? "All items" : value === "difference" ? "Differences" : "Missing anywhere"}</button>)}</div><strong className={styles.resultCount}>{rows.length} rows</strong></section>
-      <div className={styles.matrixWrap}><table className={styles.matrixTable}><thead><tr><th>Exotic</th>{selectedGuardians.map((guardian) => <th key={guardian.membershipId}>{guardian.displayName}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.itemHash}><th><span>{row.kind}</span><strong>{row.name}</strong></th>{selectedGuardians.map((guardian) => <td key={guardian.membershipId}><MatrixCell state={row.states.get(guardian.membershipId)} /></td>)}</tr>)}</tbody></table></div>
+      <div className={styles.matrixWrap}><table className={styles.matrixTable}><thead><tr><th>Exotic</th>{selectedGuardians.map((guardian) => <th key={guardian.membershipId}>{guardian.displayName}</th>)}</tr></thead><tbody>{visibleRows.map((row) => <tr key={row.itemHash}><th><span>{row.kind}</span><strong>{row.name}</strong></th>{selectedGuardians.map((guardian) => <td key={guardian.membershipId}><MatrixCell state={row.states.get(guardian.membershipId)} /></td>)}</tr>)}</tbody></table></div>
+      {visibleRows.length < rows.length && <button type="button" className={styles.matrixMore} onClick={() => setVisibleRowCount((count) => Math.min(rows.length, count + MATRIX_PAGE_SIZE))}>Show {Math.min(MATRIX_PAGE_SIZE, rows.length - visibleRows.length)} more <small>{visibleRows.length} of {rows.length} loaded</small></button>}
       </>}
     </>}
   </AuthGate>;
@@ -101,6 +109,10 @@ export function defaultMatrixSelection(guardians: MatrixGuardian[], _currentMemb
   const valid = [...new Set(requested)].filter((membershipId) => available.has(membershipId));
   if (valid.length) return valid;
   return guardians.map((guardian) => guardian.membershipId);
+}
+
+export function matrixRowsForPage<T>(rows: T[], visibleRowCount: number): T[] {
+  return rows.slice(0, Math.max(MATRIX_PAGE_SIZE, visibleRowCount));
 }
 
 function GuardianColumn({ guardian, snapshot, isSelf }: { guardian: MatrixGuardian; snapshot?: MatrixSnapshot; isSelf: boolean }) {

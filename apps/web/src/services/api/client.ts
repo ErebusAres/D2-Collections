@@ -34,8 +34,20 @@ const connectionListeners = new Set<() => void>();
 const pendingMutations: PendingMutation[] = [];
 let flushTimer: number | undefined;
 let flushing = false;
+const inFlightReads = new Map<string, Promise<ApiEnvelope<unknown>>>();
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelope<T>> {
+export function api<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelope<T>> {
+  const method = String(init.method || "GET").toUpperCase();
+  if (method !== "GET" || init.body) return performRequest<T>(path, init);
+  const existing = inFlightReads.get(path);
+  if (existing) return existing as Promise<ApiEnvelope<T>>;
+  const request = performRequest<T>(path, init);
+  inFlightReads.set(path, request as Promise<ApiEnvelope<unknown>>);
+  void request.finally(() => { if (inFlightReads.get(path) === request) inFlightReads.delete(path); }).catch(() => undefined);
+  return request;
+}
+
+async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
   let response: Response;
   try {
     response = await fetch(path, {
