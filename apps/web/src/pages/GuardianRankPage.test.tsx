@@ -25,11 +25,13 @@ describe("Guardian Rank page", () => {
     expect(screen.getByText("Highest rank achieved")).toBeTruthy();
     expect(screen.getByRole("button", { name: "View rank 12: Maximum" })).toBeTruthy();
     expect(screen.getByText("4 / 10")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View rank 6: Veteran" })).toBeTruthy();
+    const previousRank = screen.getByRole("button", { name: "View rank 6: Veteran" });
+    expect(previousRank.textContent).not.toContain("6");
+    expect(screen.getByText("Highest rank achieved").closest("div")?.textContent).not.toContain("8");
     fireEvent.click(screen.getByRole("button", { name: "Track Service" }));
     expect(setPreference).toHaveBeenCalledWith("guardianRank.tracked", JSON.stringify(["record7"]));
 
-    fireEvent.click(screen.getByRole("button", { name: "View rank 6: Veteran" }));
+    fireEvent.click(previousRank);
     expect(await screen.findByRole("heading", { name: "Veteran" })).toBeTruthy();
     expect(screen.getByText("Ascension")).toBeTruthy();
   });
@@ -48,8 +50,9 @@ function envelope() {
     maximumRank: 12,
     suggestedRank: 7,
     ranks: [
-      { rankHash: "6", rankNumber: 6, name: "Veteran", description: "Current rank", icon: "", foregroundImage: "", overlayImage: "", state: "current", completed: 1, total: 1, categories: [{ nodeHash: "cat6", name: "Power", description: "", icon: "", seasonal: false, completed: 1, total: 1, quests: [{ recordHash: "record6", name: "Ascension", description: "Reach the target.", icon: "", state: "completed", trackedInDestiny: false, objectives: [{ objectiveHash: "objective6", name: "Reach Power", progress: 1, completionValue: 1, percent: 100, complete: true, progressAvailable: true }] }] }] },
-      { rankHash: "7", rankNumber: 7, name: "Elite", description: "Next rank", icon: "", foregroundImage: "", overlayImage: "", state: "next", completed: 0, total: 1, categories: [{ nodeHash: "cat7", name: "Journey", description: "", icon: "", seasonal: false, completed: 0, total: 1, quests: [{ recordHash: "record7", name: "Service", description: "Complete activities.", icon: "", state: "in-progress", trackedInDestiny: false, objectives: [{ objectiveHash: "objective7", name: "Activities", progress: 4, completionValue: 10, percent: 40, complete: false, progressAvailable: true }] }] }] },
+      { rankHash: "6", rankNumber: 6, name: "Veteran", description: "Current rank", icon: "/six.png", foregroundImage: "", overlayImage: "", state: "current", completed: 1, total: 1, categories: [{ nodeHash: "cat6", name: "Power", description: "", icon: "", seasonal: false, completed: 1, total: 1, quests: [{ recordHash: "record6", name: "Ascension", description: "Reach the target.", icon: "", state: "completed", trackedInDestiny: false, objectives: [{ objectiveHash: "objective6", name: "Reach Power", progress: 1, completionValue: 1, percent: 100, complete: true, progressAvailable: true }] }] }] },
+      { rankHash: "7", rankNumber: 7, name: "Elite", description: "Next rank", icon: "/seven.png", foregroundImage: "", overlayImage: "", state: "next", completed: 0, total: 1, categories: [{ nodeHash: "cat7", name: "Journey", description: "", icon: "", seasonal: false, completed: 0, total: 1, quests: [{ recordHash: "record7", name: "Service", description: "Complete activities.", icon: "", state: "in-progress", trackedInDestiny: false, objectives: [{ objectiveHash: "objective7", name: "Activities", progress: 4, completionValue: 10, percent: 40, complete: false, progressAvailable: true }] }] }] },
+      { rankHash: "8", rankNumber: 8, name: "Justiciar", description: "Highest rank", icon: "/eight.png", foregroundImage: "", overlayImage: "", state: "future", completed: 0, total: 0, categories: [] },
       { rankHash: "terminal-12", rankNumber: 12, name: "Maximum", description: "Highest achievable rank.", icon: "", foregroundImage: "", overlayImage: "", state: "future", completed: 0, total: 0, categories: [] }
     ],
     sources: { ranks: "DestinyProfileComponent and DestinyGuardianRankDefinition", objectives: "DestinyPresentationNodeDefinition, DestinyRecordDefinition, and profile records (component 900)" }
