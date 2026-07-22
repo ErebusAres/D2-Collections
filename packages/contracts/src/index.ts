@@ -274,7 +274,68 @@ export interface SessionData {
   authenticated: boolean;
   guardian?: GuardianSummary;
   csrfToken?: string;
-  roles: { dev: boolean; matrixWriter: boolean; buildEditor: boolean };
+  roles: { dev: boolean; matrixWriter: boolean; buildEditor: boolean; reportAdmin: boolean };
+}
+
+export type ReportCategory = "bug" | "suggestion" | "feedback" | "data" | "performance" | "accessibility" | "account" | "other";
+export type ReportStatus = "open" | "in_progress" | "completed" | "dismissed";
+export type ReportPriority = "low" | "normal" | "high" | "urgent";
+
+export interface ReportClientContext {
+  userAgent?: string;
+  viewport?: string;
+  appPath?: string;
+}
+
+export interface GuardianReport {
+  id: number;
+  reference: string;
+  reporterMembershipId?: string;
+  reporterDisplayName: string;
+  category: ReportCategory;
+  title: string;
+  description: string;
+  reproductionSteps?: string;
+  expectedResult?: string;
+  actualResult?: string;
+  pageUrl?: string;
+  clientContext?: ReportClientContext;
+  status: ReportStatus;
+  priority: ReportPriority;
+  assignedToMembershipId?: string;
+  assignedToDisplayName?: string;
+  adminNotes?: string;
+  resolution?: string;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
+  version: number;
+}
+
+export interface ReportListData {
+  reports: GuardianReport[];
+  canManage: boolean;
+  counts?: Record<ReportStatus, number>;
+}
+
+export interface CreateReportRequest {
+  category: ReportCategory;
+  title: string;
+  description: string;
+  reproductionSteps?: string;
+  expectedResult?: string;
+  actualResult?: string;
+  pageUrl?: string;
+  clientContext?: ReportClientContext;
+}
+
+export interface UpdateReportRequest {
+  expectedVersion: number;
+  status?: ReportStatus;
+  priority?: ReportPriority;
+  assignment?: "claim" | "release";
+  adminNotes?: string;
+  resolution?: string;
 }
 
 export type ExoticKind = "weapon" | "armor";

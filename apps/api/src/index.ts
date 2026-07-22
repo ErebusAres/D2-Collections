@@ -48,6 +48,7 @@ import { normalizePvpData, normalizePvpProgressions } from "./pvp";
 import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizePower, powerItemHashes } from "./power";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
+import { isReportAdmin, reportsRoute } from "./reports";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -126,6 +127,8 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (buildsResponse) return buildsResponse;
 
   const session = await requireSession(request, env);
+  const reportsResponse = await reportsRoute(request, env, context, session);
+  if (reportsResponse) return reportsResponse;
   if (path === "/api/v1/me/overview" && request.method === "GET") return overview(session.row, env, context);
   if (path === "/api/v1/me/preferences" && request.method === "GET") return userPreferences(session.row, env, context);
   if (path === "/api/v1/me/preferences" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateUserPreference(request, session.row, env, context); }
@@ -179,7 +182,7 @@ function corsHeaders(env: Env, origin: string): HeadersInit {
     "Access-Control-Allow-Origin": accepted,
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Headers": "Content-Type,X-CSRF-Token",
-    "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+    "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     Vary: "Origin"
   };
 }
@@ -287,7 +290,7 @@ async function finishAuth(request: Request, env: Env, context: RequestContext): 
 async function readSession(request: Request, env: Env, context: RequestContext): Promise<Response> {
   const visitorCookie = await recordAudienceVisitor(request, env, context);
   const session = await sessionFromRequest(request, env);
-  if (!session) return withSetCookie(envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false } }, env, context), visitorCookie);
+  if (!session) return withSetCookie(envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false } }, env, context), visitorCookie);
   const { profile, accessToken } = await profileFor(session.row, env, "session");
   const [manifest, pvpManifest] = await Promise.all([loadActivityManifest(env), loadRewardsManifest(env)]);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
@@ -311,7 +314,8 @@ async function readSession(request: Request, env: Env, context: RequestContext):
     roles: {
       dev: allowlist(env.DEV_MEMBERSHIP_IDS).has(session.row.membership_id),
       matrixWriter: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id),
-      buildEditor: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id)
+      buildEditor: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id),
+      reportAdmin: isReportAdmin(session.row.membership_id, env)
     }
   }, env, context, { sourceMintedAt: profile?.responseMintedTimestamp }), visitorCookie);
 }

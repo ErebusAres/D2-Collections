@@ -42,7 +42,7 @@ function cacheSafeSession(envelope: ApiEnvelope<SessionData> | undefined): void 
     data: {
       ...envelope.data,
       csrfToken: undefined,
-      roles: { dev: false, matrixWriter: false, buildEditor: false },
+      roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false },
       guardian: { ...envelope.data.guardian, isInGame: false, currentActivity: undefined }
     },
     freshness: { ...envelope.freshness, state: "stale", observedAt: new Date().toISOString() },

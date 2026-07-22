@@ -9,6 +9,7 @@ export interface Env {
   GAME_DATA_URL: string;
   DEV_MEMBERSHIP_IDS: string;
   MATRIX_MEMBERSHIP_IDS: string;
+  REPORT_ADMIN_MEMBERSHIP_IDS: string;
 }
 
 export interface SessionRow {

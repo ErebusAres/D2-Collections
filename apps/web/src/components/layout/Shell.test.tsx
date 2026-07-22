@@ -21,7 +21,7 @@ vi.mock("../../context/GuardianContext", () => ({
         stats: { power: 409, guardianRank: 5, crucibleRank: { kind: "crucible", progressionHash: "10", name: "Crucible Rank", description: "", icon: "", rankName: "Brave II", level: 7, stepIndex: 1, currentProgress: 4_250, progressToNextLevel: 250, nextLevelAt: 500, percent: 50, resets: 2 }, rewardsPassRank: 33, rewardsPassProgress: { state: "available", source: "bungie-profile-character-progressions", progressToNextLevel: 2_750, nextLevelAt: 100_000 }, mailboxCount: 4 },
         isInGame: false
       },
-      roles: { dev: false, matrixWriter: false, buildEditor: false }
+      roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false }
     },
     loading: false,
     signIn: vi.fn(),
@@ -72,10 +72,8 @@ describe("Shell guardian identity", () => {
     expect(screen.queryByText(/Open pass/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
-    const feedback = screen.getByRole("link", { name: /Feedback & bug reports/i });
-    expect(feedback.getAttribute("href")).toBe("https://github.com/ErebusAres/D2-Collections/issues");
-    expect(feedback.getAttribute("target")).toBe("_blank");
-    expect(feedback.getAttribute("rel")).toBe("noreferrer");
+    const feedback = screen.getByRole("link", { name: /Feedback & reports/i });
+    expect(feedback.getAttribute("href")).toBe("/reports?from=%2F");
   });
 
   it("uses the live rewards rank when the session snapshot is stale", async () => {

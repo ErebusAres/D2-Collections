@@ -1,6 +1,7 @@
 import type { FireteamData } from "@guardian-nexus/contracts";
-import { Bug, ExternalLink, LogOut, RefreshCcw, Trash2, X } from "lucide-react";
+import { Bug, ChevronRight, LogOut, RefreshCcw, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useLocation } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
 import { clearGuardianOfflineData } from "../../services/api/offlineCache";
 import { pinsKey, useGuardian } from "../../context/GuardianContext";
@@ -8,6 +9,7 @@ import styles from "./OptionsPanel.module.css";
 
 export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const guardianState = useGuardian();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const session = guardianState.session;
   const fireteam = useQuery({
@@ -67,9 +69,9 @@ export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => 
           <button onClick={() => void guardianState.refresh()}><RefreshCcw size={17} /> Refresh all data</button>
           <button onClick={() => void clearLocalData()}><Trash2 size={17} /> Clear local Guardian data</button>
           {session?.authenticated && <button className={styles.danger} onClick={() => signOut.mutate()} disabled={signOut.isPending}><LogOut size={17} /> Sign out</button>}
-          <a className={styles.feedback} href="https://github.com/ErebusAres/D2-Collections/issues" target="_blank" rel="noreferrer">
-            <Bug size={17} /><span><b>Feedback &amp; bug reports</b><small>Open Guardian Nexus issues on GitHub</small></span><ExternalLink size={14} />
-          </a>
+          <Link className={styles.feedback} to={`/reports?from=${encodeURIComponent(`${location.pathname}${location.search}`)}`} onClick={onClose}>
+            <Bug size={17} /><span><b>Feedback &amp; reports</b><small>Report a bug or suggest an update</small></span><ChevronRight size={14} />
+          </Link>
         </section>
       </aside>
     </>
