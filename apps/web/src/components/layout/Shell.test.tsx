@@ -68,6 +68,8 @@ describe("Shell guardian identity", () => {
     expect(screen.getByLabelText("Guardian Rank: 5 · Open").getAttribute("href")).toBe("/guardian-rank");
     const statLabels = [...screen.getByLabelText("Guardian stats").children].map((entry) => entry.getAttribute("aria-label"));
     expect(statLabels.slice(1, 4)).toEqual(["Guardian Rank: 5 · Open", "Crucible Rank: 7 · Brave II · Open", "Rewards Pass: 33 · Open"]);
+    expect(screen.getByText("2,750 / 100,000 XP (2%)")).toBeTruthy();
+    expect(screen.queryByText(/Open pass/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
     const feedback = screen.getByRole("link", { name: /Feedback & bug reports/i });
@@ -99,6 +101,7 @@ describe("Shell guardian identity", () => {
 
     expect(await screen.findByLabelText("Rewards Pass: 101 · Open")).toBeTruthy();
     expect(screen.getByTitle(/4\/5 pips beyond rank 101/)).toBeTruthy();
+    expect(screen.getByText("439,174 / 500,000 XP (87%)")).toBeTruthy();
   });
 
   it("focuses the page search for Ctrl+F and reveals a scroll-to-top control on long pages", async () => {

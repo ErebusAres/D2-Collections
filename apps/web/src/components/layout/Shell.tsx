@@ -138,10 +138,13 @@ function RewardsProgress({ rank, progress }: { rank: number; progress: import("@
       ? `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP toward rank ${rank + 1} · ${completedSegments}/${totalSegments} pips beyond rank ${rank}`
       : `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP · ${levelProgress.percent}% to rank ${rank + 1}`
     : progress.reason || "Rewards Pass XP is unavailable from Bungie.";
+  const visibleLabel = levelProgress
+    ? `${levelProgress.current.toLocaleString()} / ${levelProgress.required.toLocaleString()} XP (${levelProgress.percent}%)`
+    : "XP unavailable";
   return <NavLink to="/rewards" className={`${styles.rewardProgress} ${levelProgress ? "" : styles.rewardProgressUnavailable}`} title={`${label} · Open Rewards Pass`}>
     {levelProgress?.segments
       ? <i className={styles.rewardProgressSegments}>{levelProgress.segments.map((percent, index) => <span key={index} style={{ "--segment-progress": `${percent}%` } as React.CSSProperties} />)}</i>
       : <i><span style={{ width: `${levelProgress?.percent || 0}%` }} /></i>}
-    <b>{levelProgress ? `${label} · Open pass →` : "XP unavailable · Open pass →"}</b>
+    <b>{visibleLabel}</b>
   </NavLink>;
 }
