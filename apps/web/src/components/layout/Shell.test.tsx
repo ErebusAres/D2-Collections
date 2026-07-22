@@ -68,6 +68,12 @@ describe("Shell guardian identity", () => {
     expect(screen.getByLabelText("Guardian Rank: 5 · Open").getAttribute("href")).toBe("/guardian-rank");
     const statLabels = [...screen.getByLabelText("Guardian stats").children].map((entry) => entry.getAttribute("aria-label"));
     expect(statLabels.slice(1, 4)).toEqual(["Guardian Rank: 5 · Open", "Crucible Rank: 7 · Brave II · Open", "Rewards Pass: 33 · Open"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open options" }));
+    const feedback = screen.getByRole("link", { name: /Feedback & bug reports/i });
+    expect(feedback.getAttribute("href")).toBe("https://github.com/ErebusAres/D2-Collections/issues");
+    expect(feedback.getAttribute("target")).toBe("_blank");
+    expect(feedback.getAttribute("rel")).toBe("noreferrer");
   });
 
   it("uses the live rewards rank when the session snapshot is stale", async () => {

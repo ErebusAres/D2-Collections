@@ -1,5 +1,5 @@
 import type { FireteamData } from "@guardian-nexus/contracts";
-import { LogOut, RefreshCcw, Trash2, X } from "lucide-react";
+import { Bug, ExternalLink, LogOut, RefreshCcw, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
 import { clearGuardianOfflineData } from "../../services/api/offlineCache";
@@ -67,6 +67,9 @@ export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => 
           <button onClick={() => void guardianState.refresh()}><RefreshCcw size={17} /> Refresh all data</button>
           <button onClick={() => void clearLocalData()}><Trash2 size={17} /> Clear local Guardian data</button>
           {session?.authenticated && <button className={styles.danger} onClick={() => signOut.mutate()} disabled={signOut.isPending}><LogOut size={17} /> Sign out</button>}
+          <a className={styles.feedback} href="https://github.com/ErebusAres/D2-Collections/issues" target="_blank" rel="noreferrer">
+            <Bug size={17} /><span><b>Feedback &amp; bug reports</b><small>Open Guardian Nexus issues on GitHub</small></span><ExternalLink size={14} />
+          </a>
         </section>
       </aside>
     </>
