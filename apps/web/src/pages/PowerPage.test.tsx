@@ -21,8 +21,25 @@ describe("Power page", () => {
     expect(screen.getAllByText("549").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Leg Armor").length).toBeGreaterThan(0);
     expect(screen.getAllByText("545").length).toBeGreaterThan(0);
-    expect(screen.getByText("5 below best slot")).toBeTruthy();
-    expect(screen.getByText("Vault best")).toBeTruthy();
+    expect(screen.getAllByText("5 below best slot").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Vault 544").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Progress toward 550").length).toBeGreaterThan(0);
+  });
+
+  it("stops all progression at the 550 hard cap", async () => {
+    const response = envelope();
+    const character = response.data.characters[0];
+    if (!character) throw new Error("Power fixture requires a character");
+    response.data.accountMaximumPower = 550;
+    character.maximumPower = 550;
+    character.averagePower = 550;
+    character.progressToNextPower = 0;
+    vi.mocked(api).mockResolvedValue(response);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><PowerPage /></QueryClientProvider>);
+
+    expect((await screen.findAllByText("Hard cap reached")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("550 / 550").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/551/)).toBeNull();
   });
 });
 

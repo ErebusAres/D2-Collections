@@ -1,15 +1,15 @@
-import type { PowerData, PowerSlot } from "@guardian-nexus/contracts";
+import type { CharacterPowerCeiling, PowerData, PowerSlot } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Archive, ArrowDown, Boxes, Check, Gauge, Shield, Sparkles, TrendingUp, Vault } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertTriangle, Archive, ArrowDown, Check, Gauge, Shield, Sparkles, TrendingUp, Vault } from "lucide-react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import { api } from "../services/api/client";
 import styles from "./PowerPage.module.css";
 
+const POWER_CAP = 550;
+
 export function PowerPage() {
   const { session, selectedCharacterId, autoRefresh } = useGuardian();
-  const [viewedCharacterId, setViewedCharacterId] = useState("");
   const result = useQuery({
     queryKey: ["power", selectedCharacterId],
     queryFn: () => api<PowerData>(`/api/v1/me/power?characterId=${encodeURIComponent(selectedCharacterId)}`),
@@ -19,67 +19,117 @@ export function PowerPage() {
     refetchIntervalInBackground: false
   });
   const data = result.data?.data;
-  useEffect(() => {
-    if (data && !viewedCharacterId) setViewedCharacterId(data.selectedCharacterId);
-  }, [data, viewedCharacterId]);
-  const character = data?.characters.find((entry) => entry.characterId === viewedCharacterId) || data?.characters[0];
-  const lowestSlots = character?.slots.filter((slot) => slot.lowest) || [];
+  const strongestCharacter = data?.characters.reduce<CharacterPowerCeiling | undefined>((best, character) => {
+    if (!best || character.maximumPower > best.maximumPower) return character;
+    return best;
+  }, undefined);
+  const weakestSlots = strongestCharacter?.slots.filter((slot) => slot.lowest) || [];
 
   return <AuthGate>
     <PageHeader
       eyebrow="Account-wide Power analysis"
       title="Power"
-      description="See the strongest transferable gear Bungie reports across your vault and characters, then identify the slot holding each Guardian back."
+      description="Compare the strongest equippable item in every slot across your characters and vault, and see exactly which slot is holding each Guardian back."
       actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />}
     />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
-    {data && character && <>
+    {data && strongestCharacter && <>
+      <section className={styles.capBanner} aria-label={`Maximum gear Power is ${POWER_CAP}`}>
+        <Gauge />
+        <div><span>Gear hard cap</span><strong>{POWER_CAP}</strong></div>
+        <p>{POWER_CAP} is the maximum gear Power. A Guardian at the cap is complete—there is no progression bar or gear target beyond {POWER_CAP}.</p>
+      </section>
+
+      <section className={styles.powerBoard} aria-label="Power by character and account">
+        {data.characters.map((character) => <PowerColumn
+          key={character.characterId}
+          character={character}
+          selected={character.characterId === data.selectedCharacterId}
+        />)}
+        <PowerColumn character={strongestCharacter} accountPower={data.accountMaximumPower} account />
+      </section>
+
       <section className={styles.accountSummary}>
-        <div><Gauge /><span>Account ceiling</span><strong>{data.accountMaximumPower}</strong><small>Highest eight-slot character average</small></div>
-        <div><TrendingUp /><span>Highest item</span><strong>{data.highestItemPower}</strong><small>Anywhere on the account</small></div>
-        <div><Vault /><span>Vault high</span><strong>{data.vaultHighestItemPower || "—"}</strong><small>Highest item currently stored in the vault</small></div>
-        <div className={styles.weakSummary}><ArrowDown /><span>Weakest slot</span><strong>{character.lowestSlotPower || "—"}</strong><small>{lowestSlots.map((slot) => slot.label).join(", ") || "No complete slot set returned"}</small></div>
+        <div><TrendingUp /><span>Highest item</span><strong>{capped(data.highestItemPower) || "—"}</strong><small>Anywhere on the account</small></div>
+        <div><Vault /><span>Vault high</span><strong>{capped(data.vaultHighestItemPower) || "—"}</strong><small>Highest item currently stored in the vault</small></div>
+        <div className={styles.weakSummary}><ArrowDown /><span>Lowest best-in-slot</span><strong>{capped(strongestCharacter.lowestSlotPower) || "—"}</strong><small>{weakestSlots.map((slot) => slot.label).join(", ") || "No complete slot set returned"}</small></div>
       </section>
 
-      <section className={styles.characterSwitcher} aria-label="Power by character">
-        {data.characters.map((entry) => <button key={entry.characterId} onClick={() => setViewedCharacterId(entry.characterId)} className={entry.characterId === character.characterId ? styles.activeCharacter : ""} aria-pressed={entry.characterId === character.characterId}>
-          <span style={{ backgroundImage: entry.emblemBackgroundPath ? `linear-gradient(90deg,rgba(4,10,14,.12),rgba(4,10,14,.72)),url(${entry.emblemBackgroundPath})` : undefined }}>{entry.emblemPath ? <img src={entry.emblemPath} alt="" /> : <Shield />}</span>
-          <div><small>{entry.characterId === data.selectedCharacterId ? "Selected Guardian" : "Account Guardian"}</small><strong>{entry.className}</strong></div>
-          <b><Sparkles />{entry.maximumPower}</b>
-        </button>)}
-      </section>
-
-      <section className={styles.powerWorkspace}>
-        <header className={styles.powerHero} style={{ "--power-banner": character.emblemBackgroundPath ? `url(${character.emblemBackgroundPath})` : "none" } as React.CSSProperties}>
-          <div className={styles.characterIdentity}>{character.emblemPath ? <img src={character.emblemPath} alt="" /> : <Shield />}<span><small>Maximum equippable Power</small><h2>{character.className}</h2><p>Current character Power {character.currentPower}</p></span></div>
-          <div className={styles.ceiling}><span>Gear ceiling</span><strong><Sparkles />{character.maximumPower}</strong><small>{character.averagePower.toFixed(2)} exact slot average</small></div>
-          <div className={styles.nextPower}><span>Progress toward {character.maximumPower + 1}</span><div>{Array.from({ length: 8 }, (_, index) => <i key={index} className={index < character.progressToNextPower ? styles.filledPip : ""} />)}</div><small>{character.progressToNextPower}/8 slot points</small></div>
-        </header>
-
-        <div className={styles.slotScale}><span>{character.lowestSlotPower}</span><i><span /></i><strong>{Math.max(...character.slots.map((slot) => slot.power))}</strong></div>
-        <section className={styles.slotGrid}>{character.slots.map((slot) => <PowerSlotRow key={slot.kind} slot={slot} highestPower={Math.max(...character.slots.map((entry) => entry.power))} />)}</section>
-
-        <section className={styles.explanation}>
-          <Boxes />
-          <div><span>How this ceiling is calculated</span><p>For each of the eight equipment slots, Guardian Nexus selects the highest-Power item that this class can equip from the vault, every character inventory, and equipped gear. The displayed ceiling is the floor of those eight values averaged together.</p></div>
-        </section>
-      </section>
-      <footer className={styles.sourceNote}>Power values come from Bungie's live item instance primary stats. Item slot and class eligibility come from current manifest definitions. Guardian Nexus does not fabricate missing item Power or assume an item belongs in a slot.</footer>
+      <footer className={styles.sourceNote}>Power values come from Bungie's live item instance primary stats. For each class, Guardian Nexus selects the highest-Power item that class can equip from the vault, every character inventory, and equipped gear. The displayed ceiling is the floor of those eight slot values averaged together.</footer>
     </>}
   </AuthGate>;
 }
 
-function PowerSlotRow({ slot, highestPower }: { slot: PowerSlot; highestPower: number }) {
+function PowerColumn({ character, selected = false, account = false, accountPower }: { character: CharacterPowerCeiling; selected?: boolean; account?: boolean; accountPower?: number }) {
+  const maximumPower = capped(account ? accountPower ?? character.maximumPower : character.maximumPower);
+  const atCap = maximumPower >= POWER_CAP;
+  const pips = atCap ? 8 : Math.max(0, Math.min(8, character.progressToNextPower));
+  const scaleMin = slotScaleMinimum(character.slots);
+  const lowestSlots = character.slots.filter((slot) => slot.lowest);
+  const nextPower = Math.min(POWER_CAP, maximumPower + 1);
+  const title = account ? "Account" : character.className;
+
+  return <article className={`${styles.powerColumn} ${account ? styles.accountColumn : ""}`}>
+    <header className={styles.columnHeader} style={{ "--power-banner": character.emblemBackgroundPath ? `url(${character.emblemBackgroundPath})` : "none" } as React.CSSProperties}>
+      <span className={styles.columnEmblem}>{character.emblemPath ? <img src={character.emblemPath} alt="" /> : <Shield />}</span>
+      <div><small>{account ? `Best loadout · ${character.className}` : selected ? "Selected Guardian" : "Account Guardian"}</small><h2>{title}</h2>{!account && <p>Equipped Power {capped(character.currentPower)}</p>}</div>
+      <strong><Sparkles />{maximumPower}</strong>
+    </header>
+
+    <section className={`${styles.columnProgress} ${atCap ? styles.capReached : ""}`}>
+      <div><span>{atCap ? "Hard cap reached" : `Progress toward ${nextPower}`}</span><b>{atCap ? `${POWER_CAP} / ${POWER_CAP}` : `${pips}/8 slot points`}</b></div>
+      <div className={styles.progressPips}>{Array.from({ length: 8 }, (_, index) => <i key={index} className={index < pips ? styles.filledPip : ""} />)}</div>
+      <small>{account ? "Account maximum" : `${Math.max(0, Math.min(POWER_CAP, character.averagePower)).toFixed(2)} exact slot average`}</small>
+    </section>
+
+    <div className={styles.slotScale}><span>{scaleMin}</span><i><span /></i><strong>{POWER_CAP}</strong></div>
+    <section className={styles.slotList} aria-label={`${title} best equipment`}>
+      {character.slots.map((slot) => <PowerSlotRow key={slot.kind} slot={slot} scaleMin={scaleMin} ceiling={maximumPower} />)}
+    </section>
+
+    <footer className={`${styles.columnAdvice} ${atCap ? styles.capAdvice : ""}`}>
+      {atCap ? <><Check /><p><strong>Maximum gear Power reached.</strong><span>Every displayed target stops at {POWER_CAP}.</span></p></> : <><AlertTriangle /><p><strong>{lowestSlots.map((slot) => slot.label).join(" and ") || "Missing gear data"}</strong><span>{lowestSlots.length ? `Your lowest best-in-slot item is ${capped(character.lowestSlotPower)}.` : "Bungie did not return all eight equipment slots."}</span></p></>}
+    </footer>
+  </article>;
+}
+
+function PowerSlotRow({ slot, scaleMin, ceiling }: { slot: PowerSlot; scaleMin: number; ceiling: number }) {
   const item = slot.item;
-  const width = highestPower > 0 ? Math.max(4, Math.min(100, (slot.power / highestPower) * 100)) : 0;
+  const power = capped(slot.power);
+  const fill = scalePosition(power, scaleMin);
+  const marker = scalePosition(ceiling, scaleMin);
   const vaultDiffers = slot.vaultBest && slot.vaultBest.instanceId !== item?.instanceId;
+  const atCap = power >= POWER_CAP;
   return <article className={`${styles.slotRow} ${slot.lowest ? styles.lowestSlot : ""}`}>
     <div className={styles.slotItemIcon}>{item?.icon ? <img src={item.icon} alt="" /> : <Archive />}{slot.lowest && <AlertTriangle />}</div>
-    <div className={styles.slotIdentity}><span>{slot.label}</span><strong>{item?.name || "No item returned"}</strong><small>{item ? locationLabel(item.location) : "Bungie did not return eligible gear"}</small></div>
-    <b className={styles.slotPower}>{slot.power || "—"}</b>
-    <div className={styles.powerBar}><i><span style={{ width: `${width}%` }} /></i>{slot.deficit > 0 ? <small>{slot.deficit} below best slot</small> : <small><Check /> At item ceiling</small>}</div>
-    {vaultDiffers && <div className={styles.vaultBest}><Vault /><span>Vault best</span><strong>{slot.vaultBest!.power}</strong><small>{slot.vaultBest!.name}</small></div>}
+    <div className={styles.slotDetails}>
+      <div><strong>{power || "—"}</strong><span>{slot.label}</span>{atCap && <Check aria-label="At hard cap" />}</div>
+      <small>{item ? `${item.name} · ${locationLabel(item.location)}` : "Bungie did not return eligible gear"}</small>
+      <div className={styles.slotMeter} aria-label={`${slot.label} ${power} of ${POWER_CAP}`}>
+        <span style={{ width: `${fill}%` }} />
+        <i style={{ left: `${marker}%` }} />
+      </div>
+      <div className={styles.slotMeta}>
+        {slot.deficit > 0 ? <span>{slot.deficit} below best slot</span> : <span>{atCap ? "At hard cap" : "At item ceiling"}</span>}
+        {vaultDiffers && <span className={styles.vaultBest}><Vault /> Vault {capped(slot.vaultBest!.power)}</span>}
+      </div>
+    </div>
   </article>;
+}
+
+function capped(value: number): number {
+  return Math.max(0, Math.min(POWER_CAP, Math.floor(value || 0)));
+}
+
+function slotScaleMinimum(slots: PowerSlot[]): number {
+  const lowest = Math.min(...slots.map((slot) => capped(slot.power)).filter((power) => power > 0));
+  if (!Number.isFinite(lowest)) return 0;
+  return Math.max(0, Math.min(POWER_CAP - 120, Math.floor((lowest - 10) / 10) * 10));
+}
+
+function scalePosition(power: number, minimum: number): number {
+  if (minimum >= POWER_CAP) return 100;
+  return Math.max(0, Math.min(100, ((capped(power) - minimum) / (POWER_CAP - minimum)) * 100));
 }
 
 function locationLabel(location: "vault" | "inventory" | "equipped"): string {
