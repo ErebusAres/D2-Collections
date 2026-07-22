@@ -5,8 +5,8 @@
   background: #071018;
   font-synthesis: none;
   --ink: #eef4f7;
-  --muted: #91a1aa;
-  --faint: #52636d;
+  --muted: #afbdc4;
+  --faint: #7b8d97;
   --panel: rgba(11, 22, 31, 0.84);
   --panel-strong: rgba(16, 29, 39, 0.96);
   --line: rgba(202, 224, 232, 0.15);
@@ -24,14 +24,15 @@
 
 * { box-sizing: border-box; }
 html { min-width: 1180px; min-height: 100%; background: #071018; }
-body { margin: 0; min-height: 100vh; overflow-x: auto; }
-button, input, select { font: inherit; }
+body { margin: 0; min-height: 100vh; overflow-x: auto; font-size: 14px; line-height: 1.45; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; }
 button { color: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--cyan-bright); outline-offset: 3px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--cyan-bright); outline-offset: 3px; }
 button { cursor: pointer; }
 h1, h2, h3, p { margin-top: 0; }
 ::selection { background: rgba(155, 231, 226, 0.28); }
+::placeholder { color: #72848e; opacity: 1; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
 ::-webkit-scrollbar-thumb { background: #4a5b64; border: 2px solid #111c24; }

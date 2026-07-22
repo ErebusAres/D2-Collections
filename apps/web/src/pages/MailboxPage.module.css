@@ -1,8 +1,8 @@
-.refresh { height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.035); color: var(--cyan); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
+.refresh { height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.035); color: var(--cyan); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
 .overview { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 14px; border: 1px solid var(--line); background: linear-gradient(110deg, rgba(155,231,226,.07), rgba(5,13,19,.76)); }
 .overview > div:not(.capacityBar) { min-height: 92px; display: grid; grid-template-columns: 40px 1fr; grid-template-rows: 1fr 1fr; align-items: end; gap: 0 10px; padding: 16px 20px; border-right: 1px solid var(--line); }
 .overview svg { grid-row: 1 / 3; align-self: center; color: var(--cyan); }
-.overview span { color: var(--muted); font-size: 8px; text-transform: uppercase; letter-spacing: .12em; }
+.overview span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
 .overview strong { align-self: start; font: 600 26px "Barlow Condensed"; }
 .overview small { color: var(--muted); font: 500 13px "Barlow"; }
 .overview .warning svg, .overview .warning strong { color: var(--gold); }
@@ -13,7 +13,7 @@
 .characterMailbox > header > img { width: 46px; height: 46px; object-fit: cover; }
 .characterMailbox > header > svg { color: var(--cyan); }
 .characterMailbox > header div { display: grid; gap: 2px; }
-.characterMailbox > header span { color: var(--cyan); font-size: 8px; text-transform: uppercase; letter-spacing: .12em; }
+.characterMailbox > header span { color: var(--cyan); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
 .characterMailbox > header h2 { margin: 0; font: 600 19px "Barlow Condensed"; text-transform: uppercase; }
 .characterMailbox > header i { height: 3px; background: rgba(255,255,255,.07); }
 .characterMailbox > header i span { display: block; height: 100%; background: var(--cyan); }
@@ -21,21 +21,21 @@
 .itemCard { min-width: 0; min-height: 116px; display: grid; grid-template-columns: 76px minmax(0, 1fr); grid-template-rows: 1fr auto; gap: 9px 12px; padding: 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: linear-gradient(110deg, rgba(255,255,255,.035), rgba(4,10,15,.25)); }
 .itemArt { position: relative; grid-row: 1 / 3; width: 74px; height: 74px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--line-strong); background: rgba(0,0,0,.28); }
 .itemArt img { width: 100%; height: 100%; object-fit: cover; }
-.itemArt span { padding: 5px; color: var(--gold); font-size: 8px; text-align: center; }
-.itemArt b { position: absolute; right: 3px; bottom: 2px; padding: 1px 4px; background: rgba(0,0,0,.85); font-size: 9px; }
+.itemArt span { padding: 5px; color: var(--gold); font-size: 11px; text-align: center; }
+.itemArt b { position: absolute; right: 3px; bottom: 2px; padding: 1px 4px; background: rgba(0,0,0,.85); font-size: 12px; }
 .itemCard main { min-width: 0; }
-.itemCard main > span, .itemCard main > em { color: var(--gold); font-size: 7px; font-style: normal; text-transform: uppercase; letter-spacing: .09em; }
+.itemCard main > span, .itemCard main > em { color: var(--gold); font-size: 10px; font-style: normal; text-transform: uppercase; letter-spacing: .09em; }
 .itemCard h3 { margin: 3px 0; overflow: hidden; font: 600 17px "Barlow Condensed"; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
-.itemCard p { display: -webkit-box; margin: 0; overflow: hidden; color: var(--muted); font-size: 9px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.itemCard button { justify-self: start; height: 28px; display: flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid rgba(155,231,226,.35); background: rgba(155,231,226,.055); color: var(--cyan); font-size: 8px; text-transform: uppercase; }
+.itemCard p { display: -webkit-box; margin: 0; overflow: hidden; color: var(--muted); font-size: 12px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.itemCard button { justify-self: start; height: 28px; display: flex; align-items: center; gap: 5px; padding: 0 9px; border: 1px solid rgba(155,231,226,.35); background: rgba(155,231,226,.055); color: var(--cyan); font-size: 11px; text-transform: uppercase; }
 .itemCard button svg { width: 13px; }
 .itemCard button:disabled { opacity: .45; cursor: not-allowed; }
 .unavailable { border-color: rgba(231,200,119,.25); }
 .empty { min-height: 112px; display: grid; place-items: center; align-content: center; gap: 3px; color: var(--muted); }
 .empty svg { color: var(--cyan); }
 .empty strong { margin-top: 5px; font: 600 17px "Barlow Condensed"; text-transform: uppercase; }
-.empty span { font-size: 9px; }
-.success, .error { position: fixed; z-index: 55; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 8px; max-width: 420px; padding: 12px 15px; border: 1px solid rgba(132,232,188,.45); background: #0a1918; color: var(--success); box-shadow: var(--shadow); font-size: 10px; }
+.empty span { font-size: 12px; }
+.success, .error { position: fixed; z-index: 55; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 8px; max-width: 420px; padding: 12px 15px; border: 1px solid rgba(132,232,188,.45); background: #0a1918; color: var(--success); box-shadow: var(--shadow); font-size: 12px; }
 .error { border-color: rgba(239,121,134,.5); background: #1a0d12; color: var(--danger); }
 @media (max-width: 1250px) { .itemGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 850px) { .itemGrid, .overview { grid-template-columns: 1fr; } .capacityBar { grid-column: auto; } }
