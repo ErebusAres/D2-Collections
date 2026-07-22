@@ -2,7 +2,7 @@ import type { EquipLoadoutRequest, EquipLoadoutResult, GuardianLoadout, LoadoutI
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Boxes, CircleHelp, Cpu, FilePlus2, RefreshCw, Sparkles, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { api, mutationHeaders, queuedApi } from "../services/api/client";
+import { api, mutationHeaders } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import { loadoutItemCosmetics, loadoutItemMods } from "../modules/loadouts/loadoutItemSockets";
@@ -21,7 +21,7 @@ export function LoadoutsPage() {
     refetchIntervalInBackground: false
   });
   const equip = useMutation({
-    mutationFn: (input: EquipLoadoutRequest) => queuedApi<EquipLoadoutResult>("/api/v1/me/loadouts/equip", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }),
+    mutationFn: (input: EquipLoadoutRequest) => api<EquipLoadoutResult>("/api/v1/me/loadouts/equip", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["loadouts", selectedCharacterId] })
   });
   const data = result.data?.data;

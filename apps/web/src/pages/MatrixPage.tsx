@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, CircleHelp, Eye, GitCompareArrows, LogIn, RefreshCcw, Search, ShieldX, UserRoundCheck, Users } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, mutationHeaders, queuedApi } from "../services/api/client";
+import { api, mutationHeaders } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
@@ -19,7 +19,7 @@ export function MatrixPage() {
   const [visibleRowCount, setVisibleRowCount] = useState(MATRIX_PAGE_SIZE);
   const deferredSearch = useDeferredValue(search);
   const result = useQuery({ queryKey: ["matrix"], queryFn: () => api<MatrixData>("/api/v1/matrix"), enabled: Boolean(session?.authenticated) });
-  const sync = useMutation({ mutationFn: () => queuedApi("/api/v1/matrix/sync", { method: "POST", headers: mutationHeaders(session?.csrfToken) }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["matrix"] }) });
+  const sync = useMutation({ mutationFn: () => api("/api/v1/matrix/sync", { method: "POST", headers: mutationHeaders(session?.csrfToken) }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["matrix"] }) });
   const currentMembershipId = session?.guardian?.membershipId || "";
   const guardians = result.data?.data.guardians || [];
   const snapshots = result.data?.data.snapshots || [];

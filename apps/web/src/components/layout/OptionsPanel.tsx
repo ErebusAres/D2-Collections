@@ -2,6 +2,7 @@ import type { FireteamData } from "@guardian-nexus/contracts";
 import { LogOut, RefreshCcw, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
+import { clearGuardianOfflineData } from "../../services/api/offlineCache";
 import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import styles from "./OptionsPanel.module.css";
 
@@ -26,8 +27,17 @@ export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => 
   });
   const signOut = useMutation({
     mutationFn: () => api("/api/v1/session", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
-    onSuccess: () => { queryClient.clear(); window.location.href = "/collection"; }
+    onSuccess: () => {
+      localStorage.removeItem("guardian-nexus:last-safe-session");
+      void clearGuardianOfflineData().finally(() => { queryClient.clear(); window.location.href = "/collection"; });
+    }
   });
+  const clearLocalData = async () => {
+    Object.keys(localStorage).filter((key) => key.startsWith("guardian-nexus:")).forEach((key) => localStorage.removeItem(key));
+    Object.keys(sessionStorage).filter((key) => key.startsWith("guardian-nexus:")).forEach((key) => sessionStorage.removeItem(key));
+    await clearGuardianOfflineData();
+    window.location.reload();
+  };
 
   return (
     <>
@@ -55,7 +65,7 @@ export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => 
         </section>}
         <section className={styles.actions}>
           <button onClick={() => void guardianState.refresh()}><RefreshCcw size={17} /> Refresh all data</button>
-          <button onClick={() => { Object.keys(localStorage).filter((key) => key.startsWith("guardian-nexus:")).forEach((key) => localStorage.removeItem(key)); window.location.reload(); }}><Trash2 size={17} /> Clear local preferences</button>
+          <button onClick={() => void clearLocalData()}><Trash2 size={17} /> Clear local Guardian data</button>
           {session?.authenticated && <button className={styles.danger} onClick={() => signOut.mutate()} disabled={signOut.isPending}><LogOut size={17} /> Sign out</button>}
         </section>
       </aside>

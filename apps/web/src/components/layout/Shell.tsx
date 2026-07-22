@@ -1,6 +1,6 @@
 import type { RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUp, Badge, Boxes, Coins, Crosshair, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
+import { ArrowUp, Badge, Boxes, Coins, Crosshair, Database, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
@@ -45,6 +45,14 @@ export function Shell() {
   const { hidden: hiddenRewardCodes } = useRewardCodeStatus(guardian?.membershipId, Boolean(session?.authenticated), autoRefresh);
   const availableRewardCodeCount = activeRewardCodes().filter((entry) => !hiddenRewardCodes.has(entry.code)).length;
   const showScrollTop = usePageUtilities();
+  const savedDataLabel = connection.lastSavedAt ? `Showing saved data from ${new Date(connection.lastSavedAt).toLocaleString()}.` : "Showing the last saved Guardian data.";
+  const connectionTitle = connection.queued
+    ? `${connection.queued} safe change${connection.queued === 1 ? "" : "s"} queued for automatic retry. ${connection.lastError || ""}`
+    : connection.usingSavedData
+      ? `${savedDataLabel} Live services will refresh it automatically. ${connection.lastError || ""}`
+      : error
+        ? `${error.message} Displaying the last successful Guardian data where available.`
+        : connection.lastError || "Guardian services connected.";
 
   return (
     <div className={styles.shell} style={character?.emblemBackgroundPath ? { "--guardian-banner": `url(${character.emblemBackgroundPath})` } as React.CSSProperties : undefined}>
@@ -68,8 +76,8 @@ export function Shell() {
             )}
           </div>
           {!session?.authenticated && !loading && !error && <button className={styles.signIn} onClick={signIn}>Sign in with Bungie</button>}
-          <div className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""} ${connection.retrying ? styles.connectionWorking : ""}`} aria-label={error || connection.lastError ? "Guardian services interrupted" : "Guardian services connected"} title={connection.queued ? `${connection.queued} request${connection.queued === 1 ? "" : "s"} queued. Guardian Nexus will retry automatically. ${connection.lastError || ""}` : error ? `${error.message} Displaying the last successful Guardian data.` : connection.lastError || "Guardian services connected."}>
-            <Orbit size={18} />{connection.queued > 0 && <b>{connection.queued}</b>}
+          <div className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""} ${connection.usingSavedData ? styles.connectionSaved : ""} ${connection.retrying ? styles.connectionWorking : ""}`} aria-label={connection.usingSavedData ? "Showing saved Guardian data" : error || connection.lastError ? "Guardian services interrupted" : "Guardian services connected"} title={connectionTitle}>
+            {connection.usingSavedData ? <Database size={18} /> : <Orbit size={18} />}{connection.queued > 0 && <b>{connection.queued}</b>}
           </div>
           <button className={styles.optionsButton} onClick={() => setOptionsOpen(true)} aria-label="Open options"><Settings size={20} /><span>Options</span></button>
         </div>

@@ -30,7 +30,7 @@ export function useRewardCodeStatus(membershipId: string | undefined, authentica
   const statuses = query.data?.data.statuses || [];
   const manual = useMemo(() => query.data?.data.manualCodesConfigured ? new Set(query.data.data.manualCodes) : localManual, [query.data?.data.manualCodes, query.data?.data.manualCodesConfigured, localManual]);
   const preferenceMutation = useMutation({
-    mutationFn: (input: UpdateRewardCodePreferenceRequest) => queuedApi<{ manualCodes: string[] }>("/api/v1/me/reward-code-status", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }),
+    mutationFn: (input: UpdateRewardCodePreferenceRequest) => queuedApi<{ manualCodes: string[] }>("/api/v1/me/reward-code-status", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["reward-code-status", membershipId] })
   });
   const setManual = (code: string, redeemed: boolean) => {

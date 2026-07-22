@@ -1,7 +1,7 @@
 import type { ApiEnvelope, SessionData, UpdateUserPreferenceRequest, UserPreferenceKey, UserPreferencesData } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, ApiRequestError, mutationHeaders, queuedApi } from "../services/api/client";
+import { api, ApiRequestError, configureOfflineApi, mutationHeaders, queuedApi } from "../services/api/client";
 
 interface GuardianContextValue {
   session?: SessionData;
@@ -24,13 +24,19 @@ const SESSION_CACHE_KEY = "guardian-nexus:last-safe-session";
 
 function readCachedSession(): ApiEnvelope<SessionData> | undefined {
   try {
-    const cached = JSON.parse(sessionStorage.getItem(SESSION_CACHE_KEY) || "null") as ApiEnvelope<SessionData> | null;
-    return cached?.data?.authenticated && cached.data.guardian ? cached : undefined;
+    const raw = localStorage.getItem(SESSION_CACHE_KEY) || sessionStorage.getItem(SESSION_CACHE_KEY);
+    const cached = JSON.parse(raw || "null") as ApiEnvelope<SessionData> | null;
+    const age = cached?.freshness.observedAt ? Date.now() - Date.parse(cached.freshness.observedAt) : Number.POSITIVE_INFINITY;
+    if (!cached?.data?.authenticated || !cached.data.guardian || age >= 7 * 24 * 60 * 60_000) return undefined;
+    localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(cached));
+    sessionStorage.removeItem(SESSION_CACHE_KEY);
+    return cached;
   } catch { return undefined; }
 }
 
 function cacheSafeSession(envelope: ApiEnvelope<SessionData> | undefined): void {
-  if (!envelope?.data.authenticated || !envelope.data.guardian) { sessionStorage.removeItem(SESSION_CACHE_KEY); return; }
+  sessionStorage.removeItem(SESSION_CACHE_KEY);
+  if (!envelope?.data.authenticated || !envelope.data.guardian) { localStorage.removeItem(SESSION_CACHE_KEY); return; }
   const safe: ApiEnvelope<SessionData> = {
     ...envelope,
     data: {
@@ -39,10 +45,10 @@ function cacheSafeSession(envelope: ApiEnvelope<SessionData> | undefined): void 
       roles: { dev: false, matrixWriter: false, buildEditor: false },
       guardian: { ...envelope.data.guardian, isInGame: false, currentActivity: undefined }
     },
-    freshness: { ...envelope.freshness, state: "stale" },
+    freshness: { ...envelope.freshness, state: "stale", observedAt: new Date().toISOString() },
     warnings: [...envelope.warnings, "Displaying the last safe session summary while Guardian services reconnect."]
   };
-  sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(safe));
+  localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(safe));
 }
 
 function preferenceKey(membershipId: string | undefined, name: string): string {
@@ -71,6 +77,7 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
   });
   const session = sessionQuery.data?.data;
   const membershipId = session?.guardian?.membershipId;
+  configureOfflineApi(membershipId, () => mutationHeaders(session?.csrfToken));
   const preferencesQuery = useQuery({
     queryKey: ["preferences", membershipId],
     queryFn: () => api<UserPreferencesData>("/api/v1/me/preferences"),
@@ -79,7 +86,7 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     retry: 1
   });
   const preferenceMutation = useMutation({
-    mutationFn: (input: UpdateUserPreferenceRequest) => queuedApi<UserPreferencesData>("/api/v1/me/preferences", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) })
+    mutationFn: (input: UpdateUserPreferenceRequest) => queuedApi<UserPreferencesData>("/api/v1/me/preferences", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true })
   });
 
   useEffect(() => {

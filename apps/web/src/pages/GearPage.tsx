@@ -42,8 +42,8 @@ export function GearPage() {
     return values.sort((a, b) => compareGearSort(a, b, sort, groupedIds));
   }, [data, allClasses, slot, location, tag, onlyGrouped, search, sort, groupedIds]);
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] });
-  const stateMutation = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null; dismissed?: boolean }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }), onSuccess: refresh });
-  const actionMutation = useMutation({ mutationFn: (input: GearActionRequest) => queuedApi<GearActionResult>("/api/v1/me/gear/action", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }), onSuccess: refresh });
+  const stateMutation = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null; dismissed?: boolean }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: refresh });
+  const actionMutation = useMutation({ mutationFn: (input: GearActionRequest) => api<GearActionResult>("/api/v1/me/gear/action", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }), onSuccess: refresh });
   const selectedGroup = groups.find((group) => group.id === groupId);
   const slots = [...new Set((data?.items || []).map((item) => item.slot))].sort();
 
