@@ -168,7 +168,7 @@ export function QuestsPage() {
               : <QuestCard key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} {...interaction} />;
           })}</section> : compactPursuits.length === 0 && <div className={styles.inlineEmpty}><ListFilter /><h2>No quests match this view</h2><p>Adjust the filter or wait for Bungie to mint a newer character inventory response.</p></div>}
         </div>
-        {compactPursuits.length > 0 && <aside className={`${styles.compactPursuits} ${questStyles.bountyRail}`}><header><div><Crosshair /><span>Bounties, hub orders & vendor orders</span></div><strong>{compactPursuits.length}</strong></header><div>{compactPursuits.map((quest) => <CompactPursuit key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} />)}</div></aside>}
+        {compactPursuits.length > 0 && <section className={`${styles.compactPursuits} ${questStyles.bountySection}`}><header><div><Crosshair /><span>Bounties &amp; orders</span></div><strong>{compactPursuits.length}</strong></header><div>{compactPursuits.map((quest) => <CompactPursuit key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} />)}</div></section>}
       </section>
       {tooltipQuest && tooltipPosition && createPortal(<QuestInspectPanel quest={tooltipQuest} position={tooltipPosition} onClose={closeTooltip} onPointerEnter={clearCloseTimer} onPointerLeave={scheduleTooltipClose} />, document.body)}
     </>}
