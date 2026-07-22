@@ -115,6 +115,7 @@ export function ReportsPage() {
         <p>{report.description}</p>
         {report.assignedToDisplayName && <div className={styles.assignee}><ShieldCheck /> Being handled by {report.assignedToDisplayName}</div>}
         {report.resolution && <div className={styles.resolution}><CheckCircle2 /><p><b>Maintainer response</b><span>{report.resolution}</span></p></div>}
+        <Link className={styles.ticketOpen} to={`/reports/${report.id}`}>Open full ticket <ChevronRight /></Link>
       </article>)}</div>
     </section>
   </AuthGate>;

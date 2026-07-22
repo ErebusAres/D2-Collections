@@ -1,9 +1,13 @@
 import type {
   ApiEnvelope,
+  CreateReportCommentRequest,
   CreateReportRequest,
   GuardianReport,
+  ReportActivity,
+  ReportActivityType,
   ReportCategory,
   ReportClientContext,
+  ReportDetailData,
   ReportListData,
   ReportPriority,
   ReportStatus,
@@ -42,6 +46,10 @@ export const updateReportSchema = z.object({
   resolution: z.string().trim().max(5_000).optional()
 }).strict().refine((value) => Object.keys(value).some((key) => key !== "expectedVersion"), "Choose at least one report change.");
 
+export const createReportCommentSchema = z.object({
+  body: z.string().trim().min(1).max(5_000)
+}).strict();
+
 interface ReportRow {
   id: number;
   reporter_membership_id: string;
@@ -66,6 +74,26 @@ interface ReportRow {
   version: number;
 }
 
+interface ReportActivityRow {
+  id: number;
+  report_id: number;
+  actor_membership_id: string | null;
+  actor_display_name: string;
+  actor_role: "reporter" | "admin";
+  event_type: ReportActivityType;
+  body: string;
+  metadata_json: string;
+  visibility: "public" | "admin";
+  created_at: string;
+}
+
+interface ActivityDraft {
+  type: ReportActivityType;
+  body: string;
+  metadata?: Record<string, string>;
+  visibility?: "public" | "admin";
+}
+
 interface AuthenticatedSession {
   token: string;
   row: SessionRow;
@@ -77,6 +105,13 @@ export async function reportsRoute(request: Request, env: Env, context: RequestC
   if (path === "/api/v1/me/reports" && request.method === "POST") {
     await requireCsrf(request, session.token, env);
     return createReport(request, session.row, env, context);
+  }
+  const ownReportId = path.match(/^\/api\/v1\/me\/reports\/(\d+)$/)?.[1];
+  if (ownReportId && request.method === "GET") return readReportDetail(Number(ownReportId), session.row, env, context);
+  const commentReportId = path.match(/^\/api\/v1\/me\/reports\/(\d+)\/comments$/)?.[1];
+  if (commentReportId && request.method === "POST") {
+    await requireCsrf(request, session.token, env);
+    return createReportComment(Number(commentReportId), request, session.row, env, context);
   }
   if (path === "/api/v1/admin/reports" && request.method === "GET") {
     requireReportAdmin(session.row, env);
@@ -102,6 +137,30 @@ function requireReportAdmin(row: SessionRow, env: Env): void {
 async function listOwnReports(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { results = [] } = await env.DB.prepare("SELECT * FROM reports WHERE reporter_membership_id = ? ORDER BY created_at DESC LIMIT 100").bind(row.membership_id).all<ReportRow>();
   return reportEnvelope<ReportListData>({ reports: results.map((report) => publicReport(report, false)), canManage: isReportAdmin(row.membership_id, env) }, env, context);
+}
+
+async function readReportDetail(id: number, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const report = await findAccessibleReport(id, row, env);
+  const admin = isReportAdmin(row.membership_id, env);
+  const activity = await listReportActivity(id, admin, env);
+  return reportEnvelope<ReportDetailData>({ report: publicReport(report, admin), activity, canManage: admin, canComment: true }, env, context);
+}
+
+async function createReportComment(id: number, request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  await findAccessibleReport(id, row, env);
+  const input = parseReportComment(await request.json().catch(() => undefined));
+  const recent = await env.DB.prepare(`
+    SELECT COUNT(*) AS count FROM report_activity
+    WHERE actor_membership_id = ? AND event_type = 'comment' AND created_at >= datetime('now', '-1 hour')
+  `).bind(row.membership_id).first<{ count: number }>();
+  if (Number(recent?.count || 0) >= 60) throw httpError(429, "report_comment_rate_limited", "You have added several comments recently. Please wait before posting another.");
+  const now = new Date().toISOString();
+  await appendActivity(id, row, env, [{ type: "comment", body: input.body }], now);
+  await env.DB.prepare("UPDATE reports SET updated_at = ? WHERE id = ?").bind(now, id).run();
+  const report = await findAccessibleReport(id, row, env);
+  const admin = isReportAdmin(row.membership_id, env);
+  const activity = await listReportActivity(id, admin, env);
+  return reportEnvelope<ReportDetailData>({ report: publicReport(report, admin), activity, canManage: admin, canComment: true }, env, context, 201);
 }
 
 async function createReport(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -136,6 +195,11 @@ async function createReport(request: Request, row: SessionRow, env: Env, context
   const id = Number(result.meta.last_row_id);
   const created = await findReport(id, env);
   if (!created) throw httpError(500, "report_create_failed", "The report was saved but could not be reloaded.");
+  await appendActivity(id, row, env, [{
+    type: "created",
+    body: "Created this ticket.",
+    metadata: { category: input.category, priority: "normal" }
+  }], now);
   return reportEnvelope(publicReport(created, false), env, context, 201);
 }
 
@@ -228,11 +292,75 @@ async function updateReport(id: number, request: Request, admin: SessionRow, env
   if (Number(result.meta.changes || 0) !== 1) throw httpError(409, "report_update_conflict", "Another administrator updated this report. Reload the queue before trying again.");
   const updated = await findReport(id, env);
   if (!updated) throw httpError(500, "report_reload_failed", "The report was updated but could not be reloaded.");
+  const activity: ActivityDraft[] = [];
+  if (updated.status !== current.status) activity.push({
+    type: "status",
+    body: `Changed status from ${current.status} to ${updated.status}.`,
+    metadata: { from: current.status, to: updated.status }
+  });
+  if (updated.priority !== current.priority) activity.push({
+    type: "priority",
+    body: `Changed priority from ${current.priority} to ${updated.priority}.`,
+    metadata: { from: current.priority, to: updated.priority }
+  });
+  if (updated.assigned_to_membership_id !== current.assigned_to_membership_id) activity.push({
+    type: "assignment",
+    body: updated.assigned_to_display_name ? `Assigned this ticket to ${updated.assigned_to_display_name}.` : "Released this ticket back to the queue.",
+    metadata: updated.assigned_to_display_name ? { assignee: updated.assigned_to_display_name } : { assignee: "" }
+  });
+  if (updated.resolution !== current.resolution) activity.push({
+    type: "resolution",
+    body: updated.resolution || "Cleared the previous resolution."
+  });
+  if (updated.admin_notes !== current.admin_notes) activity.push({
+    type: "admin_note",
+    body: updated.admin_notes || "Cleared the internal admin notes.",
+    visibility: "admin"
+  });
+  await appendActivity(id, admin, env, activity, now);
   return reportEnvelope(publicReport(updated, true), env, context);
 }
 
 async function findReport(id: number, env: Env): Promise<ReportRow | null> {
   return env.DB.prepare("SELECT * FROM reports WHERE id = ?").bind(id).first<ReportRow>();
+}
+
+async function findAccessibleReport(id: number, row: SessionRow, env: Env): Promise<ReportRow> {
+  const report = await findReport(id, env);
+  if (!report || (report.reporter_membership_id !== row.membership_id && !isReportAdmin(row.membership_id, env))) {
+    throw httpError(404, "report_not_found", "This ticket does not exist or is not available to this account.");
+  }
+  return report;
+}
+
+async function listReportActivity(reportId: number, admin: boolean, env: Env): Promise<ReportActivity[]> {
+  const query = admin
+    ? "SELECT * FROM report_activity WHERE report_id = ? ORDER BY created_at ASC, id ASC"
+    : "SELECT * FROM report_activity WHERE report_id = ? AND visibility = 'public' ORDER BY created_at ASC, id ASC";
+  const { results = [] } = await env.DB.prepare(query).bind(reportId).all<ReportActivityRow>();
+  return results.map(publicActivity);
+}
+
+async function appendActivity(reportId: number, row: SessionRow, env: Env, activity: ActivityDraft[], createdAt: string): Promise<void> {
+  if (!activity.length) return;
+  const actorDisplayName = row.bungie_name || row.display_name;
+  const actorRole = isReportAdmin(row.membership_id, env) ? "admin" : "reporter";
+  await env.DB.batch(activity.map((entry) => env.DB.prepare(`
+    INSERT INTO report_activity (
+      report_id, actor_membership_id, actor_display_name, actor_role,
+      event_type, body, metadata_json, visibility, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    reportId,
+    row.membership_id,
+    actorDisplayName,
+    actorRole,
+    entry.type,
+    entry.body,
+    JSON.stringify(entry.metadata || {}),
+    entry.visibility || "public",
+    createdAt
+  )));
 }
 
 function parseCreateReport(value: unknown): CreateReportRequest {
@@ -243,6 +371,12 @@ function parseCreateReport(value: unknown): CreateReportRequest {
 
 function parseUpdateReport(value: unknown): UpdateReportRequest {
   const result = updateReportSchema.safeParse(value);
+  if (result.success) return result.data;
+  throw validationError(result.error.issues[0]?.message);
+}
+
+function parseReportComment(value: unknown): CreateReportCommentRequest {
+  const result = createReportCommentSchema.safeParse(value);
   if (result.success) return result.data;
   throw validationError(result.error.issues[0]?.message);
 }
@@ -277,6 +411,24 @@ function publicReport(row: ReportRow, admin: boolean): GuardianReport {
     updatedAt: row.updated_at,
     ...(row.resolved_at ? { resolvedAt: row.resolved_at } : {}),
     version: Number(row.version)
+  };
+}
+
+function publicActivity(row: ReportActivityRow): ReportActivity {
+  let metadata: Record<string, string> | undefined;
+  try {
+    const parsed = JSON.parse(row.metadata_json || "{}");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) metadata = Object.fromEntries(Object.entries(parsed).map(([key, value]) => [key, String(value)]));
+  } catch { metadata = undefined; }
+  return {
+    id: Number(row.id),
+    type: row.event_type,
+    actorDisplayName: row.actor_display_name,
+    actorRole: row.actor_role,
+    ...(row.body ? { body: row.body } : {}),
+    ...(metadata && Object.keys(metadata).length ? { metadata } : {}),
+    visibility: row.visibility,
+    createdAt: row.created_at
   };
 }
 

@@ -280,6 +280,7 @@ export interface SessionData {
 export type ReportCategory = "bug" | "suggestion" | "feedback" | "data" | "performance" | "accessibility" | "account" | "other";
 export type ReportStatus = "open" | "in_progress" | "completed" | "dismissed";
 export type ReportPriority = "low" | "normal" | "high" | "urgent";
+export type ReportActivityType = "created" | "comment" | "status" | "priority" | "assignment" | "resolution" | "admin_note";
 
 export interface ReportClientContext {
   userAgent?: string;
@@ -312,6 +313,24 @@ export interface GuardianReport {
   version: number;
 }
 
+export interface ReportActivity {
+  id: number;
+  type: ReportActivityType;
+  actorDisplayName: string;
+  actorRole: "reporter" | "admin";
+  body?: string;
+  metadata?: Record<string, string>;
+  visibility: "public" | "admin";
+  createdAt: string;
+}
+
+export interface ReportDetailData {
+  report: GuardianReport;
+  activity: ReportActivity[];
+  canManage: boolean;
+  canComment: boolean;
+}
+
 export interface ReportListData {
   reports: GuardianReport[];
   canManage: boolean;
@@ -327,6 +346,10 @@ export interface CreateReportRequest {
   actualResult?: string;
   pageUrl?: string;
   clientContext?: ReportClientContext;
+}
+
+export interface CreateReportCommentRequest {
+  body: string;
 }
 
 export interface UpdateReportRequest {

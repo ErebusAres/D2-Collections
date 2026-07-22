@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
-import type { GuardianReport, ReportListData } from "@guardian-nexus/contracts";
+import type { GuardianReport, ReportDetailData, ReportListData } from "@guardian-nexus/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../services/api/client";
 import { ReportAdminPage } from "./ReportAdminPage";
+import { ReportDetailPage } from "./ReportDetailPage";
 import { ReportsPage } from "./ReportsPage";
 
 vi.mock("../context/GuardianContext", () => ({
@@ -78,8 +79,33 @@ describe("Report administration", () => {
   });
 });
 
-function renderPage(page: React.ReactNode, route: string) {
-  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[route]}>{page}</MemoryRouter></QueryClientProvider>);
+describe("Ticket details", () => {
+  it("shows the complete activity history and posts a comment", async () => {
+    const detail: ReportDetailData = {
+      report: report(),
+      activity: [
+        { id: 1, type: "created", actorDisplayName: "Guardian#1234", actorRole: "reporter", body: "Created this ticket.", visibility: "public", createdAt: "2026-07-22T12:00:00.000Z" },
+        { id: 2, type: "priority", actorDisplayName: "ErebusAres", actorRole: "admin", body: "Changed priority.", metadata: { from: "normal", to: "high" }, visibility: "public", createdAt: "2026-07-22T12:05:00.000Z" }
+      ],
+      canManage: true,
+      canComment: true
+    };
+    vi.mocked(api).mockImplementation(async (_path, init) => envelope(init?.method === "POST" ? { ...detail, activity: [...detail.activity, { id: 3, type: "comment" as const, actorDisplayName: "ErebusAres", actorRole: "admin" as const, body: "I am checking this now.", visibility: "public" as const, createdAt: "2026-07-22T12:10:00.000Z" }] } : detail));
+    renderPage(<ReportDetailPage />, "/reports/42", "/reports/:reportId");
+
+    expect(await screen.findByRole("heading", { name: "Rewards progress does not refresh" })).toBeTruthy();
+    expect(screen.getByText("Changed priority from Normal to High.")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Add a comment"), { target: { value: "I am checking this now." } });
+    fireEvent.click(screen.getByRole("button", { name: "Comment" }));
+
+    await waitFor(() => expect(vi.mocked(api).mock.calls.some(([path, init]) => path === "/api/v1/me/reports/42/comments" && init?.method === "POST")).toBe(true));
+    const call = vi.mocked(api).mock.calls.find(([path, init]) => path === "/api/v1/me/reports/42/comments" && init?.method === "POST");
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ body: "I am checking this now." });
+  });
+});
+
+function renderPage(page: React.ReactNode, route: string, path?: string) {
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[route]}>{path ? <Routes><Route path={path} element={page} /></Routes> : page}</MemoryRouter></QueryClientProvider>);
 }
 
 function report(overrides: Partial<GuardianReport> = {}): GuardianReport {

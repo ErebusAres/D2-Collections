@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createReportSchema, isReportAdmin, updateReportSchema } from "./reports";
+import { createReportCommentSchema, createReportSchema, isReportAdmin, updateReportSchema } from "./reports";
 
 describe("report validation", () => {
   it("accepts structured update feedback and preserves optional diagnostic context", () => {
@@ -21,6 +21,11 @@ describe("report validation", () => {
 
   it("accepts conflict-safe admin changes", () => {
     expect(updateReportSchema.parse({ expectedVersion: 4, priority: "urgent", assignment: "claim" })).toEqual({ expectedVersion: 4, priority: "urgent", assignment: "claim" });
+  });
+
+  it("accepts useful comments and rejects empty ones", () => {
+    expect(createReportCommentSchema.parse({ body: "I can reproduce this on the Rewards page." })).toEqual({ body: "I can reproduce this on the Rewards page." });
+    expect(() => createReportCommentSchema.parse({ body: "   " })).toThrow();
   });
 });
 

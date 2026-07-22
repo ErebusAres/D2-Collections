@@ -19,6 +19,7 @@ const PvpPage = lazy(() => import("./pages/PvpPage").then((module) => ({ default
 const GuardianRankPage = lazy(() => import("./pages/GuardianRankPage").then((module) => ({ default: module.GuardianRankPage })));
 const PowerPage = lazy(() => import("./pages/PowerPage").then((module) => ({ default: module.PowerPage })));
 const ReportsPage = lazy(() => import("./pages/ReportsPage").then((module) => ({ default: module.ReportsPage })));
+const ReportDetailPage = lazy(() => import("./pages/ReportDetailPage").then((module) => ({ default: module.ReportDetailPage })));
 const ReportAdminPage = lazy(() => import("./pages/ReportAdminPage").then((module) => ({ default: module.ReportAdminPage })));
 const BuildsPage = lazy(() => import("./pages/BuildsPage").then((module) => ({ default: module.BuildsPage })));
 const BuildDetailPage = lazy(() => import("./pages/BuildDetailPage").then((module) => ({ default: module.BuildDetailPage })));
@@ -44,6 +45,7 @@ export function App() {
         <Route path="pvp" element={<PageRoute><PvpPage /></PageRoute>} />
         <Route path="rewards" element={<PageRoute><RewardsPage /></PageRoute>} />
         <Route path="reports" element={<PageRoute><ReportsPage /></PageRoute>} />
+        <Route path="reports/:reportId" element={<PageRoute><ReportDetailPage /></PageRoute>} />
         <Route path="reports/admin" element={<PageRoute><ReportAdminPage /></PageRoute>} />
         <Route path="codes" element={<PageRoute><RewardCodesPage /></PageRoute>} />
         <Route path="fireteam" element={<PageRoute><FireteamPage /></PageRoute>} />

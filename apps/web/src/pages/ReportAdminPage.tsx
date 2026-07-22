@@ -100,7 +100,7 @@ function AdminReportCard({ report, currentMembershipId, pending, onUpdate }: { r
   return <article className={`${styles.adminReport} ${styles[`priority_${report.priority}`]}`}>
     <header>
       <div><code>{report.reference}</code><span className={`${styles.status} ${styles[`status_${report.status}`]}`}>{statusLabel(report.status)}</span><span className={styles.priority}>{priorityLabel(report.priority)}</span></div>
-      <time dateTime={report.updatedAt}>Updated {dateTime(report.updatedAt)}</time>
+      <div className={styles.adminHeaderActions}><time dateTime={report.updatedAt}>Updated {dateTime(report.updatedAt)}</time><Link to={`/reports/${report.id}`}>Full ticket</Link></div>
     </header>
     <div className={styles.adminReportBody}>
       <section className={styles.reportContent}>
