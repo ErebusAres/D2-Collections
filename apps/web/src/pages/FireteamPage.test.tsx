@@ -2,11 +2,13 @@
 
 import type { FireteamData } from "@guardian-nexus/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
 import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
+
+const setPreference = vi.fn();
 
 vi.mock("../context/GuardianContext", () => ({
   pinsKey: (membershipId: string, characterId: string) => `pins:${membershipId}:${characterId}`,
@@ -14,7 +16,8 @@ vi.mock("../context/GuardianContext", () => ({
     session: { authenticated: true, csrfToken: "csrf", guardian: { membershipId: "member-1" } },
     selectedCharacterId: "c1",
     autoRefresh: false,
-    preferences: { "guardianRank.tracked": JSON.stringify(["rank-record"]) }
+    preferences: { "guardianRank.tracked": JSON.stringify(["rank-record"]) },
+    setPreference
   })
 }));
 vi.mock("../services/api/client", () => ({ api: vi.fn(), queuedApi: vi.fn(), mutationHeaders: vi.fn(() => ({})) }));
@@ -64,12 +67,68 @@ describe("Fireteam tracked items", () => {
     expect(item?.getAttribute("data-completion-state")).toBe("exiting");
     expect(item?.querySelectorAll(`.${styles.sharedQuestCompletionFx} b span`)).toHaveLength(12);
   });
+
+  it("untracks a Guardian Nexus pursuit from the self card and syncs the reduced pin list", async () => {
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+    await screen.findByText("Weekly order");
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    vi.mocked(queuedApi).mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Untrack Weekly order from Fireteam" }));
+
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    const [, init] = vi.mocked(queuedApi).mock.calls[0]!;
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      sitePinnedQuestIds: [],
+      siteTrackedGuardianRankIds: ["rank-record"],
+      hiddenTrackedItemKeys: []
+    });
+    expect(localStorage.getItem("pins:member-1:c1")).toBe("[]");
+  });
+
+  it("untracks a Guardian Rank objective and hides it while Destiny still tracks it", async () => {
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+    await screen.findByText("Rank service");
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    vi.mocked(queuedApi).mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Untrack Rank service from Fireteam" }));
+
+    expect(setPreference).toHaveBeenCalledWith("guardianRank.tracked", "[]");
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    const [, init] = vi.mocked(queuedApi).mock.calls[0]!;
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      sitePinnedQuestIds: ["quest-instance"],
+      siteTrackedGuardianRankIds: [],
+      hiddenTrackedItemKeys: ["guardian-rank:rank-record"]
+    });
+  });
+
+  it("does not expose tracking controls on another Guardian's card", async () => {
+    const mixed = envelope();
+    mixed.data.members.push({
+      ...mixed.data.members[0]!,
+      membershipId: "member-2",
+      displayName: "Other Guardian",
+      inGameName: "OtherGuardian#5678",
+      isSelf: false,
+      trackedItems: mixed.data.members[0]!.trackedItems.map((item) => ({ ...item }))
+    });
+    vi.mocked(api).mockResolvedValue(mixed);
+
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    await screen.findByText("OtherGuardian#5678");
+    expect(screen.getAllByRole("button", { name: "Untrack Weekly order from Fireteam" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Untrack Rank service from Fireteam" })).toHaveLength(1);
+  });
 });
 
 function envelope() {
   const data: FireteamData = {
     sharingEnabled: true,
     sharingMode: "temporary",
+    hiddenTrackedItemKeys: [],
     activity: "The Tower",
     members: [{
       membershipId: "member-1",

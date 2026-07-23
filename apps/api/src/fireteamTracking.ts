@@ -56,6 +56,13 @@ export function mergeTrackedItems(...groups: FireteamTrackedItem[][]): FireteamT
   return [...items.values()];
 }
 
+export function applyTrackedItemVisibility(items: FireteamTrackedItem[], requestedHiddenKeys: Iterable<string>): { items: FireteamTrackedItem[]; hiddenKeys: string[] } {
+  const activeKeys = new Set(items.map(trackedItemKey));
+  const hiddenKeys = [...new Set(requestedHiddenKeys)].filter((key) => activeKeys.has(key)).slice(0, 200);
+  const hidden = new Set(hiddenKeys);
+  return { items: items.filter((item) => !hidden.has(trackedItemKey(item))), hiddenKeys };
+}
+
 export function completedTrackedItemEvents(
   previous: FireteamTrackedItem[],
   candidates: FireteamTrackedItem[],

@@ -1,7 +1,7 @@
 import type { GuardianRankData, QuestProgress } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import { profileComponentsFor } from "./bungie";
-import { completedTrackedItemEvents, mergeTrackedItems, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 
 describe("Fireteam tracked items", () => {
   it("requests both pursuit and Guardian Rank profile components when refreshing a share", () => {
@@ -63,6 +63,18 @@ describe("Fireteam tracked items", () => {
   it("deduplicates the same tracked item across assembled groups", () => {
     const item = trackedItemsFromQuests([quest({ instanceId: "same", sitePinned: true })])[0]!;
     expect(mergeTrackedItems([item], [{ ...item, percent: 80 }])).toEqual([{ ...item, percent: 80 }]);
+  });
+
+  it("hides requested Fireteam items and drops exclusions after the source is no longer tracked", () => {
+    const items = trackedItemsFromQuests([
+      quest({ instanceId: "shown", sitePinned: true }),
+      quest({ instanceId: "hidden", inGameTracked: true })
+    ]);
+
+    expect(applyTrackedItemVisibility(items, ["quest:hidden", "quest:stale", "quest:hidden"])).toEqual({
+      items: [expect.objectContaining({ id: "shown" })],
+      hiddenKeys: ["quest:hidden"]
+    });
   });
 
   it("emits a short-lived completion event only for a previously shared item with confirmed completion", () => {

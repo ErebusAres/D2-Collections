@@ -575,6 +575,7 @@ export interface FireteamData {
   sharingEnabled: boolean;
   sharingMode: "off" | FireteamSharingMode;
   sharingExpiresAt?: string;
+  hiddenTrackedItemKeys?: string[];
   activity?: string;
   members: FireteamMember[];
   social?: FireteamSocialData;
