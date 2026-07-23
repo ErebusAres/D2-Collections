@@ -1,14 +1,14 @@
-import type { FireteamContact, FireteamData, FireteamMember, FireteamSharingMode } from "@guardian-nexus/contracts";
+import type { FireteamContact, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, CheckCircle2, Copy, Crown, EyeOff, Link2, LogIn, MessageSquare, Radio, Repeat2, Share2, ShieldCheck, Timer, UserMinus, Users } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
 
 export function FireteamPage() {
-  const { session, selectedCharacterId, autoRefresh } = useGuardian();
+  const { session, selectedCharacterId, autoRefresh, preferences } = useGuardian();
   const queryClient = useQueryClient();
   const result = useQuery({
     queryKey: ["fireteam", selectedCharacterId],
@@ -21,8 +21,9 @@ export function FireteamPage() {
     if (!session?.guardian?.membershipId || !selectedCharacterId) return [];
     try { return JSON.parse(localStorage.getItem(pinsKey(session.guardian.membershipId, selectedCharacterId)) || "[]") as string[]; } catch { return []; }
   }, [session?.guardian?.membershipId, selectedCharacterId]);
+  const guardianRankIds = useMemo(() => trackedPreference(preferences["guardianRank.tracked"]), [preferences]);
   const share = useMutation({
-    mutationFn: (mode: FireteamSharingMode) => queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds: pinnedIds, mode }) }),
+    mutationFn: (mode: FireteamSharingMode) => queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds: pinnedIds, siteTrackedGuardianRankIds: guardianRankIds, mode }) }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
   const stop = useMutation({
@@ -30,6 +31,8 @@ export function FireteamPage() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
   const sharingMode = result.data?.data.sharingMode;
+  const syncSignature = `${selectedCharacterId}|${pinnedIds.join(",")}|${guardianRankIds.join(",")}`;
+  const lastSyncSignature = useRef("");
   const renew = useCallback(() => {
     if (selectedCharacterId && sharingMode && sharingMode !== "off" && !share.isPending) share.mutate(sharingMode);
   }, [selectedCharacterId, sharingMode, share]);
@@ -38,6 +41,15 @@ export function FireteamPage() {
     const timer = window.setInterval(renew, 60_000);
     return () => window.clearInterval(timer);
   }, [result.data?.data.sharingEnabled, autoRefresh, renew]);
+  useEffect(() => {
+    if (!result.data?.data.sharingEnabled || !sharingMode || sharingMode === "off") {
+      lastSyncSignature.current = "";
+      return;
+    }
+    if (lastSyncSignature.current === syncSignature || share.isPending) return;
+    lastSyncSignature.current = syncSignature;
+    share.mutate(sharingMode);
+  }, [result.data?.data.sharingEnabled, share, sharingMode, syncSignature]);
   const data = result.data?.data;
   const self = data?.members.find((member) => member.isSelf);
   const [copied, setCopied] = useState("");
@@ -49,7 +61,7 @@ export function FireteamPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="See current party presence and activity, then coordinate only the quest details each Guardian explicitly shares." actions={<>
+    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="See current party presence and activity, then coordinate the tracked quests, pursuits, and Guardian Rank objectives each Guardian explicitly shares." actions={<>
       <Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />
       {data && !data.sharingEnabled && <>
         <button className={styles.primaryAction} onClick={() => share.mutate("temporary")} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>
@@ -76,14 +88,55 @@ export function FireteamPage() {
 
 function MemberCard({ member, canManage, copied, onCopy }: { member: FireteamMember; canManage: boolean; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {
   const activity = presenceLocation(member);
+  const trackedItems = Array.isArray(member.trackedItems) ? member.trackedItems : member.quests.map(legacyTrackedItem);
   const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
   return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""}`}>
     <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "public" ? "Public location" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
-    {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared objectives" : "Shared objectives"}</h3>{member.quests.length ? member.quests.map((quest) => <div className={styles.sharedQuest} key={quest.instanceId}><span className={styles.sharedQuestIcon}>{quest.icon ? <img src={quest.icon} alt="" /> : <CheckCircle2 />}</span><div className={styles.sharedQuestDetails}><div className={styles.sharedQuestTitle}><b>{quest.name}</b>{quest.stepNumber && quest.stepCount ? <em>Step {quest.stepNumber} / {quest.stepCount}</em> : <em>Active step</em>}</div><small>{quest.currentStep}</small>{quest.objectives.length > 0 && <div className={styles.sharedObjectives}>{quest.objectives.map((objective) => <div key={objective.objectiveHash}><span>{objective.name}</span><strong>{objective.complete ? "Complete" : objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : `${objective.percent}%`}</strong></div>)}</div>}<i className={styles.sharedQuestBar}><span style={{ width: `${quest.percent}%` }} /></i></div><strong className={styles.sharedQuestPercent}>{quest.percent}%</strong></div>) : <p>No site-pinned or in-game-tracked quests shared.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Quest details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
+    {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{trackedItems.length ? trackedItems.map((item) => <TrackedItem key={`${item.kind}-${item.id}`} item={item} />) : <p>No tracked quests, bounties, orders, pursuits, or Guardian Rank objectives shared.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
     {!member.isSelf && <div className={styles.memberCommands}><button onClick={() => void onCopy(`whisper-${member.membershipId}`, `/whisper ${member.inGameName} `)} title="Copies a Destiny 2 text-chat command"><MessageSquare size={13} />{copied === `whisper-${member.membershipId}` ? "Copied" : "Whisper"}</button>{canManage && <button className={styles.managementCommand} onClick={() => void onCopy(`kick-${member.membershipId}`, `/kick ${member.inGameName}`)} title="Copies a Destiny 2 text-chat command; Guardian Nexus cannot kick through the Bungie API"><UserMinus size={13} />{copied === `kick-${member.membershipId}` ? "Copied" : "Kick command"}</button>}</div>}
     {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>Shared progress opportunity:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
   </article>;
+}
+
+function TrackedItem({ item }: { item: FireteamTrackedItem }) {
+  const progressKnown = item.objectives.length === 0 || item.objectives.some((objective) => objective.progressAvailable);
+  return <div className={styles.sharedQuest}>
+    <span className={styles.sharedQuestIcon}>{item.icon ? <img src={item.icon} alt="" /> : <CheckCircle2 />}</span>
+    <div className={styles.sharedQuestDetails}>
+      <div className={styles.sharedQuestTitle}><b>{item.name}</b><em>{item.context}</em></div>
+      <small>{item.description}</small>
+      {item.objectives.length > 0 && <div className={styles.sharedObjectives}>{item.objectives.map((objective) => <div key={objective.objectiveHash}><span>{objective.name}</span><strong>{objective.complete ? "Complete" : !objective.progressAvailable ? "Unavailable" : objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : `${objective.percent}%`}</strong></div>)}</div>}
+      <i className={styles.sharedQuestBar}><span style={{ width: `${progressKnown ? item.percent : 0}%` }} /></i>
+    </div>
+    <strong className={styles.sharedQuestPercent}>{progressKnown ? `${item.percent}%` : "—"}</strong>
+  </div>;
+}
+
+function legacyTrackedItem(quest: FireteamMember["quests"][number]): FireteamTrackedItem {
+  const kind = quest.category || "quest";
+  const label = kind === "bounty" ? "Bounty" : kind === "order" ? "Order" : "Quest";
+  return {
+    id: quest.instanceId,
+    definitionHash: quest.itemHash,
+    kind,
+    name: quest.name,
+    description: quest.currentStep || quest.description,
+    icon: quest.icon,
+    context: quest.activityName ? `${label} · ${quest.activityName}` : label,
+    trackedInDestiny: quest.inGameTracked,
+    trackedInGuardianNexus: quest.sitePinned,
+    objectives: quest.objectives.map((objective) => ({ ...objective, progressAvailable: true })),
+    percent: quest.percent,
+    updatedAt: quest.updatedAt
+  };
+}
+
+function trackedPreference(value?: string): string[] {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 200) : [];
+  } catch { return []; }
 }
 
 function SocialRoster({ contacts, friendsState, clanState, warning, copied, onCopy }: { contacts: FireteamContact[]; friendsState: "available" | "reauthorization-required" | "unavailable"; clanState: "available" | "unavailable"; warning?: string; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {

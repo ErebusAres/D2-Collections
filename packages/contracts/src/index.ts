@@ -495,6 +495,34 @@ export interface QuestData {
   currentActivity?: string;
 }
 
+export type FireteamTrackedItemKind = "quest" | "bounty" | "order" | "guardian-rank";
+
+export interface FireteamTrackedItemObjective {
+  objectiveHash: string;
+  name: string;
+  progress: number;
+  completionValue: number;
+  percent: number;
+  complete: boolean;
+  progressAvailable: boolean;
+}
+
+/** A privacy-scoped, explicitly tracked pursuit shared with the current fireteam. */
+export interface FireteamTrackedItem {
+  id: string;
+  definitionHash: string;
+  kind: FireteamTrackedItemKind;
+  name: string;
+  description: string;
+  icon: string;
+  context: string;
+  trackedInDestiny: boolean;
+  trackedInGuardianNexus: boolean;
+  objectives: FireteamTrackedItemObjective[];
+  percent: number;
+  updatedAt: string;
+}
+
 export interface FireteamMember {
   membershipId: string;
   displayName: string;
@@ -511,6 +539,8 @@ export interface FireteamMember {
   sharing: boolean;
   sharingMode?: FireteamSharingMode;
   expiresAt?: string;
+  trackedItems: FireteamTrackedItem[];
+  /** @deprecated Retained for compatibility with Fireteam shares created by older web bundles. */
   quests: QuestProgress[];
   overlaps: string[];
   freshness: Freshness;

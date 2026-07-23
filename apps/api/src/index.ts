@@ -7,6 +7,7 @@ import type {
   FireteamData,
   FireteamMember,
   FireteamSharingMode,
+  FireteamTrackedItem,
   GearActionRequest,
   GearActionResult,
   GearData,
@@ -49,10 +50,12 @@ import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizePower, powerItemHashes } from "./power";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
+import { mergeTrackedItems, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
   sitePinnedQuestIds: z.array(z.string()).max(40).default([]),
+  siteTrackedGuardianRankIds: z.array(z.string()).max(200).optional(),
   mode: z.enum(["temporary", "persistent"]).default("temporary")
 });
 
@@ -677,28 +680,60 @@ async function auditGear(row: SessionRow, env: Env, action: string, itemId: stri
 
 async function upsertShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = shareSchema.parse(await request.json());
-  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode);
-  return envelope({ sharing: true, mode: input.mode, expiresAt: input.mode === "temporary" ? result.expiresAt : undefined, sharedQuestCount: result.sharedQuestCount }, env, context, { sourceMintedAt: result.sourceMintedAt });
+  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds);
+  return envelope({
+    sharing: true,
+    mode: input.mode,
+    expiresAt: input.mode === "temporary" ? result.expiresAt : undefined,
+    sharedQuestCount: result.sharedQuestCount,
+    sharedTrackedItemCount: result.sharedTrackedItemCount
+  }, env, context, { sourceMintedAt: result.sourceMintedAt });
 }
 
-async function storeShare(row: SessionRow, env: Env, characterId: string, sitePinnedQuestIds: string[], mode: FireteamSharingMode): Promise<{ expiresAt: string; sharedQuestCount: number; sourceMintedAt?: string }> {
-  const { profile } = await profileFor(row, env, "quests");
-  const manifest = await loadQuestManifest(env);
+async function storeShare(
+  row: SessionRow,
+  env: Env,
+  characterId: string,
+  sitePinnedQuestIds: string[],
+  mode: FireteamSharingMode,
+  providedGuardianRankIds?: string[]
+): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string }> {
+  const [{ profile }, manifest, guardianRankManifest] = await Promise.all([
+    profileFor(row, env, "fireteam-share"),
+    loadQuestManifest(env),
+    loadGuardianRankManifest(env)
+  ]);
   const character = selectedCharacter(charactersFromProfile(profile), characterId);
   if (!character || character.characterId !== characterId) throw httpError(400, "character_invalid", "The selected character does not belong to this Guardian.");
   const allQuests = normalizeQuests(profile, manifest, character.characterId, new Set(sitePinnedQuestIds));
   const allowedIds = new Set(allQuests.quests.map((quest) => quest.instanceId));
   const questsToShare = allQuests.quests.filter((quest) => quest.inGameTracked || (quest.sitePinned && allowedIds.has(quest.instanceId)));
   const compactSharedQuests = questsToShare.map((quest) => ({ ...quest, steps: undefined }));
+  const siteTrackedGuardianRanks = providedGuardianRankIds === undefined
+    ? await guardianRankTrackedIds(row.membership_id, env)
+    : new Set(providedGuardianRankIds);
+  const guardianRanks = normalizeGuardianRanks(profile, guardianRankManifest, character.characterId);
+  const trackedItems = mergeTrackedItems(
+    trackedItemsFromQuests(questsToShare),
+    trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || new Date().toISOString())
+  );
   const updatedAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
-  const payload = { character, activity: allQuests.currentActivity, quests: compactSharedQuests };
+  const payload = { character, activity: allQuests.currentActivity, trackedItems, quests: compactSharedQuests };
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
     ON CONFLICT(membership_id) DO UPDATE SET display_name = excluded.display_name, character_id = excluded.character_id, updated_at = excluded.updated_at, expires_at = excluded.expires_at, payload_json = excluded.payload_json, sharing_mode = excluded.sharing_mode, site_pinned_quest_ids_json = excluded.site_pinned_quest_ids_json, last_error = NULL
   `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload), mode, JSON.stringify(sitePinnedQuestIds)).run();
-  return { expiresAt, sharedQuestCount: questsToShare.length, sourceMintedAt: profile?.responseMintedTimestamp };
+  return { expiresAt, sharedQuestCount: questsToShare.length, sharedTrackedItemCount: trackedItems.length, sourceMintedAt: profile?.responseMintedTimestamp };
+}
+
+async function guardianRankTrackedIds(membershipId: string, env: Env): Promise<Set<string>> {
+  const row = await env.DB.prepare("SELECT preference_value FROM user_preferences WHERE membership_id = ? AND preference_key = 'guardianRank.tracked'").bind(membershipId).first<{ preference_value: string }>();
+  try {
+    const parsed = JSON.parse(row?.preference_value || "[]");
+    return new Set(Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string" && Boolean(value)).slice(0, 200) : []);
+  } catch { return new Set(); }
 }
 
 async function refreshPersistentShares(env: Env): Promise<void> {
@@ -746,17 +781,21 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const fireteamActivity = guardianLocation(profile, manifest, activeOwnCharacter?.characterId, ownOnlineState);
   const social = await socialRosterFor(row, accessToken, env);
   const socialByMembership = new Map((social.contacts || []).map((contact) => [contact.membershipId, contact]));
-  const questCounts = new Map<string, number>();
+  const trackedItemCounts = new Map<string, number>();
   for (const member of party) {
     const share: any = shares.get(member.membershipId);
     const payload = share ? JSON.parse(share.payload_json) : null;
-    for (const quest of payload?.quests || []) questCounts.set(String(quest.itemHash), (questCounts.get(String(quest.itemHash)) || 0) + 1);
+    for (const item of sharedTrackedItems(payload)) {
+      const key = `${item.kind}:${item.definitionHash}`;
+      trackedItemCounts.set(key, (trackedItemCounts.get(key) || 0) + 1);
+    }
   }
   const members: FireteamMember[] = await Promise.all(party.map(async (member: any) => {
     const share: any = shares.get(member.membershipId);
     let payload: any = null;
     try { payload = share ? JSON.parse(share.payload_json) : null; } catch { payload = null; }
     const memberQuests = payload?.quests || [];
+    const memberTrackedItems = sharedTrackedItems(payload);
     const isSelf = member.membershipId === row.membership_id;
     const socialContact = socialByMembership.get(member.membershipId);
     const publicProfile = !isSelf
@@ -789,8 +828,9 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       sharing: Boolean(share),
       sharingMode: share?.sharing_mode,
       expiresAt: share?.sharing_mode === "temporary" ? share?.expires_at : undefined,
+      trackedItems: memberTrackedItems,
       quests: memberQuests,
-      overlaps: memberQuests.filter((quest: any) => (questCounts.get(String(quest.itemHash)) || 0) > 1).map((quest: any) => quest.name),
+      overlaps: memberTrackedItems.filter((item) => (trackedItemCounts.get(`${item.kind}:${item.definitionHash}`) || 0) > 1).map((item) => item.name),
       freshness: {
         state: share && Date.now() - Date.parse(share.updated_at) > 15 * 60_000 ? "stale" : "fresh",
         observedAt: share?.updated_at || now,
@@ -801,6 +841,10 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const ownShare = shares.get(row.membership_id);
   const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, activity: fireteamActivity, members, social };
   return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(social.warning ? [social.warning] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
+}
+
+function sharedTrackedItems(payload: any): FireteamTrackedItem[] {
+  return Array.isArray(payload?.trackedItems) ? payload.trackedItems : trackedItemsFromQuests(Array.isArray(payload?.quests) ? payload.quests : []);
 }
 
 async function matrix(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

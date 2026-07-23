@@ -371,7 +371,7 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export type ProfileMode = "full" | "session" | "collection" | "quests" | "fireteam" | "gear" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power";
+export type ProfileMode = "full" | "session" | "collection" | "quests" | "fireteam" | "fireteam-share" | "gear" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power";
 
 export function profileComponentsFor(mode: ProfileMode): string {
   return mode === "session"
@@ -380,6 +380,8 @@ export function profileComponentsFor(mode: ProfileMode): string {
       ? "100,102,200,201,800,900"
       : mode === "quests"
         ? "100,102,200,201,204,301,310"
+        : mode === "fireteam-share"
+          ? "100,102,200,201,204,301,310,900"
         : mode === "fireteam"
           ? "100,200,204,1000"
     : mode === "mailbox"
