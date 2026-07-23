@@ -18,7 +18,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 export function QueryState({ loading, error, empty, hasData = false, onRetry }: { loading: boolean; error?: Error | null; empty?: boolean; hasData?: boolean; onRetry?: () => void }) {
   if (loading) return <StatePanel icon={<LoaderCircle className={styles.spin} />} title="Synchronizing" text="Reading fresh Guardian data…" />;
   if (error && !hasData) return <StatePanel icon={<AlertTriangle />} title="Signal interrupted" text={error.message} action={onRetry && <button onClick={onRetry}><RefreshCcw size={16} /> Try again</button>} />;
-  if (empty) return <StatePanel icon={<AlertTriangle />} title="No data returned" text="The current Bungie response did not include data for this view." />;
+  if (empty) return <StatePanel icon={<AlertTriangle />} title="Data unavailable" text="Refresh to try again." />;
   return null;
 }
 

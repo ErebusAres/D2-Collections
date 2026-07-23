@@ -165,7 +165,7 @@ export function QuestsPage() {
 
   return <AuthGate>
     <CompletionPing notice={completionNotice} onDismiss={dismissCompletion} />
-    <PageHeader eyebrow="Pursuit intelligence" title="Quests" description="Track active quest steps, understand objective progress, and surface the most practical next actions without changing anything in game." actions={<Freshness observedAt={result.data?.freshness.observedAt} />} />
+    <PageHeader eyebrow="Pursuit intelligence" title="Quests" description="Site pins and Destiny tracking stay separate; completed tracked items clear automatically." actions={<Freshness observedAt={result.data?.freshness.observedAt} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
       <section className={styles.questOverview}>
@@ -194,7 +194,7 @@ export function QuestsPage() {
             return layout === "grid"
               ? <QuestGridCard key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} {...interaction} />
               : <QuestCard key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} {...interaction} />;
-          })}</section> : compactPursuits.length === 0 && <div className={styles.inlineEmpty}><ListFilter /><h2>No quests match this view</h2><p>Adjust the filter or wait for Bungie to mint a newer character inventory response.</p></div>}
+          })}</section> : compactPursuits.length === 0 && <div className={styles.inlineEmpty}><ListFilter /><h2>No quests match this view</h2><p>Adjust the filters or refresh quest data.</p></div>}
         </div>
         {compactPursuits.length > 0 && <section className={`${styles.compactPursuits} ${questStyles.bountySection}`}><header><div><Crosshair /><span>Bounties &amp; orders</span></div><strong>{compactPursuits.length}</strong></header><div>{compactPursuits.map((quest) => <CompactPursuit key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} />)}</div></section>}
       </section>

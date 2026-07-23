@@ -30,7 +30,7 @@ export function PvpPage() {
     <PageHeader
       eyebrow="Account-wide combat record"
       title="Crucible"
-      description="Live Crucible reputation and account-wide PvP performance from Bungie's progression and historical-stat services."
+      description="Rank progression is live; career performance is account-wide."
       actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />}
     />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
@@ -68,14 +68,14 @@ export function PvpPage() {
         <Shield />
         <span>No Crucible history returned</span>
         <h2>This Guardian has no public PvP record yet</h2>
-        <p>Bungie returned no historical Crucible matches for the linked account. Current rank data remains visible when Bungie provides it.</p>
+        <p>Current rank remains available when reported.</p>
       </section>}
 
       <section className={styles.rankSection}>
-        <header><div><span>Live progression</span><h2>PvP ranks</h2></div><p>Only progression rows currently returned by Bungie are shown.</p></header>
-        {data.progressions.length ? <div className={styles.rankGrid}>{data.progressions.map((entry) => <ProgressionCard key={entry.progressionHash} rank={entry} />)}</div> : <div className={styles.rankUnavailable}><Crown /><p>No current Crucible, Competitive, Trials, or Iron Banner progression was returned.</p></div>}
+        <header><div><span>Live progression</span><h2>PvP ranks</h2></div></header>
+        {data.progressions.length ? <div className={styles.rankGrid}>{data.progressions.map((entry) => <ProgressionCard key={entry.progressionHash} rank={entry} />)}</div> : <div className={styles.rankUnavailable}><Crown /><p>No current PvP progression available.</p></div>}
       </section>
-      <footer className={styles.sourceNote}>Ranks use live character progressions and current manifest labels. Career totals use Bungie's historical-stat response; Guardian Nexus does not estimate missing activity.</footer>
+      <footer className={styles.sourceNote}>Career totals come from Bungie's historical stats; missing activity is not estimated.</footer>
     </>}
   </AuthGate>;
 }
@@ -106,7 +106,7 @@ function ModeCard({ mode, rank }: { mode: PvpModeStats; rank?: PvpProgression })
       <span><small>Win rate</small><strong>{decimal(mode.winRate)}%</strong></span>
       <span><small>K/D</small><strong>{decimal(mode.kd)}</strong></span>
       <span><small>Efficiency</small><strong>{decimal(mode.efficiency)}</strong></span>
-    </div> : <p>Bungie returned no historical matches for this playlist.</p>}
+    </div> : <p>No match history for this playlist.</p>}
   </article>;
 }
 

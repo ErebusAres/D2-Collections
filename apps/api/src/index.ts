@@ -7,6 +7,7 @@ import type {
   FireteamData,
   FireteamMember,
   FireteamSharingMode,
+  FireteamCompletedTrackedItem,
   FireteamTrackedItem,
   GearActionRequest,
   GearActionResult,
@@ -50,7 +51,7 @@ import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizePower, powerItemHashes } from "./power";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
-import { mergeTrackedItems, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { completedTrackedItemEvents, mergeTrackedItems, trackedItemKey, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -58,6 +59,7 @@ const shareSchema = z.object({
   siteTrackedGuardianRankIds: z.array(z.string()).max(200).optional(),
   mode: z.enum(["temporary", "persistent"]).default("temporary")
 });
+const FIRETEAM_COMPLETION_RETENTION_MS = 3 * 60_000;
 
 const probeSchema = z.object({
   probe: z.enum(["memberships", "profile", "character", "item", "collectible", "public-milestones", "manifest"]),
@@ -698,11 +700,16 @@ async function storeShare(
   mode: FireteamSharingMode,
   providedGuardianRankIds?: string[]
 ): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string }> {
-  const [{ profile }, manifest, guardianRankManifest] = await Promise.all([
+  const [{ profile }, manifest, guardianRankManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
     loadQuestManifest(env),
-    loadGuardianRankManifest(env)
+    loadGuardianRankManifest(env),
+    env.DB.prepare("SELECT payload_json FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<{ payload_json: string }>()
   ]);
+  let previousPayload: any = null;
+  try { previousPayload = previousShare?.payload_json ? JSON.parse(previousShare.payload_json) : null; } catch { previousPayload = null; }
+  const previousTrackedItems = sharedTrackedItems(previousPayload);
+  const previousTrackedKeys = new Set(previousTrackedItems.map(trackedItemKey));
   const character = selectedCharacter(charactersFromProfile(profile), characterId);
   if (!character || character.characterId !== characterId) throw httpError(400, "character_invalid", "The selected character does not belong to this Guardian.");
   const allQuests = normalizeQuests(profile, manifest, character.characterId, new Set(sitePinnedQuestIds));
@@ -718,8 +725,19 @@ async function storeShare(
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || new Date().toISOString())
   );
   const updatedAt = new Date().toISOString();
+  const completedCandidates = mergeTrackedItems(
+    trackedItemsFromQuests(allQuests.quests, true, previousTrackedKeys),
+    trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys)
+  );
+  const recentlyCompletedItems = completedTrackedItemEvents(
+    previousTrackedItems,
+    completedCandidates,
+    sharedRecentlyCompletedItems(previousPayload),
+    updatedAt,
+    FIRETEAM_COMPLETION_RETENTION_MS
+  );
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
-  const payload = { character, activity: allQuests.currentActivity, trackedItems, quests: compactSharedQuests };
+  const payload = { character, activity: allQuests.currentActivity, trackedItems, recentlyCompletedItems, quests: compactSharedQuests };
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
@@ -829,6 +847,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       sharingMode: share?.sharing_mode,
       expiresAt: share?.sharing_mode === "temporary" ? share?.expires_at : undefined,
       trackedItems: memberTrackedItems,
+      recentlyCompletedItems: sharedRecentlyCompletedItems(payload),
       quests: memberQuests,
       overlaps: memberTrackedItems.filter((item) => (trackedItemCounts.get(`${item.kind}:${item.definitionHash}`) || 0) > 1).map((item) => item.name),
       freshness: {
@@ -845,6 +864,13 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
 
 function sharedTrackedItems(payload: any): FireteamTrackedItem[] {
   return Array.isArray(payload?.trackedItems) ? payload.trackedItems : trackedItemsFromQuests(Array.isArray(payload?.quests) ? payload.quests : []);
+}
+
+function sharedRecentlyCompletedItems(payload: any): FireteamCompletedTrackedItem[] {
+  const cutoff = Date.now() - FIRETEAM_COMPLETION_RETENTION_MS;
+  return Array.isArray(payload?.recentlyCompletedItems)
+    ? payload.recentlyCompletedItems.filter((item: FireteamCompletedTrackedItem) => Number.isFinite(Date.parse(item.completedAt)) && Date.parse(item.completedAt) >= cutoff)
+    : [];
 }
 
 async function matrix(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

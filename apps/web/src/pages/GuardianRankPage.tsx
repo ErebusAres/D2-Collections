@@ -72,7 +72,7 @@ export function GuardianRankPage() {
     <PageHeader
       eyebrow="Guardian journey"
       title="Guardian Rank"
-      description="Review every rank, inspect completed objectives, and track the exact Guardian Rank objectives Bungie reports for your account."
+      description="Current and renewed progress stays separate from highest-achieved rank."
       actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />}
     />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
@@ -126,7 +126,7 @@ export function GuardianRankPage() {
           <div>{category.quests.map((quest) => <QuestCard key={quest.recordHash} quest={quest} tracked={tracked.has(quest.recordHash)} onTrack={() => toggleTracked(quest.recordHash)} />)}</div>
         </section>)}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
       </section>}
-      <footer className={styles.sourceNote}>The rank selector starts at Bungie's renewed Guardian Rank when available, while the historical displayed and lifetime-highest ranks remain separate. Selecting a rank shows the requirements to unlock the following rank; rank {data.maximumRank} is terminal. Objective names and hierarchy come from Bungie's Guardian Rank manifest nodes, while completion and counters come from live profile records. Missing record rows are shown as unavailable, not estimated.</footer>
+      <footer className={styles.sourceNote}>Current progress uses Bungie's renewed rank. Highest-achieved and lifetime-highest ranks remain separate. Missing objective data stays unavailable.</footer>
     </>}
   </AuthGate>;
 }
@@ -146,7 +146,7 @@ function QuestCard({ quest, tracked, onTrack }: { quest: GuardianRankQuest; trac
       <span><b>{objective.name}</b><small>{objective.progressAvailable ? objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : objective.complete ? "Complete" : "In progress" : "Bungie did not return a live counter"}</small></span>
       <i><span style={{ width: `${objective.percent}%` }} /></i>
       {objective.complete ? <CheckCircle2 /> : <strong>{objective.progressAvailable ? `${objective.percent}%` : "—"}</strong>}
-    </div>) : <div className={styles.recordOnly}><span><b>{status}</b><small>This record has no separate numeric objective in the current manifest.</small></span></div>}</div>
+    </div>) : <div className={styles.recordOnly}><span><b>{status}</b><small>No numeric objective.</small></span></div>}</div>
   </article>;
 }
 

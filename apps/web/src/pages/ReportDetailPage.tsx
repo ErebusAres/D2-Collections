@@ -48,7 +48,7 @@ export function ReportDetailPage() {
     <PageHeader
       eyebrow={report ? `${report.reference} · ${categoryLabel(report.category)}` : "Guardian Nexus ticket"}
       title={report?.title || "Ticket details"}
-      description="Review the complete ticket, follow every update, and continue the conversation with the maintainers."
+      description="Comments and status changes share one chronological history."
       actions={<><Link className={styles.backLink} to={data?.canManage ? "/reports/admin" : "/reports"}><ChevronLeft /> {data?.canManage ? "Admin queue" : "My reports"}</Link><Freshness observedAt={ticket.data?.freshness.observedAt} warning={ticket.data?.warnings[0]} /></>}
     />
     {!validId ? <section className={styles.restricted}><ClipboardList /><h2>Invalid ticket</h2><p>Choose a ticket from the reports page.</p></section> : <>

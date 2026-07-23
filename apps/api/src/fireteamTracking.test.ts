@@ -1,7 +1,7 @@
 import type { GuardianRankData, QuestProgress } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import { profileComponentsFor } from "./bungie";
-import { mergeTrackedItems, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { completedTrackedItemEvents, mergeTrackedItems, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 
 describe("Fireteam tracked items", () => {
   it("requests both pursuit and Guardian Rank profile components when refreshing a share", () => {
@@ -63,6 +63,23 @@ describe("Fireteam tracked items", () => {
   it("deduplicates the same tracked item across assembled groups", () => {
     const item = trackedItemsFromQuests([quest({ instanceId: "same", sitePinned: true })])[0]!;
     expect(mergeTrackedItems([item], [{ ...item, percent: 80 }])).toEqual([{ ...item, percent: 80 }]);
+  });
+
+  it("emits a short-lived completion event only for a previously shared item with confirmed completion", () => {
+    const previous = trackedItemsFromQuests([quest({ instanceId: "complete", sitePinned: true })]);
+    const candidates = trackedItemsFromQuests(
+      [quest({ instanceId: "complete", percent: 100 }), quest({ instanceId: "untracked-complete", percent: 100 })],
+      true,
+      new Set(["quest:complete", "quest:untracked-complete"])
+    );
+    const events = completedTrackedItemEvents(previous, candidates, [], "2026-07-22T12:01:00.000Z", 180_000);
+
+    expect(events).toHaveLength(1);
+    expect(events.map((event) => [event.id, event.completedAt])).toEqual([["complete", "2026-07-22T12:01:00.000Z"]]);
+    expect(events.some((event) => event.id === "untracked-complete")).toBe(false);
+
+    const retained = completedTrackedItemEvents(previous, candidates, events, "2026-07-22T12:02:00.000Z", 180_000);
+    expect(retained).toEqual(events);
   });
 });
 

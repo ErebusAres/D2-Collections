@@ -29,7 +29,7 @@ export function PowerPage() {
     <PageHeader
       eyebrow="Account-wide Power analysis"
       title="Power"
-      description="Compare the strongest equippable item in every slot across your characters and vault, and see exactly which slot is holding each Guardian back."
+      description="Gear Power excludes Artifact bonuses and stops at the hard cap of 550."
       actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />}
     />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
@@ -55,7 +55,7 @@ export function PowerPage() {
         <div className={styles.weakSummary}><ArrowDown /><span>Lowest best-in-slot</span><strong>{capped(strongestCharacter.lowestSlotPower) || "—"}</strong><small>{weakestSlots.map((slot) => slot.label).join(", ") || "No complete slot set returned"}</small></div>
       </section>
 
-      <footer className={styles.sourceNote}>Power values come from Bungie's live item instance primary stats. For each class, Guardian Nexus selects the highest-Power item that class can equip from the vault, every character inventory, and equipped gear. The displayed ceiling is the floor of those eight slot values averaged together.</footer>
+      <footer className={styles.sourceNote}>Each class ceiling averages its strongest equippable item in all eight slots across characters and the vault.</footer>
     </>}
   </AuthGate>;
 }

@@ -6,6 +6,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
 import { FireteamPage } from "./FireteamPage";
+import styles from "./Pages.module.css";
 
 vi.mock("../context/GuardianContext", () => ({
   pinsKey: (membershipId: string, characterId: string) => `pins:${membershipId}:${characterId}`,
@@ -44,6 +45,24 @@ describe("Fireteam tracked items", () => {
       siteTrackedGuardianRankIds: ["rank-record"],
       mode: "temporary"
     });
+  });
+
+  it("marks confirmed completion events for the objective-complete exit effect", async () => {
+    const completed = envelope();
+    completed.data.members[0]!.recentlyCompletedItems = [{
+      ...completed.data.members[0]!.trackedItems[0]!,
+      percent: 100,
+      objectives: [{ objectiveHash: "q", name: "Activities", progress: 5, completionValue: 5, percent: 100, complete: true, progressAvailable: true }],
+      completedAt: "2026-07-22T12:01:00.000Z"
+    }];
+    completed.data.members[0]!.trackedItems = completed.data.members[0]!.trackedItems.slice(1);
+    vi.mocked(api).mockResolvedValue(completed);
+
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    const item = (await screen.findByText("Weekly order")).closest("[data-completion-state]");
+    expect(item?.getAttribute("data-completion-state")).toBe("exiting");
+    expect(item?.querySelectorAll(`.${styles.sharedQuestCompletionFx} b span`)).toHaveLength(12);
   });
 });
 

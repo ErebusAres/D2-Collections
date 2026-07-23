@@ -9,13 +9,13 @@ export function AudiencePage() {
   const result = useQuery({ queryKey: ["audience-details"], queryFn: () => api<AudienceDetailData>("/api/v1/audience") });
   const data = result.data?.data;
   return <AuthGate>
-    <PageHeader eyebrow="Restricted site telemetry" title="Audience" description="Private first-party visitor and Bungie login records for approved Guardian Nexus maintainers." />
+    <PageHeader eyebrow="Restricted site telemetry" title="Audience" description="Visitor and Bungie login activity for site maintainers." />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.metrics}>
         <article><Eye /><span>Unique visitors</span><strong>{data.uniqueVisitors.toLocaleString()}</strong></article>
         <article><LogIn /><span>Unique Bungie logins</span><strong>{data.uniqueLogins.toLocaleString()}</strong></article>
-        <p><ShieldCheck /> Anonymous visitors use a truncated, one-way identifier. Guardian Nexus does not store their IP address or browsing history.</p>
+        <p><ShieldCheck /> Visitor IDs are truncated and one-way; IP addresses and browsing history are not stored.</p>
       </section>
       <section className={styles.panel}>
         <header><Users /><div><span>Authenticated Guardians</span><strong>{data.logins.length} identities</strong></div></header>

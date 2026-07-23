@@ -52,16 +52,15 @@ export function ReportAdminPage() {
     <PageHeader
       eyebrow="Restricted maintainer workflow"
       title="Report management"
-      description="Claim, prioritize, resolve, and dismiss Guardian Nexus reports. The queue refreshes automatically every five seconds."
+      description="The queue refreshes every five seconds and rejects stale edits."
       actions={<><Link className={styles.backLink} to="/reports"><ChevronLeft /> Reporter view</Link><Freshness observedAt={reports.data?.freshness.observedAt} warning={reports.data?.warnings[0]} /></>}
     />
-    {!session?.roles.reportAdmin ? <section className={styles.restricted}><ShieldCheck /><h2>Maintainer access required</h2><p>This queue is available only to the approved Guardian Nexus administrators.</p></section> : <>
+    {!session?.roles.reportAdmin ? <section className={styles.restricted}><ShieldCheck /><h2>Maintainer access required</h2></section> : <>
       <section className={styles.adminSummary}>
         <article><CircleDot /><span>Open</span><strong>{data?.counts?.open || 0}</strong></article>
         <article><Clock3 /><span>In progress</span><strong>{data?.counts?.in_progress || 0}</strong></article>
         <article><CheckCircle2 /><span>Completed</span><strong>{data?.counts?.completed || 0}</strong></article>
         <article><XCircle /><span>Dismissed</span><strong>{data?.counts?.dismissed || 0}</strong></article>
-        <p><RefreshCcw /> Changes from ErebusAres, IceeDedPple, and FearsRedemption appear automatically. Version checks prevent stale updates from replacing newer work.</p>
       </section>
 
       <section className={styles.adminFilters} aria-label="Report filters">
@@ -73,7 +72,7 @@ export function ReportAdminPage() {
 
       {update.error && <p className={styles.adminError} role="alert"><AlertTriangle /> {update.error.message}</p>}
       <QueryState loading={reports.isLoading} error={reports.error as Error} hasData={Boolean(reports.data)} onRetry={() => void reports.refetch()} />
-      {data && !data.reports.length && <section className={styles.emptyAdmin}><CheckCircle2 /><h2>No matching reports</h2><p>Adjust the filters or enjoy the quiet queue.</p></section>}
+      {data && !data.reports.length && <section className={styles.emptyAdmin}><CheckCircle2 /><h2>No matching reports</h2></section>}
       <section className={styles.adminQueue}>{data?.reports.map((report) => <AdminReportCard
         key={report.id}
         report={report}

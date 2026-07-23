@@ -41,7 +41,7 @@ export function RewardsPage() {
   const visibleLevels = rewardLevels.slice(rewardPage * LEVELS_PER_PAGE, (rewardPage + 1) * LEVELS_PER_PAGE);
 
   return <AuthGate>
-    <PageHeader eyebrow="Account-wide progression" title="Rewards Pass" description="Live rank, XP, reward definitions, and per-character reward state from Bungie's profile and manifest data." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Account-wide progression" title="Rewards Pass" description="Beyond rank 100, each rank requires five 100,000-XP pips." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.rewardsHero} style={data.backgroundImage ? { "--rewards-background": `url(${data.backgroundImage})` } as React.CSSProperties : undefined}>

@@ -523,6 +523,10 @@ export interface FireteamTrackedItem {
   updatedAt: string;
 }
 
+export interface FireteamCompletedTrackedItem extends FireteamTrackedItem {
+  completedAt: string;
+}
+
 export interface FireteamMember {
   membershipId: string;
   displayName: string;
@@ -540,6 +544,7 @@ export interface FireteamMember {
   sharingMode?: FireteamSharingMode;
   expiresAt?: string;
   trackedItems: FireteamTrackedItem[];
+  recentlyCompletedItems?: FireteamCompletedTrackedItem[];
   /** @deprecated Retained for compatibility with Fireteam shares created by older web bundles. */
   quests: QuestProgress[];
   overlaps: string[];

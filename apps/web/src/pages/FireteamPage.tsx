@@ -1,4 +1,4 @@
-import type { FireteamContact, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem } from "@guardian-nexus/contracts";
+import type { FireteamCompletedTrackedItem, FireteamContact, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, CheckCircle2, Copy, Crown, EyeOff, Link2, LogIn, MessageSquare, Radio, Repeat2, Share2, ShieldCheck, Timer, UserMinus, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -62,7 +62,7 @@ export function FireteamPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="See current party presence and activity, then coordinate the tracked quests, pursuits, and Guardian Rank objectives each Guardian explicitly shares." actions={<>
+    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="Shared progress refreshes every 60 seconds while auto-refresh is enabled." actions={<>
       <Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />
       {data && !data.sharingEnabled && <>
         <button className={styles.primaryAction} onClick={() => share.mutate("temporary")} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>
@@ -82,7 +82,7 @@ export function FireteamPage() {
       </section>
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} />)}</section>
       <SocialRoster contacts={data.social?.contacts || []} friendsState={data.social?.friendsState || data.social?.state || "unavailable"} clanState={data.social?.clanState || (data.social?.state === "available" ? "available" : "unavailable")} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
-      <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Best-effort live status</strong><p>Bungie describes party and current-activity data as transitory and non-authoritative. Guardian Nexus shows timestamps and privacy states instead of presenting it as guaranteed real time.</p></div></section>
+      <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Status may be delayed</strong><p>Party presence and current activity are not guaranteed to be real time.</p></div></section>
     </>}
   </AuthGate>;
 }
@@ -90,19 +90,34 @@ export function FireteamPage() {
 function MemberCard({ member, canManage, copied, onCopy }: { member: FireteamMember; canManage: boolean; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {
   const activity = presenceLocation(member);
   const trackedItems = Array.isArray(member.trackedItems) ? member.trackedItems : member.quests.map(legacyTrackedItem);
+  const recentlyCompletedItems = member.recentlyCompletedItems || [];
+  const [dismissedCompletions, setDismissedCompletions] = useState<Set<string>>(() => new Set());
+  const visibleCompletions = recentlyCompletedItems.filter((item) => !dismissedCompletions.has(completionEventKey(item)));
+  const visibleCompletionKeys = visibleCompletions.map(completionEventKey).join("|");
+  useEffect(() => {
+    if (!visibleCompletionKeys) return;
+    const keys = visibleCompletionKeys.split("|");
+    const timer = window.setTimeout(() => {
+      setDismissedCompletions((current) => new Set([...current, ...keys]));
+    }, 1_600);
+    return () => window.clearTimeout(timer);
+  }, [visibleCompletionKeys]);
+  const completingKeys = new Set(visibleCompletions.map(trackedItemKey));
+  const displayedItems = [...trackedItems.filter((item) => !completingKeys.has(trackedItemKey(item))), ...visibleCompletions];
   const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
   return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""}`}>
     <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "public" ? "Public location" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
-    {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{trackedItems.length ? trackedItems.map((item) => <TrackedItem key={`${item.kind}-${item.id}`} item={item} />) : <p>No tracked quests, bounties, orders, pursuits, or Guardian Rank objectives shared.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
+    {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => <TrackedItem key={`${item.kind}-${item.id}`} item={item} completing={"completedAt" in item} />) : <p>Nothing is currently tracked.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
     {!member.isSelf && <div className={styles.memberCommands}><button onClick={() => void onCopy(`whisper-${member.membershipId}`, `/whisper ${member.inGameName} `)} title="Copies a Destiny 2 text-chat command"><MessageSquare size={13} />{copied === `whisper-${member.membershipId}` ? "Copied" : "Whisper"}</button>{canManage && <button className={styles.managementCommand} onClick={() => void onCopy(`kick-${member.membershipId}`, `/kick ${member.inGameName}`)} title="Copies a Destiny 2 text-chat command; Guardian Nexus cannot kick through the Bungie API"><UserMinus size={13} />{copied === `kick-${member.membershipId}` ? "Copied" : "Kick command"}</button>}</div>}
     {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>Shared progress opportunity:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
   </article>;
 }
 
-function TrackedItem({ item }: { item: FireteamTrackedItem }) {
+function TrackedItem({ item, completing = false }: { item: FireteamTrackedItem; completing?: boolean }) {
   const progressKnown = item.objectives.length === 0 || item.objectives.some((objective) => objective.progressAvailable);
-  return <div className={styles.sharedQuest}>
+  return <div className={`${styles.sharedQuest} ${completing ? styles.sharedQuestCompleting : ""}`} data-completion-state={completing ? "exiting" : "active"}>
+    {completing && <span className={styles.sharedQuestCompletionFx} aria-hidden="true"><i /><b>{Array.from({ length: 12 }, (_, index) => <span key={index} />)}</b><em><CheckCircle2 /></em></span>}
     <span className={styles.sharedQuestIcon}>{item.icon ? <img src={item.icon} alt="" /> : <CheckCircle2 />}</span>
     <div className={styles.sharedQuestDetails}>
       <div className={styles.sharedQuestTitle}><b>{item.name}</b><em>{item.context}</em></div>
@@ -112,6 +127,14 @@ function TrackedItem({ item }: { item: FireteamTrackedItem }) {
     </div>
     <strong className={styles.sharedQuestPercent}>{progressKnown ? `${item.percent}%` : "—"}</strong>
   </div>;
+}
+
+function trackedItemKey(item: Pick<FireteamTrackedItem, "kind" | "id">): string {
+  return `${item.kind}:${item.id}`;
+}
+
+function completionEventKey(item: FireteamCompletedTrackedItem): string {
+  return `${trackedItemKey(item)}:${item.completedAt}`;
 }
 
 function legacyTrackedItem(quest: FireteamMember["quests"][number]): FireteamTrackedItem {
@@ -144,15 +167,15 @@ function SocialRoster({ contacts, friendsState, clanState, warning, copied, onCo
   const friends = contacts.filter((contact) => contact.source === "friend" || contact.source === "friend-and-clan");
   const clan = contacts.filter((contact) => contact.source === "clan" || contact.source === "friend-and-clan");
   return <section className={styles.socialRoster}>
-    <header><div><Users /><span>Social roster</span><h2>Friends & clan</h2></div><p>These are Bungie social and clan results—not random site users. Commands are copied for Destiny 2 text chat; the API cannot join or message for you.</p></header>
+    <header><div><Users /><span>Social roster</span><h2>Friends & clan</h2></div></header>
     <SocialGroup title="Bungie Friends" count={friends.length}>
       {friendsState === "reauthorization-required" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Reconnect for Bungie friends</strong><p>{warning || "Bungie did not authorize access to the signed-in account's friend list."}</p></div><a href="/api/v1/auth/start?returnTo=%2Ffireteam">Reconnect Bungie</a></div>
         : friendsState === "unavailable" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Bungie friends unavailable</strong><p>The friend-list request failed; clan members can still appear below.</p></div></div>
         : friends.length ? <div className={styles.socialGrid}>{friends.map((contact) => <SocialContact key={`friend-${contact.membershipId}-${contact.displayName}`} contact={contact} copied={copied} onCopy={onCopy} />)}</div>
-        : <div className={styles.socialUnavailable}><Users /><div><strong>No Bungie friends returned</strong><p>Only confirmed contacts returned by Bungie's Friends endpoint appear here.</p></div></div>}
+        : <div className={styles.socialUnavailable}><Users /><div><strong>No Bungie friends returned</strong></div></div>}
     </SocialGroup>
     <SocialGroup title="Clan Members" count={clan.length}>
-      {clanState === "unavailable" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Clan roster unavailable</strong><p>Bungie did not return a clan roster for this Destiny membership.</p></div></div>
+      {clanState === "unavailable" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Clan roster unavailable</strong></div></div>
         : clan.length ? <div className={styles.socialGrid}>{clan.map((contact) => <SocialContact key={`clan-${contact.membershipId}-${contact.displayName}`} contact={contact} copied={copied} onCopy={onCopy} />)}</div>
         : <div className={styles.socialUnavailable}><Users /><div><strong>No clan members returned</strong><p>The signed-in Destiny membership may not currently belong to a clan.</p></div></div>}
     </SocialGroup>

@@ -32,7 +32,7 @@ describe("PvP page", () => {
     expect(screen.getByText("53.33%")).toBeTruthy();
     expect(screen.getByText("100")).toBeTruthy();
     expect(screen.getAllByText("Gold III")).toHaveLength(2);
-    expect(screen.getByText("Bungie returned no historical matches for this playlist.")).toBeTruthy();
+    expect(screen.getByText("No match history for this playlist.")).toBeTruthy();
   });
 
   it("uses the no-history state without hiding a rank Bungie still returned", async () => {

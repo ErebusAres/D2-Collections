@@ -67,7 +67,7 @@ export function CollectionPage() {
   const data = result.data?.data;
 
   return <AuthGate>
-    <PageHeader eyebrow="Personal archive" title="Collection" description="Every current Exotic weapon and every class's armor, reconciled against your Bungie collection with catalyst progress kept separate." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Personal archive" title="Collection" description="Ownership is account-wide; Exotic armor remains class-filterable." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.summaryGrid}>
@@ -127,11 +127,11 @@ function catalystLabel(state: CatalystState): string {
 function GuideDrawer({ entry, onClose }: { entry: ExoticCollectionEntry | null; onClose: () => void }) {
   return <><button className={`${styles.drawerScrim} ${entry ? styles.drawerOpen : ""}`} onClick={onClose} aria-label="Close guide" /><aside className={`${styles.guideDrawer} ${entry ? styles.drawerOpen : ""}`} aria-hidden={!entry}>
     {entry && <><header><div><span>Acquisition guide</span><h2>{entry.name}</h2></div><button onClick={onClose}><X /></button></header>
-      <div className={styles.guideHero}>{entry.icon && <img src={entry.icon} alt="" />}<div><span>{entry.kind} · {entry.slot}</span><p>{entry.description || "No description returned."}</p><b className={`${styles.confidence} ${styles[entry.guide.confidence]}`}>{entry.guide.confidence}</b></div></div>
+      <div className={styles.guideHero}>{entry.icon && <img src={entry.icon} alt="" />}<div><span>{entry.kind} · {entry.slot}</span><p>{entry.description || "Description unavailable."}</p><b className={`${styles.confidence} ${styles[entry.guide.confidence]}`}>{entry.guide.confidence}</b></div></div>
       <div className={styles.guideFacts}><div><span>Collection</span><strong>{entry.owned ? "Owned" : "Missing"}</strong></div><div><span>Type</span><strong>{entry.itemType}</strong></div><div><span>Slot</span><strong>{entry.slot}</strong></div>{entry.damageType && <div><span>Damage</span><strong>{entry.damageType}</strong></div>}</div>
-      {entry.xurSelling && <GuideSection title="Available from Xûr"><p>Xûr is selling this item in the latest live Bungie vendor inventory check.</p></GuideSection>}
+      {entry.xurSelling && <GuideSection title="Available from Xûr"><p>Available in the latest Xûr inventory.</p></GuideSection>}
       <GuideSection title="Current source"><p>{entry.guide.acquisition}</p></GuideSection>
-      <GuideSection title="Acquisition steps"><ol>{entry.guide.steps.length ? entry.guide.steps.map((step, index) => <li key={index}>{step}</li>) : <li>Verification pending. No steps will be invented.</li>}</ol></GuideSection>
+      <GuideSection title="Acquisition steps"><ol>{entry.guide.steps.length ? entry.guide.steps.map((step, index) => <li key={index}>{step}</li>) : <li>Acquisition steps unavailable.</li>}</ol></GuideSection>
       {entry.guide.prerequisites.length > 0 && <GuideSection title="Prerequisites"><ul>{entry.guide.prerequisites.map((step, index) => <li key={index}>{step}</li>)}</ul></GuideSection>}
       {entry.kind === "weapon" && <GuideSection title={entry.catalysts?.length === 1 ? "Catalyst" : "Catalysts"}>{entry.catalysts?.length ? <div className={styles.guideFeatureList}>{entry.catalysts.map((catalystEntry) => <article key={catalystEntry.recordHash}>{catalystEntry.icon ? <img src={catalystEntry.icon} alt="" /> : <BookOpen />}<div><span>{catalystLabel(catalystEntry.state)}</span><strong>{catalystEntry.name}</strong><p>{catalystEntry.description}</p></div></article>)}</div> : <p>No catalyst is currently mapped for this weapon.</p>}{entry.guide.catalystCompletion && <p>{entry.guide.catalystCompletion}</p>}</GuideSection>}
       {Boolean(entry.features?.length) && <GuideSection title="Selectable features and sockets"><div className={styles.guideFeatureList}>{entry.features!.map((feature) => <article key={feature.itemHash}>{feature.icon ? <img src={feature.icon} alt="" /> : <Sparkles />}<div><strong>{feature.name}</strong><p>{feature.description}</p></div></article>)}</div></GuideSection>}

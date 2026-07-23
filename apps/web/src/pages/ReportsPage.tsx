@@ -72,7 +72,7 @@ export function ReportsPage() {
     <PageHeader
       eyebrow="Guardian Nexus feedback"
       title="Reports"
-      description="Report a problem, suggest an improvement, or leave feedback directly for the Guardian Nexus maintainers."
+      description="Submissions and replies stay linked to your Bungie account."
       actions={<>{session?.roles.reportAdmin && <Link className={styles.adminLink} to="/reports/admin"><ShieldCheck /> Manage reports <ChevronRight /></Link>}<Freshness observedAt={reports.data?.freshness.observedAt} warning={reports.data?.warnings[0]} /></>}
     />
 

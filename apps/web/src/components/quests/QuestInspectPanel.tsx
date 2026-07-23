@@ -43,11 +43,11 @@ export function QuestInspectPanel({ quest, position, onClose, onPointerEnter, on
         <button type="button" onClick={onClose} aria-label="Close quest details"><X /></button>
       </header>
       <div className={styles.questInspectBody}>
-        <p className={styles.questInspectDescription}>{quest.description || quest.currentStep || "Bungie did not provide a description for this quest step."}</p>
+        <p className={styles.questInspectDescription}>{quest.description || quest.currentStep || "Description unavailable."}</p>
         {quest.flavorText && <blockquote>{quest.flavorText}</blockquote>}
         <section className={styles.inspectObjectives}>
           <header><span>{progress.heading}</span><strong>{progress.progressKnown ? `${progress.objectives.filter((objective) => objective.complete).length}/${progress.objectives.length}` : progress.value}</strong></header>
-          {progress.objectives.length ? <>{!progress.progressKnown && <div className={styles.inspectProgressNote}><CircleHelp /><span>Bungie does not expose a live counter for this step. These manifest requirements are still useful, while completion is recorded in Destiny.</span></div>}{progress.objectives.map((objective) => <InspectObjective key={objective.objectiveHash} objective={objective} progressKnown={progress.progressKnown} />)}</> : <div className={styles.inspectProgressNote}><CircleHelp /><span><b>No numeric counter for this step.</b> Follow the current instruction: {progress.instruction}</span></div>}
+          {progress.objectives.length ? <>{!progress.progressKnown && <div className={styles.inspectProgressNote}><CircleHelp /><span>Live progress is unavailable; requirements come from the manifest.</span></div>}{progress.objectives.map((objective) => <InspectObjective key={objective.objectiveHash} objective={objective} progressKnown={progress.progressKnown} />)}</> : <div className={styles.inspectProgressNote}><CircleHelp /><span><b>No numeric counter.</b> {progress.instruction}</span></div>}
         </section>
         {quest.rewards.length > 0 && <section className={styles.inspectRewards}>
           <header><Gift /><span>Rewards</span></header>

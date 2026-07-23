@@ -36,7 +36,7 @@ export function XurPage() {
   const presentation = data ? xurInventoryPresentation(data, schedule.active) : undefined;
 
   return <AuthGate>
-    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="A complete storefront: Exotic armor and class items, weapons, catalysts, the weekly quest, and Strange Gear—without materials clutter." actions={<Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="When live data is unavailable, the last verified shipment is clearly labeled." actions={<Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && presentation && <>
       <section className={`${styles.xurHero} ${schedule.active && !presentation.lastShipment ? styles.xurActive : ""}`}>
@@ -45,10 +45,10 @@ export function XurPage() {
         <div><Clock3 /><span>Vendor signal</span><strong>{presentation.signalLabel}</strong><small>{storefrontCount} storefront offers{presentation.lastShipment && data.inventoryCapturedAt ? ` · verified ${new Date(data.inventoryCapturedAt).toLocaleString()}` : " across your classes"}</small></div>
       </section>
 
-      {presentation.lastShipment && <section className={styles.xurShipmentNotice}><Clock3 /><div><strong>Last verified shipment</strong><p>{schedule.active ? "Bungie's current vendor signal is unavailable, so these are the most recent verified offers. They may not match the live storefront." : "Xûr has departed. These offers are preserved from his most recent verified visit and are no longer available to purchase."}</p></div></section>}
+      {presentation.lastShipment && <section className={styles.xurShipmentNotice}><Clock3 /><div><strong>Last verified shipment</strong><p>{schedule.active ? "Showing the most recent verified offers; live inventory is unavailable." : "These offers are from Xûr's previous visit and cannot be purchased."}</p></div></section>}
       {storefrontCount > 0
         ? sections.map((section) => <XurSection key={section.title} {...section} historical={presentation.lastShipment} />)
-        : <section className={styles.xurEmpty}><Sparkles /><h2>{schedule.active ? "Awaiting Xûr's inventory" : "Xûr is away"}</h2><p>{schedule.active ? "Bungie has not returned an enabled Xûr gear inventory for this account yet. Refresh after reset to check again." : "Inventory will populate from Bungie's live vendor data when Xûr returns Friday at reset."}</p></section>}
+        : <section className={styles.xurEmpty}><Sparkles /><h2>{schedule.active ? "Awaiting Xûr's inventory" : "Xûr is away"}</h2><p>{schedule.active ? "No current inventory is available. Refresh after reset." : "Inventory returns Friday at reset."}</p></section>}
     </>}
   </AuthGate>;
 }

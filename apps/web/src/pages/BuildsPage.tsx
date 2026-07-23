@@ -41,7 +41,7 @@ export function BuildsPage() {
   const activeFilters = activeBuildFilters(filters);
 
   return <>
-    <PageHeader eyebrow="Guardian-authored combat library" title="Builds" description="Browse compact, field-tested Destiny 2 configurations from the Guardian Nexus team. Published builds are available to everyone; authoring remains restricted to the approved roster." actions={result.data?.data.canCreate && <Link className={styles.primaryAction} to="/builds/new"><CirclePlus /> Create build</Link>} />
+    <PageHeader eyebrow="Guardian-authored combat library" title="Builds" description="Published builds are public; authoring is limited to approved editors." actions={result.data?.data.canCreate && <Link className={styles.primaryAction} to="/builds/new"><CirclePlus /> Create build</Link>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
       <section className={styles.buildFilterPanel}>
@@ -65,7 +65,7 @@ export function BuildsPage() {
       {(activeFilters.length > 0 || filters.search) && <div className={styles.activeBuildFilters}>{filters.search && <button type="button" onClick={() => update("search", "")}><Search />“{filters.search}”<X /></button>}{activeFilters.map((entry) => <button type="button" key={entry.key} onClick={() => update(entry.key as keyof BuildFilters, "all" as never)}><span>{entry.label}</span>{entry.value}<X /></button>)}<button type="button" className={styles.clearBuildFilters} onClick={clearFilters}>Clear all</button></div>}
       </section>
       {filtered.length ? <section className={styles.buildGrid}>{filtered.map((build) => <BuildCard key={build.id} build={build} onRatingChange={ratingChanged} />)}</section>
-        : <section className={styles.emptyBuilds}><Sparkles /><h2>{builds.length ? "No builds match these filters" : "The Builds library is ready"}</h2><p>{builds.length ? "Clear or adjust the current filters to reveal more configurations." : result.data.data.canCreate ? "Create the first real Guardian Nexus build. No sample or fabricated build data has been inserted." : "The approved editors have not published a build yet. Check back after their first field guide is ready."}</p>{builds.length > 0 && <button type="button" onClick={clearFilters}>Clear filters</button>}</section>}
+        : <section className={styles.emptyBuilds}><Sparkles /><h2>{builds.length ? "No builds match these filters" : "No published builds yet"}</h2><p>{builds.length ? "Clear or adjust the current filters." : result.data.data.canCreate ? "Create the first build." : "Check back after an editor publishes one."}</p>{builds.length > 0 && <button type="button" onClick={clearFilters}>Clear filters</button>}</section>}
     </>}
   </>;
 }

@@ -27,7 +27,7 @@ export function LoadoutsPage() {
   const data = result.data?.data;
 
   return <AuthGate>
-    <PageHeader eyebrow="Saved combat configurations" title="Loadouts" description="Inspect the exact gear, subclass abilities, aspects, fragments, Artifact perks, and socket modifiers saved to the selected Guardian." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button className={styles.refresh} onClick={() => void result.refetch()}><RefreshCw size={14} /> Sync loadouts</button></>} />
+    <PageHeader eyebrow="Saved combat configurations" title="Loadouts" description="Destiny may block equipping during restricted activities." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button className={styles.refresh} onClick={() => void result.refetch()}><RefreshCw size={14} /> Sync loadouts</button></>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.notice}><Zap /><div><span>Hot swap</span><strong>{data.characterClass} · {data.loadouts.length} saved loadout{data.loadouts.length === 1 ? "" : "s"}</strong><p>{data.equipRestriction}</p></div></section>
@@ -35,7 +35,7 @@ export function LoadoutsPage() {
         const token = storeLoadoutBuildImport({ version: 1, sourceName: loadout.name, sourceIndex: loadout.index, document: buildDocumentFromLoadout(loadout, data.characterClass) });
         navigate(`/builds/new?fromLoadout=${encodeURIComponent(token)}`);
       }} onEquip={() => window.confirm(`Equip ${loadout.name} on the selected ${data.characterClass}? Bungie will reject the change if the current activity does not allow loadout changes.`) && equip.mutate({ loadoutIndex: loadout.index, characterId: data.characterId })} />)}</section>
-        : <section className={styles.empty}><Boxes /><h2>No saved loadouts</h2><p>Bungie did not return a configured loadout for this character.</p></section>}
+        : <section className={styles.empty}><Boxes /><h2>No saved loadouts</h2><p>Create a loadout in Destiny to see it here.</p></section>}
       {equip.data?.data.equipped && <div className={styles.success}><Sparkles /> Loadout equip request completed.</div>}
       {equip.error && <div className={styles.error}><AlertTriangle /> {equip.error.message}</div>}
     </>}
