@@ -1,10 +1,13 @@
 import type { GuardianRankData, GuardianRankQuest, GuardianRankTier } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { Bookmark, Check, CheckCircle2, CircleDashed, Compass, Crosshair, History, LockKeyhole, Search, ShieldCheck, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { CompletionPing, useCompletionPings } from "../components/common/CompletionPing";
 import { useGuardian } from "../context/GuardianContext";
+import { completionTransition, guardianRankCompletionCandidates } from "../modules/tracking/completionTracking";
 import { api } from "../services/api/client";
+import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import styles from "./GuardianRankPage.module.css";
 
 type QuestFilter = "all" | "tracked" | "incomplete" | "complete";
@@ -14,12 +17,14 @@ export function GuardianRankPage() {
   const [selectedRankNumber, setSelectedRankNumber] = useState<number>();
   const [filter, setFilter] = useState<QuestFilter>("all");
   const [search, setSearch] = useState("");
+  const completionState = useRef<{ characterId: string; values: Map<string, boolean> | null }>({ characterId: "", values: null });
+  const { notice: completionNotice, announce: announceCompletion, dismiss: dismissCompletion, clear: clearCompletions } = useCompletionPings();
   const result = useQuery({
     queryKey: ["guardian-rank", selectedCharacterId],
     queryFn: () => api<GuardianRankData>(`/api/v1/me/guardian-rank?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
-    staleTime: 60_000,
-    refetchInterval: autoRefresh ? 60_000 : false,
+    staleTime: LIVE_REFRESH_INTERVAL_MS,
+    refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
   const data = result.data?.data;
@@ -27,6 +32,20 @@ export function GuardianRankPage() {
     if (data && selectedRankNumber === undefined) setSelectedRankNumber(data.suggestedRank);
   }, [data, selectedRankNumber]);
   const tracked = useMemo(() => parseTracked(preferences["guardianRank.tracked"]), [preferences]);
+  useEffect(() => {
+    if (!data) return;
+    const previous = completionState.current.characterId === selectedCharacterId ? completionState.current.values : null;
+    if (!previous) clearCompletions();
+    const candidates = guardianRankCompletionCandidates(data, tracked);
+    const transition = completionTransition(previous, candidates);
+    completionState.current = { characterId: selectedCharacterId, values: transition.state };
+    announceCompletion(transition.newlyCompleted);
+
+    const completedTracked = new Set(candidates.filter((candidate) => candidate.complete && candidate.trackedInGuardianNexus).map((candidate) => candidate.id));
+    if (completedTracked.size) {
+      setPreference("guardianRank.tracked", JSON.stringify([...tracked].filter((recordHash) => !completedTracked.has(recordHash))));
+    }
+  }, [announceCompletion, clearCompletions, data, selectedCharacterId, setPreference, tracked]);
   const selectedRank = data?.ranks.find((rank) => rank.rankNumber === selectedRankNumber) || data?.ranks.find((rank) => rank.rankNumber === data.suggestedRank);
   const visibleCategories = useMemo(() => selectedRank?.categories.map((category) => ({
     ...category,
@@ -49,6 +68,7 @@ export function GuardianRankPage() {
   };
 
   return <AuthGate>
+    <CompletionPing notice={completionNotice} onDismiss={dismissCompletion} />
     <PageHeader
       eyebrow="Guardian journey"
       title="Guardian Rank"

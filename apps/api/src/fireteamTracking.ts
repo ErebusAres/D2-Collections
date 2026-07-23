@@ -1,7 +1,7 @@
 import type { FireteamTrackedItem, GuardianRankData, GuardianRankTier, QuestProgress } from "@guardian-nexus/contracts";
 
 export function trackedItemsFromQuests(quests: QuestProgress[]): FireteamTrackedItem[] {
-  return quests.filter((quest) => quest.inGameTracked || quest.sitePinned).map((quest) => ({
+  return quests.filter((quest) => (quest.inGameTracked || quest.sitePinned) && !questComplete(quest)).map((quest) => ({
     id: quest.instanceId,
     definitionHash: quest.itemHash,
     kind: quest.category || "quest",
@@ -24,6 +24,7 @@ export function trackedItemsFromGuardianRanks(data: GuardianRankData, siteTracke
       for (const quest of category.quests) {
         const trackedInGuardianNexus = siteTracked.has(quest.recordHash);
         if (!quest.trackedInDestiny && !trackedInGuardianNexus) continue;
+        if (guardianRankQuestComplete(quest)) continue;
         const candidate = {
           item: {
             id: quest.recordHash,
@@ -58,6 +59,14 @@ export function mergeTrackedItems(...groups: FireteamTrackedItem[][]): FireteamT
 function guardianRankPercent(quest: GuardianRankTier["categories"][number]["quests"][number]): number {
   if (quest.objectives.length) return boundedPercent(Math.round(quest.objectives.reduce((sum, objective) => sum + objective.percent, 0) / quest.objectives.length));
   return quest.state === "completed" ? 100 : 0;
+}
+
+function questComplete(quest: QuestProgress): boolean {
+  return quest.percent >= 100 || (quest.objectives.length > 0 && quest.objectives.every((objective) => objective.complete || objective.percent >= 100));
+}
+
+function guardianRankQuestComplete(quest: GuardianRankTier["categories"][number]["quests"][number]): boolean {
+  return quest.state === "completed" || (quest.objectives.length > 0 && quest.objectives.every((objective) => objective.complete || objective.percent >= 100));
 }
 
 function rankContext(rank: GuardianRankTier, maximumRank: number): string {

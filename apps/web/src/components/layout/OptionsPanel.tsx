@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
 import { clearGuardianOfflineData } from "../../services/api/offlineCache";
+import { LIVE_REFRESH_INTERVAL_SECONDS } from "../../services/liveRefresh";
 import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import styles from "./OptionsPanel.module.css";
 
@@ -23,7 +24,12 @@ export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => 
       if (!enabled) return queuedApi("/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) });
       let sitePinnedQuestIds: string[] = [];
       try { sitePinnedQuestIds = JSON.parse(localStorage.getItem(pinsKey(session?.guardian?.membershipId || "", guardianState.selectedCharacterId)) || "[]") as string[]; } catch { sitePinnedQuestIds = []; }
-      return queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, mode: "persistent" }) });
+      let siteTrackedGuardianRankIds: string[] = [];
+      try {
+        const parsed = JSON.parse(guardianState.preferences["guardianRank.tracked"] || "[]");
+        siteTrackedGuardianRankIds = Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 200) : [];
+      } catch { siteTrackedGuardianRankIds = []; }
+      return queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, mode: "persistent" }) });
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
@@ -58,7 +64,7 @@ export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => 
         </section>
         <section>
           <h3>Experience</h3>
-          <Toggle label="Auto-refresh live data" description="Refresh visible live pages every 60 seconds." checked={guardianState.autoRefresh} onChange={guardianState.setAutoRefresh} />
+          <Toggle label="Auto-refresh live data" description={`Refresh visible live pages every ${LIVE_REFRESH_INTERVAL_SECONDS} seconds.`} checked={guardianState.autoRefresh} onChange={guardianState.setAutoRefresh} />
           <Toggle label="Reduce motion" description="Disable non-essential interface movement." checked={guardianState.reducedMotion} onChange={guardianState.setReducedMotion} />
         </section>
         {session?.authenticated && <section>

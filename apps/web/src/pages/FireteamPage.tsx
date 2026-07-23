@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
+import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import styles from "./Pages.module.css";
 
 export function FireteamPage() {
@@ -14,7 +15,7 @@ export function FireteamPage() {
     queryKey: ["fireteam", selectedCharacterId],
     queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated),
-    refetchInterval: autoRefresh ? 60_000 : false,
+    refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
   const pinnedIds = useMemo(() => {
@@ -38,7 +39,7 @@ export function FireteamPage() {
   }, [selectedCharacterId, sharingMode, share]);
   useEffect(() => {
     if (!result.data?.data.sharingEnabled || !autoRefresh) return;
-    const timer = window.setInterval(renew, 60_000);
+    const timer = window.setInterval(renew, LIVE_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(timer);
   }, [result.data?.data.sharingEnabled, autoRefresh, renew]);
   useEffect(() => {

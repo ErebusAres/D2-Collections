@@ -6,9 +6,12 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { api } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { CompletionPing, useCompletionPings } from "../components/common/CompletionPing";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { getQuestTooltipPosition, QuestInspectPanel, type QuestTooltipPosition } from "../components/quests/QuestInspectPanel";
 import { questProgressPresentation } from "../modules/quests/questProgress";
+import { completionTransition, questCompletionCandidates } from "../modules/tracking/completionTracking";
+import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import styles from "./Pages.module.css";
 import questStyles from "./QuestsPage.module.css";
 
@@ -28,6 +31,9 @@ export function QuestsPage() {
   const [tooltip, setTooltip] = useState<QuestTooltipState | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<QuestTooltipPosition | null>(null);
   const closeTimer = useRef<number | null>(null);
+  const completionState = useRef<Map<string, boolean> | null>(null);
+  const completionContext = useRef("");
+  const { notice: completionNotice, announce: announceCompletion, dismiss: dismissCompletion, clear: clearCompletions } = useCompletionPings();
   const layout: QuestLayout = preferences["quests.layout"] === "list" ? "list" : "grid";
   useEffect(() => {
     try {
@@ -41,9 +47,30 @@ export function QuestsPage() {
     queryKey: ["quests", selectedCharacterId, pinnedParam],
     queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=${encodeURIComponent(pinnedParam)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
-    refetchInterval: autoRefresh ? 60_000 : false,
+    refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
+  useEffect(() => {
+    if (!result.data) return;
+    if (completionContext.current !== storageKey) {
+      completionContext.current = storageKey;
+      completionState.current = null;
+      clearCompletions();
+    }
+    const candidates = questCompletionCandidates(result.data.data.quests, pins);
+    const transition = completionTransition(completionState.current, candidates);
+    completionState.current = transition.state;
+    announceCompletion(transition.newlyCompleted);
+
+    const completedPins = new Set(candidates.filter((candidate) => candidate.complete && candidate.trackedInGuardianNexus).map((candidate) => candidate.id));
+    if (!completedPins.size) return;
+    setPins((current) => {
+      const next = new Set([...current].filter((id) => !completedPins.has(id)));
+      if (next.size === current.size) return current;
+      try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* Keep the in-memory cleanup. */ }
+      return next;
+    });
+  }, [announceCompletion, clearCompletions, pins, result.data, storageKey]);
   const quests = useMemo(() => (result.data?.data.quests || []).filter((quest) => {
     const textMatch = !search || `${quest.name} ${quest.description} ${quest.activityName}`.toLowerCase().includes(search.toLowerCase());
     const filterMatch = filter === "all" || (filter === "pinned" && pins.has(quest.instanceId)) || (filter === "tracked" && quest.inGameTracked) || (filter === "near" && quest.percent >= 75 && quest.percent < 100) || (filter === "activity" && Boolean(quest.activityName));
@@ -137,6 +164,7 @@ export function QuestsPage() {
   const chooseLayout = (value: QuestLayout) => setPreference("quests.layout", value);
 
   return <AuthGate>
+    <CompletionPing notice={completionNotice} onDismiss={dismissCompletion} />
     <PageHeader eyebrow="Pursuit intelligence" title="Quests" description="Track active quest steps, understand objective progress, and surface the most practical next actions without changing anything in game." actions={<Freshness observedAt={result.data?.freshness.observedAt} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>

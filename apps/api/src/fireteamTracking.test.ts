@@ -24,6 +24,16 @@ describe("Fireteam tracked items", () => {
     expect(items[0]).toMatchObject({ trackedInGuardianNexus: true, trackedInDestiny: false, objectives: [{ progressAvailable: true }] });
   });
 
+  it("stops sharing completed pursuits even when Destiny or the site still marks them tracked", () => {
+    const items = trackedItemsFromQuests([
+      quest({ instanceId: "percent-complete", sitePinned: true, percent: 100 }),
+      quest({ instanceId: "objective-complete", inGameTracked: true, objectives: [{ objectiveHash: "objective", name: "Progress", progress: 10, completionValue: 10, complete: true, percent: 100 }] }),
+      quest({ instanceId: "still-active", sitePinned: true, percent: 99 })
+    ]);
+
+    expect(items.map((item) => item.id)).toEqual(["still-active"]);
+  });
+
   it("includes site and Destiny tracked Guardian Rank objectives once with the current-rank context", () => {
     const data = guardianRanks();
     const items = trackedItemsFromGuardianRanks(data, new Set(["site-record"]), "2026-07-22T12:00:00.000Z");
@@ -37,6 +47,17 @@ describe("Fireteam tracked items", () => {
       percent: 40
     });
     expect(items.find((item) => item.id === "site-record")).toMatchObject({ trackedInGuardianNexus: true, percent: 25 });
+  });
+
+  it("stops sharing completed Guardian Rank objectives", () => {
+    const data = guardianRanks();
+    data.ranks[0]!.categories[0]!.quests[0]!.state = "completed";
+    data.ranks[0]!.categories[0]!.quests[0]!.objectives[0]!.complete = true;
+    data.ranks[0]!.categories[0]!.quests[0]!.objectives[0]!.percent = 100;
+
+    const items = trackedItemsFromGuardianRanks(data, new Set(["site-record"]), "2026-07-22T12:00:00.000Z");
+
+    expect(items.map((item) => item.id)).toEqual(["site-record"]);
   });
 
   it("deduplicates the same tracked item across assembled groups", () => {
