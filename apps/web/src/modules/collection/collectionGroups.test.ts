@@ -1,6 +1,6 @@
 import type { ExoticCollectionEntry } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { collectionClassScope, groupCollectionEntries, scopeCollectionEntries } from "./collectionGroups";
+import { collectionClassScope, collectionItemLabel, groupCollectionEntries, scopeCollectionEntries } from "./collectionGroups";
 
 const entry = (name: string, kind: "weapon" | "armor", className?: "Hunter" | "Titan" | "Warlock") => ({ name, kind, className }) as ExoticCollectionEntry;
 const catalog = [
@@ -11,6 +11,13 @@ const catalog = [
 ];
 
 describe("Collection class grouping", () => {
+  it("uses concise weapon slot labels without changing armor labels", () => {
+    expect(collectionItemLabel({ kind: "weapon", slot: "Kinetic Weapons" })).toBe("Kinetic");
+    expect(collectionItemLabel({ kind: "weapon", slot: "Special Weapons" })).toBe("Special");
+    expect(collectionItemLabel({ kind: "weapon", slot: "Power Weapons" })).toBe("Power");
+    expect(collectionItemLabel({ kind: "armor", slot: "Helmet" })).toBe("armor · Helmet");
+  });
+
   it("maps the selected Guardian class to the initial filter scope", () => {
     expect(collectionClassScope("Hunter")).toBe("hunter");
     expect(collectionClassScope("Unknown")).toBe("all");

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
-import { collectionClassScope, groupCollectionEntries, scopeCollectionEntries, type CollectionClassScope } from "../modules/collection/collectionGroups";
+import { collectionClassScope, collectionItemLabel, groupCollectionEntries, scopeCollectionEntries, type CollectionClassScope } from "../modules/collection/collectionGroups";
 import styles from "./Pages.module.css";
 
 type KindFilter = "all" | "weapon" | "armor";
@@ -110,7 +110,7 @@ function FilterGroup({ label, value, values, labels = {}, onChange }: { label: s
 function ItemCard({ entry, onOpen }: { entry: ExoticCollectionEntry; onOpen: () => void }) {
   return <button className={`${styles.itemCard} ${entry.owned ? styles.owned : styles.missing}`} onClick={onOpen}>
     <div className={styles.itemArt}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span>{entry.kind === "weapon" ? <Swords /> : <Shield />}</span>}{entry.watermark && <img className={styles.watermark} src={entry.watermark} alt="" />}</div>
-    <div className={styles.itemBody}><span>{entry.kind} · {entry.slot}</span><h2>{entry.name}</h2><p>{entry.itemType}</p></div>
+    <div className={styles.itemBody}><span>{collectionItemLabel(entry)}</span><h2>{entry.name}</h2><p>{entry.itemType}</p></div>
     <div className={styles.itemState}>{entry.xurSelling && <StateBadge active label="Xûr selling" gold icon={<Coins size={10} />} />}<StateBadge active={entry.owned} label={entry.owned ? "Owned" : "Missing"} />{entry.kind === "weapon" && <StateBadge active={entry.catalyst === "obtained" || entry.catalyst === "complete"} label={catalystLabel(entry.catalyst)} gold={entry.catalyst === "complete"} />}</div>
     <ChevronRight className={styles.chevron} size={18} />
   </button>;

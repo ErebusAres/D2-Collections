@@ -21,6 +21,12 @@ export function scopeCollectionEntries(entries: ExoticCollectionEntry[], scope: 
   return entries.filter((entry) => entry.kind === "weapon" || entry.className?.toLowerCase() === scope);
 }
 
+export function collectionItemLabel(entry: Pick<ExoticCollectionEntry, "kind" | "slot">): string {
+  return entry.kind === "weapon"
+    ? entry.slot.replace(/\s+weapons?$/i, "")
+    : `${entry.kind} · ${entry.slot}`;
+}
+
 export function groupCollectionEntries(entries: ExoticCollectionEntry[], scope: CollectionClassScope): CollectionGroup[] {
   const groups: CollectionGroup[] = [];
   const weapons = entries.filter((entry) => entry.kind === "weapon");
