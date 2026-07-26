@@ -19,6 +19,10 @@ import type { Env, RequestContext, SessionRow } from "./types";
 const optionalText = z.string().trim().max(5_000).optional();
 const httpsUrl = z.string().trim().url().max(2_000).refine((value) => value.startsWith("https://"), "Build links must use HTTPS.");
 const optionalUrl = httpsUrl.optional();
+const classIconUrl = z.string().trim().max(2_000).refine(
+  (value) => value.startsWith("https://") || /^\/icons\/destiny\/class-(?:hunter|titan|warlock)\.svg$/i.test(value),
+  "Class icons must use HTTPS or an official Guardian Nexus class icon."
+).optional();
 const artifactSlotSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)]);
 const artifactSlotAccess = [1, 1, 2, 2, 2, 3, 3] as const;
 const namedEntryBaseSchema = z.object({
@@ -89,7 +93,7 @@ export const buildDocumentSchema = z.object({
   title: z.string().trim().min(3).max(120),
   originalCreatorName: z.string().trim().max(120).optional(),
   classType: z.enum(["hunter", "titan", "warlock"]),
-  classIcon: optionalUrl,
+  classIcon: classIconUrl,
   subclass: z.enum(["prismatic", "arc", "solar", "void", "strand", "stasis"]),
   subclassIcon: optionalUrl,
   tags: z.array(z.string().trim().min(1).max(40)).min(1).max(20),

@@ -28,6 +28,11 @@ describe("build validation", () => {
     expect(buildDocumentSchema.parse({ ...validBuild, concepts: [{ name: "Radiant", hash: "123", icon: "https://www.bungie.net/radiant.png" }] })).toMatchObject({ title: validBuild.title, tags: ["support"], concepts: [{ name: "Radiant", hash: "123" }], championCounters: [] });
   });
 
+  it("accepts official same-origin class icons without allowing arbitrary relative assets", () => {
+    expect(buildDocumentSchema.parse({ ...validBuild, classIcon: "/icons/destiny/class-warlock.svg" }).classIcon).toBe("/icons/destiny/class-warlock.svg");
+    expect(() => buildDocumentSchema.parse({ ...validBuild, classIcon: "/icons/untrusted.svg" })).toThrow(/official Guardian Nexus class icon/);
+  });
+
   it("requires at least one tag and rejects unsafe links", () => {
     expect(() => buildDocumentSchema.parse({ ...validBuild, tags: [] })).toThrow();
     expect(() => buildDocumentSchema.parse({ ...validBuild, links: [{ kind: "dim", label: "DIM", url: "not-a-url" }] })).toThrow();
