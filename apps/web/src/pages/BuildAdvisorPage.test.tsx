@@ -1,0 +1,172 @@
+// @vitest-environment jsdom
+
+import type { ApiEnvelope, BuildAdvisorData, BuildAdvisorRecommendation, SessionData } from "@guardian-nexus/contracts";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { emptyBuildDocument } from "../modules/builds/builds";
+import { api } from "../services/api/client";
+import { BuildAdvisorPage } from "./BuildAdvisorPage";
+
+const mocks = vi.hoisted(() => ({
+  signIn: vi.fn(),
+  refresh: vi.fn().mockResolvedValue(undefined),
+  selectCharacter: vi.fn(),
+  state: { authenticated: true }
+}));
+
+vi.mock("../context/GuardianContext", () => ({
+  useGuardian: () => ({
+    session: mocks.state.authenticated ? session() : { authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false } },
+    loading: false,
+    signIn: mocks.signIn,
+    refresh: mocks.refresh,
+    selectedCharacterId: "hunter",
+    selectCharacter: mocks.selectCharacter,
+    autoRefresh: false
+  })
+}));
+
+vi.mock("../services/api/client", () => ({ api: vi.fn() }));
+
+afterEach(() => {
+  cleanup();
+  sessionStorage.clear();
+  mocks.state.authenticated = true;
+  mocks.signIn.mockReset();
+  mocks.refresh.mockReset().mockResolvedValue(undefined);
+  mocks.selectCharacter.mockReset();
+  vi.clearAllMocks();
+});
+
+describe("Build Advisor page", () => {
+  it("uses the existing Bungie sign-in action when signed out", () => {
+    mocks.state.authenticated = false;
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Sign in with Bungie" }));
+    expect(mocks.signIn).toHaveBeenCalledOnce();
+    expect(vi.mocked(api)).not.toHaveBeenCalled();
+  });
+
+  it("forces a Bungie inventory refresh and recalculates recommendations", async () => {
+    vi.mocked(api)
+      .mockResolvedValueOnce(envelope(advisorData("Initial Owned Build")))
+      .mockResolvedValueOnce(envelope(advisorData("Refreshed Owned Build")));
+    renderPage();
+    expect((await screen.findAllByText("Initial Owned Build")).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh inventory" }));
+    expect((await screen.findAllByText("Refreshed Owned Build")).length).toBeGreaterThan(0);
+    expect(mocks.refresh).toHaveBeenCalled();
+    expect(vi.mocked(api).mock.calls.some(([path]) => String(path).includes("refresh=1"))).toBe(true);
+  });
+
+  it("shows stale data warnings and hands a recommendation to Builder", async () => {
+    const data = advisorData("Vault Gyrfalcon Build");
+    data.state = "may-be-stale";
+    data.analysis.warnings = ["Inventory may be older than the current Bungie profile."];
+    vi.mocked(api).mockResolvedValue(envelope(data, ["Inventory may be older than the current Bungie profile."], "stale"));
+    renderPage();
+    expect((await screen.findAllByText("Inventory may be stale")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Inventory may be older than the current Bungie profile.").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /Open in Builder/i }));
+    expect((await screen.findByTestId("target-location")).textContent).toMatch(/\/builds\/new\?fromAdvisor=/);
+    expect([...Array(sessionStorage.length)].map((_, index) => sessionStorage.key(index)).some((key) => key?.startsWith("guardian-nexus:advisor-build-import:"))).toBe(true);
+  });
+});
+
+function renderPage() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Number.POSITIVE_INFINITY } } });
+  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/build-advisor"]}><Routes>
+    <Route path="/build-advisor" element={<BuildAdvisorPage />} />
+    <Route path="/builds/new" element={<LocationProbe />} />
+  </Routes></MemoryRouter></QueryClientProvider>);
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="target-location">{location.pathname}{location.search}</div>;
+}
+
+function session(): SessionData {
+  return {
+    authenticated: true,
+    csrfToken: "csrf",
+    roles: { dev: false, matrixWriter: false, buildEditor: true, reportAdmin: false },
+    guardian: {
+      membershipId: "member",
+      membershipType: 3,
+      displayName: "Guardian",
+      bungieName: "Guardian#0001",
+      selectedCharacterId: "hunter",
+      characters: [{ characterId: "hunter", className: "Hunter", raceName: "Human", emblemPath: "", emblemBackgroundPath: "", power: 500, dateLastPlayed: "", minutesPlayedThisSession: 0 }],
+      stats: { power: 500, guardianRank: 7, rewardsPassRank: 1, rewardsPassProgress: { state: "unavailable", source: "bungie-profile-character-progressions", reason: "Test fixture" }, mailboxCount: 0 },
+      isInGame: false
+    }
+  };
+}
+
+function advisorData(name: string): BuildAdvisorData {
+  return {
+    characterId: "hunter",
+    characterClass: "Hunter",
+    characterPower: 500,
+    manifestVersion: "test",
+    templateSetVersion: 1,
+    templateReviewedAt: "2026-07-26",
+    state: "current",
+    recommendations: [recommendation(name)],
+    analysis: {
+      physicalItemCount: 3,
+      savedLoadoutCount: 1,
+      ownedExoticArmorByClass: {},
+      ownedExoticWeapons: [],
+      equippedExotics: [],
+      vaultExotics: [],
+      collectionOnlyExotics: [],
+      relevantLegendaryRolls: [],
+      missingHighImpactItems: [],
+      syncTimestamp: "2026-07-26T12:00:00.000Z",
+      warnings: []
+    }
+  };
+}
+
+function recommendation(name: string): BuildAdvisorRecommendation {
+  return {
+    id: `advisor:${name}`,
+    templateId: "hunter-void-gyrfalcon",
+    templateVersion: 1,
+    reviewedAt: "2026-07-26",
+    release: "Monument of Triumph",
+    name,
+    classType: "hunter",
+    subclass: "void",
+    score: 91,
+    status: "fully-assembleable",
+    categories: ["Best Overall"],
+    coreExoticArmor: { itemHash: "1", name: "Gyrfalcon's Hauberk", icon: "", itemType: "Chest Armor", className: "Hunter" },
+    weapons: [],
+    missingItems: [],
+    substitutions: [],
+    activities: ["General PvE"],
+    style: "Mobile Void weapon pressure.",
+    damageProfile: "high",
+    survivability: "high",
+    complexity: "medium",
+    artifactDependency: "none",
+    powerFriendly: true,
+    reason: "All core pieces are owned.",
+    gameplayLoop: ["Dodge, attack, and reset invisibility."],
+    damageRotation: ["Weaken, fire heavy, then reset."],
+    limitations: ["Damage depends on the owned heavy roll."],
+    upgrades: ["Improve the heavy roll."],
+    notes: ["The required exotic is in the Vault."],
+    factors: [{ id: "core", label: "Core pieces", earned: 30, available: 30, assessment: "excellent", detail: "Owned." }],
+    build: { ...emptyBuildDocument(), title: name, classType: "hunter", subclass: "void", tags: ["Build Advisor"] }
+  };
+}
+
+function envelope(data: BuildAdvisorData, warnings: string[] = [], freshness: "fresh" | "stale" = "fresh"): ApiEnvelope<BuildAdvisorData> {
+  return { data, freshness: { state: freshness, observedAt: "2026-07-26T12:00:00.000Z", sourceMintedAt: "2026-07-26T12:00:00.000Z" }, warnings, requestId: "test" };
+}

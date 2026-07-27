@@ -1,6 +1,6 @@
 import type { RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUp, Badge, Boxes, Coins, Crosshair, Database, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
+import { ArrowUp, Badge, Boxes, Coins, Crosshair, Database, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
@@ -21,7 +21,8 @@ const tabs = [
   { to: "/loadouts", label: "Loadouts", icon: Layers3 },
   { to: "/builds", label: "Builds", icon: Hammer },
   { to: "/fireteam", label: "Fireteam", icon: Users },
-  { to: "/matrix", label: "Guardian Matrix", icon: GitCompareArrows }
+  { to: "/matrix", label: "Guardian Matrix", icon: GitCompareArrows },
+  { to: "/build-advisor", label: "Build Advisor", icon: ScanSearch }
 ];
 
 export function Shell() {

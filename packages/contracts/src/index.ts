@@ -1160,6 +1160,137 @@ export interface BuildWorkingDraftData {
   draft?: BuildWorkingDraft;
 }
 
+export type BuildAdvisorAssemblyStatus =
+  | "fully-assembleable"
+  | "assembleable-with-substitutions"
+  | "missing-one-important-item"
+  | "missing-several-core-items"
+  | "not-viable";
+
+export type BuildAdvisorRollQuality = "perfect" | "strong" | "functional" | "poor" | "unknown" | "missing";
+export type BuildAdvisorItemLocation = "equipped" | "inventory" | "vault";
+export type BuildAdvisorArtifactDependency = "none" | "low" | "medium" | "high";
+export type BuildAdvisorCategory =
+  | "Best Overall"
+  | "Best Boss Damage"
+  | "Best General PvE"
+  | "Best Solo / Survivability"
+  | "Best Add Clear"
+  | "Best Build While Increasing Power"
+  | "Easiest Strong Build to Assemble"
+  | "Best Build With Current Equipped Gear";
+
+export interface BuildAdvisorOwnedItem {
+  instanceId: string;
+  itemHash: string;
+  name: string;
+  icon: string;
+  itemType: string;
+  rarity: string;
+  slot: string;
+  damageType?: string;
+  className?: GuardianClass;
+  location: BuildAdvisorItemLocation;
+  ownerCharacterId?: string;
+  ownerClassName?: GuardianClass;
+  equipped: boolean;
+  power: number;
+  exotic: boolean;
+  crafted: boolean;
+  perks: BuildNamedEntry[];
+  enhancedPerks: string[];
+  selectablePerks: BuildNamedEntry[];
+  rollDataState: "known" | "unknown";
+}
+
+export interface BuildAdvisorCollectionItem {
+  itemHash: string;
+  name: string;
+  icon: string;
+  itemType: string;
+  className?: GuardianClass;
+}
+
+export interface BuildAdvisorWeaponEvaluation {
+  requirementId: string;
+  label: string;
+  item?: BuildAdvisorOwnedItem;
+  quality: BuildAdvisorRollQuality;
+  substitution: "exact" | "strong" | "functional" | "poor" | "missing";
+  matchedPerks: string[];
+  missingPerks: string[];
+  notes: string[];
+}
+
+export interface BuildAdvisorScoreFactor {
+  id: string;
+  label: string;
+  earned: number;
+  available: number;
+  assessment: "excellent" | "high" | "medium" | "low" | "missing";
+  detail: string;
+}
+
+export interface BuildAdvisorRecommendation {
+  id: string;
+  templateId: string;
+  templateVersion: number;
+  reviewedAt: string;
+  release: string;
+  name: string;
+  classType: BuildGuardianClass;
+  subclass: BuildSubclass;
+  score: number;
+  status: BuildAdvisorAssemblyStatus;
+  categories: BuildAdvisorCategory[];
+  coreExoticArmor: BuildAdvisorOwnedItem | BuildAdvisorCollectionItem;
+  exoticWeapon?: BuildAdvisorOwnedItem;
+  weapons: BuildAdvisorWeaponEvaluation[];
+  missingItems: string[];
+  substitutions: string[];
+  activities: string[];
+  style: string;
+  damageProfile: "high" | "medium" | "low";
+  survivability: "high" | "medium" | "low";
+  complexity: "high" | "medium" | "low";
+  artifactDependency: BuildAdvisorArtifactDependency;
+  powerFriendly: boolean;
+  reason: string;
+  gameplayLoop: string[];
+  damageRotation: string[];
+  limitations: string[];
+  upgrades: string[];
+  notes: string[];
+  factors: BuildAdvisorScoreFactor[];
+  build: BuildDocument;
+}
+
+export interface BuildAdvisorInventoryAnalysis {
+  physicalItemCount: number;
+  savedLoadoutCount: number;
+  ownedExoticArmorByClass: Partial<Record<GuardianClass, BuildAdvisorOwnedItem[]>>;
+  ownedExoticWeapons: BuildAdvisorOwnedItem[];
+  equippedExotics: BuildAdvisorOwnedItem[];
+  vaultExotics: BuildAdvisorOwnedItem[];
+  collectionOnlyExotics: BuildAdvisorCollectionItem[];
+  relevantLegendaryRolls: BuildAdvisorWeaponEvaluation[];
+  missingHighImpactItems: string[];
+  syncTimestamp: string;
+  warnings: string[];
+}
+
+export interface BuildAdvisorData {
+  characterId: string;
+  characterClass: GuardianClass;
+  characterPower: number;
+  manifestVersion: string;
+  templateSetVersion: number;
+  templateReviewedAt: string;
+  state: "current" | "may-be-stale" | "sync-required" | "incomplete";
+  recommendations: BuildAdvisorRecommendation[];
+  analysis: BuildAdvisorInventoryAnalysis;
+}
+
 export interface SaveBuildWorkingDraftRequest {
   document: BuildDocument;
   baseUpdatedAt: string;

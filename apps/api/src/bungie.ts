@@ -371,7 +371,7 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export type ProfileMode = "full" | "session" | "collection" | "quests" | "fireteam" | "fireteam-share" | "gear" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power";
+export type ProfileMode = "full" | "session" | "collection" | "quests" | "fireteam" | "fireteam-share" | "gear" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
 
 export function profileComponentsFor(mode: ProfileMode): string {
   return mode === "session"
@@ -386,8 +386,10 @@ export function profileComponentsFor(mode: ProfileMode): string {
           ? "100,200,204,1000"
     : mode === "mailbox"
       ? "100,200,201"
-      : mode === "loadouts"
-        ? "100,102,200,201,205,206"
+        : mode === "loadouts"
+          ? "100,102,200,201,205,206"
+        : mode === "build-advisor"
+          ? "100,102,104,200,201,204,205,206,300,301,302,304,305,306,307,308,309,310,800"
         : mode === "collectibles"
           ? "100,200,800"
           : mode === "guardian-rank"
@@ -397,9 +399,10 @@ export function profileComponentsFor(mode: ProfileMode): string {
     : `100,102,103,104,200,201,202,204,205,300,301,304,305,307${mode === "gear" ? ",310" : ""},800,900,1000,1200`;
 }
 
-export async function profileFor(row: SessionRow, env: Env, mode: ProfileMode = "full"): Promise<{ profile: any; accessToken: string }> {
+export async function profileFor(row: SessionRow, env: Env, mode: ProfileMode = "full", force = false): Promise<{ profile: any; accessToken: string }> {
   const components = profileComponentsFor(mode);
   const cacheKey = `${row.membership_type}:${row.membership_id}:${components}`;
+  if (force) profileRequestCache.delete(cacheKey);
   const cached = profileRequestCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.promise;
   const promise = (async () => {

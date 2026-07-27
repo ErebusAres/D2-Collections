@@ -1,6 +1,7 @@
 import type {
   ApiEnvelope,
   AudienceDetailData,
+  BuildAdvisorData,
   CollectionData,
   DevProbeKey,
   DevProbeResult,
@@ -52,6 +53,7 @@ import { normalizePower, powerItemHashes } from "./power";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
 import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemKey, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { normalizeBuildAdvisorData } from "./buildAdvisor";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -154,6 +156,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/mailbox/pull" && request.method === "POST") { await requireCsrf(request, session.token, env); return pullMailboxItem(request, session.row, env, context); }
   if (path === "/api/v1/me/loadouts" && request.method === "GET") return loadouts(session.row, env, context);
   if (path === "/api/v1/me/loadouts/equip" && request.method === "POST") { await requireCsrf(request, session.token, env); return equipLoadout(request, session.row, env, context); }
+  if (path === "/api/v1/me/build-advisor" && request.method === "GET") return buildAdvisor(session.row, env, context);
   if (path === "/api/v1/fireteam" && request.method === "GET") return fireteam(session.row, env, context);
   if (path === "/api/v1/fireteam/share" && request.method === "PUT") {
     await requireCsrf(request, session.token, env);
@@ -576,6 +579,24 @@ async function loadouts(row: SessionRow, env: Env, context: RequestContext): Pro
   return envelope<LoadoutsData>(normalizeLoadouts(profile, manifest, character), env, context, {
     sourceMintedAt: profile?.responseMintedTimestamp,
     warnings: manifest.version === "unavailable" ? ["Loadout item definitions are unavailable. Saved item and socket details may be incomplete."] : []
+  });
+}
+
+async function buildAdvisor(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const force = context.url.searchParams.get("refresh") === "1";
+  const [{ profile }, companionManifest, collectionManifest] = await Promise.all([
+    profileFor(row, env, "build-advisor", force),
+    loadCompanionManifest(env),
+    loadManifest(env)
+  ]);
+  const characters = charactersFromProfile(profile);
+  const character = selectedCharacter(characters, context.url.searchParams.get("characterId") || undefined);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const data = normalizeBuildAdvisorData(profile, companionManifest, collectionManifest, characters, character);
+  return envelope<BuildAdvisorData>(data, env, context, {
+    sourceMintedAt: profile?.responseMintedTimestamp,
+    warnings: data.analysis.warnings,
+    state: data.state === "current" ? "fresh" : data.state === "may-be-stale" ? "stale" : "unavailable"
   });
 }
 

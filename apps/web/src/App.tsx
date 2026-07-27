@@ -24,6 +24,7 @@ const ReportAdminPage = lazy(() => import("./pages/ReportAdminPage").then((modul
 const BuildsPage = lazy(() => import("./pages/BuildsPage").then((module) => ({ default: module.BuildsPage })));
 const BuildDetailPage = lazy(() => import("./pages/BuildDetailPage").then((module) => ({ default: module.BuildDetailPage })));
 const BuildEditorPage = lazy(() => import("./pages/BuildEditorPage").then((module) => ({ default: module.BuildEditorPage })));
+const BuildAdvisorPage = lazy(() => import("./pages/BuildAdvisorPage").then((module) => ({ default: module.BuildAdvisorPage })));
 
 function RouteFallback() {
   return <section aria-live="polite" style={{ minHeight: 360, display: "grid", placeItems: "center", border: "1px solid var(--line)", background: "rgba(5,13,19,.55)", color: "var(--muted)" }}><span style={{ display: "grid", placeItems: "center", gap: 10, textTransform: "uppercase", letterSpacing: ".1em", fontSize: 11 }}><LoaderCircle className="spin" /> Loading Guardian data</span></section>;
@@ -50,6 +51,7 @@ export function App() {
         <Route path="codes" element={<PageRoute><RewardCodesPage /></PageRoute>} />
         <Route path="fireteam" element={<PageRoute><FireteamPage /></PageRoute>} />
         <Route path="matrix" element={<PageRoute><MatrixPage /></PageRoute>} />
+        <Route path="build-advisor" element={<PageRoute><BuildAdvisorPage /></PageRoute>} />
         <Route path="audience" element={<PageRoute><AudiencePage /></PageRoute>} />
         <Route path="gear" element={<PageRoute><GearPage /></PageRoute>} />
         <Route path="loadouts" element={<PageRoute><LoadoutsPage /></PageRoute>} />
