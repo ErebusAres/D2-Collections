@@ -19,7 +19,14 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(fetch(request).then((response) => {
-      if (response.ok) void caches.open(CORE_CACHE).then((cache) => cache.put("/index.html", response.clone()));
+      if (response.ok) {
+        const responseForCache = response.clone();
+        event.waitUntil(
+          caches.open(CORE_CACHE)
+            .then((cache) => cache.put("/index.html", responseForCache))
+            .catch(() => undefined),
+        );
+      }
       return response;
     }).catch(async () => (await caches.match("/index.html")) || Response.error()));
     return;
