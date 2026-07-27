@@ -201,6 +201,12 @@
 .detail > header span { color: #69dff3; font: 700 11px "Barlow Condensed", sans-serif; letter-spacing: .1em; text-transform: uppercase; }
 .detail > header h2 { margin: 4px 0; font: 600 30px "Barlow Condensed", sans-serif; }
 .detail > header p { margin: 0; color: #b8cbd2; }
+.sourceLine { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 12px; margin-top: 11px; color: #b9d2d9; }
+.sourceLine b { font-size: 11px; }
+.sourceLine small { color: var(--muted); font-size: 10px; }
+.sourceLine a { display: inline-flex; align-items: center; gap: 5px; color: #70e1f3; font-size: 10px; text-decoration: none; }
+.sourceLine a:hover { text-decoration: underline; }
+.sourceLine svg { width: 12px; }
 .detail > section,
 .detailColumns,
 .notes { margin: 0 18px; padding: 17px 0; border-bottom: 1px solid var(--line); }
@@ -279,6 +285,9 @@
 .planGroup { margin-top: 11px; }
 .planGroup > b { display: block; margin-bottom: 6px; color: #72dced; font: 600 11px "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: .07em; }
 .planGroup > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.compatibility { display: flex; align-items: center; gap: 7px; margin: 0 0 10px; color: #75dfb0; font-size: 11px; line-height: 1.35; }
+.compatibility[data-state="unverified"] { color: #e5c36c; }
+.compatibility svg { width: 15px; height: 15px; flex: 0 0 auto; }
 
 .statPlan > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 .statPlan article { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px; padding: 8px; border: 1px solid rgba(112, 151, 163, .2); background: rgba(2, 9, 14, .5); }
@@ -347,6 +356,7 @@
 .detail > footer { padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
 .detail > footer > span { display: grid; }
 .detail > footer small { color: var(--muted); margin-top: 3px; }
+.detailActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .detail > footer button {
   border: 1px solid #4bdff6;
   background: #1a7289;
@@ -362,8 +372,10 @@
   cursor: pointer;
 }
 
+.detail > footer .equipButton { border-color: #49dfa7; background: #176a53; }
 .detail > footer button:disabled { border-color: var(--line); background: #17232a; color: #71828a; cursor: not-allowed; }
 .detail > footer button svg { width: 16px; }
+.equipMessage { margin-top: 6px; color: #8fe8c2; font-size: 11px; font-style: normal; }
 
 .inventory {
   margin-top: 16px;
@@ -446,6 +458,7 @@
   .acquisitionGuides header { grid-template-columns: 38px minmax(0, 1fr); }
   .acquisitionGuides header > strong { grid-column: 2; justify-self: start; }
   .detail > footer { align-items: stretch; flex-direction: column; }
+  .detailActions { display: grid; }
   .detail > footer button { justify-content: center; }
 }
 

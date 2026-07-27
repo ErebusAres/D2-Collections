@@ -8,9 +8,10 @@ import type {
   BuildAdvisorRecommendation,
   BuildAdvisorWeaponEvaluation,
   BuildArmorMods,
-  BuildNamedEntry
+  BuildNamedEntry,
+  EquipBuildAdvisorResult
 } from "@guardian-nexus/contracts";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
@@ -19,7 +20,9 @@ import {
   ChevronDown,
   CircleHelp,
   Crosshair,
+  ExternalLink,
   Gauge,
+  LoaderCircle,
   MapPin,
   Puzzle,
   Radar,
@@ -51,11 +54,13 @@ export function BuildAdvisorPage() {
 }
 
 function BuildAdvisor() {
-  const { session, selectedCharacterId, selectCharacter, autoRefresh, refresh } = useGuardian();
+  const { session, selectedCharacterId, selectCharacter, refresh } = useGuardian();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const forceNext = useRef(false);
   const [category, setCategory] = useState<BuildAdvisorCategory | "All">("All");
   const [selectedId, setSelectedId] = useState("");
+  const [equipMessage, setEquipMessage] = useState("");
   const result = useQuery({
     queryKey: ["build-advisor", selectedCharacterId],
     queryFn: () => {
@@ -64,8 +69,27 @@ function BuildAdvisor() {
       return api<BuildAdvisorData>(`/api/v1/me/build-advisor?characterId=${encodeURIComponent(selectedCharacterId)}${force ? "&refresh=1" : ""}`);
     },
     enabled: Boolean(session?.authenticated && selectedCharacterId),
-    refetchInterval: autoRefresh ? 60_000 : false,
-    refetchIntervalInBackground: false
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: "always"
+  });
+  const equipBuild = useMutation({
+    mutationFn: (recommendation: BuildAdvisorRecommendation) => api<EquipBuildAdvisorResult>("/api/v1/me/build-advisor/equip", {
+      method: "POST",
+      body: JSON.stringify({ recommendationId: recommendation.id, characterId: selectedCharacterId })
+    }),
+    onSuccess: async (response) => {
+      setEquipMessage(`${response.data.equippedItemIds.length} build items equipped${response.data.transferredItemIds.length ? ` after moving ${response.data.transferredItemIds.length}` : ""}.`);
+      forceNext.current = true;
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["gear"] }),
+        queryClient.invalidateQueries({ queryKey: ["loadouts"] }),
+        queryClient.invalidateQueries({ queryKey: ["power"] }),
+        refresh()
+      ]);
+      await result.refetch();
+    },
+    onError: (error: Error) => setEquipMessage(error.message)
   });
   const data = result.data?.data;
   const categories = useMemo(() => [...new Set(data?.recommendations.flatMap((recommendation) => recommendation.categories) || [])], [data?.recommendations]);
@@ -82,12 +106,20 @@ function BuildAdvisor() {
     const token = storeAdvisorBuildImport({ sourceName: `Build Advisor · ${recommendation.name}`, document: recommendation.build });
     navigate(`/builds/new?fromAdvisor=${encodeURIComponent(token)}`);
   };
+  const equipRecommendation = (recommendation: BuildAdvisorRecommendation) => {
+    const plan = recommendation.equipPlan;
+    if (!plan.canEquip) return;
+    const moving = plan.transferCount ? ` This will move ${plan.transferCount} item${plan.transferCount === 1 ? "" : "s"} to the selected character first.` : "";
+    if (!window.confirm(`Equip the ${plan.itemCount} physical gear items for ${recommendation.name}?${moving}`)) return;
+    setEquipMessage("");
+    equipBuild.mutate(recommendation);
+  };
 
   return <>
     <PageHeader
       eyebrow="Owned gear intelligence"
       title="Build Advisor"
-      description="Owned gear matched against reviewed, deterministic build templates."
+      description="Owned gear matched against reviewed templates and published builds."
       actions={<>
         <Freshness observedAt={result.data?.freshness.sourceMintedAt || data?.analysis.syncTimestamp} warning={warning} />
         <button type="button" className={styles.refresh} disabled={result.isFetching} onClick={() => void refreshInventory()}><RefreshCw className={result.isFetching ? styles.spin : ""} /> {result.isFetching ? "Refreshing…" : "Refresh inventory"}</button>
@@ -112,7 +144,14 @@ function BuildAdvisor() {
           <section className={styles.cardGrid} aria-label="Build recommendations">
             {recommendations.map((recommendation) => <RecommendationCard key={recommendation.id} recommendation={recommendation} selected={selected?.id === recommendation.id} onSelect={() => setSelectedId(recommendation.id)} />)}
           </section>
-          {selected && <RecommendationDetail recommendation={selected} canOpenBuilder={Boolean(session?.roles.buildEditor)} onOpenBuilder={() => openInBuilder(selected)} />}
+          {selected && <RecommendationDetail
+            recommendation={selected}
+            canOpenBuilder={Boolean(session?.roles.buildEditor)}
+            onOpenBuilder={() => openInBuilder(selected)}
+            onEquip={() => equipRecommendation(selected)}
+            equipping={equipBuild.isPending}
+            equipMessage={equipMessage}
+          />}
         </div>
       </> : <section className={styles.empty}><ScanSearch /><h2>No strong near-complete build found</h2><p>Open inventory analysis to see which core pieces are missing, then refresh after your inventory changes.</p></section>}
       <InventoryAnalysis data={data} />
@@ -131,13 +170,31 @@ function RecommendationCard({ recommendation, selected, onSelect }: { recommenda
     <p>{recommendation.reason}</p>
     <div className={styles.coreItem}>{armor.icon ? <img src={armor.icon} alt="" /> : <Shield />}<span><small>Core exotic</small><b>{armor.name}</b></span></div>
     <div className={styles.cardMetrics}><span><Swords /> Damage <b>{recommendation.damageProfile}</b></span><span><Shield /> Survival <b>{recommendation.survivability}</b></span><span><Gauge /> Complexity <b>{recommendation.complexity}</b></span></div>
-    <footer>{recommendation.categories.map((entry) => <span key={entry}>{entry}</span>)}</footer>
+    <footer>
+      <span>{recommendation.source.kind === "published-build" ? "Published build" : "Reviewed template"}</span>
+      {recommendation.categories.map((entry) => <span key={entry}>{entry}</span>)}
+    </footer>
   </button>;
 }
 
-function RecommendationDetail({ recommendation, canOpenBuilder, onOpenBuilder }: { recommendation: BuildAdvisorRecommendation; canOpenBuilder: boolean; onOpenBuilder: () => void }) {
+function RecommendationDetail({
+  recommendation,
+  canOpenBuilder,
+  onOpenBuilder,
+  onEquip,
+  equipping,
+  equipMessage
+}: {
+  recommendation: BuildAdvisorRecommendation;
+  canOpenBuilder: boolean;
+  onOpenBuilder: () => void;
+  onEquip: () => void;
+  equipping: boolean;
+  equipMessage: string;
+}) {
   const build = recommendation.build;
   const missingItemGuides = recommendation.missingItemGuides || [];
+  const equipPlan = recommendation.equipPlan;
   const abilities: Array<[string, BuildNamedEntry | undefined]> = [
     ["Super", build.subclassConfig.super],
     ...(build.subclass === "prismatic" ? [["Transcendence", build.subclassConfig.transcendence] as [string, BuildNamedEntry | undefined]] : []),
@@ -147,12 +204,25 @@ function RecommendationDetail({ recommendation, canOpenBuilder, onOpenBuilder }:
     ["Grenade", build.subclassConfig.grenade]
   ];
   return <aside className={styles.detail}>
-    <header><span>Assembly report</span><h2>{recommendation.name}</h2><p>{recommendation.style}</p></header>
+    <header>
+      <span>{recommendation.source.label}</span>
+      <h2>{recommendation.name}</h2>
+      <p>{recommendation.style}</p>
+      {recommendation.source.kind === "published-build" && <div className={styles.sourceLine}>
+        <b>{recommendation.source.authorDisplayName}</b>
+        {recommendation.source.rating && <small>{recommendation.source.rating.upvotes} up · {recommendation.source.rating.downvotes} down</small>}
+        {recommendation.source.buildSlug && <a href={`/builds/${encodeURIComponent(recommendation.source.buildSlug)}`}>View published build <ExternalLink /></a>}
+      </div>}
+    </header>
     <section className={styles.factorList}><h3><Gauge /> Score factors</h3>{recommendation.factors.map((factor) => <div key={factor.id}><span><b>{factor.label}</b><small>{factor.detail}</small></span><em>{factor.earned}/{factor.available}</em><i><span style={{ width: `${factor.available ? factor.earned / factor.available * 100 : 0}%` }} /></i></div>)}</section>
     <section><h3><Shield /> Five-piece armor plan</h3><div className={styles.armorList}>{recommendation.armor.map((entry) => <ArmorMatch key={entry.slot} armor={entry} />)}</div></section>
     <section><h3><Crosshair /> Three-weapon loadout</h3><div className={styles.weaponList}>{recommendation.weapons.map((weapon) => <WeaponMatch key={weapon.requirementId} weapon={weapon} />)}</div></section>
     <section className={styles.subclassPlan}>
       <h3><Sparkles /> {build.subclass} subclass configuration</h3>
+      <p className={styles.compatibility} data-state={recommendation.subclassValidation.state}>
+        {recommendation.subclassValidation.state === "validated" ? <CheckCircle2 /> : <AlertTriangle />}
+        {recommendation.subclassValidation.message}
+      </p>
       <div className={styles.abilityGrid}>{abilities.map(([label, entry]) => <PlanEntry key={label} label={label} entry={entry} />)}</div>
       <PlanGroup title="Aspects" entries={build.subclassConfig.aspects} />
       <PlanGroup title="Fragments" entries={build.subclassConfig.fragments} />
@@ -187,8 +257,26 @@ function RecommendationDetail({ recommendation, canOpenBuilder, onOpenBuilder }:
       <div><h4>Next upgrades</h4>{recommendation.upgrades.map((note) => <p key={note}>{note}</p>)}</div>
     </details>
     <footer>
-      <span><b>Artifact dependence: {recommendation.artifactDependency}</b><small>Reviewed {new Date(`${recommendation.reviewedAt}T00:00:00`).toLocaleDateString()} · {recommendation.release}</small></span>
-      <button type="button" disabled={!canOpenBuilder} title={canOpenBuilder ? "Open this recommendation in Builder" : "Build saving is limited to approved Builder editors."} onClick={onOpenBuilder}>Open in Builder <ArrowRight /></button>
+      <span>
+        <b>Artifact dependence: {recommendation.artifactDependency}</b>
+        <small>Reviewed {new Date(`${recommendation.reviewedAt}T00:00:00`).toLocaleDateString()} · {recommendation.release}</small>
+        <small>{equipPlan.blockers[0] || (equipPlan.state === "already-equipped" ? "All selected gear is already equipped." : `${equipPlan.itemCount} items ready${equipPlan.transferCount ? ` · ${equipPlan.transferCount} will move first` : ""}.`)}</small>
+        <small>Equips physical gear; subclass sockets and mods remain the plan above.</small>
+        {equipMessage && <em className={styles.equipMessage} role="status">{equipMessage}</em>}
+      </span>
+      <div className={styles.detailActions}>
+        <button
+          type="button"
+          className={styles.equipButton}
+          disabled={!equipPlan.canEquip || equipping}
+          title={equipPlan.canEquip ? "Move and equip the selected physical gear through Bungie" : equipPlan.blockers[0] || "This gear is already equipped."}
+          onClick={onEquip}
+        >
+          {equipping ? <LoaderCircle className={styles.spin} /> : <Swords />}
+          {equipping ? "Equipping…" : equipPlan.state === "already-equipped" ? "Already equipped" : "Equip build gear"}
+        </button>
+        <button type="button" disabled={!canOpenBuilder} title={canOpenBuilder ? "Open this recommendation in Builder" : "Build saving is limited to approved Builder editors."} onClick={onOpenBuilder}>Open in Builder <ArrowRight /></button>
+      </div>
     </footer>
   </aside>;
 }

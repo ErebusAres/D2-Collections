@@ -2,7 +2,7 @@
 
 import type { ApiEnvelope, BuildAdvisorData, BuildAdvisorRecommendation, SessionData } from "@guardian-nexus/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyBuildDocument } from "../modules/builds/builds";
@@ -38,6 +38,7 @@ afterEach(() => {
   mocks.refresh.mockReset().mockResolvedValue(undefined);
   mocks.selectCharacter.mockReset();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe("Build Advisor page", () => {
@@ -96,6 +97,27 @@ describe("Build Advisor page", () => {
     expect(screen.getByText("Bungie manifest")).toBeTruthy();
     expect(screen.getByText("Exotic Armor Focusing")).toBeTruthy();
     expect(screen.getByText(/select Gyrfalcon's Hauberk/i)).toBeTruthy();
+  });
+
+  it("confirms and submits a server-resolved build equip action", async () => {
+    const data = advisorData("Ready Gear Build");
+    data.recommendations[0]!.equipPlan = { state: "ready", canEquip: true, itemCount: 8, transferCount: 2, equippedCount: 1, blockers: [] };
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.mocked(api).mockImplementation(async (path, init) => {
+      if (path === "/api/v1/me/build-advisor/equip" && init?.method === "POST") {
+        return {
+          data: { recommendationId: data.recommendations[0]!.id, characterId: "hunter", transferredItemIds: ["one", "two"], equippedItemIds: Array.from({ length: 8 }, (_, index) => String(index)), equipped: true },
+          freshness: { state: "fresh", observedAt: "2026-07-26T12:00:00.000Z" },
+          warnings: [],
+          requestId: "equip"
+        } as never;
+      }
+      return envelope(data) as never;
+    });
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Equip build gear" }));
+    await waitFor(() => expect(vi.mocked(api).mock.calls.some(([path, init]) => path === "/api/v1/me/build-advisor/equip" && init?.method === "POST")).toBe(true));
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/move 2 items/i));
   });
 });
 
@@ -196,6 +218,9 @@ function recommendation(name: string): BuildAdvisorRecommendation {
     upgrades: ["Improve the heavy roll."],
     notes: ["The required exotic is in the Vault."],
     factors: [{ id: "core", label: "Core pieces", earned: 30, available: 30, assessment: "excellent", detail: "Owned." }],
+    source: { kind: "curated-template", label: "Guardian Nexus reviewed template" },
+    subclassValidation: { state: "validated", checkedCount: 11, message: "11 subclass selections matched Bungie's definitions." },
+    equipPlan: { state: "partial", canEquip: false, itemCount: 0, transferCount: 0, equippedCount: 0, blockers: ["Missing physical gear."] },
     build: { ...emptyBuildDocument(), title: name, classType: "hunter", subclass: "void", tags: ["Build Advisor"] }
   };
 }

@@ -14,6 +14,8 @@ import type {
   GearActionResult,
   GearData,
   GuardianRankData,
+  EquipBuildAdvisorRequest,
+  EquipBuildAdvisorResult,
   EquipLoadoutRequest,
   EquipLoadoutResult,
   LoadoutsData,
@@ -45,7 +47,7 @@ import { normalizeRewardsPass } from "./rewards";
 import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
 import { normalizeLoadouts } from "./loadouts";
 import { normalizeRewardCodeStatus } from "./rewardCodes";
-import { buildsRoute } from "./builds";
+import { buildsRoute, publishedBuildsForAdvisor } from "./builds";
 import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
 import { normalizePvpData, normalizePvpProgressions } from "./pvp";
 import { normalizeGuardianRanks } from "./guardianRank";
@@ -53,7 +55,9 @@ import { normalizePower, powerItemHashes } from "./power";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
 import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemKey, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
-import { normalizeBuildAdvisorData } from "./buildAdvisor";
+import { buildAdvisorRecommendationItems, normalizeBuildAdvisorData } from "./buildAdvisor";
+import { buildAdvisorTemplatesFromPublishedBuilds } from "./buildAdvisorPublished";
+import { BUILD_ADVISOR_TEMPLATES } from "./buildAdvisorTemplates";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -80,6 +84,10 @@ const gearActionSchema = z.discriminatedUnion("action", [
 ]);
 const mailboxPullSchema = z.object({ itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/), quantity: z.number().int().positive().max(999_999_999) });
 const equipLoadoutSchema = z.object({ loadoutIndex: z.number().int().nonnegative().max(99), characterId: z.string().regex(/^\d+$/) });
+const equipBuildAdvisorSchema = z.object({
+  recommendationId: z.string().trim().min(1).max(160),
+  characterId: z.string().regex(/^\d+$/)
+}).strict();
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
@@ -157,6 +165,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/loadouts" && request.method === "GET") return loadouts(session.row, env, context);
   if (path === "/api/v1/me/loadouts/equip" && request.method === "POST") { await requireCsrf(request, session.token, env); return equipLoadout(request, session.row, env, context); }
   if (path === "/api/v1/me/build-advisor" && request.method === "GET") return buildAdvisor(session.row, env, context);
+  if (path === "/api/v1/me/build-advisor/equip" && request.method === "POST") { await requireCsrf(request, session.token, env); return equipBuildAdvisor(request, session.row, env, context); }
   if (path === "/api/v1/fireteam" && request.method === "GET") return fireteam(session.row, env, context);
   if (path === "/api/v1/fireteam/share" && request.method === "PUT") {
     await requireCsrf(request, session.token, env);
@@ -584,21 +593,83 @@ async function loadouts(row: SessionRow, env: Env, context: RequestContext): Pro
 
 async function buildAdvisor(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const force = context.url.searchParams.get("refresh") === "1";
-  const [{ profile }, companionManifest, collectionManifest, gearManifest] = await Promise.all([
-    profileFor(row, env, "build-advisor", force),
-    loadCompanionManifest(env),
-    loadManifest(env),
-    loadGearManifest(env)
-  ]);
-  const characters = charactersFromProfile(profile);
-  const character = selectedCharacter(characters, context.url.searchParams.get("characterId") || undefined);
-  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const data = normalizeBuildAdvisorData(profile, companionManifest, collectionManifest, characters, character, Date.now(), gearManifest);
+  const { profile, data } = await buildAdvisorSnapshot(row, env, context.url.searchParams.get("characterId") || undefined, force);
   return envelope<BuildAdvisorData>(data, env, context, {
     sourceMintedAt: profile?.responseMintedTimestamp,
     warnings: data.analysis.warnings,
     state: data.state === "current" ? "fresh" : data.state === "may-be-stale" ? "stale" : "unavailable"
   });
+}
+
+async function buildAdvisorSnapshot(row: SessionRow, env: Env, characterId: string | undefined, force: boolean) {
+  const published = publishedBuildsForAdvisor(env)
+    .then((builds) => ({ builds, warning: undefined }))
+    .catch(() => ({ builds: [], warning: "Published builds could not be checked during this refresh." }));
+  const [{ profile, accessToken }, companionManifest, collectionManifest, gearManifest, publishedResult] = await Promise.all([
+    profileFor(row, env, "build-advisor", force),
+    loadCompanionManifest(env),
+    loadManifest(env),
+    loadGearManifest(env),
+    published
+  ]);
+  const characters = charactersFromProfile(profile);
+  const character = selectedCharacter(characters, characterId);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const templates = [...BUILD_ADVISOR_TEMPLATES, ...buildAdvisorTemplatesFromPublishedBuilds(publishedResult.builds)];
+  const data = normalizeBuildAdvisorData(profile, companionManifest, collectionManifest, characters, character, Date.now(), gearManifest, templates);
+  if (publishedResult.warning) data.analysis.warnings.push(publishedResult.warning);
+  return { profile, accessToken, characters, character, data };
+}
+
+async function equipBuildAdvisor(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const input = equipBuildAdvisorSchema.parse(await request.json()) as EquipBuildAdvisorRequest;
+  const started = performance.now();
+  const { accessToken, character, data } = await buildAdvisorSnapshot(row, env, input.characterId, true);
+  if (character.characterId !== input.characterId) throw httpError(403, "character_invalid", "That character does not belong to this Guardian.");
+  const recommendation = data.recommendations.find((entry) => entry.id === input.recommendationId);
+  if (!recommendation) throw httpError(409, "recommendation_changed", "This recommendation changed after the last inventory refresh. Refresh Build Advisor and review it again.");
+  if (recommendation.classType !== character.className.toLocaleLowerCase()) throw httpError(409, "build_class_mismatch", "This build does not match the selected character class.");
+  if (!recommendation.equipPlan.canEquip && recommendation.equipPlan.state !== "already-equipped") {
+    throw httpError(409, "build_not_equip_ready", recommendation.equipPlan.blockers[0] || "This build does not have eight equippable physical items yet.");
+  }
+  const items = buildAdvisorRecommendationItems(recommendation);
+  if (items.length !== 8) throw httpError(409, "build_items_changed", "The recommended item set is no longer complete. Refresh Build Advisor before equipping it.");
+  if (recommendation.equipPlan.state === "already-equipped") {
+    return envelope<EquipBuildAdvisorResult>({
+      recommendationId: recommendation.id,
+      characterId: character.characterId,
+      transferredItemIds: [],
+      equippedItemIds: items.map((item) => item.instanceId),
+      equipped: true
+    }, env, context);
+  }
+
+  const transferredItemIds: string[] = [];
+  for (const item of items) {
+    const needsTransfer = item.location === "vault" || Boolean(item.ownerCharacterId && item.ownerCharacterId !== character.characterId);
+    if (!needsTransfer) continue;
+    try {
+      await moveToCharacter(item, character.characterId, row, env, accessToken);
+      transferredItemIds.push(item.instanceId);
+      await auditGear(row, env, "buildAdvisorTransfer", item.instanceId, character.characterId, 200, undefined, performance.now() - started);
+    } catch (error: any) {
+      await auditGear(row, env, "buildAdvisorTransfer", item.instanceId, character.characterId, Number(error?.status || 500), String(error?.code || "action_failed"), performance.now() - started);
+      throw error;
+    }
+  }
+  await bungiePost("/Destiny2/Actions/Items/EquipItems/", {
+    itemIds: items.map((item) => item.instanceId),
+    characterId: character.characterId,
+    membershipType: row.membership_type
+  }, env, accessToken);
+  for (const item of items) await auditGear(row, env, "buildAdvisorEquip", item.instanceId, character.characterId, 200, undefined, performance.now() - started);
+  return envelope<EquipBuildAdvisorResult>({
+    recommendationId: recommendation.id,
+    characterId: character.characterId,
+    transferredItemIds,
+    equippedItemIds: items.map((item) => item.instanceId),
+    equipped: true
+  }, env, context);
 }
 
 async function equipLoadout(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

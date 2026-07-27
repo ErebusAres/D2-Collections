@@ -50,6 +50,14 @@ function definition(name: string, itemType: 2 | 3, itemTypeDisplayName: string, 
   };
 }
 
+function abilityDefinition(name: string, plugCategoryIdentifier: string): any {
+  return {
+    displayProperties: { name, icon: `/common/${name.replace(/\W+/g, "-").toLowerCase()}.png` },
+    itemTypeDisplayName: "Subclass ability",
+    plug: { plugCategoryIdentifier }
+  };
+}
+
 function manifests(): { companion: CompanionManifest; collection: CompactManifest } {
   const itemDefinitions: any = {
     [hashes.gyrfalcon]: definition("Gyrfalcon's Hauberk", 2, "Chest Armor", "Exotic", "Chest Armor"),
@@ -199,6 +207,29 @@ describe("Build Advisor inventory and scoring", () => {
     const result = buildAdvisorRecommendations(normalized, hunter);
     expect(result.recommendations.length).toBeGreaterThan(0);
     expect(result.recommendations.every((entry) => entry.classType === "hunter")).toBe(true);
+  });
+
+  it("validates every subclass selection against its Bungie class and subclass category", () => {
+    const { companion, collection } = manifests();
+    Object.assign(companion.itemDefinitions, voidHunterAbilityDefinitions());
+    const normalized = normalizeBuildAdvisorInventory(fullyOwnedHunterProfile(), companion, collection, [hunter]);
+    const template = BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === "hunter-void-gyrfalcon")!;
+    const result = buildAdvisorRecommendations(normalized, hunter, 0, [template]);
+    expect(result.recommendations).toHaveLength(1);
+    expect(result.recommendations[0]?.subclassValidation).toMatchObject({ state: "validated", checkedCount: 11 });
+    expect(result.recommendations[0]?.build.subclassConfig.super?.hash).toBe("9001");
+  });
+
+  it("omits a build when a named ability belongs to the wrong subclass", () => {
+    const { companion, collection } = manifests();
+    const definitions = voidHunterAbilityDefinitions();
+    definitions["9006"] = abilityDefinition("Vanishing Step", "hunter.arc.aspects");
+    Object.assign(companion.itemDefinitions, definitions);
+    const normalized = normalizeBuildAdvisorInventory(fullyOwnedHunterProfile(), companion, collection, [hunter]);
+    const template = BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === "hunter-void-gyrfalcon")!;
+    const result = buildAdvisorRecommendations(normalized, hunter, 0, [template]);
+    expect(result.recommendations).toHaveLength(0);
+    expect(result.analysis.warnings.join(" ")).toMatch(/incompatible.*Vanishing Step/i);
   });
 
   it("ranks a fully owned template above incomplete templates", () => {
@@ -377,6 +408,7 @@ describe("Build Advisor inventory and scoring", () => {
     expect(recommendation.armor.find((entry) => entry.slot === "helmet")?.item?.armorStats?.Class).toBe(24);
     expect(recommendation.build.equipment.armor).toHaveLength(5);
     expect(recommendation.build.equipment.armor.filter((entry) => entry.exotic)).toHaveLength(1);
+    expect(recommendation.equipPlan).toMatchObject({ state: "ready", canEquip: true, itemCount: 8 });
   });
 
   it("offers every current subclass for the Hunter advisor", () => {
@@ -434,3 +466,19 @@ describe("Build Advisor inventory and scoring", () => {
     expect(BUILD_ADVISOR_TEMPLATES.some((template) => template.classType === expectedClass)).toBe(true);
   });
 });
+
+function voidHunterAbilityDefinitions(): Record<string, any> {
+  return {
+    "9001": abilityDefinition("Shadowshot: Deadfall", "hunter.void.supers"),
+    "9002": abilityDefinition("Gambler's Dodge", "hunter.void.class_abilities"),
+    "9003": abilityDefinition("Triple Jump", "hunter.void.movement"),
+    "9004": abilityDefinition("Snare Bomb", "hunter.void.melee"),
+    "9005": abilityDefinition("Vortex Grenade", "shared.void.grenades"),
+    "9006": abilityDefinition("Vanishing Step", "hunter.void.aspects"),
+    "9007": abilityDefinition("Stylish Executioner", "hunter.void.aspects"),
+    "9008": abilityDefinition("Echo of Starvation", "shared.void.fragments"),
+    "9009": abilityDefinition("Echo of Persistence", "shared.void.fragments"),
+    "9010": abilityDefinition("Echo of Cessation", "shared.void.fragments"),
+    "9011": abilityDefinition("Echo of Obscurity", "shared.void.fragments")
+  };
+}

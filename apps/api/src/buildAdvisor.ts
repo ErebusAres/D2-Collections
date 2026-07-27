@@ -5,12 +5,14 @@ import type {
   BuildAdvisorCategory,
   BuildAdvisorCollectionItem,
   BuildAdvisorData,
+  BuildAdvisorEquipPlan,
   BuildAdvisorInventoryAnalysis,
   BuildAdvisorMissingItemGuide,
   BuildAdvisorOwnedItem,
   BuildAdvisorRecommendation,
   BuildAdvisorRollQuality,
   BuildAdvisorScoreFactor,
+  BuildAdvisorSubclassValidation,
   BuildAdvisorWeaponEvaluation,
   BuildDocument,
   BuildEquipmentEntry,
@@ -63,9 +65,24 @@ export interface NormalizedBuildAdvisorInventory {
   items: BuildAdvisorOwnedItem[];
   collectionOnlyExotics: BuildAdvisorCollectionItem[];
   definitionByName: Map<string, BuildNamedEntry>;
+  definitionCandidatesByName: Map<string, AdvisorDefinitionCandidate[]>;
+  abilityDefinitionCount: number;
   manifestItemByName: Map<string, ManifestItem>;
   syncTimestamp: string;
   warnings: string[];
+}
+
+type AdvisorAbilityKind = "super" | "classAbility" | "movement" | "melee" | "grenade" | "transcendence" | "aspect" | "fragment";
+
+interface AdvisorDefinitionCandidate {
+  entry: BuildNamedEntry;
+  classType?: BuildGuardianClass;
+  subclass?: BuildAdvisorTemplate["subclass"];
+  kind?: AdvisorAbilityKind;
+}
+
+interface TemplateSubclassValidation extends BuildAdvisorSubclassValidation {
+  issues: string[];
 }
 
 interface ScoredTemplate {
@@ -93,6 +110,8 @@ export function normalizeBuildAdvisorInventory(
     : undefined;
   const armorByInstance = new Map((normalizedGear?.items || []).map((item) => [item.instanceId, item]));
   const definitionByName = new Map<string, BuildNamedEntry>();
+  const definitionScoreByName = new Map<string, number>();
+  const definitionCandidatesByName = new Map<string, AdvisorDefinitionCandidate[]>();
   for (const [hash, value] of Object.entries(definitions) as Array<[string, any]>) {
     const name = String(value?.displayProperties?.name || "").trim();
     if (!name) continue;
@@ -104,8 +123,15 @@ export function normalizeBuildAdvisorInventory(
       ...(value?.displayProperties?.description ? { description: String(value.displayProperties.description) } : {})
     };
     const key = normalizeName(name);
-    const existing = definitionByName.get(key);
-    if (!existing || (!existing.icon && entry.icon) || /deprecated|legacy/i.test(existing.description || "")) definitionByName.set(key, entry);
+    const compatibility = abilityCompatibility(value);
+    const candidates = definitionCandidatesByName.get(key) || [];
+    candidates.push({ entry, ...compatibility });
+    definitionCandidatesByName.set(key, candidates);
+    const score = definitionPreference(entry, compatibility);
+    if (score > (definitionScoreByName.get(key) ?? -1)) {
+      definitionByName.set(key, entry);
+      definitionScoreByName.set(key, score);
+    }
   }
   const collectionByHash = new Map(collectionManifest.items.map((item) => [item.itemHash, item]));
   const manifestItemByName = representativeManifestItems(collectionManifest.items);
@@ -151,6 +177,7 @@ export function normalizeBuildAdvisorInventory(
       ...(row.ownerCharacterId ? { ownerCharacterId: row.ownerCharacterId } : {}),
       ...(row.ownerCharacterId && characterClasses.get(row.ownerCharacterId) ? { ownerClassName: characterClasses.get(row.ownerCharacterId) } : {}),
       equipped: row.equipped,
+      transferable: Number(row.item?.transferStatus || 0) === 0,
       power: Number(instances[instanceId]?.primaryStat?.value || row.item?.primaryStat?.value || 0),
       exotic: Number(definition.inventory?.tierType || 0) === 6 || /exotic/i.test(String(definition.inventory?.tierTypeName || "")),
       crafted: Boolean(Number(itemStates[instanceId]?.state || row.item?.state || 0) & 8),
@@ -198,6 +225,8 @@ export function normalizeBuildAdvisorInventory(
     items,
     collectionOnlyExotics,
     definitionByName,
+    definitionCandidatesByName,
+    abilityDefinitionCount: [...definitionCandidatesByName.values()].flat().filter((candidate) => candidate.kind).length,
     manifestItemByName,
     syncTimestamp: String(profile?.responseMintedTimestamp || new Date().toISOString()),
     warnings
@@ -211,11 +240,20 @@ export function buildAdvisorRecommendations(
   templates: BuildAdvisorTemplate[] = BUILD_ADVISOR_TEMPLATES
 ): { recommendations: BuildAdvisorRecommendation[]; analysis: BuildAdvisorInventoryAnalysis } {
   const selectedClass = BUILD_CLASS[character.className];
-  const scored = templates
+  const evaluated = templates
     .filter((template) => template.enabled && template.classType === selectedClass)
-    .map((template) => scoreTemplate(template, inventory, character))
+    .map((template) => ({ template, validation: validateTemplateSubclass(template, inventory) }));
+  const invalid = evaluated.filter(({ validation }) => validation.state === "validated" && validation.issues.length > 0);
+  const scored = evaluated
+    .filter(({ validation }) => validation.state === "unverified" || validation.issues.length === 0)
+    .map(({ template, validation }) => scoreTemplate(template, inventory, character, validation))
     .sort((left, right) => right.recommendation.score - left.recommendation.score || left.recommendation.name.localeCompare(right.recommendation.name));
-  const primary = scored.filter(({ recommendation }) => recommendation.status !== "not-viable");
+  const primary = scored.filter(({ recommendation }) => {
+    if (recommendation.status === "not-viable") return false;
+    if (recommendation.source.kind !== "published-build") return true;
+    const physicalCoreOwned = "instanceId" in recommendation.coreExoticArmor;
+    return physicalCoreOwned || recommendation.status !== "missing-several-core-items";
+  });
   assignCategoryAwards(primary);
 
   const exoticArmorByClass: BuildAdvisorInventoryAnalysis["ownedExoticArmorByClass"] = {};
@@ -244,7 +282,10 @@ export function buildAdvisorRecommendations(
       relevantLegendaryRolls,
       missingHighImpactItems,
       syncTimestamp: inventory.syncTimestamp,
-      warnings: inventory.warnings
+      warnings: [
+        ...inventory.warnings,
+        ...invalid.map(({ template, validation }) => `${template.name} was omitted because its ${template.subclass} setup is incompatible: ${validation.issues.join("; ")}.`)
+      ]
     }
   };
 }
@@ -256,12 +297,13 @@ export function normalizeBuildAdvisorData(
   characters: CharacterSummary[],
   character: CharacterSummary,
   now = Date.now(),
-  gearManifest?: GearManifest
+  gearManifest?: GearManifest,
+  templates: BuildAdvisorTemplate[] = BUILD_ADVISOR_TEMPLATES
 ): BuildAdvisorData {
   const inventory = normalizeBuildAdvisorInventory(profile, companionManifest, collectionManifest, characters, gearManifest);
   const loadouts = profile?.characterLoadouts?.data?.[character.characterId]?.loadouts || [];
   const savedLoadoutCount = (loadouts as any[]).filter((loadout) => Array.isArray(loadout?.items) && loadout.items.length > 0).length;
-  const result = buildAdvisorRecommendations(inventory, character, savedLoadoutCount);
+  const result = buildAdvisorRecommendations(inventory, character, savedLoadoutCount, templates);
   const age = now - Date.parse(inventory.syncTimestamp);
   const state: BuildAdvisorData["state"] = inventory.warnings.some((warning) => /definitions are unavailable|physical inventory cannot/i.test(warning))
     ? "sync-required"
@@ -283,15 +325,20 @@ export function normalizeBuildAdvisorData(
   };
 }
 
-function scoreTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuildAdvisorInventory, character: CharacterSummary): ScoredTemplate {
+function scoreTemplate(
+  template: BuildAdvisorTemplate,
+  inventory: NormalizedBuildAdvisorInventory,
+  character: CharacterSummary,
+  validation: ReturnType<typeof validateTemplateSubclass>
+): ScoredTemplate {
   const matchingArmor = inventory.items
     .filter((item) => item.exotic && isArmor(item) && sameName(item.name, template.requiredExoticArmor))
     .filter((item) => !item.className || item.className === character.className)
-    .sort((left, right) => right.power - left.power || itemPreference(right, character.characterId) - itemPreference(left, character.characterId));
+    .sort((left, right) => itemPreference(right, character.characterId) - itemPreference(left, character.characterId) || right.power - left.power);
   const coreArmor = matchingArmor[0];
   const collectionArmor = inventory.collectionOnlyExotics.find((item) => sameName(item.name, template.requiredExoticArmor));
   const preferredExotic = template.preferredExoticWeapon
-    ? inventory.items.filter((item) => item.exotic && isWeapon(item) && sameName(item.name, template.preferredExoticWeapon!)).sort((left, right) => right.power - left.power || itemPreference(right, character.characterId) - itemPreference(left, character.characterId))[0]
+    ? inventory.items.filter((item) => item.exotic && isWeapon(item) && sameName(item.name, template.preferredExoticWeapon!)).sort((left, right) => itemPreference(right, character.characterId) - itemPreference(left, character.characterId) || right.power - left.power)[0]
     : undefined;
   const usedInstances = new Set<string>();
   const usedSlots = new Set<string>();
@@ -380,6 +427,18 @@ function scoreTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuil
     upgrades: template.upgrades,
     notes,
     factors,
+    source: template.source || {
+      kind: "curated-template",
+      label: "Guardian Nexus reviewed template"
+    },
+    subclassValidation: {
+      state: validation.state,
+      checkedCount: validation.checkedCount,
+      message: validation.state === "validated"
+        ? `${validation.checkedCount} subclass selections matched Bungie's ${template.classType} ${template.subclass} definitions.`
+        : "Subclass definitions could not be checked against the current Bungie manifest."
+    },
+    equipPlan: equipPlanForSelection(armor, weapons, character.characterId, Boolean(coreArmor)),
     build
   };
   const equippedMatchCount = armor.filter((entry) => entry.item?.equipped).length + weapons.filter((weapon) => weapon.item?.equipped).length;
@@ -405,10 +464,12 @@ function acquisitionGuides(
     if (!requirement) continue;
     const specificName = requirement.requiresExotic
       ? template.preferredExoticWeapon || requirement.preferredNames?.[0]
-      : undefined;
+      : template.source?.kind === "published-build"
+        ? requirement.preferredNames?.[0]
+        : undefined;
     if (specificName) {
       const collectionUnlocked = inventory.collectionOnlyExotics.some((item) => sameName(item.name, specificName));
-      guides.push(specificItemGuide(specificName, "Exotic Weapon", collectionUnlocked, inventory));
+      guides.push(specificItemGuide(specificName, requirement.requiresExotic ? "Exotic Weapon" : "Weapon", collectionUnlocked, inventory));
     } else {
       guides.push(weaponRoleGuide(requirement, evaluation));
     }
@@ -558,8 +619,8 @@ function evaluateWeaponRequirement(
     .filter((item) => weaponIdentityMatches(item, requirement))
     .map((item) => ({ item, evaluation: evaluateRoll(item, requirement) }))
     .sort((left, right) => rollRank(right.evaluation.quality) - rollRank(left.evaluation.quality)
-      || right.item.power - left.item.power
       || itemPreference(right.item, character.characterId) - itemPreference(left.item, character.characterId)
+      || right.item.power - left.item.power
       || left.item.name.localeCompare(right.item.name));
   const best = candidates[0];
   if (!best) return {
@@ -624,10 +685,10 @@ function buildDocumentFromRecommendation(
   notes: string[],
   inventory: NormalizedBuildAdvisorInventory
 ): BuildDocument {
-  const resolved = (value: string, required = false) => resolveNamed(value, inventory, required);
+  const resolved = (value: string, required = false, kind?: AdvisorAbilityKind) => resolveNamed(value, inventory, required, template.classType, template.subclass, kind);
   const document: BuildDocument = {
     title: template.name,
-    originalCreatorName: "Guardian Nexus Build Advisor",
+    originalCreatorName: template.source?.authorDisplayName || "Guardian Nexus Build Advisor",
     classType: template.classType,
     classIcon: `/icons/destiny/class-${template.classType}.svg`,
     subclass: template.subclass,
@@ -639,14 +700,14 @@ function buildDocumentFromRecommendation(
     championCounters: [],
     links: [],
     subclassConfig: {
-      super: resolved(template.abilities.super, true),
-      classAbility: resolved(template.abilities.classAbility, true),
-      movement: resolved(template.abilities.movement, true),
-      melee: resolved(template.abilities.melee, true),
-      grenade: resolved(template.abilities.grenade, true),
-      ...(template.subclass === "prismatic" ? { transcendence: named("Transcendence", true) } : {}),
-      aspects: template.abilities.aspects.map((entry) => resolved(entry, true)),
-      fragments: template.abilities.fragments.map((entry) => resolved(entry, true))
+      super: resolved(template.abilities.super, true, "super"),
+      classAbility: resolved(template.abilities.classAbility, true, "classAbility"),
+      movement: resolved(template.abilities.movement, true, "movement"),
+      melee: resolved(template.abilities.melee, true, "melee"),
+      grenade: resolved(template.abilities.grenade, true, "grenade"),
+      ...(template.subclass === "prismatic" ? { transcendence: resolved("Transcendence", true, "transcendence") } : {}),
+      aspects: template.abilities.aspects.map((entry) => resolved(entry, true, "aspect")),
+      fragments: template.abilities.fragments.map((entry) => resolved(entry, true, "fragment"))
     },
     equipment: {
       weapons: weapons.flatMap((weapon) => weapon.item ? [equipmentEntry(weapon.item, weapon)] : []),
@@ -690,9 +751,108 @@ function equipmentEntry(item: BuildAdvisorOwnedItem, evaluation?: BuildAdvisorWe
   };
 }
 
-function resolveNamed(value: string, inventory: NormalizedBuildAdvisorInventory, required = false): BuildNamedEntry {
-  const resolved = inventory.definitionByName.get(normalizeName(value));
+function resolveNamed(
+  value: string,
+  inventory: NormalizedBuildAdvisorInventory,
+  required = false,
+  classType?: BuildGuardianClass,
+  subclass?: BuildAdvisorTemplate["subclass"],
+  kind?: AdvisorAbilityKind
+): BuildNamedEntry {
+  const candidates = inventory.definitionCandidatesByName.get(normalizeName(value)) || [];
+  const resolved = classType && subclass && kind
+    ? candidates.find((candidate) => compatibleAbility(candidate, classType, subclass, kind))?.entry
+    : inventory.definitionByName.get(normalizeName(value));
   return { ...(resolved || named(value)), name: value, ...(required ? { required: true } : {}) };
+}
+
+function validateTemplateSubclass(template: BuildAdvisorTemplate, inventory: NormalizedBuildAdvisorInventory): TemplateSubclassValidation {
+  if (inventory.abilityDefinitionCount === 0) {
+    return {
+      state: "unverified",
+      checkedCount: 0,
+      issues: [],
+      message: "Subclass definitions could not be checked against the current Bungie manifest."
+    };
+  }
+  const selections: Array<{ name: string; kind: AdvisorAbilityKind }> = [
+    { name: template.abilities.super, kind: "super" },
+    { name: template.abilities.classAbility, kind: "classAbility" },
+    { name: template.abilities.movement, kind: "movement" },
+    { name: template.abilities.melee, kind: "melee" },
+    { name: template.abilities.grenade, kind: "grenade" },
+    ...template.abilities.aspects.map((name) => ({ name, kind: "aspect" as const })),
+    ...template.abilities.fragments.map((name) => ({ name, kind: "fragment" as const })),
+    ...(template.subclass === "prismatic" ? [{ name: "Transcendence", kind: "transcendence" as const }] : [])
+  ];
+  const issues = selections.flatMap(({ name, kind }) => {
+    const candidates = inventory.definitionCandidatesByName.get(normalizeName(name)) || [];
+    return candidates.some((candidate) => compatibleAbility(candidate, template.classType, template.subclass, kind))
+      ? []
+      : [`${kindLabel(kind)} “${name}”`];
+  });
+  if (template.abilities.aspects.length !== 2) issues.push(`aspect count ${template.abilities.aspects.length}; expected 2`);
+  if (new Set(template.abilities.aspects.map(normalizeName)).size !== template.abilities.aspects.length) issues.push("duplicate aspects");
+  if (new Set(template.abilities.fragments.map(normalizeName)).size !== template.abilities.fragments.length) issues.push("duplicate fragments");
+  return {
+    state: "validated",
+    checkedCount: selections.length,
+    issues,
+    message: issues.length
+      ? `${issues.length} subclass selections do not match the chosen class and subclass.`
+      : `${selections.length} subclass selections matched Bungie's definitions.`
+  };
+}
+
+function abilityCompatibility(definition: any): Omit<AdvisorDefinitionCandidate, "entry"> {
+  const category = String(definition?.plug?.plugCategoryIdentifier || "").toLocaleLowerCase();
+  const [owner, element, rawKind] = category.split(".");
+  const classType = owner === "hunter" || owner === "titan" || owner === "warlock" ? owner : undefined;
+  const subclass = element === "prism"
+    ? "prismatic"
+    : element === "arc" || element === "solar" || element === "void" || element === "strand" || element === "stasis"
+      ? element
+      : undefined;
+  const kinds: Record<string, AdvisorAbilityKind | undefined> = {
+    supers: "super",
+    class_abilities: "classAbility",
+    movement: "movement",
+    melee: "melee",
+    grenades: "grenade",
+    transcendence: "transcendence",
+    aspects: "aspect",
+    totems: "aspect",
+    fragments: "fragment",
+    trinkets: "fragment"
+  };
+  const kind = kinds[rawKind || ""];
+  return {
+    ...(classType ? { classType } : {}),
+    ...(subclass ? { subclass } : {}),
+    ...(kind ? { kind } : {})
+  };
+}
+
+function compatibleAbility(
+  candidate: AdvisorDefinitionCandidate,
+  classType: BuildGuardianClass,
+  subclass: BuildAdvisorTemplate["subclass"],
+  kind: AdvisorAbilityKind
+): boolean {
+  return candidate.kind === kind
+    && candidate.subclass === subclass
+    && (!candidate.classType || candidate.classType === classType);
+}
+
+function kindLabel(kind: AdvisorAbilityKind): string {
+  return kind === "classAbility" ? "class ability" : kind;
+}
+
+function definitionPreference(entry: BuildNamedEntry, compatibility: Omit<AdvisorDefinitionCandidate, "entry"> = {}): number {
+  return (compatibility.kind ? 100 : 0)
+    + (entry.icon ? 5 : 0)
+    + (entry.description ? 2 : 0)
+    - (/deprecated|legacy/i.test(entry.description || "") ? 20 : 0);
 }
 
 function ghostFocusForTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuildAdvisorInventory): BuildGhostFocus {
@@ -867,6 +1027,49 @@ function assemblyStatus(coreOwned: boolean, weapons: BuildAdvisorWeaponEvaluatio
   return "not-viable";
 }
 
+export function buildAdvisorRecommendationItems(recommendation: BuildAdvisorRecommendation): BuildAdvisorOwnedItem[] {
+  return [...recommendation.armor.flatMap((entry) => entry.item ? [entry.item] : []), ...recommendation.weapons.flatMap((entry) => entry.item ? [entry.item] : [])]
+    .filter((item, index, all) => all.findIndex((candidate) => candidate.instanceId === item.instanceId) === index);
+}
+
+function equipPlanForSelection(
+  armor: BuildAdvisorArmorEvaluation[],
+  weapons: BuildAdvisorWeaponEvaluation[],
+  characterId: string,
+  coreExoticOwned: boolean
+): BuildAdvisorEquipPlan {
+  const items = [
+    ...armor.flatMap((entry) => entry.item ? [entry.item] : []),
+    ...weapons.flatMap((entry) => entry.item ? [entry.item] : [])
+  ].filter((item, index, all) => all.findIndex((candidate) => candidate.instanceId === item.instanceId) === index);
+  const blockers: string[] = [];
+  if (!coreExoticOwned) blockers.push("The required exotic armor is not a physical owned item.");
+  const missingArmor = armor.filter((entry) => !entry.item).map((entry) => entry.label);
+  const missingWeapons = weapons.filter((entry) => !entry.item).map((entry) => entry.label);
+  if (missingArmor.length) blockers.push(`Missing armor: ${missingArmor.join(", ")}.`);
+  if (missingWeapons.length) blockers.push(`Missing weapons: ${missingWeapons.join(", ")}.`);
+  for (const item of items) {
+    if (item.equipped && item.ownerCharacterId && item.ownerCharacterId !== characterId) {
+      blockers.push(`${item.name} is equipped on another character.`);
+    } else if (item.ownerCharacterId !== characterId && item.location !== "equipped" && item.transferable === false) {
+      blockers.push(`${item.name} cannot be transferred by Bungie.`);
+    }
+  }
+  if (items.length !== 8 && !missingArmor.length && !missingWeapons.length) blockers.push("The selected gear does not contain five unique armor pieces and three unique weapons.");
+  const equippedCount = items.filter((item) => item.equipped && item.ownerCharacterId === characterId).length;
+  const transferCount = items.filter((item) => item.location === "vault" || item.ownerCharacterId && item.ownerCharacterId !== characterId).length;
+  const complete = items.length === 8 && blockers.length === 0;
+  const alreadyEquipped = complete && equippedCount === items.length;
+  return {
+    state: alreadyEquipped ? "already-equipped" : complete ? "ready" : blockers.some((blocker) => /equipped on another|cannot be transferred/i.test(blocker)) ? "blocked" : "partial",
+    canEquip: complete && !alreadyEquipped,
+    itemCount: items.length,
+    transferCount,
+    equippedCount,
+    blockers
+  };
+}
+
 function weaponIdentityMatches(item: BuildAdvisorOwnedItem, requirement: BuildAdvisorWeaponRequirement): boolean {
   const preferredName = requirement.preferredNames?.some((name) => sameName(name, item.name)) || false;
   if (preferredName) return true;
@@ -921,8 +1124,8 @@ function itemPreference(item: BuildAdvisorOwnedItem, characterId: string): numbe
   if (item.equipped && item.ownerCharacterId === characterId) return 5;
   if (item.location === "inventory" && item.ownerCharacterId === characterId) return 4;
   if (item.location === "vault") return 3;
-  if (item.equipped) return 2;
-  return 1;
+  if (!item.equipped) return 2;
+  return 0;
 }
 
 function itemSort(left: BuildAdvisorOwnedItem, right: BuildAdvisorOwnedItem): number {

@@ -1,5 +1,6 @@
 import type {
   BuildAdvisorArtifactDependency,
+  BuildAdvisorRecommendationSource,
   BuildGuardianClass,
   BuildNamedEntry,
   BuildStatName,
@@ -25,6 +26,7 @@ export interface BuildAdvisorTemplate {
   reviewedAt: string;
   release: string;
   sourceNotes: string;
+  source?: BuildAdvisorRecommendationSource;
   enabled: boolean;
   name: string;
   classType: BuildGuardianClass;

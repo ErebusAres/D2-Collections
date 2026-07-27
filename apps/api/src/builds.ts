@@ -254,6 +254,18 @@ async function listBuilds(viewer: SessionRow | undefined, editor: boolean, env: 
     : []);
 }
 
+export async function publishedBuildsForAdvisor(env: Env): Promise<GuardianBuild[]> {
+  const rows = await env.DB.prepare(`${buildSelect()} WHERE b.status = 'published' AND b.visibility = 'public' GROUP BY b.id ORDER BY b.updated_at DESC`)
+    .bind("")
+    .all<BuildRow>();
+  const builds: GuardianBuild[] = [];
+  for (const row of rows.results || []) {
+    try { builds.push(buildFromRow(row, false)); }
+    catch (error) { logStoredBuildIssue(row, error); }
+  }
+  return builds;
+}
+
 interface WorkingDraftRow { build_id: string; build_json: string; base_updated_at: string; saved_at: string }
 
 async function readBuild(identifier: string, viewer: SessionRow | undefined, editor: boolean, env: Env, context: RequestContext): Promise<Response> {

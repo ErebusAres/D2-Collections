@@ -1202,6 +1202,7 @@ export interface BuildAdvisorOwnedItem {
   ownerCharacterId?: string;
   ownerClassName?: GuardianClass;
   equipped: boolean;
+  transferable?: boolean;
   power: number;
   exotic: boolean;
   crafted: boolean;
@@ -1267,6 +1268,30 @@ export interface BuildAdvisorMissingItemGuide {
   steps: string[];
 }
 
+export interface BuildAdvisorSubclassValidation {
+  state: "validated" | "unverified";
+  checkedCount: number;
+  message: string;
+}
+
+export interface BuildAdvisorRecommendationSource {
+  kind: "curated-template" | "published-build";
+  label: string;
+  buildId?: string;
+  buildSlug?: string;
+  authorDisplayName?: string;
+  rating?: BuildRating;
+}
+
+export interface BuildAdvisorEquipPlan {
+  state: "ready" | "already-equipped" | "partial" | "blocked";
+  canEquip: boolean;
+  itemCount: number;
+  transferCount: number;
+  equippedCount: number;
+  blockers: string[];
+}
+
 export interface BuildAdvisorRecommendation {
   id: string;
   templateId: string;
@@ -1301,6 +1326,9 @@ export interface BuildAdvisorRecommendation {
   upgrades: string[];
   notes: string[];
   factors: BuildAdvisorScoreFactor[];
+  source: BuildAdvisorRecommendationSource;
+  subclassValidation: BuildAdvisorSubclassValidation;
+  equipPlan: BuildAdvisorEquipPlan;
   build: BuildDocument;
 }
 
@@ -1328,6 +1356,19 @@ export interface BuildAdvisorData {
   state: "current" | "may-be-stale" | "sync-required" | "incomplete";
   recommendations: BuildAdvisorRecommendation[];
   analysis: BuildAdvisorInventoryAnalysis;
+}
+
+export interface EquipBuildAdvisorRequest {
+  recommendationId: string;
+  characterId: string;
+}
+
+export interface EquipBuildAdvisorResult {
+  recommendationId: string;
+  characterId: string;
+  transferredItemIds: string[];
+  equippedItemIds: string[];
+  equipped: true;
 }
 
 export interface SaveBuildWorkingDraftRequest {
