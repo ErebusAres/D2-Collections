@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../services/api/client";
 import { Shell } from "./Shell";
 
+let devRole = false;
+
 vi.mock("../../context/GuardianContext", () => ({
   useGuardian: () => ({
     session: {
@@ -21,7 +23,7 @@ vi.mock("../../context/GuardianContext", () => ({
         stats: { power: 409, guardianRank: 5, crucibleRank: { kind: "crucible", progressionHash: "10", name: "Crucible Rank", description: "", icon: "", rankName: "Brave II", level: 7, stepIndex: 1, currentProgress: 4_250, progressToNextLevel: 250, nextLevelAt: 500, percent: 50, resets: 2 }, rewardsPassRank: 33, rewardsPassProgress: { state: "available", source: "bungie-profile-character-progressions", progressToNextLevel: 2_750, nextLevelAt: 100_000 }, mailboxCount: 4 },
         isInGame: false
       },
-      roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false }
+      roles: { dev: devRole, matrixWriter: false, buildEditor: false, reportAdmin: false }
     },
     loading: false,
     signIn: vi.fn(),
@@ -44,6 +46,7 @@ vi.mock("../../modules/reward-codes/rewardCodes", () => ({ activeRewardCodes: ()
 vi.mock("../../modules/reward-codes/rewardCodeStatus", () => ({ useRewardCodeStatus: () => ({ hidden: new Set(["NEW-CODE"]) }) }));
 
 afterEach(() => {
+  devRole = false;
   cleanup();
   vi.clearAllMocks();
 });
@@ -77,6 +80,16 @@ describe("Shell guardian identity", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
     const feedback = screen.getByRole("link", { name: /Feedback & reports/i });
     expect(feedback.getAttribute("href")).toBe("/reports?from=%2F");
+  });
+
+  it("keeps API Lab in its original slot and adds Build Advisor after it for developers", () => {
+    devRole = true;
+    renderShell(<div>Page</div>);
+
+    const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
+    expect(primaryTabs.slice(-3)).toEqual(["Guardian Matrix", "API Lab", "Build Advisor"]);
+    expect(screen.getByRole("link", { name: "API Lab" }).getAttribute("href")).toBe("/dev");
+    expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");
   });
 
   it("uses the live rewards rank when the session snapshot is stale", async () => {

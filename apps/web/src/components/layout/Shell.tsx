@@ -21,8 +21,7 @@ const tabs = [
   { to: "/loadouts", label: "Loadouts", icon: Layers3 },
   { to: "/builds", label: "Builds", icon: Hammer },
   { to: "/fireteam", label: "Fireteam", icon: Users },
-  { to: "/matrix", label: "Guardian Matrix", icon: GitCompareArrows },
-  { to: "/build-advisor", label: "Build Advisor", icon: ScanSearch }
+  { to: "/matrix", label: "Guardian Matrix", icon: GitCompareArrows }
 ];
 
 export function Shell() {
@@ -85,6 +84,7 @@ export function Shell() {
         <nav className={styles.tabs} aria-label="Guardian Nexus sections">
           {tabs.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? styles.activeTab : styles.tab}><Icon size={17} /><span>{label}</span></NavLink>)}
           {session?.roles.dev && <NavLink to="/dev" className={({ isActive }) => isActive ? styles.activeTab : styles.tab}><Wrench size={17} /><span>API Lab</span></NavLink>}
+          <NavLink to="/build-advisor" className={({ isActive }) => isActive ? styles.activeTab : styles.tab}><ScanSearch size={17} /><span>Build Advisor</span></NavLink>
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>
