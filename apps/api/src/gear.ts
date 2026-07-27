@@ -3,7 +3,20 @@ import { ARMOR_STAT_KEYS, armorGrade, imageUrl } from "@guardian-nexus/domain";
 
 const STAT_HASHES: Record<string, ArmorStatKey> = { "392767087": "health", "4244567218": "melee", "1735777505": "grenade", "144602215": "super", "1943323491": "class", "2996146975": "weapons" };
 const CLASS_NAMES: Record<number, GuardianClass> = { 0: "Titan", 1: "Hunter", 2: "Warlock", 3: "Unknown" };
-const ARCHETYPES = new Set(["paragon", "grenadier", "specialist", "brawler", "bulwark", "gunner"]);
+const ARCHETYPES = new Set([
+  "paragon",
+  "grenadier",
+  "specialist",
+  "brawler",
+  "bulwark",
+  "gunner",
+  "siegebreaker",
+  "skirmisher",
+  "demolitionist",
+  "colossus",
+  "reaver",
+  "powerhouse"
+]);
 const TUNING_CATEGORY = "core.gear_systems.armor_tiering.plugs.tuning.mods";
 
 export interface GearStateRow { item_instance_id: string; tag?: GearTag; first_seen_at: string; dismissed_at?: string }

@@ -584,15 +584,16 @@ async function loadouts(row: SessionRow, env: Env, context: RequestContext): Pro
 
 async function buildAdvisor(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const force = context.url.searchParams.get("refresh") === "1";
-  const [{ profile }, companionManifest, collectionManifest] = await Promise.all([
+  const [{ profile }, companionManifest, collectionManifest, gearManifest] = await Promise.all([
     profileFor(row, env, "build-advisor", force),
     loadCompanionManifest(env),
-    loadManifest(env)
+    loadManifest(env),
+    loadGearManifest(env)
   ]);
   const characters = charactersFromProfile(profile);
   const character = selectedCharacter(characters, context.url.searchParams.get("characterId") || undefined);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const data = normalizeBuildAdvisorData(profile, companionManifest, collectionManifest, characters, character);
+  const data = normalizeBuildAdvisorData(profile, companionManifest, collectionManifest, characters, character, Date.now(), gearManifest);
   return envelope<BuildAdvisorData>(data, env, context, {
     sourceMintedAt: profile?.responseMintedTimestamp,
     warnings: data.analysis.warnings,

@@ -1,4 +1,6 @@
 import type {
+  ArmorItem,
+  BuildAdvisorArmorEvaluation,
   BuildAdvisorAssemblyStatus,
   BuildAdvisorCategory,
   BuildAdvisorCollectionItem,
@@ -11,14 +13,19 @@ import type {
   BuildAdvisorWeaponEvaluation,
   BuildDocument,
   BuildEquipmentEntry,
+  BuildGhostFocus,
   BuildGuardianClass,
+  BuildNamedEntry,
+  BuildStatName,
   CharacterSummary,
   CompactManifest,
   CompanionManifest,
+  GearManifest,
   GuardianClass
 } from "@guardian-nexus/contracts";
 import { imageUrl } from "@guardian-nexus/domain";
 import { buildDocumentSchema } from "./builds";
+import { normalizeGear } from "./gear";
 import {
   BUILD_ADVISOR_TEMPLATES,
   BUILD_ADVISOR_TEMPLATE_REVIEWED_AT,
@@ -33,10 +40,27 @@ const BUILD_CLASS: Record<GuardianClass, BuildGuardianClass | undefined> = { Hun
 const DAMAGE_BY_TYPE: Record<number, string> = { 1: "Kinetic", 2: "Arc", 3: "Solar", 4: "Void", 6: "Stasis", 7: "Strand" };
 const PRIMARY_STAT_POWER_FLOOR = 20;
 const STALE_AFTER_MS = 3 * 60_000;
+const ARMOR_SLOTS = ["helmet", "arms", "chest", "legs", "classItem"] as const;
+const ARMOR_SLOT_LABELS: Record<(typeof ARMOR_SLOTS)[number], string> = {
+  helmet: "Helmet",
+  arms: "Gauntlets",
+  chest: "Chest Armor",
+  legs: "Leg Armor",
+  classItem: "Class Item"
+};
+const ARMOR_STAT_TO_BUILD: Record<keyof ArmorItem["currentStats"], BuildStatName> = {
+  health: "Health",
+  melee: "Melee",
+  grenade: "Grenade",
+  super: "Super",
+  class: "Class",
+  weapons: "Weapons"
+};
 
 export interface NormalizedBuildAdvisorInventory {
   items: BuildAdvisorOwnedItem[];
   collectionOnlyExotics: BuildAdvisorCollectionItem[];
+  definitionByName: Map<string, BuildNamedEntry>;
   syncTimestamp: string;
   warnings: string[];
 }
@@ -51,7 +75,8 @@ export function normalizeBuildAdvisorInventory(
   profile: any,
   companionManifest: CompanionManifest,
   collectionManifest: CompactManifest,
-  characters: CharacterSummary[]
+  characters: CharacterSummary[],
+  gearManifest?: GearManifest
 ): NormalizedBuildAdvisorInventory {
   const definitions = companionManifest.itemDefinitions || {};
   const sockets = profile?.itemComponents?.sockets?.data || {};
@@ -59,6 +84,26 @@ export function normalizeBuildAdvisorInventory(
   const instances = profile?.itemComponents?.instances?.data || {};
   const itemStates = profile?.itemComponents?.state?.data || {};
   const characterClasses = new Map(characters.map((character) => [character.characterId, character.className]));
+  const firstCharacter = characters[0];
+  const normalizedGear = gearManifest && firstCharacter
+    ? normalizeGear(profile, gearManifest, firstCharacter.characterId, firstCharacter.className, new Map(), String(profile?.responseMintedTimestamp || new Date().toISOString()))
+    : undefined;
+  const armorByInstance = new Map((normalizedGear?.items || []).map((item) => [item.instanceId, item]));
+  const definitionByName = new Map<string, BuildNamedEntry>();
+  for (const [hash, value] of Object.entries(definitions) as Array<[string, any]>) {
+    const name = String(value?.displayProperties?.name || "").trim();
+    if (!name) continue;
+    const entry: BuildNamedEntry = {
+      name,
+      hash,
+      ...(value?.displayProperties?.icon ? { icon: imageUrl(value.displayProperties.icon) } : {}),
+      ...(value?.itemTypeDisplayName ? { itemType: String(value.itemTypeDisplayName) } : {}),
+      ...(value?.displayProperties?.description ? { description: String(value.displayProperties.description) } : {})
+    };
+    const key = normalizeName(name);
+    const existing = definitionByName.get(key);
+    if (!existing || (!existing.icon && entry.icon) || /deprecated|legacy/i.test(existing.description || "")) definitionByName.set(key, entry);
+  }
   const collectionByHash = new Map(collectionManifest.items.map((item) => [item.itemHash, item]));
   const collectionByName = new Map(collectionManifest.items.map((item) => [normalizeName(item.name), item]));
   const rows: Array<{ item: any; location: BuildAdvisorOwnedItem["location"]; ownerCharacterId?: string; equipped: boolean }> = [];
@@ -87,6 +132,7 @@ export function normalizeBuildAdvisorInventory(
     const className = compact?.className || classFromDefinition(definition) || (Number(definition.itemType) === 2 ? characterClasses.get(row.ownerCharacterId || "") : undefined);
     const damageType = String(compact?.damageType || definition.damageType || DAMAGE_BY_TYPE[Number(definition.defaultDamageType)] || "").trim() || undefined;
     const icon = imageUrl(properties.icon || compact?.icon);
+    const armor = armorByInstance.get(instanceId);
     items.push({
       instanceId,
       itemHash,
@@ -107,7 +153,16 @@ export function normalizeBuildAdvisorInventory(
       perks: uniqueNamedEntries(activePlugs),
       enhancedPerks: activePlugs.filter((plug) => /enhanced/i.test(plug.name)).map((plug) => plug.name),
       selectablePerks: uniqueNamedEntries(selectablePlugs),
-      rollDataState: sockets[instanceId] || reusablePlugs[instanceId] ? "known" : "unknown"
+      rollDataState: sockets[instanceId] || reusablePlugs[instanceId] ? "known" : "unknown",
+      ...(armor ? {
+        armorStats: Object.fromEntries(Object.entries(armor.currentStats).map(([key, value]) => [ARMOR_STAT_TO_BUILD[key as keyof ArmorItem["currentStats"]], value])),
+        armorBaseTotal: armor.baseTotal,
+        armorCurrentTotal: armor.currentTotal,
+        armorTier: armor.gearTier,
+        ...(armor.archetype ? { armorArchetype: armor.archetype } : {}),
+        ...(armor.tunedStat ? { tunedStat: ARMOR_STAT_TO_BUILD[armor.tunedStat] } : {}),
+        masterworked: armor.masterworked
+      } : {})
     });
   }
 
@@ -134,9 +189,11 @@ export function normalizeBuildAdvisorInventory(
   if (!profile?.itemComponents?.perks?.data) warnings.push("Bungie did not return item perk state data; active intrinsic effects may be incomplete.");
   if (!profile?.itemComponents?.reusablePlugs?.data) warnings.push("Selectable perk data is unavailable for some weapon instances.");
   if (!profile?.profileCollectibles?.data && !profile?.characterCollectibles?.data) warnings.push("Collections data is unavailable; collection-only exotics cannot be verified.");
+  if (gearManifest?.version === "unavailable") warnings.push("Armor stat definitions are unavailable; armor pieces can be selected, but their stat fit cannot be evaluated.");
   return {
     items,
     collectionOnlyExotics,
+    definitionByName,
     syncTimestamp: String(profile?.responseMintedTimestamp || new Date().toISOString()),
     warnings
   };
@@ -153,11 +210,7 @@ export function buildAdvisorRecommendations(
     .filter((template) => template.enabled && template.classType === selectedClass)
     .map((template) => scoreTemplate(template, inventory, character))
     .sort((left, right) => right.recommendation.score - left.recommendation.score || left.recommendation.name.localeCompare(right.recommendation.name));
-  const primary = scored.filter(({ recommendation }) => [
-    "fully-assembleable",
-    "assembleable-with-substitutions",
-    "missing-one-important-item"
-  ].includes(recommendation.status));
+  const primary = scored.filter(({ recommendation }) => recommendation.status !== "not-viable");
   assignCategoryAwards(primary);
 
   const exoticArmorByClass: BuildAdvisorInventoryAnalysis["ownedExoticArmorByClass"] = {};
@@ -197,9 +250,10 @@ export function normalizeBuildAdvisorData(
   collectionManifest: CompactManifest,
   characters: CharacterSummary[],
   character: CharacterSummary,
-  now = Date.now()
+  now = Date.now(),
+  gearManifest?: GearManifest
 ): BuildAdvisorData {
-  const inventory = normalizeBuildAdvisorInventory(profile, companionManifest, collectionManifest, characters);
+  const inventory = normalizeBuildAdvisorInventory(profile, companionManifest, collectionManifest, characters, gearManifest);
   const loadouts = profile?.characterLoadouts?.data?.[character.characterId]?.loadouts || [];
   const savedLoadoutCount = (loadouts as any[]).filter((loadout) => Array.isArray(loadout?.items) && loadout.items.length > 0).length;
   const result = buildAdvisorRecommendations(inventory, character, savedLoadoutCount);
@@ -235,40 +289,51 @@ function scoreTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuil
     ? inventory.items.filter((item) => item.exotic && isWeapon(item) && sameName(item.name, template.preferredExoticWeapon!)).sort((left, right) => right.power - left.power || itemPreference(right, character.characterId) - itemPreference(left, character.characterId))[0]
     : undefined;
   const usedInstances = new Set<string>();
+  const usedSlots = new Set<string>();
   let exoticWeaponUsed = false;
   const weapons = template.weapons.map((requirement) => {
-    const evaluation = evaluateWeaponRequirement(requirement, inventory.items, character, usedInstances, exoticWeaponUsed);
+    const evaluation = evaluateWeaponRequirement(requirement, inventory.items, character, usedInstances, usedSlots, exoticWeaponUsed);
     if (evaluation.item) {
       usedInstances.add(evaluation.item.instanceId);
+      usedSlots.add(weaponBucket(evaluation.item));
       exoticWeaponUsed ||= evaluation.item.exotic;
     }
     return evaluation;
   });
+  const armor = selectArmorLoadout(template, coreArmor, inventory.items, character);
+  const ghostFocus = ghostFocusForTemplate(template, inventory);
   const missingItems = [
     ...(!coreArmor ? [template.requiredExoticArmor] : []),
-    ...weapons.filter((weapon) => weapon.quality === "missing" || weapon.quality === "poor").map((weapon) => weapon.label)
+    ...weapons.filter((weapon) => weapon.quality === "missing" || weapon.quality === "poor").map((weapon) => {
+      const requirement = template.weapons.find((entry) => entry.id === weapon.requirementId);
+      return requirement?.requiresExotic && template.preferredExoticWeapon ? template.preferredExoticWeapon : weapon.label;
+    }),
+    ...armor.filter((entry) => entry.quality === "missing").map((entry) => entry.label)
   ];
   const substitutions = weapons
     .filter((weapon) => ["strong", "functional", "poor"].includes(weapon.substitution))
     .map((weapon) => `${weapon.label}: ${weapon.item?.name || "no usable item"}`);
   const status = assemblyStatus(Boolean(coreArmor), weapons);
-  const coreScore = coreArmor ? 30 : collectionArmor ? 8 : 0;
+  const coreScore = coreArmor ? 25 : collectionArmor ? 7 : 0;
+  const armorScore = Math.round(armor.reduce((total, entry) => total + armorQualityFraction(entry.quality), 0) / ARMOR_SLOTS.length * 15);
   const weaponScore = Math.round(weapons.reduce((total, weapon) => total + qualityFraction(weapon.quality), 0) / Math.max(1, weapons.length) * 20);
-  const rollScore = Math.round(weapons.reduce((total, weapon) => total + rollFraction(weapon.quality), 0) / Math.max(1, weapons.length) * 15);
-  const utilityScore = Math.round((profileValue(template.survivability) + profileValue(template.addClear) + profileValue(template.abilityUptime)) / 9 * 20);
+  const rollScore = Math.round(weapons.reduce((total, weapon) => total + rollFraction(weapon.quality), 0) / Math.max(1, weapons.length) * 10);
+  const utilityScore = Math.round((profileValue(template.survivability) + profileValue(template.addClear) + profileValue(template.abilityUptime)) / 9 * 15);
   const contextScore = Math.round((profileValue(template.solo) + profileValue(template.group) + (template.powerFriendly ? 3 : 1)) / 9 * 15);
-  const rawScore = coreScore + weaponScore + rollScore + utilityScore + contextScore;
+  const rawScore = coreScore + armorScore + weaponScore + rollScore + utilityScore + contextScore;
   const score = Math.max(0, Math.min(status === "missing-several-core-items" ? 59 : status === "not-viable" ? 0 : 100, rawScore));
   const factors: BuildAdvisorScoreFactor[] = [
-    factor("core", "Core pieces", coreScore, 30, coreArmor ? "Required exotic armor is a physical owned copy." : collectionArmor ? "Unlocked in Collections, but no physical copy was found." : "Required exotic armor was not found."),
+    factor("core", "Core exotic", coreScore, 25, coreArmor ? "Required exotic armor is a physical owned copy." : collectionArmor ? "Unlocked in Collections, but no physical copy was found." : "Required exotic armor was not found."),
+    factor("armor-fit", "Armor loadout", armorScore, 15, armorSummary(armor)),
     factor("weapon-synergy", "Weapon synergy", weaponScore, 20, weaponSummary(weapons)),
-    factor("owned-rolls", "Owned roll quality", rollScore, 15, rollSummary(weapons)),
-    factor("combat-profile", "Combat profile", utilityScore, 20, `Survivability ${template.survivability}; add clear ${template.addClear}; ability uptime ${template.abilityUptime}.`),
+    factor("owned-rolls", "Owned roll quality", rollScore, 10, rollSummary(weapons)),
+    factor("combat-profile", "Combat profile", utilityScore, 15, `Survivability ${template.survivability}; add clear ${template.addClear}; ability uptime ${template.abilityUptime}.`),
     factor("activity-fit", "Activity fit", contextScore, 15, `Solo ${template.solo}; group ${template.group}; Power friendliness ${template.powerFriendly ? "high" : "medium"}.`)
   ];
   const notes = recommendationNotes(template, character, coreArmor, collectionArmor, preferredExotic, weapons, status, inventory.items);
   const reason = recommendationReason(template, status, weapons);
-  const build = buildDocumentFromRecommendation(template, coreArmor, weapons, notes);
+  const build = buildDocumentFromRecommendation(template, armor, weapons, ghostFocus, notes, inventory);
+  const selectedExoticWeapon = weapons.find((weapon) => weapon.item?.exotic)?.item;
   const recommendation: BuildAdvisorRecommendation = {
     id: `advisor:${template.id}`,
     templateId: template.id,
@@ -288,8 +353,10 @@ function scoreTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuil
       itemType: "Exotic Armor",
       className: character.className
     },
-    ...(preferredExotic ? { exoticWeapon: preferredExotic } : {}),
+    ...(selectedExoticWeapon ? { exoticWeapon: selectedExoticWeapon } : {}),
     weapons,
+    armor,
+    ghostFocus,
     missingItems,
     substitutions,
     activities: template.activities,
@@ -308,7 +375,7 @@ function scoreTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuil
     factors,
     build
   };
-  const equippedMatchCount = Number(coreArmor?.equipped) + weapons.filter((weapon) => weapon.item?.equipped).length;
+  const equippedMatchCount = armor.filter((entry) => entry.item?.equipped).length + weapons.filter((weapon) => weapon.item?.equipped).length;
   return { recommendation, template, equippedMatchCount };
 }
 
@@ -317,12 +384,15 @@ function evaluateWeaponRequirement(
   items: BuildAdvisorOwnedItem[],
   character: CharacterSummary,
   usedInstances: Set<string>,
+  usedSlots: Set<string>,
   exoticWeaponUsed: boolean
 ): BuildAdvisorWeaponEvaluation {
   const candidates = items
     .filter(isWeapon)
     .filter((item) => !usedInstances.has(item.instanceId))
-    .filter((item) => !item.exotic || (!exoticWeaponUsed && requirement.preferredNames?.some((name) => sameName(name, item.name))))
+    .filter((item) => !usedSlots.has(weaponBucket(item)))
+    .filter((item) => requirement.requiresExotic ? item.exotic : !item.exotic)
+    .filter((item) => !item.exotic || !exoticWeaponUsed)
     .filter((item) => weaponIdentityMatches(item, requirement))
     .map((item) => ({ item, evaluation: evaluateRoll(item, requirement) }))
     .sort((left, right) => rollRank(right.evaluation.quality) - rollRank(left.evaluation.quality)
@@ -386,10 +456,13 @@ function evaluateRoll(item: BuildAdvisorOwnedItem, requirement: BuildAdvisorWeap
 
 function buildDocumentFromRecommendation(
   template: BuildAdvisorTemplate,
-  coreArmor: BuildAdvisorOwnedItem | undefined,
+  armor: BuildAdvisorArmorEvaluation[],
   weapons: BuildAdvisorWeaponEvaluation[],
-  notes: string[]
+  ghostFocus: BuildGhostFocus,
+  notes: string[],
+  inventory: NormalizedBuildAdvisorInventory
 ): BuildDocument {
+  const resolved = (value: string, required = false) => resolveNamed(value, inventory, required);
   const document: BuildDocument = {
     title: template.name,
     originalCreatorName: "Guardian Nexus Build Advisor",
@@ -404,26 +477,28 @@ function buildDocumentFromRecommendation(
     championCounters: [],
     links: [],
     subclassConfig: {
-      super: named(template.abilities.super, true),
-      classAbility: named(template.abilities.classAbility, true),
-      movement: named(template.abilities.movement, true),
-      melee: named(template.abilities.melee, true),
-      grenade: named(template.abilities.grenade, true),
-      aspects: template.abilities.aspects.map((entry) => named(entry, true)),
-      fragments: template.abilities.fragments.map((entry) => named(entry, true))
+      super: resolved(template.abilities.super, true),
+      classAbility: resolved(template.abilities.classAbility, true),
+      movement: resolved(template.abilities.movement, true),
+      melee: resolved(template.abilities.melee, true),
+      grenade: resolved(template.abilities.grenade, true),
+      ...(template.subclass === "prismatic" ? { transcendence: named("Transcendence", true) } : {}),
+      aspects: template.abilities.aspects.map((entry) => resolved(entry, true)),
+      fragments: template.abilities.fragments.map((entry) => resolved(entry, true))
     },
     equipment: {
       weapons: weapons.flatMap((weapon) => weapon.item ? [equipmentEntry(weapon.item, weapon)] : []),
-      armor: coreArmor ? [equipmentEntry(coreArmor)] : [],
+      armor: armor.flatMap((entry) => entry.item ? [equipmentEntry(entry.item)] : []),
       armorSets: []
     },
     statPriorities: template.statPriorities,
+    ghostFocus,
     armorMods: {
-      helmet: (template.armorMods.helmet || []).map((entry) => named(entry)),
-      arms: (template.armorMods.arms || []).map((entry) => named(entry)),
-      chest: (template.armorMods.chest || []).map((entry) => named(entry)),
-      legs: (template.armorMods.legs || []).map((entry) => named(entry)),
-      classItem: (template.armorMods.classItem || []).map((entry) => named(entry))
+      helmet: (template.armorMods.helmet || []).map((entry) => resolved(entry)),
+      arms: (template.armorMods.arms || []).map((entry) => resolved(entry)),
+      chest: (template.armorMods.chest || []).map((entry) => resolved(entry)),
+      legs: (template.armorMods.legs || []).map((entry) => resolved(entry)),
+      classItem: (template.armorMods.classItem || []).map((entry) => resolved(entry))
     },
     artifacts: [],
     gameplayLoop: template.gameplayLoop.map((text) => ({ text })),
@@ -447,9 +522,112 @@ function equipmentEntry(item: BuildAdvisorOwnedItem, evaluation?: BuildAdvisorWe
     ...(item.damageType ? { damageType: item.damageType } : {}),
     slot: item.slot || item.itemType,
     exotic: item.exotic,
+    ...(item.exotic ? { required: true } : {}),
     selectedPerks: item.perks.slice(0, 10),
     ...(evaluation ? { perks: `${evaluation.quality} owned roll${evaluation.matchedPerks.length ? ` · ${evaluation.matchedPerks.join(", ")}` : ""}` } : {})
   };
+}
+
+function resolveNamed(value: string, inventory: NormalizedBuildAdvisorInventory, required = false): BuildNamedEntry {
+  const resolved = inventory.definitionByName.get(normalizeName(value));
+  return { ...(resolved || named(value)), name: value, ...(required ? { required: true } : {}) };
+}
+
+function ghostFocusForTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuildAdvisorInventory): BuildGhostFocus {
+  return {
+    mod: resolveNamed(`${template.ghostFocus.archetype} Armorer`, inventory, true),
+    primaryStat: template.ghostFocus.primaryStat,
+    secondaryStat: template.ghostFocus.secondaryStat,
+    notes: template.ghostFocus.notes
+  };
+}
+
+function selectArmorLoadout(
+  template: BuildAdvisorTemplate,
+  coreArmor: BuildAdvisorOwnedItem | undefined,
+  items: BuildAdvisorOwnedItem[],
+  character: CharacterSummary
+): BuildAdvisorArmorEvaluation[] {
+  const used = new Set<string>();
+  return ARMOR_SLOTS.map((slot) => {
+    const coreSlot = coreArmor ? armorSlot(coreArmor) : undefined;
+    const candidates = items
+      .filter(isArmor)
+      .filter((item) => armorSlot(item) === slot)
+      .filter((item) => !item.className || item.className === character.className)
+      .filter((item) => !item.exotic)
+      .filter((item) => !used.has(item.instanceId))
+      .sort((left, right) => armorCandidateScore(right, template, character.characterId) - armorCandidateScore(left, template, character.characterId)
+        || right.power - left.power
+        || left.name.localeCompare(right.name));
+    const selected = coreArmor && coreSlot === slot ? coreArmor : candidates[0];
+    if (!selected) {
+      return {
+        slot,
+        label: ARMOR_SLOT_LABELS[slot],
+        score: 0,
+        quality: "missing",
+        notes: [`No owned ${ARMOR_SLOT_LABELS[slot].toLocaleLowerCase()} matched this character.`]
+      };
+    }
+    used.add(selected.instanceId);
+    const exactArchetype = sameName(selected.armorArchetype?.name || "", template.ghostFocus.archetype);
+    const score = coreArmor?.instanceId === selected.instanceId ? 100 : Math.max(1, Math.min(99, Math.round(armorCandidateScore(selected, template, character.characterId))));
+    const quality: BuildAdvisorArmorEvaluation["quality"] = coreArmor?.instanceId === selected.instanceId || exactArchetype && Boolean(selected.armorStats)
+      ? "excellent"
+      : selected.armorStats
+        ? "strong"
+        : "functional";
+    const topStats = Object.entries(selected.armorStats || {})
+      .sort((left, right) => Number(right[1]) - Number(left[1]))
+      .slice(0, 2)
+      .map(([stat, amount]) => `${stat} ${amount}`);
+    return {
+      slot,
+      label: ARMOR_SLOT_LABELS[slot],
+      item: selected,
+      score,
+      quality,
+      notes: [
+        coreArmor?.instanceId === selected.instanceId ? "Required exotic armor." : "",
+        selected.armorArchetype ? `${selected.armorArchetype.name} archetype${exactArchetype ? " matches the recommended Ghost focus" : ""}.` : "",
+        topStats.length ? `Highest current stats: ${topStats.join(", ")}.` : "Armor stats were unavailable; selected by Power and location.",
+        selected.location === "vault" ? `${selected.name} is in the Vault.` : "",
+        selected.ownerCharacterId && selected.ownerCharacterId !== character.characterId && selected.ownerClassName ? `${selected.name} is on the ${selected.ownerClassName}.` : ""
+      ].filter(Boolean)
+    };
+  });
+}
+
+function armorCandidateScore(item: BuildAdvisorOwnedItem, template: BuildAdvisorTemplate, characterId: string): number {
+  const weightedStats = template.statPriorities.reduce((total, priority) => {
+    const weight = 7 - priority.priority;
+    return total + Number(item.armorStats?.[priority.stat] || 0) * weight;
+  }, 0);
+  const statFit = weightedStats / 35;
+  const totalFit = Number(item.armorBaseTotal || item.armorCurrentTotal || 0) / 12;
+  const archetypeFit = sameName(item.armorArchetype?.name || "", template.ghostFocus.archetype) ? 18 : 0;
+  const tuningFit = template.statPriorities.some((priority) => priority.priority <= 2 && priority.stat === item.tunedStat) ? 6 : 0;
+  const masterworkFit = item.masterworked ? 3 : 0;
+  return statFit + totalFit + archetypeFit + tuningFit + masterworkFit + itemPreference(item, characterId);
+}
+
+function armorSlot(item: BuildAdvisorOwnedItem): (typeof ARMOR_SLOTS)[number] | undefined {
+  const value = normalizeName(`${item.slot} ${item.itemType}`);
+  if (/helmet/.test(value)) return "helmet";
+  if (/gauntlet|arms/.test(value)) return "arms";
+  if (/chest/.test(value)) return "chest";
+  if (/leg armor|boots/.test(value)) return "legs";
+  if (/class armor|cloak|mark|bond/.test(value)) return "classItem";
+  return undefined;
+}
+
+function weaponBucket(item: BuildAdvisorOwnedItem): string {
+  const value = normalizeName(item.slot);
+  if (value.includes("kinetic")) return "kinetic";
+  if (value.includes("energy")) return "energy";
+  if (value.includes("power") || value.includes("heavy")) return "power";
+  return `unknown:${item.instanceId}`;
 }
 
 function recommendationNotes(
@@ -546,6 +724,12 @@ function weaponSummary(weapons: BuildAdvisorWeaponEvaluation[]): string {
   return `${available}/${weapons.length} weapon roles have a physical owned match.`;
 }
 
+function armorSummary(armor: BuildAdvisorArmorEvaluation[]): string {
+  const available = armor.filter((entry) => entry.item).length;
+  const statKnown = armor.filter((entry) => entry.item?.armorStats).length;
+  return `${available}/${ARMOR_SLOTS.length} armor slots have an owned match; ${statKnown} include current stat data.`;
+}
+
 function rollSummary(weapons: BuildAdvisorWeaponEvaluation[]): string {
   const labels = weapons.map((weapon) => `${weapon.label}: ${weapon.quality}`);
   return labels.join("; ") || "No weapon roll requirements.";
@@ -557,6 +741,10 @@ function qualityFraction(quality: BuildAdvisorRollQuality): number {
 
 function rollFraction(quality: BuildAdvisorRollQuality): number {
   return ({ perfect: 1, strong: .85, functional: .6, unknown: .35, poor: .15, missing: 0 })[quality];
+}
+
+function armorQualityFraction(quality: BuildAdvisorArmorEvaluation["quality"]): number {
+  return ({ excellent: 1, strong: .85, functional: .55, missing: 0 })[quality];
 }
 
 function rollRank(quality: BuildAdvisorRollQuality): number {

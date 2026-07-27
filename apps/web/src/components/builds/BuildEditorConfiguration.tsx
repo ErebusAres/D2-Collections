@@ -8,6 +8,21 @@ import { ArtifactPerkPicker } from "./ArtifactPerkPicker";
 import { BuildStatPriorityEditor } from "./BuildStatPriorityEditor";
 import styles from "../../pages/Builds.module.css";
 
+const GHOST_ARCHETYPES = [
+  { name: "Paragon", primaryStat: "Super", secondaryStat: "Melee" },
+  { name: "Grenadier", primaryStat: "Grenade", secondaryStat: "Super" },
+  { name: "Specialist", primaryStat: "Class", secondaryStat: "Weapons" },
+  { name: "Brawler", primaryStat: "Melee", secondaryStat: "Health" },
+  { name: "Bulwark", primaryStat: "Health", secondaryStat: "Class" },
+  { name: "Gunner", primaryStat: "Weapons", secondaryStat: "Grenade" },
+  { name: "Siegebreaker", primaryStat: "Health", secondaryStat: "Grenade" },
+  { name: "Skirmisher", primaryStat: "Melee", secondaryStat: "Weapons" },
+  { name: "Demolitionist", primaryStat: "Grenade", secondaryStat: "Class" },
+  { name: "Colossus", primaryStat: "Super", secondaryStat: "Health" },
+  { name: "Reaver", primaryStat: "Class", secondaryStat: "Melee" },
+  { name: "Powerhouse", primaryStat: "Weapons", secondaryStat: "Super" }
+] as const;
+
 export function BuildEditorConfiguration({ value, onChange }: { value: BuildDocument; onChange: (value: BuildDocument) => void }) {
   const set = <K extends keyof BuildDocument>(key: K, next: BuildDocument[K]) => onChange({ ...value, [key]: next });
   const setSubclass = <K extends keyof BuildDocument["subclassConfig"]>(key: K, next: BuildDocument["subclassConfig"][K]) => set("subclassConfig", { ...value.subclassConfig, [key]: next });
@@ -31,6 +46,19 @@ export function BuildEditorConfiguration({ value, onChange }: { value: BuildDocu
 
     <EditorSection title="Stats" eyebrow="Priorities and thresholds" icon={<Gauge />}>
       <BuildStatPriorityEditor values={value.statPriorities} onChange={(statPriorities) => set("statPriorities", statPriorities)} />
+      <h3>Ghost armorer focus</h3>
+      <div className={styles.formGrid}>
+        <label className={styles.wideField}><span>Ghost armorer mod</span><select value={(value.ghostFocus?.mod.name || "").replace(/ Armorer$/i, "")} onChange={(event) => {
+          const archetype = GHOST_ARCHETYPES.find((entry) => entry.name === event.target.value);
+          set("ghostFocus", archetype ? {
+            mod: { name: `${archetype.name} Armorer`, itemType: "Economic Ghost Mod", required: true },
+            primaryStat: archetype.primaryStat,
+            secondaryStat: archetype.secondaryStat,
+            notes: `Use the ${archetype.name} Armorer mod while looking for this build's armor.`
+          } : undefined);
+        }}><option value="">No Ghost focus selected</option>{GHOST_ARCHETYPES.map((entry) => <option key={entry.name} value={entry.name}>{entry.name} · {entry.primaryStat} / {entry.secondaryStat}</option>)}</select></label>
+        {value.ghostFocus && <label className={styles.wideField}><span>Why this focus</span><input value={value.ghostFocus.notes || ""} onChange={(event) => set("ghostFocus", { ...value.ghostFocus!, notes: event.target.value || undefined })} /></label>}
+      </div>
     </EditorSection>
 
     <EditorSection title="Armor mods" eyebrow="Slot-by-slot energy" icon={<Puzzle />}>

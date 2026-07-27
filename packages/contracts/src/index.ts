@@ -1066,6 +1066,13 @@ export interface BuildArmorMods {
   classItem: BuildNamedEntry[];
 }
 
+export interface BuildGhostFocus {
+  mod: BuildNamedEntry;
+  primaryStat: BuildStatName;
+  secondaryStat: BuildStatName;
+  notes?: string;
+}
+
 export interface BuildArtifactSelection extends BuildNamedEntry {
   perks: BuildNamedEntry[];
   tier?: string;
@@ -1108,6 +1115,7 @@ export interface BuildDocument {
   subclassConfig: BuildSubclassConfig;
   equipment: BuildEquipment;
   statPriorities: BuildStatPriority[];
+  ghostFocus?: BuildGhostFocus;
   armorMods: BuildArmorMods;
   artifacts: BuildArtifactSelection[];
   gameplayLoop: BuildGameplayStep[];
@@ -1201,6 +1209,13 @@ export interface BuildAdvisorOwnedItem {
   enhancedPerks: string[];
   selectablePerks: BuildNamedEntry[];
   rollDataState: "known" | "unknown";
+  armorStats?: Partial<Record<BuildStatName, number>>;
+  armorBaseTotal?: number;
+  armorCurrentTotal?: number;
+  armorTier?: number;
+  armorArchetype?: BuildNamedEntry;
+  tunedStat?: BuildStatName;
+  masterworked?: boolean;
 }
 
 export interface BuildAdvisorCollectionItem {
@@ -1219,6 +1234,15 @@ export interface BuildAdvisorWeaponEvaluation {
   substitution: "exact" | "strong" | "functional" | "poor" | "missing";
   matchedPerks: string[];
   missingPerks: string[];
+  notes: string[];
+}
+
+export interface BuildAdvisorArmorEvaluation {
+  slot: "helmet" | "arms" | "chest" | "legs" | "classItem";
+  label: string;
+  item?: BuildAdvisorOwnedItem;
+  score: number;
+  quality: "excellent" | "strong" | "functional" | "missing";
   notes: string[];
 }
 
@@ -1246,6 +1270,8 @@ export interface BuildAdvisorRecommendation {
   coreExoticArmor: BuildAdvisorOwnedItem | BuildAdvisorCollectionItem;
   exoticWeapon?: BuildAdvisorOwnedItem;
   weapons: BuildAdvisorWeaponEvaluation[];
+  armor: BuildAdvisorArmorEvaluation[];
+  ghostFocus: BuildGhostFocus;
   missingItems: string[];
   substitutions: string[];
   activities: string[];

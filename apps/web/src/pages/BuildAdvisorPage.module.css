@@ -215,8 +215,10 @@
 .factorList i { grid-column: 1 / -1; height: 3px; background: rgba(121, 159, 172, .18); }
 .factorList i span { display: block; height: 100%; background: linear-gradient(90deg, #299fbd, #65e7f7); }
 
-.weaponList { display: grid; gap: 7px; }
-.weaponList article {
+.weaponList,
+.armorList { display: grid; gap: 7px; }
+.weaponList article,
+.armorList article {
   display: grid;
   grid-template-columns: 45px 1fr auto;
   gap: 7px 10px;
@@ -227,17 +229,73 @@
 }
 
 .weaponList article > img,
-.weaponList article > svg { width: 45px; height: 45px; object-fit: cover; }
-.weaponList article > svg { padding: 11px; color: var(--muted); }
-.weaponList article > span { display: grid; }
-.weaponList small { color: var(--muted); text-transform: uppercase; font-size: 9px; letter-spacing: .07em; }
-.weaponList b { font-size: 13px; }
-.weaponList em { color: #7bdcf0; font-size: 10px; text-transform: capitalize; }
-.weaponList article > strong { color: #f2df86; font: 700 16px "Barlow Condensed", sans-serif; }
-.weaponList article > p { grid-column: 2 / -1; margin: 0; color: #9eb5bd; font-size: 11px; }
+.weaponList article > svg,
+.armorList article > img,
+.armorList article > svg { width: 45px; height: 45px; object-fit: cover; }
+.weaponList article > svg,
+.armorList article > svg { padding: 11px; color: var(--muted); }
+.weaponList article > span,
+.armorList article > span { display: grid; }
+.weaponList small,
+.armorList small { color: var(--muted); text-transform: uppercase; font-size: 9px; letter-spacing: .07em; }
+.weaponList b,
+.armorList b { font-size: 13px; }
+.weaponList em,
+.armorList em { color: #7bdcf0; font-size: 10px; text-transform: capitalize; }
+.weaponList article > strong,
+.armorList article > strong { color: #f2df86; font: 700 16px "Barlow Condensed", sans-serif; }
+.weaponList article > p,
+.armorList article > p { grid-column: 2 / -1; margin: 0; color: #9eb5bd; font-size: 11px; }
 .weaponList article[data-quality="poor"],
 .weaponList article[data-quality="missing"] { border-color: rgba(236, 115, 81, .35); }
 .weaponList article[data-quality="unknown"] { border-color: rgba(233, 193, 76, .35); }
+.armorList article[data-quality="missing"] { border-color: rgba(236, 115, 81, .35); }
+.armorList article[data-quality="excellent"] { border-color: rgba(65, 223, 167, .35); }
+
+.abilityGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.planEntry {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(112, 151, 163, .2);
+  background: rgba(2, 9, 14, .5);
+}
+
+.planEntry > img,
+.planEntry > svg { width: 38px; height: 38px; object-fit: cover; }
+.planEntry > svg { padding: 9px; color: #67d8ee; }
+.planEntry > span { min-width: 0; display: grid; }
+.planEntry small { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .07em; }
+.planEntry b { overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+.planEntry em { color: #8da4ad; font-size: 9px; line-height: 1.3; font-style: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.planGroup { margin-top: 11px; }
+.planGroup > b { display: block; margin-bottom: 6px; color: #72dced; font: 600 11px "Barlow Condensed", sans-serif; text-transform: uppercase; letter-spacing: .07em; }
+.planGroup > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+
+.statPlan > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.statPlan article { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 8px; padding: 8px; border: 1px solid rgba(112, 151, 163, .2); background: rgba(2, 9, 14, .5); }
+.statPlan article > i { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid rgba(83, 217, 240, .34); color: #76e4f5; font: 700 12px "Barlow Condensed", sans-serif; font-style: normal; }
+.statPlan article > span { min-width: 0; display: grid; }
+.statPlan article b { font-size: 12px; }
+.statPlan article small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; }
+.statPlan article > strong { color: #f1dd80; font: 700 16px "Barlow Condensed", sans-serif; }
+
+.ghostPlan > .planEntry { max-width: 420px; }
+.ghostPlan > p { margin: 8px 0 0; color: #9eb5bd; line-height: 1.4; }
+
+.modPlan > div { display: grid; gap: 6px; }
+.modPlan article { display: grid; grid-template-columns: 92px 1fr; gap: 8px; padding: 8px; border: 1px solid rgba(112, 151, 163, .2); background: rgba(2, 9, 14, .5); }
+.modPlan article > b { color: #75ddec; font: 600 12px "Barlow Condensed", sans-serif; text-transform: uppercase; }
+.modPlan article > span { display: flex; flex-wrap: wrap; gap: 5px; }
+.modPlan article em { padding: 3px 6px; border: 1px solid rgba(124, 164, 176, .2); color: #c0d1d7; font-size: 10px; font-style: normal; }
 
 .assemblyIssues p { margin: 6px 0; color: #c5d5da; }
 .assemblyIssues p b { display: inline-block; min-width: 70px; color: #f4af85; text-transform: uppercase; font-size: 10px; letter-spacing: .07em; }
@@ -358,7 +416,11 @@
   .reviewDate,
   .inventoryWarnings { grid-column: auto; }
   .cardGrid { grid-template-columns: 1fr; }
-  .detailColumns { grid-template-columns: 1fr; }
+  .detailColumns,
+  .abilityGrid,
+  .planGroup > div,
+  .statPlan > div { grid-template-columns: 1fr; }
+  .modPlan article { grid-template-columns: 1fr; }
   .detail > footer { align-items: stretch; flex-direction: column; }
   .detail > footer button { justify-content: center; }
 }

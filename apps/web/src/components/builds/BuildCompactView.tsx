@@ -35,6 +35,7 @@ export function BuildCompactView({ build }: { build: GuardianBuild }) {
 
     <CompactSection title="Stats & armor mods" icon={<Gauge />}>
       <CompactSubgroup label="Stat investment · highest priority → most flexible"><StatPriorityPath stats={build.statPriorities} /></CompactSubgroup>
+      {build.ghostFocus && <CompactSubgroup label={`Ghost armorer · ${build.ghostFocus.primaryStat} / ${build.ghostFocus.secondaryStat}`}><IconRail><BuildIconTooltip entry={build.ghostFocus.mod} label="Ghost armorer focus" /></IconRail></CompactSubgroup>}
       <div className={styles.compactModGroups}>{modGroups.map(([slot, entries]) => entries.length > 0 && <CompactSubgroup key={slot} label={slotLabel(slot)}><IconRail>{expandBuildEntries(entries).map((entry, index) => <BuildIconTooltip key={`${entry.hash}-${index}`} entry={entry} label={`${slotLabel(slot)} socket ${index + 1}`} />)}</IconRail></CompactSubgroup>)}</div>
     </CompactSection>
 

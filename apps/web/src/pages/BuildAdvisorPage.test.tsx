@@ -147,6 +147,14 @@ function recommendation(name: string): BuildAdvisorRecommendation {
     categories: ["Best Overall"],
     coreExoticArmor: { itemHash: "1", name: "Gyrfalcon's Hauberk", icon: "", itemType: "Chest Armor", className: "Hunter" },
     weapons: [],
+    armor: [
+      { slot: "helmet", label: "Helmet", score: 0, quality: "missing", notes: [] },
+      { slot: "arms", label: "Gauntlets", score: 0, quality: "missing", notes: [] },
+      { slot: "chest", label: "Chest Armor", score: 0, quality: "missing", notes: [] },
+      { slot: "legs", label: "Leg Armor", score: 0, quality: "missing", notes: [] },
+      { slot: "classItem", label: "Class Item", score: 0, quality: "missing", notes: [] }
+    ],
+    ghostFocus: { mod: { name: "Reaver Armorer" }, primaryStat: "Class", secondaryStat: "Melee" },
     missingItems: [],
     substitutions: [],
     activities: ["General PvE"],

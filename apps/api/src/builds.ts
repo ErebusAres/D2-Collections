@@ -128,6 +128,12 @@ export const buildDocumentSchema = z.object({
     priority: z.number().int().min(1).max(6),
     notes: optionalText
   })).max(7).default([]),
+  ghostFocus: z.object({
+    mod: namedEntrySchema,
+    primaryStat: z.enum(["Health", "Melee", "Grenade", "Super", "Class", "Weapons"]),
+    secondaryStat: z.enum(["Health", "Melee", "Grenade", "Super", "Class", "Weapons"]),
+    notes: optionalText
+  }).optional(),
   armorMods: z.object({
     helmet: armorModEntriesSchema.default([]),
     arms: armorModEntriesSchema.default([]),

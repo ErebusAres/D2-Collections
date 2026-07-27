@@ -1,4 +1,4 @@
-import type { CharacterSummary, CompactManifest, CompanionManifest } from "@guardian-nexus/contracts";
+import type { CharacterSummary, CompactManifest, CompanionManifest, GearManifest } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import { buildDocumentSchema } from "./builds";
 import {
@@ -20,6 +20,10 @@ const hashes = {
   cuirass: "1004",
   synthoceps: "1005",
   contraverse: "1006",
+  helmet: "1101",
+  arms: "1102",
+  legs: "1103",
+  cloak: "1104",
   graviton: "2001",
   voidPrimary: "2002",
   solarPrimary: "2003",
@@ -54,6 +58,10 @@ function manifests(): { companion: CompanionManifest; collection: CompactManifes
     [hashes.cuirass]: definition("Cuirass of the Falling Star", 2, "Chest Armor", "Exotic", "Chest Armor"),
     [hashes.synthoceps]: definition("Synthoceps", 2, "Gauntlets", "Exotic", "Gauntlets"),
     [hashes.contraverse]: definition("Contraverse Hold", 2, "Gauntlets", "Exotic", "Gauntlets"),
+    [hashes.helmet]: definition("Deterministic Helmet", 2, "Helmet", "Legendary", "Helmet"),
+    [hashes.arms]: definition("Deterministic Arms", 2, "Gauntlets", "Legendary", "Gauntlets"),
+    [hashes.legs]: definition("Deterministic Legs", 2, "Leg Armor", "Legendary", "Leg Armor"),
+    [hashes.cloak]: definition("Deterministic Cloak", 2, "Hunter Cloak", "Legendary", "Class Armor"),
     [hashes.graviton]: { ...definition("Graviton Lance", 3, "Pulse Rifle", "Exotic", "Energy Weapons"), defaultDamageType: 4 },
     [hashes.voidPrimary]: { ...definition("Deterministic Void Rifle", 3, "Auto Rifle", "Legendary", "Energy Weapons"), defaultDamageType: 4 },
     [hashes.solarPrimary]: { ...definition("Deterministic Solar Rifle", 3, "Auto Rifle", "Legendary", "Energy Weapons"), defaultDamageType: 3 },
@@ -100,6 +108,17 @@ function manifests(): { companion: CompanionManifest; collection: CompactManifes
   };
 }
 
+function gearManifest(): GearManifest {
+  const { companion } = manifests();
+  return {
+    version: "test",
+    generatedAt: "2026-07-26T00:00:00.000Z",
+    gearItemDefinitions: companion.itemDefinitions,
+    plugDefinitions: companion.itemDefinitions,
+    statDefinitions: {}
+  };
+}
+
 function item(itemHash: string, itemInstanceId: string, power = 500): any {
   return { itemHash, itemInstanceId, primaryStat: { value: power } };
 }
@@ -110,6 +129,7 @@ function profile(input: {
   equipment?: Record<string, any[]>;
   plugs?: Record<string, string[] | undefined>;
   collectibles?: Record<string, number>;
+  stats?: Record<string, Record<string, number>>;
   mintedAt?: string;
 } = {}): any {
   const sockets = Object.fromEntries(Object.entries(input.plugs || {}).filter(([, plugs]) => plugs !== undefined).map(([instanceId, plugs]) => [instanceId, { sockets: plugs!.map((plugHash) => ({ plugHash })) }]));
@@ -125,6 +145,7 @@ function profile(input: {
     characterEquipment: { data: Object.fromEntries(Object.entries(input.equipment || {}).map(([id, items]) => [id, { items }])) },
     itemComponents: {
       instances: { data: Object.fromEntries(all.map((entry) => [entry.itemInstanceId, { primaryStat: entry.primaryStat }])) },
+      stats: { data: Object.fromEntries(Object.entries(input.stats || {}).map(([instanceId, values]) => [instanceId, { stats: Object.fromEntries(Object.entries(values).map(([hash, value]) => [hash, { value }])) }])) },
       sockets: { data: sockets },
       perks: { data: {} },
       reusablePlugs: { data: {} }
@@ -136,11 +157,12 @@ function profile(input: {
 
 function fullyOwnedHunterProfile(): any {
   return profile({
-    vault: [item(hashes.gyrfalcon, "armor-vault"), item(hashes.heavy, "heavy-vault", 510)],
+    vault: [item(hashes.gyrfalcon, "armor-vault"), item(hashes.shotgun, "special-vault"), item(hashes.heavy, "heavy-vault", 510)],
     inventories: { hunter: [item(hashes.graviton, "graviton-inventory")] },
     equipment: { hunter: [item(hashes.solarPrimary, "solar-equipped")] },
     plugs: {
       "armor-vault": [],
+      "special-vault": [hashes.vorpal],
       "heavy-vault": [hashes.bait],
       "graviton-inventory": [],
       "solar-equipped": []
@@ -195,9 +217,9 @@ describe("Build Advisor inventory and scoring", () => {
   it("does not mark a build complete when its required exotic is missing", () => {
     const { companion, collection } = manifests();
     const withoutArmor = profile({
-      vault: [item(hashes.heavy, "heavy")],
+      vault: [item(hashes.shotgun, "special"), item(hashes.heavy, "heavy")],
       inventories: { hunter: [item(hashes.graviton, "graviton")] },
-      plugs: { heavy: [hashes.bait], graviton: [] }
+      plugs: { special: [hashes.vorpal], heavy: [hashes.bait], graviton: [] }
     });
     const normalized = normalizeBuildAdvisorInventory(withoutArmor, companion, collection, [hunter]);
     const result = buildAdvisorRecommendations(normalized, hunter);
@@ -209,9 +231,9 @@ describe("Build Advisor inventory and scoring", () => {
   it("identifies an acceptable substitute without calling it a perfect roll", () => {
     const { companion, collection } = manifests();
     const substituted = profile({
-      vault: [item(hashes.gyrfalcon, "armor"), item(hashes.heavy, "heavy")],
+      vault: [item(hashes.gyrfalcon, "armor"), item(hashes.shotgun, "special"), item(hashes.heavy, "heavy")],
       inventories: { hunter: [item(hashes.graviton, "graviton")] },
-      plugs: { armor: [], heavy: [hashes.vorpal], graviton: [] }
+      plugs: { armor: [], special: [hashes.vorpal], heavy: [hashes.vorpal], graviton: [] }
     });
     const normalized = normalizeBuildAdvisorInventory(substituted, companion, collection, [hunter]);
     const recommendation = buildAdvisorRecommendations(normalized, hunter).recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon")!;
@@ -224,9 +246,9 @@ describe("Build Advisor inventory and scoring", () => {
   it("scores a wrong legendary roll below perfect", () => {
     const { companion, collection } = manifests();
     const wrongRoll = profile({
-      vault: [item(hashes.gyrfalcon, "armor"), item(hashes.heavy, "heavy")],
+      vault: [item(hashes.gyrfalcon, "armor"), item(hashes.shotgun, "special"), item(hashes.heavy, "heavy")],
       inventories: { hunter: [item(hashes.graviton, "graviton")] },
-      plugs: { armor: [], heavy: [hashes.hipFire], graviton: [] }
+      plugs: { armor: [], special: [hashes.vorpal], heavy: [hashes.hipFire], graviton: [] }
     });
     const normalized = normalizeBuildAdvisorInventory(wrongRoll, companion, collection, [hunter]);
     const heavy = buildAdvisorRecommendations(normalized, hunter).recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon")!.weapons.find((entry) => entry.requirementId === "damage-heavy")!;
@@ -276,9 +298,54 @@ describe("Build Advisor inventory and scoring", () => {
     const normalized = normalizeBuildAdvisorInventory(fullyOwnedHunterProfile(), companion, collection, [hunter]);
     for (const recommendation of buildAdvisorRecommendations(normalized, hunter).recommendations) {
       expect(buildDocumentSchema.safeParse(recommendation.build).success).toBe(true);
+      expect(recommendation.weapons).toHaveLength(3);
+      expect(new Set(recommendation.weapons.flatMap((entry) => entry.item ? [entry.item.slot] : [])).size).toBe(recommendation.weapons.filter((entry) => entry.item).length);
+      expect(recommendation.armor.map((entry) => entry.slot)).toEqual(["helmet", "arms", "chest", "legs", "classItem"]);
+      expect(recommendation.build.statPriorities).toHaveLength(6);
+      expect(new Set(recommendation.build.statPriorities.map((entry) => entry.stat)).size).toBe(6);
+      expect(recommendation.build.ghostFocus?.mod.name).toBeTruthy();
+      expect(recommendation.build.subclassConfig.super?.name).toBeTruthy();
+      expect(recommendation.build.subclassConfig.aspects).toHaveLength(2);
+      expect(recommendation.build.subclassConfig.fragments.length).toBeGreaterThanOrEqual(4);
+      expect(Object.values(recommendation.build.armorMods).every((entries) => entries.length === 3)).toBe(true);
       expect(recommendation.build.equipment.armor.filter((entry) => entry.exotic)).toHaveLength(recommendation.build.equipment.armor.length ? 1 : 0);
       expect(recommendation.build.equipment.weapons.filter((entry) => entry.exotic).length).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("selects one owned armor piece for every slot and carries armor stats into Builder", () => {
+    const { companion, collection } = manifests();
+    const raw = profile({
+      vault: [
+        item(hashes.gyrfalcon, "chest"),
+        item(hashes.helmet, "helmet"),
+        item(hashes.arms, "arms"),
+        item(hashes.legs, "legs"),
+        item(hashes.cloak, "cloak"),
+        item(hashes.shotgun, "special"),
+        item(hashes.heavy, "heavy")
+      ],
+      inventories: { hunter: [item(hashes.graviton, "graviton")] },
+      plugs: { chest: [], helmet: [], arms: [], legs: [], cloak: [], special: [hashes.vorpal], heavy: [hashes.bait], graviton: [] },
+      stats: {
+        helmet: { "1943323491": 24, "392767087": 18 },
+        arms: { "2996146975": 25, "392767087": 17 },
+        legs: { "1735777505": 23, "392767087": 19 },
+        cloak: { "1943323491": 21, "2996146975": 20 }
+      }
+    });
+    const normalized = normalizeBuildAdvisorInventory(raw, companion, collection, [hunter], gearManifest());
+    const recommendation = buildAdvisorRecommendations(normalized, hunter).recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon")!;
+    expect(recommendation.armor.every((entry) => entry.item)).toBe(true);
+    expect(new Set(recommendation.armor.map((entry) => entry.item!.instanceId)).size).toBe(5);
+    expect(recommendation.armor.find((entry) => entry.slot === "helmet")?.item?.armorStats?.Class).toBe(24);
+    expect(recommendation.build.equipment.armor).toHaveLength(5);
+    expect(recommendation.build.equipment.armor.filter((entry) => entry.exotic)).toHaveLength(1);
+  });
+
+  it("offers every current subclass for the Hunter advisor", () => {
+    const subclasses = BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === "hunter").map((template) => template.subclass);
+    expect(new Set(subclasses)).toEqual(new Set(["arc", "solar", "void", "strand", "stasis", "prismatic"]));
   });
 
   it("does not expose token-shaped profile fields in recommendation output", () => {

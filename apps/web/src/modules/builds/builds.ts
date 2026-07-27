@@ -99,6 +99,7 @@ function buildSearchText(build: GuardianBuild): string {
     ...subclassChoices,
     ...build.subclassConfig.aspects,
     ...build.subclassConfig.fragments,
+    ...[build.ghostFocus?.mod].flatMap((entry) => entry ? [entry] : []),
     ...build.cosmetics.ornaments,
     ...[build.cosmetics.shader, build.cosmetics.ghost, build.cosmetics.sparrow, build.cosmetics.ship].flatMap((entry) => entry ? [entry] : [])
   ].map((entry) => `${entry.name} ${entry.setName || ""} ${entry.description || ""} ${entry.notes || ""}`).join(" ");
@@ -110,6 +111,7 @@ export function buildDiscordSummary(build: GuardianBuild): string {
   const links = build.links.map((link) => `- ${link.label}: ${link.url}`).join("\n");
   const weapons = build.equipment.weapons.map((item) => `- ${item.slot}: ${item.name}${item.selectedPerks?.length ? ` — ${item.selectedPerks.map((perk) => perk.name).join(", ")}` : item.perks ? ` — ${item.perks}` : ""}${item.required ? " (required)" : ""}`).join("\n");
   const stats = [...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => `- ${stat.stat}: ${stat.target ?? stat.minimum ?? "priority"}`).join("\n");
+  const ghost = build.ghostFocus ? `${build.ghostFocus.mod.name} — ${build.ghostFocus.primaryStat} / ${build.ghostFocus.secondaryStat}` : "";
   const artifacts = build.artifacts.map((artifact) => `- ${artifact.name}: ${artifact.perks.map((perk) => perk.name).join(", ") || "no perks listed"}`).join("\n");
   const concepts = build.concepts.map((entry) => entry.name).join(", ");
   const loop = build.gameplayLoop.map((step, index) => `${index + 1}. ${step.text}`).join("\n");
@@ -120,6 +122,7 @@ export function buildDiscordSummary(build: GuardianBuild): string {
     links && `**Links**\n${links}`,
     weapons && `**Weapons**\n${weapons}`,
     stats && `**Stat priorities**\n${stats}`,
+    ghost && `**Ghost focus**\n${ghost}`,
     artifacts && `**Artifact**\n${artifacts}`,
     concepts && `**At a glance**\n${concepts}`,
     loop && `**Gameplay loop**\n${loop}`,
@@ -176,6 +179,10 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
       armorSets: named(normalizeArmorSetSelections(value.equipment.armorSets)).slice(0, 2)
     },
     statPriorities: normalizeBuildStatPriorities(value.statPriorities).map((entry) => clean(entry)),
+    ghostFocus: value.ghostFocus ? clean({
+      ...value.ghostFocus,
+      mod: clean(value.ghostFocus.mod)
+    }) : undefined,
     armorMods: {
       helmet: named(expanded(value.armorMods.helmet)).slice(0, 3),
       arms: named(expanded(value.armorMods.arms)).slice(0, 3),

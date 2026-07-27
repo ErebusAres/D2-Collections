@@ -1,5 +1,5 @@
 import type { BuildArmorMods, BuildNamedEntry, GuardianBuild } from "@guardian-nexus/contracts";
-import { AlertTriangle, CircleHelp, Film, Footprints, Gauge, Link2, MessageSquareText, PackageOpen, Palette, Puzzle, Sparkles, Swords } from "lucide-react";
+import { AlertTriangle, CircleHelp, Film, Footprints, Gauge, Link2, MessageSquareText, PackageOpen, Palette, Puzzle, Radar, Sparkles, Swords } from "lucide-react";
 import type { ReactNode } from "react";
 import { buildStatIcon, buildStatValueLabels } from "../../modules/builds/buildStats";
 import { normalizeArmorSetSelections } from "@guardian-nexus/domain";
@@ -16,6 +16,7 @@ export function buildDetailNavigation(build: GuardianBuild): { id: string; label
     { id: "subclass", label: "Subclass", present: hasSubclassData(build) },
     { id: "gear", label: "Gear", present: Boolean(build.equipment.weapons.length || build.equipment.armor.length || build.equipment.armorSets.length) },
     { id: "stats", label: "Stats", present: build.statPriorities.length > 0 },
+    { id: "ghost-focus", label: "Ghost", present: Boolean(build.ghostFocus) },
     { id: "mods", label: "Mods", present: Object.values(build.armorMods).some((entries) => entries.length > 0) },
     { id: "artifact", label: "Artifact", present: build.artifacts.length > 0 },
     { id: "loop", label: "Loop", present: build.gameplayLoop.length > 0 },
@@ -59,6 +60,13 @@ export function BuildDetailSections({ build, showEmpty = false }: { build: Guard
 
     <BuildSection id="stats" eyebrow="Preferred values" title="Stat priorities" icon={<Gauge />} empty={!build.statPriorities.length} showEmpty={showEmpty}>
       <div className={styles.statStrip}>{[...build.statPriorities].sort((a, b) => a.priority - b.priority).map((stat) => <article key={`${stat.priority}-${stat.stat}`} data-priority={stat.priority}><i><b>{stat.priority}</b><small>of 6</small></i><img src={stat.icon || buildStatIcon(stat.stat)} alt="" /><span><small>{stat.priority === 1 ? "Highest priority" : stat.priority === 6 ? "Lowest priority" : `Priority ${stat.priority}`}</small><strong>{stat.stat}</strong></span><b>{buildStatValueLabels(stat).map((value) => value.text).join(" · ")}</b></article>)}</div>
+    </BuildSection>
+
+    <BuildSection id="ghost-focus" eyebrow="Armor drop targeting" title="Ghost armorer focus" icon={<Radar />} empty={!build.ghostFocus} showEmpty={showEmpty}>
+      {build.ghostFocus && <>
+        <EntryGrid entries={[["Armorer mod", build.ghostFocus.mod]]} />
+        <p className={styles.sectionNotes}><strong>{build.ghostFocus.primaryStat}</strong> primary · <strong>{build.ghostFocus.secondaryStat}</strong> secondary{build.ghostFocus.notes ? ` — ${build.ghostFocus.notes}` : ""}</p>
+      </>}
     </BuildSection>
 
     <BuildSection id="mods" eyebrow="Armor energy" title="Armor mods" icon={<Puzzle />} empty={!Object.values(build.armorMods).some((entries) => entries.length)} showEmpty={showEmpty}>
