@@ -70,6 +70,29 @@ describe("Fireteam tracked items", () => {
     expect(item?.querySelectorAll(`.${styles.sharedQuestCompletionFx} b span`)).toHaveLength(12);
   });
 
+  it("uses the gold entry effect only when a tracked item is newly added", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><FireteamPage /></QueryClientProvider>);
+
+    const initialItem = (await screen.findByText("Weekly order")).closest("[data-tracking-state]");
+    expect(initialItem?.getAttribute("data-tracking-state")).toBe("active");
+
+    const updated = envelope();
+    updated.data.members[0]!.trackedItems.push({
+      ...updated.data.members[0]!.trackedItems[1]!,
+      id: "new-record",
+      definitionHash: "new-record",
+      name: "New rank objective"
+    });
+    act(() => client.setQueryData(["fireteam", "c1"], updated));
+
+    const enteringItem = (await screen.findByText("New rank objective")).closest("[data-tracking-state]");
+    expect(enteringItem?.getAttribute("data-tracking-state")).toBe("entering");
+    await act(async () => { vi.advanceTimersByTime(1_400); });
+    expect(enteringItem?.getAttribute("data-tracking-state")).toBe("active");
+  });
+
   it("removes a known completion after the exit and does not replay it after a remount", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const completed = envelope();

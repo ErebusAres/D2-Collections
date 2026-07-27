@@ -141,6 +141,38 @@ export function FireteamPage() {
 function MemberCard({ member, canManage, copied, onCopy, onUntrack, untrackingKey }: { member: FireteamMember; canManage: boolean; copied: string; onCopy: (label: string, command: string) => Promise<void>; onUntrack?: (item: FireteamTrackedItem) => void; untrackingKey?: string }) {
   const activity = presenceLocation(member);
   const trackedItems = Array.isArray(member.trackedItems) ? member.trackedItems : member.quests.map(legacyTrackedItem);
+  const trackedItemKeys = trackedItems.map(trackedItemKey);
+  const trackedItemSignature = [...trackedItemKeys].sort().join("|");
+  const previousTrackedItemKeys = useRef<Set<string> | null>(null);
+  const entryTimers = useRef<Map<string, number>>(new Map());
+  const [enteringKeys, setEnteringKeys] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    const currentKeys = new Set(trackedItemKeys);
+    const previousKeys = previousTrackedItemKeys.current;
+    previousTrackedItemKeys.current = currentKeys;
+    if (!previousKeys) return;
+
+    const addedKeys = [...currentKeys].filter((key) => !previousKeys.has(key));
+    if (!addedKeys.length) return;
+    setEnteringKeys((current) => new Set([...current, ...addedKeys]));
+    for (const key of addedKeys) {
+      const existingTimer = entryTimers.current.get(key);
+      if (existingTimer) window.clearTimeout(existingTimer);
+      const timer = window.setTimeout(() => {
+        setEnteringKeys((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        });
+        entryTimers.current.delete(key);
+      }, 1_400);
+      entryTimers.current.set(key, timer);
+    }
+  }, [trackedItemSignature]);
+  useEffect(() => () => {
+    for (const timer of entryTimers.current.values()) window.clearTimeout(timer);
+    entryTimers.current.clear();
+  }, []);
   const recentlyCompletedItems = member.recentlyCompletedItems || [];
   const [dismissedCompletions, setDismissedCompletions] = useState<Set<string>>(() => readDismissedCompletionEvents(member.membershipId));
   const visibleCompletions = recentlyCompletedItems.filter((item) => !dismissedCompletions.has(completionEventKey(item)));
@@ -164,19 +196,23 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, untrackingKe
   return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""}`}>
     <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "public" ? "Public location" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
-    {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => <TrackedItem key={`${item.kind}-${item.id}`} item={item} completing={"completedAt" in item} onUntrack={onUntrack} untracking={untrackingKey === trackedItemKey(item)} />) : <p>Nothing is currently tracked.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
+    {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => {
+      const key = trackedItemKey(item);
+      return <TrackedItem key={key} item={item} entering={enteringKeys.has(key)} completing={"completedAt" in item} onUntrack={onUntrack} untracking={untrackingKey === key} />;
+    }) : <p>Nothing is currently tracked.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
     {!member.isSelf && <div className={styles.memberCommands}><button onClick={() => void onCopy(`whisper-${member.membershipId}`, `/whisper ${member.inGameName} `)} title="Copies a Destiny 2 text-chat command"><MessageSquare size={13} />{copied === `whisper-${member.membershipId}` ? "Copied" : "Whisper"}</button>{canManage && <button className={styles.managementCommand} onClick={() => void onCopy(`kick-${member.membershipId}`, `/kick ${member.inGameName}`)} title="Copies a Destiny 2 text-chat command; Guardian Nexus cannot kick through the Bungie API"><UserMinus size={13} />{copied === `kick-${member.membershipId}` ? "Copied" : "Kick command"}</button>}</div>}
     {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>Shared progress opportunity:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
   </article>;
 }
 
-function TrackedItem({ item, completing = false, onUntrack, untracking = false }: { item: FireteamTrackedItem; completing?: boolean; onUntrack?: (item: FireteamTrackedItem) => void; untracking?: boolean }) {
+function TrackedItem({ item, entering = false, completing = false, onUntrack, untracking = false }: { item: FireteamTrackedItem; entering?: boolean; completing?: boolean; onUntrack?: (item: FireteamTrackedItem) => void; untracking?: boolean }) {
   const progressKnown = item.objectives.length === 0 || item.objectives.some((objective) => objective.progressAvailable);
   const manageable = Boolean(onUntrack && !completing);
   const untrackTitle = item.trackedInDestiny
     ? item.trackedInGuardianNexus ? "Untrack in Guardian Nexus and hide while Destiny still tracks it" : "Hide from Fireteam sharing until Destiny stops tracking it"
     : "Untrack in Guardian Nexus";
-  return <div className={`${styles.sharedQuest} ${manageable ? styles.sharedQuestManageable : ""} ${completing ? styles.sharedQuestCompleting : ""}`} data-completion-state={completing ? "exiting" : "active"}>
+  const trackingState = completing ? "exiting" : entering ? "entering" : "active";
+  return <div className={`${styles.sharedQuest} ${manageable ? styles.sharedQuestManageable : ""} ${completing ? styles.sharedQuestCompleting : entering ? styles.sharedQuestEntering : ""}`} data-completion-state={completing ? "exiting" : "active"} data-tracking-state={trackingState}>
     {completing && <span className={styles.sharedQuestCompletionFx} aria-hidden="true"><i /><b>{Array.from({ length: 12 }, (_, index) => <span key={index} />)}</b><em><CheckCircle2 /></em></span>}
     <span className={styles.sharedQuestIcon}>{item.icon ? <img src={item.icon} alt="" /> : <CheckCircle2 />}</span>
     <div className={styles.sharedQuestDetails}>
