@@ -25,6 +25,7 @@ const hashes = {
   legs: "1103",
   cloak: "1104",
   graviton: "2001",
+  wrongExotic: "2008",
   voidPrimary: "2002",
   solarPrimary: "2003",
   shotgun: "2004",
@@ -71,6 +72,7 @@ function manifests(): { companion: CompanionManifest; collection: CompactManifes
     [hashes.legs]: definition("Deterministic Legs", 2, "Leg Armor", "Legendary", "Leg Armor"),
     [hashes.cloak]: definition("Deterministic Cloak", 2, "Hunter Cloak", "Legendary", "Class Armor"),
     [hashes.graviton]: { ...definition("Graviton Lance", 3, "Pulse Rifle", "Exotic", "Energy Weapons"), defaultDamageType: 4 },
+    [hashes.wrongExotic]: { ...definition("Unrelated Exotic", 3, "Pulse Rifle", "Exotic", "Energy Weapons"), defaultDamageType: 4 },
     [hashes.voidPrimary]: { ...definition("Deterministic Void Rifle", 3, "Auto Rifle", "Legendary", "Energy Weapons"), defaultDamageType: 4 },
     [hashes.solarPrimary]: { ...definition("Deterministic Solar Rifle", 3, "Auto Rifle", "Legendary", "Energy Weapons"), defaultDamageType: 3 },
     [hashes.shotgun]: definition("Deterministic Shotgun", 3, "Shotgun", "Legendary", "Kinetic Weapons"),
@@ -194,11 +196,81 @@ describe("Build Advisor inventory and scoring", () => {
     expect(new Set(normalized.items.map((entry) => entry.instanceId)).size).toBe(normalized.items.length);
   });
 
+  it("builds independently from each signed-in Guardian's owned item instances", () => {
+    const { companion, collection } = manifests();
+    const accountOne = normalizeBuildAdvisorInventory(profile({
+      vault: [item(hashes.gyrfalcon, "one-armor"), item(hashes.shotgun, "one-special"), item(hashes.heavy, "one-heavy")],
+      inventories: { hunter: [item(hashes.graviton, "one-exotic")] },
+      plugs: { "one-armor": [], "one-special": [hashes.vorpal], "one-heavy": [hashes.bait], "one-exotic": [] }
+    }), companion, collection, [hunter]);
+    const accountTwo = normalizeBuildAdvisorInventory(profile({
+      vault: [item(hashes.gyrfalcon, "two-armor"), item(hashes.shotgun, "two-special"), item(hashes.heavy, "two-heavy")],
+      inventories: { hunter: [item(hashes.graviton, "two-exotic")] },
+      plugs: { "two-armor": [], "two-special": [hashes.vorpal], "two-heavy": [hashes.bait], "two-exotic": [] }
+    }), companion, collection, [hunter]);
+    const template = BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === "hunter-void-gyrfalcon")!;
+    const first = buildAdvisorRecommendations(accountOne, hunter, 0, [template]).recommendations[0]!;
+    const second = buildAdvisorRecommendations(accountTwo, hunter, 0, [template]).recommendations[0]!;
+    const firstIds = [...first.armor, ...first.weapons].flatMap((entry) => entry.item ? [entry.item.instanceId] : []);
+    const secondIds = [...second.armor, ...second.weapons].flatMap((entry) => entry.item ? [entry.item.instanceId] : []);
+    expect(firstIds.length).toBeGreaterThan(0);
+    expect(firstIds.every((id) => id.startsWith("one-"))).toBe(true);
+    expect(secondIds.length).toBeGreaterThan(0);
+    expect(secondIds.every((id) => id.startsWith("two-"))).toBe(true);
+  });
+
+  it("selects the best owned armor roll account-wide instead of favoring equipped gear", () => {
+    const { companion, collection } = manifests();
+    const normalized = normalizeBuildAdvisorInventory(profile({
+      vault: [
+        item(hashes.gyrfalcon, "armor-vault"),
+        item(hashes.helmet, "better-vault-helmet", 490),
+        item(hashes.arms, "arms"),
+        item(hashes.legs, "legs"),
+        item(hashes.cloak, "cloak"),
+        item(hashes.shotgun, "special"),
+        item(hashes.heavy, "heavy")
+      ],
+      inventories: { hunter: [item(hashes.graviton, "graviton")] },
+      equipment: { hunter: [item(hashes.helmet, "weaker-equipped-helmet", 500)] },
+      plugs: {
+        "armor-vault": [], "better-vault-helmet": [], arms: [], legs: [], cloak: [],
+        special: [hashes.vorpal], heavy: [hashes.bait], graviton: [], "weaker-equipped-helmet": []
+      },
+      stats: {
+        "better-vault-helmet": { "1943323491": 30, "392767087": 24 },
+        "weaker-equipped-helmet": { "1943323491": 2, "392767087": 2 }
+      }
+    }), companion, collection, [hunter], gearManifest());
+    const template = BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === "hunter-void-gyrfalcon")!;
+    const recommendation = buildAdvisorRecommendations(normalized, hunter, 0, [template]).recommendations[0]!;
+    expect(recommendation.armor.find((entry) => entry.slot === "helmet")?.item?.instanceId).toBe("better-vault-helmet");
+  });
+
   it("keeps collection-only unlocks separate from physical owned copies", () => {
     const { companion, collection } = manifests();
     const normalized = normalizeBuildAdvisorInventory(profile({ collectibles: { "4002": 0 } }), companion, collection, [hunter]);
     expect(normalized.items).toHaveLength(0);
     expect(normalized.collectionOnlyExotics.map((entry) => entry.name)).toContain("Celestial Nighthawk");
+  });
+
+  it("does not replace a build's required exotic weapon with an unrelated owned exotic", () => {
+    const { companion, collection } = manifests();
+    const normalized = normalizeBuildAdvisorInventory(profile({
+      vault: [
+        item(hashes.gyrfalcon, "armor"),
+        item(hashes.shotgun, "special"),
+        item(hashes.wrongExotic, "wrong-exotic"),
+        item(hashes.heavy, "heavy")
+      ],
+      plugs: { armor: [], special: [hashes.vorpal], "wrong-exotic": [], heavy: [hashes.bait] }
+    }), companion, collection, [hunter]);
+    const template = BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === "hunter-void-gyrfalcon")!;
+    const recommendation = buildAdvisorRecommendations(normalized, hunter, 0, [template]).recommendations[0]!;
+    const exotic = recommendation.weapons.find((entry) => entry.requirementId === "exotic-primary")!;
+    expect(exotic.item).toBeUndefined();
+    expect(exotic.quality).toBe("missing");
+    expect(recommendation.missingItemGuides.map((guide) => guide.name)).toContain("Graviton Lance");
   });
 
   it("restricts recommendations to the selected class", () => {
@@ -414,6 +486,19 @@ describe("Build Advisor inventory and scoring", () => {
   it("offers every current subclass for the Hunter advisor", () => {
     const subclasses = BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === "hunter").map((template) => template.subclass);
     expect(new Set(subclasses)).toEqual(new Set(["arc", "solar", "void", "strand", "stasis", "prismatic"]));
+  });
+
+  it("keeps several current-sandbox options per class with one exotic armor and one exotic weapon", () => {
+    for (const classType of ["hunter", "titan", "warlock"] as const) {
+      const templates = BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === classType);
+      expect(templates.length).toBeGreaterThanOrEqual(2);
+      for (const template of templates) {
+        expect(template.requiredExoticArmor).toBeTruthy();
+        expect(template.preferredExoticWeapon).toBeTruthy();
+        expect(template.weapons.filter((requirement) => requirement.requiresExotic)).toHaveLength(1);
+        expect(template.release).toMatch(/Monument of Triumph/);
+      }
+    }
   });
 
   it("does not expose token-shaped profile fields in recommendation output", () => {

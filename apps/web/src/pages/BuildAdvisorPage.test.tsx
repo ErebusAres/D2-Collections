@@ -99,6 +99,22 @@ describe("Build Advisor page", () => {
     expect(screen.getByText(/select Gyrfalcon's Hauberk/i)).toBeTruthy();
   });
 
+  it("filters owned recommendations by subclass and gameplay focus", async () => {
+    const data = advisorData("Void General Build");
+    const solar = recommendation("Solar Boss Build");
+    solar.subclass = "solar";
+    solar.focuses = ["Balanced", "Boss Damage"];
+    data.recommendations.push(solar);
+    vi.mocked(api).mockResolvedValue(envelope(data));
+    renderPage();
+    expect((await screen.findAllByText("Void General Build")).length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText("Subclass"), { target: { value: "solar" } });
+    expect(screen.queryByText("Void General Build")).toBeNull();
+    expect(screen.getAllByText("Solar Boss Build").length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText("Focus"), { target: { value: "Boss Damage" } });
+    expect(screen.getByText("owned-gear option").parentElement?.textContent).toBe("1owned-gear option");
+  });
+
   it("confirms and submits a server-resolved build equip action", async () => {
     const data = advisorData("Ready Gear Build");
     data.recommendations[0]!.equipPlan = { state: "ready", canEquip: true, itemCount: 8, transferCount: 2, equippedCount: 1, blockers: [] };
@@ -191,6 +207,7 @@ function recommendation(name: string): BuildAdvisorRecommendation {
     score: 91,
     status: "fully-assembleable",
     categories: ["Best Overall"],
+    focuses: ["Balanced", "General PvE", "Solo / Survivability", "Add Clear", "Ability Uptime", "Power Progression"],
     coreExoticArmor: { itemHash: "1", name: "Gyrfalcon's Hauberk", icon: "", itemType: "Chest Armor", className: "Hunter" },
     weapons: [],
     armor: [
@@ -219,6 +236,12 @@ function recommendation(name: string): BuildAdvisorRecommendation {
     notes: ["The required exotic is in the Vault."],
     factors: [{ id: "core", label: "Core pieces", earned: 30, available: 30, assessment: "excellent", detail: "Owned." }],
     source: { kind: "curated-template", label: "Guardian Nexus reviewed template" },
+    verification: {
+      state: "verified-current",
+      sandbox: "Monument of Triumph · Update 9.7.0",
+      verifiedAt: "2026-07-27",
+      sources: [{ label: "Bungie Update 9.7.0", url: "https://www.bungie.net/7/en/News/Article/destiny_update_9_7_0" }]
+    },
     subclassValidation: { state: "validated", checkedCount: 11, message: "11 subclass selections matched Bungie's definitions." },
     equipPlan: { state: "partial", canEquip: false, itemCount: 0, transferCount: 0, equippedCount: 0, blockers: ["Missing physical gear."] },
     build: { ...emptyBuildDocument(), title: name, classType: "hunter", subclass: "void", tags: ["Build Advisor"] }

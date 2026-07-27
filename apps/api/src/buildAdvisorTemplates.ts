@@ -1,6 +1,7 @@
 import type {
   BuildAdvisorArtifactDependency,
   BuildAdvisorRecommendationSource,
+  BuildAdvisorVerification,
   BuildGuardianClass,
   BuildNamedEntry,
   BuildStatName,
@@ -27,6 +28,7 @@ export interface BuildAdvisorTemplate {
   release: string;
   sourceNotes: string;
   source?: BuildAdvisorRecommendationSource;
+  verification?: BuildAdvisorVerification;
   enabled: boolean;
   name: string;
   classType: BuildGuardianClass;
@@ -75,8 +77,19 @@ export interface BuildAdvisorTemplate {
   upgrades: string[];
 }
 
-export const BUILD_ADVISOR_TEMPLATE_SET_VERSION = 2;
-export const BUILD_ADVISOR_TEMPLATE_REVIEWED_AT = "2026-07-26";
+export const BUILD_ADVISOR_TEMPLATE_SET_VERSION = 3;
+export const BUILD_ADVISOR_TEMPLATE_REVIEWED_AT = "2026-07-27";
+export const BUILD_ADVISOR_CURRENT_SANDBOX = "Monument of Triumph · Update 9.7.0";
+export const BUILD_ADVISOR_CURRENT_SANDBOX_RELEASED_AT = "2026-06-09";
+export const BUILD_ADVISOR_CURATED_VERIFICATION: BuildAdvisorVerification = {
+  state: "verified-current",
+  sandbox: BUILD_ADVISOR_CURRENT_SANDBOX,
+  verifiedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT,
+  sources: [
+    { label: "Bungie Update 9.7.0", url: "https://www.bungie.net/7/en/News/Article/destiny_update_9_7_0" },
+    { label: "Bungie build-crafting guide", url: "https://help.bungie.net/hc/en-us/articles/47117806971796--12-Creating-a-Good-Build" }
+  ]
+};
 
 const sharedMods = {
   helmet: ["Harmonic Siphon", "Heavy Ammo Finder", "Heavy Ammo Scout"],
@@ -95,7 +108,7 @@ export const BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
     version: 1,
     reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT,
     release: "Monument of Triumph",
-    sourceNotes: "Curated Guardian Nexus test template. Recheck after Void, Gyrfalcon, or Artifact sandbox changes.",
+    sourceNotes: "Reviewed Void weapon template. Recheck after Void, Gyrfalcon, or Artifact sandbox changes.",
     enabled: true,
     name: "Invisible Volatile Hunter",
     classType: "hunter",
@@ -136,7 +149,7 @@ export const BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
     version: 1,
     reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT,
     release: "Monument of Triumph",
-    sourceNotes: "Curated melee test template. Recheck Combination Blow and Liar's Handshake tuning after sandbox patches.",
+    sourceNotes: "Reviewed Arc melee template. Recheck Combination Blow and Liar's Handshake tuning after sandbox patches.",
     enabled: true,
     name: "Cross Counter Hunter",
     classType: "hunter",
@@ -455,6 +468,156 @@ export const BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
     role: "Area damage and self-sufficient Void pressure",
     damageProfile: "medium", bossDamage: "medium", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "low", solo: "high", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "none",
     upgrades: ["A Void primary with Repulsor Brace or Destabilizing Rounds", "A stronger heavy damage roll"]
+  },
+  {
+    id: "hunter-solar-speedloader",
+    version: 1,
+    reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT,
+    release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Current Crackshot Solar Hunter setup reviewed against Update 9.7.0 and a July 2026 Monument of Triumph build guide.",
+    verification: {
+      ...BUILD_ADVISOR_CURATED_VERIFICATION,
+      sources: [
+        ...BUILD_ADVISOR_CURATED_VERIFICATION.sources,
+        { label: "Current Solar Hunter build guide", url: "https://games.gg/destiny-2/guides/destiny-2-monument-of-triumph-solar-hunter-build-guide/" }
+      ]
+    },
+    enabled: true,
+    name: "Crackshot Ignition Hunter",
+    classType: "hunter",
+    subclass: "solar",
+    summary: "Crackshot, class-ability cycling, and Dragon's Breath sustain scorch and ignition pressure.",
+    requiredExoticArmor: "Speedloader Slacks",
+    preferredExoticWeapon: "Dragon's Breath",
+    ghostFocus: { archetype: "Reaver", primaryStat: "Class", secondaryStat: "Melee", notes: "Focus Class first for the Speedloader and On Your Mark loop, then Melee for Knife Trick uptime." },
+    weapons: [
+      { id: "kinetic-special", label: "Kinetic-slot special", slots: ["Kinetic Weapons"], archetypes: ["Fusion Rifle", "Shotgun", "Sniper Rifle", "Grenade Launcher"], preferredPerks: ["Recombination", "Controlled Burst", "Chill Clip"], acceptablePerks: ["Auto-Loading Holster", "Lead from Gold", "Vorpal Weapon"] },
+      { id: "solar-primary", label: "Solar primary", slots: ["Energy Weapons"], damageTypes: ["Solar"], archetypes: ["Auto Rifle", "Pulse Rifle", "Submachine Gun", "Hand Cannon", "Sidearm"], preferredPerks: ["Incandescent", "Heal Clip"], acceptablePerks: ["Frenzy", "One for All", "Demolitionist"] },
+      { id: "exotic-heavy", label: "Key exotic weapon", slots: ["Power Weapons"], preferredNames: ["Dragon's Breath"], requiresExotic: true }
+    ],
+    abilities: { super: "Blade Barrage", classAbility: "Gambler's Dodge", movement: "Triple Jump", melee: "Knife Trick", grenade: "Healing Grenade", aspects: ["Crackshot", "On Your Mark"], fragments: ["Ember of Torches", "Ember of Singeing", "Ember of Char", "Ember of Empyrean", "Ember of Benevolence"] },
+    armorMods: {
+      helmet: ["Dynamo", "Powerful Friends", "Solar Siphon"],
+      arms: ["Heavy Handed", "Focusing Strike", "Melee Font"],
+      chest: ["Charged Up", "Sniper Damage Resistance", "Concussive Dampener"],
+      legs: ["Insulation", "Better Already", "Stacks on Stacks"],
+      classItem: ["Class Font", "Powerful Attraction", "Reaper"]
+    },
+    statPriorities: stats(
+      ["Class", 100, "Drives dodge, Speedloader stacks, and On Your Mark."],
+      ["Weapons", 100, "Supports the Solar primary and Dragon's Breath rotation."],
+      ["Melee", 100, "Knife Trick applies Radiant and starts scorch chains."],
+      ["Health", 70, "Adds safety while extending restoration and radiant effects."],
+      ["Grenade", 50, "Healing Grenade is a safety and Ember of Benevolence trigger."],
+      ["Super", 30, "Blade Barrage is reserved for burst windows."]
+    ),
+    artifactPerks: [],
+    artifactDependency: "none",
+    gameplayLoop: ["Use Knife Trick to become Radiant.", "Dodge to refresh melee and build Speedloader and On Your Mark stacks.", "Use a Solar primary to extend Radiant and Restoration while Crackshot spreads scorch.", "Ignite dense groups and refresh the loop before buffs expire."],
+    damageRotation: ["Apply Dragon's Breath to the priority target.", "Cast Blade Barrage after scorch and ignition setup.", "Use the owned Solar primary and special weapon while Dragon's Breath reloads itself."],
+    activities: ["General PvE", "Boss encounters", "Dungeons", "Solo activities"],
+    strengths: ["High class-ability uptime", "Strong ignition clear", "Reliable healing access", "Sustained damage rotation"],
+    weaknesses: ["Requires deliberate buff extension", "Dragon's Breath needs safe damage-over-time pacing"],
+    style: "Fast Solar weapon pressure with frequent dodge, scorch, and ignition resets.",
+    role: "General PvE, add clear, and sustained boss damage",
+    damageProfile: "high", bossDamage: "high", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "medium", solo: "high", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "none",
+    upgrades: ["Dragon's Breath and its catalyst", "A Solar primary with Incandescent and a reload or healing perk"]
+  },
+  {
+    id: "warlock-arc-stormdancer",
+    version: 1,
+    reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT,
+    release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Current Ionic Sentry Arc Warlock setup reviewed against Update 9.7.0 and a July 2026 Monument of Triumph build guide.",
+    verification: {
+      ...BUILD_ADVISOR_CURATED_VERIFICATION,
+      sources: [
+        ...BUILD_ADVISOR_CURATED_VERIFICATION.sources,
+        { label: "Current Arc Warlock build guide", url: "https://games.gg/destiny-2/guides/destiny-2-monument-of-triumph-arc-warlock-build-guide/" }
+      ]
+    },
+    enabled: true,
+    name: "Ionic Sentry Stormcaller",
+    classType: "warlock",
+    subclass: "arc",
+    summary: "Delicate Tomb feeds Ionic Traces into Ionic Sentry and frequent Stormtrance activations.",
+    requiredExoticArmor: "Stormdancer's Brace",
+    preferredExoticWeapon: "Delicate Tomb",
+    ghostFocus: { archetype: "Colossus", primaryStat: "Super", secondaryStat: "Health", notes: "Focus Super for Stormtrance cycling; Health keeps the Warlock safe while Ionic Sentry and Arc chains build momentum." },
+    weapons: [
+      { id: "kinetic-primary", label: "Kinetic primary", slots: ["Kinetic Weapons"], archetypes: ["Pulse Rifle", "Auto Rifle", "Scout Rifle", "Hand Cannon", "Submachine Gun"], preferredPerks: ["Kinetic Tremors"], acceptablePerks: ["Frenzy", "One for All", "Demolitionist"] },
+      { id: "exotic-special", label: "Key exotic weapon", slots: ["Energy Weapons"], preferredNames: ["Delicate Tomb"], requiresExotic: true },
+      { id: "linear-heavy", label: "Boss-capable linear fusion", slots: ["Power Weapons"], archetypes: ["Linear Fusion Rifle"], preferredPerks: ["Bait and Switch", "Firing Line", "Precision Instrument"], acceptablePerks: ["Vorpal Weapon", "Frenzy"] }
+    ],
+    abilities: { super: "Stormtrance", classAbility: "Healing Rift", movement: "Burst Glide", melee: "Chain Lightning", grenade: "Pulse Grenade", aspects: ["Ionic Sentry", "Electrostatic Mind"], fragments: ["Spark of Shock", "Spark of Ions", "Spark of Brilliance", "Spark of Beacons"] },
+    armorMods: { ...sharedMods, arms: ["Firepower", "Bolstering Detonation", "Momentum Transfer"], legs: ["Recuperation", "Arc Weapon Surge", "Innervation"] },
+    statPriorities: stats(
+      ["Super", 100, "Stormdancer's Brace rewards frequent Stormtrance use."],
+      ["Grenade", 100, "Pulse Grenade jolts targets and helps create Ionic Traces."],
+      ["Health", 100, "Supports aggressive Arc positioning."],
+      ["Weapons", 70, "Improves Delicate Tomb and the heavy damage option."],
+      ["Class", 50, "Keeps Healing Rift available between trace chains."],
+      ["Melee", 30, "Chain Lightning is a supplemental jolt trigger."]
+    ),
+    artifactPerks: [],
+    artifactDependency: "none",
+    gameplayLoop: ["Defeat targets with Delicate Tomb to create Ionic Traces.", "Collect traces to charge Ionic Sentry and refresh abilities.", "Jolt and blind grouped enemies with Pulse Grenade and Delicate Tomb.", "Use Stormtrance on dense waves, then rebuild it through Stormdancer's Brace."],
+    damageRotation: ["Use Delicate Tomb and abilities to clear adds and charge the Super.", "Cast Stormtrance when a wave can refund meaningful Super energy.", "Use the owned linear fusion rifle on bosses and isolated durable targets."],
+    activities: ["General PvE", "Nightfalls", "Onslaught", "Group activities"],
+    strengths: ["Excellent add clear", "Frequent Ionic Traces", "Fast Super cycling", "Strong crowd control"],
+    weaknesses: ["Boss damage relies on the legendary heavy", "Stormtrance is most valuable when enemies are grouped"],
+    style: "Ability-heavy Arc chaining with repeated Sentry and Stormtrance windows.",
+    role: "Add clear, crowd control, and general PvE",
+    damageProfile: "medium", bossDamage: "medium", addClear: "high", survivability: "medium", abilityUptime: "high", complexity: "medium", solo: "medium", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "low",
+    upgrades: ["Delicate Tomb and its catalyst", "A linear fusion rifle with a current reload-and-damage perk pairing"]
+  },
+  {
+    id: "titan-void-doom-fang",
+    version: 1,
+    reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT,
+    release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Current Sentinel Shield Void Titan setup reviewed against Update 9.7.0 and a July 2026 Monument of Triumph build guide.",
+    verification: {
+      ...BUILD_ADVISOR_CURATED_VERIFICATION,
+      sources: [
+        ...BUILD_ADVISOR_CURATED_VERIFICATION.sources,
+        { label: "Current Void Titan build guide", url: "https://games.gg/destiny-2/guides/destiny-2-monument-of-triumph-void-titan-build-guide/" }
+      ]
+    },
+    enabled: true,
+    name: "Turncoat Sentinel Titan",
+    classType: "titan",
+    subclass: "void",
+    summary: "Turncoat and Doom Fang Pauldron combine Void weapon pressure, overshields, and long Sentinel Shield uptime.",
+    requiredExoticArmor: "Doom Fang Pauldron",
+    preferredExoticWeapon: "Turncoat",
+    ghostFocus: { archetype: "Skirmisher", primaryStat: "Melee", secondaryStat: "Weapons", notes: "Focus Melee for Shield Throw and Doom Fang, then Weapons for Turncoat and the heavy rotation." },
+    weapons: [
+      { id: "kinetic-special", label: "Kinetic-slot special", slots: ["Kinetic Weapons"], archetypes: ["Fusion Rifle", "Shotgun", "Grenade Launcher", "Sniper Rifle"], preferredPerks: ["Recombination", "Controlled Burst", "Chill Clip"], acceptablePerks: ["Lead from Gold", "Vorpal Weapon"] },
+      { id: "exotic-primary", label: "Key exotic weapon", slots: ["Energy Weapons"], preferredNames: ["Turncoat"], requiresExotic: true },
+      { id: "damage-heavy", label: "Boss-capable heavy", slots: ["Power Weapons"], archetypes: ["Rocket Launcher", "Grenade Launcher", "Machine Gun"], preferredPerks: ["Bait and Switch", "Explosive Light", "Envious Arsenal"], acceptablePerks: ["Vorpal Weapon", "Frenzy"] }
+    ],
+    abilities: { super: "Sentinel Shield", classAbility: "Rally Barricade", movement: "Catapult Lift", melee: "Shield Throw", grenade: "Vortex Grenade", aspects: ["Offensive Bulwark", "Controlled Demolition"], fragments: ["Echo of Reprisal", "Echo of Vigilance", "Echo of Persistence", "Echo of Harvest"] },
+    armorMods: { ...sharedMods, arms: ["Heavy Handed", "Focusing Strike", "Impact Induction"], legs: ["Recuperation", "Void Weapon Surge", "Invigoration"] },
+    statPriorities: stats(
+      ["Melee", 100, "Shield Throw starts overshield and Doom Fang loops."],
+      ["Super", 100, "Doom Fang extends Sentinel Shield value."],
+      ["Health", 100, "Supports front-line overshield play."],
+      ["Weapons", 70, "Improves Turncoat and heavy follow-up."],
+      ["Class", 50, "Rally Barricade stabilizes weapon windows."],
+      ["Grenade", 30, "Vortex Grenade supports Controlled Demolition."]
+    ),
+    artifactPerks: [],
+    artifactDependency: "none",
+    gameplayLoop: ["Use Shield Throw to create Void overshield and feed Doom Fang.", "Use Turncoat and Controlled Demolition to spread Void pressure.", "Fight behind Rally Barricade when a lane cannot be pushed safely.", "Cast Sentinel Shield into dense waves and extend it through active defeats."],
+    damageRotation: ["Apply volatile and Void debuffs before the damage window.", "Use the strongest owned heavy on the priority target.", "Reserve Sentinel Shield for add-heavy phases or team protection."],
+    activities: ["General PvE", "Group activities", "Nightfalls", "Solo activities"],
+    strengths: ["Long Sentinel Shield uptime", "Reliable overshields", "Strong Void add clear", "Good team utility"],
+    weaknesses: ["Single-target boss damage depends on the heavy roll", "Super value drops in sparse encounters"],
+    style: "Front-line Void weapon pressure backed by overshields and an extended roaming Super.",
+    role: "General PvE, survivability, and add clear",
+    damageProfile: "medium", bossDamage: "medium", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "medium", solo: "high", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "low",
+    upgrades: ["Turncoat and its catalyst", "A current heavy weapon with a reload-and-damage perk pairing"]
   }
 ];
 

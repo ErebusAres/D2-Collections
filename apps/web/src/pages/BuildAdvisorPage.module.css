@@ -64,6 +64,36 @@
 .reviewDate b { font-size: 14px; }
 .reviewDate svg { width: 20px; color: #6bdaf4; }
 
+.buildFilters {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(210px, 1fr) auto;
+  gap: 8px;
+  align-items: stretch;
+  margin: 0 0 10px;
+}
+
+.buildFilters > label,
+.buildFilters > span {
+  min-height: 58px;
+  border: 1px solid var(--line);
+  background: rgba(6, 18, 26, .84);
+  padding: 8px 11px;
+}
+
+.buildFilters > label { display: grid; gap: 5px; }
+.buildFilters label > span,
+.buildFilters > span small { color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.buildFilters select {
+  width: 100%;
+  border: 1px solid rgba(129, 170, 187, .35);
+  background: #07141c;
+  color: #f0fbff;
+  padding: 7px 9px;
+  font: 600 13px "Barlow", sans-serif;
+}
+.buildFilters > span { min-width: 120px; display: grid; place-content: center; text-align: center; }
+.buildFilters > span b { color: #70e4f6; font: 700 21px/1 "Barlow Condensed", sans-serif; }
+
 .dataWarning {
   border: 1px solid rgba(255, 153, 91, .44);
   background: rgba(78, 38, 21, .5);
@@ -207,6 +237,23 @@
 .sourceLine a { display: inline-flex; align-items: center; gap: 5px; color: #70e1f3; font-size: 10px; text-decoration: none; }
 .sourceLine a:hover { text-decoration: underline; }
 .sourceLine svg { width: 12px; }
+.verification {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(67, 221, 168, .3);
+  background: rgba(14, 65, 49, .26);
+}
+.verification > svg { width: 17px; color: #4ae0a8; }
+.verification > span { display: grid; margin-right: auto; color: #dff9ef !important; }
+.verification b { font-size: 11px; }
+.verification small { color: #83bba8; font-size: 9px; }
+.verification a { display: inline-flex; align-items: center; gap: 4px; color: #70e1f3; font-size: 9px; text-decoration: none; }
+.verification a:hover { text-decoration: underline; }
+.verification a svg { width: 11px; }
 .detail > section,
 .detailColumns,
 .notes { margin: 0 18px; padding: 17px 0; border-bottom: 1px solid var(--line); }
@@ -446,7 +493,9 @@
 
 @media (max-width: 760px) {
   .commandBar,
+  .buildFilters,
   .inventoryBody { grid-template-columns: 1fr; }
+  .buildFilters > span { min-height: 50px; }
   .reviewDate,
   .inventoryWarnings { grid-column: auto; }
   .cardGrid { grid-template-columns: 1fr; }

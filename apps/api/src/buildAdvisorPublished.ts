@@ -1,5 +1,10 @@
 import type { BuildEquipmentEntry, BuildStatName, GuardianBuild } from "@guardian-nexus/contracts";
-import type { BuildAdvisorTemplate, BuildAdvisorWeaponRequirement } from "./buildAdvisorTemplates";
+import {
+  BUILD_ADVISOR_CURRENT_SANDBOX,
+  BUILD_ADVISOR_CURRENT_SANDBOX_RELEASED_AT,
+  type BuildAdvisorTemplate,
+  type BuildAdvisorWeaponRequirement
+} from "./buildAdvisorTemplates";
 
 const ALL_STATS: BuildStatName[] = ["Health", "Melee", "Grenade", "Super", "Class", "Weapons"];
 
@@ -12,6 +17,10 @@ export function buildAdvisorTemplatesFromPublishedBuilds(builds: GuardianBuild[]
 
 function templateFromPublishedBuild(build: GuardianBuild): BuildAdvisorTemplate | undefined {
   if (build.outdated || build.status !== "published" || build.visibility !== "public") return undefined;
+  const reviewedAt = build.updatedAt || build.publishedAt || build.createdAt;
+  const releaseMarker = [build.patch, ...build.tags, ...build.activityTags].filter(Boolean).join(" ");
+  if (Date.parse(reviewedAt) < Date.parse(`${BUILD_ADVISOR_CURRENT_SANDBOX_RELEASED_AT}T00:00:00.000Z`)) return undefined;
+  if (!/(?:monument|triumph|9\.7)/i.test(releaseMarker)) return undefined;
   const exoticArmor = build.equipment.armor.find(isExoticEquipment);
   const weapons = build.equipment.weapons.slice(0, 3);
   const abilities = build.subclassConfig;
@@ -32,8 +41,8 @@ function templateFromPublishedBuild(build: GuardianBuild): BuildAdvisorTemplate 
   return {
     id: `published-${build.id}`,
     version: 1,
-    reviewedAt: (build.updatedAt || build.publishedAt || new Date().toISOString()).slice(0, 10),
-    release: build.patch || "Published build",
+    reviewedAt: reviewedAt.slice(0, 10),
+    release: build.patch || BUILD_ADVISOR_CURRENT_SANDBOX,
     sourceNotes: `Published by ${build.authorDisplayName}.`,
     source: {
       kind: "published-build",

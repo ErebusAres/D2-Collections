@@ -3,12 +3,14 @@ import type {
   BuildAdvisorAssemblyStatus,
   BuildAdvisorCategory,
   BuildAdvisorData,
+  BuildAdvisorFocus,
   BuildAdvisorMissingItemGuide,
   BuildAdvisorOwnedItem,
   BuildAdvisorRecommendation,
   BuildAdvisorWeaponEvaluation,
   BuildArmorMods,
   BuildNamedEntry,
+  BuildSubclass,
   EquipBuildAdvisorResult
 } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -59,6 +61,8 @@ function BuildAdvisor() {
   const queryClient = useQueryClient();
   const forceNext = useRef(false);
   const [category, setCategory] = useState<BuildAdvisorCategory | "All">("All");
+  const [subclass, setSubclass] = useState<BuildSubclass | "All">("All");
+  const [focus, setFocus] = useState<BuildAdvisorFocus | "All">("All");
   const [selectedId, setSelectedId] = useState("");
   const [equipMessage, setEquipMessage] = useState("");
   const result = useQuery({
@@ -93,7 +97,13 @@ function BuildAdvisor() {
   });
   const data = result.data?.data;
   const categories = useMemo(() => [...new Set(data?.recommendations.flatMap((recommendation) => recommendation.categories) || [])], [data?.recommendations]);
-  const recommendations = useMemo(() => data?.recommendations.filter((recommendation) => category === "All" || recommendation.categories.includes(category)) || [], [category, data?.recommendations]);
+  const subclasses = useMemo(() => [...new Set(data?.recommendations.map((recommendation) => recommendation.subclass) || [])], [data?.recommendations]);
+  const focuses = useMemo(() => [...new Set(data?.recommendations.flatMap((recommendation) => recommendation.focuses) || [])], [data?.recommendations]);
+  const recommendations = useMemo(() => data?.recommendations.filter((recommendation) =>
+    (category === "All" || recommendation.categories.includes(category))
+    && (subclass === "All" || recommendation.subclass === subclass)
+    && (focus === "All" || recommendation.focuses.includes(focus))
+  ) || [], [category, data?.recommendations, focus, subclass]);
   const selected = recommendations.find((recommendation) => recommendation.id === selectedId) || recommendations[0];
   const warning = result.data?.warnings[0] || data?.analysis.warnings[0];
 
@@ -119,7 +129,7 @@ function BuildAdvisor() {
     <PageHeader
       eyebrow="Owned gear intelligence"
       title="Build Advisor"
-      description="Owned gear matched against reviewed templates and published builds."
+      description="Builds assembled from this Guardian's Vault and all character inventories."
       actions={<>
         <Freshness observedAt={result.data?.freshness.sourceMintedAt || data?.analysis.syncTimestamp} warning={warning} />
         <button type="button" className={styles.refresh} disabled={result.isFetching} onClick={() => void refreshInventory()}><RefreshCw className={result.isFetching ? styles.spin : ""} /> {result.isFetching ? "Refreshing…" : "Refresh inventory"}</button>
@@ -136,11 +146,22 @@ function BuildAdvisor() {
     {data && <>
       {data.state !== "current" && <section className={styles.dataWarning} role="status"><AlertTriangle /><div><strong>{stateLabel(data.state)}</strong><p>{warning || "Refresh inventory before relying on these recommendations."}</p></div></section>}
       {data.recommendations.length ? <>
+        <section className={styles.buildFilters} aria-label="Build recommendation filters">
+          <label><span>Subclass</span><select aria-label="Subclass" value={subclass} onChange={(event) => setSubclass(event.target.value as BuildSubclass | "All")}>
+            <option value="All">All subclasses</option>
+            {subclasses.map((entry) => <option key={entry} value={entry}>{subclassLabel(entry)}</option>)}
+          </select></label>
+          <label><span>Focus</span><select aria-label="Focus" value={focus} onChange={(event) => setFocus(event.target.value as BuildAdvisorFocus | "All")}>
+            <option value="All">All focuses</option>
+            {focuses.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
+          </select></label>
+          <span><b>{recommendations.length}</b><small>owned-gear option{recommendations.length === 1 ? "" : "s"}</small></span>
+        </section>
         <nav className={styles.filters} aria-label="Recommendation categories">
           <button type="button" data-active={category === "All"} onClick={() => setCategory("All")}>All recommendations</button>
           {categories.map((entry) => <button key={entry} type="button" data-active={category === entry} onClick={() => setCategory(entry)}>{entry}</button>)}
         </nav>
-        <div className={styles.workspace}>
+        {recommendations.length > 0 ? <div className={styles.workspace}>
           <section className={styles.cardGrid} aria-label="Build recommendations">
             {recommendations.map((recommendation) => <RecommendationCard key={recommendation.id} recommendation={recommendation} selected={selected?.id === recommendation.id} onSelect={() => setSelectedId(recommendation.id)} />)}
           </section>
@@ -152,7 +173,7 @@ function BuildAdvisor() {
             equipping={equipBuild.isPending}
             equipMessage={equipMessage}
           />}
-        </div>
+        </div> : <section className={styles.empty}><ScanSearch /><h2>No owned-gear match for these filters</h2><p>Choose another subclass, focus, or recommendation category.</p></section>}
       </> : <section className={styles.empty}><ScanSearch /><h2>No strong near-complete build found</h2><p>Open inventory analysis to see which core pieces are missing, then refresh after your inventory changes.</p></section>}
       <InventoryAnalysis data={data} />
     </>}
@@ -171,7 +192,7 @@ function RecommendationCard({ recommendation, selected, onSelect }: { recommenda
     <div className={styles.coreItem}>{armor.icon ? <img src={armor.icon} alt="" /> : <Shield />}<span><small>Core exotic</small><b>{armor.name}</b></span></div>
     <div className={styles.cardMetrics}><span><Swords /> Damage <b>{recommendation.damageProfile}</b></span><span><Shield /> Survival <b>{recommendation.survivability}</b></span><span><Gauge /> Complexity <b>{recommendation.complexity}</b></span></div>
     <footer>
-      <span>{recommendation.source.kind === "published-build" ? "Published build" : "Reviewed template"}</span>
+      <span>{recommendation.verification.state === "verified-current" ? "Current sandbox verified" : "Current community build"}</span>
       {recommendation.categories.map((entry) => <span key={entry}>{entry}</span>)}
     </footer>
   </button>;
@@ -208,6 +229,11 @@ function RecommendationDetail({
       <span>{recommendation.source.label}</span>
       <h2>{recommendation.name}</h2>
       <p>{recommendation.style}</p>
+      <div className={styles.verification}>
+        <CheckCircle2 />
+        <span><b>{recommendation.verification.sandbox}</b><small>Verified {new Date(`${recommendation.verification.verifiedAt}T00:00:00`).toLocaleDateString()}</small></span>
+        {recommendation.verification.sources.map((source) => <a key={source.url} href={source.url} target="_blank" rel="noreferrer">{source.label} <ExternalLink /></a>)}
+      </div>
       {recommendation.source.kind === "published-build" && <div className={styles.sourceLine}>
         <b>{recommendation.source.authorDisplayName}</b>
         {recommendation.source.rating && <small>{recommendation.source.rating.upvotes} up · {recommendation.source.rating.downvotes} down</small>}
@@ -361,4 +387,8 @@ function stateLabel(state: BuildAdvisorData["state"]): string {
     : state === "may-be-stale" ? "Inventory may be stale"
       : state === "sync-required" ? "Bungie sync required"
         : "Inventory data incomplete";
+}
+
+function subclassLabel(subclass: BuildSubclass): string {
+  return subclass[0]!.toUpperCase() + subclass.slice(1);
 }

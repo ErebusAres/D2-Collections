@@ -25,6 +25,12 @@ describe("published Build Advisor templates", () => {
     build.ghostFocus = undefined;
     expect(buildAdvisorTemplatesFromPublishedBuilds([build])).toEqual([]);
   });
+
+  it("excludes builds that are not marked for the current Monument of Triumph sandbox", () => {
+    const build = publishedBuild();
+    build.patch = "The Final Shape";
+    expect(buildAdvisorTemplatesFromPublishedBuilds([build])).toEqual([]);
+  });
 });
 
 function publishedBuild(): GuardianBuild {
@@ -45,6 +51,7 @@ function publishedBuild(): GuardianBuild {
     activityTags: ["Solo", "Nightfall"],
     summary: "A complete published Void build.",
     notes: "",
+    patch: "Monument of Triumph · Update 9.7.0",
     concepts: [],
     championCounters: [],
     links: [],

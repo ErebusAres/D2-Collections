@@ -1178,6 +1178,14 @@ export type BuildAdvisorAssemblyStatus =
 export type BuildAdvisorRollQuality = "perfect" | "strong" | "functional" | "poor" | "unknown" | "missing";
 export type BuildAdvisorItemLocation = "equipped" | "inventory" | "vault";
 export type BuildAdvisorArtifactDependency = "none" | "low" | "medium" | "high";
+export type BuildAdvisorFocus =
+  | "Balanced"
+  | "Boss Damage"
+  | "General PvE"
+  | "Solo / Survivability"
+  | "Add Clear"
+  | "Ability Uptime"
+  | "Power Progression";
 export type BuildAdvisorCategory =
   | "Best Overall"
   | "Best Boss Damage"
@@ -1283,6 +1291,18 @@ export interface BuildAdvisorRecommendationSource {
   rating?: BuildRating;
 }
 
+export interface BuildAdvisorVerificationSource {
+  label: string;
+  url: string;
+}
+
+export interface BuildAdvisorVerification {
+  state: "verified-current" | "current-community";
+  sandbox: string;
+  verifiedAt: string;
+  sources: BuildAdvisorVerificationSource[];
+}
+
 export interface BuildAdvisorEquipPlan {
   state: "ready" | "already-equipped" | "partial" | "blocked";
   canEquip: boolean;
@@ -1304,6 +1324,7 @@ export interface BuildAdvisorRecommendation {
   score: number;
   status: BuildAdvisorAssemblyStatus;
   categories: BuildAdvisorCategory[];
+  focuses: BuildAdvisorFocus[];
   coreExoticArmor: BuildAdvisorOwnedItem | BuildAdvisorCollectionItem;
   exoticWeapon?: BuildAdvisorOwnedItem;
   weapons: BuildAdvisorWeaponEvaluation[];
@@ -1327,6 +1348,7 @@ export interface BuildAdvisorRecommendation {
   notes: string[];
   factors: BuildAdvisorScoreFactor[];
   source: BuildAdvisorRecommendationSource;
+  verification: BuildAdvisorVerification;
   subclassValidation: BuildAdvisorSubclassValidation;
   equipPlan: BuildAdvisorEquipPlan;
   build: BuildDocument;

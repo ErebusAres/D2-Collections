@@ -6,6 +6,7 @@ import type {
   BuildAdvisorCollectionItem,
   BuildAdvisorData,
   BuildAdvisorEquipPlan,
+  BuildAdvisorFocus,
   BuildAdvisorInventoryAnalysis,
   BuildAdvisorMissingItemGuide,
   BuildAdvisorOwnedItem,
@@ -31,6 +32,7 @@ import { imageUrl } from "@guardian-nexus/domain";
 import { buildDocumentSchema } from "./builds";
 import { normalizeGear } from "./gear";
 import {
+  BUILD_ADVISOR_CURATED_VERIFICATION,
   BUILD_ADVISOR_TEMPLATES,
   BUILD_ADVISOR_TEMPLATE_REVIEWED_AT,
   BUILD_ADVISOR_TEMPLATE_SET_VERSION,
@@ -334,11 +336,16 @@ function scoreTemplate(
   const matchingArmor = inventory.items
     .filter((item) => item.exotic && isArmor(item) && sameName(item.name, template.requiredExoticArmor))
     .filter((item) => !item.className || item.className === character.className)
-    .sort((left, right) => itemPreference(right, character.characterId) - itemPreference(left, character.characterId) || right.power - left.power);
+    .sort((left, right) => armorCandidateScore(right, template) - armorCandidateScore(left, template)
+      || right.power - left.power
+      || itemEquipConvenience(right, character.characterId) - itemEquipConvenience(left, character.characterId)
+      || left.instanceId.localeCompare(right.instanceId));
   const coreArmor = matchingArmor[0];
   const collectionArmor = inventory.collectionOnlyExotics.find((item) => sameName(item.name, template.requiredExoticArmor));
   const preferredExotic = template.preferredExoticWeapon
-    ? inventory.items.filter((item) => item.exotic && isWeapon(item) && sameName(item.name, template.preferredExoticWeapon!)).sort((left, right) => itemPreference(right, character.characterId) - itemPreference(left, character.characterId) || right.power - left.power)[0]
+    ? inventory.items.filter((item) => item.exotic && isWeapon(item) && sameName(item.name, template.preferredExoticWeapon!)).sort((left, right) => right.power - left.power
+      || itemEquipConvenience(right, character.characterId) - itemEquipConvenience(left, character.characterId)
+      || left.instanceId.localeCompare(right.instanceId))[0]
     : undefined;
   const usedInstances = new Set<string>();
   const usedSlots = new Set<string>();
@@ -399,6 +406,7 @@ function scoreTemplate(
     score,
     status,
     categories: [],
+    focuses: focusesForTemplate(template),
     coreExoticArmor: coreArmor || collectionArmor || {
       itemHash: "",
       name: template.requiredExoticArmor,
@@ -431,6 +439,14 @@ function scoreTemplate(
       kind: "curated-template",
       label: "Guardian Nexus reviewed template"
     },
+    verification: template.verification || (template.source?.kind === "published-build"
+      ? {
+          state: "current-community",
+          sandbox: template.release,
+          verifiedAt: template.reviewedAt,
+          sources: []
+        }
+      : BUILD_ADVISOR_CURATED_VERIFICATION),
     subclassValidation: {
       state: validation.state,
       checkedCount: validation.checkedCount,
@@ -619,9 +635,13 @@ function evaluateWeaponRequirement(
     .filter((item) => weaponIdentityMatches(item, requirement))
     .map((item) => ({ item, evaluation: evaluateRoll(item, requirement) }))
     .sort((left, right) => rollRank(right.evaluation.quality) - rollRank(left.evaluation.quality)
-      || itemPreference(right.item, character.characterId) - itemPreference(left.item, character.characterId)
+      || right.evaluation.matchedPerks.length - left.evaluation.matchedPerks.length
+      || left.evaluation.missingPerks.length - right.evaluation.missingPerks.length
+      || right.item.enhancedPerks.length - left.item.enhancedPerks.length
       || right.item.power - left.item.power
-      || left.item.name.localeCompare(right.item.name));
+      || left.item.name.localeCompare(right.item.name)
+      || itemEquipConvenience(right.item, character.characterId) - itemEquipConvenience(left.item, character.characterId)
+      || left.item.instanceId.localeCompare(right.item.instanceId));
   const best = candidates[0];
   if (!best) return {
     requirementId: requirement.id,
@@ -879,8 +899,9 @@ function selectArmorLoadout(
       .filter((item) => !item.className || item.className === character.className)
       .filter((item) => !item.exotic)
       .filter((item) => !used.has(item.instanceId))
-      .sort((left, right) => armorCandidateScore(right, template, character.characterId) - armorCandidateScore(left, template, character.characterId)
+      .sort((left, right) => armorCandidateScore(right, template) - armorCandidateScore(left, template)
         || right.power - left.power
+        || itemEquipConvenience(right, character.characterId) - itemEquipConvenience(left, character.characterId)
         || left.name.localeCompare(right.name));
     const selected = coreArmor && coreSlot === slot ? coreArmor : candidates[0];
     if (!selected) {
@@ -894,7 +915,7 @@ function selectArmorLoadout(
     }
     used.add(selected.instanceId);
     const exactArchetype = sameName(selected.armorArchetype?.name || "", template.ghostFocus.archetype);
-    const score = coreArmor?.instanceId === selected.instanceId ? 100 : Math.max(1, Math.min(99, Math.round(armorCandidateScore(selected, template, character.characterId))));
+    const score = coreArmor?.instanceId === selected.instanceId ? 100 : Math.max(1, Math.min(99, Math.round(armorCandidateScore(selected, template))));
     const quality: BuildAdvisorArmorEvaluation["quality"] = coreArmor?.instanceId === selected.instanceId || exactArchetype && Boolean(selected.armorStats)
       ? "excellent"
       : selected.armorStats
@@ -913,7 +934,7 @@ function selectArmorLoadout(
       notes: [
         coreArmor?.instanceId === selected.instanceId ? "Required exotic armor." : "",
         selected.armorArchetype ? `${selected.armorArchetype.name} archetype${exactArchetype ? " matches the recommended Ghost focus" : ""}.` : "",
-        topStats.length ? `Highest current stats: ${topStats.join(", ")}.` : "Armor stats were unavailable; selected by Power and location.",
+        topStats.length ? `Highest current stats: ${topStats.join(", ")}.` : "Armor stats were unavailable; selected by Power.",
         selected.location === "vault" ? `${selected.name} is in the Vault.` : "",
         selected.ownerCharacterId && selected.ownerCharacterId !== character.characterId && selected.ownerClassName ? `${selected.name} is on the ${selected.ownerClassName}.` : ""
       ].filter(Boolean)
@@ -921,7 +942,7 @@ function selectArmorLoadout(
   });
 }
 
-function armorCandidateScore(item: BuildAdvisorOwnedItem, template: BuildAdvisorTemplate, characterId: string): number {
+function armorCandidateScore(item: BuildAdvisorOwnedItem, template: BuildAdvisorTemplate): number {
   const weightedStats = template.statPriorities.reduce((total, priority) => {
     const weight = 7 - priority.priority;
     return total + Number(item.armorStats?.[priority.stat] || 0) * weight;
@@ -931,7 +952,7 @@ function armorCandidateScore(item: BuildAdvisorOwnedItem, template: BuildAdvisor
   const archetypeFit = sameName(item.armorArchetype?.name || "", template.ghostFocus.archetype) ? 18 : 0;
   const tuningFit = template.statPriorities.some((priority) => priority.priority <= 2 && priority.stat === item.tunedStat) ? 6 : 0;
   const masterworkFit = item.masterworked ? 3 : 0;
-  return statFit + totalFit + archetypeFit + tuningFit + masterworkFit + itemPreference(item, characterId);
+  return statFit + totalFit + archetypeFit + tuningFit + masterworkFit;
 }
 
 function armorSlot(item: BuildAdvisorOwnedItem): (typeof ARMOR_SLOTS)[number] | undefined {
@@ -1073,6 +1094,7 @@ function equipPlanForSelection(
 function weaponIdentityMatches(item: BuildAdvisorOwnedItem, requirement: BuildAdvisorWeaponRequirement): boolean {
   const preferredName = requirement.preferredNames?.some((name) => sameName(name, item.name)) || false;
   if (preferredName) return true;
+  if (requirement.requiresExotic && requirement.preferredNames?.length) return false;
   if (requirement.slots?.length && !requirement.slots.some((slot) => sameName(slot, item.slot))) return false;
   if (requirement.archetypes?.length && !requirement.archetypes.some((type) => sameName(type, item.itemType))) return false;
   if (requirement.damageTypes?.length && !requirement.damageTypes.some((type) => sameName(type, item.damageType || ""))) return false;
@@ -1120,7 +1142,18 @@ function profileValue(value: "high" | "medium" | "low"): number {
   return value === "high" ? 3 : value === "medium" ? 2 : 1;
 }
 
-function itemPreference(item: BuildAdvisorOwnedItem, characterId: string): number {
+function focusesForTemplate(template: BuildAdvisorTemplate): BuildAdvisorFocus[] {
+  const focuses: BuildAdvisorFocus[] = ["Balanced"];
+  if (template.bossDamage === "high") focuses.push("Boss Damage");
+  if (template.addClear === "high" && template.survivability !== "low") focuses.push("General PvE");
+  if (template.solo === "high" || template.survivability === "high") focuses.push("Solo / Survivability");
+  if (template.addClear === "high") focuses.push("Add Clear");
+  if (template.abilityUptime === "high") focuses.push("Ability Uptime");
+  if (template.powerFriendly) focuses.push("Power Progression");
+  return [...new Set(focuses)];
+}
+
+function itemEquipConvenience(item: BuildAdvisorOwnedItem, characterId: string): number {
   if (item.equipped && item.ownerCharacterId === characterId) return 5;
   if (item.location === "inventory" && item.ownerCharacterId === characterId) return 4;
   if (item.location === "vault") return 3;
