@@ -2,9 +2,10 @@
 
 import type { FireteamData } from "@guardian-nexus/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
+import { playCompletionChime } from "../services/completionAudio";
 import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
@@ -21,6 +22,7 @@ vi.mock("../context/GuardianContext", () => ({
   })
 }));
 vi.mock("../services/api/client", () => ({ api: vi.fn(), queuedApi: vi.fn(), mutationHeaders: vi.fn(() => ({})) }));
+vi.mock("../services/completionAudio", () => ({ playCompletionChime: vi.fn(), primeCompletionAudio: vi.fn() }));
 
 beforeEach(() => {
   localStorage.setItem("pins:member-1:c1", JSON.stringify(["quest-instance"]));
@@ -28,7 +30,7 @@ beforeEach(() => {
   vi.mocked(queuedApi).mockResolvedValue({ data: { sharing: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "share" });
 });
 
-afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("Fireteam tracked items", () => {
   it("shows quest-like and Guardian Rank tracking and refreshes the active share with both site lists", async () => {
@@ -66,6 +68,32 @@ describe("Fireteam tracked items", () => {
     const item = (await screen.findByText("Weekly order")).closest("[data-completion-state]");
     expect(item?.getAttribute("data-completion-state")).toBe("exiting");
     expect(item?.querySelectorAll(`.${styles.sharedQuestCompletionFx} b span`)).toHaveLength(12);
+  });
+
+  it("removes a known completion after the exit and does not replay it after a remount", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const completed = envelope();
+    completed.data.members[0]!.recentlyCompletedItems = [{
+      ...completed.data.members[0]!.trackedItems[0]!,
+      percent: 100,
+      objectives: [{ objectiveHash: "q", name: "Activities", progress: 5, completionValue: 5, percent: 100, complete: true, progressAvailable: true }],
+      completedAt: "2026-07-22T12:01:00.000Z"
+    }];
+    completed.data.members[0]!.trackedItems = completed.data.members[0]!.trackedItems.slice(1);
+    vi.mocked(api).mockResolvedValue(completed);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(<QueryClientProvider client={client}><FireteamPage /></QueryClientProvider>);
+
+    expect(await screen.findByText("Weekly order")).toBeTruthy();
+    expect(playCompletionChime).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(1_600); });
+    expect(playCompletionChime).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Weekly order")).toBeNull();
+
+    view.unmount();
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+    expect(await screen.findByText("Rank service")).toBeTruthy();
+    expect(screen.queryByText("Weekly order")).toBeNull();
   });
 
   it("untracks a Guardian Nexus pursuit from the self card and syncs the reduced pin list", async () => {

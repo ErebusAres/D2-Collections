@@ -44,6 +44,21 @@ describe("normalizeGuardianRanks", () => {
     expect(data.ranks[1]?.categories[0]?.quests[0]).toMatchObject({ state: "in-progress", trackedInDestiny: true, objectives: [{ progress: 4, completionValue: 10, percent: 40, progressAvailable: true }] });
   });
 
+  it("recognizes a Guardian Rank objective tracked at profile scope", () => {
+    const profile = {
+      profile: { data: { currentGuardianRank: 6, renewedGuardianRank: 6 } },
+      profileRecords: { data: { trackedRecordHash: "record7", records: {} } },
+      characterRecords: { data: { c1: { records: { record7: { state: 4, objectives: [{ objectiveHash: "objective7", progress: 3, completionValue: 10, complete: false }] } } } } }
+    };
+
+    const data = normalizeGuardianRanks(profile, manifest, "c1");
+    expect(data.ranks
+      .flatMap((rank) => rank.categories)
+      .flatMap((category) => category.quests)
+      .find((quest) => quest.recordHash === "record7"))
+      .toMatchObject({ trackedInDestiny: true, objectives: [{ progress: 3, percent: 30 }] });
+  });
+
   it("maps rank 1 to rank 2 requirements and rank 7 to rank 8 requirements", () => {
     const mappingManifest: GuardianRankManifest = {
       version: "mapping",

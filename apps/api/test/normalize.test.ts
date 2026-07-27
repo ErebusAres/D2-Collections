@@ -92,15 +92,15 @@ describe("normalizeQuests", () => {
       "105": { progressDescription: "Bounty progress", completionValue: 5 }
     } } satisfies CompactManifest;
     const profile = {
-      profileInventory: { data: { items: [{ itemHash: 44, bucketHash: 1345459588 }] } },
-      characterInventories: { data: { c1: { items: [{ itemHash: 55, itemInstanceId: "bounty-1" }] } } },
+      profileInventory: { data: { items: [{ itemHash: 44, bucketHash: 1345459588, state: 2 }] } },
+      characterInventories: { data: { c1: { items: [{ itemHash: 55, itemInstanceId: "bounty-1", state: 2 }] } } },
       characterUninstancedItemComponents: { c1: { objectives: { data: { "44": { objectives: [{ objectiveHash: 104, progress: 4, completionValue: 10 }] } } } } },
       itemComponents: { objectives: { data: { "bounty-1": { objectives: [{ objectiveHash: 105, progress: 1, completionValue: 5 }] } } } }
     };
 
     expect(normalizeQuests(profile, questManifest, "c1").quests).toMatchObject([
-      { name: "Character Bounty", category: "bounty", percent: 20 },
-      { name: "Account Quest", category: "quest", percent: 40 }
+      { name: "Character Bounty", category: "bounty", percent: 20, inGameTracked: true },
+      { name: "Account Quest", category: "quest", percent: 40, inGameTracked: true }
     ]);
   });
 

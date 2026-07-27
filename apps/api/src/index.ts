@@ -717,13 +717,15 @@ async function storeShare(
   const allQuests = normalizeQuests(profile, manifest, character.characterId, new Set(sitePinnedQuestIds));
   const allowedIds = new Set(allQuests.quests.map((quest) => quest.instanceId));
   const questsToShare = allQuests.quests.filter((quest) => quest.inGameTracked || (quest.sitePinned && allowedIds.has(quest.instanceId)));
-  const compactSharedQuests = questsToShare.map((quest) => ({ ...quest, steps: undefined }));
+  const activeTrackedQuests = trackedItemsFromQuests(questsToShare);
+  const activeQuestIds = new Set(activeTrackedQuests.map((item) => item.id));
+  const compactSharedQuests = questsToShare.filter((quest) => activeQuestIds.has(quest.instanceId)).map((quest) => ({ ...quest, steps: undefined }));
   const siteTrackedGuardianRanks = providedGuardianRankIds === undefined
     ? await guardianRankTrackedIds(row.membership_id, env)
     : new Set(providedGuardianRankIds);
   const guardianRanks = normalizeGuardianRanks(profile, guardianRankManifest, character.characterId);
   const assembledTrackedItems = mergeTrackedItems(
-    trackedItemsFromQuests(questsToShare),
+    activeTrackedQuests,
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || new Date().toISOString())
   );
   const visibility = applyTrackedItemVisibility(
@@ -750,7 +752,7 @@ async function storeShare(
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
     ON CONFLICT(membership_id) DO UPDATE SET display_name = excluded.display_name, character_id = excluded.character_id, updated_at = excluded.updated_at, expires_at = excluded.expires_at, payload_json = excluded.payload_json, sharing_mode = excluded.sharing_mode, site_pinned_quest_ids_json = excluded.site_pinned_quest_ids_json, last_error = NULL
   `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload), mode, JSON.stringify(sitePinnedQuestIds)).run();
-  return { expiresAt, sharedQuestCount: questsToShare.length, sharedTrackedItemCount: trackedItems.length, sourceMintedAt: profile?.responseMintedTimestamp };
+  return { expiresAt, sharedQuestCount: compactSharedQuests.length, sharedTrackedItemCount: trackedItems.length, sourceMintedAt: profile?.responseMintedTimestamp };
 }
 
 async function guardianRankTrackedIds(membershipId: string, env: Env): Promise<Set<string>> {

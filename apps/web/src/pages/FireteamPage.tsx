@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
+import { playCompletionChime, primeCompletionAudio } from "../services/completionAudio";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import styles from "./Pages.module.css";
 
@@ -26,6 +27,19 @@ export function FireteamPage() {
     refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
+  useEffect(() => {
+    const prime = () => {
+      primeCompletionAudio();
+      window.removeEventListener("pointerdown", prime);
+      window.removeEventListener("keydown", prime);
+    };
+    window.addEventListener("pointerdown", prime);
+    window.addEventListener("keydown", prime);
+    return () => {
+      window.removeEventListener("pointerdown", prime);
+      window.removeEventListener("keydown", prime);
+    };
+  }, []);
   const data = result.data?.data;
   const membershipId = session?.guardian?.membershipId || "";
   const storageKey = membershipId && selectedCharacterId ? pinsKey(membershipId, selectedCharacterId) : "";
@@ -128,17 +142,22 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, untrackingKe
   const activity = presenceLocation(member);
   const trackedItems = Array.isArray(member.trackedItems) ? member.trackedItems : member.quests.map(legacyTrackedItem);
   const recentlyCompletedItems = member.recentlyCompletedItems || [];
-  const [dismissedCompletions, setDismissedCompletions] = useState<Set<string>>(() => new Set());
+  const [dismissedCompletions, setDismissedCompletions] = useState<Set<string>>(() => readDismissedCompletionEvents(member.membershipId));
   const visibleCompletions = recentlyCompletedItems.filter((item) => !dismissedCompletions.has(completionEventKey(item)));
   const visibleCompletionKeys = visibleCompletions.map(completionEventKey).join("|");
   useEffect(() => {
     if (!visibleCompletionKeys) return;
     const keys = visibleCompletionKeys.split("|");
     const timer = window.setTimeout(() => {
-      setDismissedCompletions((current) => new Set([...current, ...keys]));
+      playCompletionChime();
+      setDismissedCompletions((current) => {
+        const next = new Set([...current, ...keys]);
+        writeDismissedCompletionEvents(member.membershipId, next);
+        return next;
+      });
     }, 1_600);
     return () => window.clearTimeout(timer);
-  }, [visibleCompletionKeys]);
+  }, [member.membershipId, visibleCompletionKeys]);
   const completingKeys = new Set(visibleCompletions.map(trackedItemKey));
   const displayedItems = [...trackedItems.filter((item) => !completingKeys.has(trackedItemKey(item))), ...visibleCompletions];
   const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
@@ -177,6 +196,27 @@ function trackedItemKey(item: Pick<FireteamTrackedItem, "kind" | "id">): string 
 
 function completionEventKey(item: FireteamCompletedTrackedItem): string {
   return `${trackedItemKey(item)}:${item.completedAt}`;
+}
+
+function readDismissedCompletionEvents(membershipId: string): Set<string> {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(completionDismissalStorageKey(membershipId)) || "[]");
+    return new Set(Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(-100) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissedCompletionEvents(membershipId: string, values: ReadonlySet<string>): void {
+  try {
+    sessionStorage.setItem(completionDismissalStorageKey(membershipId), JSON.stringify([...values].slice(-100)));
+  } catch {
+    // The current card still dismisses the event when browser storage is unavailable.
+  }
+}
+
+function completionDismissalStorageKey(membershipId: string): string {
+  return `guardian-nexus:fireteam-completions:${membershipId}`;
 }
 
 function legacyTrackedItem(quest: FireteamMember["quests"][number]): FireteamTrackedItem {
