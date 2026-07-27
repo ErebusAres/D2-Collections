@@ -78,13 +78,13 @@ function manifests(): { companion: CompanionManifest; collection: CompactManifes
     [hashes.enhancedBait]: definition("Bait and Switch Enhanced", 3, "Perk")
   };
   const collectionItems: CompactManifest["items"] = [
-    { itemHash: hashes.gyrfalcon, collectibleHash: "4001", name: "Gyrfalcon's Hauberk", description: "", icon: "/gyrfalcon.jpg", kind: "armor", className: "Hunter", slot: "Chest Armor", itemType: "Chest Armor", source: "", catalystRecordHashes: [] },
+    { itemHash: hashes.gyrfalcon, collectibleHash: "4001", name: "Gyrfalcon's Hauberk", description: "", icon: "/gyrfalcon.jpg", kind: "armor", className: "Hunter", slot: "Chest Armor", itemType: "Chest Armor", source: "Exotic Armor Focusing", catalystRecordHashes: [] },
     { itemHash: hashes.nighthawk, collectibleHash: "4002", name: "Celestial Nighthawk", description: "", icon: "/nighthawk.jpg", kind: "armor", className: "Hunter", slot: "Helmet", itemType: "Helmet", source: "", catalystRecordHashes: [] },
     { itemHash: hashes.liars, collectibleHash: "4003", name: "Liar's Handshake", description: "", icon: "/liars.jpg", kind: "armor", className: "Hunter", slot: "Gauntlets", itemType: "Gauntlets", source: "", catalystRecordHashes: [] },
     { itemHash: hashes.cuirass, collectibleHash: "4004", name: "Cuirass of the Falling Star", description: "", icon: "/cuirass.jpg", kind: "armor", className: "Titan", slot: "Chest Armor", itemType: "Chest Armor", source: "", catalystRecordHashes: [] },
     { itemHash: hashes.synthoceps, collectibleHash: "4005", name: "Synthoceps", description: "", icon: "/synthoceps.jpg", kind: "armor", className: "Titan", slot: "Gauntlets", itemType: "Gauntlets", source: "", catalystRecordHashes: [] },
     { itemHash: hashes.contraverse, collectibleHash: "4006", name: "Contraverse Hold", description: "", icon: "/contraverse.jpg", kind: "armor", className: "Warlock", slot: "Gauntlets", itemType: "Gauntlets", source: "", catalystRecordHashes: [] },
-    { itemHash: hashes.graviton, collectibleHash: "4007", name: "Graviton Lance", description: "", icon: "/graviton.jpg", kind: "weapon", slot: "Energy Weapons", itemType: "Pulse Rifle", damageType: "Void", source: "", catalystRecordHashes: [] }
+    { itemHash: hashes.graviton, collectibleHash: "4007", name: "Graviton Lance", description: "", icon: "/graviton.jpg", kind: "weapon", slot: "Energy Weapons", itemType: "Pulse Rifle", damageType: "Void", source: "Source: Exotic engrams; extremely rare world drops.", catalystRecordHashes: [] }
   ];
   return {
     companion: {
@@ -226,6 +226,42 @@ describe("Build Advisor inventory and scoring", () => {
     const recommendation = result.recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon");
     expect(recommendation?.status).toBe("missing-one-important-item");
     expect(recommendation?.missingItems).toContain("Gyrfalcon's Hauberk");
+    expect(recommendation?.missingItemGuides).toContainEqual(expect.objectContaining({
+      name: "Gyrfalcon's Hauberk",
+      source: "bungie-manifest",
+      acquisition: "Exotic Armor Focusing"
+    }));
+    expect(recommendation?.missingItemGuides.find((entry) => entry.name === "Gyrfalcon's Hauberk")?.steps.join(" ")).toMatch(/Exotic Armor Focusing/i);
+  });
+
+  it("uses Collections reacquisition before the published source for an unlocked item without a physical copy", () => {
+    const { companion, collection } = manifests();
+    const unlockedOnly = profile({
+      vault: [item(hashes.shotgun, "special"), item(hashes.heavy, "heavy")],
+      inventories: { hunter: [item(hashes.graviton, "graviton")] },
+      plugs: { special: [hashes.vorpal], heavy: [hashes.bait], graviton: [] },
+      collectibles: { "4001": 0 }
+    });
+    const normalized = normalizeBuildAdvisorInventory(unlockedOnly, companion, collection, [hunter]);
+    const recommendation = buildAdvisorRecommendations(normalized, hunter).recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon")!;
+    const guide = recommendation.missingItemGuides.find((entry) => entry.name === "Gyrfalcon's Hauberk")!;
+    expect(guide.source).toBe("collections");
+    expect(guide.acquisition).toMatch(/Unlocked in Collections/i);
+    expect(guide.steps.join(" ")).toMatch(/Reacquire.*Exotic Armor Focusing/i);
+  });
+
+  it("describes the exact slot, archetype, and perks for a missing weapon role", () => {
+    const { companion, collection } = manifests();
+    const missingSpecial = profile({
+      vault: [item(hashes.gyrfalcon, "armor"), item(hashes.heavy, "heavy")],
+      inventories: { hunter: [item(hashes.graviton, "graviton")] },
+      plugs: { armor: [], heavy: [hashes.bait], graviton: [] }
+    });
+    const normalized = normalizeBuildAdvisorInventory(missingSpecial, companion, collection, [hunter]);
+    const recommendation = buildAdvisorRecommendations(normalized, hunter).recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon")!;
+    const guide = recommendation.missingItemGuides.find((entry) => entry.id === "weapon-role:kinetic-special")!;
+    expect(guide.source).toBe("loadout-requirement");
+    expect(guide.steps.join(" ")).toMatch(/Kinetic Weapons.*Fusion Rifle.*Chill Clip/i);
   });
 
   it("identifies an acceptable substitute without calling it a perfect roll", () => {

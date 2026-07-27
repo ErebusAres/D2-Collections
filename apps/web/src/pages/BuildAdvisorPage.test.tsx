@@ -73,6 +73,30 @@ describe("Build Advisor page", () => {
     expect((await screen.findByTestId("target-location")).textContent).toMatch(/\/builds\/new\?fromAdvisor=/);
     expect([...Array(sessionStorage.length)].map((_, index) => sessionStorage.key(index)).some((key) => key?.startsWith("guardian-nexus:advisor-build-import:"))).toBe(true);
   });
+
+  it("shows acquisition steps and their data source for a missing item", async () => {
+    const data = advisorData("Missing Core Build");
+    data.recommendations[0]!.missingItems = ["Gyrfalcon's Hauberk"];
+    data.recommendations[0]!.missingItemGuides = [{
+      id: "item:gyrfalcon-s-hauberk",
+      name: "Gyrfalcon's Hauberk",
+      kind: "specific-item",
+      itemHash: "1",
+      itemType: "Chest Armor",
+      acquisition: "Exotic Armor Focusing",
+      source: "bungie-manifest",
+      steps: [
+        "Use the current Exotic Armor Focusing screen and select Gyrfalcon's Hauberk when its focusing requirements are met.",
+        "Refresh Build Advisor after the item reaches a character inventory or the Vault."
+      ]
+    }];
+    vi.mocked(api).mockResolvedValue(envelope(data));
+    renderPage();
+    expect(await screen.findByText("How to obtain")).toBeTruthy();
+    expect(screen.getByText("Bungie manifest")).toBeTruthy();
+    expect(screen.getByText("Exotic Armor Focusing")).toBeTruthy();
+    expect(screen.getByText(/select Gyrfalcon's Hauberk/i)).toBeTruthy();
+  });
 });
 
 function renderPage() {
@@ -156,6 +180,7 @@ function recommendation(name: string): BuildAdvisorRecommendation {
     ],
     ghostFocus: { mod: { name: "Reaver Armorer" }, primaryStat: "Class", secondaryStat: "Melee" },
     missingItems: [],
+    missingItemGuides: [],
     substitutions: [],
     activities: ["General PvE"],
     style: "Mobile Void weapon pressure.",

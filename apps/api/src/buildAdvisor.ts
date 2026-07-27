@@ -6,6 +6,7 @@ import type {
   BuildAdvisorCollectionItem,
   BuildAdvisorData,
   BuildAdvisorInventoryAnalysis,
+  BuildAdvisorMissingItemGuide,
   BuildAdvisorOwnedItem,
   BuildAdvisorRecommendation,
   BuildAdvisorRollQuality,
@@ -21,7 +22,8 @@ import type {
   CompactManifest,
   CompanionManifest,
   GearManifest,
-  GuardianClass
+  GuardianClass,
+  ManifestItem
 } from "@guardian-nexus/contracts";
 import { imageUrl } from "@guardian-nexus/domain";
 import { buildDocumentSchema } from "./builds";
@@ -61,6 +63,7 @@ export interface NormalizedBuildAdvisorInventory {
   items: BuildAdvisorOwnedItem[];
   collectionOnlyExotics: BuildAdvisorCollectionItem[];
   definitionByName: Map<string, BuildNamedEntry>;
+  manifestItemByName: Map<string, ManifestItem>;
   syncTimestamp: string;
   warnings: string[];
 }
@@ -105,7 +108,8 @@ export function normalizeBuildAdvisorInventory(
     if (!existing || (!existing.icon && entry.icon) || /deprecated|legacy/i.test(existing.description || "")) definitionByName.set(key, entry);
   }
   const collectionByHash = new Map(collectionManifest.items.map((item) => [item.itemHash, item]));
-  const collectionByName = new Map(collectionManifest.items.map((item) => [normalizeName(item.name), item]));
+  const manifestItemByName = representativeManifestItems(collectionManifest.items);
+  const collectionByName = manifestItemByName;
   const rows: Array<{ item: any; location: BuildAdvisorOwnedItem["location"]; ownerCharacterId?: string; equipped: boolean }> = [];
   for (const item of profile?.profileInventory?.data?.items || []) rows.push({ item, location: "vault", equipped: false });
   for (const [ownerCharacterId, container] of Object.entries(profile?.characterInventories?.data || {}) as Array<[string, any]>) {
@@ -194,6 +198,7 @@ export function normalizeBuildAdvisorInventory(
     items,
     collectionOnlyExotics,
     definitionByName,
+    manifestItemByName,
     syncTimestamp: String(profile?.responseMintedTimestamp || new Date().toISOString()),
     warnings
   };
@@ -310,6 +315,7 @@ function scoreTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuil
     }),
     ...armor.filter((entry) => entry.quality === "missing").map((entry) => entry.label)
   ];
+  const missingItemGuides = acquisitionGuides(template, coreArmor, collectionArmor, weapons, armor, ghostFocus, inventory, character);
   const substitutions = weapons
     .filter((weapon) => ["strong", "functional", "poor"].includes(weapon.substitution))
     .map((weapon) => `${weapon.label}: ${weapon.item?.name || "no usable item"}`);
@@ -358,6 +364,7 @@ function scoreTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuil
     armor,
     ghostFocus,
     missingItems,
+    missingItemGuides,
     substitutions,
     activities: template.activities,
     style: template.style,
@@ -377,6 +384,161 @@ function scoreTemplate(template: BuildAdvisorTemplate, inventory: NormalizedBuil
   };
   const equippedMatchCount = armor.filter((entry) => entry.item?.equipped).length + weapons.filter((weapon) => weapon.item?.equipped).length;
   return { recommendation, template, equippedMatchCount };
+}
+
+function acquisitionGuides(
+  template: BuildAdvisorTemplate,
+  coreArmor: BuildAdvisorOwnedItem | undefined,
+  collectionArmor: BuildAdvisorCollectionItem | undefined,
+  weapons: BuildAdvisorWeaponEvaluation[],
+  armor: BuildAdvisorArmorEvaluation[],
+  ghostFocus: BuildGhostFocus,
+  inventory: NormalizedBuildAdvisorInventory,
+  character: CharacterSummary
+): BuildAdvisorMissingItemGuide[] {
+  const guides: BuildAdvisorMissingItemGuide[] = [];
+  if (!coreArmor) {
+    guides.push(specificItemGuide(template.requiredExoticArmor, "Exotic Armor", Boolean(collectionArmor), inventory));
+  }
+  for (const evaluation of weapons.filter((entry) => entry.quality === "missing" || entry.quality === "poor")) {
+    const requirement = template.weapons.find((entry) => entry.id === evaluation.requirementId);
+    if (!requirement) continue;
+    const specificName = requirement.requiresExotic
+      ? template.preferredExoticWeapon || requirement.preferredNames?.[0]
+      : undefined;
+    if (specificName) {
+      const collectionUnlocked = inventory.collectionOnlyExotics.some((item) => sameName(item.name, specificName));
+      guides.push(specificItemGuide(specificName, "Exotic Weapon", collectionUnlocked, inventory));
+    } else {
+      guides.push(weaponRoleGuide(requirement, evaluation));
+    }
+  }
+  for (const entry of armor.filter((item) => item.quality === "missing")) {
+    guides.push(armorSlotGuide(entry, ghostFocus, character));
+  }
+  return [...new Map(guides.map((guide) => [guide.id, guide])).values()];
+}
+
+function specificItemGuide(
+  name: string,
+  fallbackItemType: string,
+  collectionUnlocked: boolean,
+  inventory: NormalizedBuildAdvisorInventory
+): BuildAdvisorMissingItemGuide {
+  const item = inventory.manifestItemByName.get(normalizeName(name));
+  const publishedSource = cleanAcquisitionSource(item?.source || "");
+  const acquisition = collectionUnlocked
+    ? "Unlocked in Collections; no physical copy was found."
+    : publishedSource || "No specific acquisition source is published in the current Bungie manifest.";
+  const steps = [
+    ...(collectionUnlocked
+      ? [`Open Collections → Exotics and use Reacquire for ${name} if the action is available.`]
+      : []),
+    ...sourceSteps(name, publishedSource),
+    "Refresh Build Advisor after the item reaches a character inventory or the Vault."
+  ];
+  return {
+    id: `item:${normalizeName(name).replace(/\s+/g, "-")}`,
+    name,
+    kind: "specific-item",
+    ...(item?.itemHash ? { itemHash: item.itemHash } : {}),
+    ...(item?.icon ? { icon: imageUrl(item.icon) } : {}),
+    itemType: item?.itemType || fallbackItemType,
+    acquisition,
+    source: collectionUnlocked ? "collections" : "bungie-manifest",
+    steps
+  };
+}
+
+function weaponRoleGuide(
+  requirement: BuildAdvisorWeaponRequirement,
+  evaluation: BuildAdvisorWeaponEvaluation
+): BuildAdvisorMissingItemGuide {
+  const slots = formatChoices(requirement.slots);
+  const archetypes = formatChoices(requirement.archetypes);
+  const requiredPerks = formatChoices(requirement.requiredPerks);
+  const preferredPerks = formatChoices(requirement.preferredPerks);
+  const acceptablePerks = formatChoices(requirement.acceptablePerks);
+  const target = [slots, archetypes].filter(Boolean).join(" · ");
+  const steps = [
+    target ? `Target ${target}.` : `Target a weapon that fills the ${requirement.label.toLocaleLowerCase()} role.`,
+    requiredPerks ? `Required perk: ${requiredPerks}.` : "",
+    preferredPerks ? `Best perk targets: ${preferredPerks}.` : "",
+    acceptablePerks ? `Usable fallback perks: ${acceptablePerks}.` : "",
+    evaluation.item ? `Keep ${evaluation.item.name} as a temporary substitute while pursuing a better roll.` : "",
+    "Use the in-game Collections source or the current activity/vendor loot preview to choose a farm, then refresh Build Advisor when a matching roll drops."
+  ].filter(Boolean);
+  return {
+    id: `weapon-role:${requirement.id}`,
+    name: evaluation.quality === "poor" ? `${requirement.label} upgrade` : requirement.label,
+    kind: "weapon-role",
+    itemType: archetypes || "Weapon",
+    acquisition: evaluation.quality === "poor"
+      ? "A usable weapon exists, but its roll misses this build's important perks."
+      : "No owned weapon matches this loadout requirement.",
+    source: "loadout-requirement",
+    steps
+  };
+}
+
+function armorSlotGuide(
+  armor: BuildAdvisorArmorEvaluation,
+  ghostFocus: BuildGhostFocus,
+  character: CharacterSummary
+): BuildAdvisorMissingItemGuide {
+  return {
+    id: `armor-slot:${armor.slot}`,
+    name: armor.label,
+    kind: "armor-slot",
+    itemType: armor.label,
+    acquisition: `No equippable ${character.className} ${armor.label.toLocaleLowerCase()} was found on the account.`,
+    source: "loadout-requirement",
+    steps: [
+      `Equip ${ghostFocus.mod.name} on the Ghost before earning armor.`,
+      `Earn a ${character.className} ${armor.label.toLocaleLowerCase()} from a current armor reward, engram, or vendor.`,
+      `Prefer rolls that support ${ghostFocus.primaryStat}, then ${ghostFocus.secondaryStat}.`,
+      "Refresh Build Advisor after the armor reaches a character inventory or the Vault."
+    ]
+  };
+}
+
+function sourceSteps(name: string, source: string): string[] {
+  if (!source) {
+    return [`Open ${name} in the in-game Collections screen and check its current source and account-specific requirements.`];
+  }
+  if (/exotic armor focusing/i.test(source)) {
+    return [`Use the current Exotic Armor Focusing screen and select ${name} when its focusing requirements are met.`];
+  }
+  if (/exotic archive/i.test(source)) {
+    return [`Visit the Exotic Archive in the Tower and find ${name} in its matching category.`];
+  }
+  if (/season pass|rewards pass/i.test(source)) {
+    return [
+      `Check the current Rewards Pass for ${name}.`,
+      "If the pass that originally awarded it has expired, check the Exotic Archive in the Tower."
+    ];
+  }
+  if (/exotic engrams|world drops/i.test(source)) {
+    return [`Earn Exotic Engrams, then use the current decryption or focusing options when ${name} is eligible.`];
+  }
+  if (/xûr|xur/i.test(source)) {
+    return [`Check Xûr's current inventory when he is available.`];
+  }
+  if (/raid|dungeon/i.test(source)) {
+    return [`Run ${source}; check that activity's current Exotic drop rules and any available drop-rate boosts.`];
+  }
+  if (/quest|mission|campaign|lost sector|exploring|activities|equilibrium|fortress|renegades/i.test(source)) {
+    return [`Complete ${source} and claim its associated reward.`];
+  }
+  return [`Follow the in-game Collections source: ${source}.`];
+}
+
+function cleanAcquisitionSource(source: string): string {
+  return source.trim().replace(/^source:\s*/i, "").replace(/\.$/, "");
+}
+
+function formatChoices(values?: string[]): string {
+  return (values || []).filter(Boolean).join(" / ");
 }
 
 function evaluateWeaponRequirement(
@@ -822,6 +984,24 @@ function uniqueNamedEntries(entries: Array<ReturnType<typeof named>>): Array<Ret
 function hashOf(value: unknown): string {
   const text = String(value || "").trim();
   return /^\d+$/.test(text) ? text : "";
+}
+
+function representativeManifestItems(items: ManifestItem[]): Map<string, ManifestItem> {
+  const result = new Map<string, ManifestItem>();
+  for (const item of items) {
+    const key = normalizeName(item.name);
+    const current = result.get(key);
+    if (!current || manifestItemScore(item) > manifestItemScore(current)) result.set(key, item);
+  }
+  return result;
+}
+
+function manifestItemScore(item: ManifestItem): number {
+  const source = cleanAcquisitionSource(item.source);
+  return (source ? 100 : 0)
+    + (/exotic armor focusing|exotic archive/i.test(source) ? 20 : 0)
+    + (item.collectibleHash ? 5 : 0)
+    + (item.icon ? 1 : 0);
 }
 
 function normalizeName(value: string): string {

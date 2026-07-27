@@ -1255,6 +1255,18 @@ export interface BuildAdvisorScoreFactor {
   detail: string;
 }
 
+export interface BuildAdvisorMissingItemGuide {
+  id: string;
+  name: string;
+  kind: "specific-item" | "weapon-role" | "armor-slot";
+  itemHash?: string;
+  icon?: string;
+  itemType?: string;
+  acquisition: string;
+  source: "collections" | "bungie-manifest" | "loadout-requirement";
+  steps: string[];
+}
+
 export interface BuildAdvisorRecommendation {
   id: string;
   templateId: string;
@@ -1273,6 +1285,7 @@ export interface BuildAdvisorRecommendation {
   armor: BuildAdvisorArmorEvaluation[];
   ghostFocus: BuildGhostFocus;
   missingItems: string[];
+  missingItemGuides: BuildAdvisorMissingItemGuide[];
   substitutions: string[];
   activities: string[];
   style: string;

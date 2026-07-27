@@ -3,6 +3,7 @@ import type {
   BuildAdvisorAssemblyStatus,
   BuildAdvisorCategory,
   BuildAdvisorData,
+  BuildAdvisorMissingItemGuide,
   BuildAdvisorOwnedItem,
   BuildAdvisorRecommendation,
   BuildAdvisorWeaponEvaluation,
@@ -19,6 +20,7 @@ import {
   CircleHelp,
   Crosshair,
   Gauge,
+  MapPin,
   Puzzle,
   Radar,
   RefreshCw,
@@ -135,6 +137,7 @@ function RecommendationCard({ recommendation, selected, onSelect }: { recommenda
 
 function RecommendationDetail({ recommendation, canOpenBuilder, onOpenBuilder }: { recommendation: BuildAdvisorRecommendation; canOpenBuilder: boolean; onOpenBuilder: () => void }) {
   const build = recommendation.build;
+  const missingItemGuides = recommendation.missingItemGuides || [];
   const abilities: Array<[string, BuildNamedEntry | undefined]> = [
     ["Super", build.subclassConfig.super],
     ...(build.subclass === "prismatic" ? [["Transcendence", build.subclassConfig.transcendence] as [string, BuildNamedEntry | undefined]] : []),
@@ -169,8 +172,10 @@ function RecommendationDetail({ recommendation, canOpenBuilder, onOpenBuilder }:
     </section>
     {(recommendation.missingItems.length > 0 || recommendation.substitutions.length > 0) && <section className={styles.assemblyIssues}>
       <h3><AlertTriangle /> Assembly changes</h3>
-      {recommendation.missingItems.map((item) => <p key={`missing-${item}`}><b>Missing</b> {item}</p>)}
-      {recommendation.substitutions.map((item) => <p key={`sub-${item}`}><b>Substitute</b> {item}</p>)}
+      {missingItemGuides.length > 0
+        ? <div className={styles.acquisitionGuides}>{missingItemGuides.map((guide) => <AcquisitionGuide key={guide.id} guide={guide} />)}</div>
+        : recommendation.missingItems.map((item) => <p key={`missing-${item}`}><b>Missing</b> {item}</p>)}
+      {recommendation.substitutions.length > 0 && <div className={styles.substitutions}>{recommendation.substitutions.map((item) => <p key={`sub-${item}`}><b>Substitute</b> {item}</p>)}</div>}
     </section>}
     <div className={styles.detailColumns}>
       <section><h3><Sparkles /> Gameplay loop</h3><ol>{recommendation.gameplayLoop.map((step) => <li key={step}>{step}</li>)}</ol></section>
@@ -186,6 +191,24 @@ function RecommendationDetail({ recommendation, canOpenBuilder, onOpenBuilder }:
       <button type="button" disabled={!canOpenBuilder} title={canOpenBuilder ? "Open this recommendation in Builder" : "Build saving is limited to approved Builder editors."} onClick={onOpenBuilder}>Open in Builder <ArrowRight /></button>
     </footer>
   </aside>;
+}
+
+function AcquisitionGuide({ guide }: { guide: BuildAdvisorMissingItemGuide }) {
+  return <article data-source={guide.source}>
+    <header>
+      {guide.icon ? <img src={guide.icon} alt="" /> : <MapPin />}
+      <span><small>How to obtain</small><b>{guide.name}</b><em>{guide.itemType}</em></span>
+      <strong>{guideSourceLabel(guide.source)}</strong>
+    </header>
+    <p>{guide.acquisition}</p>
+    <ol>{guide.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+  </article>;
+}
+
+function guideSourceLabel(source: BuildAdvisorMissingItemGuide["source"]): string {
+  if (source === "collections") return "Collections";
+  if (source === "bungie-manifest") return "Bungie manifest";
+  return "Build requirement";
 }
 
 function ArmorMatch({ armor }: { armor: BuildAdvisorArmorEvaluation }) {
