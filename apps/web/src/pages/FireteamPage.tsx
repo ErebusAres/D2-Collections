@@ -189,8 +189,8 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, untrackingKe
   useEffect(() => {
     if (!visibleCompletionKeys) return;
     const keys = visibleCompletionKeys.split("|");
+    playCompletionChime();
     const timer = window.setTimeout(() => {
-      playCompletionChime();
       setDismissedCompletions((current) => {
         const next = new Set([...current, ...keys]);
         writeDismissedCompletionEvents(member.membershipId, next);

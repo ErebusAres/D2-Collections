@@ -110,9 +110,8 @@ describe("Fireteam tracked items", () => {
     const view = render(<QueryClientProvider client={client}><FireteamPage /></QueryClientProvider>);
 
     expect(await screen.findByText("Weekly order")).toBeTruthy();
-    expect(playCompletionChime).not.toHaveBeenCalled();
-    await act(async () => { vi.advanceTimersByTime(1_600); });
     expect(playCompletionChime).toHaveBeenCalledTimes(1);
+    await act(async () => { vi.advanceTimersByTime(1_600); });
     expect(screen.queryByText("Weekly order")).toBeNull();
 
     view.unmount();
