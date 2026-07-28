@@ -1,12 +1,11 @@
-import type { GuardianRankData, JourneyProgressData, QuestData, RewardsPassData } from "@guardian-nexus/contracts";
+import type { GuardianRankData, JourneyProgressData, QuestData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, CalendarDays, CheckSquare2, Crown, ListTodo, ScrollText, Sparkles } from "lucide-react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { JourneyNav } from "../components/journey/JourneyNav";
 import { ProgressSummaryCard } from "../components/journey/ProgressSummaryCard";
 import { useGuardian } from "../context/GuardianContext";
-import { guardianRankPercent, questKind, questPercent, rewardsPercent } from "../modules/journey/progressSummary";
-import { rewardLevelProgress } from "../modules/rewards/rewardsProgress";
+import { guardianRankPercent, questKind, questPercent } from "../modules/journey/progressSummary";
 import { api } from "../services/api/client";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import styles from "./JourneyPage.module.css";
@@ -29,13 +28,6 @@ export function JourneyPage() {
     refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
-  const rewards = useQuery({
-    queryKey: ["rewards", selectedCharacterId],
-    queryFn: () => api<RewardsPassData>(`/api/v1/me/rewards?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled,
-    refetchInterval: autoRefresh ? 60_000 : false,
-    refetchIntervalInBackground: false
-  });
   const journey = useQuery({
     queryKey: ["journey-progress", selectedCharacterId],
     queryFn: () => api<JourneyProgressData>(`/api/v1/me/journey?characterId=${encodeURIComponent(selectedCharacterId)}`),
@@ -43,9 +35,9 @@ export function JourneyPage() {
     refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
-  const loading = quests.isLoading || ranks.isLoading || rewards.isLoading || journey.isLoading;
-  const error = quests.error || ranks.error || rewards.error || journey.error;
-  const hasData = Boolean(quests.data || ranks.data || rewards.data || journey.data);
+  const loading = quests.isLoading || ranks.isLoading || journey.isLoading;
+  const error = quests.error || ranks.error || journey.error;
+  const hasData = Boolean(quests.data || ranks.data || journey.data);
   const allPursuits = quests.data?.data.quests || [];
   const activeQuests = allPursuits.filter((quest) => !quest.category || quest.category === "quest");
   const bounties = allPursuits.filter((quest) => quest.category === "bounty" || quest.category === "order");
@@ -56,24 +48,23 @@ export function JourneyPage() {
   const rankData = ranks.data?.data;
   const rankTier = rankData?.ranks.find((rank) => rank.rankNumber === rankData.currentRank);
   const rankRemaining = Math.max(0, (rankTier?.total || 0) - (rankTier?.completed || 0));
-  const rewardData = rewards.data?.data;
-  const levelProgress = rewardLevelProgress(rewardData?.progress);
-  const claimableRewards = rewardData?.rewards.filter((reward) => reward.state === "available").length || 0;
   const nearComplete = allPursuits.filter((quest) => quest.percent >= 75 && quest.percent < 100);
   const progressData = journey.data?.data;
+  const seasonalChallenges = progressData?.seasonalChallenges || [];
+  const seasonalProgress = seasonalChallenges.length ? Math.round(seasonalChallenges.reduce((sum, challenge) => sum + challenge.percent, 0) / seasonalChallenges.length) : 0;
 
   return <AuthGate>
     <PageHeader
       eyebrow="Progress hub"
       title="Journey"
       description="Your progression systems in one place, with the closest objectives surfaced first."
-      actions={<Freshness observedAt={journey.data?.freshness.observedAt || quests.data?.freshness.observedAt || ranks.data?.freshness.observedAt || rewards.data?.freshness.observedAt} warning={journey.data?.warnings[0] || quests.data?.warnings[0] || ranks.data?.warnings[0] || rewards.data?.warnings[0]} />}
+      actions={<Freshness observedAt={journey.data?.freshness.observedAt || quests.data?.freshness.observedAt || ranks.data?.freshness.observedAt} warning={journey.data?.warnings[0] || quests.data?.warnings[0] || ranks.data?.warnings[0]} />}
     />
     <JourneyNav />
-    <QueryState loading={loading} error={error as Error} hasData={hasData} onRetry={() => { void quests.refetch(); void ranks.refetch(); void rewards.refetch(); void journey.refetch(); }} />
+    <QueryState loading={loading} error={error as Error} hasData={hasData} onRetry={() => { void quests.refetch(); void ranks.refetch(); void journey.refetch(); }} />
     {hasData && <>
       <section className={styles.hero}>
-        <div><span>What should I work on next?</span><h2>{nextAction(activeQuests, bounties, rankRemaining, claimableRewards)}</h2><p>{nextActionDetail(activeQuests, bounties, rankRemaining, claimableRewards)}</p></div>
+        <div><span>What should I work on next?</span><h2>{nextAction(activeQuests, bounties, rankRemaining)}</h2><p>{nextActionDetail(activeQuests, bounties, rankRemaining)}</p></div>
         <div className={styles.heroStats}>
           <span><small>Near completion</small><strong>{nearComplete.length}</strong></span>
           <span><small>Tracked in Destiny</small><strong>{allPursuits.filter((quest) => quest.inGameTracked).length}</strong></span>
@@ -91,10 +82,10 @@ export function JourneyPage() {
           { label: "Complete", value: completedBounties },
           { label: "Remaining", value: Math.max(0, bounties.length - completedBounties) }
         ]} tone="green" />
-        <ProgressSummaryCard title="Seasonal Hub" eyebrow="Current progression" description="Rewards Pass progress and seasonal objectives." to="/journey/season" icon={Sparkles} progress={rewardsPercent(rewardData)} progressLabel={rewardData ? `Toward rank ${rewardData.rank + 1}` : "Season progress"} stats={[
-          { label: "Pass rank", value: rewardData?.rank ?? "—" },
-          { label: "XP", value: levelProgress ? `${levelProgress.percent}%` : "—" },
-          { label: "Rewards", value: claimableRewards }
+        <ProgressSummaryCard title="Seasonal Hub" eyebrow="Current progression" description="Seasonal challenges, pursuits, and artifact progression." to="/journey/season" icon={Sparkles} progress={seasonalProgress} progressLabel="Seasonal challenge progress" stats={[
+          { label: "Challenges", value: seasonalChallenges.length },
+          { label: "Complete", value: seasonalChallenges.filter((challenge) => challenge.complete).length },
+          { label: "Artifact", value: progressData?.artifact ? `+${progressData.artifact.powerBonus}` : "—" }
         ]} tone="violet" />
         <ProgressSummaryCard title="Guardian Rank" eyebrow="Journey objectives" description="Current objectives and the route to your next rank." to="/journey/guardian-rank" icon={Badge} progress={guardianRankPercent(rankData)} progressLabel={rankData ? `Rank ${rankData.currentRank} objectives` : "Rank progress"} stats={[
           { label: "Current", value: rankData?.currentRank ?? "—" },
@@ -121,18 +112,16 @@ export function JourneyPage() {
   </AuthGate>;
 }
 
-function nextAction(quests: QuestData["quests"], bounties: QuestData["quests"], rankRemaining: number, claimableRewards: number): string {
+function nextAction(quests: QuestData["quests"], bounties: QuestData["quests"], rankRemaining: number): string {
   const near = [...quests, ...bounties].filter((quest) => quest.percent >= 75 && quest.percent < 100).sort((left, right) => right.percent - left.percent)[0];
   if (near) return `Finish ${near.name}`;
-  if (claimableRewards) return `Claim ${claimableRewards} Rewards Pass reward${claimableRewards === 1 ? "" : "s"}`;
   if (rankRemaining) return `Advance Guardian Rank`;
   return quests[0]?.name || bounties[0]?.name || "Choose a new goal";
 }
 
-function nextActionDetail(quests: QuestData["quests"], bounties: QuestData["quests"], rankRemaining: number, claimableRewards: number): string {
+function nextActionDetail(quests: QuestData["quests"], bounties: QuestData["quests"], rankRemaining: number): string {
   const near = [...quests, ...bounties].filter((quest) => quest.percent >= 75 && quest.percent < 100).sort((left, right) => right.percent - left.percent)[0];
   if (near) return `${near.percent}% complete${near.currentStep ? ` · ${near.currentStep}` : ""}`;
-  if (claimableRewards) return "Rewards are currently available on your pass.";
   if (rankRemaining) return `${rankRemaining} current-rank objective${rankRemaining === 1 ? "" : "s"} remaining.`;
   return "Open a tracker below to pick your next objective.";
 }
