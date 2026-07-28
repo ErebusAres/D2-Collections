@@ -152,6 +152,12 @@
 
 /* Dense comparison text stays readable at the 1280px desktop target. */
 .matrixRoster>header small,.matrixRoster>div>button small{font-size:12px}
+
+/* Quests use the full board now that bounties have their own Journey tracker. */
+.questGrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1500px){.questGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:1200px){.questGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:850px){.questGrid{grid-template-columns:1fr}}
 .matrixRoster>div>button span,.matrixGuardians span{font-size:12px}
 .matrixTable thead th,.matrixCell{font-size:12px}
 .matrixTable tbody th span{font-size:12px}
