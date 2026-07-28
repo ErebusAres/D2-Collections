@@ -149,13 +149,21 @@ function objectiveFor(objectiveHash: string, definition: GuardianRankManifest["o
   const percent = completionValue > 0 ? Math.min(100, Math.floor((progress / completionValue) * 100)) : complete ? 100 : 0;
   return {
     objectiveHash,
-    name: definition.name || "Objective progress",
+    name: objectiveLabel(definition),
     progress,
     completionValue,
     percent,
     complete,
     progressAvailable
   };
+}
+
+function objectiveLabel(definition: GuardianRankManifest["objectives"][string]): string {
+  // Bungie's current Guardian Rank manifest labels several Ops modifier
+  // counters as "Neptune" even though the records are unrelated to Neptune.
+  return definition.name.trim().toLowerCase() === "neptune" && !definition.description.trim()
+    ? "Completion"
+    : definition.name || "Objective progress";
 }
 
 function liveRecord(profile: any, recordHash: string, characterId: string, scope: number): any | undefined {

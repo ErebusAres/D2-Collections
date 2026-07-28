@@ -59,6 +59,24 @@ describe("normalizeGuardianRanks", () => {
       .toMatchObject({ trackedInDestiny: true, objectives: [{ progress: 3, percent: 30 }] });
   });
 
+  it("replaces Bungie's incorrect Neptune label on binary Ops objectives", () => {
+    const affectedManifest: GuardianRankManifest = {
+      ...manifest,
+      objectives: {
+        ...manifest.objectives,
+        objective7: { hash: "objective7", name: "Neptune", description: "", completionValue: 1 }
+      }
+    };
+    const profile = {
+      profile: { data: { currentGuardianRank: 6, renewedGuardianRank: 6 } },
+      characterRecords: { data: { c1: { records: { record7: { state: 4, objectives: [{ objectiveHash: "objective7", progress: 0, completionValue: 1, complete: false }] } } } } }
+    };
+
+    const objective = normalizeGuardianRanks(profile, affectedManifest, "c1").ranks[0]?.categories[0]?.quests[0]?.objectives[0];
+
+    expect(objective).toMatchObject({ name: "Completion", progress: 0, completionValue: 1, percent: 0 });
+  });
+
   it("maps rank 1 to rank 2 requirements and rank 7 to rank 8 requirements", () => {
     const mappingManifest: GuardianRankManifest = {
       version: "mapping",
