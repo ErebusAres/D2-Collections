@@ -455,6 +455,9 @@ describe("Build Advisor inventory and scoring", () => {
       expect(Object.values(recommendation.build.armorMods).every((entries) => entries.length === 3)).toBe(true);
       expect(recommendation.build.equipment.armor.filter((entry) => entry.exotic)).toHaveLength(recommendation.build.equipment.armor.length ? 1 : 0);
       expect(recommendation.build.equipment.weapons.filter((entry) => entry.exotic).length).toBeLessThanOrEqual(1);
+      const template = BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === recommendation.templateId)!;
+      expect(new Set(recommendation.build.equipment.armorSets.map((entry) => entry.setName))).toEqual(new Set(template.recommendedArmorSets || []));
+      expect(recommendation.build.equipment.armorSets.map((entry) => entry.requiredPieces)).toEqual(template.recommendedArmorSets?.length ? [2, 4] : []);
     }
   });
 
@@ -489,9 +492,13 @@ describe("Build Advisor inventory and scoring", () => {
     expect(recommendation.equipPlan).toMatchObject({ state: "ready", canEquip: true, itemCount: 8 });
   });
 
-  it("offers every current subclass for the Hunter advisor", () => {
-    const subclasses = BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === "hunter").map((template) => template.subclass);
-    expect(new Set(subclasses)).toEqual(new Set(["arc", "solar", "void", "strand", "stasis", "prismatic"]));
+  it("offers every current subclass for every Guardian class", () => {
+    const expected = new Set(["arc", "solar", "void", "strand", "stasis", "prismatic"]);
+    for (const classType of ["hunter", "titan", "warlock"] as const) {
+      const subclasses = BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === classType).map((template) => template.subclass);
+      expect(new Set(subclasses)).toEqual(expected);
+    }
+    expect(new Set(BUILD_ADVISOR_TEMPLATES.map((template) => `${template.classType}:${template.subclass}`)).size).toBe(18);
   });
 
   it("keeps several current-sandbox options per class with one exotic armor and one exotic weapon", () => {

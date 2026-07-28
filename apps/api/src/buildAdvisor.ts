@@ -752,7 +752,12 @@ function buildDocumentFromRecommendation(
     equipment: {
       weapons: weapons.flatMap((weapon) => weapon.item ? [equipmentEntry(weapon.item, weapon)] : []),
       armor: armor.flatMap((entry) => entry.item ? [equipmentEntry(entry.item)] : []),
-      armorSets: []
+      armorSets: (template.recommendedArmorSets || []).flatMap((setName) => ([2, 4].map((requiredPieces) => ({
+        name: `${setName} · ${requiredPieces}-piece`,
+        setName,
+        requiredPieces,
+        required: true
+      }))))
     },
     statPriorities: template.statPriorities,
     ghostFocus,

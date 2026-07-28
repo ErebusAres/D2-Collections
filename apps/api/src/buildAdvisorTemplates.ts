@@ -52,6 +52,7 @@ export interface BuildAdvisorTemplate {
     aspects: string[];
     fragments: string[];
   };
+  recommendedArmorSets?: string[];
   armorMods: Partial<Record<"helmet" | "arms" | "chest" | "legs" | "classItem", string[]>>;
   statPriorities: Array<{ stat: BuildStatName; priority: number; target?: number; notes?: string }>;
   artifactPerks: string[];
@@ -77,8 +78,8 @@ export interface BuildAdvisorTemplate {
   upgrades: string[];
 }
 
-export const BUILD_ADVISOR_TEMPLATE_SET_VERSION = 3;
-export const BUILD_ADVISOR_TEMPLATE_REVIEWED_AT = "2026-07-27";
+export const BUILD_ADVISOR_TEMPLATE_SET_VERSION = 4;
+export const BUILD_ADVISOR_TEMPLATE_REVIEWED_AT = "2026-07-28";
 export const BUILD_ADVISOR_CURRENT_SANDBOX = "Monument of Triumph · Update 9.7.0";
 export const BUILD_ADVISOR_CURRENT_SANDBOX_RELEASED_AT = "2026-06-09";
 export const BUILD_ADVISOR_CURATED_VERIFICATION: BuildAdvisorVerification = {
@@ -97,6 +98,13 @@ const sharedMods = {
   legs: ["Recuperation", "Innervation", "Invigoration"],
   classItem: ["Reaper", "Powerful Attraction", "Time Dilation"]
 } satisfies BuildAdvisorTemplate["armorMods"];
+
+function currentVerification(label: string, url: string): BuildAdvisorVerification {
+  return {
+    ...BUILD_ADVISOR_CURATED_VERIFICATION,
+    sources: [...BUILD_ADVISOR_CURATED_VERIFICATION.sources, { label, url }]
+  };
+}
 
 function stats(...entries: Array<[BuildStatName, number, string]>): BuildAdvisorTemplate["statPriorities"] {
   return entries.map(([stat, target, notes], index) => ({ stat, priority: index + 1, target, notes }));
@@ -618,6 +626,188 @@ export const BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
     role: "General PvE, survivability, and add clear",
     damageProfile: "medium", bossDamage: "medium", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "medium", solo: "high", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "low",
     upgrades: ["Turncoat and its catalyst", "A current heavy weapon with a reload-and-damage perk pairing"]
+  },
+  {
+    id: "titan-solar-hallowfire", version: 1, reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT, release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Hallowfire Heart Sunbreaker reviewed against Update 9.7.0 and Divide's June 2026 Solar Titan guide.",
+    verification: currentVerification("Current Solar Titan build guide", "https://mobalytics.gg/destiny-2/builds/titan/solar/divide-titan-solar-dps-ability"),
+    enabled: true, name: "Sunfire Furnace Titan", classType: "titan", subclass: "solar",
+    summary: "Throwing Hammer, Sunspots, and Hallowfire Heart build Sunfire Furnace stacks for repeated ability and Super windows.",
+    requiredExoticArmor: "Hallowfire Heart", preferredExoticWeapon: "Sunshot",
+    ghostFocus: { archetype: "Skirmisher", primaryStat: "Melee", secondaryStat: "Weapons", notes: "Favor Melee for the Throwing Hammer loop, then Weapons for Solar cleanup between ability defeats." },
+    weapons: [
+      { id: "kinetic-special", label: "Kinetic-slot special", slots: ["Kinetic Weapons"], archetypes: ["Fusion Rifle", "Shotgun", "Grenade Launcher", "Sniper Rifle"], preferredPerks: ["Recombination", "Chill Clip"], acceptablePerks: ["Lead from Gold", "Vorpal Weapon"] },
+      { id: "exotic-primary", label: "Key exotic weapon", slots: ["Energy Weapons"], preferredNames: ["Sunshot"], requiresExotic: true },
+      { id: "damage-heavy", label: "Boss-capable heavy", slots: ["Power Weapons"], archetypes: ["Sword", "Rocket Launcher", "Grenade Launcher"], preferredPerks: ["Bait and Switch", "Explosive Light"], acceptablePerks: ["Vorpal Weapon", "Frenzy"] }
+    ],
+    abilities: { super: "Burning Maul", classAbility: "Rally Barricade", movement: "Catapult Lift", melee: "Throwing Hammer", grenade: "Healing Grenade", aspects: ["Roaring Flames", "Sol Invictus"], fragments: ["Ember of Torches", "Ember of Combustion", "Ember of Solace", "Ember of Ashes"] },
+    recommendedArmorSets: ["Lustrous"],
+    armorMods: { ...sharedMods, arms: ["Heavy Handed", "Impact Induction", "Focusing Strike"], legs: ["Recuperation", "Solar Weapon Surge", "Invigoration"] },
+    statPriorities: stats(["Melee", 100, "Throwing Hammer drives the loop."], ["Super", 100, "Hallowfire converts furnace stacks through Burning Maul."], ["Weapons", 100, "Solar weapons maintain pressure between abilities."], ["Grenade", 70, "Healing Grenade is the safety reset."], ["Class", 50, "Barricade supports exposed lanes."], ["Health", 30, "Healing and Sunspots provide the primary sustain."]),
+    artifactPerks: [], artifactDependency: "none",
+    gameplayLoop: ["Defeat an enemy with Throwing Hammer to create a Sunspot.", "Collect Orbs and Firesprites while maintaining Radiant and Restoration.", "Build Sunfire Furnace while the Super is charged.", "Cast Burning Maul at maximum value, then rebuild the loop."],
+    damageRotation: ["Become Radiant and establish Roaring Flames.", "Cast Burning Maul after building Sunfire Furnace.", "Use the strongest owned heavy while abilities recover."],
+    activities: ["General PvE", "Dungeons", "Solo activities", "Boss encounters"],
+    strengths: ["Strong ability damage", "Reliable healing", "Fast Super cycling"], weaknesses: ["Throwing Hammer retrieval matters", "Long-range encounters reduce melee value"],
+    style: "Close-range Solar ability pressure with a charged-Super payoff.", role: "Ability damage and solo sustain",
+    damageProfile: "high", bossDamage: "high", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "medium", solo: "high", group: "medium", powerFriendly: true, difficultExecution: false, teammateDependency: "none",
+    upgrades: ["Sunshot and its catalyst", "Photogalvanic armor pieces", "A current reload-and-damage heavy roll"]
+  },
+  {
+    id: "titan-stasis-icefall", version: 1, reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT, release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Icefall crystal-shatter Behemoth reviewed against Update 9.7.0 and Rick Kackis's June 2026 Stasis guide.",
+    verification: currentVerification("Current Stasis Titan build guide", "https://mobalytics.gg/destiny-2/builds/titan/stasis/rickkackis-nuclear-bomb-shatters"),
+    enabled: true, name: "Nuclear Shatter Titan", classType: "titan", subclass: "stasis",
+    summary: "Howl of the Storm and Glacier Grenade flood the field with crystals while Icefall Mantle supplies Frost Armor and healing.",
+    requiredExoticArmor: "Icefall Mantle", preferredExoticWeapon: "Ice Breaker",
+    ghostFocus: { archetype: "Skirmisher", primaryStat: "Melee", secondaryStat: "Weapons", notes: "Melee fuels Howl of the Storm; Weapons improves the Stasis and Kinetic shatter follow-up." },
+    weapons: [
+      { id: "stasis-primary", label: "Stasis primary", slots: ["Kinetic Weapons"], damageTypes: ["Stasis"], archetypes: ["Submachine Gun", "Auto Rifle", "Pulse Rifle", "Hand Cannon"], preferredPerks: ["Headstone"], acceptablePerks: ["Rimestealer", "Frenzy"] },
+      { id: "exotic-special", label: "Key exotic weapon", slots: ["Energy Weapons"], preferredNames: ["Ice Breaker"], requiresExotic: true },
+      { id: "damage-heavy", label: "Reliable heavy", slots: ["Power Weapons"], archetypes: ["Machine Gun", "Grenade Launcher", "Rocket Launcher"], preferredPerks: ["Bait and Switch", "Explosive Light"], acceptablePerks: ["Frenzy", "Vorpal Weapon"] }
+    ],
+    abilities: { super: "Glacial Quake", classAbility: "Rally Barricade", movement: "Strafe Lift", melee: "Shiver Strike", grenade: "Glacier Grenade", aspects: ["Howl of the Storm", "Tectonic Harvest"], fragments: ["Whisper of Fissures", "Whisper of Shards", "Whisper of Conduction", "Whisper of Rime"] },
+    recommendedArmorSets: ["Seventh Seraph"],
+    armorMods: { ...sharedMods, arms: ["Heavy Handed", "Impact Induction", "Focusing Strike"], legs: ["Recuperation", "Stasis Weapon Surge", "Invigoration"] },
+    statPriorities: stats(["Weapons", 100, "Weapon damage detonates the crystal field."], ["Melee", 100, "Howl of the Storm is the main crystal generator."], ["Grenade", 100, "Glacier Grenade expands the shatter chain."], ["Super", 70, "Glacial Quake supplies major shatter windows."], ["Class", 50, "Icefall replaces and benefits from class ability uptime."], ["Health", 30, "Frost Armor is the primary defensive engine."]),
+    artifactPerks: [], artifactDependency: "none",
+    gameplayLoop: ["Slide-melee with Howl of the Storm to create crystals.", "Break crystals with Stasis or Kinetic damage.", "Collect Shatter Shards to maintain Frost Armor and ability energy.", "Use Icefall Mantle before dangerous pushes."],
+    damageRotation: ["Create a dense crystal field with Howl and Glacier Grenade.", "Shatter the field with Ice Breaker or the best owned weapon.", "Cast Glacial Quake when the target and arena support repeated shatters."],
+    activities: ["Endgame PvE", "Onslaught", "Solo activities", "Crowd control"],
+    strengths: ["Exceptional crowd control", "High shatter damage", "Strong Frost Armor sustain"], weaknesses: ["Crystal placement can obstruct teammates", "Boss performance varies by arena"],
+    style: "Deliberate crystal creation followed by large chained shatters.", role: "Crowd control, area damage, and survivability",
+    damageProfile: "high", bossDamage: "medium", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "medium", solo: "high", group: "medium", powerFriendly: true, difficultExecution: false, teammateDependency: "none",
+    upgrades: ["Ice Breaker and its catalyst", "Seventh Seraph armor pieces", "A Stasis primary with Headstone or Rimestealer"]
+  },
+  {
+    id: "titan-prismatic-consecration", version: 1, reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT, release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Stoicism Consecration setup reviewed against Update 9.7.0 and Rick Kackis's July 2026 Prismatic Titan guide.",
+    verification: currentVerification("Current Prismatic Titan build guide", "https://mobalytics.gg/destiny-2/builds/titan/prismatic/rickkackis-consecration-titan"),
+    enabled: true, name: "Prismatic Consecration Titan", classType: "titan", subclass: "prismatic",
+    summary: "Three Frenzied Blade charges feed repeated Consecrations while Knockout and Prismatic buffs keep the Titan in the fight.",
+    requiredExoticArmor: "Stoicism", preferredExoticWeapon: "Conditional Finality",
+    ghostFocus: { archetype: "Skirmisher", primaryStat: "Melee", secondaryStat: "Weapons", notes: "Melee directly feeds Consecration charges; Weapons supports the rotation while charges recover." },
+    weapons: [
+      { id: "exotic-special", label: "Key exotic weapon", slots: ["Kinetic Weapons"], preferredNames: ["Conditional Finality"], requiresExotic: true },
+      { id: "solar-primary", label: "Solar primary", slots: ["Energy Weapons"], damageTypes: ["Solar"], archetypes: ["Auto Rifle", "Pulse Rifle", "Hand Cannon", "Submachine Gun"], preferredPerks: ["Incandescent"], acceptablePerks: ["Frenzy", "Pugilist"] },
+      { id: "damage-heavy", label: "Boss-capable heavy", slots: ["Power Weapons"], archetypes: ["Sword", "Rocket Launcher", "Grenade Launcher"], preferredPerks: ["Bait and Switch", "Explosive Light"], acceptablePerks: ["Vorpal Weapon", "Frenzy"] }
+    ],
+    abilities: { super: "Glacial Quake", classAbility: "Thruster", movement: "Strafe Lift", melee: "Frenzied Blade", grenade: "Glacier Grenade", aspects: ["Consecration", "Knockout"], fragments: ["Facet of Protection", "Facet of Purpose", "Facet of Ruin", "Facet of Courage"] },
+    recommendedArmorSets: ["Legacy's Oath"],
+    armorMods: { ...sharedMods, arms: ["Heavy Handed", "Impact Induction", "Focusing Strike"], legs: ["Recuperation", "Solar Weapon Surge", "Invigoration"] },
+    statPriorities: stats(["Melee", 100, "Every Frenzied Blade charge can become Consecration."], ["Super", 100, "Glacial Quake and Facet of Purpose support the loop."], ["Grenade", 100, "Glacier Grenade supplies control and Darkness energy."], ["Weapons", 70, "Weapons bridge melee-charge downtime."], ["Class", 50, "Thruster supports Reaper and positioning."], ["Health", 30, "Knockout and defensive buffs supply sustain."]),
+    artifactPerks: [], artifactDependency: "none",
+    gameplayLoop: ["Slide and spend Frenzied Blade through Consecration.", "Use Knockout follow-ups to heal and maintain pressure.", "Alternate Light and Dark damage to charge Transcendence.", "Use Transcendence to accelerate the entire ability loop."],
+    damageRotation: ["Freeze or control the target with Glacier Grenade or Conditional Finality.", "Chain Consecration slams through available melee charges.", "Use the heavy weapon or Glacial Quake when melee access is unsafe."],
+    activities: ["Endgame PvE", "Solo activities", "Nightfalls", "Dungeons"],
+    strengths: ["Very high melee damage", "Strong add clear", "Multiple melee charges"], weaknesses: ["Requires close-range execution", "Preferred Stoicism spirit roll is not guaranteed"],
+    style: "Aggressive repeated Consecration with Prismatic control and healing.", role: "Endgame add clear and close-range burst",
+    damageProfile: "high", bossDamage: "high", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "medium", solo: "high", group: "high", powerFriendly: false, difficultExecution: true, teammateDependency: "none",
+    upgrades: ["Stoicism with a melee-focused spirit pairing", "Cursed Fist armor pieces", "Conditional Finality and its catalyst"]
+  },
+  {
+    id: "warlock-solar-battle-harmony", version: 1, reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT, release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Solar Well and Mantle of Battle Harmony setup reviewed against Update 9.7.0 and Plunder's July 2026 guide.",
+    verification: currentVerification("Current Solar Warlock build guide", "https://mobalytics.gg/destiny-2/builds/warlock/solar/plunder-best-well-warlock"),
+    enabled: true, name: "Battle Harmony Well-Lock", classType: "warlock", subclass: "solar",
+    summary: "Solar weapon pressure fuels Well of Radiance through Mantle of Battle Harmony while Hellion and Touch of Flame control the room.",
+    requiredExoticArmor: "Mantle of Battle Harmony", preferredExoticWeapon: "Prometheus Lens",
+    ghostFocus: { archetype: "Colossus", primaryStat: "Super", secondaryStat: "Health", notes: "Favor Super for Well uptime and Health for safe support positioning." },
+    weapons: [
+      { id: "kinetic-primary", label: "Kinetic-slot primary", slots: ["Kinetic Weapons"], archetypes: ["Auto Rifle", "Pulse Rifle", "Scout Rifle"], preferredPerks: ["Kinetic Tremors"], acceptablePerks: ["Frenzy", "One for All"] },
+      { id: "exotic-special", label: "Key exotic weapon", slots: ["Energy Weapons"], preferredNames: ["Prometheus Lens"], requiresExotic: true },
+      { id: "solar-heavy", label: "Solar heavy", slots: ["Power Weapons"], damageTypes: ["Solar"], archetypes: ["Machine Gun", "Rocket Launcher", "Grenade Launcher"], preferredPerks: ["Bait and Switch", "Explosive Light"], acceptablePerks: ["Frenzy", "Vorpal Weapon"] }
+    ],
+    abilities: { super: "Well of Radiance", classAbility: "Phoenix Dive", movement: "Burst Glide", melee: "Incinerator Snap", grenade: "Healing Grenade", aspects: ["Hellion", "Touch of Flame"], fragments: ["Ember of Ashes", "Ember of Empyrean", "Ember of Eruption", "Ember of Singeing"] },
+    recommendedArmorSets: ["Exodus Down"],
+    armorMods: { ...sharedMods, arms: ["Firepower", "Bolstering Detonation", "Momentum Transfer"], legs: ["Recuperation", "Solar Weapon Surge", "Innervation"] },
+    statPriorities: stats(["Super", 100, "Well of Radiance is the team and damage anchor."], ["Weapons", 100, "Matching Solar damage drives Battle Harmony."], ["Class", 100, "Phoenix Dive deploys Hellion and emergency healing."], ["Grenade", 70, "Healing Grenade extends support uptime."], ["Melee", 50, "Incinerator Snap supplies scorch and ignitions."], ["Health", 30, "Restoration and positioning are the main defenses."]),
+    artifactPerks: [], artifactDependency: "none",
+    gameplayLoop: ["Use Solar weapon damage to build Super through Battle Harmony.", "Deploy Hellion with Phoenix Dive.", "Extend Solar buffs through Ember of Empyrean.", "Cast Well for team damage or a dangerous hold."],
+    damageRotation: ["Apply scorch with Hellion, melee, or Prometheus Lens.", "Cast Well before the coordinated damage window.", "Use the best Solar heavy while Battle Harmony and surge effects are active."],
+    activities: ["Raids", "Dungeons", "Nightfalls", "Group activities"],
+    strengths: ["Excellent team support", "Fast Super generation", "Strong Solar weapon damage"], weaknesses: ["Lower damage reduction outside healing effects", "Best value requires matching Solar weapons"],
+    style: "Weapon-led Solar support with frequent Well and Hellion uptime.", role: "Team support and sustained Solar damage",
+    damageProfile: "high", bossDamage: "high", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "low", solo: "medium", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "low",
+    upgrades: ["Prometheus Lens and its catalyst", "Exodus Down or Smoke Jumper armor pieces", "A Solar heavy with a current damage roll"]
+  },
+  {
+    id: "warlock-strand-mataiodoxia", version: 1, reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT, release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Mataiodoxia Broodweaver reviewed against Update 9.7.0 and ImNexusss's July 2026 Strand guide.",
+    verification: currentVerification("Current Strand Warlock build guide", "https://mobalytics.gg/destiny-2/builds/warlock/strand/imnexusss-ultimate-strand-warlock"),
+    enabled: true, name: "Suspending Broodweaver", classType: "warlock", subclass: "strand",
+    summary: "Mataiodoxia turns Arcane Needle into reliable suspension while Weavewalk and Threadlings provide safety and pressure.",
+    requiredExoticArmor: "Mataiodoxia", preferredExoticWeapon: "Barrow-Dyad",
+    ghostFocus: { archetype: "Skirmisher", primaryStat: "Melee", secondaryStat: "Weapons", notes: "Melee feeds Arcane Needle suspension; Weapons improves Barrow-Dyad and Strand follow-up." },
+    weapons: [
+      { id: "exotic-primary", label: "Key exotic weapon", slots: ["Kinetic Weapons"], preferredNames: ["Barrow-Dyad"], requiresExotic: true },
+      { id: "energy-primary", label: "Energy primary", slots: ["Energy Weapons"], archetypes: ["Pulse Rifle", "Auto Rifle", "Hand Cannon"], preferredPerks: ["Voltshot", "Incandescent"], acceptablePerks: ["Frenzy", "One for All"] },
+      { id: "strand-heavy", label: "Strand heavy", slots: ["Power Weapons"], damageTypes: ["Strand"], archetypes: ["Linear Fusion Rifle", "Machine Gun", "Grenade Launcher"], preferredPerks: ["Bait and Switch", "Firing Line"], acceptablePerks: ["Frenzy", "Vorpal Weapon"] }
+    ],
+    abilities: { super: "Needlestorm", classAbility: "Healing Rift", movement: "Burst Glide", melee: "Arcane Needle", grenade: "Shackle Grenade", aspects: ["Weavewalk", "The Wanderer"], fragments: ["Thread of Rebirth", "Thread of Evolution", "Thread of Generation", "Thread of Warding", "Thread of Propagation"] },
+    recommendedArmorSets: ["Seventh Seraph"],
+    armorMods: { ...sharedMods, arms: ["Firepower", "Impact Induction", "Momentum Transfer"], legs: ["Recuperation", "Strand Weapon Surge", "Invigoration"] },
+    statPriorities: stats(["Super", 100, "Needlestorm provides the main burst window."], ["Grenade", 100, "Shackle Grenade supplies immediate control."], ["Melee", 100, "Arcane Needle activates Mataiodoxia."], ["Class", 70, "Healing Rift stabilizes difficult holds."], ["Weapons", 50, "Strand weapons sustain unravel and Threadlings."], ["Health", 30, "Woven Mail and Weavewalk are the primary defense."]),
+    artifactPerks: [], artifactDependency: "none",
+    gameplayLoop: ["Tag priority targets with Arcane Needle.", "Defeat marked targets to trigger suspending detonations.", "Use Weavewalk to reposition and generate perched Threadlings.", "Throw or destroy Tangles to continue the control loop."],
+    damageRotation: ["Apply unravel and suspension before Needlestorm.", "Cast Needlestorm on the priority target.", "Follow with the strongest owned Strand heavy while Threadlings continue attacking."],
+    activities: ["Endgame PvE", "Nightfalls", "Solo activities", "Crowd control"],
+    strengths: ["Reliable suspension", "Strong ranged melee economy", "Safe repositioning"], weaknesses: ["Melee-charge management matters", "Boss damage depends on Needlestorm tracking and heavy roll"],
+    style: "Ranged Strand control through Arcane Needle, Threadlings, and Tangles.", role: "Crowd control and ranged ability damage",
+    damageProfile: "high", bossDamage: "high", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "medium", solo: "high", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "none",
+    upgrades: ["Barrow-Dyad and its catalyst", "Seventh Seraph armor pieces", "A Strand heavy with a current damage roll"]
+  },
+  {
+    id: "warlock-stasis-frostpulse", version: 1, reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT, release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Frostpulse Shadebinder reviewed against Update 9.7.0 and RestAssured's June 2026 Stasis guide.",
+    verification: currentVerification("Current Stasis Warlock build guide", "https://mobalytics.gg/destiny-2/builds/warlock/stasis/rest-definitive-frostpulse"),
+    enabled: true, name: "Frostpulse Fortress Warlock", classType: "warlock", subclass: "stasis",
+    summary: "Frostpulse freezes nearby enemies on Rift cast while Glacial Harvest converts the control loop into Frost Armor.",
+    requiredExoticArmor: "Vesper of Radius", preferredExoticWeapon: "Ager's Scepter",
+    ghostFocus: { archetype: "Reaver", primaryStat: "Class", secondaryStat: "Melee", notes: "Class maximizes Frostpulse Rift access; Melee supports Penumbral Blast between casts." },
+    weapons: [
+      { id: "exotic-special", label: "Key exotic weapon", slots: ["Kinetic Weapons"], preferredNames: ["Ager's Scepter"], requiresExotic: true },
+      { id: "energy-primary", label: "Energy primary", slots: ["Energy Weapons"], archetypes: ["Auto Rifle", "Pulse Rifle", "Hand Cannon"], preferredPerks: ["Demolitionist", "Attrition Orbs"], acceptablePerks: ["Frenzy", "One for All"] },
+      { id: "stasis-heavy", label: "Stasis heavy", slots: ["Power Weapons"], damageTypes: ["Stasis"], archetypes: ["Rocket Launcher", "Grenade Launcher", "Machine Gun"], preferredPerks: ["Bait and Switch", "Explosive Light"], acceptablePerks: ["Frenzy", "Vorpal Weapon"] }
+    ],
+    abilities: { super: "Winter's Wrath", classAbility: "Healing Rift", movement: "Burst Glide", melee: "Penumbral Blast", grenade: "Shatter Grenade", aspects: ["Frostpulse", "Glacial Harvest"], fragments: ["Whisper of Fissures", "Whisper of Refraction", "Whisper of Conduction", "Whisper of Rime", "Whisper of Torment"] },
+    recommendedArmorSets: ["Corrupting Echo"],
+    armorMods: { ...sharedMods, arms: ["Bolstering Detonation", "Focusing Strike", "Momentum Transfer"], legs: ["Recuperation", "Stasis Weapon Surge", "Innervation"] },
+    statPriorities: stats(["Class", 100, "Every Rift is a Frostpulse control and armor trigger."], ["Weapons", 100, "Ager's Scepter drives repeated freezes."], ["Grenade", 100, "Shatter Grenade adds direct burst and control."], ["Melee", 70, "Penumbral Blast stops priority targets."], ["Super", 50, "Winter's Wrath is the emergency freeze field."], ["Health", 30, "Frost Armor and Rift healing provide sustain."]),
+    artifactPerks: [], artifactDependency: "none",
+    gameplayLoop: ["Cast Healing Rift near enemies to trigger Frostpulse.", "Collect Shatter Shards from frozen targets to gain Frost Armor.", "Use Ager's Scepter and Shatter Grenade to chain freezes and shatters.", "Recycle Rift energy through Whisper of Refraction."],
+    damageRotation: ["Freeze the field before exposing yourself.", "Shatter grouped targets with the best owned weapon.", "Use Winter's Wrath or Ager's catalyst mode for major control windows."],
+    activities: ["Endgame PvE", "Onslaught", "Solo activities", "Crowd control"],
+    strengths: ["Excellent freeze control", "Strong Frost Armor sustain", "Safe solo play"], weaknesses: ["Requires close Rift placement for Frostpulse", "Lower direct boss damage than damage-first subclasses"],
+    style: "Defensive Rift placement that turns into repeated freezes and shatters.", role: "Endgame crowd control and survivability",
+    damageProfile: "medium", bossDamage: "low", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "medium", solo: "high", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "none",
+    upgrades: ["Ager's Scepter and its catalyst", "Corrupting Echo armor for Overflowing Coffers", "A Stasis heavy with a current damage roll"]
+  },
+  {
+    id: "warlock-prismatic-buddies", version: 1, reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT, release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: "Getaway Artist buddy setup reviewed against Update 9.7.0 and RestAssured's July 2026 Prismatic guide.",
+    verification: currentVerification("Current Prismatic Warlock build guide", "https://mobalytics.gg/destiny-2/builds/warlock/prismatic/rest-definitive-buddies"),
+    enabled: true, name: "Prismatic Buddy Warlock", classType: "warlock", subclass: "prismatic",
+    summary: "Getaway Artist, Hellion, and Devour create autonomous pressure while the Warlock cycles grenade energy and Transcendence.",
+    requiredExoticArmor: "Getaway Artist", preferredExoticWeapon: "No Time to Explain",
+    ghostFocus: { archetype: "Demolitionist", primaryStat: "Grenade", secondaryStat: "Class", notes: "Grenade sustains Getaway Artist; Class keeps Phoenix Dive and Hellion available." },
+    weapons: [
+      { id: "exotic-primary", label: "Key exotic weapon", slots: ["Kinetic Weapons"], preferredNames: ["No Time to Explain"], requiresExotic: true },
+      { id: "energy-special", label: "Energy special", slots: ["Energy Weapons"], archetypes: ["Fusion Rifle", "Shotgun", "Grenade Launcher"], preferredPerks: ["Lead from Gold", "Controlled Burst"], acceptablePerks: ["Vorpal Weapon", "Frenzy"] },
+      { id: "damage-heavy", label: "Boss-capable heavy", slots: ["Power Weapons"], archetypes: ["Rocket Launcher", "Grenade Launcher", "Machine Gun"], preferredPerks: ["Bait and Switch", "Explosive Light"], acceptablePerks: ["Frenzy", "Vorpal Weapon"] }
+    ],
+    abilities: { super: "Song of Flame", classAbility: "Phoenix Dive", movement: "Burst Glide", melee: "Arcane Needle", grenade: "Storm Grenade", aspects: ["Feed the Void", "Hellion"], fragments: ["Facet of Protection", "Facet of Purpose", "Facet of Courage", "Facet of Dominance"] },
+    recommendedArmorSets: ["Smoke Jumper"],
+    armorMods: { ...sharedMods, arms: ["Firepower", "Bolstering Detonation", "Momentum Transfer"], legs: ["Recuperation", "Kinetic Weapon Surge", "Innervation"] },
+    statPriorities: stats(["Grenade", 100, "Storm Grenade is consumed for the Getaway Arc Soul."], ["Class", 100, "Phoenix Dive deploys Hellion and emergency healing."], ["Super", 100, "Song of Flame provides damage and survival."], ["Weapons", 70, "Weapon damage layers another autonomous buddy."], ["Melee", 50, "Arcane Needle supplies Darkness energy."], ["Health", 30, "Devour and Phoenix Dive are the primary sustain."]),
+    artifactPerks: [], artifactDependency: "none",
+    gameplayLoop: ["Consume Storm Grenade to create the Getaway Arc Soul.", "Use Phoenix Dive to deploy Hellion.", "Maintain Devour through ability and weapon defeats.", "Alternate Light and Dark damage to enter Transcendence."],
+    damageRotation: ["Deploy Arc Soul and Hellion before engaging.", "Use Transcendence or Song of Flame for major waves.", "Apply the strongest heavy rotation while autonomous buddies continue firing."],
+    activities: ["Endgame PvE", "Nightfalls", "Solo activities", "General PvE"],
+    strengths: ["High autonomous damage", "Excellent Devour sustain", "Easy target coverage"], weaknesses: ["Grenade is committed to Arc Soul upkeep", "Can feel passive when all buddies are active"],
+    style: "Layered autonomous companions backed by Devour and Prismatic uptime.", role: "Safe endgame damage and add clear",
+    damageProfile: "high", bossDamage: "high", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "low", solo: "high", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "none",
+    upgrades: ["Getaway Artist", "Smoke Jumper armor for its Orb-based protection", "No Time to Explain and its catalyst"]
   }
 ];
 
