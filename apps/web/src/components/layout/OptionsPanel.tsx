@@ -1,5 +1,5 @@
 import type { FireteamData, ReportAdminSummaryData } from "@guardian-nexus/contracts";
-import { Bug, ChevronRight, ClipboardList, LogOut, RefreshCcw, Trash2, X } from "lucide-react";
+import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, Hammer, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
@@ -71,16 +71,25 @@ export function OptionsPanel({ open, onClose, reportSummary }: { open: boolean; 
           <h3>Fireteam privacy</h3>
           <Toggle label="Always share with friends" description={fireteam.data?.data.sharingMode === "persistent" ? "Background updates are active until you disable sharing or sign out." : "Keep a timestamped last-known snapshot visible to your current fireteam."} checked={fireteam.data?.data.sharingMode === "persistent"} onChange={(value) => setPersistentSharing.mutate(value)} />
         </section>}
+        {session?.roles.reportAdmin && <section className={styles.adminTools}>
+          <h3>Admin tools</h3>
+          <div>
+            <Link className={styles.ticketQueue} to="/reports/admin" onClick={onClose}>
+              <ClipboardList size={17} />
+              <span><b>Ticket queue</b><small>{reportSummary ? `${reportSummary.counts.open} new · ${reportSummary.counts.in_progress} in progress` : "Loading…"}</small></span>
+              <strong aria-label={`${reportSummary?.unresolvedCount ?? 0} unresolved tickets`}>{reportSummary?.unresolvedCount ?? 0}</strong>
+              <ChevronRight size={14} />
+            </Link>
+            {session.roles.dev && <AdminLink to="/audience" label="Audience" icon={<Eye />} onClick={onClose} />}
+            {session.roles.dev && <AdminLink to="/dev" label="API Lab" icon={<Wrench />} onClick={onClose} />}
+            {session.roles.buildEditor && <AdminLink to="/builds/new" label="Build editor" icon={<Hammer />} onClick={onClose} />}
+            {session.roles.matrixWriter && <AdminLink to="/matrix" label="Matrix sync" icon={<GitCompareArrows />} onClick={onClose} />}
+          </div>
+        </section>}
         <section className={styles.actions}>
           <button onClick={() => void guardianState.refresh()}><RefreshCcw size={17} /> Refresh all data</button>
           <button onClick={() => void clearLocalData()}><Trash2 size={17} /> Clear local Guardian data</button>
           {session?.authenticated && <button className={styles.danger} onClick={() => signOut.mutate()} disabled={signOut.isPending}><LogOut size={17} /> Sign out</button>}
-          {session?.roles.reportAdmin && <Link className={styles.ticketQueue} to="/reports/admin" onClick={onClose}>
-            <ClipboardList size={17} />
-            <span><b>Open tickets</b><small>{reportSummary ? `${reportSummary.counts.open} new · ${reportSummary.counts.in_progress} in progress` : "Loading ticket queue…"}</small></span>
-            <strong aria-label={`${reportSummary?.unresolvedCount ?? 0} unresolved tickets`}>{reportSummary?.unresolvedCount ?? 0}</strong>
-            <ChevronRight size={14} />
-          </Link>}
           <Link className={styles.feedback} to={`/reports?from=${encodeURIComponent(`${location.pathname}${location.search}`)}`} onClick={onClose}>
             <Bug size={17} /><span><b>Feedback &amp; reports</b><small>Report a bug or suggest an update</small></span><ChevronRight size={14} />
           </Link>
@@ -88,6 +97,10 @@ export function OptionsPanel({ open, onClose, reportSummary }: { open: boolean; 
       </aside>
     </>
   );
+}
+
+function AdminLink({ to, label, icon, onClick }: { to: string; label: string; icon: React.ReactNode; onClick: () => void }) {
+  return <Link to={to} onClick={onClick}>{icon}<b>{label}</b><ChevronRight size={13} /></Link>;
 }
 
 function Toggle({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (value: boolean) => void }) {

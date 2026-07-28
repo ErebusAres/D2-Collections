@@ -9,6 +9,7 @@ import { Shell } from "./Shell";
 
 let devRole = false;
 let reportAdminRole = false;
+let editorRole = false;
 
 vi.mock("../../context/GuardianContext", () => ({
   useGuardian: () => ({
@@ -24,7 +25,7 @@ vi.mock("../../context/GuardianContext", () => ({
         stats: { power: 409, guardianRank: 5, crucibleRank: { kind: "crucible", progressionHash: "10", name: "Crucible Rank", description: "", icon: "", rankName: "Brave II", level: 7, stepIndex: 1, currentProgress: 4_250, progressToNextLevel: 250, nextLevelAt: 500, percent: 50, resets: 2 }, rewardsPassRank: 33, rewardsPassProgress: { state: "available", source: "bungie-profile-character-progressions", progressToNextLevel: 2_750, nextLevelAt: 100_000 }, mailboxCount: 4 },
         isInGame: false
       },
-      roles: { dev: devRole, matrixWriter: false, buildEditor: false, reportAdmin: reportAdminRole }
+      roles: { dev: devRole, matrixWriter: editorRole, buildEditor: editorRole, reportAdmin: reportAdminRole }
     },
     loading: false,
     signIn: vi.fn(),
@@ -49,6 +50,7 @@ vi.mock("../../modules/reward-codes/rewardCodeStatus", () => ({ useRewardCodeSta
 afterEach(() => {
   devRole = false;
   reportAdminRole = false;
+  editorRole = false;
   cleanup();
   vi.clearAllMocks();
 });
@@ -82,11 +84,13 @@ describe("Shell guardian identity", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
     const feedback = screen.getByRole("link", { name: /Feedback & reports/i });
     expect(feedback.getAttribute("href")).toBe("/reports?from=%2F");
-    expect(screen.queryByRole("link", { name: /Open tickets/i })).toBeNull();
+    expect(screen.queryByText("Admin tools")).toBeNull();
   });
 
   it("shows the unresolved ticket queue only to report administrators", async () => {
     reportAdminRole = true;
+    devRole = true;
+    editorRole = true;
     vi.mocked(api).mockImplementation(async (path) => path === "/api/v1/admin/reports/summary"
       ? { data: { counts: { open: 2, in_progress: 1, completed: 4, dismissed: 1 }, unresolvedCount: 3 }, freshness: { state: "fresh", observedAt: "2026-07-16T00:00:00Z" }, warnings: [], requestId: "ticket-summary" }
       : { data: { rewards: [] }, freshness: { state: "fresh", observedAt: "2026-07-16T00:00:00Z" }, warnings: [], requestId: "test" });
@@ -97,9 +101,14 @@ describe("Shell guardian identity", () => {
     expect(options.className).toContain("optionsTicketAlert");
     fireEvent.click(options);
 
-    const queue = await screen.findByRole("link", { name: /Open tickets/i });
+    const queue = await screen.findByRole("link", { name: /Ticket queue/i });
     expect(queue.getAttribute("href")).toBe("/reports/admin");
     expect(await screen.findByText("2 new · 1 in progress")).toBeTruthy();
+    const adminTools = screen.getByText("Admin tools").closest("section")!;
+    expect(within(adminTools).getByRole("link", { name: "Audience" }).getAttribute("href")).toBe("/audience");
+    expect(within(adminTools).getByRole("link", { name: "API Lab" }).getAttribute("href")).toBe("/dev");
+    expect(within(adminTools).getByRole("link", { name: "Build editor" }).getAttribute("href")).toBe("/builds/new");
+    expect(within(adminTools).getByRole("link", { name: "Matrix sync" }).getAttribute("href")).toBe("/matrix");
   });
 
   it("keeps API Lab in its original slot and adds Build Advisor after it for developers", () => {
