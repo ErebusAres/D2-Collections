@@ -92,7 +92,7 @@ function XurCard({ item, historical }: { item: XurOffer; historical: boolean }) 
 }
 
 export function xurInventoryPresentation(data: Pick<XurData, "state" | "inventoryStatus" | "offers">, scheduleActive: boolean) {
-  const lastShipment = data.inventoryStatus === "last-shipment" || (data.state !== "available" && data.offers.length > 0);
+  const lastShipment = data.offers.length > 0 && (!scheduleActive || data.inventoryStatus === "last-shipment" || data.state !== "available");
   return {
     lastShipment,
     locationLabel: lastShipment ? scheduleActive ? "Last verified location" : "Previous location" : "Current location",
