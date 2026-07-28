@@ -1,6 +1,6 @@
 import type { CollectionData, ExoticCollectionEntry, GuardianRankData, GuardianRankQuest, QuestData, QuestProgress } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { Bookmark, ChevronRight, Compass, Crosshair, MapPin, Shield, Sparkles, Swords, Timer } from "lucide-react";
+import { Bookmark, CheckCircle2, ChevronRight, Compass, Crosshair, MapPin, Shield, Sparkles, Swords, Timer } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AuthGate, PageHeader, QueryState } from "../components/common/Page";
@@ -45,7 +45,7 @@ export function NextStepsPage() {
       <section className={styles.hero}><Compass /><div><span>Not sure what to do?</span><h2>Pick a route and keep Fireteam open</h2><p>Tracking a live pursuit adds it to the same shared Fireteam feed used by Destiny-tracked quests, Orders, and Guardian Rank objectives.</p></div></section>
       <section className={styles.section}>
         <header><Crosshair /><div><span>Recommended next</span><h2>{recommendations.length} game objectives</h2></div></header>
-        <div className={styles.goalGrid}>{recommendations.map((goal) => <article className={styles.goal} key={goal.id}>
+        <div className={styles.goalGrid}>{recommendations.length === 0 && <EmptySuggestion title="You're caught up" detail="No unfinished quests, rank objectives, or easy Exotic goals are available right now." />}{recommendations.map((goal) => <article className={styles.goal} key={goal.id}>
           <header><span>{goal.context}</span><strong>{goal.percent}%</strong></header><h3>{goal.title}</h3><p>{goal.detail}</p><i><span style={{ width: `${goal.percent}%` }} /></i>
           <footer>{goal.quest && <button type="button" data-active={tracked.includes(goal.quest.instanceId)} onClick={() => trackQuest(goal.quest!)}><Bookmark />{tracked.includes(goal.quest.instanceId) ? "Tracked for Fireteam" : "Track this quest"}</button>}<Link to={goal.to}>Open details <ChevronRight /></Link></footer>
         </article>)}</div>
@@ -57,7 +57,7 @@ export function NextStepsPage() {
 }
 
 function ExoticSection({ title, icon, entries, quests, tracked, onTrack }: { title: string; icon: React.ReactNode; entries: ExoticCollectionEntry[]; quests: QuestProgress[]; tracked: string[]; onTrack: (quest: QuestProgress) => void }) {
-  return <section className={styles.section}><header>{icon}<div><span>Collection expansion</span><h2>{title}</h2></div></header><div className={styles.exoticGrid}>{entries.map((entry) => {
+  return <section className={styles.section}><header>{icon}<div><span>Collection expansion</span><h2>{title}</h2></div></header><div className={styles.exoticGrid}>{entries.length === 0 && <EmptySuggestion title="Collection complete here" detail={`You already own every ${title.toLocaleLowerCase()} currently eligible for an easy acquisition route.`} />}{entries.map((entry) => {
     const prerequisiteQuest = matchingQuest(entry, quests);
     return <article className={styles.exotic} key={entry.itemHash}>
       <header>{entry.icon ? <img src={entry.icon} alt="" /> : <Sparkles />}<div><span>{entry.itemType}</span><h3>{entry.name}</h3></div><b>{difficulty(entry)}</b></header>
@@ -67,6 +67,10 @@ function ExoticSection({ title, icon, entries, quests, tracked, onTrack }: { tit
       <footer>{prerequisiteQuest ? <button type="button" data-active={tracked.includes(prerequisiteQuest.instanceId)} onClick={() => onTrack(prerequisiteQuest)}><Bookmark />{tracked.includes(prerequisiteQuest.instanceId) ? "Prerequisite tracked" : `Track ${prerequisiteQuest.name}`}</button> : <span><Timer /> Follow the route in Destiny</span>}<Link to="/collection">Collection details <ChevronRight /></Link></footer>
     </article>;
   })}</div></section>;
+}
+
+function EmptySuggestion({ title, detail }: { title: string; detail: string }) {
+  return <div className={styles.emptySuggestion}><CheckCircle2 /><div><strong>{title}</strong><span>{detail}</span></div></div>;
 }
 
 function gameSuggestions(questData?: QuestData, rankData?: GuardianRankData, collectionData?: CollectionData): SuggestedGoal[] {
