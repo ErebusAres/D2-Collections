@@ -1,0 +1,41 @@
+.nav {
+  display: flex;
+  gap: 2px;
+  padding: 6px;
+  margin: 0 0 22px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  background: rgba(5, 13, 19, .72);
+  scrollbar-width: thin;
+}
+
+.nav a {
+  min-width: max-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 13px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  transition: color .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.nav a:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, .035);
+}
+
+.nav a.active {
+  color: #d8f7ff;
+  border-color: rgba(80, 208, 232, .38);
+  background: linear-gradient(135deg, rgba(31, 133, 159, .24), rgba(13, 38, 48, .45));
+}
+
+.nav svg {
+  width: 15px;
+  height: 15px;
+}

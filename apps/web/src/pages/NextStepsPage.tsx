@@ -80,7 +80,7 @@ function gameSuggestions(questData?: QuestData, rankData?: GuardianRankData, col
     .slice(0, 6)
     .map((quest): SuggestedGoal => ({ id: `quest:${quest.instanceId}`, title: quest.name, detail: quest.currentStep || quest.description, context: quest.category === "order" ? "Vanguard Order" : quest.isExoticUnlock ? "Exotic quest" : "Quest", percent: quest.percent, to: `/quests/${encodeURIComponent(quest.instanceId)}`, quest }));
   const rankGoals = currentRankQuests(rankData).slice(0, 2).map((quest): SuggestedGoal => ({
-    id: `rank:${quest.recordHash}`, title: quest.name, detail: quest.description, context: "Guardian Rank", percent: objectivePercent(quest), to: "/guardian-rank"
+    id: `rank:${quest.recordHash}`, title: quest.name, detail: quest.description, context: "Guardian Rank", percent: objectivePercent(quest), to: "/journey/guardian-rank"
   }));
   const exoticGoals = easyExotics(collectionData, "weapon").slice(0, 2).map((entry): SuggestedGoal => ({
     id: `exotic:${entry.itemHash}`, title: `Obtain ${entry.name}`, detail: entry.guide.steps[0] || entry.guide.acquisition, context: "Missing Exotic", percent: 0, to: "/collection"

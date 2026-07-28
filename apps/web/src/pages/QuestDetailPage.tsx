@@ -23,7 +23,7 @@ export function QuestDetailPage() {
   const quest = result.data?.data.quests.find((entry) => entry.instanceId === questId);
 
   return <AuthGate>
-    <PageHeader eyebrow="Quest detail" title={quest?.name || "Quest"} description={quest?.currentStep || "Loading the current Bungie quest step and route."} actions={<><Link className={styles.detailBack} to="/quests"><ArrowLeft size={14} />All quests</Link><Freshness observedAt={result.data?.freshness.observedAt} /></>} />
+    <PageHeader eyebrow="Quest detail" title={quest?.name || "Quest"} description={quest?.currentStep || "Loading the current Bungie quest step and route."} actions={<><Link className={styles.detailBack} to="/journey/quests"><ArrowLeft size={14} />All quests</Link><Freshness observedAt={result.data?.freshness.observedAt} /></>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(quest)} onRetry={() => void result.refetch()} />
     {result.data && !quest && <div className={styles.inlineEmpty}><ScrollText /><h2>Quest not found</h2><p>It may have completed, expired, or moved off the selected character.</p></div>}
     {quest && <QuestReport quest={quest} />}

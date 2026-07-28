@@ -4,6 +4,7 @@ import { Bookmark, Check, CheckCircle2, CircleDashed, Compass, Crosshair, Histor
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { CompletionPing, useCompletionPings } from "../components/common/CompletionPing";
+import { JourneyNav } from "../components/journey/JourneyNav";
 import { useGuardian } from "../context/GuardianContext";
 import { completionTransition, guardianRankCompletionCandidates } from "../modules/tracking/completionTracking";
 import { api } from "../services/api/client";
@@ -75,6 +76,7 @@ export function GuardianRankPage() {
       description="Current and renewed progress stays separate from highest-achieved rank."
       actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />}
     />
+    <JourneyNav />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.overview}>

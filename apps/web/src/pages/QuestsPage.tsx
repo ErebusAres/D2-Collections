@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { api } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { CompletionPing, useCompletionPings } from "../components/common/CompletionPing";
+import { JourneyNav } from "../components/journey/JourneyNav";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { getQuestTooltipPosition, QuestInspectPanel, type QuestTooltipPosition } from "../components/quests/QuestInspectPanel";
 import { questProgressPresentation } from "../modules/quests/questProgress";
@@ -165,7 +166,8 @@ export function QuestsPage() {
 
   return <AuthGate>
     <CompletionPing notice={completionNotice} onDismiss={dismissCompletion} />
-    <PageHeader eyebrow="Pursuit intelligence" title="Quests" description="Site pins and Destiny tracking stay separate; completed tracked items clear automatically." actions={<Freshness observedAt={result.data?.freshness.observedAt} />} />
+    <PageHeader eyebrow="Journey · Pursuit intelligence" title="Quest Tracker" description="Site pins and Destiny tracking stay separate; completed tracked items clear automatically." actions={<Freshness observedAt={result.data?.freshness.observedAt} />} />
+    <JourneyNav />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
       <section className={styles.questOverview}>

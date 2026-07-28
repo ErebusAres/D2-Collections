@@ -1,0 +1,148 @@
+.card {
+  --card-accent: 80, 208, 232;
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--card-accent), .24);
+  background:
+    linear-gradient(145deg, rgba(var(--card-accent), .105), transparent 42%),
+    rgba(5, 13, 19, .78);
+  color: var(--text);
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: rgba(var(--card-accent), .8);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--card-accent), .55);
+  background:
+    linear-gradient(145deg, rgba(var(--card-accent), .15), transparent 48%),
+    rgba(6, 16, 23, .9);
+}
+
+.gold { --card-accent: 224, 179, 82; }
+.violet { --card-accent: 166, 122, 232; }
+.green { --card-accent: 99, 206, 151; }
+
+.card > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(var(--card-accent), .42);
+  background: rgba(var(--card-accent), .12);
+  color: rgb(var(--card-accent));
+}
+
+.icon svg { width: 21px; }
+
+.card small {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.card h2 {
+  margin: 2px 0 0;
+  font-size: 20px;
+  letter-spacing: .015em;
+}
+
+.open {
+  width: 17px;
+  color: rgba(var(--card-accent), .7);
+}
+
+.card > p {
+  min-height: 38px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.stats > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, .07);
+  background: rgba(0, 0, 0, .2);
+}
+
+.stats strong {
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress > span {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.progress > i {
+  height: 5px;
+  display: block;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .08);
+}
+
+.progress > i > span {
+  height: 100%;
+  display: block;
+  background: rgb(var(--card-accent));
+  box-shadow: 0 0 12px rgba(var(--card-accent), .55);
+}
+
+.detail {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.card > footer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: auto;
+  color: rgb(var(--card-accent));
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.card > footer svg { width: 12px; }
+
+@media (max-width: 520px) {
+  .stats { grid-template-columns: 1fr; }
+  .card > p { min-height: 0; }
+}

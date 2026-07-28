@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { GuardianRankData } from "@guardian-nexus/contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import { api } from "../services/api/client";
 import { GuardianRankPage } from "./GuardianRankPage";
 
@@ -68,7 +69,7 @@ describe("Guardian Rank page", () => {
 });
 
 function renderPage() {
-  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><GuardianRankPage /></QueryClientProvider>);
+  return render(<MemoryRouter initialEntries={["/journey/guardian-rank"]}><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><GuardianRankPage /></QueryClientProvider></MemoryRouter>);
 }
 
 function envelope() {

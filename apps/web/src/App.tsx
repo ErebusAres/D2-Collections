@@ -9,7 +9,12 @@ const GearPage = lazy(() => import("./pages/GearPage").then((module) => ({ defau
 const MatrixPage = lazy(() => import("./pages/MatrixPage").then((module) => ({ default: module.MatrixPage })));
 const MailboxPage = lazy(() => import("./pages/MailboxPage").then((module) => ({ default: module.MailboxPage })));
 const LoadoutsPage = lazy(() => import("./pages/LoadoutsPage").then((module) => ({ default: module.LoadoutsPage })));
+const JourneyPage = lazy(() => import("./pages/JourneyPage").then((module) => ({ default: module.JourneyPage })));
 const QuestsPage = lazy(() => import("./pages/QuestsPage").then((module) => ({ default: module.QuestsPage })));
+const BountiesPage = lazy(() => import("./pages/BountiesPage").then((module) => ({ default: module.BountiesPage })));
+const SeasonalPage = lazy(() => import("./pages/SeasonalPage").then((module) => ({ default: module.SeasonalPage })));
+const WeeklyProgressPage = lazy(() => import("./pages/WeeklyProgressPage").then((module) => ({ default: module.WeeklyProgressPage })));
+const JourneyUnavailablePage = lazy(() => import("./pages/JourneyUnavailablePage").then((module) => ({ default: module.JourneyUnavailablePage })));
 const QuestDetailPage = lazy(() => import("./pages/QuestDetailPage").then((module) => ({ default: module.QuestDetailPage })));
 const RewardsPage = lazy(() => import("./pages/RewardsPage").then((module) => ({ default: module.RewardsPage })));
 const RewardCodesPage = lazy(() => import("./pages/RewardCodesPage").then((module) => ({ default: module.RewardCodesPage })));
@@ -40,8 +45,17 @@ export function App() {
         <Route index element={<Navigate to="/collection" replace />} />
         <Route path="collection" element={<PageRoute><CollectionPage /></PageRoute>} />
         <Route path="xur" element={<PageRoute><XurPage /></PageRoute>} />
-        <Route path="quests" element={<PageRoute><QuestsPage /></PageRoute>} />
+        <Route path="quests" element={<Navigate to="/journey" replace />} />
+        <Route path="quests/tracker" element={<Navigate to="/journey/quests" replace />} />
         <Route path="quests/:questId" element={<PageRoute><QuestDetailPage /></PageRoute>} />
+        <Route path="journey" element={<PageRoute><JourneyPage /></PageRoute>} />
+        <Route path="journey/quests" element={<PageRoute><QuestsPage /></PageRoute>} />
+        <Route path="journey/bounties" element={<PageRoute><BountiesPage /></PageRoute>} />
+        <Route path="journey/season" element={<PageRoute><SeasonalPage /></PageRoute>} />
+        <Route path="journey/guardian-rank" element={<PageRoute><GuardianRankPage /></PageRoute>} />
+        <Route path="journey/titles" element={<PageRoute><JourneyUnavailablePage kind="titles" /></PageRoute>} />
+        <Route path="journey/triumphs" element={<PageRoute><JourneyUnavailablePage kind="triumphs" /></PageRoute>} />
+        <Route path="journey/weekly" element={<PageRoute><WeeklyProgressPage /></PageRoute>} />
         <Route path="guardian-rank" element={<PageRoute><GuardianRankPage /></PageRoute>} />
         <Route path="power" element={<PageRoute><PowerPage /></PageRoute>} />
         <Route path="pvp" element={<PageRoute><PvpPage /></PageRoute>} />
