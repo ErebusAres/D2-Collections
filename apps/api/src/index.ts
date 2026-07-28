@@ -14,6 +14,7 @@ import type {
   GearActionResult,
   GearData,
   GuardianRankData,
+  JourneyProgressData,
   EquipBuildAdvisorRequest,
   EquipBuildAdvisorResult,
   EquipLoadoutRequest,
@@ -36,7 +37,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -51,6 +52,7 @@ import { buildsRoute, publishedBuildsForAdvisor } from "./builds";
 import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
 import { normalizePvpData, normalizePvpProgressions } from "./pvp";
 import { normalizeGuardianRanks } from "./guardianRank";
+import { normalizeJourneyProgress, trackedItemsFromJourney } from "./journeyProgress";
 import { normalizePower, powerItemHashes } from "./power";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
@@ -63,6 +65,7 @@ const shareSchema = z.object({
   characterId: z.string().min(1),
   sitePinnedQuestIds: z.array(z.string()).max(40).default([]),
   siteTrackedGuardianRankIds: z.array(z.string()).max(200).optional(),
+  siteTrackedJourneyIds: z.array(z.string()).max(500).optional(),
   hiddenTrackedItemKeys: z.array(z.string()).max(200).optional(),
   mode: z.enum(["temporary", "persistent"]).default("temporary")
 });
@@ -91,7 +94,7 @@ const equipBuildAdvisorSchema = z.object({
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
-  z.object({ key: z.enum(["gear.filters", "collection.filters", "quests.filters", "guardianRank.tracked", "rewardCodes.filters", "builds.filters"]), value: z.string().max(4_000) }),
+  z.object({ key: z.enum(["gear.filters", "collection.filters", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters"]), value: z.string().max(12_000) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion"]), value: z.enum(["true", "false"]) }),
@@ -151,6 +154,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/collection" && request.method === "GET") return collection(session.row, env, context);
   if (path === "/api/v1/me/xur" && request.method === "GET") return xur(session.row, env, context);
   if (path === "/api/v1/me/quests" && request.method === "GET") return quests(session.row, env, context);
+  if (path === "/api/v1/me/journey" && request.method === "GET") return journeyProgress(session.row, env, context);
   if (path === "/api/v1/me/guardian-rank" && request.method === "GET") return guardianRank(session.row, env, context);
   if (path === "/api/v1/me/power" && request.method === "GET") return power(session.row, env, context);
   if (path === "/api/v1/me/pvp" && request.method === "GET") return pvp(session.row, env, context);
@@ -436,6 +440,21 @@ async function guardianRank(row: SessionRow, env: Env, context: RequestContext):
   const data = normalizeGuardianRanks(profile, manifest, character.characterId);
   const warnings = manifest.version === "unavailable" ? ["Current Guardian Rank definitions are unavailable from the deployed Bungie manifest."] : [];
   return envelope<GuardianRankData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
+}
+
+async function journeyProgress(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const [{ profile }, manifest, activities] = await Promise.all([
+    profileFor(row, env, "journey"),
+    loadJourneyProgressManifest(env),
+    loadActivityManifest(env)
+  ]);
+  const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const data = normalizeJourneyProgress(profile, manifest, activities, character.characterId);
+  return envelope<JourneyProgressData>(data, env, context, {
+    sourceMintedAt: profile?.responseMintedTimestamp,
+    warnings: manifest.version === "unavailable" ? ["Journey record definitions are unavailable until the Bungie manifest refresh completes."] : []
+  });
 }
 
 async function power(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -776,7 +795,7 @@ async function auditGear(row: SessionRow, env: Env, action: string, itemId: stri
 
 async function upsertShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = shareSchema.parse(await request.json());
-  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys);
+  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds);
   return envelope({
     sharing: true,
     mode: input.mode,
@@ -793,12 +812,15 @@ async function storeShare(
   sitePinnedQuestIds: string[],
   mode: FireteamSharingMode,
   providedGuardianRankIds?: string[],
-  providedHiddenTrackedItemKeys?: string[]
+  providedHiddenTrackedItemKeys?: string[],
+  providedJourneyIds?: string[]
 ): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string }> {
-  const [{ profile }, manifest, guardianRankManifest, previousShare] = await Promise.all([
+  const [{ profile }, manifest, guardianRankManifest, journeyManifest, activityManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
     loadQuestManifest(env),
     loadGuardianRankManifest(env),
+    loadJourneyProgressManifest(env),
+    loadActivityManifest(env),
     env.DB.prepare("SELECT payload_json FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<{ payload_json: string }>()
   ]);
   let previousPayload: any = null;
@@ -817,9 +839,14 @@ async function storeShare(
     ? await guardianRankTrackedIds(row.membership_id, env)
     : new Set(providedGuardianRankIds);
   const guardianRanks = normalizeGuardianRanks(profile, guardianRankManifest, character.characterId);
+  const journeyTrackedIds = providedJourneyIds === undefined
+    ? await trackedPreferenceIds(row.membership_id, env, "journey.tracked")
+    : new Set(providedJourneyIds);
+  const journey = normalizeJourneyProgress(profile, journeyManifest, activityManifest, character.characterId);
   const assembledTrackedItems = mergeTrackedItems(
     activeTrackedQuests,
-    trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || new Date().toISOString())
+    trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || new Date().toISOString()),
+    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString())
   );
   const visibility = applyTrackedItemVisibility(
     assembledTrackedItems,
@@ -829,7 +856,8 @@ async function storeShare(
   const updatedAt = new Date().toISOString();
   const completedCandidates = mergeTrackedItems(
     trackedItemsFromQuests(allQuests.quests, true, previousTrackedKeys),
-    trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys)
+    trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
+    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || updatedAt, true)
   );
   const recentlyCompletedItems = completedTrackedItemEvents(
     previousTrackedItems,
@@ -849,7 +877,11 @@ async function storeShare(
 }
 
 async function guardianRankTrackedIds(membershipId: string, env: Env): Promise<Set<string>> {
-  const row = await env.DB.prepare("SELECT preference_value FROM user_preferences WHERE membership_id = ? AND preference_key = 'guardianRank.tracked'").bind(membershipId).first<{ preference_value: string }>();
+  return trackedPreferenceIds(membershipId, env, "guardianRank.tracked");
+}
+
+async function trackedPreferenceIds(membershipId: string, env: Env, key: string): Promise<Set<string>> {
+  const row = await env.DB.prepare("SELECT preference_value FROM user_preferences WHERE membership_id = ? AND preference_key = ?").bind(membershipId, key).first<{ preference_value: string }>();
   try {
     const parsed = JSON.parse(row?.preference_value || "[]");
     return new Set(Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string" && Boolean(value)).slice(0, 200) : []);

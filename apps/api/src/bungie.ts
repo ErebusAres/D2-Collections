@@ -1,4 +1,4 @@
-import type { CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, GuardianRankManifest, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
+import type { CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, GuardianRankManifest, JourneyProgressManifest, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 import { imageUrl } from "@guardian-nexus/domain";
@@ -11,6 +11,7 @@ let activityManifestCache: { value: CompactManifest; expiresAt: number } | null 
 let questManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let rewardsManifestCache: { value: RewardsManifest; expiresAt: number } | null = null;
 let guardianRankManifestCache: { value: GuardianRankManifest; expiresAt: number } | null = null;
+let journeyProgressManifestCache: { value: JourneyProgressManifest; expiresAt: number } | null = null;
 let rewardCodeManifestCache: { value: RewardCodeManifest; expiresAt: number } | null = null;
 let companionManifestCache: { value: CompanionManifest; expiresAt: number } | null = null;
 const companionDefinitionCache = new Map<string, { value: Record<string, unknown>; expiresAt: number }>();
@@ -371,7 +372,7 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export type ProfileMode = "full" | "session" | "collection" | "quests" | "fireteam" | "fireteam-share" | "gear" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
+export type ProfileMode = "full" | "session" | "collection" | "quests" | "journey" | "fireteam" | "fireteam-share" | "gear" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
 
 export function profileComponentsFor(mode: ProfileMode): string {
   return mode === "session"
@@ -380,8 +381,10 @@ export function profileComponentsFor(mode: ProfileMode): string {
       ? "100,102,200,201,800,900"
       : mode === "quests"
         ? "100,102,200,201,204,301,310"
+      : mode === "journey"
+        ? "100,200,202,204,900"
         : mode === "fireteam-share"
-          ? "100,102,200,201,204,301,310,900"
+          ? "100,102,200,201,202,204,301,310,900"
         : mode === "fireteam"
           ? "100,200,204,1000"
     : mode === "mailbox"
@@ -606,6 +609,21 @@ export async function loadGuardianRankManifest(env: Env): Promise<GuardianRankMa
     return value;
   } catch {
     return { version: "unavailable", generatedAt: new Date().toISOString(), rootNodeHash: "", maximumRank: 0, ranks: [], nodes: {}, records: {}, objectives: {} };
+  }
+}
+
+export async function loadJourneyProgressManifest(env: Env): Promise<JourneyProgressManifest> {
+  if (journeyProgressManifestCache && journeyProgressManifestCache.expiresAt > Date.now()) return journeyProgressManifestCache.value;
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "journey-progress-manifest.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Journey progress manifest request returned ${response.status}.`);
+    const value = await response.json() as JourneyProgressManifest;
+    if (!value?.version || !value.records || !value.objectives || !value.nodes) throw new Error("Journey progress manifest artifact is invalid.");
+    journeyProgressManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    return { version: "unavailable", generatedAt: new Date().toISOString(), records: {}, objectives: {}, nodes: {} };
   }
 }
 

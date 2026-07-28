@@ -1,4 +1,4 @@
-import type { GuardianRankData, QuestData, RewardsPassData } from "@guardian-nexus/contracts";
+import type { GuardianRankData, JourneyProgressData, QuestData, RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { Badge, CalendarDays, CheckSquare2, Crown, ListTodo, ScrollText, Sparkles } from "lucide-react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
@@ -36,9 +36,16 @@ export function JourneyPage() {
     refetchInterval: autoRefresh ? 60_000 : false,
     refetchIntervalInBackground: false
   });
-  const loading = quests.isLoading || ranks.isLoading || rewards.isLoading;
-  const error = quests.error || ranks.error || rewards.error;
-  const hasData = Boolean(quests.data || ranks.data || rewards.data);
+  const journey = useQuery({
+    queryKey: ["journey-progress", selectedCharacterId],
+    queryFn: () => api<JourneyProgressData>(`/api/v1/me/journey?characterId=${encodeURIComponent(selectedCharacterId)}`),
+    enabled,
+    refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
+    refetchIntervalInBackground: false
+  });
+  const loading = quests.isLoading || ranks.isLoading || rewards.isLoading || journey.isLoading;
+  const error = quests.error || ranks.error || rewards.error || journey.error;
+  const hasData = Boolean(quests.data || ranks.data || rewards.data || journey.data);
   const allPursuits = quests.data?.data.quests || [];
   const activeQuests = allPursuits.filter((quest) => !quest.category || quest.category === "quest");
   const bounties = allPursuits.filter((quest) => quest.category === "bounty" || quest.category === "order");
@@ -53,16 +60,17 @@ export function JourneyPage() {
   const levelProgress = rewardLevelProgress(rewardData?.progress);
   const claimableRewards = rewardData?.rewards.filter((reward) => reward.state === "available").length || 0;
   const nearComplete = allPursuits.filter((quest) => quest.percent >= 75 && quest.percent < 100);
+  const progressData = journey.data?.data;
 
   return <AuthGate>
     <PageHeader
       eyebrow="Progress hub"
       title="Journey"
       description="Your progression systems in one place, with the closest objectives surfaced first."
-      actions={<Freshness observedAt={quests.data?.freshness.observedAt || ranks.data?.freshness.observedAt || rewards.data?.freshness.observedAt} warning={quests.data?.warnings[0] || ranks.data?.warnings[0] || rewards.data?.warnings[0]} />}
+      actions={<Freshness observedAt={journey.data?.freshness.observedAt || quests.data?.freshness.observedAt || ranks.data?.freshness.observedAt || rewards.data?.freshness.observedAt} warning={journey.data?.warnings[0] || quests.data?.warnings[0] || ranks.data?.warnings[0] || rewards.data?.warnings[0]} />}
     />
     <JourneyNav />
-    <QueryState loading={loading} error={error as Error} hasData={hasData} onRetry={() => { void quests.refetch(); void ranks.refetch(); void rewards.refetch(); }} />
+    <QueryState loading={loading} error={error as Error} hasData={hasData} onRetry={() => { void quests.refetch(); void ranks.refetch(); void rewards.refetch(); void journey.refetch(); }} />
     {hasData && <>
       <section className={styles.hero}>
         <div><span>What should I work on next?</span><h2>{nextAction(activeQuests, bounties, rankRemaining, claimableRewards)}</h2><p>{nextActionDetail(activeQuests, bounties, rankRemaining, claimableRewards)}</p></div>
@@ -94,17 +102,17 @@ export function JourneyPage() {
           { label: "Maximum", value: rankData?.maximumRank ?? 12 }
         ]} tone="gold" />
         <ProgressSummaryCard title="Titles & Seals" eyebrow="Long-term goals" description="Equipped titles, unlocked seals, and active pursuits." to="/journey/titles" icon={Crown} stats={[
-          { label: "Equipped", value: "—" },
-          { label: "Unlocked", value: "—" },
-          { label: "Closest", value: "—" }
-        ]} tone="gold"><span>Awaiting a normalized Bungie title catalog</span></ProgressSummaryCard>
+          { label: "Available", value: progressData?.titles.length ?? "—" },
+          { label: "Unlocked", value: progressData?.titles.filter((title) => title.complete).length ?? "—" },
+          { label: "Near", value: progressData?.titles.filter((title) => !title.complete && title.percent >= 75).length ?? "—" }
+        ]} tone="gold"><span>{progressData?.titles.find((title) => !title.complete)?.title || "Open the seal tracker"}</span></ProgressSummaryCard>
         <ProgressSummaryCard title="Triumphs" eyebrow="Account accomplishments" description="Tracked, recent, and near-complete Triumphs." to="/journey/triumphs" icon={ScrollText} stats={[
-          { label: "Score", value: "—" },
-          { label: "Tracked", value: "—" },
-          { label: "Near", value: "—" }
-        ]}><span>Tracker route is ready for Bungie's record data</span></ProgressSummaryCard>
+          { label: "Score", value: progressData?.triumphScore.active.toLocaleString() ?? "—" },
+          { label: "Tracked", value: progressData?.triumphs.filter((record) => record.tracked).length ?? "—" },
+          { label: "Near", value: progressData?.triumphs.filter((record) => !record.complete && record.percent >= 75).length ?? "—" }
+        ]}><span>{progressData?.triumphs.length || 0} records available</span></ProgressSummaryCard>
         <ProgressSummaryCard title="Weekly Progress" eyebrow="Reset checklist" description="Weekly pursuits and reward opportunities in one view." to="/journey/weekly" icon={CalendarDays} progress={questPercent(bounties.filter((quest) => /weekly/i.test(quest.itemType || "")))} progressLabel="Known weekly pursuits" stats={[
-          { label: "Known", value: bounties.filter((quest) => /weekly/i.test(quest.itemType || "")).length },
+          { label: "Known", value: progressData?.weeklyChallenges.length ?? bounties.filter((quest) => /weekly/i.test(quest.itemType || "")).length },
           { label: "Near", value: nearComplete.length },
           { label: "Reset", value: "Tuesday" }
         ]} tone="green" />

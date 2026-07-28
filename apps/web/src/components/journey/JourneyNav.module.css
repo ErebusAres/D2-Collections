@@ -1,11 +1,16 @@
 .nav {
+  position: sticky;
+  top: var(--shell-header-height, 130px);
+  z-index: 30;
   display: flex;
   gap: 2px;
   padding: 6px;
   margin: 0 0 22px;
   overflow-x: auto;
   border: 1px solid var(--line);
-  background: rgba(5, 13, 19, .72);
+  background: linear-gradient(180deg, rgba(5, 13, 19, .98), rgba(7, 17, 24, .96));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .24);
+  backdrop-filter: blur(14px);
   scrollbar-width: thin;
 }
 

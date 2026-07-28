@@ -1,10 +1,11 @@
 import type { QuestData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, CheckSquare2, Clock3, Crosshair } from "lucide-react";
+import { Bookmark, CheckCircle2, CheckSquare2, Clock3, Crosshair } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { JourneyNav } from "../components/journey/JourneyNav";
-import { useGuardian } from "../context/GuardianContext";
+import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { bountyCadence, bountyVendor, questPercent } from "../modules/journey/progressSummary";
 import { api } from "../services/api/client";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
@@ -12,6 +13,15 @@ import styles from "./JourneyTrackers.module.css";
 
 export function BountiesPage() {
   const { session, selectedCharacterId, autoRefresh } = useGuardian();
+  const storageKey = pinsKey(session?.guardian?.membershipId || "", selectedCharacterId);
+  const [pins, setPins] = useState<Set<string>>(new Set());
+  useEffect(() => { try { setPins(new Set(JSON.parse(localStorage.getItem(storageKey) || "[]"))); } catch { setPins(new Set()); } }, [storageKey]);
+  const togglePin = (id: string) => setPins((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    localStorage.setItem(storageKey, JSON.stringify([...next]));
+    return next;
+  });
   const result = useQuery({
     queryKey: ["quests", selectedCharacterId, ""],
     queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=`),
@@ -40,7 +50,7 @@ export function BountiesPage() {
         {bounties.length ? bounties.sort((left, right) => Number(right.inGameTracked) - Number(left.inGameTracked) || right.percent - left.percent).map((bounty) => <Link key={bounty.instanceId} to={`/quests/${encodeURIComponent(bounty.instanceId)}`} className={styles.row}>
           <span className={styles.rowIcon}>{bounty.icon ? <img src={bounty.icon} alt="" /> : <CheckSquare2 />}</span>
           <div><small>{bountyVendor(bounty)} · {bountyCadence(bounty)} {bounty.category}</small><h2>{bounty.name}</h2><p>{bounty.currentStep || bounty.description}</p><i><span style={{ width: `${bounty.percent}%` }} /></i></div>
-          <aside>{bounty.inGameTracked && <em><Crosshair /> Tracked</em>}<strong>{bounty.percent}%</strong>{bounty.percent >= 100 ? <CheckCircle2 /> : <Clock3 />}</aside>
+          <aside>{bounty.inGameTracked && <em><Crosshair /> Tracked</em>}<strong>{bounty.percent}%</strong>{bounty.percent >= 100 ? <CheckCircle2 /> : <Clock3 />}<button onClick={(event) => { event.preventDefault(); togglePin(bounty.instanceId); }} disabled={bounty.percent >= 100} aria-label={`${pins.has(bounty.instanceId) ? "Untrack" : "Track"} ${bounty.name}`}><Bookmark fill={pins.has(bounty.instanceId) ? "currentColor" : "none"} /></button></aside>
         </Link>) : <div className={styles.empty}><CheckSquare2 /><h2>No active bounties or orders</h2><p>Bungie returned no bounty-category pursuits for this character.</p></div>}
       </section>
     </>}

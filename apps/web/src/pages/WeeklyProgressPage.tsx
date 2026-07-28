@@ -1,7 +1,7 @@
-import type { QuestData } from "@guardian-nexus/contracts";
+import type { JourneyProgressData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, CheckCircle2, Clock3 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Bookmark, CalendarDays, CheckCircle2, Clock3 } from "lucide-react";
+import { useMemo } from "react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { JourneyNav } from "../components/journey/JourneyNav";
 import { useGuardian } from "../context/GuardianContext";
@@ -10,33 +10,44 @@ import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import styles from "./JourneyTrackers.module.css";
 
 export function WeeklyProgressPage() {
-  const { session, selectedCharacterId, autoRefresh } = useGuardian();
+  const { session, selectedCharacterId, autoRefresh, preferences, setPreference } = useGuardian();
+  const tracked = useMemo(() => parseTracked(preferences["journey.tracked"]), [preferences]);
   const result = useQuery({
-    queryKey: ["quests", selectedCharacterId, ""],
-    queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=`),
+    queryKey: ["journey-progress", selectedCharacterId],
+    queryFn: () => api<JourneyProgressData>(`/api/v1/me/journey?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
     refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
-  const weekly = (result.data?.data.quests || []).filter((quest) => /weekly/i.test(`${quest.itemType || ""} ${quest.name} ${quest.description}`));
+  const weekly = result.data?.data.weeklyChallenges || [];
+  const toggle = (id: string) => {
+    const next = new Set(tracked);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setPreference("journey.tracked", JSON.stringify([...next]));
+  };
   return <AuthGate>
-    <PageHeader eyebrow="Journey · Reset checklist" title="Weekly Progress" description="Weekly pursuits currently visible in your Bungie profile." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Journey · Reset checklist" title="Weekly Progress" description="Weekly challenge progress returned for your selected character." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
     <JourneyNav />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
       <section className={styles.metrics}>
-        <span><small>Known weekly</small><strong>{weekly.length}</strong></span>
-        <span><small>Complete</small><strong>{weekly.filter((quest) => quest.percent >= 100).length}</strong></span>
-        <span><small>Near completion</small><strong>{weekly.filter((quest) => quest.percent >= 75 && quest.percent < 100).length}</strong></span>
-        <span><small>Weekly reset</small><strong>Tuesday</strong></span>
+        <span><small>Weekly challenges</small><strong>{weekly.length}</strong></span>
+        <span><small>Complete</small><strong>{weekly.filter((challenge) => challenge.objective.complete).length}</strong></span>
+        <span><small>Near completion</small><strong>{weekly.filter((challenge) => challenge.objective.percent >= 75 && !challenge.objective.complete).length}</strong></span>
+        <span><small>Tracked here</small><strong>{weekly.filter((challenge) => tracked.has(challenge.id)).length}</strong></span>
       </section>
       <section className={styles.rows}>
-        {weekly.length ? weekly.map((quest) => <Link key={quest.instanceId} to={`/quests/${encodeURIComponent(quest.instanceId)}`} className={styles.row}>
-          <span className={styles.rowIcon}>{quest.icon ? <img src={quest.icon} alt="" /> : <CalendarDays />}</span>
-          <div><small>{quest.activityName || quest.itemType || "Weekly pursuit"}</small><h2>{quest.name}</h2><p>{quest.currentStep}</p><i><span style={{ width: `${quest.percent}%` }} /></i></div>
-          <aside><strong>{quest.percent}%</strong>{quest.percent >= 100 ? <CheckCircle2 /> : <Clock3 />}</aside>
-        </Link>) : <div className={styles.empty}><CalendarDays /><h2>No weekly pursuits detected</h2><p>Featured activities and milestones need a separate Bungie milestone feed; they are not inferred from unrelated profile values.</p></div>}
+        {weekly.length ? weekly.map((challenge) => <article key={challenge.id} className={styles.row}>
+          <span className={styles.rowIcon}>{challenge.icon ? <img src={challenge.icon} alt="" /> : <CalendarDays />}</span>
+          <div><small>Weekly challenge</small><h2>{challenge.name}</h2><p>{challenge.objective.name || challenge.description}</p><i><span style={{ width: `${challenge.objective.percent}%` }} /></i></div>
+          <aside><strong>{challenge.objective.percent}%</strong>{challenge.objective.complete ? <CheckCircle2 /> : <Clock3 />}<button onClick={() => toggle(challenge.id)} disabled={challenge.objective.complete} aria-label={`${tracked.has(challenge.id) ? "Untrack" : "Track"} ${challenge.name}`}><Bookmark fill={tracked.has(challenge.id) ? "currentColor" : "none"} /></button></aside>
+        </article>) : <div className={styles.empty}><CalendarDays /><h2>No weekly challenges detected</h2><p>Bungie returned no active challenge rows for this character.</p></div>}
       </section>
     </>}
   </AuthGate>;
+}
+
+function parseTracked(value?: string): Set<string> {
+  try { const parsed = JSON.parse(value || "[]"); return new Set(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : []); }
+  catch { return new Set(); }
 }

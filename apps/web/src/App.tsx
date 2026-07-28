@@ -14,7 +14,7 @@ const QuestsPage = lazy(() => import("./pages/QuestsPage").then((module) => ({ d
 const BountiesPage = lazy(() => import("./pages/BountiesPage").then((module) => ({ default: module.BountiesPage })));
 const SeasonalPage = lazy(() => import("./pages/SeasonalPage").then((module) => ({ default: module.SeasonalPage })));
 const WeeklyProgressPage = lazy(() => import("./pages/WeeklyProgressPage").then((module) => ({ default: module.WeeklyProgressPage })));
-const JourneyUnavailablePage = lazy(() => import("./pages/JourneyUnavailablePage").then((module) => ({ default: module.JourneyUnavailablePage })));
+const JourneyRecordsPage = lazy(() => import("./pages/JourneyRecordsPage").then((module) => ({ default: module.JourneyRecordsPage })));
 const QuestDetailPage = lazy(() => import("./pages/QuestDetailPage").then((module) => ({ default: module.QuestDetailPage })));
 const RewardsPage = lazy(() => import("./pages/RewardsPage").then((module) => ({ default: module.RewardsPage })));
 const RewardCodesPage = lazy(() => import("./pages/RewardCodesPage").then((module) => ({ default: module.RewardCodesPage })));
@@ -53,8 +53,8 @@ export function App() {
         <Route path="journey/bounties" element={<PageRoute><BountiesPage /></PageRoute>} />
         <Route path="journey/season" element={<PageRoute><SeasonalPage /></PageRoute>} />
         <Route path="journey/guardian-rank" element={<PageRoute><GuardianRankPage /></PageRoute>} />
-        <Route path="journey/titles" element={<PageRoute><JourneyUnavailablePage kind="titles" /></PageRoute>} />
-        <Route path="journey/triumphs" element={<PageRoute><JourneyUnavailablePage kind="triumphs" /></PageRoute>} />
+        <Route path="journey/titles" element={<PageRoute><JourneyRecordsPage kind="titles" /></PageRoute>} />
+        <Route path="journey/triumphs" element={<PageRoute><JourneyRecordsPage kind="triumphs" /></PageRoute>} />
         <Route path="journey/weekly" element={<PageRoute><WeeklyProgressPage /></PageRoute>} />
         <Route path="guardian-rank" element={<PageRoute><GuardianRankPage /></PageRoute>} />
         <Route path="power" element={<PageRoute><PowerPage /></PageRoute>} />

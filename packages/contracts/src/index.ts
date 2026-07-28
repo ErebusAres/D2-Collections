@@ -500,7 +500,75 @@ export interface QuestData {
   currentActivity?: string;
 }
 
-export type FireteamTrackedItemKind = "quest" | "bounty" | "order" | "guardian-rank";
+export interface JourneyObjective {
+  objectiveHash: string;
+  name: string;
+  progress: number;
+  completionValue: number;
+  percent: number;
+  complete: boolean;
+}
+
+export interface JourneyRecord {
+  recordHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  type: string;
+  category: string;
+  title?: string;
+  complete: boolean;
+  tracked: boolean;
+  percent: number;
+  score: number;
+  objectives: JourneyObjective[];
+}
+
+export interface JourneyTitle {
+  recordHash: string;
+  name: string;
+  title: string;
+  description: string;
+  icon: string;
+  complete: boolean;
+  tracked: boolean;
+  percent: number;
+  objectives: JourneyObjective[];
+}
+
+export interface JourneyWeeklyChallenge {
+  id: string;
+  activityHash: string;
+  name: string;
+  description: string;
+  icon: string;
+  objective: JourneyObjective;
+}
+
+export interface JourneyArtifactProgress {
+  artifactHash: string;
+  pointsAcquired: number;
+  pointsSpent: number;
+  powerBonus: number;
+  powerProgress: number;
+  powerNextLevelAt: number;
+}
+
+export interface JourneyProgressData {
+  triumphScore: {
+    active: number;
+    lifetime: number;
+    legacy: number;
+  };
+  titles: JourneyTitle[];
+  triumphs: JourneyRecord[];
+  seasonalChallenges: JourneyRecord[];
+  weeklyChallenges: JourneyWeeklyChallenge[];
+  artifact?: JourneyArtifactProgress;
+  manifestVersion: string;
+}
+
+export type FireteamTrackedItemKind = "quest" | "bounty" | "order" | "guardian-rank" | "triumph" | "title" | "seasonal" | "weekly";
 
 export interface FireteamTrackedItemObjective {
   objectiveHash: string;
@@ -847,6 +915,7 @@ export type UserPreferenceKey =
   | "quests.layout"
   | "quests.filters"
   | "guardianRank.tracked"
+  | "journey.tracked"
   | "rewardCodes.filters"
   | "builds.filters"
   | "build.detail.layout"
@@ -1539,4 +1608,28 @@ export interface GuardianRankManifest {
   nodes: Record<string, GuardianRankManifestNode>;
   records: Record<string, GuardianRankManifestRecord>;
   objectives: Record<string, GuardianRankManifestObjective>;
+}
+
+export interface JourneyProgressManifest {
+  version: string;
+  generatedAt: string;
+  records: Record<string, {
+    hash: string;
+    name: string;
+    description: string;
+    icon: string;
+    scope: number;
+    type: string;
+    score: number;
+    title: string;
+    objectiveHashes: string[];
+    parentNodeHashes: string[];
+  }>;
+  objectives: Record<string, GuardianRankManifestObjective>;
+  nodes: Record<string, {
+    hash: string;
+    name: string;
+    description: string;
+    icon: string;
+  }>;
 }

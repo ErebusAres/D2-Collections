@@ -90,6 +90,8 @@
 .row aside strong { color: var(--text); font-size: 18px; }
 .row aside em { display: flex; align-items: center; gap: 4px; color: #74d8eb; font-size: 9px; font-style: normal; text-transform: uppercase; }
 .row aside em svg { width: 12px; }
+.row aside button { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); background: rgba(0,0,0,.18); color: #74d8eb; }
+.row aside button svg { width: 14px; }
 
 .empty,
 .unavailable {

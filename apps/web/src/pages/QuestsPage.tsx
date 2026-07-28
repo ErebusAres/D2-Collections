@@ -78,7 +78,6 @@ export function QuestsPage() {
     return textMatch && filterMatch;
   }).sort((a, b) => Number(pins.has(b.instanceId)) - Number(pins.has(a.instanceId)) || Number(b.inGameTracked) - Number(a.inGameTracked) || a.name.localeCompare(b.name)), [result.data, filter, search, pins]);
   const primaryQuests = quests.filter((quest) => !quest.category || quest.category === "quest");
-  const compactPursuits = quests.filter((quest) => quest.category === "bounty" || quest.category === "order");
   const tooltipQuest = result.data?.data.quests.find((quest) => quest.instanceId === tooltip?.questId && (!quest.category || quest.category === "quest"));
   const clearCloseTimer = useCallback(() => {
     if (closeTimer.current !== null) {
@@ -171,7 +170,7 @@ export function QuestsPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
       <section className={styles.questOverview}>
-        <div><span>Active quests</span><strong>{result.data.data.quests.length}</strong></div>
+        <div><span>Active quests</span><strong>{result.data.data.quests.filter((quest) => !quest.category || quest.category === "quest").length}</strong></div>
         <div><span>Site pinned</span><strong>{pins.size}</strong></div>
         <div><span>Tracked in Destiny</span><strong>{result.data.data.quests.filter((quest) => quest.inGameTracked).length}</strong></div>
         <div className={styles.activityNow}><Compass /><span>Current activity</span><strong>{result.data.data.currentActivity || "Orbit / unavailable"}</strong></div>
@@ -196,9 +195,8 @@ export function QuestsPage() {
             return layout === "grid"
               ? <QuestGridCard key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} {...interaction} />
               : <QuestCard key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} {...interaction} />;
-          })}</section> : compactPursuits.length === 0 && <div className={styles.inlineEmpty}><ListFilter /><h2>No quests match this view</h2><p>Adjust the filters or refresh quest data.</p></div>}
+          })}</section> : <div className={styles.inlineEmpty}><ListFilter /><h2>No quests match this view</h2><p>Adjust the filters or refresh quest data.</p></div>}
         </div>
-        {compactPursuits.length > 0 && <section className={`${styles.compactPursuits} ${questStyles.bountySection}`}><header><div><Crosshair /><span>Bounties &amp; orders</span></div><strong>{compactPursuits.length}</strong></header><div>{compactPursuits.map((quest) => <CompactPursuit key={quest.instanceId} quest={quest} pinned={pins.has(quest.instanceId)} onPin={() => togglePin(quest)} />)}</div></section>}
       </section>
       {tooltipQuest && tooltipPosition && createPortal(<QuestInspectPanel quest={tooltipQuest} position={tooltipPosition} onClose={closeTooltip} onPointerEnter={clearCloseTimer} onPointerLeave={scheduleTooltipClose} />, document.body)}
     </>}
@@ -238,11 +236,6 @@ function QuestGridCard({ quest, pinned, selected, onPin, onPreview, onLeave, onT
     <p>{quest.currentStep}</p><div className={styles.questGridProgress}><span><b>{objective?.name || progress.heading}</b><strong>{progress.value}</strong></span><i><span style={{ width: `${progress.percent}%` }} /></i></div>
     <footer>{quest.stepNumber && quest.stepCount ? <span>Step {quest.stepNumber}/{quest.stepCount}</span> : <span>Current step</span>}<Link to={`/quests/${encodeURIComponent(quest.instanceId)}`}>Details <ChevronRight size={13} /></Link></footer>
   </article>;
-}
-
-function CompactPursuit({ quest, pinned, onPin }: { quest: QuestProgress; pinned: boolean; onPin: () => void }) {
-  const progress = questProgressPresentation(quest);
-  return <article className={styles.compactPursuit} title={`${quest.currentStep}\n${progress.objectives.map((objective) => progress.progressKnown ? `${objective.name}: ${objective.percent}%` : objective.name).join("\n")}`}><div>{quest.icon ? <img src={quest.icon} alt="" /> : <Crosshair />}</div><main><span>{quest.category}</span><strong>{quest.name}</strong><i><span style={{ width: `${progress.percent}%` }} /></i></main><b>{progress.progressKnown ? progress.value : quest.stepNumber && quest.stepCount ? `${quest.stepNumber}/${quest.stepCount}` : "—"}</b><button className={pinned ? styles.pinned : ""} onClick={onPin} aria-label={pinned ? `Unpin ${quest.name}` : `Pin ${quest.name}`}><Bookmark size={13} fill={pinned ? "currentColor" : "none"} /></button><Link to={`/quests/${encodeURIComponent(quest.instanceId)}`} aria-label={`View ${quest.name}`}><ChevronRight size={14} /></Link></article>;
 }
 
 function QuestTimeline({ steps }: { steps: QuestStepProgress[] }) {

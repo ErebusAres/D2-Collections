@@ -24,6 +24,7 @@ FEATURE_OUTPUT = OUTPUT.with_name("collection-features.json")
 PURSUIT_OUTPUT = OUTPUT.with_name("pursuit-manifest.json")
 REWARDS_OUTPUT = OUTPUT.with_name("rewards-manifest.json")
 GUARDIAN_RANK_OUTPUT = OUTPUT.with_name("guardian-rank-manifest.json")
+JOURNEY_PROGRESS_OUTPUT = OUTPUT.with_name("journey-progress-manifest.json")
 COMPANION_OUTPUT = OUTPUT.with_name("companion-manifest.json")
 REWARD_CODE_OUTPUT = OUTPUT.with_name("reward-code-manifest.json")
 BUILD_CATALOG_OUTPUT = OUTPUT.with_name("build-catalog.json")
@@ -190,6 +191,7 @@ def guardian_rank_manifest(constants: dict[str, dict], ranks: dict[str, dict], n
         for value in (records.get(record_hash, {}).get("objectiveHashes") or [])
     }
 
+
     def properties(definition: dict) -> dict:
         value = definition.get("displayProperties") or {}
         return {
@@ -255,6 +257,50 @@ def guardian_rank_manifest(constants: dict[str, dict], ranks: dict[str, dict], n
         "nodes": compact_nodes,
         "records": compact_records,
         "objectives": compact_objectives,
+    }
+
+
+def journey_progress_manifest(records: dict[str, dict], nodes: dict[str, dict], objectives: dict[str, dict], version: str, generated_at: str) -> dict:
+    visible_records = {
+        key: value for key, value in records.items()
+        if not value.get("redacted")
+        and (value.get("displayProperties") or {}).get("name")
+        and (value.get("titleInfo") or re.search(r"triumph|seasonal challenge", str(value.get("recordTypeName") or ""), re.IGNORECASE))
+    }
+    objective_hashes = {str(item) for record in visible_records.values() for item in record.get("objectiveHashes") or []}
+    parent_hashes = {str(item) for record in visible_records.values() for item in record.get("parentNodeHashes") or []}
+
+    def title_name(record: dict) -> str:
+        values = (record.get("titleInfo") or {}).get("titlesByGender") or {}
+        return next((str(value) for value in values.values() if value), "")
+
+    return {
+        "version": version,
+        "generatedAt": generated_at,
+        "records": {key: {
+            "hash": key,
+            "name": str((value.get("displayProperties") or {}).get("name") or ""),
+            "description": str((value.get("displayProperties") or {}).get("description") or ""),
+            "icon": str((value.get("displayProperties") or {}).get("icon") or ""),
+            "scope": int(value.get("scope") or 0),
+            "type": str(value.get("recordTypeName") or "Triumph"),
+            "score": int((value.get("completionInfo") or {}).get("ScoreValue") or (value.get("completionInfo") or {}).get("scoreValue") or 0),
+            "title": title_name(value),
+            "objectiveHashes": [str(item) for item in value.get("objectiveHashes") or []],
+            "parentNodeHashes": [str(item) for item in value.get("parentNodeHashes") or []],
+        } for key, value in visible_records.items()},
+        "objectives": {key: {
+            "hash": key,
+            "name": str(value.get("progressDescription") or (value.get("displayProperties") or {}).get("name") or "Objective"),
+            "description": str((value.get("displayProperties") or {}).get("description") or ""),
+            "completionValue": int(value.get("completionValue") or 0),
+        } for key, value in objectives.items() if key in objective_hashes},
+        "nodes": {key: {
+            "hash": key,
+            "name": str((value.get("displayProperties") or {}).get("name") or ""),
+            "description": str((value.get("displayProperties") or {}).get("description") or ""),
+            "icon": str((value.get("displayProperties") or {}).get("icon") or ""),
+        } for key, value in nodes.items() if key in parent_hashes},
     }
 
 
@@ -1203,7 +1249,7 @@ def main() -> None:
             for key, value in objectives.items() if key in base_objective_hashes
         },
         "activityDefinitions": {
-            key: {"hash": key, "displayProperties": display(value), "activityTypeHash": str(value.get("activityTypeHash") or "")}
+            key: {"hash": key, "displayProperties": display(value), "activityTypeHash": str(value.get("activityTypeHash") or ""), "challenges": value.get("challenges") or []}
             for key, value in activities.items()
         },
         "recordDefinitions": {
@@ -1277,12 +1323,21 @@ def main() -> None:
         version,
         compact["generatedAt"],
     )
+    journey_progress_compact = journey_progress_manifest(records, presentation_nodes, objectives, version, compact["generatedAt"])
     activity_compact = {
         "version": version,
         "generatedAt": compact["generatedAt"],
         "items": [],
         "itemDefinitions": {},
-        "objectiveDefinitions": {},
+        "objectiveDefinitions": {
+            key: {"hash": key, "displayProperties": display(value), "progressDescription": value.get("progressDescription", ""), "completionValue": value.get("completionValue", 0)}
+            for key, value in objectives.items()
+            if key in {
+                str(challenge.get("objectiveHash") or "")
+                for activity in activities.values()
+                for challenge in activity.get("challenges") or []
+            }
+        },
         "activityDefinitions": compact["activityDefinitions"],
         "recordDefinitions": {},
     }
@@ -1293,6 +1348,7 @@ def main() -> None:
     PURSUIT_OUTPUT.write_text(json.dumps(pursuit_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     REWARDS_OUTPUT.write_text(json.dumps(rewards_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     GUARDIAN_RANK_OUTPUT.write_text(json.dumps(guardian_rank_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    JOURNEY_PROGRESS_OUTPUT.write_text(json.dumps(journey_progress_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     REWARD_CODE_OUTPUT.write_text(json.dumps(reward_code_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     write_build_catalog_files(build_catalog_compact)
     resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
