@@ -6,6 +6,7 @@ describe("Journey progress", () => {
   it("normalizes record, weekly, and artifact progress for tracking", () => {
     const manifest: JourneyProgressManifest = {
       version: "test",
+      generatedAt: "2026-07-28T12:00:00.000Z",
       records: {
         "10": {
           hash: "10",
@@ -21,10 +22,10 @@ describe("Journey progress", () => {
         }
       },
       objectives: {
-        "20": { hash: "20", name: "Bake cookies", completionValue: 10 }
+        "20": { hash: "20", name: "Bake cookies", description: "", completionValue: 10 }
       },
       nodes: {
-        "30": { hash: "30", name: "Event seal", icon: "" }
+        "30": { hash: "30", name: "Event seal", description: "", icon: "" }
       }
     };
     const activities = {
