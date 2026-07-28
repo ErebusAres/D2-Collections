@@ -1,6 +1,6 @@
 .questWorkspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
   gap: 18px;
   align-items: start;
 }
@@ -24,7 +24,14 @@
   margin-top: 0;
 }
 
-.bountySection > div { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bountySection {
+  position: sticky;
+  top: 86px;
+  max-height: calc(100vh - 104px);
+  overflow: auto;
+}
+
+.bountySection > div { grid-template-columns: minmax(0, 1fr); }
 
 .questInspectPanel {
   position: fixed;
@@ -123,6 +130,8 @@
 .questDetailRewards main small { grid-column: 1 / -1; color: #b69171; font-size: 0.6rem; }
 
 @media (max-width: 1120px) {
+  .questWorkspace { grid-template-columns: minmax(0, 1fr); }
+  .bountySection { position: static; max-height: none; overflow: visible; }
   .bountySection > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
