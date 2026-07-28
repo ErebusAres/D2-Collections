@@ -4,7 +4,7 @@ import { LoaderCircle } from "lucide-react";
 import { Shell } from "./components/layout/Shell";
 const CollectionPage = lazy(() => import("./pages/CollectionPage").then((module) => ({ default: module.CollectionPage })));
 const DevPage = lazy(() => import("./pages/DevPage").then((module) => ({ default: module.DevPage })));
-const FireteamPage = lazy(() => import("./pages/FireteamPage").then((module) => ({ default: module.FireteamPage })));
+const FireteamPage = lazy(() => import("./pages/FireteamRoute").then((module) => ({ default: module.FireteamRoute })));
 const GearPage = lazy(() => import("./pages/GearPage").then((module) => ({ default: module.GearPage })));
 const MatrixPage = lazy(() => import("./pages/MatrixPage").then((module) => ({ default: module.MatrixPage })));
 const MailboxPage = lazy(() => import("./pages/MailboxPage").then((module) => ({ default: module.MailboxPage })));
