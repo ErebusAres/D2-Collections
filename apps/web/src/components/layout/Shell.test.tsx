@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../services/api/client";
@@ -92,11 +92,13 @@ describe("Shell guardian identity", () => {
       : { data: { rewards: [] }, freshness: { state: "fresh", observedAt: "2026-07-16T00:00:00Z" }, warnings: [], requestId: "test" });
 
     renderShell(<div>Page</div>);
-    fireEvent.click(screen.getByRole("button", { name: "Open options" }));
+    const options = screen.getByRole("button", { name: "Open options" });
+    expect(await within(options).findByLabelText("3 unresolved tickets")).toBeTruthy();
+    expect(options.className).toContain("optionsTicketAlert");
+    fireEvent.click(options);
 
     const queue = await screen.findByRole("link", { name: /Open tickets/i });
     expect(queue.getAttribute("href")).toBe("/reports/admin");
-    expect(await screen.findByLabelText("3 unresolved tickets")).toBeTruthy();
     expect(await screen.findByText("2 new · 1 in progress")).toBeTruthy();
   });
 

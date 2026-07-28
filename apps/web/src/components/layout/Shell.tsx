@@ -1,4 +1,4 @@
-import type { RewardsPassData } from "@guardian-nexus/contracts";
+import type { ReportAdminSummaryData, RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -11,6 +11,7 @@ import { useGuardian } from "../../context/GuardianContext";
 import { OptionsPanel } from "./OptionsPanel";
 import { RewardCodeMarquee } from "../reward-codes/RewardCodeMarquee";
 import { getConnectionSnapshot, subscribeConnection } from "../../services/api/client";
+import { LIVE_REFRESH_INTERVAL_MS } from "../../services/liveRefresh";
 import styles from "./Shell.module.css";
 
 const tabs = [
@@ -38,6 +39,15 @@ export function Shell() {
     refetchInterval: autoRefresh ? 60_000 : false,
     refetchIntervalInBackground: false
   });
+  const reportSummary = useQuery({
+    queryKey: ["reports", "admin", "summary"],
+    queryFn: () => api<ReportAdminSummaryData>("/api/v1/admin/reports/summary"),
+    enabled: Boolean(session?.authenticated && session.roles.reportAdmin),
+    staleTime: 30_000,
+    refetchInterval: LIVE_REFRESH_INTERVAL_MS,
+    refetchIntervalInBackground: false
+  });
+  const unresolvedTicketCount = reportSummary.data?.data.unresolvedCount ?? 0;
   const claimableReward = hasClaimableReward(rewards.data?.data.rewards);
   const liveRewards = rewards.data?.data;
   const rewardsPassRank = liveRewards?.rank ?? guardian?.stats.rewardsPassRank ?? 0;
@@ -79,7 +89,10 @@ export function Shell() {
           <div className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""} ${connection.usingSavedData ? styles.connectionSaved : ""} ${connection.retrying ? styles.connectionWorking : ""}`} aria-label={connection.usingSavedData ? "Showing saved Guardian data" : error || connection.lastError ? "Guardian services interrupted" : "Guardian services connected"} title={connectionTitle}>
             {connection.usingSavedData ? <Database size={18} /> : <Orbit size={18} />}{connection.queued > 0 && <b>{connection.queued}</b>}
           </div>
-          <button className={styles.optionsButton} onClick={() => setOptionsOpen(true)} aria-label="Open options"><Settings size={20} /><span>Options</span></button>
+          <button className={`${styles.optionsButton} ${unresolvedTicketCount > 0 ? styles.optionsTicketAlert : ""}`} onClick={() => setOptionsOpen(true)} aria-label="Open options" title={unresolvedTicketCount > 0 ? `${unresolvedTicketCount} unresolved ticket${unresolvedTicketCount === 1 ? "" : "s"}` : "Options"}>
+            <Settings size={20} /><span>Options</span>
+            {session?.roles.reportAdmin && unresolvedTicketCount > 0 && <strong aria-label={`${unresolvedTicketCount} unresolved tickets`}>{unresolvedTicketCount}</strong>}
+          </button>
         </div>
         <nav className={styles.tabs} aria-label="Guardian Nexus sections">
           {tabs.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? styles.activeTab : styles.tab}><Icon size={17} /><span>{label}</span></NavLink>)}
@@ -90,7 +103,7 @@ export function Shell() {
       <main className={styles.main}><Outlet /></main>
       {showScrollTop && <button type="button" className={styles.scrollTop} aria-label="Scroll to top" title="Scroll to top" onClick={() => window.scrollTo({ top: 0, behavior: document.documentElement.dataset.reducedMotion === "true" ? "auto" : "smooth" })}><ArrowUp /></button>}
       <footer className={styles.footer}><span>Guardian Nexus</span><span>Destiny companion</span><span>Activity data may be delayed</span></footer>
-      <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} />
+      <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} reportSummary={reportSummary.data?.data} />
     </div>
   );
 }
