@@ -51,11 +51,19 @@ describe("storefrontSections", () => {
 });
 
 describe("Xur inventory presentation", () => {
-  it("labels preserved offers as the last shipment after Xur leaves", () => {
+  it("labels preserved offers as what the player missed after Xur leaves", () => {
     expect(xurInventoryPresentation({ state: "away", inventoryStatus: "last-shipment", offers: [offer("Hawkmoon", "exotic-weapon")] }, false)).toEqual({
       lastShipment: true,
-      locationLabel: "Last known location",
-      signalLabel: "Last shipment"
+      locationLabel: "Previous location",
+      signalLabel: "What you missed"
+    });
+  });
+
+  it("labels a preserved storefront as the latest verified data during an active visit", () => {
+    expect(xurInventoryPresentation({ state: "unavailable", inventoryStatus: "last-shipment", offers: [offer("Hawkmoon", "exotic-weapon")] }, true)).toEqual({
+      lastShipment: true,
+      locationLabel: "Last verified location",
+      signalLabel: "Latest verified storefront"
     });
   });
 
