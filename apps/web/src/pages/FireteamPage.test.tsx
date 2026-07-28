@@ -68,6 +68,7 @@ describe("Fireteam tracked items", () => {
     const item = (await screen.findByText("Weekly order")).closest("[data-completion-state]");
     expect(item?.getAttribute("data-completion-state")).toBe("exiting");
     expect(item?.querySelectorAll(`.${styles.sharedQuestCompletionFx} b span`)).toHaveLength(12);
+    expect(item?.closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("completed");
   });
 
   it("uses the gold entry effect only when a tracked item is newly added", async () => {
@@ -89,6 +90,7 @@ describe("Fireteam tracked items", () => {
 
     const enteringItem = (await screen.findByText("New rank objective")).closest("[data-tracking-state]");
     expect(enteringItem?.getAttribute("data-tracking-state")).toBe("entering");
+    expect(enteringItem?.closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("added");
     await act(async () => { vi.advanceTimersByTime(1_400); });
     expect(enteringItem?.getAttribute("data-tracking-state")).toBe("active");
   });
@@ -127,6 +129,8 @@ describe("Fireteam tracked items", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Untrack Weekly order from Fireteam" }));
 
+    expect(screen.getByText("Weekly order").closest("[data-tracking-state]")?.getAttribute("data-tracking-state")).toBe("removing");
+    expect(screen.getByText("Weekly order").closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("removed");
     await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
     const [, init] = vi.mocked(queuedApi).mock.calls[0]!;
     expect(JSON.parse(String(init?.body))).toMatchObject({

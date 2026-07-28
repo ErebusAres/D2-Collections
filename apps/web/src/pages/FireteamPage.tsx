@@ -45,8 +45,11 @@ export function FireteamPage() {
   const storageKey = membershipId && selectedCharacterId ? pinsKey(membershipId, selectedCharacterId) : "";
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => readPinnedIds(storageKey));
   useEffect(() => setPinnedIds(readPinnedIds(storageKey)), [storageKey]);
-  const guardianRankIds = useMemo(() => trackedPreference(preferences["guardianRank.tracked"]), [preferences]);
+  const preferenceGuardianRankIds = useMemo(() => trackedPreference(preferences["guardianRank.tracked"]), [preferences]);
+  const [guardianRankIds, setGuardianRankIds] = useState(preferenceGuardianRankIds);
+  useEffect(() => setGuardianRankIds(preferenceGuardianRankIds), [preferences["guardianRank.tracked"]]);
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
+  const [manualRemovingKey, setManualRemovingKey] = useState("");
   const share = useMutation({
     mutationFn: ({ mode, sitePinnedQuestIds = pinnedIds, siteTrackedGuardianRankIds = guardianRankIds, hiddenTrackedItemKeys: hiddenKeys = hiddenTrackedItemKeys }: ShareVariables) => queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, hiddenTrackedItemKeys: hiddenKeys, mode }) }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
@@ -59,8 +62,8 @@ export function FireteamPage() {
   const syncSignature = shareSignature(selectedCharacterId, pinnedIds, guardianRankIds, hiddenTrackedItemKeys);
   const lastSyncSignature = useRef("");
   const renew = useCallback(() => {
-    if (selectedCharacterId && sharingMode && sharingMode !== "off" && !share.isPending) share.mutate({ mode: sharingMode });
-  }, [selectedCharacterId, sharingMode, share]);
+    if (selectedCharacterId && sharingMode && sharingMode !== "off" && !share.isPending && !manualRemovingKey) share.mutate({ mode: sharingMode });
+  }, [selectedCharacterId, sharingMode, share, manualRemovingKey]);
   useEffect(() => {
     if (!result.data?.data.sharingEnabled || !autoRefresh) return;
     const timer = window.setInterval(renew, LIVE_REFRESH_INTERVAL_MS);
@@ -71,10 +74,10 @@ export function FireteamPage() {
       lastSyncSignature.current = "";
       return;
     }
-    if (lastSyncSignature.current === syncSignature || share.isPending) return;
+    if (lastSyncSignature.current === syncSignature || share.isPending || manualRemovingKey) return;
     lastSyncSignature.current = syncSignature;
     share.mutate({ mode: sharingMode });
-  }, [result.data?.data.sharingEnabled, share, sharingMode, syncSignature]);
+  }, [result.data?.data.sharingEnabled, share, sharingMode, syncSignature, manualRemovingKey]);
   const self = data?.members.find((member) => member.isSelf);
   const [copied, setCopied] = useState("");
   const copyCommand = async (label: string, command: string) => {
@@ -100,16 +103,22 @@ export function FireteamPage() {
       setPinnedIds(nextPinnedIds);
       try { localStorage.setItem(storageKey, JSON.stringify(nextPinnedIds)); } catch { /* Keep the in-memory update. */ }
     }
-    if (nextGuardianRankIds !== guardianRankIds) setPreference("guardianRank.tracked", JSON.stringify(nextGuardianRankIds));
+    if (nextGuardianRankIds !== guardianRankIds) {
+      setGuardianRankIds(nextGuardianRankIds);
+      setPreference("guardianRank.tracked", JSON.stringify(nextGuardianRankIds));
+    }
 
     lastSyncSignature.current = shareSignature(selectedCharacterId, nextPinnedIds, nextGuardianRankIds, hiddenKeys);
-    share.mutate({
-      mode: sharingMode,
-      sitePinnedQuestIds: nextPinnedIds,
-      siteTrackedGuardianRankIds: nextGuardianRankIds,
-      hiddenTrackedItemKeys: hiddenKeys,
-      untrackingKey: key
-    });
+    setManualRemovingKey(key);
+    window.setTimeout(() => {
+      share.mutate({
+        mode: sharingMode,
+        sitePinnedQuestIds: nextPinnedIds,
+        siteTrackedGuardianRankIds: nextGuardianRankIds,
+        hiddenTrackedItemKeys: hiddenKeys,
+        untrackingKey: key
+      }, { onSettled: () => setManualRemovingKey((current) => current === key ? "" : current) });
+    }, 800);
   };
 
   return <AuthGate>
@@ -131,7 +140,7 @@ export function FireteamPage() {
         <div><Activity /><span>Current location</span><strong>{presenceLocation(self, data.activity)}</strong></div>
         <div><ShieldCheck /><span>Your sharing</span><strong>{data.sharingMode === "persistent" ? "Always on / background refresh" : data.sharingMode === "temporary" ? "Temporary / 15 minutes" : "Private"}</strong></div>
       </section>
-      <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} untrackingKey={share.isPending ? share.variables?.untrackingKey : undefined} />)}</section>
+      <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
       <SocialRoster contacts={data.social?.contacts || []} friendsState={data.social?.friendsState || data.social?.state || "unavailable"} clanState={data.social?.clanState || (data.social?.state === "available" ? "available" : "unavailable")} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
       <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Status may be delayed</strong><p>Party presence and current activity are not guaranteed to be real time.</p></div></section>
     </>}
@@ -193,7 +202,8 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, untrackingKe
   const completingKeys = new Set(visibleCompletions.map(trackedItemKey));
   const displayedItems = [...trackedItems.filter((item) => !completingKeys.has(trackedItemKey(item))), ...visibleCompletions];
   const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
-  return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""}`}>
+  const cardEvent = visibleCompletions.length ? "completed" : untrackingKey ? "removed" : enteringKeys.size ? "added" : "idle";
+  return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""} ${cardEvent === "completed" ? styles.memberCardCompleted : cardEvent === "removed" ? styles.memberCardRemoved : cardEvent === "added" ? styles.memberCardAdded : ""}`} data-tracking-event={cardEvent}>
     <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "public" ? "Public location" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
     {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => {
@@ -212,7 +222,7 @@ function TrackedItem({ item, entering = false, completing = false, onUntrack, un
     ? item.trackedInGuardianNexus ? "Untrack in Guardian Nexus and hide while Destiny still tracks it" : "Hide from Fireteam sharing until Destiny stops tracking it"
     : "Untrack in Guardian Nexus";
   const trackingState = completing ? "exiting" : entering ? "entering" : "active";
-  return <div className={`${styles.sharedQuest} ${manageable ? styles.sharedQuestManageable : ""} ${completing ? styles.sharedQuestCompleting : entering ? styles.sharedQuestEntering : ""}`} data-completion-state={completing ? "exiting" : "active"} data-tracking-state={trackingState}>
+  return <div className={`${styles.sharedQuest} ${manageable ? styles.sharedQuestManageable : ""} ${completing ? styles.sharedQuestCompleting : untracking ? styles.sharedQuestRemoving : entering ? styles.sharedQuestEntering : ""}`} data-completion-state={completing ? "exiting" : "active"} data-tracking-state={untracking ? "removing" : trackingState}>
     {completing && <span className={styles.sharedQuestCompletionFx} aria-hidden="true"><i /><b>{Array.from({ length: 12 }, (_, index) => <span key={index} />)}</b><em><CheckCircle2 /></em></span>}
     <span className={styles.sharedQuestIcon}>{item.icon ? <img src={item.icon} alt="" /> : <CheckCircle2 />}</span>
     <div className={styles.sharedQuestDetails}>
