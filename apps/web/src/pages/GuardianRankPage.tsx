@@ -145,9 +145,8 @@ function QuestCard({ quest, tracked, onTrack }: { quest: GuardianRankQuest; trac
     <header><span>{quest.icon ? <img src={quest.icon} alt="" /> : quest.state === "completed" ? <CheckCircle2 /> : <Crosshair />}</span><div><small>{status}{quest.trackedInDestiny ? " · Tracked in Destiny" : ""}</small><h4>{quest.name}</h4></div><button onClick={onTrack} className={tracked ? styles.tracked : ""} aria-label={tracked ? `Stop tracking ${quest.name}` : `Track ${quest.name}`} title={tracked ? "Stop tracking in Guardian Nexus" : "Track in Guardian Nexus"}><Bookmark fill={tracked ? "currentColor" : "none"} /></button></header>
     {quest.description && <p>{quest.description}</p>}
     <div className={styles.objectives}>{quest.objectives.length ? quest.objectives.map((objective) => <div key={objective.objectiveHash} className={objective.completionValue === 1 ? styles.binaryObjective : ""}>
-      <span><b>{objective.name}</b><small>{objective.progressAvailable ? objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : objective.complete ? "Complete" : "In progress" : "Bungie did not return a live counter"}</small></span>
+      <span><b>{objective.name}</b><small>{objective.progressAvailable ? objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : objective.complete ? "Complete" : "In progress" : "Bungie did not return a live counter"}{objective.complete && <CheckCircle2 />}</small></span>
       {objective.completionValue !== 1 && <i><span style={{ width: `${objective.percent}%` }} /></i>}
-      {objective.complete ? <CheckCircle2 /> : <strong>{objective.progressAvailable ? `${objective.percent}%` : "—"}</strong>}
     </div>) : <div className={styles.recordOnly}><span><b>{status}</b><small>No numeric objective.</small></span></div>}</div>
   </article>;
 }
