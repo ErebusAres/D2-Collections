@@ -74,7 +74,7 @@ describe("Shell guardian identity", () => {
     expect(screen.getByLabelText("Light Level: 409 · Open").getAttribute("href")).toBe("/power");
     expect(screen.getByLabelText("Guardian Rank: 5 · Open").getAttribute("href")).toBe("/guardian-rank");
     const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
-    expect(primaryTabs.slice(-2)).toEqual(["Guardian Matrix", "Build Advisor"]);
+    expect(primaryTabs).toEqual(["Collection", "Xûr", "Quests", "Gear", "Loadouts", "Builds", "Build Advisor", "Fireteam"]);
     expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");
     const statLabels = [...screen.getByLabelText("Guardian stats").children].map((entry) => entry.getAttribute("aria-label"));
     expect(statLabels.slice(1, 4)).toEqual(["Guardian Rank: 5 · Open", "Crucible Rank: 7 · Brave II · Open", "Rewards Pass: 33 · Open"]);
@@ -107,17 +107,18 @@ describe("Shell guardian identity", () => {
     const adminTools = screen.getByText("Admin tools").closest("section")!;
     expect(within(adminTools).getByRole("link", { name: "Audience" }).getAttribute("href")).toBe("/audience");
     expect(within(adminTools).getByRole("link", { name: "API Lab" }).getAttribute("href")).toBe("/dev");
-    expect(within(adminTools).getByRole("link", { name: "Build editor" }).getAttribute("href")).toBe("/builds/new");
+    expect(within(adminTools).queryByRole("link", { name: "Build editor" })).toBeNull();
     expect(within(adminTools).getByRole("link", { name: "Matrix sync" }).getAttribute("href")).toBe("/matrix");
   });
 
-  it("keeps API Lab in its original slot and adds Build Advisor after it for developers", () => {
+  it("keeps restricted navigation in Options instead of the header for developers", () => {
     devRole = true;
     renderShell(<div>Page</div>);
 
     const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
-    expect(primaryTabs.slice(-3)).toEqual(["Guardian Matrix", "API Lab", "Build Advisor"]);
-    expect(screen.getByRole("link", { name: "API Lab" }).getAttribute("href")).toBe("/dev");
+    expect(primaryTabs).toEqual(["Collection", "Xûr", "Quests", "Gear", "Loadouts", "Builds", "Build Advisor", "Fireteam"]);
+    expect(screen.queryByRole("link", { name: "API Lab" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Guardian Matrix" })).toBeNull();
     expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");
   });
 

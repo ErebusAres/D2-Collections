@@ -1,6 +1,6 @@
 import type { ReportAdminSummaryData, RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Gift, GitCompareArrows, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users, Wrench } from "lucide-react";
+import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Gift, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
@@ -21,8 +21,8 @@ const tabs = [
   { to: "/gear", label: "Gear", icon: ShieldEllipsis },
   { to: "/loadouts", label: "Loadouts", icon: Layers3 },
   { to: "/builds", label: "Builds", icon: Hammer },
-  { to: "/fireteam", label: "Fireteam", icon: Users },
-  { to: "/matrix", label: "Guardian Matrix", icon: GitCompareArrows }
+  { to: "/build-advisor", label: "Build Advisor", icon: ScanSearch },
+  { to: "/fireteam", label: "Fireteam", icon: Users }
 ];
 
 export function Shell() {
@@ -96,8 +96,6 @@ export function Shell() {
         </div>
         <nav className={styles.tabs} aria-label="Guardian Nexus sections">
           {tabs.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? styles.activeTab : styles.tab}><Icon size={17} /><span>{label}</span></NavLink>)}
-          {session?.roles.dev && <NavLink to="/dev" className={({ isActive }) => isActive ? styles.activeTab : styles.tab}><Wrench size={17} /><span>API Lab</span></NavLink>}
-          <NavLink to="/build-advisor" className={({ isActive }) => isActive ? styles.activeTab : styles.tab}><ScanSearch size={17} /><span>Build Advisor</span></NavLink>
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>

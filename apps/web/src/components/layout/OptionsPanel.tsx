@@ -1,5 +1,5 @@
 import type { FireteamData, ReportAdminSummaryData } from "@guardian-nexus/contracts";
-import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, Hammer, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
+import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
@@ -82,7 +82,6 @@ export function OptionsPanel({ open, onClose, reportSummary }: { open: boolean; 
             </Link>
             {session.roles.dev && <AdminLink to="/audience" label="Audience" icon={<Eye />} onClick={onClose} />}
             {session.roles.dev && <AdminLink to="/dev" label="API Lab" icon={<Wrench />} onClick={onClose} />}
-            {session.roles.buildEditor && <AdminLink to="/builds/new" label="Build editor" icon={<Hammer />} onClick={onClose} />}
             {session.roles.matrixWriter && <AdminLink to="/matrix" label="Matrix sync" icon={<GitCompareArrows />} onClick={onClose} />}
           </div>
         </section>}
