@@ -51,8 +51,8 @@ describe("storefrontSections", () => {
 });
 
 describe("Xur inventory presentation", () => {
-  it("labels preserved offers as what the player missed after Xur leaves", () => {
-    expect(xurInventoryPresentation({ state: "away", inventoryStatus: "last-shipment", offers: [offer("Hawkmoon", "exotic-weapon")] }, false)).toEqual({
+  it("labels offers as what the player missed after the schedule ends even if Bungie still reports available", () => {
+    expect(xurInventoryPresentation({ state: "available", inventoryStatus: "live", offers: [offer("Hawkmoon", "exotic-weapon")] }, false)).toEqual({
       lastShipment: true,
       locationLabel: "Previous location",
       signalLabel: "What you missed"
