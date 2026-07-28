@@ -115,6 +115,14 @@ describe("Build Advisor page", () => {
     expect(screen.getByText("owned-gear option").parentElement?.textContent).toBe("1owned-gear option");
   });
 
+  it("separates template viability from the Guardian's inventory readiness", async () => {
+    vi.mocked(api).mockResolvedValue(envelope(advisorData("Scored Build")));
+    renderPage();
+    expect(await screen.findByLabelText("Build viability 86 out of 100")).toBeTruthy();
+    expect(screen.getAllByText("96% ready").length).toBeGreaterThan(0);
+    expect(screen.getByRole("region", { name: "Build recommendation scores" }).textContent).toContain("Overall match91");
+  });
+
   it("confirms and submits a server-resolved build equip action", async () => {
     const data = advisorData("Ready Gear Build");
     data.recommendations[0]!.equipPlan = { state: "ready", canEquip: true, itemCount: 8, transferCount: 2, equippedCount: 1, blockers: [] };
@@ -205,6 +213,8 @@ function recommendation(name: string): BuildAdvisorRecommendation {
     classType: "hunter",
     subclass: "void",
     score: 91,
+    viabilityScore: 86,
+    readinessScore: 96,
     status: "fully-assembleable",
     categories: ["Best Overall"],
     focuses: ["Balanced", "General PvE", "Solo / Survivability", "Add Clear", "Ability Uptime", "Power Progression"],

@@ -182,18 +182,26 @@ function BuildAdvisor() {
 
 function RecommendationCard({ recommendation, selected, onSelect }: { recommendation: BuildAdvisorRecommendation; selected: boolean; onSelect: () => void }) {
   const armor = recommendation.coreExoticArmor;
+  const viabilityScore = recommendation.viabilityScore ?? recommendation.score;
+  const readinessScore = recommendation.readinessScore ?? recommendation.score;
+  const visibleCategories = recommendation.categories.slice(0, 3);
+  const hiddenCategoryCount = recommendation.categories.length - visibleCategories.length;
   return <button type="button" className={styles.card} data-selected={selected} data-status={recommendation.status} onClick={onSelect}>
     <header>
-      <div className={styles.score} style={{ "--score": recommendation.score } as React.CSSProperties}><strong>{recommendation.score}</strong><small>/ 100</small></div>
+      <div className={styles.score} style={{ "--score": viabilityScore } as React.CSSProperties} aria-label={`Build viability ${viabilityScore} out of 100`}><strong>{viabilityScore}</strong><small>viability</small></div>
       <div><span>{recommendation.classType} · {recommendation.subclass}</span><h2>{recommendation.name}</h2></div>
     </header>
-    <div className={styles.status}><i /><strong>{STATUS_LABELS[recommendation.status]}</strong></div>
+    <div className={styles.readiness}>
+      <span><span><i /><strong>{STATUS_LABELS[recommendation.status]}</strong></span><b>{readinessScore}% ready</b></span>
+      <i><span style={{ width: `${readinessScore}%` }} /></i>
+    </div>
     <p>{recommendation.reason}</p>
     <div className={styles.coreItem}>{armor.icon ? <img src={armor.icon} alt="" /> : <Shield />}<span><small>Core exotic</small><b>{armor.name}</b></span></div>
     <div className={styles.cardMetrics}><span><Swords /> Damage <b>{recommendation.damageProfile}</b></span><span><Shield /> Survival <b>{recommendation.survivability}</b></span><span><Gauge /> Complexity <b>{recommendation.complexity}</b></span></div>
     <footer>
       <span>{recommendation.verification.state === "verified-current" ? "Current sandbox verified" : "Current community build"}</span>
-      {recommendation.categories.map((entry) => <span key={entry}>{entry}</span>)}
+      {visibleCategories.map((entry) => <span key={entry}>{entry}</span>)}
+      {hiddenCategoryCount > 0 && <span title={recommendation.categories.slice(3).join(", ")}>+{hiddenCategoryCount} more</span>}
     </footer>
   </button>;
 }
@@ -214,6 +222,8 @@ function RecommendationDetail({
   equipMessage: string;
 }) {
   const build = recommendation.build;
+  const viabilityScore = recommendation.viabilityScore ?? recommendation.score;
+  const readinessScore = recommendation.readinessScore ?? recommendation.score;
   const missingItemGuides = recommendation.missingItemGuides || [];
   const equipPlan = recommendation.equipPlan;
   const abilities: Array<[string, BuildNamedEntry | undefined]> = [
@@ -240,6 +250,11 @@ function RecommendationDetail({
         {recommendation.source.buildSlug && <a href={`/builds/${encodeURIComponent(recommendation.source.buildSlug)}`}>View published build <ExternalLink /></a>}
       </div>}
     </header>
+    <section className={styles.scoreSummary} aria-label="Build recommendation scores">
+      <article><span>Build viability</span><strong>{viabilityScore}</strong><small>Template strength independent of your inventory</small></article>
+      <article><span>Your readiness</span><strong>{readinessScore}%</strong><small>Owned gear, compatible rolls, and substitutions</small></article>
+      <article><span>Overall match</span><strong>{recommendation.score}</strong><small>Used to order recommendations for this Guardian</small></article>
+    </section>
     <section className={styles.factorList}><h3><Gauge /> Score factors</h3>{recommendation.factors.map((factor) => <div key={factor.id}><span><b>{factor.label}</b><small>{factor.detail}</small></span><em>{factor.earned}/{factor.available}</em><i><span style={{ width: `${factor.available ? factor.earned / factor.available * 100 : 0}%` }} /></i></div>)}</section>
     <section><h3><Shield /> Five-piece armor plan</h3><div className={styles.armorList}>{recommendation.armor.map((entry) => <ArmorMatch key={entry.slot} armor={entry} />)}</div></section>
     <section><h3><Crosshair /> Three-weapon loadout</h3><div className={styles.weaponList}>{recommendation.weapons.map((weapon) => <WeaponMatch key={weapon.requirementId} weapon={weapon} />)}</div></section>

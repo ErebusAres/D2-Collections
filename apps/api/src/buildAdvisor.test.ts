@@ -314,6 +314,12 @@ describe("Build Advisor inventory and scoring", () => {
     ]);
     expect(result.recommendations[0]?.templateId).toBe("hunter-void-gyrfalcon");
     expect(result.recommendations[0]?.status).toBe("fully-assembleable");
+    expect(result.recommendations[0]!.viabilityScore).toBe(
+      result.recommendations.find((entry) => entry.templateId === "hunter-void-missing-core")!.viabilityScore
+    );
+    expect(result.recommendations[0]!.readinessScore).toBeGreaterThan(
+      result.recommendations.find((entry) => entry.templateId === "hunter-void-missing-core")!.readinessScore
+    );
     expect(result.recommendations[0]!.score).toBeGreaterThan(result.recommendations.find((entry) => entry.templateId === "hunter-void-missing-core")!.score);
   });
 

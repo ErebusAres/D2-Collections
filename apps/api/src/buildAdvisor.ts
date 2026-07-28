@@ -380,8 +380,13 @@ function scoreTemplate(
   const rollScore = Math.round(weapons.reduce((total, weapon) => total + rollFraction(weapon.quality), 0) / Math.max(1, weapons.length) * 10);
   const utilityScore = Math.round((profileValue(template.survivability) + profileValue(template.addClear) + profileValue(template.abilityUptime)) / 9 * 15);
   const contextScore = Math.round((profileValue(template.solo) + profileValue(template.group) + (template.powerFriendly ? 3 : 1)) / 9 * 15);
-  const rawScore = coreScore + armorScore + weaponScore + rollScore + utilityScore + contextScore;
-  const score = Math.max(0, Math.min(status === "missing-several-core-items" ? 59 : status === "not-viable" ? 0 : 100, rawScore));
+  const readinessPoints = coreScore + armorScore + weaponScore + rollScore;
+  const readinessScore = Math.max(0, Math.min(
+    status === "missing-several-core-items" ? 59 : status === "not-viable" ? 0 : 100,
+    Math.round(readinessPoints / 70 * 100)
+  ));
+  const viabilityScore = templateViabilityScore(template);
+  const score = Math.round(viabilityScore * .45 + readinessScore * .55);
   const factors: BuildAdvisorScoreFactor[] = [
     factor("core", "Core exotic", coreScore, 25, coreArmor ? "Required exotic armor is a physical owned copy." : collectionArmor ? "Unlocked in Collections, but no physical copy was found." : "Required exotic armor was not found."),
     factor("armor-fit", "Armor loadout", armorScore, 15, armorSummary(armor)),
@@ -404,6 +409,8 @@ function scoreTemplate(
     classType: template.classType,
     subclass: template.subclass,
     score,
+    viabilityScore,
+    readinessScore,
     status,
     categories: [],
     focuses: focusesForTemplate(template),
@@ -459,6 +466,19 @@ function scoreTemplate(
   };
   const equippedMatchCount = armor.filter((entry) => entry.item?.equipped).length + weapons.filter((weapon) => weapon.item?.equipped).length;
   return { recommendation, template, equippedMatchCount };
+}
+
+function templateViabilityScore(template: BuildAdvisorTemplate): number {
+  const profiles = [
+    template.damageProfile,
+    template.bossDamage,
+    template.addClear,
+    template.survivability,
+    template.abilityUptime,
+    template.solo,
+    template.group
+  ];
+  return Math.round(profiles.reduce((total, profile) => total + profileValue(profile), 0) / (profiles.length * 3) * 100);
 }
 
 function acquisitionGuides(

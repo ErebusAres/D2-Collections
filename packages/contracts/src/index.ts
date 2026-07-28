@@ -1321,7 +1321,12 @@ export interface BuildAdvisorRecommendation {
   name: string;
   classType: BuildGuardianClass;
   subclass: BuildSubclass;
+  /** Combined recommendation rank. Prefer the component scores when explaining a result. */
   score: number;
+  /** Account-independent strength of the template in its intended activities. */
+  viabilityScore: number;
+  /** Account-specific completion based on owned armor, weapons, and roll quality. */
+  readinessScore: number;
   status: BuildAdvisorAssemblyStatus;
   categories: BuildAdvisorCategory[];
   focuses: BuildAdvisorFocus[];
