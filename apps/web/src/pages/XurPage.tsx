@@ -36,7 +36,7 @@ export function XurPage() {
   const presentation = data ? xurInventoryPresentation(data, schedule.active) : undefined;
 
   return <AuthGate>
-    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="When live data is unavailable, the last verified shipment is clearly labeled." actions={<Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="See the live storefront while Xûr is here, or review what you missed after he leaves." actions={<Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && presentation && <>
       <section className={`${styles.xurHero} ${schedule.active && !presentation.lastShipment ? styles.xurActive : ""}`}>
@@ -45,7 +45,7 @@ export function XurPage() {
         <div><Clock3 /><span>Vendor signal</span><strong>{presentation.signalLabel}</strong><small>{storefrontCount} storefront offers{presentation.lastShipment && data.inventoryCapturedAt ? ` · verified ${new Date(data.inventoryCapturedAt).toLocaleString()}` : " across your classes"}</small></div>
       </section>
 
-      {presentation.lastShipment && <section className={styles.xurShipmentNotice}><Clock3 /><div><strong>Last verified shipment</strong><p>{schedule.active ? "Showing the most recent verified offers; live inventory is unavailable." : "These offers are from Xûr's previous visit and cannot be purchased."}</p></div></section>}
+      {presentation.lastShipment && <section className={styles.xurShipmentNotice}><Clock3 /><div><strong>{schedule.active ? "Latest verified storefront" : "This is what you missed"}</strong><p>{schedule.active ? "Live inventory is unavailable, so this is the most recent verified storefront." : "These were Xûr's offers during his previous visit and can no longer be purchased."}</p></div></section>}
       {storefrontCount > 0
         ? sections.map((section) => <XurSection key={section.title} {...section} historical={presentation.lastShipment} />)
         : <section className={styles.xurEmpty}><Sparkles /><h2>{schedule.active ? "Awaiting Xûr's inventory" : "Xûr is away"}</h2><p>{schedule.active ? "No current inventory is available. Refresh after reset." : "Inventory returns Friday at reset."}</p></section>}
@@ -95,8 +95,8 @@ export function xurInventoryPresentation(data: Pick<XurData, "state" | "inventor
   const lastShipment = data.inventoryStatus === "last-shipment" || (data.state !== "available" && data.offers.length > 0);
   return {
     lastShipment,
-    locationLabel: lastShipment ? "Last known location" : "Current location",
-    signalLabel: lastShipment ? "Last shipment" : data.state === "available" ? "Inventory live" : data.state === "away" ? "Xûr is away" : scheduleActive ? "Signal unavailable" : "Xûr is away"
+    locationLabel: lastShipment ? scheduleActive ? "Last verified location" : "Previous location" : "Current location",
+    signalLabel: lastShipment ? scheduleActive ? "Latest verified storefront" : "What you missed" : data.state === "available" ? "Inventory live" : data.state === "away" ? "Xûr is away" : scheduleActive ? "Signal unavailable" : "Xûr is away"
   };
 }
 
