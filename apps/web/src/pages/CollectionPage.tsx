@@ -47,15 +47,20 @@ export function CollectionPage() {
     refetchInterval: autoRefresh ? 5 * 60_000 : false,
     refetchIntervalInBackground: false
   });
-  const scopedEntries = useMemo(() => scopeCollectionEntries(result.data?.data.entries || [], classScope), [result.data, classScope]);
+  const data = result.data?.data;
+  const xurSellingLive = data?.xur.state === "available";
+  useEffect(() => {
+    if (!xurSellingLive && availability === "xur") setAvailability("all");
+  }, [availability, xurSellingLive]);
+  const scopedEntries = useMemo(() => scopeCollectionEntries(data?.entries || [], classScope), [data, classScope]);
   const entries = useMemo(() => sortCollectionEntries(scopedEntries.filter((entry) => {
     const text = `${entry.name} ${entry.itemType} ${entry.slot} ${entry.source}`.toLowerCase();
     return (!query || text.includes(query.toLowerCase()))
       && (kind === "all" || entry.kind === kind)
       && (owned === "all" || (owned === "owned" ? entry.owned : !entry.owned))
       && (catalyst === "all" || (entry.kind === "weapon" && entry.catalyst === catalyst))
-      && (availability === "all" || entry.xurSelling);
-  }), sort), [scopedEntries, query, kind, owned, catalyst, availability, sort]);
+      && (availability === "all" || (xurSellingLive && entry.xurSelling));
+  }), sort), [scopedEntries, query, kind, owned, catalyst, availability, sort, xurSellingLive]);
   const groups = useMemo(() => groupCollectionEntries(entries, classScope), [entries, classScope]);
   const totals = useMemo(() => ({
     owned: scopedEntries.filter((entry) => entry.owned).length,
@@ -64,7 +69,6 @@ export function CollectionPage() {
     catalystsOwned: scopedEntries.filter((entry) => entry.kind === "weapon" && (entry.catalyst === "obtained" || entry.catalyst === "complete")).length,
     catalystsComplete: scopedEntries.filter((entry) => entry.kind === "weapon" && entry.catalyst === "complete").length
   }), [scopedEntries]);
-  const data = result.data?.data;
 
   return <AuthGate>
     <PageHeader eyebrow="Personal archive" title="Collection" description="Ownership is account-wide; Exotic armor remains class-filterable." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
@@ -81,7 +85,7 @@ export function CollectionPage() {
         <label className={styles.search}><Search size={16} /><input type="search" data-page-search value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Exotics, slots, sources…" /></label>
         <FilterGroup label="Type" value={kind} values={["all", "weapon", "armor"]} onChange={(value) => { const next = value as KindFilter; setKind(next); saveFilters({ kind: next }); }} />
         <FilterGroup label="Collection" value={owned} values={["all", "owned", "missing"]} onChange={(value) => { const next = value as OwnedFilter; setOwned(next); saveFilters({ owned: next }); }} />
-        <FilterGroup label="Availability" value={availability} values={["all", "xur"]} labels={{ xur: "Xûr" }} onChange={(value) => { const next = value as AvailabilityFilter; setAvailability(next); saveFilters({ availability: next }); }} />
+        {xurSellingLive && <FilterGroup label="Availability" value={availability} values={["all", "xur"]} labels={{ xur: "Xûr" }} onChange={(value) => { const next = value as AvailabilityFilter; setAvailability(next); saveFilters({ availability: next }); }} />}
         <label className={styles.selectFilter}><span>Catalyst</span><select value={catalyst} onChange={(event) => { const next = event.target.value as typeof catalyst; setCatalyst(next); saveFilters({ catalyst: next }); }}><option value="all">All states</option><option value="missing">Missing</option><option value="obtained">Obtained</option><option value="complete">Complete</option><option value="unavailable">No catalyst</option></select></label>
         <label className={styles.selectFilter}><span>Sort</span><select value={sort} onChange={(event) => setPreference("collection.sort", event.target.value)}><option value="position">Position + A–Z</option><option value="type">Type + A–Z</option><option value="alpha">Name A–Z</option><option value="missing">Missing first</option><option value="owned">Owned first</option><option value="source">Acquisition source</option></select></label>
         <strong className={styles.resultCount}>{entries.length} shown</strong>
@@ -89,11 +93,11 @@ export function CollectionPage() {
       {entries.length ? <div className={styles.collectionSections}>
         {groups.map((group) => <section className={styles.collectionSection} key={group.id}>
           <header><div><span>{group.eyebrow}</span><h2>{group.title}</h2></div><strong>{group.entries.length} shown</strong></header>
-          <div className={styles.itemGrid}>{group.entries.map((entry) => <ItemCard key={`${entry.itemHash}-${entry.className || "weapon"}`} entry={entry} onOpen={() => setSelected(entry)} />)}</div>
+          <div className={styles.itemGrid}>{group.entries.map((entry) => <ItemCard key={`${entry.itemHash}-${entry.className || "weapon"}`} entry={entry} xurSellingLive={xurSellingLive} onOpen={() => setSelected(entry)} />)}</div>
         </section>)}
       </div> : <div className={styles.inlineEmpty}><Sparkles /><h2>No Exotics match this view</h2><p>Adjust filters, or run the manifest sync if the catalog reports Offline.</p></div>}
     </>}
-    <GuideDrawer entry={selected} onClose={() => setSelected(null)} />
+    <GuideDrawer entry={selected} xurSellingLive={xurSellingLive} onClose={() => setSelected(null)} />
   </AuthGate>;
 }
 
@@ -107,11 +111,11 @@ function FilterGroup({ label, value, values, labels = {}, onChange }: { label: s
   return <div className={styles.filterGroup}><span>{label}</span><div>{values.map((entry) => <button type="button" key={entry} aria-pressed={value === entry} className={value === entry ? styles.activeFilter : ""} onClick={() => onChange(entry)}>{labels[entry] || entry}</button>)}</div></div>;
 }
 
-function ItemCard({ entry, onOpen }: { entry: ExoticCollectionEntry; onOpen: () => void }) {
+function ItemCard({ entry, xurSellingLive, onOpen }: { entry: ExoticCollectionEntry; xurSellingLive: boolean; onOpen: () => void }) {
   return <button className={`${styles.itemCard} ${entry.owned ? styles.owned : styles.missing}`} onClick={onOpen}>
     <div className={styles.itemArt}>{entry.icon ? <img src={entry.icon} alt="" loading="lazy" /> : <span>{entry.kind === "weapon" ? <Swords /> : <Shield />}</span>}{entry.watermark && <img className={styles.watermark} src={entry.watermark} alt="" />}</div>
     <div className={styles.itemBody}><span>{collectionItemLabel(entry)}</span><h2>{entry.name}</h2><p>{entry.itemType}</p></div>
-    <div className={styles.itemState}>{entry.xurSelling && <StateBadge active label="Xûr selling" gold icon={<Coins size={10} />} />}<StateBadge active={entry.owned} label={entry.owned ? "Owned" : "Missing"} />{entry.kind === "weapon" && <StateBadge active={entry.catalyst === "obtained" || entry.catalyst === "complete"} label={catalystLabel(entry.catalyst)} gold={entry.catalyst === "complete"} />}</div>
+    <div className={styles.itemState}>{xurSellingLive && entry.xurSelling && <StateBadge active label="Xûr selling" gold icon={<Coins size={10} />} />}<StateBadge active={entry.owned} label={entry.owned ? "Owned" : "Missing"} />{entry.kind === "weapon" && <StateBadge active={entry.catalyst === "obtained" || entry.catalyst === "complete"} label={catalystLabel(entry.catalyst)} gold={entry.catalyst === "complete"} />}</div>
     <ChevronRight className={styles.chevron} size={18} />
   </button>;
 }
@@ -124,12 +128,12 @@ function catalystLabel(state: CatalystState): string {
   return state === "unavailable" ? "No catalyst" : state === "missing" ? "Catalyst missing" : state === "obtained" ? "Catalyst found" : "Catalyst complete";
 }
 
-function GuideDrawer({ entry, onClose }: { entry: ExoticCollectionEntry | null; onClose: () => void }) {
+function GuideDrawer({ entry, xurSellingLive, onClose }: { entry: ExoticCollectionEntry | null; xurSellingLive: boolean; onClose: () => void }) {
   return <><button className={`${styles.drawerScrim} ${entry ? styles.drawerOpen : ""}`} onClick={onClose} aria-label="Close guide" /><aside className={`${styles.guideDrawer} ${entry ? styles.drawerOpen : ""}`} aria-hidden={!entry}>
     {entry && <><header><div><span>Acquisition guide</span><h2>{entry.name}</h2></div><button onClick={onClose}><X /></button></header>
       <div className={styles.guideHero}>{entry.icon && <img src={entry.icon} alt="" />}<div><span>{entry.kind} · {entry.slot}</span><p>{entry.description || "Description unavailable."}</p><b className={`${styles.confidence} ${styles[entry.guide.confidence]}`}>{entry.guide.confidence}</b></div></div>
       <div className={styles.guideFacts}><div><span>Collection</span><strong>{entry.owned ? "Owned" : "Missing"}</strong></div><div><span>Type</span><strong>{entry.itemType}</strong></div><div><span>Slot</span><strong>{entry.slot}</strong></div>{entry.damageType && <div><span>Damage</span><strong>{entry.damageType}</strong></div>}</div>
-      {entry.xurSelling && <GuideSection title="Available from Xûr"><p>Available in the latest Xûr inventory.</p></GuideSection>}
+      {xurSellingLive && entry.xurSelling && <GuideSection title="Available from Xûr"><p>Available in Xûr's current inventory.</p></GuideSection>}
       <GuideSection title="Current source"><p>{entry.guide.acquisition}</p></GuideSection>
       <GuideSection title="Acquisition steps"><ol>{entry.guide.steps.length ? entry.guide.steps.map((step, index) => <li key={index}>{step}</li>) : <li>Acquisition steps unavailable.</li>}</ol></GuideSection>
       {entry.guide.prerequisites.length > 0 && <GuideSection title="Prerequisites"><ul>{entry.guide.prerequisites.map((step, index) => <li key={index}>{step}</li>)}</ul></GuideSection>}
