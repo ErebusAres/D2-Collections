@@ -337,6 +337,11 @@ export interface ReportListData {
   counts?: Record<ReportStatus, number>;
 }
 
+export interface ReportAdminSummaryData {
+  counts: Record<ReportStatus, number>;
+  unresolvedCount: number;
+}
+
 export interface CreateReportRequest {
   category: ReportCategory;
   title: string;

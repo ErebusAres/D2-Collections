@@ -5,6 +5,7 @@ import type {
   GuardianReport,
   ReportActivity,
   ReportActivityType,
+  ReportAdminSummaryData,
   ReportCategory,
   ReportClientContext,
   ReportDetailData,
@@ -116,6 +117,10 @@ export async function reportsRoute(request: Request, env: Env, context: RequestC
   if (path === "/api/v1/admin/reports" && request.method === "GET") {
     requireReportAdmin(session.row, env);
     return listAdminReports(env, context);
+  }
+  if (path === "/api/v1/admin/reports/summary" && request.method === "GET") {
+    requireReportAdmin(session.row, env);
+    return reportAdminSummary(env, context);
   }
   const reportId = path.match(/^\/api\/v1\/admin\/reports\/(\d+)$/)?.[1];
   if (reportId && request.method === "PATCH") {
@@ -230,9 +235,20 @@ async function listAdminReports(env: Env, context: RequestContext): Promise<Resp
     reportsQuery.all<ReportRow>(),
     env.DB.prepare("SELECT status, COUNT(*) AS count FROM reports GROUP BY status").all<{ status: ReportStatus; count: number }>()
   ]);
-  const counts: Record<ReportStatus, number> = { open: 0, in_progress: 0, completed: 0, dismissed: 0 };
-  for (const row of countsResult.results || []) counts[row.status] = Number(row.count || 0);
+  const counts = normalizeReportCounts(countsResult.results);
   return reportEnvelope<ReportListData>({ reports: (reportsResult.results || []).map((report) => publicReport(report, true)), canManage: true, counts }, env, context);
+}
+
+async function reportAdminSummary(env: Env, context: RequestContext): Promise<Response> {
+  const result = await env.DB.prepare("SELECT status, COUNT(*) AS count FROM reports GROUP BY status").all<{ status: ReportStatus; count: number }>();
+  const counts = normalizeReportCounts(result.results);
+  return reportEnvelope<ReportAdminSummaryData>({ counts, unresolvedCount: counts.open + counts.in_progress }, env, context);
+}
+
+function normalizeReportCounts(rows: { status: ReportStatus; count: number }[] | undefined): Record<ReportStatus, number> {
+  const counts: Record<ReportStatus, number> = { open: 0, in_progress: 0, completed: 0, dismissed: 0 };
+  for (const row of rows || []) counts[row.status] = Number(row.count || 0);
+  return counts;
 }
 
 async function updateReport(id: number, request: Request, admin: SessionRow, env: Env, context: RequestContext): Promise<Response> {

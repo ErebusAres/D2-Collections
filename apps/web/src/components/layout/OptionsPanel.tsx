@@ -1,10 +1,10 @@
-import type { FireteamData } from "@guardian-nexus/contracts";
-import { Bug, ChevronRight, LogOut, RefreshCcw, Trash2, X } from "lucide-react";
+import type { FireteamData, ReportAdminSummaryData } from "@guardian-nexus/contracts";
+import { Bug, ChevronRight, ClipboardList, LogOut, RefreshCcw, Trash2, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
 import { clearGuardianOfflineData } from "../../services/api/offlineCache";
-import { LIVE_REFRESH_INTERVAL_SECONDS } from "../../services/liveRefresh";
+import { LIVE_REFRESH_INTERVAL_MS, LIVE_REFRESH_INTERVAL_SECONDS } from "../../services/liveRefresh";
 import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import styles from "./OptionsPanel.module.css";
 
@@ -17,6 +17,13 @@ export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => 
     queryKey: ["fireteam", guardianState.selectedCharacterId],
     queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(guardianState.selectedCharacterId)}`),
     enabled: Boolean(open && session?.authenticated && guardianState.selectedCharacterId),
+    staleTime: 30_000
+  });
+  const reportSummary = useQuery({
+    queryKey: ["reports", "admin", "summary"],
+    queryFn: () => api<ReportAdminSummaryData>("/api/v1/admin/reports/summary"),
+    enabled: Boolean(session?.authenticated && session.roles.reportAdmin),
+    refetchInterval: guardianState.autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
     staleTime: 30_000
   });
   const setPersistentSharing = useMutation({
@@ -75,6 +82,12 @@ export function OptionsPanel({ open, onClose }: { open: boolean; onClose: () => 
           <button onClick={() => void guardianState.refresh()}><RefreshCcw size={17} /> Refresh all data</button>
           <button onClick={() => void clearLocalData()}><Trash2 size={17} /> Clear local Guardian data</button>
           {session?.authenticated && <button className={styles.danger} onClick={() => signOut.mutate()} disabled={signOut.isPending}><LogOut size={17} /> Sign out</button>}
+          {session?.roles.reportAdmin && <Link className={styles.ticketQueue} to="/reports/admin" onClick={onClose}>
+            <ClipboardList size={17} />
+            <span><b>Open tickets</b><small>{reportSummary.data ? `${reportSummary.data.data.counts.open} new · ${reportSummary.data.data.counts.in_progress} in progress` : "Loading ticket queue…"}</small></span>
+            <strong aria-label={`${reportSummary.data?.data.unresolvedCount ?? 0} unresolved tickets`}>{reportSummary.data?.data.unresolvedCount ?? 0}</strong>
+            <ChevronRight size={14} />
+          </Link>}
           <Link className={styles.feedback} to={`/reports?from=${encodeURIComponent(`${location.pathname}${location.search}`)}`} onClick={onClose}>
             <Bug size={17} /><span><b>Feedback &amp; reports</b><small>Report a bug or suggest an update</small></span><ChevronRight size={14} />
           </Link>
