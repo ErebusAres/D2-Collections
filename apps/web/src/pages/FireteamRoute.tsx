@@ -2,6 +2,7 @@ import type { FireteamData, FireteamSharingMode } from "@guardian-nexus/contract
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PageHeaderTrailingActions } from "../components/common/Page";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
@@ -11,10 +12,9 @@ import styles from "./Pages.module.css";
 const INITIAL_TRACKED_REFRESH_DELAY_MS = Math.max(1_000, LIVE_REFRESH_INTERVAL_MS - 10_000);
 
 export function FireteamRoute() {
-  return <>
-    <FireteamRefreshCountdown />
+  return <PageHeaderTrailingActions actions={<FireteamRefreshCountdown />}>
     <FireteamPage />
-  </>;
+  </PageHeaderTrailingActions>;
 }
 
 function FireteamRefreshCountdown() {
@@ -97,9 +97,7 @@ function FireteamRefreshCountdown() {
     return `Tracked refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   }, [autoRefresh, canRefreshTrackedProgress, nextRefreshAt, now, refreshing]);
 
-  return <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-    <span className={styles.primaryAction} aria-live="polite"><Timer size={15} />{label}</span>
-  </div>;
+  return <span className={styles.primaryAction} style={{ cursor: "default", whiteSpace: "nowrap" }} aria-live="polite"><Timer size={15} />{label}</span>;
 }
 
 function readPreferenceArray(value?: string): string[] {
