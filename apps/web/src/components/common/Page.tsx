@@ -1,10 +1,17 @@
 import { AlertTriangle, LoaderCircle, LogIn, RefreshCcw } from "lucide-react";
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import { useGuardian } from "../../context/GuardianContext";
 import styles from "./Page.module.css";
 
+const PageHeaderTrailingActionsContext = createContext<ReactNode>(null);
+
+export function PageHeaderTrailingActions({ children, actions }: { children: ReactNode; actions: ReactNode }) {
+  return <PageHeaderTrailingActionsContext.Provider value={actions}>{children}</PageHeaderTrailingActionsContext.Provider>;
+}
+
 export function PageHeader({ eyebrow, title, description, actions }: { eyebrow: string; title: string; description: string; actions?: ReactNode }) {
-  return <header className={styles.pageHeader}><div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>{actions && <div className={styles.actions}>{actions}</div>}</header>;
+  const trailingActions = useContext(PageHeaderTrailingActionsContext);
+  return <header className={styles.pageHeader}><div><span>{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>{(actions || trailingActions) && <div className={styles.actions}>{actions}{trailingActions}</div>}</header>;
 }
 
 export function AuthGate({ children }: { children: ReactNode }) {
