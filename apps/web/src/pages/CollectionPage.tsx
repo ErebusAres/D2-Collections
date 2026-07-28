@@ -1,5 +1,5 @@
 import type { CatalystState, CollectionData, ExoticCollectionEntry } from "@guardian-nexus/contracts";
-import { sortCollectionEntries, type CollectionSortMode } from "@guardian-nexus/domain";
+import { sortCollectionEntries, xurSchedule, type CollectionSortMode } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Check, ChevronRight, Coins, Search, Shield, Sparkles, Swords, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -20,8 +20,13 @@ export function CollectionPage() {
   const [owned, setOwned] = useState<OwnedFilter>("all");
   const [catalyst, setCatalyst] = useState<"all" | CatalystState>("all");
   const [availability, setAvailability] = useState<AvailabilityFilter>("all");
+  const [now, setNow] = useState(() => new Date());
   const selectedGuardianClass = session?.guardian?.characters.find((character) => character.characterId === selectedCharacterId)?.className;
   const [classScope, setClassScope] = useState<CollectionClassScope>("all");
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     const raw = preferences["collection.filters"];
     if (!raw) {
@@ -48,7 +53,7 @@ export function CollectionPage() {
     refetchIntervalInBackground: false
   });
   const data = result.data?.data;
-  const xurSellingLive = data?.xur.state === "available";
+  const xurSellingLive = Boolean(data?.xur.state === "available" && xurSchedule(now).active);
   useEffect(() => {
     if (!xurSellingLive && availability === "xur") setAvailability("all");
   }, [availability, xurSellingLive]);
