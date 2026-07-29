@@ -6,7 +6,7 @@ import { AuthGate, Freshness, PageHeader, QueryState } from "../components/commo
 import { JourneyNav } from "../components/journey/JourneyNav";
 import { ProgressSummaryCard } from "../components/journey/ProgressSummaryCard";
 import { useGuardian } from "../context/GuardianContext";
-import { guardianRankPercent, questKind, questPercent } from "../modules/journey/progressSummary";
+import { bountyCadence, guardianRankPercent, questKind, questPercent } from "../modules/journey/progressSummary";
 import { api } from "../services/api/client";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import styles from "./JourneyPage.module.css";
@@ -53,6 +53,9 @@ export function JourneyPage() {
   const progressData = journey.data?.data;
   const seasonalChallenges = progressData?.seasonalChallenges || [];
   const seasonalProgress = seasonalChallenges.length ? Math.round(seasonalChallenges.reduce((sum, challenge) => sum + challenge.percent, 0) / seasonalChallenges.length) : 0;
+  const weeklyPursuits = bounties.filter((quest) => bountyCadence(quest) === "weekly");
+  const weeklyNear = (progressData?.weeklyChallenges || []).filter((challenge) => challenge.objective.percent >= 75 && !challenge.objective.complete).length
+    + weeklyPursuits.filter((quest) => quest.percent >= 75 && quest.percent < 100).length;
   const recommendation = nextAction(activeQuests, bounties, rankRemaining);
 
   return <AuthGate>
@@ -105,8 +108,8 @@ export function JourneyPage() {
           { label: "Near", value: progressData?.triumphs.filter((record) => !record.complete && record.percent >= 75).length ?? "—" }
         ]}><span>{progressData?.triumphs.length || 0} records available</span></ProgressSummaryCard>
         <ProgressSummaryCard title="Weekly Progress" eyebrow="Reset checklist" description="Weekly activity challenges and time-limited pursuits." to="/journey/weekly" icon={CalendarDays} progress={progressData?.weeklyChallenges.length ? Math.round(progressData.weeklyChallenges.reduce((sum, challenge) => sum + challenge.objective.percent, 0) / progressData.weeklyChallenges.length) : undefined} progressLabel="Activity challenge progress" stats={[
-          { label: "Known", value: progressData?.weeklyChallenges.length ?? bounties.filter((quest) => /weekly/i.test(quest.itemType || "")).length },
-          { label: "Near", value: nearComplete.length },
+          { label: "Known", value: (progressData?.weeklyChallenges.length || 0) + weeklyPursuits.length },
+          { label: "Near", value: weeklyNear },
           { label: "Reset", value: "Tuesday" }
         ]} tone="green" />
       </section>
