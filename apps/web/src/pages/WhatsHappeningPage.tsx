@@ -153,10 +153,11 @@ export function WorldCard({ card, compact = false, now }: { card: HappeningCard;
       <span>{confidenceLabel(card.sourceConfidence)} · {card.sourceLabel}</span>
       {card.observedAt && <time dateTime={card.observedAt}>Updated {formatObservedAt(card.observedAt, now)}</time>}
     </footer>
-    {(card.destinationUrl || card.externalUrl) && <ArrowRight className={styles.cardArrow} />}
+    {card.destinationUrl && <ArrowRight className={styles.cardArrow} />}
+    {card.externalUrl && <ExternalLink className={styles.cardArrow} />}
   </article>;
   if (card.destinationUrl) return <Link className={styles.cardLink} to={card.destinationUrl}>{content}</Link>;
-  if (card.externalUrl) return <a className={styles.cardLink} href={card.externalUrl} target="_blank" rel="noopener noreferrer">{content}<ExternalLink /></a>;
+  if (card.externalUrl) return <a className={styles.cardLink} href={card.externalUrl} target="_blank" rel="noopener noreferrer">{content}</a>;
   return content;
 }
 
