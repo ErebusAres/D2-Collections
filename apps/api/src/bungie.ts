@@ -351,7 +351,7 @@ export async function pvpHistoricalStatsFor(
 ): Promise<{ responses: any[]; warnings: string[] }> {
   const results = await Promise.all(characterIds.map(async (characterId) => {
     try {
-      const response = await bungieGet(`/Destiny2/${row.membership_type}/Account/${row.membership_id}/Character/${characterId}/Stats/?groups=1&modes=5,69,84,19`, env, accessToken);
+      const response = await bungieGet(`/Destiny2/${row.membership_type}/Account/${row.membership_id}/Character/${characterId}/Stats/?groups=1&modes=5,69,84,19,43,44,45,68,90,91`, env, accessToken);
       return { response };
     } catch (error: any) {
       return { warning: Number(error?.status) === 429
