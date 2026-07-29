@@ -82,9 +82,25 @@ describe("Shell guardian identity", () => {
     expect(screen.queryByText(/Open pass/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
+    const optionsPanel = screen.getByLabelText("Guardian options");
+    expect(optionsPanel.hasAttribute("inert")).toBe(false);
     const feedback = screen.getByRole("link", { name: /Feedback & reports/i });
     expect(feedback.getAttribute("href")).toBe("/reports?from=%2F");
     expect(screen.queryByText("Admin tools")).toBeNull();
+  });
+
+  it("keeps closed options out of the tab order and restores focus after Escape", () => {
+    renderShell(<div>Page</div>);
+    const trigger = screen.getByRole("button", { name: "Open options" });
+    const panel = screen.getByLabelText("Guardian options");
+    expect(panel.hasAttribute("inert")).toBe(true);
+
+    fireEvent.click(trigger);
+    expect(panel.hasAttribute("inert")).toBe(false);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close options" }));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(panel.hasAttribute("inert")).toBe(true);
+    expect(document.activeElement).toBe(trigger);
   });
 
   it("shows the unresolved ticket queue only to report administrators", async () => {

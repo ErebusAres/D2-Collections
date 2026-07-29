@@ -32,10 +32,21 @@ const controller: GuardianNotificationsController = {
 afterEach(cleanup);
 
 describe("NotificationCenter", () => {
+  it("removes the closed drawer from keyboard navigation", () => {
+    render(<MemoryRouter><NotificationCenter controller={controller} /></MemoryRouter>);
+    const panel = screen.getByLabelText("Notification center");
+
+    expect(panel.getAttribute("aria-hidden")).toBe("true");
+    expect(panel.hasAttribute("inert")).toBe(true);
+  });
+
   it("closes when the user clicks outside the drawer", () => {
     render(<MemoryRouter><NotificationCenter controller={controller} /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "Open notifications" }));
-    expect(screen.getByLabelText("Notification center").getAttribute("aria-hidden")).toBe("false");
+    const panel = screen.getByLabelText("Notification center");
+    expect(panel.getAttribute("aria-hidden")).toBe("false");
+    expect(panel.hasAttribute("inert")).toBe(false);
+    expect(screen.getByPlaceholderText("Search history")).toBe(document.activeElement);
 
     fireEvent.pointerDown(document.body);
     expect(screen.getByLabelText("Notification center").getAttribute("aria-hidden")).toBe("true");

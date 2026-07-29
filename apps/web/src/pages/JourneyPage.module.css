@@ -29,6 +29,9 @@
   color: var(--muted);
 }
 
+/* Shared Journey metadata readability floor. */
+.heroStats small{font-size:10px}
+
 .hero > div:first-child > a {
   width: max-content;
   display: inline-flex;

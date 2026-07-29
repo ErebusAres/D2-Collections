@@ -4,3 +4,13 @@
 .state { min-height: 420px; display: grid; place-items: center; align-content: center; text-align: center; border: 1px solid var(--line); background: radial-gradient(circle at center, rgba(155,231,226,.07), transparent 45%), rgba(5,13,19,.55); }.state > div { width: 58px; height: 58px; display: grid; place-items: center; border: 1px solid var(--line-strong); transform: rotate(45deg); margin-bottom: 25px; color: var(--cyan); }.state > div > * { transform: rotate(-45deg); }.state > span { color: var(--cyan); font-size: 12px; letter-spacing: .18em; text-transform: uppercase; }.state h2 { margin: 7px 0 5px; font: 600 28px "Barlow Condensed"; text-transform: uppercase; }.state p { color: var(--muted); max-width: 510px; font-size: 14px; line-height: 1.55; }.state button { min-height: 40px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--cyan); background: rgba(155,231,226,.1); padding: 0 18px; text-transform: uppercase; letter-spacing: .1em; font-size: 12px; }
 .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(315deg); } }
 .freshness { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .09em; }.freshness i { width: 6px; height: 6px; background: var(--success); border-radius: 50%; box-shadow: 0 0 8px var(--success); }.freshness em { color: var(--gold); font-style: normal; margin-left: 6px; }
+
+@media (max-width: 780px) {
+  .pageHeader { align-items: stretch; flex-direction: column; gap: 14px; margin-bottom: 20px; padding-bottom: 17px; }
+  .pageHeader h1 { font-size: clamp(34px, 10vw, 46px); }
+  .pageHeader p { font-size: 14px; }
+  .actions { width: 100%; max-width: none; justify-content: flex-start; }
+  .freshness { max-width: 100%; flex-wrap: wrap; }
+  .freshness em { width: 100%; margin-left: 13px; }
+  .state { min-height: 330px; padding: 28px 18px; }
+}

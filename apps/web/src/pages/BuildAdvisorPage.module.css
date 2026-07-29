@@ -529,3 +529,6 @@
   .inventory summary svg { transition: none; }
   .spin { animation: none; }
 }
+
+/* Build advice is information-dense, but supporting copy should remain legible. */
+.buildFilters > span small,.card footer span,.verification small,.verification a,.scoreSummary small,.armorList small,.planEntry small,.planEntry em,.statPlan article small,.acquisitionGuides header small,.acquisitionGuides header em,.acquisitionGuides header > strong,.collectionItems small,.itemStrip em{font-size:10px}

@@ -1,7 +1,7 @@
 import type { ReportAdminSummaryData, RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
 import { hasClaimableReward, rewardLevelProgress } from "../../modules/rewards/rewardsProgress";
@@ -29,6 +29,7 @@ const tabs = [
 export function Shell() {
   const { session, loading, error, signIn, selectedCharacterId, autoRefresh } = useGuardian();
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const optionsTriggerRef = useRef<HTMLButtonElement>(null);
   const connection = useSyncExternalStore(subscribeConnection, getConnectionSnapshot, getConnectionSnapshot);
   const guardian = session?.guardian;
   const character = guardian?.characters.find((entry) => entry.characterId === guardian.selectedCharacterId) || guardian?.characters[0];
@@ -87,10 +88,10 @@ export function Shell() {
           </div>
           {!session?.authenticated && !loading && !error && <button className={styles.signIn} onClick={signIn}>Sign in with Bungie</button>}
           <NotificationCenter controller={notifications} />
-          <div className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""} ${connection.usingSavedData ? styles.connectionSaved : ""} ${connection.retrying ? styles.connectionWorking : ""}`} aria-label={connection.usingSavedData ? "Showing saved Guardian data" : error || connection.lastError ? "Guardian services interrupted" : "Guardian services connected"} title={connectionTitle}>
+          <button type="button" className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""} ${connection.usingSavedData ? styles.connectionSaved : ""} ${connection.retrying ? styles.connectionWorking : ""}`} onClick={() => setOptionsOpen(true)} aria-label={connection.usingSavedData ? "Showing saved Guardian data. Open connection options" : error || connection.lastError ? "Guardian services interrupted. Open connection options" : "Guardian services connected. Open connection options"} title={connectionTitle}>
             {connection.usingSavedData ? <Database size={18} /> : <Orbit size={18} />}{connection.queued > 0 && <b>{connection.queued}</b>}
-          </div>
-          <button className={`${styles.optionsButton} ${unresolvedTicketCount > 0 ? styles.optionsTicketAlert : ""}`} onClick={() => setOptionsOpen(true)} aria-label="Open options" title={unresolvedTicketCount > 0 ? `${unresolvedTicketCount} unresolved ticket${unresolvedTicketCount === 1 ? "" : "s"}` : "Options"}>
+          </button>
+          <button ref={optionsTriggerRef} className={`${styles.optionsButton} ${unresolvedTicketCount > 0 ? styles.optionsTicketAlert : ""}`} onClick={() => setOptionsOpen(true)} aria-label="Open options" title={unresolvedTicketCount > 0 ? `${unresolvedTicketCount} unresolved ticket${unresolvedTicketCount === 1 ? "" : "s"}` : "Options"}>
             <Settings size={20} /><span>Options</span>
             {session?.roles.reportAdmin && unresolvedTicketCount > 0 && <strong aria-label={`${unresolvedTicketCount} unresolved tickets`}>{unresolvedTicketCount}</strong>}
           </button>
@@ -102,7 +103,7 @@ export function Shell() {
       <main className={styles.main}><Outlet /></main>
       {showScrollTop && <button type="button" className={styles.scrollTop} aria-label="Scroll to top" title="Scroll to top" onClick={() => window.scrollTo({ top: 0, behavior: document.documentElement.dataset.reducedMotion === "true" ? "auto" : "smooth" })}><ArrowUp /></button>}
       <footer className={styles.footer}><span>Guardian Nexus</span><span>Destiny companion</span><span>Activity data may be delayed</span></footer>
-      <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} reportSummary={reportSummary.data?.data} />
+      <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} returnFocusRef={optionsTriggerRef} reportSummary={reportSummary.data?.data} />
     </div>
   );
 }

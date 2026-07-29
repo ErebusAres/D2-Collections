@@ -132,6 +132,9 @@
 .row aside { min-width: 74px; display: grid; justify-items: end; gap: 4px; color: var(--muted); }
 .row aside strong { color: var(--text); font-size: 14px; white-space: nowrap; }
 .row aside em { display: flex; align-items: center; gap: 4px; color: #74d8eb; font-size: 9px; font-style: normal; text-transform: uppercase; }
+
+/* Progress labels must remain readable in dense tracker rows. */
+.metrics small,.vendorStrip small,.seasonHero small,.featureGrid small,.row > div > small,.row aside em{font-size:10px}
 .row aside em svg { width: 12px; }
 .row aside button { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line); background: rgba(0,0,0,.18); color: #74d8eb; }
 .row aside button svg { width: 14px; }
