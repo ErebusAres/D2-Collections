@@ -22,13 +22,14 @@ export function JourneyRecordsPage({ kind }: { kind: "titles" | "triumphs" }) {
     refetchIntervalInBackground: false
   });
   const titles = kind === "titles";
+  const sourceRows = titles ? result.data?.data.titles || [] : result.data?.data.triumphs || [];
   useEffect(() => {
     if (!result.data) return;
     const complete = new Set([...result.data.data.titles, ...result.data.data.triumphs, ...result.data.data.seasonalChallenges].filter((record) => record.complete).map((record) => record.recordHash));
     const next = [...tracked].filter((id) => !complete.has(id));
     if (next.length !== tracked.size) setPreference("journey.tracked", JSON.stringify(next));
   }, [result.data, setPreference, tracked]);
-  const rows = (titles ? result.data?.data.titles || [] : result.data?.data.triumphs || []).filter((record) => {
+  const rows = sourceRows.filter((record) => {
     const id = record.recordHash;
     const matches = !search || `${record.name} ${"title" in record ? record.title : ""} ${record.description}`.toLowerCase().includes(search.toLowerCase());
     return matches && (filter === "all" || filter === "tracked" && tracked.has(id) || filter === "near" && record.percent >= 75 && !record.complete || filter === "complete" && record.complete);
@@ -45,14 +46,15 @@ export function JourneyRecordsPage({ kind }: { kind: "titles" | "triumphs" }) {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
       <section className={styles.metrics}>
-        <span><small>{titles ? "Titles" : "Triumphs"}</small><strong>{(titles ? result.data.data.titles : result.data.data.triumphs).length}</strong></span>
-        <span><small>Completed</small><strong>{(titles ? result.data.data.titles : result.data.data.triumphs).filter((record) => record.complete).length}</strong></span>
-        <span><small>Tracked here</small><strong>{rows.filter((record) => tracked.has(record.recordHash)).length}</strong></span>
+        <span><small>{titles ? "Titles" : "Triumphs"}</small><strong>{sourceRows.length}</strong></span>
+        <span><small>Completed</small><strong>{sourceRows.filter((record) => record.complete).length}</strong></span>
+        <span><small>Tracked here</small><strong>{sourceRows.filter((record) => tracked.has(record.recordHash)).length}</strong></span>
         {!titles && <span><small>Active score</small><strong>{result.data.data.triumphScore.active.toLocaleString()}</strong></span>}
       </section>
       <section className={styles.command}>
         <label><Search /><input type="search" data-page-search value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${titles ? "titles and seals" : "Triumphs"}…`} /></label>
         <div>{(["all", "tracked", "near", "complete"] as const).map((value) => <button key={value} className={filter === value ? styles.active : ""} onClick={() => setFilter(value)}>{value}</button>)}</div>
+        <output>{rows.length} shown</output>
       </section>
       <section className={styles.grid}>{rows.length ? rows.map((record) => <RecordCard key={record.recordHash} record={record} titleMode={titles} tracked={tracked.has(record.recordHash)} onTrack={() => toggle(record.recordHash)} />) : <div className={styles.empty}><Icon /><h2>No matching progress</h2><p>Change the filter or search terms.</p></div>}</section>
     </>}

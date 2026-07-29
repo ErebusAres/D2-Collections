@@ -30,6 +30,11 @@ export function GuardianRankPage() {
   });
   const data = result.data?.data;
   useEffect(() => {
+    setSelectedRankNumber(undefined);
+    setFilter("all");
+    setSearch("");
+  }, [selectedCharacterId]);
+  useEffect(() => {
     if (data && selectedRankNumber === undefined) setSelectedRankNumber(data.suggestedRank);
   }, [data, selectedRankNumber]);
   const tracked = useMemo(() => parseTracked(preferences["guardianRank.tracked"]), [preferences]);

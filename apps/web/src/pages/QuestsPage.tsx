@@ -78,6 +78,7 @@ export function QuestsPage() {
     return textMatch && filterMatch;
   }).sort((a, b) => Number(pins.has(b.instanceId)) - Number(pins.has(a.instanceId)) || Number(b.inGameTracked) - Number(a.inGameTracked) || a.name.localeCompare(b.name)), [result.data, filter, search, pins]);
   const primaryQuests = quests.filter((quest) => !quest.category || quest.category === "quest");
+  const questRecommendations = (result.data?.data.recommendations || []).filter((recommendation) => !recommendation.quest.category || recommendation.quest.category === "quest");
   const tooltipQuest = result.data?.data.quests.find((quest) => quest.instanceId === tooltip?.questId && (!quest.category || quest.category === "quest"));
   const clearCloseTimer = useCallback(() => {
     if (closeTimer.current !== null) {
@@ -173,11 +174,11 @@ export function QuestsPage() {
         <div><span>Active quests</span><strong>{result.data.data.quests.filter((quest) => !quest.category || quest.category === "quest").length}</strong></div>
         <div><span>Site pinned</span><strong>{pins.size}</strong></div>
         <div><span>Tracked in Destiny</span><strong>{result.data.data.quests.filter((quest) => quest.inGameTracked).length}</strong></div>
-        <div className={styles.activityNow}><Compass /><span>Current activity</span><strong>{result.data.data.currentActivity || "Orbit / unavailable"}</strong></div>
+        <div className={styles.activityNow}><Compass /><span>Current activity</span><strong>{result.data.data.currentActivity || "Not reported"}</strong></div>
       </section>
-      {result.data.data.recommendations.length > 0 && <section className={styles.recommendations}><header><div><Sparkles /><span>Recommended next</span></div><p>Ranked from your pins, in-game tracking, activity overlap, urgency, and progress.</p></header><div>{result.data.data.recommendations.slice(0, 3).map((recommendation, index) => <article key={recommendation.quest.instanceId}><b>0{index + 1}</b><div><span>{recommendation.quest.activityName || "Active pursuit"}{recommendation.quest.stepNumber && recommendation.quest.stepCount ? ` · Step ${recommendation.quest.stepNumber}/${recommendation.quest.stepCount}` : ""}</span><h2>{recommendation.quest.name}</h2><p>{recommendation.quest.currentStep}</p><div className={styles.reasonRow}>{recommendation.reasons.map((reason) => <em key={reason}>{reason}</em>)}</div></div><strong>{recommendation.quest.percent}%</strong></article>)}</div></section>}
+      {questRecommendations.length > 0 && <section className={styles.recommendations}><header><div><Sparkles /><span>Recommended next</span></div><p>Ranked from your pins, in-game tracking, activity overlap, urgency, and progress.</p></header><div>{questRecommendations.slice(0, 3).map((recommendation, index) => <article key={recommendation.quest.instanceId}><b>0{index + 1}</b><div><span>{recommendation.quest.activityName || "Active pursuit"}{recommendation.quest.stepNumber && recommendation.quest.stepCount ? ` · Step ${recommendation.quest.stepNumber}/${recommendation.quest.stepCount}` : ""}</span><h2>{recommendation.quest.name}</h2><p>{recommendation.quest.currentStep}</p><div className={styles.reasonRow}>{recommendation.reasons.map((reason) => <em key={reason}>{reason}</em>)}</div></div><strong>{recommendation.quest.percent}%</strong></article>)}</div></section>}
       <section className={styles.commandBar}>
-        <label className={styles.search}><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search active quests…" /></label>
+        <label className={styles.search}><Search size={16} /><input type="search" data-page-search value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search active quests…" /></label>
         <div className={styles.questFilters}>{([
           ["all", "All", ListFilter], ["pinned", "Site pinned", Bookmark], ["tracked", "In-game tracked", Crosshair], ["near", "Near complete", CheckCircle2], ["activity", "Activity", Activity]
         ] as const).map(([value, label, Icon]) => <button key={value} className={filter === value ? styles.activeFilter : ""} onClick={() => { setFilter(value); setPreference("quests.filters", JSON.stringify({ filter: value })); }}><Icon size={14} />{label}</button>)}</div>

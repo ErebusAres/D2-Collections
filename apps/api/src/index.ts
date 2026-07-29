@@ -481,7 +481,7 @@ async function guardianRank(row: SessionRow, env: Env, context: RequestContext):
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const data = normalizeGuardianRanks(profile, manifest, character.characterId);
   const warnings = manifest.version === "unavailable" ? ["Current Guardian Rank definitions are unavailable from the deployed Bungie manifest."] : [];
-  return envelope<GuardianRankData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
+  return envelope<GuardianRankData>(data, env, context, { sourceMintedAt: profile?.secondaryComponentsMintedTimestamp || profile?.responseMintedTimestamp, warnings });
 }
 
 async function journeyProgress(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -494,7 +494,7 @@ async function journeyProgress(row: SessionRow, env: Env, context: RequestContex
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const data = normalizeJourneyProgress(profile, manifest, activities, character.characterId);
   return envelope<JourneyProgressData>(data, env, context, {
-    sourceMintedAt: profile?.responseMintedTimestamp,
+    sourceMintedAt: profile?.secondaryComponentsMintedTimestamp || profile?.responseMintedTimestamp,
     warnings: manifest.version === "unavailable" ? ["Journey record definitions are unavailable until the Bungie manifest refresh completes."] : []
   });
 }

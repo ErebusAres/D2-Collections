@@ -23,6 +23,31 @@ export function bountyVendor(quest: QuestProgress): string {
   return type || "Other";
 }
 
+export function isSeasonalPursuit(quest: QuestProgress): boolean {
+  if (quest.category === "order") return true;
+  const searchable = `${quest.itemType || ""} ${quest.name} ${quest.description} ${quest.activityName || ""}`.toLowerCase();
+  return /season|episode|artifact|hub order|portal/.test(searchable);
+}
+
+export function pursuitProgressLabel(quest: QuestProgress): string {
+  const objective = quest.objectives.find((entry) => !entry.complete) || quest.objectives[0];
+  if (!objective) return quest.percent > 0 ? `${quest.percent}%` : "No counter";
+  if (objective.completionValue > 0) return `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}`;
+  return objective.complete ? "Complete" : `${objective.percent}%`;
+}
+
+export function pursuitExpiryLabel(expiresAt?: string, now = Date.now()): string | undefined {
+  if (!expiresAt) return undefined;
+  const expires = new Date(expiresAt).getTime();
+  if (!Number.isFinite(expires)) return undefined;
+  const remaining = expires - now;
+  if (remaining <= 0) return "Expired";
+  const hours = Math.floor(remaining / 3_600_000);
+  if (hours >= 24) return `${Math.ceil(hours / 24)}d left`;
+  if (hours >= 1) return `${hours}h left`;
+  return `${Math.max(1, Math.ceil(remaining / 60_000))}m left`;
+}
+
 export function questPercent(quests: QuestProgress[]): number {
   return quests.length ? Math.round(quests.reduce((total, quest) => total + Math.max(0, Math.min(100, quest.percent)), 0) / quests.length) : 0;
 }

@@ -19,6 +19,18 @@ describe("Journey progress", () => {
           scope: 0,
           objectiveHashes: ["20"],
           parentNodeHashes: ["30"]
+        },
+        "11": {
+          hash: "11",
+          name: "Hidden old challenge",
+          description: "Do not render this",
+          icon: "",
+          type: "Seasonal Challenge",
+          title: "",
+          score: 0,
+          scope: 0,
+          objectiveHashes: ["20"],
+          parentNodeHashes: ["30"]
         }
       },
       objectives: {
@@ -45,6 +57,7 @@ describe("Journey progress", () => {
           trackedRecordHash: 10,
           records: {
             "10": { state: 0, objectives: [{ objectiveHash: 20, progress: 7, completionValue: 10, complete: false }] }
+            ,"11": { state: 16, objectives: [{ objectiveHash: 20, progress: 0, completionValue: 10, complete: false }] }
           }
         }
       },
@@ -54,6 +67,9 @@ describe("Journey progress", () => {
             availableActivities: [{
               activityHash: 40,
               challenges: [{ objectiveHash: 50, progress: 2, completionValue: 3, complete: false }]
+            }, {
+              activityHash: 40,
+              challenges: [{ objectiveHash: 50, progress: 1, completionValue: 3, complete: false }]
             }, { activityHash: 41 }]
           }
         }
@@ -78,6 +94,8 @@ describe("Journey progress", () => {
     expect(data.titles[0]).toMatchObject({ title: "Star Baker", percent: 70, tracked: true });
     expect(data.weeklyChallenges[0]).toMatchObject({ id: "40:50", name: "Ritual activity" });
     expect(data.weeklyChallenges[0]?.objective).toMatchObject({ progress: 2, completionValue: 3, percent: 66 });
+    expect(data.weeklyChallenges).toHaveLength(1);
+    expect(data.seasonalChallenges).toEqual([]);
     expect(data.currentActivities).toEqual([expect.objectContaining({ activityHash: "41", name: "Iron Banner: Control" })]);
     expect(data.artifact).toMatchObject({ pointsAcquired: 8, pointsSpent: 5, powerBonus: 4 });
 

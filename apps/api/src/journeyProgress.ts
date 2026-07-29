@@ -1,4 +1,4 @@
-import type { CompactManifest, FireteamTrackedItem, JourneyObjective, JourneyProgressData, JourneyProgressManifest, JourneyRecord } from "@guardian-nexus/contracts";
+import type { CompactManifest, FireteamTrackedItem, JourneyObjective, JourneyProgressData, JourneyProgressManifest, JourneyRecord, JourneyWeeklyChallenge } from "@guardian-nexus/contracts";
 import { imageUrl } from "@guardian-nexus/domain";
 
 export function normalizeJourneyProgress(profile: any, manifest: JourneyProgressManifest, activities: CompactManifest, characterId: string): JourneyProgressData {
@@ -9,9 +9,10 @@ export function normalizeJourneyProgress(profile: any, manifest: JourneyProgress
     String(profileRecords.trackedRecordHash || ""),
     String(profile?.characterRecords?.data?.[characterId]?.trackedRecordHash || "")
   ].filter(Boolean));
-  const records = Object.values(manifest.records).map((definition) => {
+  const records = Object.values(manifest.records).flatMap((definition) => {
     const live = definition.scope === 1 ? characterRows[definition.hash] || accountRows[definition.hash] : accountRows[definition.hash] || characterRows[definition.hash];
-    return recordFor(definition, live, manifest, tracked);
+    if (live && (number(live.state) & 16)) return [];
+    return [recordFor(definition, live, manifest, tracked)];
   });
   const titles = records.filter((record) => Boolean(record.title)).map((record) => ({
     recordHash: record.recordHash,
@@ -27,7 +28,7 @@ export function normalizeJourneyProgress(profile: any, manifest: JourneyProgress
   const seasonalChallenges = records.filter((record) => /seasonal challenge/i.test(record.type)).sort(progressSort);
   const triumphs = records.filter((record) => !record.title && !/seasonal challenge/i.test(record.type)).sort(progressSort);
   const activityRows = profile?.characterActivities?.data?.[characterId]?.availableActivities || [];
-  const weeklyChallenges = activityRows.flatMap((activity: any) => (activity?.challenges || []).map((challenge: any, index: number) => {
+  const weeklyRows: JourneyWeeklyChallenge[] = activityRows.flatMap((activity: any) => (activity?.challenges || []).map((challenge: any, index: number) => {
     const activityHash = String(activity?.activityHash || "");
     const definition = activities.activityDefinitions[activityHash] as any;
     const objectiveHash = String(challenge?.objectiveHash || "");
@@ -40,7 +41,9 @@ export function normalizeJourneyProgress(profile: any, manifest: JourneyProgress
       icon: imageUrl(definition?.displayProperties?.icon || ""),
       objective: objectiveFor(objectiveHash, objectiveDefinition, challenge)
     };
-  })).filter((challenge: any) => challenge.objective.completionValue > 0 || challenge.objective.progress > 0 || challenge.objective.complete);
+  })).filter((challenge: JourneyWeeklyChallenge) => challenge.objective.completionValue > 0 || challenge.objective.progress > 0 || challenge.objective.complete);
+  const weeklyChallenges = dedupeWeeklyChallenges(weeklyRows)
+    .sort((left, right) => Number(left.objective.complete) - Number(right.objective.complete) || right.objective.percent - left.objective.percent || left.name.localeCompare(right.name));
   const currentActivities = activityRows.flatMap((activity: any) => {
     const activityHash = String(activity?.activityHash || "");
     const definition = activities.activityDefinitions[activityHash] as any;
@@ -85,6 +88,16 @@ export function normalizeJourneyProgress(profile: any, manifest: JourneyProgress
 
 function isCurrentIntelligenceActivity(value: string): boolean {
   return /iron banner|trials of osiris|\b(solo|fireteam|arena|pinnacle|vanguard|crucible|gambit) ops\b|nightfall|grandmaster|pantheon|vanguard alert/i.test(value);
+}
+
+function dedupeWeeklyChallenges(rows: JourneyWeeklyChallenge[]): JourneyWeeklyChallenge[] {
+  const unique = new Map<string, JourneyWeeklyChallenge>();
+  for (const row of rows) {
+    const key = `${row.name.trim().toLocaleLowerCase()}:${row.objective.objectiveHash}`;
+    const current = unique.get(key);
+    if (!current || row.objective.percent > current.objective.percent) unique.set(key, row);
+  }
+  return [...unique.values()];
 }
 
 export function trackedItemsFromJourney(data: JourneyProgressData, trackedIds: Set<string>, updatedAt: string, includeCompleted = false): FireteamTrackedItem[] {
