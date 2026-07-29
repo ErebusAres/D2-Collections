@@ -2,19 +2,17 @@ import type { FireteamData, FireteamSharingMode } from "@guardian-nexus/contract
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PageHeaderTrailingActions } from "../components/common/Page";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
-const INITIAL_TRACKED_REFRESH_DELAY_MS = Math.max(1_000, LIVE_REFRESH_INTERVAL_MS - 10_000);
-
 export function FireteamRoute() {
-  return <PageHeaderTrailingActions actions={<FireteamRefreshCountdown />}>
-    <FireteamPage />
-  </PageHeaderTrailingActions>;
+  return <div className={styles.fireteamRoute}>
+    <FireteamRefreshCountdown />
+    <div className={styles.fireteamPageContent}><FireteamPage /></div>
+  </div>;
 }
 
 function FireteamRefreshCountdown() {
@@ -32,6 +30,8 @@ function FireteamRefreshCountdown() {
   const mode = data?.sharingMode;
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
   const hiddenKeysSignature = hiddenTrackedItemKeys.join(",");
+  const guardianRankTracked = preferences["guardianRank.tracked"];
+  const journeyTracked = preferences["journey.tracked"];
   const [now, setNow] = useState(() => Date.now());
   const [nextRefreshAt, setNextRefreshAt] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,18 +54,18 @@ function FireteamRefreshCountdown() {
         body: JSON.stringify({
           characterId: selectedCharacterId,
           sitePinnedQuestIds: readStringArray(storageKey, 40),
-          siteTrackedGuardianRankIds: readPreferenceArray(preferences["guardianRank.tracked"]),
-          siteTrackedJourneyIds: readPreferenceArray(preferences["journey.tracked"]),
+          siteTrackedGuardianRankIds: readPreferenceArray(guardianRankTracked),
+          siteTrackedJourneyIds: readPreferenceArray(journeyTracked),
           hiddenTrackedItemKeys,
           mode: mode as FireteamSharingMode
         })
       });
-      await queryClient.invalidateQueries({ queryKey: ["fireteam"] });
+      await queryClient.refetchQueries({ queryKey: ["fireteam", selectedCharacterId], exact: true, type: "active" });
     } finally {
       refreshRunning.current = false;
       setRefreshing(false);
     }
-  }, [hiddenKeysSignature, mode, preferences, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
+  }, [guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
 
   useEffect(() => {
     if (!autoRefresh || !canRefreshTrackedProgress) {
@@ -81,7 +81,7 @@ function FireteamRefreshCountdown() {
         if (!cancelled) schedule(LIVE_REFRESH_INTERVAL_MS);
       }, delay);
     };
-    schedule(INITIAL_TRACKED_REFRESH_DELAY_MS);
+    schedule(LIVE_REFRESH_INTERVAL_MS);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
@@ -97,7 +97,9 @@ function FireteamRefreshCountdown() {
     return `Tracked refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   }, [autoRefresh, canRefreshTrackedProgress, nextRefreshAt, now, refreshing]);
 
-  return <span className={styles.primaryAction} style={{ cursor: "default", whiteSpace: "nowrap" }} aria-live="polite"><Timer size={15} />{label}</span>;
+  return <aside className={styles.fireteamRefreshRail}>
+    <span className={styles.fireteamRefreshTimer} aria-live="polite"><Timer size={15} />{label}</span>
+  </aside>;
 }
 
 function readPreferenceArray(value?: string): string[] {
