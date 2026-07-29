@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { formatResetCountdown } from "./WhatsHappeningPage";
+import type { QuestData } from "@guardian-nexus/contracts";
+import { accountActivityCards, formatResetCountdown } from "./WhatsHappeningPage";
 
 describe("reset countdown", () => {
   const now = Date.parse("2026-07-29T16:00:00.000Z");
@@ -16,5 +17,56 @@ describe("reset countdown", () => {
 
   it("does not show a negative countdown after reset", () => {
     expect(formatResetCountdown("2026-07-29T15:59:00.000Z", now)).toBe("0m 00s");
+  });
+});
+
+describe("Director account opportunities", () => {
+  it("surfaces tracked and near-complete quests without repeating bounties", () => {
+    const quests = {
+      quests: [
+        {
+          instanceId: "quest-1",
+          itemHash: "1",
+          name: "Almost There",
+          description: "",
+          icon: "",
+          currentStep: "Finish it",
+          characterId: "character",
+          inGameTracked: false,
+          sitePinned: false,
+          isExoticUnlock: false,
+          rewards: [],
+          objectives: [],
+          percent: 82,
+          updatedAt: "2026-07-29T12:00:00.000Z",
+          category: "quest"
+        },
+        {
+          instanceId: "bounty-1",
+          itemHash: "2",
+          name: "Daily Bounty",
+          description: "",
+          icon: "",
+          currentStep: "",
+          characterId: "character",
+          inGameTracked: false,
+          sitePinned: false,
+          isExoticUnlock: false,
+          rewards: [],
+          objectives: [],
+          percent: 90,
+          updatedAt: "2026-07-29T12:00:00.000Z",
+          category: "bounty"
+        }
+      ],
+      recommendations: []
+    } satisfies QuestData;
+
+    expect(accountActivityCards(undefined, quests)).toContainEqual(expect.objectContaining({
+      id: "account:quest-opportunities",
+      section: "personal",
+      status: "1 tracked or near completion",
+      description: "Almost There (82%)"
+    }));
   });
 });

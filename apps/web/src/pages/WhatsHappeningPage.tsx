@@ -52,10 +52,12 @@ export function WhatsHappeningPage() {
   const [activeSection, setActiveSection] = useState<HappeningCard["section"] | "all">("all");
   const nextDailyResetAt = result.data?.data.nextDailyResetAt;
   const dashboardCards = useMemo(() => {
-    const publicCards = result.data?.data.cards || [];
-    const accountCards = accountActivityCards(journey.data?.data, pursuits.data?.data, result.data?.data.generatedAt)
-      .filter((accountCard) => !publicCards.some((card) => card.category === accountCard.category && card.title === accountCard.title));
-    return [...publicCards, ...accountCards];
+    const accountCards = accountActivityCards(journey.data?.data, pursuits.data?.data, result.data?.data.generatedAt);
+    const publicCards = (result.data?.data.cards || [])
+      .filter((card) => !accountCards.some((accountCard) =>
+        accountCard.category === card.category
+        && (card.category === "iron-banner" || accountCard.title === card.title)));
+    return [...accountCards, ...publicCards];
   }, [journey.data?.data, pursuits.data?.data, result.data?.data]);
 
   useEffect(() => {
@@ -88,9 +90,9 @@ export function WhatsHappeningPage() {
 
   return <>
     <PageHeader
-      eyebrow="Guardian Matrix · Current intelligence"
-      title="What’s Happening"
-      description="The fastest read on live Destiny activity, limited-time opportunities, vendors, resets, discoveries, and changes since your last visit."
+      eyebrow="Guardian Matrix · Live world state"
+      title="Director"
+      description="See what is live, what changed, and what is worth doing now across activities, vendors, your Guardian, and the week ahead."
       actions={<div className={styles.dashboardActions}>
         <Link to="/activities/raids"><ArrowRight /> Raid rotations</Link>
         <button className={styles.refresh} onClick={() => void result.refetch()}><RefreshCcw /> Refresh world state</button>
@@ -161,7 +163,7 @@ export function WorldCard({ card, compact = false, now }: { card: HappeningCard;
   return content;
 }
 
-function accountActivityCards(journey?: JourneyProgressData, quests?: QuestData, observedAt?: string): HappeningCard[] {
+export function accountActivityCards(journey?: JourneyProgressData, quests?: QuestData, observedAt?: string): HappeningCard[] {
   const cards: HappeningCard[] = [];
   const hubObjectives = journey?.weeklyChallenges || [];
   const hubOrders = (quests?.quests || []).filter((quest) => quest.category === "order");
@@ -242,6 +244,35 @@ function accountActivityCards(journey?: JourneyProgressData, quests?: QuestData,
       sourceLabel: "Bungie character pursuits",
       sourceConfidence: "live-api",
       observedAt: daily.map((quest) => quest.updatedAt).sort().at(-1) || observedAt
+    });
+  }
+  const actionableQuests = (quests?.quests || [])
+    .filter((quest) => quest.category !== "bounty"
+      && quest.category !== "order"
+      && quest.percent < 100
+      && (quest.sitePinned || quest.inGameTracked || quest.percent >= 75))
+    .sort((left, right) =>
+      Number(right.sitePinned) - Number(left.sitePinned)
+      || Number(right.inGameTracked) - Number(left.inGameTracked)
+      || right.percent - left.percent
+      || left.name.localeCompare(right.name));
+  if (actionableQuests.length) {
+    const leading = actionableQuests[0]!;
+    cards.push({
+      id: "account:quest-opportunities",
+      section: "personal",
+      category: actionableQuests.some((quest) => quest.isExoticUnlock) ? "exotic" : "completion",
+      priority: leading.sitePinned || leading.inGameTracked ? "high" : "normal",
+      state: "live",
+      title: "Quests worth finishing",
+      status: `${actionableQuests.length} tracked or near completion`,
+      description: actionableQuests.slice(0, 3)
+        .map((quest) => `${quest.name} (${Math.round(quest.percent)}%)`)
+        .join(", "),
+      destinationUrl: "/journey/quests",
+      sourceLabel: "Bungie character pursuits",
+      sourceConfidence: "live-api",
+      observedAt: actionableQuests.map((quest) => quest.updatedAt).sort().at(-1) || observedAt
     });
   }
   return cards;

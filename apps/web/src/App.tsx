@@ -46,8 +46,9 @@ export function App() {
   return (
     <Routes>
       <Route element={<Shell />}>
-        <Route index element={<Navigate to="/whats-happening" replace />} />
-        <Route path="whats-happening" element={<PageRoute><WhatsHappeningPage /></PageRoute>} />
+        <Route index element={<Navigate to="/director" replace />} />
+        <Route path="director" element={<PageRoute><WhatsHappeningPage /></PageRoute>} />
+        <Route path="whats-happening" element={<Navigate to="/director" replace />} />
         <Route path="distortions" element={<PageRoute><DistortionsPage /></PageRoute>} />
         <Route path="notifications" element={<PageRoute><NotificationsPage /></PageRoute>} />
         <Route path="activities/raids" element={<PageRoute><RaidRotationsPage /></PageRoute>} />
@@ -85,7 +86,7 @@ export function App() {
         <Route path="builds/:buildId" element={<PageRoute><BuildDetailPage /></PageRoute>} />
         <Route path="mailbox" element={<PageRoute><MailboxPage /></PageRoute>} />
         <Route path="dev" element={<PageRoute><DevPage /></PageRoute>} />
-        <Route path="*" element={<Navigate to="/whats-happening" replace />} />
+        <Route path="*" element={<Navigate to="/director" replace />} />
       </Route>
     </Routes>
   );

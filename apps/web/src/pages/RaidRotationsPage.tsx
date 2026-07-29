@@ -26,7 +26,7 @@ export function RaidRotationsPage() {
     <PageHeader
       eyebrow="Activities · Weekly intelligence"
       title="Raid Rotations"
-      description="Current raid challenge entries reported by Bungie, separated from the concise What’s Happening overview."
+      description="Current raid challenge entries reported by Bungie, separated from the concise Director overview."
       actions={<button className={styles.refresh} onClick={() => void result.refetch()}><RefreshCcw /> Refresh rotations</button>}
     />
     <QueryState loading={result.isLoading} error={result.error as Error | null} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />

@@ -41,7 +41,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
     mutationFn: () => api("/api/v1/session", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
     onSuccess: () => {
       localStorage.removeItem("guardian-nexus:last-safe-session");
-      void clearGuardianOfflineData().finally(() => { queryClient.clear(); window.location.href = "/whats-happening"; });
+      void clearGuardianOfflineData().finally(() => { queryClient.clear(); window.location.href = "/director"; });
     }
   });
   const clearLocalData = async () => {

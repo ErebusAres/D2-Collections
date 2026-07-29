@@ -15,6 +15,10 @@ const ALERT_TTL_MS = 5 * 60_000;
 const NEWS_TTL_MS = 15 * 60_000;
 const MILESTONE_CACHE_KEY = "public-milestones:v2";
 const BUNGIE_NEWS_ROOT = "https://www.bungie.net";
+const IRON_BANNER_CYCLE_MS = 28 * 86_400_000;
+const IRON_BANNER_DURATION_MS = 7 * 86_400_000;
+// Bungie's post-Monument four-week cadence, anchored to the observed July 28 event.
+const IRON_BANNER_CYCLE_ANCHOR = Date.parse("2026-07-28T19:00:00.000Z");
 
 interface CachedCards {
   cards: HappeningCard[];
@@ -41,7 +45,40 @@ export async function readPublicWorldCards(env: Env, force = false): Promise<Hap
     cachedCards(env, "bungie-global-alerts", ALERT_TTL_MS, loadAlertCards, force),
     cachedCards(env, "bungie-news", NEWS_TTL_MS, loadNewsCards, force)
   ]);
-  return collapseRepeatedActivities(deduplicateCards(results.flatMap((result) => result.cards)));
+  const providerCards = results.flatMap((result) => result.cards);
+  const cards = providerCards.some((card) => card.category === "iron-banner")
+    ? providerCards
+    : [...providerCards, ironBannerCadenceCard(new Date())];
+  return collapseRepeatedActivities(deduplicateCards(cards));
+}
+
+export function ironBannerCadenceCard(now = new Date()): HappeningCard {
+  const elapsed = now.getTime() - IRON_BANNER_CYCLE_ANCHOR;
+  const cycleIndex = Math.floor(elapsed / IRON_BANNER_CYCLE_MS);
+  let startsAt = IRON_BANNER_CYCLE_ANCHOR + cycleIndex * IRON_BANNER_CYCLE_MS;
+  if (elapsed < 0 && startsAt < now.getTime()) startsAt += IRON_BANNER_CYCLE_MS;
+  const endsAt = startsAt + IRON_BANNER_DURATION_MS;
+  const active = now.getTime() >= startsAt && now.getTime() < endsAt;
+  if (!active && endsAt <= now.getTime()) startsAt += IRON_BANNER_CYCLE_MS;
+  const resolvedEndsAt = startsAt + IRON_BANNER_DURATION_MS;
+  return {
+    id: "schedule:iron-banner",
+    section: active ? "live" : "upcoming",
+    category: "iron-banner",
+    priority: active ? "high" : "normal",
+    state: active ? "live" : "upcoming",
+    title: active ? "Iron Banner is live" : "Next Iron Banner",
+    status: new Date(active ? resolvedEndsAt : startsAt).toISOString(),
+    description: active
+      ? "Lord Saladin and the Iron Banner playlists are available until the next weekly reset."
+      : "Bungie’s published four-week cadence places the next Iron Banner at this reset.",
+    startsAt: new Date(startsAt).toISOString(),
+    endsAt: new Date(resolvedEndsAt).toISOString(),
+    destinationUrl: "/pvp",
+    sourceLabel: "Published cadence + observed anchor",
+    sourceConfidence: "predicted",
+    observedAt: now.toISOString()
+  };
 }
 
 export async function readRaidRotations(env: Env): Promise<RaidRotationsData> {
@@ -245,7 +282,7 @@ export function normalizePublicMilestones(
         destinationUrl: classification.key === "raid" ? "/activities/raids"
           : classification.key === "iron-banner" ? "/pvp"
           : classification.key === "seasonal-hub" ? "/journey/season"
-          : "/whats-happening",
+          : "/director",
         sourceLabel: "Bungie public milestones",
         sourceConfidence: "live-api",
         observedAt

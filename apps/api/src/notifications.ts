@@ -686,7 +686,7 @@ function notificationForReset(kind: "daily" | "weekly", at: Date): GuardianNotif
     status: "active",
     title: `${kind === "daily" ? "Daily" : "Weekly"} reset upcoming`,
     subtitle: at.toISOString(),
-    destinationUrl: "/whats-happening",
+    destinationUrl: "/director",
     createdAt: new Date(at.getTime() - (kind === "daily" ? 24 : 7 * 24) * 60 * 60_000).toISOString(),
     expiresAt: at.toISOString(),
     dismissible: true,

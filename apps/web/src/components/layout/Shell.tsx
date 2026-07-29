@@ -15,7 +15,7 @@ import { useGuardianNotifications } from "../../modules/notifications/useGuardia
 import styles from "./Shell.module.css";
 
 const tabs = [
-  { to: "/whats-happening", label: "Happening", icon: Globe2 },
+  { to: "/director", label: "Director", icon: Globe2 },
   { to: "/collection", label: "Collection", icon: Boxes },
   { to: "/xur", label: "Xûr", icon: Coins },
   { to: "/journey", label: "Journey", icon: ListTodo },
@@ -71,7 +71,7 @@ export function Shell() {
       <header className={styles.header}>
         <GuardianFeed controller={notifications} />
         <div className={styles.identityBar}>
-          <NavLink to="/whats-happening" className={styles.brand} aria-label="Guardian Nexus home">
+          <NavLink to="/director" className={styles.brand} aria-label="Guardian Nexus home">
             <span className={styles.brandMark}><span /></span>
             <span><b>Guardian</b><strong>Nexus</strong></span>
           </NavLink>

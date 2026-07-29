@@ -4,6 +4,7 @@ import {
   normalizeBungieNews,
   normalizeGlobalAlerts,
   normalizePublicMilestones,
+  ironBannerCadenceCard,
   notificationsFromWorldCards
 } from "./worldState";
 
@@ -135,6 +136,28 @@ describe("public milestone normalization", () => {
   });
 });
 
+describe("Iron Banner cadence fallback", () => {
+  it("keeps the active event visible when public milestones omit it", () => {
+    expect(ironBannerCadenceCard(new Date("2026-07-29T12:00:00.000Z"))).toMatchObject({
+      section: "live",
+      category: "iron-banner",
+      state: "live",
+      title: "Iron Banner is live",
+      status: "2026-08-04T19:00:00.000Z",
+      sourceConfidence: "predicted"
+    });
+  });
+
+  it("shows the next occurrence as upcoming between events", () => {
+    expect(ironBannerCadenceCard(new Date("2026-08-05T12:00:00.000Z"))).toMatchObject({
+      section: "upcoming",
+      state: "upcoming",
+      title: "Next Iron Banner",
+      status: "2026-08-25T19:00:00.000Z"
+    });
+  });
+});
+
 describe("official news and service alerts", () => {
   it("keeps current Bungie news and routes maintenance to upcoming alerts", () => {
     const cards = normalizeBungieNews({
@@ -190,7 +213,7 @@ describe("world notification projection", () => {
       state: "live",
       title: "Trials of Osiris",
       status: "Available now",
-      destinationUrl: "/whats-happening",
+      destinationUrl: "/director",
       startsAt: "2026-07-29T11:00:00.000Z",
       endsAt: "2026-07-29T16:00:00.000Z",
       sourceLabel: "Bungie public milestones",
