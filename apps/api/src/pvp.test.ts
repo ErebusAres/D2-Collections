@@ -132,6 +132,20 @@ describe("PvP normalization", () => {
       assists: 7
     });
   });
+
+  it("recognizes current Iron Banner activities when Bungie omits historical Iron Banner mode IDs", () => {
+    const response = ironBannerHistoryResponse([
+      { ...activity("current-ib", [5, 10], 8, 9, 6, 0), activityDetails: { instanceId: "current-ib", referenceId: 1683791010, mode: 10, modes: [5, 10] } }
+    ], {
+      "1683791010": { displayProperties: { name: "Iron Banner: Control" } }
+    });
+    const data = normalizePvpData({ profile, manifest, characterId: "hunter", historicalStats: [response] });
+    expect(data.modes.find((mode) => mode.kind === "iron-banner")).toMatchObject({
+      matches: 1,
+      wins: 1,
+      kills: 8
+    });
+  });
 });
 
 function history(values: { matches: number; wins: number; kills: number; deaths: number; assists: number; precision: number; best: number; spree: number }) {

@@ -84,13 +84,18 @@ export function normalizePvpData(args: {
   };
 }
 
-export function ironBannerHistoryResponse(activities: any[]): any {
+export function ironBannerHistoryResponse(activities: any[], activityDefinitions: Record<string, any> = {}): any {
   const ironBannerModes = new Set([19, 43, 44, 45, 68, 90, 91]);
   const unique = new Map<string, any>();
   for (const activity of activities) {
     const details = activity?.activityDetails || {};
     const modes = [details.mode, ...(Array.isArray(details.modes) ? details.modes : [])].map(Number);
-    if (!modes.some((mode) => ironBannerModes.has(mode))) continue;
+    const hashes = [details.referenceId, details.directorActivityHash].map(String).filter(Boolean);
+    const isIronBannerDefinition = hashes.some((hash) => {
+      const properties = activityDefinitions[hash]?.displayProperties || {};
+      return /iron banner/i.test(`${properties.name || ""} ${properties.description || ""}`);
+    });
+    if (!modes.some((mode) => ironBannerModes.has(mode)) && !isIronBannerDefinition) continue;
     const key = String(details.instanceId || `${activity?.period || ""}:${details.referenceId || ""}`);
     if (!unique.has(key)) unique.set(key, activity);
   }

@@ -479,8 +479,9 @@ async function pvp(row: SessionRow, env: Env, context: RequestContext): Promise<
   const characters = charactersFromProfile(profile);
   const character = selectedCharacter(characters, context.url.searchParams.get("characterId") || undefined);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const [manifest, historical, recent] = await Promise.all([
+  const [manifest, activityManifest, historical, recent] = await Promise.all([
     loadRewardsManifest(env),
+    loadActivityManifest(env),
     pvpHistoricalStatsFor(row, env, accessToken),
     pvpRecentActivitiesFor(row, characters.map((entry) => entry.characterId), env, accessToken)
   ]);
@@ -488,10 +489,11 @@ async function pvp(row: SessionRow, env: Env, context: RequestContext): Promise<
     profile,
     manifest,
     characterId: character.characterId,
-    historicalStats: [...historical.responses, ironBannerHistoryResponse(recent.activities)]
+    historicalStats: [...historical.responses, ironBannerHistoryResponse(recent.activities, activityManifest.activityDefinitions)]
   });
   const warnings = [
     ...(manifest.version === "unavailable" ? ["Current Crucible rank definitions are unavailable from the deployed Bungie manifest."] : []),
+    ...(activityManifest.version === "unavailable" ? ["Current Crucible activity definitions are unavailable from the deployed Bungie manifest."] : []),
     ...historical.warnings,
     ...recent.warnings
   ];
