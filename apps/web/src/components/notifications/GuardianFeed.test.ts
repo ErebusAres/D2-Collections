@@ -1,6 +1,6 @@
 import type { GuardianNotification, NotificationPreferences } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { notificationDisplayDuration } from "./GuardianFeed";
+import { notificationDisplayDuration, shouldRotateFeed } from "./GuardianFeed";
 
 const preferences: NotificationPreferences = {
   enabledCategories: ["system"],
@@ -14,7 +14,7 @@ const preferences: NotificationPreferences = {
   frequency: "all"
 };
 
-function notification(priority: GuardianNotification["priority"], autoDismissMs?: number): GuardianNotification {
+function notification(priority: GuardianNotification["priority"], autoDismissMs?: number, autoDismiss = true): GuardianNotification {
   return {
     id: priority,
     type: "test",
@@ -25,12 +25,19 @@ function notification(priority: GuardianNotification["priority"], autoDismissMs?
     title: "Test notification",
     createdAt: "2026-07-29T00:00:00.000Z",
     dismissible: true,
-    autoDismiss: true,
+    autoDismiss,
     autoDismissMs
   };
 }
 
 describe("Guardian Feed timing", () => {
+  it("rotates persistent alerts without removing them from the feed", () => {
+    const persistent = notification("high", undefined, false);
+    expect(shouldRotateFeed(persistent, false, 2)).toBe(true);
+    expect(shouldRotateFeed(persistent, true, 2)).toBe(false);
+    expect(shouldRotateFeed(persistent, false, 1)).toBe(false);
+  });
+
   it("uses the user's display duration for routine notifications", () => {
     expect(notificationDisplayDuration(notification("normal"), preferences)).toBe(12_000);
   });

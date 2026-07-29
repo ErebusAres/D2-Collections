@@ -33,7 +33,7 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
     return () => observer.disconnect();
   }, [notification?.id]);
   useEffect(() => {
-    if (!notification || paused || feed.length < 2 || !notification.autoDismiss) return;
+    if (!shouldRotateFeed(notification, paused, feed.length)) return;
     const duration = notificationDisplayDuration(notification, preferences);
     const timer = window.setTimeout(() => setIndex((value) => (value + 1) % feed.length), duration);
     return () => window.clearTimeout(timer);
@@ -79,6 +79,14 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
       {notification.dismissible && <button type="button" onClick={() => { controller.dismiss(notification); setIndex((value) => value % Math.max(1, feed.length - 1)); }} aria-label={`Dismiss ${notification.title}`}><X /></button>}
     </section>
   );
+}
+
+export function shouldRotateFeed(
+  notification: GuardianNotification | undefined,
+  paused: boolean,
+  feedLength: number
+): notification is GuardianNotification {
+  return Boolean(notification) && !paused && feedLength > 1;
 }
 
 export function notificationDisplayDuration(notification: GuardianNotification, preferences: NotificationPreferences): number {
