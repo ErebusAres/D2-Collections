@@ -3,7 +3,8 @@ import type {
   GuardianNotification,
   HappeningCard,
   NotificationCategory,
-  NotificationPriority
+  NotificationPriority,
+  RaidRotationsData
 } from "@guardian-nexus/contracts";
 import { imageUrl } from "@guardian-nexus/domain";
 import { bungieGet, loadActivityManifest, loadQuestManifest } from "./bungie";
@@ -40,6 +41,17 @@ export async function readPublicWorldCards(env: Env, force = false): Promise<Hap
     cachedCards(env, "bungie-news", NEWS_TTL_MS, loadNewsCards, force)
   ]);
   return collapseRepeatedActivities(deduplicateCards(results.flatMap((result) => result.cards)));
+}
+
+export async function readRaidRotations(env: Env): Promise<RaidRotationsData> {
+  const now = new Date();
+  const milestoneCards = await cachedCards(env, "public-milestones", MILESTONE_TTL_MS, loadMilestoneCards, false);
+  return {
+    cards: deduplicateCards(milestoneCards.cards.filter((card) => card.id.startsWith("milestone:raid:")))
+      .sort((left, right) => left.title.localeCompare(right.title)),
+    generatedAt: milestoneCards.observedAt,
+    nextWeeklyResetAt: nextWeeklyReset(now).toISOString()
+  };
 }
 
 export async function refreshPublicWorldState(env: Env): Promise<void> {
@@ -183,6 +195,7 @@ export function normalizePublicMilestones(
       .filter(Boolean)
       .filter((name, index, entries) => entries.indexOf(name) === index)
       .slice(0, 4);
+    const hasIronBannerMode = containsIronBannerMode(milestone);
     const candidates = [
       ...activityHashes.map((hash) => ({ hash, definition: asRecord(manifest.activityDefinitions[hash]) })),
       ...questHashes.map((hash) => ({ hash, definition: asRecord(manifest.itemDefinitions[hash]) }))
@@ -192,16 +205,23 @@ export function normalizePublicMilestones(
       const name = displayName(candidate.definition);
       const description = displayDescription(candidate.definition);
       const activityTypeHash = text(candidate.definition.activityTypeHash);
-      const classification = classifyActivity(`${milestoneName || ""} ${name} ${description}`, activityTypeHash || "");
+      const classification = classifyActivity(`${milestoneName || ""} ${name} ${description}`, activityTypeHash || "", milestoneHash);
       if (!classification) continue;
       const current = classified.get(classification.key);
       if (!current || preferredDefinition(candidate.definition, current.definition)) {
         classified.set(classification.key, { classification, ...candidate });
       }
     }
-    if (!classified.size && milestoneName) {
-      const classification = classifyActivity(milestoneName, "");
+    if (!classified.size) {
+      const classification = classifyActivity(milestoneName || "", "", milestoneHash);
       if (classification) classified.set(classification.key, { classification, hash: milestoneHash, definition: milestoneDefinition });
+    }
+    if (hasIronBannerMode && !classified.has("iron-banner")) {
+      classified.set("iron-banner", {
+        classification: classifyActivity("Iron Banner", "", milestoneHash)!,
+        hash: milestoneHash,
+        definition: milestoneDefinition
+      });
     }
     for (const { classification, hash, definition } of classified.values()) {
       const name = displayName(definition) || milestoneName || classification.label;
@@ -221,14 +241,17 @@ export function normalizePublicMilestones(
         icon: definitionIcon(definition),
         startsAt: start,
         endsAt: end,
-        destinationUrl: "/whats-happening",
+        destinationUrl: classification.key === "raid" ? "/activities/raids"
+          : classification.key === "iron-banner" ? "/pvp"
+          : classification.key === "seasonal-hub" ? "/journey/season"
+          : "/whats-happening",
         sourceLabel: "Bungie public milestones",
         sourceConfidence: "live-api",
         observedAt
       });
     }
   }
-  return collapseRepeatedActivities(deduplicateCards(output)).slice(0, 18);
+  return deduplicateCards(output).slice(0, 40);
 }
 
 export function normalizeBungieNews(response: unknown, observedAt: string): HappeningCard[] {
@@ -285,11 +308,16 @@ export function normalizeGlobalAlerts(response: unknown, observedAt: string): Ha
   });
 }
 
-function classifyActivity(value: string, activityTypeHash: string): ActivityClassification | undefined {
+function classifyActivity(value: string, activityTypeHash: string, milestoneHash = ""): ActivityClassification | undefined {
   const textValue = value.toLowerCase();
   if (/trials of osiris|\btrials\b/.test(textValue)) return { key: "trials", label: "Trials", section: "live", category: "trials", priority: "high" };
-  if (/iron banner/.test(textValue)) return { key: "iron-banner", label: "Iron Banner", section: "live", category: "iron-banner", priority: "high" };
+  if (milestoneHash === "4248276869" || /iron banner/.test(textValue)) return { key: "iron-banner", label: "Iron Banner", section: "live", category: "iron-banner", priority: "high" };
   if (/guardian games|festival of the lost|the dawning|\bsolstice\b|community event/.test(textValue)) return { key: "live-event", label: "Live event", section: "live", category: "seasonal", priority: "high" };
+  if (/seasonal hub|hub order|vanguard alert|\bconquest\b/.test(textValue)) return { key: "seasonal-hub", label: "Seasonal Hub", section: "daily", category: "seasonal", priority: "normal" };
+  if (/\b(solo|fireteam|arena|pinnacle|vanguard|crucible|gambit) ops\b/.test(textValue)) {
+    const category: NotificationCategory = /crucible/.test(textValue) ? "crucible" : /gambit/.test(textValue) ? "gambit" : "vanguard";
+    return { key: "ops", label: "Ops", section: /\bdaily\b/.test(textValue) ? "daily" : "weekly", category, priority: "normal" };
+  }
   if (/grandmaster/.test(textValue)) return { key: "grandmaster", label: "Grandmaster", section: "weekly", category: "vanguard", priority: "normal" };
   if (/nightfall|the ordeal/.test(textValue) || activityTypeHash === "575572995") return { key: "nightfall", label: "Nightfall", section: "weekly", category: "vanguard", priority: "normal" };
   if (/legendary lost sector|\blost sector\b/.test(textValue)) return { key: "lost-sector", label: "Lost Sector", section: "daily", category: "legendary", priority: "normal" };
@@ -327,7 +355,7 @@ function deduplicateCards(cards: HappeningCard[]): HappeningCard[] {
 }
 
 function collapseRepeatedActivities(cards: HappeningCard[]): HappeningCard[] {
-  return ["raid", "dungeon"].reduce((current, kind) => {
+  return ["raid", "dungeon", "ops"].reduce((current, kind) => {
     const prefix = `milestone:${kind}:`;
     const matching = current.filter((card) => card.id.startsWith(prefix));
     if (matching.length <= 2) return current;
@@ -339,14 +367,26 @@ function collapseRepeatedActivities(cards: HappeningCard[]): HappeningCard[] {
     const summary: HappeningCard = {
       ...first,
       id: `${prefix}summary`,
-      title: `${kind === "raid" ? "Raid" : "Dungeon"} challenge rotations`,
+      title: `${kind === "raid" ? "Raid" : kind === "dungeon" ? "Dungeon" : "Ops"} rotations`,
       status: endsAt || `${matching.length} active rotations`,
       description: `${matching.length} active ${kind} rotations reported: ${summarizeNames(names)}.`,
       icon: undefined,
+      destinationUrl: kind === "raid" ? "/activities/raids" : first.destinationUrl,
       endsAt
     };
     return [...current.filter((card) => !card.id.startsWith(prefix)), summary];
   }, cards);
+}
+
+function nextWeeklyReset(now: Date): Date {
+  const reset = new Date(now);
+  reset.setUTCSeconds(0, 0);
+  reset.setUTCMinutes(0);
+  reset.setUTCHours(19);
+  const daysUntilTuesday = (2 - reset.getUTCDay() + 7) % 7;
+  reset.setUTCDate(reset.getUTCDate() + daysUntilTuesday);
+  if (reset.getTime() <= now.getTime()) reset.setUTCDate(reset.getUTCDate() + 7);
+  return reset;
 }
 
 function summarizeNames(names: string[]): string {
@@ -391,6 +431,19 @@ function collectArrayHashes(value: unknown, wantedKey: string, depth = 0, output
     }
   }
   return [...output];
+}
+
+function containsIronBannerMode(value: unknown, depth = 0): boolean {
+  if (depth > 8 || value === null || value === undefined) return false;
+  const ironBannerModes = new Set([19, 43, 44, 45, 68, 90, 91]);
+  if (Array.isArray(value)) return value.some((entry) => containsIronBannerMode(entry, depth + 1));
+  if (typeof value !== "object") return false;
+  return Object.entries(value as Record<string, unknown>).some(([key, entry]) => {
+    if (/^(activityMode|mode|activityModeType)$/i.test(key) && ironBannerModes.has(Number(entry))) return true;
+    if (/^(activityModes|modes|activityModeTypes)$/i.test(key) && Array.isArray(entry)
+      && entry.some((mode) => ironBannerModes.has(Number(mode)))) return true;
+    return containsIronBannerMode(entry, depth + 1);
+  });
 }
 
 function providerUnavailableCard(providerKey: string, observedAt: string): HappeningCard {

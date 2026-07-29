@@ -1,9 +1,11 @@
-import type { HappeningCard, WhatsHappeningData } from "@guardian-nexus/contracts";
+import type { HappeningCard, JourneyProgressData, QuestData, WhatsHappeningData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Clock3, ExternalLink, Globe2, RefreshCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader, QueryState } from "../components/common/Page";
+import { useGuardian } from "../context/GuardianContext";
+import { bountyCadence, questPercent } from "../modules/journey/progressSummary";
 import { categoryFor } from "../modules/notifications/categoryConfig";
 import { formatUtcAndLocalTime } from "../modules/time";
 import { api } from "../services/api/client";
@@ -24,6 +26,8 @@ const sectionOrder: HappeningCard["section"][] = [
 ];
 
 export function WhatsHappeningPage() {
+  const { session, selectedCharacterId } = useGuardian();
+  const accountEnabled = Boolean(session?.authenticated && selectedCharacterId);
   const result = useQuery({
     queryKey: ["whats-happening"],
     queryFn: () => api<WhatsHappeningData>("/api/v1/whats-happening"),
@@ -32,9 +36,25 @@ export function WhatsHappeningPage() {
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true
   });
+  const journey = useQuery({
+    queryKey: ["journey-progress", selectedCharacterId],
+    queryFn: () => api<JourneyProgressData>(`/api/v1/me/journey?characterId=${encodeURIComponent(selectedCharacterId)}`),
+    enabled: accountEnabled,
+    staleTime: 60_000
+  });
+  const pursuits = useQuery({
+    queryKey: ["quests", selectedCharacterId, ""],
+    queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=`),
+    enabled: accountEnabled,
+    staleTime: 60_000
+  });
   const [now, setNow] = useState(() => Date.now());
   const [activeSection, setActiveSection] = useState<HappeningCard["section"] | "all">("all");
   const nextDailyResetAt = result.data?.data.nextDailyResetAt;
+  const dashboardCards = useMemo(() => [
+    ...(result.data?.data.cards || []),
+    ...accountActivityCards(journey.data?.data, pursuits.data?.data, result.data?.data.generatedAt)
+  ], [journey.data?.data, pursuits.data?.data, result.data?.data]);
 
   useEffect(() => {
     const remaining = nextDailyResetAt ? Date.parse(nextDailyResetAt) - now : Number.POSITIVE_INFINITY;
@@ -53,23 +73,26 @@ export function WhatsHappeningPage() {
   }, [nextDailyResetAt, result.refetch]);
 
   const availableSections = useMemo(
-    () => sectionOrder.filter((section) => result.data?.data.cards.some((card) => card.section === section)),
-    [result.data?.data.cards]
+    () => sectionOrder.filter((section) => dashboardCards.some((card) => card.section === section)),
+    [dashboardCards]
   );
   const sections = useMemo(() => {
     const grouped = new Map<HappeningCard["section"], HappeningCard[]>();
-    (result.data?.data.cards || []).forEach((card) => grouped.set(card.section, [...(grouped.get(card.section) || []), card]));
+    dashboardCards.forEach((card) => grouped.set(card.section, [...(grouped.get(card.section) || []), card]));
     return sectionOrder.flatMap((section) => grouped.has(section) && (activeSection === "all" || activeSection === section)
       ? [[section, grouped.get(section)!] as const]
       : []);
-  }, [activeSection, result.data?.data.cards]);
+  }, [activeSection, dashboardCards]);
 
   return <>
     <PageHeader
       eyebrow="Guardian Matrix · Current intelligence"
       title="What’s Happening"
       description="The fastest read on live Destiny activity, limited-time opportunities, vendors, resets, discoveries, and changes since your last visit."
-      actions={<button className={styles.refresh} onClick={() => void result.refetch()}><RefreshCcw /> Refresh world state</button>}
+      actions={<div className={styles.dashboardActions}>
+        <Link to="/activities/raids"><ArrowRight /> Raid rotations</Link>
+        <button className={styles.refresh} onClick={() => void result.refetch()}><RefreshCcw /> Refresh world state</button>
+      </div>}
     />
     <QueryState loading={result.isLoading} error={result.error as Error | null} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
@@ -86,14 +109,14 @@ export function WhatsHappeningPage() {
       </section>
       <nav className={styles.sectionFilters} aria-label="Filter current Destiny information">
         <button className={activeSection === "all" ? styles.selectedFilter : undefined} onClick={() => setActiveSection("all")}>
-          All <b>{result.data.data.cards.length}</b>
+          All <b>{dashboardCards.length}</b>
         </button>
         {availableSections.map((section) => <button
           className={activeSection === section ? styles.selectedFilter : undefined}
           key={section}
           onClick={() => setActiveSection(section)}
         >
-          {sectionLabels[section]} <b>{result.data.data.cards.filter((card) => card.section === section).length}</b>
+          {sectionLabels[section]} <b>{dashboardCards.filter((card) => card.section === section).length}</b>
         </button>)}
       </nav>
       <div className={styles.sectionsGrid}>
@@ -106,7 +129,7 @@ export function WhatsHappeningPage() {
   </>;
 }
 
-function WorldCard({ card, now }: { card: HappeningCard; now: number }) {
+export function WorldCard({ card, now }: { card: HappeningCard; now: number }) {
   const config = categoryFor(card.category);
   const Icon = config.icon;
   const content = <article
@@ -133,6 +156,73 @@ function WorldCard({ card, now }: { card: HappeningCard; now: number }) {
   if (card.destinationUrl) return <Link className={styles.cardLink} to={card.destinationUrl}>{content}</Link>;
   if (card.externalUrl) return <a className={styles.cardLink} href={card.externalUrl} target="_blank" rel="noopener noreferrer">{content}<ExternalLink /></a>;
   return content;
+}
+
+function accountActivityCards(journey?: JourneyProgressData, quests?: QuestData, observedAt?: string): HappeningCard[] {
+  const cards: HappeningCard[] = [];
+  const hubObjectives = journey?.weeklyChallenges || [];
+  const hubOrders = (quests?.quests || []).filter((quest) => quest.category === "order");
+  const ops = hubObjectives.filter((challenge) => /\b(ops|vanguard|nightfall|strike|crucible|gambit|alert|conquest)\b/i.test(`${challenge.name} ${challenge.description}`));
+  if (hubObjectives.length || hubOrders.length) {
+    const complete = hubObjectives.filter((challenge) => challenge.objective.complete).length;
+    cards.push({
+      id: "account:seasonal-hub",
+      section: "weekly",
+      category: "seasonal",
+      priority: "normal",
+      state: "live",
+      title: "Seasonal Hub",
+      status: hubObjectives.length
+        ? `${complete}/${hubObjectives.length} current objectives complete`
+        : `${hubOrders.length} active Hub orders`,
+      description: "Your selected Guardian’s live Hub challenges, orders, and reward-track progress.",
+      destinationUrl: "/journey/season",
+      sourceLabel: "Bungie character activities",
+      sourceConfidence: "live-api",
+      observedAt
+    });
+  }
+  if (ops.length) {
+    cards.push({
+      id: "account:ops",
+      section: "weekly",
+      category: "vanguard",
+      priority: "normal",
+      state: "live",
+      title: "Ops objectives",
+      status: `${ops.filter((challenge) => challenge.objective.complete).length}/${ops.length} complete`,
+      description: summarizeActivityNames(ops.map((challenge) => challenge.name)),
+      destinationUrl: "/journey/season",
+      sourceLabel: "Bungie character activities",
+      sourceConfidence: "live-api",
+      observedAt
+    });
+  }
+  const daily = (quests?.quests || []).filter((quest) =>
+    quest.category === "order" || (quest.category === "bounty" && bountyCadence(quest) === "daily"));
+  if (daily.length) {
+    cards.push({
+      id: "account:daily-orders",
+      section: "daily",
+      category: "seasonal",
+      priority: "normal",
+      state: "live",
+      title: "Daily & Hub orders",
+      status: `${daily.length} active · ${questPercent(daily)}% average progress`,
+      description: summarizeActivityNames(daily.map((quest) => quest.name)),
+      destinationUrl: "/journey/bounties",
+      sourceLabel: "Bungie character pursuits",
+      sourceConfidence: "live-api",
+      observedAt: daily.map((quest) => quest.updatedAt).sort().at(-1) || observedAt
+    });
+  }
+  return cards;
+}
+
+function summarizeActivityNames(names: string[]): string {
+  const unique = names.filter((name, index) => names.indexOf(name) === index);
+  const visible = unique.slice(0, 4);
+  return `${visible.join(", ")}${unique.length > visible.length ? `, and ${unique.length - visible.length} more` : ""}.`;
 }
 
 function Reset({ label, value, now }: { label: string; value: string; now: number }) {

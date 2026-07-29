@@ -1796,3 +1796,9 @@ export interface WhatsHappeningData {
   nextDailyResetAt: string;
   nextWeeklyResetAt: string;
 }
+
+export interface RaidRotationsData {
+  cards: HappeningCard[];
+  generatedAt: string;
+  nextWeeklyResetAt: string;
+}

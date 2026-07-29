@@ -30,6 +30,7 @@ import type {
   QuestData,
   RewardCodeStatusData,
   RewardsPassData,
+  RaidRotationsData,
   SessionData,
   UpdateUserPreferenceRequest,
   UpdateRewardCodePreferenceRequest,
@@ -70,6 +71,7 @@ import {
   updateNotificationPreferences,
   updateNotificationState
 } from "./notifications";
+import { readRaidRotations } from "./worldState";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -158,6 +160,9 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/whats-happening" && request.method === "GET") {
     const optionalSession = await sessionFromRequest(request, env);
     return envelope(await readWhatsHappening(env, optionalSession?.row.membership_id), env, context);
+  }
+  if (path === "/api/v1/world/raids" && request.method === "GET") {
+    return envelope<RaidRotationsData>(await readRaidRotations(env), env, context);
   }
   const buildsResponse = await buildsRoute(request, env, context);
   if (buildsResponse) return buildsResponse;

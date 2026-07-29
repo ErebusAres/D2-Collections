@@ -34,6 +34,7 @@ const BuildAdvisorPage = lazy(() => import("./pages/BuildAdvisorPage").then((mod
 const WhatsHappeningPage = lazy(() => import("./pages/WhatsHappeningPage").then((module) => ({ default: module.WhatsHappeningPage })));
 const DistortionsPage = lazy(() => import("./pages/DistortionsPage").then((module) => ({ default: module.DistortionsPage })));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
+const RaidRotationsPage = lazy(() => import("./pages/RaidRotationsPage").then((module) => ({ default: module.RaidRotationsPage })));
 
 function RouteFallback() {
   return <section aria-live="polite" style={{ minHeight: 360, display: "grid", placeItems: "center", border: "1px solid var(--line)", background: "rgba(5,13,19,.55)", color: "var(--muted)" }}><span style={{ display: "grid", placeItems: "center", gap: 10, textTransform: "uppercase", letterSpacing: ".1em", fontSize: 11 }}><LoaderCircle className="spin" /> Loading Guardian data</span></section>;
@@ -49,6 +50,7 @@ export function App() {
         <Route path="whats-happening" element={<PageRoute><WhatsHappeningPage /></PageRoute>} />
         <Route path="distortions" element={<PageRoute><DistortionsPage /></PageRoute>} />
         <Route path="notifications" element={<PageRoute><NotificationsPage /></PageRoute>} />
+        <Route path="activities/raids" element={<PageRoute><RaidRotationsPage /></PageRoute>} />
         <Route path="collection" element={<PageRoute><CollectionPage /></PageRoute>} />
         <Route path="xur" element={<PageRoute><XurPage /></PageRoute>} />
         <Route path="quests" element={<Navigate to="/journey" replace />} />

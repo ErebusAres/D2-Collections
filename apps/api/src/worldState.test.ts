@@ -84,7 +84,7 @@ describe("public milestone normalization", () => {
     expect(cards.every((card) => card.sourceConfidence === "live-api")).toBe(true);
   });
 
-  it("collapses many raid challenge rotations into one honest summary", () => {
+  it("preserves individual raid challenge rotations for the dedicated page", () => {
     const shared = {
       startDate: "2026-07-28T19:00:00.000Z",
       endDate: "2026-08-04T19:00:00.000Z"
@@ -95,12 +95,43 @@ describe("public milestone normalization", () => {
       c: { ...shared, milestoneHash: 12, activities: [{ activityHash: 403 }] }
     }, manifest(), observedAt);
 
+    expect(cards).toHaveLength(3);
+    expect(cards.map((card) => card.title)).toEqual(expect.arrayContaining([
+      "Raid · King's Fall: Standard",
+      "Raid · Last Wish: Standard",
+      "Raid · Deep Stone Crypt"
+    ]));
+    expect(cards.every((card) => card.destinationUrl === "/activities/raids")).toBe(true);
+  });
+
+  it("recognizes the stable public Iron Banner milestone even without a named activity", () => {
+    const cards = normalizePublicMilestones({
+      banner: {
+        milestoneHash: 4248276869,
+        startDate: "2026-07-28T19:00:00.000Z",
+        endDate: "2026-08-04T19:00:00.000Z"
+      }
+    }, manifest(), observedAt);
+
     expect(cards).toEqual([expect.objectContaining({
-      id: "milestone:raid:summary",
-      title: "Raid challenge rotations",
-      description: expect.stringContaining("3 active raid rotations reported")
+      category: "iron-banner",
+      section: "live",
+      title: "Iron Banner",
+      destinationUrl: "/pvp"
     })]);
-    expect(cards[0]?.description).toContain("King's Fall, Last Wish, Deep Stone Crypt");
+  });
+
+  it("recognizes Iron Banner from Bungie's activity-mode enum when the milestone identity changes", () => {
+    const cards = normalizePublicMilestones({
+      banner: {
+        milestoneHash: 999,
+        startDate: "2026-07-28T19:00:00.000Z",
+        endDate: "2026-08-04T19:00:00.000Z",
+        activities: [{ activityModes: [43] }]
+      }
+    }, manifest(), observedAt);
+
+    expect(cards).toEqual([expect.objectContaining({ category: "iron-banner", destinationUrl: "/pvp" })]);
   });
 });
 
