@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
 import { setRewardCodeRedeemed, useRedeemedRewardCodes } from "./rewardCodePreferences";
 import { useGuardian } from "../../context/GuardianContext";
+import { HEADER_REFRESH_INTERVAL_MS } from "../../services/liveRefresh";
 
 export function accountOwnedCodes(statuses: RewardCodeAccountStatus[] = []): Set<string> {
   return new Set(statuses.filter((entry) => entry.state === "reward-owned").map((entry) => entry.code));
@@ -22,7 +23,7 @@ export function useRewardCodeStatus(membershipId: string | undefined, authentica
     queryFn: () => api<RewardCodeStatusData>("/api/v1/me/reward-code-status"),
     enabled: Boolean(authenticated && membershipId),
     staleTime: 5 * 60_000,
-    refetchInterval: autoRefresh ? 5 * 60_000 : false,
+    refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     retry: 1
