@@ -3,7 +3,14 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/coverage/**", "apps/web/public/data/**"] },
+  {
+    ignores: [
+      "**/dist/**",
+      "**/coverage/**",
+      "**/.wrangler/**",
+      "apps/web/public/data/**"
+    ]
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

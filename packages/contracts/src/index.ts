@@ -1633,3 +1633,164 @@ export interface JourneyProgressManifest {
     icon: string;
   }>;
 }
+
+export type NotificationPriority = "critical" | "high" | "normal" | "low";
+export type NotificationScope = "global" | "account";
+export type NotificationStatus = "active" | "expired" | "dismissed" | "read" | "archived";
+export type NotificationSourceConfidence = "confirmed" | "live-api" | "observed" | "community-reported" | "estimated" | "predicted" | "unavailable";
+export type NotificationCategory =
+  | "distortion"
+  | "crucible"
+  | "trials"
+  | "iron-banner"
+  | "gambit"
+  | "vanguard"
+  | "exotic"
+  | "legendary"
+  | "seasonal"
+  | "eververse"
+  | "bungie-news"
+  | "completion"
+  | "warning"
+  | "outage"
+  | "redemption-code"
+  | "system";
+
+export interface GuardianNotification {
+  id: string;
+  eventKey?: string;
+  type: string;
+  category: NotificationCategory;
+  scope: NotificationScope;
+  priority: NotificationPriority;
+  status: NotificationStatus;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  icon?: string;
+  imageUrl?: string;
+  badge?: string;
+  destinationUrl?: string;
+  externalUrl?: string;
+  createdAt: string;
+  updatedAt?: string;
+  startsAt?: string;
+  expiresAt?: string;
+  dismissible: boolean;
+  autoDismiss: boolean;
+  autoDismissMs?: number;
+  repeatable?: boolean;
+  source?: string;
+  sourceLabel?: string;
+  sourceConfidence?: NotificationSourceConfidence;
+  readAt?: string;
+  dismissedAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface NotificationPreferences {
+  enabledCategories: NotificationCategory[];
+  globalNotifications: boolean;
+  accountNotifications: boolean;
+  bannerVisible: boolean;
+  autoDismissMs: number;
+  reducedMotion: boolean;
+  sound: boolean;
+  lowPriorityInFeed: boolean;
+  frequency: "all" | "important" | "minimal";
+}
+
+export interface NotificationFeedData {
+  notifications: GuardianNotification[];
+  unreadCount: number;
+  nextCursor?: string;
+  preferences: NotificationPreferences;
+}
+
+export interface UpdateNotificationStateRequest {
+  notificationId: string;
+  action: "read" | "unread" | "dismiss" | "archive" | "delete";
+}
+
+export interface UpdateNotificationPreferencesRequest {
+  preferences: NotificationPreferences;
+}
+
+export type DistortionDataState = "live" | "stale" | "unavailable" | "manually-reported";
+
+export interface DistortionObservation {
+  id: string;
+  destination: string;
+  destinationIcon?: string;
+  destinationImage?: string;
+  observedStartAt: string;
+  observedEndAt?: string;
+  firstDetectedAt: string;
+  lastConfirmedAt: string;
+  source: string;
+  confidence: NotificationSourceConfidence;
+  complete: boolean;
+}
+
+export interface DistortionPrediction {
+  state: "insufficient-data" | "no-reliable-pattern" | "possible-pattern" | "available" | "pattern-changed" | "disabled";
+  expectedDestination?: string;
+  confidencePercent?: number;
+  sampleSize: number;
+  calculatedAt: string;
+  explanation: string;
+  recentAccuracyPercent?: number;
+}
+
+export interface DistortionStatistics {
+  observations: number;
+  destinationCounts: Array<{ destination: string; count: number; percentage: number; lastSeenAt: string }>;
+  mostCommonDestination?: string;
+  leastCommonDestination?: string;
+  averageIntervalMinutes?: number;
+  shortestIntervalMinutes?: number;
+  longestIntervalMinutes?: number;
+  consecutiveRepeats: number;
+}
+
+export interface DistortionData {
+  state: DistortionDataState;
+  current?: DistortionObservation;
+  nextHourlyChangeAt: string;
+  history: DistortionObservation[];
+  statistics: DistortionStatistics;
+  prediction: DistortionPrediction;
+  sourceLabel: string;
+  sourceConfidence: NotificationSourceConfidence;
+  lastSuccessfulUpdateAt?: string;
+}
+
+export type HappeningCardState = "live" | "upcoming" | "ending-soon" | "unavailable" | "stale" | "inactive";
+export type HappeningSection = "live" | "weekly" | "vendors" | "daily" | "news" | "discoveries" | "upcoming" | "personal";
+
+export interface HappeningCard {
+  id: string;
+  section: HappeningSection;
+  category: NotificationCategory;
+  priority: NotificationPriority;
+  state: HappeningCardState;
+  title: string;
+  status: string;
+  description?: string;
+  icon?: string;
+  imageUrl?: string;
+  startsAt?: string;
+  endsAt?: string;
+  destinationUrl?: string;
+  externalUrl?: string;
+  sourceLabel: string;
+  sourceConfidence: NotificationSourceConfidence;
+  observedAt?: string;
+}
+
+export interface WhatsHappeningData {
+  cards: HappeningCard[];
+  generatedAt: string;
+  nextDailyResetAt: string;
+  nextWeeklyResetAt: string;
+}

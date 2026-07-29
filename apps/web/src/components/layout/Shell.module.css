@@ -1,5 +1,5 @@
 .shell { --shell-header-height: 130px; min-height: 100vh; position: relative; isolation: isolate; background: radial-gradient(circle at 78% 8%, rgba(51, 103, 110, .22), transparent 31%), linear-gradient(135deg, #071018 0%, #0d1820 55%, #081118 100%); }
-.shell:has(.header > a) { --shell-header-height: 164px; }
+.shell:has(.header > section) { --shell-header-height: 168px; }
 .shell::before { content: ""; position: fixed; inset: 0; z-index: -3; background-image: var(--guardian-banner); background-size: cover; background-position: center top; opacity: .09; filter: grayscale(.4) contrast(1.2); }
 .ambient { position: fixed; inset: 0; z-index: -2; pointer-events: none; opacity: .33; background-image: linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.01) 1px, transparent 1px); background-size: 44px 44px; mask-image: linear-gradient(to bottom, #000, transparent 72%); }
 .ambient::after { content: ""; position: absolute; width: 48vw; aspect-ratio: 1; right: -12vw; top: -22vw; border: 1px solid rgba(155,231,226,.12); transform: rotate(45deg); box-shadow: 0 0 0 8vw rgba(155,231,226,.01), 0 0 0 16vw rgba(155,231,226,.008); }
@@ -81,7 +81,7 @@
 
 @media (max-width: 900px) {
   .shell { --shell-header-height: 120px; }
-  .shell:has(.header > a) { --shell-header-height: 154px; }
+  .shell:has(.header > section) { --shell-header-height: 164px; }
   .identityBar { height: 72px; padding: 0 0 0 14px; gap: 8px; }
   .brand { min-width: 42px; flex-basis: 42px; }
   .brandMark { width: 30px; height: 30px; }
@@ -98,6 +98,8 @@
 
 @media (max-width: 650px) {
   .brand, .guardianIdentity img, .connectionStatus { display: none; }
+  .guardianIdentity:not(:has(img)) { display: none; }
+  .signIn { margin-left: auto; }
   .identityDetails { grid-template-columns: minmax(276px, 1fr); }
   .identityDetails > span, .identityDetails > strong, .identityDetails > small { display: none; }
   .identityStats { grid-column: 1; grid-row: 1 / 3; }

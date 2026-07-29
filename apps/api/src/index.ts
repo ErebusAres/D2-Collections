@@ -60,6 +60,16 @@ import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedIte
 import { buildAdvisorRecommendationItems, normalizeBuildAdvisorData } from "./buildAdvisor";
 import { buildAdvisorTemplatesFromPublishedBuilds } from "./buildAdvisorPublished";
 import { BUILD_ADVISOR_TEMPLATES } from "./buildAdvisorTemplates";
+import {
+  maintainNotificationStorage,
+  readDistortions,
+  readNotificationFeed,
+  readWhatsHappening,
+  recordDistortionObservation,
+  saveManualNotification,
+  updateNotificationPreferences,
+  updateNotificationState
+} from "./notifications";
 
 const shareSchema = z.object({
   characterId: z.string().min(1),
@@ -129,6 +139,7 @@ export default {
       env.DB.prepare("DELETE FROM fireteam_shares WHERE sharing_mode = 'temporary' AND expires_at <= ?").bind(now),
       env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
     ]);
+    await maintainNotificationStorage(env);
     await refreshPersistentShares(env);
   }
 };
@@ -142,6 +153,12 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/auth/callback" && request.method === "GET") return finishAuth(request, env, context);
   if (path === "/api/v1/session" && request.method === "GET") return readSession(request, env, context);
   if (path === "/api/v1/session" && request.method === "DELETE") return deleteSession(request, env, context);
+  if (path === "/api/v1/notifications" && request.method === "GET") return envelope(await readNotificationFeed(request, env), env, context);
+  if (path === "/api/v1/distortions" && request.method === "GET") return envelope(await readDistortions(env, context.url.searchParams.get("range") || "7d"), env, context);
+  if (path === "/api/v1/whats-happening" && request.method === "GET") {
+    const optionalSession = await sessionFromRequest(request, env);
+    return envelope(await readWhatsHappening(env, optionalSession?.row.membership_id), env, context);
+  }
   const buildsResponse = await buildsRoute(request, env, context);
   if (buildsResponse) return buildsResponse;
 
@@ -161,6 +178,16 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "GET") return rewardCodeStatus(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateRewardCodePreference(request, session.row, env, context); }
+  if (path === "/api/v1/me/notifications/state" && request.method === "PUT") return envelope(await updateNotificationState(request, session, env), env, context);
+  if (path === "/api/v1/me/notification-preferences" && request.method === "PUT") return envelope(await updateNotificationPreferences(request, session, env), env, context);
+  if (path === "/api/v1/admin/notifications" && request.method === "PUT") {
+    await requireCsrf(request, session.token, env);
+    return envelope(await saveManualNotification(request, session.row, env), env, context);
+  }
+  if (path === "/api/v1/admin/distortions" && request.method === "PUT") {
+    await requireCsrf(request, session.token, env);
+    return envelope(await recordDistortionObservation(request, session.row, env), env, context);
+  }
   if (path === "/api/v1/me/gear" && request.method === "GET") return gear(session.row, env, context);
   if (path === "/api/v1/me/gear/item-state" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateGearState(request, session.row, env, context); }
   if (path === "/api/v1/me/gear/action" && request.method === "POST") { await requireCsrf(request, session.token, env); return gearAction(request, session.row, env, context); }

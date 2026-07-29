@@ -1,20 +1,21 @@
 import type { ReportAdminSummaryData, RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Gift, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
+import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
 import { hasClaimableReward, rewardLevelProgress } from "../../modules/rewards/rewardsProgress";
-import { activeRewardCodes } from "../../modules/reward-codes/rewardCodes";
-import { useRewardCodeStatus } from "../../modules/reward-codes/rewardCodeStatus";
 import { useGuardian } from "../../context/GuardianContext";
 import { OptionsPanel } from "./OptionsPanel";
-import { RewardCodeMarquee } from "../reward-codes/RewardCodeMarquee";
 import { getConnectionSnapshot, subscribeConnection } from "../../services/api/client";
 import { HEADER_REFRESH_INTERVAL_MS } from "../../services/liveRefresh";
+import { GuardianFeed } from "../notifications/GuardianFeed";
+import { NotificationCenter } from "../notifications/NotificationCenter";
+import { useGuardianNotifications } from "../../modules/notifications/useGuardianNotifications";
 import styles from "./Shell.module.css";
 
 const tabs = [
+  { to: "/whats-happening", label: "Happening", icon: Globe2 },
   { to: "/collection", label: "Collection", icon: Boxes },
   { to: "/xur", label: "Xûr", icon: Coins },
   { to: "/journey", label: "Journey", icon: ListTodo },
@@ -52,8 +53,7 @@ export function Shell() {
   const liveRewards = rewards.data?.data;
   const rewardsPassRank = liveRewards?.rank ?? guardian?.stats.rewardsPassRank ?? 0;
   const rewardsPassProgress = liveRewards?.progress ?? guardian?.stats.rewardsPassProgress;
-  const { hidden: hiddenRewardCodes } = useRewardCodeStatus(guardian?.membershipId, Boolean(session?.authenticated), autoRefresh);
-  const availableRewardCodeCount = activeRewardCodes().filter((entry) => !hiddenRewardCodes.has(entry.code)).length;
+  const notifications = useGuardianNotifications();
   const showScrollTop = usePageUtilities();
   const savedDataLabel = connection.lastSavedAt ? `Showing saved data from ${new Date(connection.lastSavedAt).toLocaleString()}.` : "Showing the last saved Guardian data.";
   const connectionTitle = connection.queued
@@ -68,9 +68,9 @@ export function Shell() {
     <div className={styles.shell} style={character?.emblemBackgroundPath ? { "--guardian-banner": `url(${character.emblemBackgroundPath})` } as React.CSSProperties : undefined}>
       <div className={styles.ambient} aria-hidden="true" />
       <header className={styles.header}>
-        <RewardCodeMarquee />
+        <GuardianFeed controller={notifications} />
         <div className={styles.identityBar}>
-          <NavLink to="/collection" className={styles.brand} aria-label="Guardian Nexus home">
+          <NavLink to="/whats-happening" className={styles.brand} aria-label="Guardian Nexus home">
             <span className={styles.brandMark}><span /></span>
             <span><b>Guardian</b><strong>Nexus</strong></span>
           </NavLink>
@@ -78,7 +78,7 @@ export function Shell() {
             {guardian ? (
               <>
                 <img src={character?.emblemPath || ""} alt="" />
-                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small>{character?.emblemBackgroundPath && <div className={styles.guardianBanner} data-testid="guardian-banner" aria-hidden="true" />}<div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent to="/power" /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} to="/journey/guardian-rank" /><HeaderStat label="Crucible Rank" value={guardian.stats.crucibleRank?.level} detail={guardian.stats.crucibleRank?.rankName} icon={<Crosshair />} to="/pvp" /><HeaderStat label="Rewards Pass" value={rewardsPassProgress?.state === "unavailable" && !rewardsPassRank ? undefined : rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /><HeaderStat label="Mailbox" value={guardian.stats.mailboxCount} icon={<Mail />} to="/mailbox" /><HeaderStat label="Reward Codes" value={availableRewardCodeCount} icon={<Gift />} to="/codes" claimable={availableRewardCodeCount > 0} /><NavLink to="/next" className={styles.nextStepsStat} aria-label="Open personalized next steps" title="Not sure what to do? Open Next Steps"><i><Compass /></i><span><small>What next?</small><b>Find a goal</b></span></NavLink></div>{rewardsPassProgress && <RewardsProgress rank={rewardsPassRank} progress={rewardsPassProgress} />}</div>
+                <div className={styles.identityDetails}><span>Selected Guardian</span><strong>{guardian.displayName}</strong><small>{character?.className} · {character?.raceName}</small>{character?.emblemBackgroundPath && <div className={styles.guardianBanner} data-testid="guardian-banner" aria-hidden="true" />}<div className={styles.identityStats} aria-label="Guardian stats"><HeaderStat label="Light Level" value={guardian.stats.power} icon={<Sparkles />} accent to="/power" /><HeaderStat label="Guardian Rank" value={guardian.stats.guardianRank} icon={<Badge />} to="/journey/guardian-rank" /><HeaderStat label="Crucible Rank" value={guardian.stats.crucibleRank?.level} detail={guardian.stats.crucibleRank?.rankName} icon={<Crosshair />} to="/pvp" /><HeaderStat label="Rewards Pass" value={rewardsPassProgress?.state === "unavailable" && !rewardsPassRank ? undefined : rewardsPassRank} icon={<Ticket />} to="/rewards" claimable={claimableReward} /><HeaderStat label="Mailbox" value={guardian.stats.mailboxCount} icon={<Mail />} to="/mailbox" /><NavLink to="/next" className={styles.nextStepsStat} aria-label="Open personalized next steps" title="Not sure what to do? Open Next Steps"><i><Compass /></i><span><small>What next?</small><b>Find a goal</b></span></NavLink></div>{rewardsPassProgress && <RewardsProgress rank={rewardsPassRank} progress={rewardsPassProgress} />}</div>
                 {guardian.isInGame && <em>In game</em>}
               </>
             ) : (
@@ -86,6 +86,7 @@ export function Shell() {
             )}
           </div>
           {!session?.authenticated && !loading && !error && <button className={styles.signIn} onClick={signIn}>Sign in with Bungie</button>}
+          <NotificationCenter controller={notifications} />
           <div className={`${styles.connectionStatus} ${error || connection.lastError ? styles.connectionInterrupted : ""} ${connection.usingSavedData ? styles.connectionSaved : ""} ${connection.retrying ? styles.connectionWorking : ""}`} aria-label={connection.usingSavedData ? "Showing saved Guardian data" : error || connection.lastError ? "Guardian services interrupted" : "Guardian services connected"} title={connectionTitle}>
             {connection.usingSavedData ? <Database size={18} /> : <Orbit size={18} />}{connection.queued > 0 && <b>{connection.queued}</b>}
           </div>
