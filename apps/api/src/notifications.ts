@@ -12,15 +12,30 @@ import type {
   UpdateNotificationStateRequest,
   WhatsHappeningData
 } from "@guardian-nexus/contracts";
+import { xurSchedule } from "@guardian-nexus/domain";
 import { z } from "zod";
 import { allowlist, httpError, requireCsrf, sessionFromRequest } from "./security";
 import type { Env, SessionRow } from "./types";
-import { readLatestXurShipment } from "./xurSnapshot";
+import { readLatestXurShipment, type StoredXurSnapshot } from "./xurSnapshot";
 
 const ALL_CATEGORIES: NotificationCategory[] = [
   "distortion", "crucible", "trials", "iron-banner", "gambit", "vanguard", "exotic", "legendary",
   "seasonal", "eververse", "bungie-news", "completion", "warning", "outage", "redemption-code", "system"
 ];
+const DISTORTION_ROTATION = [
+  "Cosmodrome",
+  "EDZ",
+  "Dreaming City",
+  "Savathun's Throne World",
+  "Moon",
+  "Europa",
+  "Nessus"
+] as const;
+// Community-confirmed against Europa during the 19:00 UTC hour on 2026-06-12.
+// Source: https://wewantdestiny3.com/distortion-tracker/
+const DISTORTION_ANCHOR_HOUR = 494_803;
+const DISTORTION_ANCHOR_INDEX = 5;
+const DISTORTION_SOURCE = "Community-confirmed rotation";
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   enabledCategories: ALL_CATEGORIES,
@@ -117,10 +132,13 @@ export async function readNotificationFeed(request: Request, env: Env): Promise<
         LIMIT ?
       `).bind(history ? 1 : 0, now, now, cursor, cursor, limit + 1).all<NotificationRow>();
   const stored = (rows.results || []).slice(0, limit).map(notificationFromRow);
+  const visibleStored = history || xurSchedule().active
+    ? stored
+    : stored.filter((entry) => entry.eventKey !== "xur-shipment" || entry.status !== "active");
   const generated = history || cursor ? [] : await generatedWorldNotifications(env);
-  const missingGenerated = generated.filter((entry) => !stored.some((storedEntry) => storedEntry.id === entry.id));
+  const missingGenerated = generated.filter((entry) => !visibleStored.some((storedEntry) => storedEntry.id === entry.id));
   if (missingGenerated.length) await materializeGeneratedNotifications(env, missingGenerated);
-  const notifications = deduplicateNotifications([...stored, ...generated]);
+  const notifications = deduplicateNotifications([...visibleStored, ...generated]);
   const preferences = membershipId ? await readNotificationPreferences(env, membershipId) : DEFAULT_NOTIFICATION_PREFERENCES;
   return {
     notifications,
@@ -268,26 +286,28 @@ export async function recordDistortionObservation(request: Request, actor: Sessi
 }
 
 export async function readDistortions(env: Env, range = "7d"): Promise<DistortionData> {
+  const now = new Date();
   const days = range === "24h" ? 1 : range === "30d" ? 30 : range === "all" ? 3650 : 7;
-  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+  const cutoff = new Date(now.getTime() - days * 86_400_000).toISOString();
   const result = await env.DB.prepare(`
     SELECT * FROM distortion_observations WHERE observed_start_at >= ? ORDER BY observed_start_at DESC LIMIT 1000
   `).bind(cutoff).all<Record<string, unknown>>();
   const history = (result.results || []).map(distortionFromRow);
   const latest = history[0];
-  const age = latest ? Date.now() - Date.parse(latest.lastConfirmedAt) : Number.POSITIVE_INFINITY;
-  const current = latest && !latest.observedEndAt && age <= 75 * 60_000 ? latest : undefined;
+  const age = latest ? now.getTime() - Date.parse(latest.lastConfirmedAt) : Number.POSITIVE_INFINITY;
+  const observedCurrent = latest && !latest.observedEndAt && age <= 75 * 60_000 ? latest : undefined;
+  const current = observedCurrent || communityDistortionAt(now);
   const provider = await env.DB.prepare("SELECT * FROM world_provider_status WHERE provider_key = 'distortion'").first<Record<string, unknown>>();
   return {
-    state: current ? (current.source === "manual" ? "manually-reported" : age > 20 * 60_000 ? "stale" : "live") : "unavailable",
+    state: observedCurrent?.source === "manual" ? "manually-reported" : observedCurrent && age > 20 * 60_000 ? "stale" : "live",
     current,
-    nextHourlyChangeAt: nextUtcHour(),
+    nextHourlyChangeAt: nextUtcHour(now),
     history,
     statistics: calculateDistortionStatistics(history),
     prediction: calculateDistortionPrediction(history),
-    sourceLabel: current?.source || "No verified provider",
-    sourceConfidence: current?.confidence || "unavailable",
-    lastSuccessfulUpdateAt: typeof provider?.last_success_at === "string" ? provider.last_success_at : current?.lastConfirmedAt
+    sourceLabel: current.source,
+    sourceConfidence: current.confidence,
+    lastSuccessfulUpdateAt: typeof provider?.last_success_at === "string" ? provider.last_success_at : current.lastConfirmedAt
   };
 }
 
@@ -327,20 +347,7 @@ export async function readWhatsHappening(env: Env, membershipId?: string): Promi
     });
   }
   if (xur) {
-    cards.push({
-      id: "xur-shipment",
-      section: "vendors",
-      category: "exotic",
-      priority: "normal",
-      state: "stale",
-      title: "Xûr’s latest shipment",
-      status: `${xur.offers.length} tracked offers`,
-      description: "The last successfully captured inventory remains available between visits.",
-      destinationUrl: "/xur",
-      sourceLabel: "Bungie vendor API",
-      sourceConfidence: "live-api",
-      observedAt: xur.capturedAt
-    });
+    cards.push(xurHappeningCard(xur, now));
   }
   cards.push(
     resetCard("daily-reset", "daily", "Daily reset", nextDailyReset(now), "/whats-happening"),
@@ -381,17 +388,51 @@ export async function readWhatsHappening(env: Env, membershipId?: string): Promi
 }
 
 export async function maintainNotificationStorage(env: Env): Promise<void> {
-  const now = new Date().toISOString();
-  const retention = new Date(Date.now() - 180 * 86_400_000).toISOString();
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+  const retention = new Date(nowDate.getTime() - 180 * 86_400_000).toISOString();
+  await syncCommunityDistortionObservation(env, nowDate);
   await env.DB.batch([
     env.DB.prepare("DELETE FROM notification_user_state WHERE updated_at < ?").bind(retention),
     env.DB.prepare("DELETE FROM guardian_notifications WHERE expires_at IS NOT NULL AND expires_at < ? AND created_at < ?").bind(now, retention),
     env.DB.prepare(`
-      INSERT INTO world_provider_status (provider_key, state, last_attempt_at, error_code, error_message)
-      VALUES ('distortion', 'unavailable', ?, 'provider_unverified', 'No verified first-party active-destination provider is configured.')
+      INSERT INTO world_provider_status (provider_key, state, last_attempt_at, last_success_at, error_code, error_message)
+      VALUES ('distortion', 'observed', ?, ?, NULL, NULL)
       ON CONFLICT(provider_key) DO UPDATE SET state = excluded.state, last_attempt_at = excluded.last_attempt_at,
-        error_code = excluded.error_code, error_message = excluded.error_message
-    `).bind(now)
+        last_success_at = excluded.last_success_at, error_code = NULL, error_message = NULL
+    `).bind(now, now)
+  ]);
+}
+
+async function syncCommunityDistortionObservation(env: Env, now: Date): Promise<void> {
+  const current = communityDistortionAt(now);
+  const active = await env.DB.prepare(`
+    SELECT id, source, last_confirmed_at FROM distortion_observations
+    WHERE observed_end_at IS NULL ORDER BY observed_start_at DESC LIMIT 1
+  `).first<{ id: string; source: string; last_confirmed_at: string }>();
+  const recentManualOverride = active?.source === "manual"
+    && now.getTime() - Date.parse(active.last_confirmed_at) <= 75 * 60_000;
+  if (recentManualOverride) return;
+  await env.DB.batch([
+    env.DB.prepare(`
+      UPDATE distortion_observations SET observed_end_at = ?, complete = 1
+      WHERE observed_end_at IS NULL AND id <> ?
+    `).bind(current.observedStartAt, current.id),
+    env.DB.prepare(`
+      INSERT INTO distortion_observations (
+        id, destination, observed_start_at, first_detected_at, last_confirmed_at, source, confidence, complete
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+      ON CONFLICT(id) DO UPDATE SET last_confirmed_at = excluded.last_confirmed_at,
+        observed_end_at = NULL, source = excluded.source, confidence = excluded.confidence, complete = 0
+    `).bind(
+      current.id,
+      current.destination,
+      current.observedStartAt,
+      current.firstDetectedAt,
+      current.lastConfirmedAt,
+      current.source,
+      current.confidence
+    )
   ]);
 }
 
@@ -422,27 +463,8 @@ async function generatedWorldNotifications(env: Env): Promise<GuardianNotificati
     notificationForReset("weekly", nextWeeklyReset(now))
   ];
   const xur = await readLatestXurShipment(env);
-  if (xur) {
-    generated.push({
-      id: `xur-shipment:${xur.capturedAt}`,
-      eventKey: "xur-shipment",
-      type: "xur-shipment",
-      category: "exotic",
-      scope: "global",
-      priority: "normal",
-      status: "active",
-      title: "Xûr shipment available",
-      subtitle: `${xur.offers.length} offers in the latest captured inventory`,
-      destinationUrl: "/xur",
-      createdAt: xur.capturedAt,
-      expiresAt: xur.nextRefreshAt,
-      dismissible: true,
-      autoDismiss: true,
-      source: "bungie-vendor-api",
-      sourceLabel: "Bungie vendor API",
-      sourceConfidence: "live-api"
-    });
-  }
+  const xurNotification = xur ? xurShipmentNotification(xur, now) : undefined;
+  if (xurNotification) generated.push(xurNotification);
   const distortion = await readDistortions(env, "24h");
   if (distortion.current) {
     generated.push({
@@ -466,6 +488,51 @@ async function generatedWorldNotifications(env: Env): Promise<GuardianNotificati
     });
   }
   return generated;
+}
+
+export function xurHappeningCard(xur: StoredXurSnapshot, now = new Date()): HappeningCard {
+  const visit = xurSchedule(now);
+  const offerKind = visit.active ? "storefront" : "archived";
+  return {
+    id: "xur-shipment",
+    section: "vendors",
+    category: "exotic",
+    priority: visit.active ? "normal" : "low",
+    state: visit.active ? "live" : "inactive",
+    title: visit.active ? "Xûr’s current shipment" : "Xûr’s previous shipment",
+    status: `${xur.offers.length} ${offerKind} offer${xur.offers.length === 1 ? "" : "s"}`,
+    description: visit.active
+      ? "Review the current captured storefront before Xûr departs."
+      : "Xûr has left. The previous shipment remains available for reference, but its items can no longer be purchased.",
+    destinationUrl: "/xur",
+    sourceLabel: "Bungie vendor API",
+    sourceConfidence: "live-api",
+    observedAt: xur.capturedAt
+  };
+}
+
+export function xurShipmentNotification(xur: StoredXurSnapshot, now = new Date()): GuardianNotification | undefined {
+  const visit = xurSchedule(now);
+  if (!visit.active) return undefined;
+  return {
+    id: `xur-shipment:${xur.capturedAt}`,
+    eventKey: "xur-shipment",
+    type: "xur-shipment",
+    category: "exotic",
+    scope: "global",
+    priority: "normal",
+    status: "active",
+    title: "Xûr shipment available",
+    subtitle: `${xur.offers.length} offers in the latest captured inventory`,
+    destinationUrl: "/xur",
+    createdAt: xur.capturedAt,
+    expiresAt: visit.departure,
+    dismissible: true,
+    autoDismiss: true,
+    source: "bungie-vendor-api",
+    sourceLabel: "Bungie vendor API",
+    sourceConfidence: "live-api"
+  };
 }
 
 async function materializeGeneratedNotifications(env: Env, notifications: GuardianNotification[]): Promise<void> {
@@ -651,11 +718,29 @@ function nextWeeklyReset(now = new Date()): Date {
   return value;
 }
 
-function nextUtcHour(): string {
-  const value = new Date();
+function nextUtcHour(now = new Date()): string {
+  const value = new Date(now);
   value.setUTCMinutes(0, 0, 0);
   value.setUTCHours(value.getUTCHours() + 1);
   return value.toISOString();
+}
+
+export function communityDistortionAt(now = new Date()): DistortionObservation {
+  const epochHour = Math.floor(now.getTime() / 3_600_000);
+  const offset = ((epochHour - DISTORTION_ANCHOR_HOUR) % DISTORTION_ROTATION.length + DISTORTION_ROTATION.length) % DISTORTION_ROTATION.length;
+  const index = (DISTORTION_ANCHOR_INDEX + offset) % DISTORTION_ROTATION.length;
+  const destination = DISTORTION_ROTATION[index]!;
+  const observedStartAt = new Date(epochHour * 3_600_000).toISOString();
+  return {
+    id: `distortion:community:${epochHour}:${slug(destination)}`,
+    destination,
+    observedStartAt,
+    firstDetectedAt: observedStartAt,
+    lastConfirmedAt: now.toISOString(),
+    source: DISTORTION_SOURCE,
+    confidence: "observed",
+    complete: false
+  };
 }
 
 async function upsertDistortionNotification(env: Env, observationId: string, destination: string, startsAt: string): Promise<void> {

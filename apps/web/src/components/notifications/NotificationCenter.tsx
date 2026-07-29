@@ -1,5 +1,5 @@
 import { Bell, CheckCheck, ChevronRight, Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { GuardianNotificationsController } from "../../modules/notifications/useGuardianNotifications";
 import { categoryFor } from "../../modules/notifications/categoryConfig";
@@ -9,14 +9,35 @@ import styles from "./NotificationCenter.module.css";
 export function NotificationCenter({ controller }: { controller: GuardianNotificationsController }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
   const filtered = useMemo(() => controller.notifications.filter((entry) => !search || `${entry.title} ${entry.subtitle || ""} ${entry.description || ""}`.toLowerCase().includes(search.toLowerCase())).slice(0, 30), [controller.notifications, search]);
   const markAllRead = () => filtered.filter((entry) => !entry.readAt).forEach((entry) => controller.markRead(entry));
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (!target || panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
   return <>
-    <button className={styles.trigger} onClick={() => setOpen(true)} aria-label={`Open notifications${controller.unreadCount ? `, ${controller.unreadCount} unread` : ""}`} aria-expanded={open}>
+    <button ref={triggerRef} className={styles.trigger} onClick={() => setOpen((value) => !value)} aria-label={`${open ? "Close" : "Open"} notifications${controller.unreadCount ? `, ${controller.unreadCount} unread` : ""}`} aria-expanded={open}>
       <Bell />{controller.unreadCount > 0 && <b>{Math.min(99, controller.unreadCount)}</b>}
     </button>
     <button className={`${styles.scrim} ${open ? styles.open : ""}`} onClick={() => setOpen(false)} aria-label="Close notifications" tabIndex={open ? 0 : -1} />
-    <aside className={`${styles.panel} ${open ? styles.open : ""}`} aria-hidden={!open} aria-label="Notification center">
+    <aside ref={panelRef} className={`${styles.panel} ${open ? styles.open : ""}`} aria-hidden={!open} aria-label="Notification center">
       <header><div><span>Guardian Feed</span><h2>Notifications</h2></div><button onClick={() => setOpen(false)} aria-label="Close notification center"><X /></button></header>
       <div className={styles.tools}><label><Search /><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search history" /></label><button onClick={markAllRead}><CheckCheck /> Mark all read</button></div>
       <div className={styles.list}>

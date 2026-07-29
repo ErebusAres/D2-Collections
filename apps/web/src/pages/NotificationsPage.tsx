@@ -1,6 +1,6 @@
 import type { NotificationCategory, NotificationPreferences } from "@guardian-nexus/contracts";
 import { Archive, Check, Search, SlidersHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../components/common/Page";
 import { categoryFor, notificationCategoryConfig } from "../modules/notifications/categoryConfig";
@@ -47,10 +47,27 @@ export function NotificationsPage() {
 
 function NotificationSettings({ preferences, onSave }: { preferences: NotificationPreferences; onSave: (value: NotificationPreferences) => void }) {
   const update = (patch: Partial<NotificationPreferences>) => onSave({ ...preferences, ...patch, sound: false });
+  const toggleCategory = (category: NotificationCategory, enabled: boolean) => update({
+    enabledCategories: enabled
+      ? [...new Set([...preferences.enabledCategories, category])]
+      : preferences.enabledCategories.filter((entry) => entry !== category)
+  });
   return <aside className={styles.notificationSettings}><header><SlidersHorizontal /><div><span>Delivery controls</span><h2>Feed settings</h2></div></header>
     <Toggle label="Scrolling banner" detail="History remains available when hidden." value={preferences.bannerVisible} set={(value) => update({ bannerVisible: value })} />
     <Toggle label="Global notifications" detail="World, vendor, activity, and news updates." value={preferences.globalNotifications} set={(value) => update({ globalNotifications: value })} />
     <Toggle label="Account notifications" detail="Private updates for only your membership." value={preferences.accountNotifications} set={(value) => update({ accountNotifications: value })} />
+    <fieldset className={styles.categoryPreferences}>
+      <legend>Enabled categories</legend>
+      <p>Choose which categories appear in the feed and history.</p>
+      <div>{Object.entries(notificationCategoryConfig).map(([value, config]) => {
+        const category = value as NotificationCategory;
+        const Icon = config.icon;
+        return <label key={category} style={{ "--category-color": config.accentColor } as CSSProperties}>
+          <input type="checkbox" checked={preferences.enabledCategories.includes(category)} onChange={(event) => toggleCategory(category, event.target.checked)} />
+          <i><Icon /></i><span>{config.label}</span>
+        </label>;
+      })}</div>
+    </fieldset>
     <Toggle label="Low-priority feed items" detail="Low-priority records always remain in history." value={preferences.lowPriorityInFeed} set={(value) => update({ lowPriorityInFeed: value })} />
     <Toggle label="Reduced notification motion" detail="Stops scrolling and decorative movement." value={preferences.reducedMotion} set={(value) => update({ reducedMotion: value })} />
     <Toggle label="Sound" detail="Disabled by default; browser permission is never requested." value={false} disabled set={() => undefined} />

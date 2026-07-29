@@ -45,10 +45,10 @@ export function WhatsHappeningPage() {
         <Reset label="Weekly reset" value={result.data.data.nextWeeklyResetAt} />
         <div><Globe2 /><span>World state</span><strong>{result.data.freshness.state}</strong><small>Updated {new Date(result.data.data.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></div>
       </section>
-      {sections.map(([section, cards]) => <section className={styles.worldSection} key={section}>
-        <header><span>{sectionLabels[section]}</span><b>{cards.length}</b></header>
-        <div className={styles.cardGrid}>{cards.map((card) => <WorldCard card={card} key={card.id} />)}</div>
-      </section>)}
+      <div className={styles.sectionsGrid}>{sections.map(([section, cards]) => <section className={styles.worldSection} key={section}>
+          <header><span>{sectionLabels[section]}</span><b>{cards.length}</b></header>
+          <div className={styles.cardGrid}>{cards.map((card) => <WorldCard card={card} key={card.id} />)}</div>
+        </section>)}</div>
     </>}
   </>;
 }

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { GuardianNotificationsController } from "../../modules/notifications/useGuardianNotifications";
+import type { GuardianNotification, NotificationPreferences } from "@guardian-nexus/contracts";
 import { categoryFor } from "../../modules/notifications/categoryConfig";
 import styles from "./GuardianFeed.module.css";
 
@@ -32,8 +33,8 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
     return () => observer.disconnect();
   }, [notification?.id]);
   useEffect(() => {
-    if (!notification || paused || feed.length < 2) return;
-    const duration = notification.autoDismissMs || categoryFor(notification.category).defaultAutoDismissMs || preferences.autoDismissMs;
+    if (!notification || paused || feed.length < 2 || !notification.autoDismiss) return;
+    const duration = notificationDisplayDuration(notification, preferences);
     const timer = window.setTimeout(() => setIndex((value) => (value + 1) % feed.length), duration);
     return () => window.clearTimeout(timer);
   }, [feed.length, notification, paused, preferences.autoDismissMs]);
@@ -78,6 +79,14 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
       {notification.dismissible && <button type="button" onClick={() => { controller.dismiss(notification); setIndex((value) => value % Math.max(1, feed.length - 1)); }} aria-label={`Dismiss ${notification.title}`}><X /></button>}
     </section>
   );
+}
+
+export function notificationDisplayDuration(notification: GuardianNotification, preferences: NotificationPreferences): number {
+  if (notification.autoDismissMs) return notification.autoDismissMs;
+  const base = preferences.autoDismissMs || categoryFor(notification.category).defaultAutoDismissMs;
+  if (notification.priority === "critical") return Math.round(base * 1.5);
+  if (notification.priority === "high") return Math.round(base * 1.25);
+  return base;
 }
 
 export function relativeTime(value: string): string {
