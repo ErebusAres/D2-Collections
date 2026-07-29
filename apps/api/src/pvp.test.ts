@@ -87,11 +87,43 @@ describe("PvP normalization", () => {
     expect(data.overall.matches).toBe(0);
     expect(data.primaryRank?.level).toBe(7);
   });
+
+  it("includes every Iron Banner playlist without double-counting Bungie's umbrella total", () => {
+    const variantOnly = normalizePvpData({
+      profile,
+      manifest,
+      characterId: "hunter",
+      historicalStats: [{
+        ironBannerControl: { allTime: historyRow({ matches: 2, wins: 1, kills: 12, deaths: 8, assists: 4, precision: 3, best: 8, spree: 4 }) },
+        ironBannerZoneControl: { allTime: historyRow({ matches: 3, wins: 2, kills: 18, deaths: 12, assists: 6, precision: 4, best: 9, spree: 5 }) }
+      }]
+    });
+    expect(variantOnly.modes.find((mode) => mode.kind === "iron-banner")).toMatchObject({
+      matches: 5,
+      wins: 3,
+      kills: 30
+    });
+
+    const withUmbrella = normalizePvpData({
+      profile,
+      manifest,
+      characterId: "hunter",
+      historicalStats: [{
+        ironBanner: { allTime: historyRow({ matches: 5, wins: 3, kills: 30, deaths: 20, assists: 10, precision: 7, best: 9, spree: 5 }) },
+        ironBannerControl: { allTime: historyRow({ matches: 2, wins: 1, kills: 12, deaths: 8, assists: 4, precision: 3, best: 8, spree: 4 }) }
+      }]
+    });
+    expect(withUmbrella.modes.find((mode) => mode.kind === "iron-banner")?.matches).toBe(5);
+  });
 });
 
 function history(values: { matches: number; wins: number; kills: number; deaths: number; assists: number; precision: number; best: number; spree: number }) {
+  return { allPvP: { allTime: historyRow(values) } };
+}
+
+function historyRow(values: { matches: number; wins: number; kills: number; deaths: number; assists: number; precision: number; best: number; spree: number }) {
   const stat = (value: number) => ({ basic: { value } });
-  return { allPvP: { allTime: {
+  return {
     activitiesEntered: stat(values.matches),
     activitiesWon: stat(values.wins),
     kills: stat(values.kills),
@@ -100,5 +132,5 @@ function history(values: { matches: number; wins: number; kills: number; deaths:
     precisionKills: stat(values.precision),
     bestSingleGameKills: stat(values.best),
     longestKillSpree: stat(values.spree)
-  } } };
+  };
 }
