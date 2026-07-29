@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { DistortionObservation } from "@guardian-nexus/contracts";
 import type { StoredXurSnapshot } from "./xurSnapshot";
-import { calculateDistortionPrediction, calculateDistortionStatistics, communityDistortionAt, xurHappeningCard, xurShipmentNotification } from "./notifications";
+import type { Env } from "./types";
+import { calculateDistortionPrediction, calculateDistortionStatistics, communityDistortionAt, materializeGeneratedNotifications, xurHappeningCard, xurShipmentNotification } from "./notifications";
 
 function observation(destination: string, hour: number): DistortionObservation {
   const start = new Date(Date.UTC(2026, 6, 1, hour)).toISOString();
@@ -47,6 +48,40 @@ describe("Distortion evidence handling", () => {
     expect(result.mostCommonDestination).toBe("Moon");
     expect(result.averageIntervalMinutes).toBe(60);
     expect(result.destinationCounts.find((entry) => entry.destination === "Moon")?.count).toBe(2);
+  });
+});
+
+describe("generated notification persistence", () => {
+  it("keeps the feed available when D1 cannot materialize an occurrence", async () => {
+    const bind = vi.fn(() => ({}));
+    const env = {
+      DB: {
+        prepare: vi.fn(() => ({ bind })),
+        batch: vi.fn().mockRejectedValue(new Error("UNIQUE constraint failed"))
+      }
+    } as unknown as Env;
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    await expect(materializeGeneratedNotifications(env, [{
+      id: "daily-reset:2026-07-30T19:00:00.000Z",
+      eventKey: "daily-reset",
+      type: "daily-reset",
+      category: "system",
+      scope: "global",
+      priority: "low",
+      status: "active",
+      title: "Daily reset upcoming",
+      createdAt: "2026-07-29T19:00:00.000Z",
+      expiresAt: "2026-07-30T19:00:00.000Z",
+      dismissible: true,
+      autoDismiss: true
+    }])).resolves.toBeUndefined();
+
+    expect(consoleError).toHaveBeenCalledWith(
+      "notification_materialization_failed",
+      expect.objectContaining({ notificationIds: ["daily-reset:2026-07-30T19:00:00.000Z"] })
+    );
+    consoleError.mockRestore();
   });
 });
 

@@ -126,6 +126,16 @@ export default {
       return await route(request, env, context);
     } catch (error: any) {
       const status = Number(error?.status || 500);
+      if (status >= 500) {
+        console.error("guardian_nexus_request_failed", redact({
+          requestId: context.requestId,
+          path: context.url.pathname,
+          status,
+          code: error?.code || "server_error",
+          message: error instanceof Error ? error.message : "Unknown request failure",
+          stack: error instanceof Error ? error.stack : undefined
+        }));
+      }
       return json({
         code: error?.code || "server_error",
         message: status >= 500 && !error?.code ? "Guardian Nexus could not complete the request." : error?.message || "Request failed.",

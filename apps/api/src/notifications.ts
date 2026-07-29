@@ -354,10 +354,6 @@ export async function readWhatsHappening(env: Env, membershipId?: string): Promi
     cards.push(xurHappeningCard(xur, now));
   }
   cards.push(...publicWorldCards);
-  cards.push(
-    resetCard("daily-reset", "daily", "Daily reset", nextDailyReset(now), "/whats-happening"),
-    resetCard("weekly-reset", "weekly", "Weekly reset", nextWeeklyReset(now), "/whats-happening")
-  );
   if (membershipId) {
     const accountResult = await env.DB.prepare(`
       SELECT * FROM guardian_notifications
@@ -542,25 +538,32 @@ export function xurShipmentNotification(xur: StoredXurSnapshot, now = new Date()
   };
 }
 
-async function materializeGeneratedNotifications(env: Env, notifications: GuardianNotification[]): Promise<void> {
-  await env.DB.batch(notifications.map((entry) => env.DB.prepare(`
-    INSERT INTO guardian_notifications (
-      id, event_key, type, category, scope, priority, title, subtitle, description, icon, image_url,
-      badge, destination_url, external_url, created_at, updated_at, starts_at, expires_at,
-      dismissible, auto_dismiss, auto_dismiss_ms, repeatable, source, source_label,
-      source_confidence, metadata_json
-    ) VALUES (?, ?, ?, ?, 'global', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, title = excluded.title,
-      subtitle = excluded.subtitle, expires_at = excluded.expires_at, metadata_json = excluded.metadata_json
-  `).bind(
-    entry.id, entry.eventKey || null, entry.type, entry.category, entry.priority, entry.title,
-    entry.subtitle || null, entry.description || null, entry.icon || null, entry.imageUrl || null,
-    entry.badge || null, entry.destinationUrl || null, entry.externalUrl || null, entry.createdAt,
-    entry.updatedAt || entry.createdAt, entry.startsAt || null, entry.expiresAt || null,
-    entry.dismissible ? 1 : 0, entry.autoDismiss ? 1 : 0, entry.autoDismissMs || null,
-    entry.repeatable ? 1 : 0, entry.source || null, entry.sourceLabel || null,
-    entry.sourceConfidence || null, entry.metadata ? JSON.stringify(entry.metadata) : null
-  )));
+export async function materializeGeneratedNotifications(env: Env, notifications: GuardianNotification[]): Promise<void> {
+  try {
+    await env.DB.batch(notifications.map((entry) => env.DB.prepare(`
+      INSERT INTO guardian_notifications (
+        id, event_key, type, category, scope, priority, title, subtitle, description, icon, image_url,
+        badge, destination_url, external_url, created_at, updated_at, starts_at, expires_at,
+        dismissible, auto_dismiss, auto_dismiss_ms, repeatable, source, source_label,
+        source_confidence, metadata_json
+      ) VALUES (?, ?, ?, ?, 'global', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, title = excluded.title,
+        subtitle = excluded.subtitle, expires_at = excluded.expires_at, metadata_json = excluded.metadata_json
+    `).bind(
+      entry.id, entry.eventKey || null, entry.type, entry.category, entry.priority, entry.title,
+      entry.subtitle || null, entry.description || null, entry.icon || null, entry.imageUrl || null,
+      entry.badge || null, entry.destinationUrl || null, entry.externalUrl || null, entry.createdAt,
+      entry.updatedAt || entry.createdAt, entry.startsAt || null, entry.expiresAt || null,
+      entry.dismissible ? 1 : 0, entry.autoDismiss ? 1 : 0, entry.autoDismissMs || null,
+      entry.repeatable ? 1 : 0, entry.source || null, entry.sourceLabel || null,
+      entry.sourceConfidence || null, entry.metadata ? JSON.stringify(entry.metadata) : null
+    )));
+  } catch (error) {
+    console.error("notification_materialization_failed", {
+      message: error instanceof Error ? error.message : "Unknown persistence failure",
+      notificationIds: notifications.map((entry) => entry.id)
+    });
+  }
 }
 
 function notificationFromRow(row: NotificationRow): GuardianNotification {
@@ -692,22 +695,6 @@ function notificationForReset(kind: "daily" | "weekly", at: Date): GuardianNotif
     sourceLabel: "Destiny reset schedule",
     sourceConfidence: "confirmed",
     metadata: { countdownAt: at.toISOString() }
-  };
-}
-
-function resetCard(id: string, section: "daily" | "weekly", title: string, at: Date, destinationUrl: string): HappeningCard {
-  return {
-    id,
-    section,
-    category: "system",
-    priority: "normal",
-    state: "upcoming",
-    title,
-    status: at.toISOString(),
-    endsAt: at.toISOString(),
-    destinationUrl,
-    sourceLabel: "Destiny reset schedule",
-    sourceConfidence: "confirmed"
   };
 }
 
