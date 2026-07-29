@@ -1,12 +1,11 @@
 import type { FireteamCompletedTrackedItem, FireteamContact, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, BookmarkMinus, CheckCircle2, Copy, Crown, EyeOff, Link2, LogIn, MessageSquare, Radio, Repeat2, Share2, ShieldCheck, Timer, UserMinus, Users } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { playCompletionChime, primeCompletionAudio } from "../services/completionAudio";
-import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import styles from "./Pages.module.css";
 
 interface ShareVariables {
@@ -18,14 +17,16 @@ interface ShareVariables {
   untrackingKey?: string;
 }
 
+const TRACKED_ITEM_EXIT_MS = 1_600;
+
 export function FireteamPage() {
-  const { session, selectedCharacterId, autoRefresh, preferences, setPreference } = useGuardian();
+  const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
   const queryClient = useQueryClient();
   const result = useQuery({
     queryKey: ["fireteam", selectedCharacterId],
     queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated),
-    refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
+    refetchInterval: false,
     refetchIntervalInBackground: false
   });
   useEffect(() => {
@@ -63,14 +64,6 @@ export function FireteamPage() {
   const sharingMode = data?.sharingMode;
   const syncSignature = shareSignature(selectedCharacterId, pinnedIds, guardianRankIds, journeyIds, hiddenTrackedItemKeys);
   const lastSyncSignature = useRef("");
-  const renew = useCallback(() => {
-    if (selectedCharacterId && sharingMode && sharingMode !== "off" && !share.isPending && !manualRemovingKey) share.mutate({ mode: sharingMode });
-  }, [selectedCharacterId, sharingMode, share, manualRemovingKey]);
-  useEffect(() => {
-    if (!result.data?.data.sharingEnabled || !autoRefresh) return;
-    const timer = window.setInterval(renew, LIVE_REFRESH_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, [result.data?.data.sharingEnabled, autoRefresh, renew]);
   useEffect(() => {
     if (!result.data?.data.sharingEnabled || !sharingMode || sharingMode === "off") {
       lastSyncSignature.current = "";
@@ -125,7 +118,7 @@ export function FireteamPage() {
         hiddenTrackedItemKeys: hiddenKeys,
         untrackingKey: key
       }, { onSettled: () => setManualRemovingKey((current) => current === key ? "" : current) });
-    }, 800);
+    }, TRACKED_ITEM_EXIT_MS);
   };
 
   return <AuthGate>
@@ -160,17 +153,23 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, untrackingKe
   const trackedItemKeys = trackedItems.map(trackedItemKey);
   const trackedItemSignature = [...trackedItemKeys].sort().join("|");
   const previousTrackedItemKeys = useRef<Set<string> | null>(null);
+  const previousTrackedItems = useRef<Map<string, FireteamTrackedItem>>(new Map());
   const entryTimers = useRef<Map<string, number>>(new Map());
+  const removalTimers = useRef<Map<string, number>>(new Map());
   const [enteringKeys, setEnteringKeys] = useState<Set<string>>(() => new Set());
+  const [removedItems, setRemovedItems] = useState<Map<string, FireteamTrackedItem>>(() => new Map());
+  const completedKeys = new Set((member.recentlyCompletedItems || []).map(trackedItemKey));
   useEffect(() => {
     const currentKeys = new Set(trackedItemKeys);
     const previousKeys = previousTrackedItemKeys.current;
     previousTrackedItemKeys.current = currentKeys;
+    const currentItems = new Map(trackedItems.map((item) => [trackedItemKey(item), item]));
+    const priorItems = previousTrackedItems.current;
+    previousTrackedItems.current = currentItems;
     if (!previousKeys) return;
 
     const addedKeys = [...currentKeys].filter((key) => !previousKeys.has(key));
-    if (!addedKeys.length) return;
-    setEnteringKeys((current) => new Set([...current, ...addedKeys]));
+    if (addedKeys.length) setEnteringKeys((current) => new Set([...current, ...addedKeys]));
     for (const key of addedKeys) {
       const existingTimer = entryTimers.current.get(key);
       if (existingTimer) window.clearTimeout(existingTimer);
@@ -184,10 +183,32 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, untrackingKe
       }, 1_400);
       entryTimers.current.set(key, timer);
     }
-  }, [trackedItemSignature]);
+    const removed = [...previousKeys]
+      .filter((key) => !currentKeys.has(key) && !completedKeys.has(key))
+      .map((key) => [key, priorItems.get(key)] as const)
+      .filter((entry): entry is readonly [string, FireteamTrackedItem] => Boolean(entry[1]));
+    if (removed.length) {
+      setRemovedItems((current) => new Map([...current, ...removed]));
+      for (const [key] of removed) {
+        const existingTimer = removalTimers.current.get(key);
+        if (existingTimer) window.clearTimeout(existingTimer);
+        const timer = window.setTimeout(() => {
+          setRemovedItems((current) => {
+            const next = new Map(current);
+            next.delete(key);
+            return next;
+          });
+          removalTimers.current.delete(key);
+        }, TRACKED_ITEM_EXIT_MS);
+        removalTimers.current.set(key, timer);
+      }
+    }
+  }, [trackedItemSignature, member.recentlyCompletedItems]);
   useEffect(() => () => {
     for (const timer of entryTimers.current.values()) window.clearTimeout(timer);
     entryTimers.current.clear();
+    for (const timer of removalTimers.current.values()) window.clearTimeout(timer);
+    removalTimers.current.clear();
   }, []);
   const recentlyCompletedItems = member.recentlyCompletedItems || [];
   const [dismissedCompletions, setDismissedCompletions] = useState<Set<string>>(() => readDismissedCompletionEvents(member.membershipId));
@@ -207,15 +228,15 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, untrackingKe
     return () => window.clearTimeout(timer);
   }, [member.membershipId, visibleCompletionKeys]);
   const completingKeys = new Set(visibleCompletions.map(trackedItemKey));
-  const displayedItems = [...trackedItems.filter((item) => !completingKeys.has(trackedItemKey(item))), ...visibleCompletions];
+  const displayedItems = [...trackedItems.filter((item) => !completingKeys.has(trackedItemKey(item))), ...visibleCompletions, ...removedItems.values()];
   const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
-  const cardEvent = visibleCompletions.length ? "completed" : untrackingKey ? "removed" : enteringKeys.size ? "added" : "idle";
+  const cardEvent = visibleCompletions.length ? "completed" : untrackingKey || removedItems.size ? "removed" : enteringKeys.size ? "added" : "idle";
   return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""} ${cardEvent === "completed" ? styles.memberCardCompleted : cardEvent === "removed" ? styles.memberCardRemoved : cardEvent === "added" ? styles.memberCardAdded : ""}`} data-tracking-event={cardEvent}>
     <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "public" ? "Public location" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
     {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => {
       const key = trackedItemKey(item);
-      return <TrackedItem key={key} item={item} entering={enteringKeys.has(key)} completing={"completedAt" in item} onUntrack={onUntrack} untracking={untrackingKey === key} />;
+      return <TrackedItem key={key} item={item} entering={enteringKeys.has(key)} completing={"completedAt" in item} onUntrack={onUntrack} untracking={untrackingKey === key || removedItems.has(key)} />;
     }) : <p>Nothing is currently tracked.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
     {!member.isSelf && <div className={styles.memberCommands}><button onClick={() => void onCopy(`whisper-${member.membershipId}`, `/whisper ${member.inGameName} `)} title="Copies a Destiny 2 text-chat command"><MessageSquare size={13} />{copied === `whisper-${member.membershipId}` ? "Copied" : "Whisper"}</button>{canManage && <button className={styles.managementCommand} onClick={() => void onCopy(`kick-${member.membershipId}`, `/kick ${member.inGameName}`)} title="Copies a Destiny 2 text-chat command; Guardian Nexus cannot kick through the Bungie API"><UserMinus size={13} />{copied === `kick-${member.membershipId}` ? "Copied" : "Kick command"}</button>}</div>}
     {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>Shared progress opportunity:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
