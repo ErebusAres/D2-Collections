@@ -46,6 +46,6 @@ export function ProgressSummaryCard({
       <i><span style={{ width: `${safeProgress}%` }} /></i>
     </div>}
     {children && <div className={styles.detail}>{children}</div>}
-    <footer>Open tracker <ArrowUpRight /></footer>
+    <span className={styles.action}>Open tracker <ArrowUpRight /></span>
   </Link>;
 }

@@ -2,14 +2,18 @@ import type { FireteamData, ReportAdminSummaryData } from "@guardian-nexus/contr
 import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
+import { useEffect, useRef, type RefObject } from "react";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
 import { clearGuardianOfflineData } from "../../services/api/offlineCache";
 import { LIVE_REFRESH_INTERVAL_SECONDS } from "../../services/liveRefresh";
 import { pinsKey, useGuardian } from "../../context/GuardianContext";
+import { trapFocusWithin } from "../common/focusTrap";
 import styles from "./OptionsPanel.module.css";
 
-export function OptionsPanel({ open, onClose, reportSummary }: { open: boolean; onClose: () => void; reportSummary?: ReportAdminSummaryData }) {
+export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: { open: boolean; onClose: () => void; returnFocusRef?: RefObject<HTMLButtonElement | null>; reportSummary?: ReportAdminSummaryData }) {
   const guardianState = useGuardian();
+  const panelRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
   const queryClient = useQueryClient();
   const session = guardianState.session;
@@ -37,7 +41,7 @@ export function OptionsPanel({ open, onClose, reportSummary }: { open: boolean; 
     mutationFn: () => api("/api/v1/session", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
     onSuccess: () => {
       localStorage.removeItem("guardian-nexus:last-safe-session");
-      void clearGuardianOfflineData().finally(() => { queryClient.clear(); window.location.href = "/collection"; });
+      void clearGuardianOfflineData().finally(() => { queryClient.clear(); window.location.href = "/director"; });
     }
   });
   const clearLocalData = async () => {
@@ -46,12 +50,24 @@ export function OptionsPanel({ open, onClose, reportSummary }: { open: boolean; 
     await clearGuardianOfflineData();
     window.location.reload();
   };
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      trapFocusWithin(event, panelRef.current);
+      if (event.key !== "Escape") return;
+      onClose();
+      returnFocusRef?.current?.focus();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onClose, open, returnFocusRef]);
 
   return (
     <>
-      <button className={`${styles.scrim} ${open ? styles.open : ""}`} onClick={onClose} aria-label="Close options" tabIndex={open ? 0 : -1} />
-      <aside className={`${styles.panel} ${open ? styles.open : ""}`} aria-hidden={!open}>
-        <header><div><span>Guardian settings</span><h2>Options</h2></div><button onClick={onClose} aria-label="Close"><X /></button></header>
+      <button className={`${styles.scrim} ${open ? styles.open : ""}`} onClick={() => { onClose(); returnFocusRef?.current?.focus(); }} aria-label="Dismiss options" tabIndex={open ? 0 : -1} />
+      <aside ref={panelRef} className={`${styles.panel} ${open ? styles.open : ""}`} aria-hidden={!open} inert={!open} role="dialog" aria-modal={open ? "true" : undefined} aria-label="Guardian options">
+        <header><div><span>Guardian settings</span><h2>Options</h2></div><button ref={closeRef} onClick={() => { onClose(); returnFocusRef?.current?.focus(); }} aria-label="Close options"><X /></button></header>
         <section>
           <h3>Selected Guardian</h3>
           <div className={styles.characters}>

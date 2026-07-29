@@ -1,34 +1,30 @@
 .card {
   --card-accent: 80, 208, 232;
-  position: relative;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 20px;
+  min-height: 190px;
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 9px;
+  padding: 13px 14px 11px;
   overflow: hidden;
-  border: 1px solid rgba(var(--card-accent), .24);
+  border: 1px solid var(--line);
+  border-left: 3px solid rgba(var(--card-accent), .82);
   background:
-    linear-gradient(145deg, rgba(var(--card-accent), .105), transparent 42%),
-    rgba(5, 13, 19, .78);
-  color: var(--text);
-  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    linear-gradient(125deg, rgba(var(--card-accent), .075), transparent 50%),
+    rgba(5, 13, 19, .72);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color .14s ease, background .14s ease, transform .14s ease;
 }
 
-.card::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 2px;
-  background: rgba(var(--card-accent), .8);
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(var(--card-accent), .55);
+.card:hover,
+.card:focus-visible {
+  border-color: rgba(var(--card-accent), .5);
   background:
-    linear-gradient(145deg, rgba(var(--card-accent), .15), transparent 48%),
+    linear-gradient(125deg, rgba(var(--card-accent), .12), transparent 55%),
     rgba(6, 16, 23, .9);
+  transform: translateY(-1px);
 }
 
 .gold { --card-accent: 224, 179, 82; }
@@ -37,112 +33,133 @@
 
 .card > header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) 18px;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
 }
 
 .icon {
-  width: 42px;
-  height: 42px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(var(--card-accent), .42);
-  background: rgba(var(--card-accent), .12);
+  border: 1px solid rgba(var(--card-accent), .36);
+  background: rgba(var(--card-accent), .085);
   color: rgb(var(--card-accent));
 }
 
-.icon svg { width: 21px; }
+.icon svg { width: 16px; }
 
 .card small {
-  color: var(--muted);
+  color: var(--faint);
   font-size: 10px;
-  letter-spacing: .08em;
+  letter-spacing: .075em;
   text-transform: uppercase;
 }
 
 .card h2 {
-  margin: 2px 0 0;
-  font-size: 20px;
-  letter-spacing: .015em;
+  margin: 1px 0 0;
+  overflow: hidden;
+  font: 600 18px var(--font-display);
+  letter-spacing: .025em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .open {
-  width: 17px;
-  color: rgba(var(--card-accent), .7);
+  width: 15px;
+  color: rgba(var(--card-accent), .72);
 }
 
 .card > p {
-  min-height: 38px;
+  min-height: 34px;
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  border: 1px solid rgba(255, 255, 255, .065);
+  background: rgba(0, 0, 0, .14);
 }
 
 .stats > span {
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 9px 10px;
-  border: 1px solid rgba(255, 255, 255, .07);
-  background: rgba(0, 0, 0, .2);
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+  border-right: 1px solid rgba(255, 255, 255, .065);
 }
+
+.stats > span:last-child { border-right: 0; }
 
 .stats strong {
   overflow: hidden;
-  font-size: 15px;
+  color: var(--ink);
+  font: 600 15px var(--font-display);
   text-overflow: ellipsis;
+  text-transform: uppercase;
   white-space: nowrap;
+}
+
+.progress {
+  align-self: end;
 }
 
 .progress > span {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 7px;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.progress > span strong {
+  color: rgb(var(--card-accent));
+  font: 600 14px var(--font-display);
 }
 
 .progress > i {
-  height: 5px;
+  height: 3px;
   display: block;
   overflow: hidden;
-  background: rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .075);
 }
 
 .progress > i > span {
   height: 100%;
   display: block;
   background: rgb(var(--card-accent));
-  box-shadow: 0 0 12px rgba(var(--card-accent), .55);
+  box-shadow: 0 0 9px rgba(var(--card-accent), .48);
 }
 
 .detail {
+  align-self: end;
+  overflow: hidden;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.card > footer {
-  display: flex;
+.action {
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  margin-top: auto;
+  gap: 4px;
+  align-self: end;
   color: rgb(var(--card-accent));
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .08em;
+  font-weight: 600;
+  letter-spacing: .075em;
   text-transform: uppercase;
 }
 
-.card > footer svg { width: 12px; }
+.action svg { width: 11px; }
 
 @media (max-width: 520px) {
-  .stats { grid-template-columns: 1fr; }
+  .card { min-height: 0; }
   .card > p { min-height: 0; }
 }

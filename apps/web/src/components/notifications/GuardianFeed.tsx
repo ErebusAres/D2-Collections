@@ -15,6 +15,9 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
   const [scrollDistance, setScrollDistance] = useState(0);
   const textRef = useRef<HTMLSpanElement>(null);
   const notification = feed[index % Math.max(1, feed.length)];
+  const notificationId = notification?.id;
+  const rotationDuration = notification ? notificationDisplayDuration(notification, preferences) : 0;
+  const canRotate = Boolean(notificationId) && !paused && feed.length > 1;
 
   useEffect(() => { if (index >= feed.length) setIndex(0); }, [feed.length, index]);
   useEffect(() => {
@@ -33,11 +36,10 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
     return () => observer.disconnect();
   }, [notification?.id]);
   useEffect(() => {
-    if (!shouldRotateFeed(notification, paused, feed.length)) return;
-    const duration = notificationDisplayDuration(notification, preferences);
-    const timer = window.setTimeout(() => setIndex((value) => (value + 1) % feed.length), duration);
+    if (!canRotate) return;
+    const timer = window.setTimeout(() => setIndex((value) => (value + 1) % feed.length), rotationDuration);
     return () => window.clearTimeout(timer);
-  }, [feed.length, notification, paused, preferences.autoDismissMs]);
+  }, [canRotate, feed.length, notificationId, rotationDuration]);
 
   if (!preferences.bannerVisible || !notification) return null;
   const config = categoryFor(notification.category);

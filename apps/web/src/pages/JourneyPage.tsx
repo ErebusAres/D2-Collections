@@ -1,6 +1,6 @@
 import type { GuardianRankData, JourneyProgressData, QuestData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Badge, CalendarDays, CheckSquare2, Crown, ListTodo, ScrollText, Sparkles } from "lucide-react";
+import { ArrowRight, Badge, CalendarDays, CheckSquare2, Crown, ListTodo, Radar, ScrollText, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { JourneyNav } from "../components/journey/JourneyNav";
@@ -69,7 +69,13 @@ export function JourneyPage() {
     <QueryState loading={loading} error={error as Error} hasData={hasData} onRetry={() => { void quests.refetch(); void ranks.refetch(); void journey.refetch(); }} />
     {hasData && <>
       <section className={styles.hero}>
-        <div><span>What should I work on next?</span><h2>{recommendation.title}</h2><p>{recommendation.detail}</p><Link to={recommendation.to}>Open objective <ArrowRight /></Link></div>
+        <div className={styles.heroMark}><Radar /></div>
+        <div className={styles.heroObjective}>
+          <span>Recommended next objective</span>
+          <h2>{recommendation.title}</h2>
+          <p>{recommendation.detail}</p>
+          <Link to={recommendation.to}>Open objective <ArrowRight /></Link>
+        </div>
         <div className={styles.heroStats}>
           <span><small>Near completion</small><strong>{nearComplete.length}</strong></span>
           <span><small>Tracked in Destiny</small><strong>{allPursuits.filter((quest) => quest.inGameTracked).length}</strong></span>
