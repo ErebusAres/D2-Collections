@@ -1539,6 +1539,8 @@ export interface CompactManifest {
   itemDefinitions: Record<string, Record<string, unknown>>;
   objectiveDefinitions: Record<string, Record<string, unknown>>;
   activityDefinitions: Record<string, Record<string, unknown>>;
+  milestoneDefinitions?: Record<string, Record<string, unknown>>;
+  activityModifierDefinitions?: Record<string, Record<string, unknown>>;
   recordDefinitions: Record<string, Record<string, unknown>>;
   collectionFeatureDefinitions?: Record<string, CollectionFeature[]>;
   gearItemDefinitions?: Record<string, Record<string, unknown>>;

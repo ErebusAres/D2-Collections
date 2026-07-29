@@ -1085,6 +1085,8 @@ def main() -> None:
             records = table_rows(connection, "DestinyRecordDefinition")
             objectives = table_rows(connection, "DestinyObjectiveDefinition")
             activities = table_rows(connection, "DestinyActivityDefinition")
+            milestones = table_rows(connection, "DestinyMilestoneDefinition")
+            activity_modifiers = table_rows(connection, "DestinyActivityModifierDefinition")
             buckets = table_rows(connection, "DestinyInventoryBucketDefinition")
             damage_types = table_rows(connection, "DestinyDamageTypeDefinition")
             stat_definitions = table_rows(connection, "DestinyStatDefinition")
@@ -1339,6 +1341,23 @@ def main() -> None:
             }
         },
         "activityDefinitions": compact["activityDefinitions"],
+        "milestoneDefinitions": {
+            key: {
+                "hash": key,
+                "displayProperties": display(value),
+                "friendlyName": value.get("friendlyName", ""),
+                "hasPredictableDates": bool(value.get("hasPredictableDates")),
+                "isInGameMilestone": bool(value.get("isInGameMilestone")),
+                "showInExplorer": bool(value.get("showInExplorer")),
+            }
+            for key, value in milestones.items()
+            if not value.get("redacted")
+        },
+        "activityModifierDefinitions": {
+            key: {"hash": key, "displayProperties": display(value)}
+            for key, value in activity_modifiers.items()
+            if not value.get("redacted") and (value.get("displayProperties") or {}).get("name")
+        },
         "recordDefinitions": {},
     }
     OUTPUT.write_text(json.dumps(compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

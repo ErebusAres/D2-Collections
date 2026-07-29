@@ -16,6 +16,7 @@ import { xurSchedule } from "@guardian-nexus/domain";
 import { z } from "zod";
 import { allowlist, httpError, requireCsrf, sessionFromRequest } from "./security";
 import type { Env, SessionRow } from "./types";
+import { notificationsFromWorldCards, readPublicWorldCards, refreshPublicWorldState } from "./worldState";
 import { readLatestXurShipment, type StoredXurSnapshot } from "./xurSnapshot";
 
 const ALL_CATEGORIES: NotificationCategory[] = [
@@ -313,8 +314,11 @@ export async function readDistortions(env: Env, range = "7d"): Promise<Distortio
 
 export async function readWhatsHappening(env: Env, membershipId?: string): Promise<WhatsHappeningData> {
   const now = new Date();
-  const distortion = await readDistortions(env, "24h");
-  const xur = await readLatestXurShipment(env);
+  const [distortion, xur, publicWorldCards] = await Promise.all([
+    readDistortions(env, "24h"),
+    readLatestXurShipment(env),
+    readPublicWorldCards(env)
+  ]);
   const cards: HappeningCard[] = [];
   if (distortion.current) {
     cards.push({
@@ -349,6 +353,7 @@ export async function readWhatsHappening(env: Env, membershipId?: string): Promi
   if (xur) {
     cards.push(xurHappeningCard(xur, now));
   }
+  cards.push(...publicWorldCards);
   cards.push(
     resetCard("daily-reset", "daily", "Daily reset", nextDailyReset(now), "/whats-happening"),
     resetCard("weekly-reset", "weekly", "Weekly reset", nextWeeklyReset(now), "/whats-happening")
@@ -392,6 +397,7 @@ export async function maintainNotificationStorage(env: Env): Promise<void> {
   const now = nowDate.toISOString();
   const retention = new Date(nowDate.getTime() - 180 * 86_400_000).toISOString();
   await syncCommunityDistortionObservation(env, nowDate);
+  await refreshPublicWorldState(env);
   await env.DB.batch([
     env.DB.prepare("DELETE FROM notification_user_state WHERE updated_at < ?").bind(retention),
     env.DB.prepare("DELETE FROM guardian_notifications WHERE expires_at IS NOT NULL AND expires_at < ? AND created_at < ?").bind(now, retention),
@@ -487,6 +493,7 @@ async function generatedWorldNotifications(env: Env): Promise<GuardianNotificati
       sourceConfidence: distortion.sourceConfidence
     });
   }
+  generated.push(...notificationsFromWorldCards(await readPublicWorldCards(env), now));
   return generated;
 }
 
