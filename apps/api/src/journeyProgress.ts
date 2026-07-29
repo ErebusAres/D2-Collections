@@ -41,6 +41,20 @@ export function normalizeJourneyProgress(profile: any, manifest: JourneyProgress
       objective: objectiveFor(objectiveHash, objectiveDefinition, challenge)
     };
   })).filter((challenge: any) => challenge.objective.completionValue > 0 || challenge.objective.progress > 0 || challenge.objective.complete);
+  const currentActivities = activityRows.flatMap((activity: any) => {
+    const activityHash = String(activity?.activityHash || "");
+    const definition = activities.activityDefinitions[activityHash] as any;
+    const name = String(definition?.displayProperties?.name || "").trim();
+    const description = String(definition?.displayProperties?.description || "").trim();
+    if (!name || !isCurrentIntelligenceActivity(`${name} ${description}`)) return [];
+    return [{
+      activityHash,
+      name,
+      description,
+      icon: imageUrl(definition?.displayProperties?.icon || "")
+    }];
+  }).filter((activity: any, index: number, rows: any[]) =>
+    rows.findIndex((candidate) => candidate.activityHash === activity.activityHash) === index);
   const progression = profile?.characterProgressions?.data?.[characterId];
   const artifactRow = progression?.seasonalArtifact;
   const pointProgression = artifactRow?.pointProgression || {};
@@ -63,9 +77,14 @@ export function normalizeJourneyProgress(profile: any, manifest: JourneyProgress
     triumphs,
     seasonalChallenges,
     weeklyChallenges,
+    currentActivities,
     ...(artifact ? { artifact } : {}),
     manifestVersion: manifest.version
   };
+}
+
+function isCurrentIntelligenceActivity(value: string): boolean {
+  return /iron banner|trials of osiris|\b(solo|fireteam|arena|pinnacle|vanguard|crucible|gambit) ops\b|nightfall|grandmaster|pantheon|vanguard alert/i.test(value);
 }
 
 export function trackedItemsFromJourney(data: JourneyProgressData, trackedIds: Set<string>, updatedAt: string, includeCompleted = false): FireteamTrackedItem[] {

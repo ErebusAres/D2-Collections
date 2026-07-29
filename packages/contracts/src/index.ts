@@ -545,6 +545,13 @@ export interface JourneyWeeklyChallenge {
   objective: JourneyObjective;
 }
 
+export interface JourneyCurrentActivity {
+  activityHash: string;
+  name: string;
+  description: string;
+  icon: string;
+}
+
 export interface JourneyArtifactProgress {
   artifactHash: string;
   pointsAcquired: number;
@@ -564,6 +571,7 @@ export interface JourneyProgressData {
   triumphs: JourneyRecord[];
   seasonalChallenges: JourneyRecord[];
   weeklyChallenges: JourneyWeeklyChallenge[];
+  currentActivities: JourneyCurrentActivity[];
   artifact?: JourneyArtifactProgress;
   manifestVersion: string;
 }

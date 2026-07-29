@@ -51,10 +51,12 @@ export function WhatsHappeningPage() {
   const [now, setNow] = useState(() => Date.now());
   const [activeSection, setActiveSection] = useState<HappeningCard["section"] | "all">("all");
   const nextDailyResetAt = result.data?.data.nextDailyResetAt;
-  const dashboardCards = useMemo(() => [
-    ...(result.data?.data.cards || []),
-    ...accountActivityCards(journey.data?.data, pursuits.data?.data, result.data?.data.generatedAt)
-  ], [journey.data?.data, pursuits.data?.data, result.data?.data]);
+  const dashboardCards = useMemo(() => {
+    const publicCards = result.data?.data.cards || [];
+    const accountCards = accountActivityCards(journey.data?.data, pursuits.data?.data, result.data?.data.generatedAt)
+      .filter((accountCard) => !publicCards.some((card) => card.category === accountCard.category && card.title === accountCard.title));
+    return [...publicCards, ...accountCards];
+  }, [journey.data?.data, pursuits.data?.data, result.data?.data]);
 
   useEffect(() => {
     const remaining = nextDailyResetAt ? Date.parse(nextDailyResetAt) - now : Number.POSITIVE_INFINITY;
@@ -162,7 +164,27 @@ function accountActivityCards(journey?: JourneyProgressData, quests?: QuestData,
   const cards: HappeningCard[] = [];
   const hubObjectives = journey?.weeklyChallenges || [];
   const hubOrders = (quests?.quests || []).filter((quest) => quest.category === "order");
-  const ops = hubObjectives.filter((challenge) => /\b(ops|vanguard|nightfall|strike|crucible|gambit|alert|conquest)\b/i.test(`${challenge.name} ${challenge.description}`));
+  const currentActivities = journey?.currentActivities || [];
+  const ironBanner = currentActivities.find((activity) => /iron banner/i.test(`${activity.name} ${activity.description}`));
+  const opsActivities = currentActivities.filter((activity) => /\b(ops|vanguard|nightfall|strike|crucible|gambit|alert|conquest)\b/i.test(`${activity.name} ${activity.description}`));
+  const opsChallenges = hubObjectives.filter((challenge) => /\b(ops|vanguard|nightfall|strike|crucible|gambit|alert|conquest)\b/i.test(`${challenge.name} ${challenge.description}`));
+  if (ironBanner) {
+    cards.push({
+      id: "account:iron-banner",
+      section: "live",
+      category: "iron-banner",
+      priority: "high",
+      state: "live",
+      title: "Iron Banner",
+      status: ironBanner.name,
+      description: ironBanner.description || "Iron Banner is available for your selected Guardian this week.",
+      icon: ironBanner.icon,
+      destinationUrl: "/pvp",
+      sourceLabel: "Bungie character activities",
+      sourceConfidence: "live-api",
+      observedAt
+    });
+  }
   if (hubObjectives.length || hubOrders.length) {
     const complete = hubObjectives.filter((challenge) => challenge.objective.complete).length;
     cards.push({
@@ -182,7 +204,7 @@ function accountActivityCards(journey?: JourneyProgressData, quests?: QuestData,
       observedAt
     });
   }
-  if (ops.length) {
+  if (opsActivities.length || opsChallenges.length) {
     cards.push({
       id: "account:ops",
       section: "weekly",
@@ -190,8 +212,13 @@ function accountActivityCards(journey?: JourneyProgressData, quests?: QuestData,
       priority: "normal",
       state: "live",
       title: "Ops objectives",
-      status: `${ops.filter((challenge) => challenge.objective.complete).length}/${ops.length} complete`,
-      description: summarizeActivityNames(ops.map((challenge) => challenge.name)),
+      status: opsChallenges.length
+        ? `${opsChallenges.filter((challenge) => challenge.objective.complete).length}/${opsChallenges.length} objectives complete`
+        : `${opsActivities.length} current activities`,
+      description: summarizeActivityNames([
+        ...opsActivities.map((activity) => activity.name),
+        ...opsChallenges.map((challenge) => challenge.name)
+      ]),
       destinationUrl: "/journey/season",
       sourceLabel: "Bungie character activities",
       sourceConfidence: "live-api",

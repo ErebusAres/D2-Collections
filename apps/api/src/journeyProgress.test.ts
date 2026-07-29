@@ -31,7 +31,8 @@ describe("Journey progress", () => {
     const activities = {
       version: "test",
       activityDefinitions: {
-        "40": { hash: "40", displayProperties: { name: "Ritual activity", description: "Complete matches" } }
+        "40": { hash: "40", displayProperties: { name: "Ritual activity", description: "Complete matches" } },
+        "41": { hash: "41", displayProperties: { name: "Iron Banner: Control", description: "Fight alongside the Iron Lords" } }
       },
       objectiveDefinitions: {
         "50": { hash: "50", progressDescription: "Matches", completionValue: 3 }
@@ -53,7 +54,7 @@ describe("Journey progress", () => {
             availableActivities: [{
               activityHash: 40,
               challenges: [{ objectiveHash: 50, progress: 2, completionValue: 3, complete: false }]
-            }]
+            }, { activityHash: 41 }]
           }
         }
       },
@@ -77,6 +78,7 @@ describe("Journey progress", () => {
     expect(data.titles[0]).toMatchObject({ title: "Star Baker", percent: 70, tracked: true });
     expect(data.weeklyChallenges[0]).toMatchObject({ id: "40:50", name: "Ritual activity" });
     expect(data.weeklyChallenges[0]?.objective).toMatchObject({ progress: 2, completionValue: 3, percent: 66 });
+    expect(data.currentActivities).toEqual([expect.objectContaining({ activityHash: "41", name: "Iron Banner: Control" })]);
     expect(data.artifact).toMatchObject({ pointsAcquired: 8, pointsSpent: 5, powerBonus: 4 });
 
     const tracked = trackedItemsFromJourney(data, new Set(["10", "40:50"]), "2026-07-28T12:00:00.000Z");
