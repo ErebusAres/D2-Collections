@@ -17,7 +17,8 @@ const modeDefinitions: Array<{ kind: PvpModeStats["kind"]; name: string; mode: n
       "ironBannerSupremacy",
       "ironBannerSalvage",
       "ironBannerRift",
-      "ironBannerZoneControl"
+      "ironBannerZoneControl",
+      "ironBannerRecent"
     ]
   }
 ];
@@ -83,8 +84,38 @@ export function normalizePvpData(args: {
   };
 }
 
+export function ironBannerHistoryResponse(activities: any[]): any {
+  const ironBannerModes = new Set([19, 43, 44, 45, 68, 90, 91]);
+  const unique = new Map<string, any>();
+  for (const activity of activities) {
+    const details = activity?.activityDetails || {};
+    const modes = [details.mode, ...(Array.isArray(details.modes) ? details.modes : [])].map(Number);
+    if (!modes.some((mode) => ironBannerModes.has(mode))) continue;
+    const key = String(details.instanceId || `${activity?.period || ""}:${details.referenceId || ""}`);
+    if (!unique.has(key)) unique.set(key, activity);
+  }
+  if (!unique.size) return {};
+  const rows = [...unique.values()];
+  const value = (key: string) => rows.reduce((total, activity) => total + stat(activity?.values, key), 0);
+  return { ironBannerRecent: { allTime: {
+    activitiesEntered: basic(rows.length),
+    activitiesWon: basic(rows.filter((activity) => stat(activity?.values, "standing") === 0).length),
+    kills: basic(value("kills")),
+    deaths: basic(value("deaths")),
+    assists: basic(value("assists")),
+    precisionKills: basic(value("precisionKills")),
+    bestSingleGameKills: basic(Math.max(0, ...rows.map((activity) => stat(activity?.values, "kills")))),
+    longestKillSpree: basic(Math.max(0, ...rows.map((activity) => stat(activity?.values, "longestKillSpree"))))
+  } } };
+}
+
 function normalizeMode(definition: typeof modeDefinitions[number], responses: any[]): PvpModeStats {
-  const rows = responses.flatMap((response) => modeRows(response, definition));
+  const hasIronBannerAggregate = definition.kind === "iron-banner"
+    && responses.some((response) => stat(response?.ironBanner?.allTime, "activitiesEntered") > 0);
+  const sourceResponses = hasIronBannerAggregate
+    ? responses.filter((response) => !response?.ironBannerRecent)
+    : responses;
+  const rows = sourceResponses.flatMap((response) => modeRows(response, definition));
   const matches = sum(rows, "activitiesEntered");
   const wins = sum(rows, "activitiesWon");
   const kills = sum(rows, "kills");
@@ -118,7 +149,7 @@ function normalizeMode(definition: typeof modeDefinitions[number], responses: an
 
 function modeRows(response: any, definition: typeof modeDefinitions[number]): any[] {
   const aggregate = definition.aggregateAlias ? response?.[definition.aggregateAlias]?.allTime : undefined;
-  if (aggregate) return [aggregate];
+  if (aggregate && stat(aggregate, "activitiesEntered") > 0) return [aggregate];
   return definition.aliases
     .map((alias) => response?.[alias]?.allTime)
     .filter(Boolean);
@@ -169,4 +200,8 @@ function integer(value: unknown, fallback: unknown): number {
 
 function round(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function basic(value: number): { basic: { value: number } } {
+  return { basic: { value } };
 }
