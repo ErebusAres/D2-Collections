@@ -1,4 +1,4 @@
-import type { FireteamData, FireteamSharingMode } from "@guardian-nexus/contracts";
+import type { FireteamData, FireteamSharingMode, FireteamTrackedItem } from "@guardian-nexus/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -39,6 +39,12 @@ function FireteamRefreshCountdown() {
   const refreshRunning = useRef(false);
   const timerRail = useRef<HTMLElement | null>(null);
   const canRefreshTrackedProgress = Boolean(data?.sharingEnabled && mode && mode !== "off" && selectedCharacterId);
+  const trackedSeasonalOrders = useMemo(() => {
+    const self = data?.members.find((member) => member.isSelf);
+    return (self?.trackedItems || [])
+      .filter((item) => item.kind === "order" && item.trackedInDestiny)
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }, [data?.members]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
@@ -119,8 +125,29 @@ function FireteamRefreshCountdown() {
   }, [autoRefresh, canRefreshTrackedProgress, nextRefreshAt, now, refreshing]);
 
   return <aside ref={timerRail} className={styles.fireteamRefreshRail}>
-    <span className={`${styles.fireteamRefreshTimer} ${timerPinned ? styles.fireteamRefreshTimerPinned : ""}`} aria-live="polite"><Timer size={15} />{label}</span>
+    <div className={`${styles.fireteamRefreshDock} ${timerPinned ? styles.fireteamRefreshDockPinned : ""}`}>
+      <span className={styles.fireteamRefreshTimer} aria-live="polite"><Timer size={15} />{label}</span>
+      <section className={styles.fireteamTrackedOrders}>
+        <header><span>Tracked in Destiny</span><strong>Seasonal Hub Orders</strong></header>
+        {trackedSeasonalOrders.length
+          ? trackedSeasonalOrders.map((order) => <TrackedSeasonalOrder key={`${order.kind}:${order.id}`} order={order} />)
+          : <p>No in-game orders tracked.</p>}
+      </section>
+    </div>
   </aside>;
+}
+
+function TrackedSeasonalOrder({ order }: { order: FireteamTrackedItem }) {
+  const activeObjective = order.objectives.find((objective) => !objective.complete) || order.objectives[0];
+  return <article className={styles.fireteamTrackedOrder}>
+    <div>{order.icon ? <img src={order.icon} alt="" /> : <Timer />}</div>
+    <span>
+      <strong>{order.name}</strong>
+      <small>{activeObjective?.name || order.context}</small>
+      <i><b style={{ width: `${order.percent}%` }} /></i>
+    </span>
+    <em>{order.percent}%</em>
+  </article>;
 }
 
 function readPreferenceArray(value?: string): string[] {
