@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RewardsManifest } from "@guardian-nexus/contracts";
-import { normalizePvpData, normalizePvpProgressions } from "./pvp";
+import { ironBannerHistoryResponse, normalizePvpData, normalizePvpProgressions } from "./pvp";
 
 const manifest: RewardsManifest = {
   version: "test-manifest",
@@ -115,6 +115,23 @@ describe("PvP normalization", () => {
     });
     expect(withUmbrella.modes.find((mode) => mode.kind === "iron-banner")?.matches).toBe(5);
   });
+
+  it("builds Iron Banner totals from recent activity mode flags", () => {
+    const response = ironBannerHistoryResponse([
+      activity("match-1", [5, 10, 19, 43], 12, 8, 4, 0),
+      activity("match-2", [5, 89, 19, 91], 9, 10, 3, 1),
+      activity("match-2", [5, 89, 19, 91], 9, 10, 3, 1),
+      activity("control", [5, 10], 20, 5, 2, 0)
+    ]);
+    const data = normalizePvpData({ profile, manifest, characterId: "hunter", historicalStats: [response] });
+    expect(data.modes.find((mode) => mode.kind === "iron-banner")).toMatchObject({
+      matches: 2,
+      wins: 1,
+      kills: 21,
+      deaths: 18,
+      assists: 7
+    });
+  });
 });
 
 function history(values: { matches: number; wins: number; kills: number; deaths: number; assists: number; precision: number; best: number; spree: number }) {
@@ -132,5 +149,13 @@ function historyRow(values: { matches: number; wins: number; kills: number; deat
     precisionKills: stat(values.precision),
     bestSingleGameKills: stat(values.best),
     longestKillSpree: stat(values.spree)
+  };
+}
+
+function activity(instanceId: string, modes: number[], kills: number, deaths: number, assists: number, standing: number) {
+  const stat = (value: number) => ({ basic: { value } });
+  return {
+    activityDetails: { instanceId, mode: modes.at(-1), modes },
+    values: { kills: stat(kills), deaths: stat(deaths), assists: stat(assists), standing: stat(standing) }
   };
 }
