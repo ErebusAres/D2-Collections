@@ -39,7 +39,7 @@ export async function readPublicWorldCards(env: Env, force = false): Promise<Hap
     cachedCards(env, "bungie-global-alerts", ALERT_TTL_MS, loadAlertCards, force),
     cachedCards(env, "bungie-news", NEWS_TTL_MS, loadNewsCards, force)
   ]);
-  return deduplicateCards(results.flatMap((result) => result.cards));
+  return collapseRepeatedActivities(deduplicateCards(results.flatMap((result) => result.cards)));
 }
 
 export async function refreshPublicWorldState(env: Env): Promise<void> {
