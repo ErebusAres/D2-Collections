@@ -35,7 +35,10 @@ function manifest(): CompactManifest {
           name: "Trials of Osiris",
           description: "Win rounds in the Trials of Osiris."
         }
-      }
+      },
+      "401": { activityTypeHash: 2043403989, displayProperties: { name: "King's Fall: Standard" } },
+      "402": { activityTypeHash: 2043403989, displayProperties: { name: "Last Wish: Standard" } },
+      "403": { activityTypeHash: 2043403989, displayProperties: { name: "Deep Stone Crypt" } }
     },
     milestoneDefinitions: {
       "1": { displayProperties: { name: "Nightfall" } },
@@ -79,6 +82,25 @@ describe("public milestone normalization", () => {
       endsAt: "2026-07-29T16:00:00.000Z"
     }));
     expect(cards.every((card) => card.sourceConfidence === "live-api")).toBe(true);
+  });
+
+  it("collapses many raid challenge rotations into one honest summary", () => {
+    const shared = {
+      startDate: "2026-07-28T19:00:00.000Z",
+      endDate: "2026-08-04T19:00:00.000Z"
+    };
+    const cards = normalizePublicMilestones({
+      a: { ...shared, milestoneHash: 10, activities: [{ activityHash: 401 }] },
+      b: { ...shared, milestoneHash: 11, activities: [{ activityHash: 402 }] },
+      c: { ...shared, milestoneHash: 12, activities: [{ activityHash: 403 }] }
+    }, manifest(), observedAt);
+
+    expect(cards).toEqual([expect.objectContaining({
+      id: "milestone:raid:summary",
+      title: "Raid challenge rotations",
+      description: expect.stringContaining("3 active raid rotations reported")
+    })]);
+    expect(cards[0]?.description).toContain("King's Fall, Last Wish, Deep Stone Crypt");
   });
 });
 

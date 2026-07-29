@@ -228,7 +228,7 @@ export function normalizePublicMilestones(
       });
     }
   }
-  return deduplicateCards(output).slice(0, 18);
+  return collapseRepeatedActivities(deduplicateCards(output)).slice(0, 18);
 }
 
 export function normalizeBungieNews(response: unknown, observedAt: string): HappeningCard[] {
@@ -324,6 +324,35 @@ function deduplicateCards(cards: HappeningCard[]): HappeningCard[] {
     seen.add(key);
     return true;
   });
+}
+
+function collapseRepeatedActivities(cards: HappeningCard[]): HappeningCard[] {
+  return ["raid", "dungeon"].reduce((current, kind) => {
+    const prefix = `milestone:${kind}:`;
+    const matching = current.filter((card) => card.id.startsWith(prefix));
+    if (matching.length <= 2) return current;
+    const names = matching
+      .map((card) => card.title.replace(/^[^·]+·\s*/, "").replace(/:\s*Standard$/i, ""))
+      .filter((name, index, entries) => entries.indexOf(name) === index);
+    const first = matching[0]!;
+    const endsAt = matching.map((card) => card.endsAt).filter(Boolean).sort()[0];
+    const summary: HappeningCard = {
+      ...first,
+      id: `${prefix}summary`,
+      title: `${kind === "raid" ? "Raid" : "Dungeon"} challenge rotations`,
+      status: endsAt || `${matching.length} active rotations`,
+      description: `${matching.length} active ${kind} rotations reported: ${summarizeNames(names)}.`,
+      icon: undefined,
+      endsAt
+    };
+    return [...current.filter((card) => !card.id.startsWith(prefix)), summary];
+  }, cards);
+}
+
+function summarizeNames(names: string[]): string {
+  const visible = names.slice(0, 6);
+  const remaining = names.length - visible.length;
+  return `${visible.join(", ")}${remaining > 0 ? `, and ${remaining} more` : ""}`;
 }
 
 function collectHashes(value: unknown, wantedKey: string, depth = 0, output = new Set<string>()): string[] {
