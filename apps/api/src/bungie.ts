@@ -363,6 +363,31 @@ export async function pvpHistoricalStatsFor(
   }
 }
 
+export async function pvpRecentActivitiesFor(
+  row: SessionRow,
+  characterIds: string[],
+  env: Env,
+  accessToken: string
+): Promise<{ activities: any[]; warnings: string[] }> {
+  const results = await Promise.all(characterIds.map(async (characterId) => {
+    try {
+      const response = await bungieGet(`/Destiny2/${row.membership_type}/Account/${row.membership_id}/Character/${characterId}/Stats/Activities/?count=100&mode=5&page=0`, env, accessToken);
+      return { activities: Array.isArray(response?.activities) ? response.activities : [] };
+    } catch (error: any) {
+      return {
+        activities: [],
+        warning: Number(error?.status) === 429
+          ? "Bungie throttled part of the recent Crucible activity refresh."
+          : "Recent Crucible activity could not be verified for one character."
+      };
+    }
+  }));
+  return {
+    activities: results.flatMap((result) => result.activities),
+    warnings: [...new Set(results.flatMap((result) => result.warning ? [result.warning] : []))]
+  };
+}
+
 export function primaryMembership(memberships: any): any {
   const entries = memberships?.destinyMemberships || [];
   return entries.find((entry: any) => String(entry.membershipId) === String(memberships?.primaryMembershipId))
