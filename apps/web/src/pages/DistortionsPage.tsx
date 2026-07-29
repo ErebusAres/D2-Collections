@@ -10,7 +10,7 @@ type Range = "24h" | "7d" | "30d" | "all";
 
 export function DistortionsPage() {
   const [range, setRange] = useState<Range>("7d");
-  const [, tick] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const result = useQuery({
     queryKey: ["distortions", range],
     queryFn: () => api<DistortionData>(`/api/v1/distortions?range=${range}`),
@@ -19,8 +19,17 @@ export function DistortionsPage() {
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true
   });
-  useEffect(() => { const timer = window.setInterval(() => tick((value) => value + 1), 30_000); return () => window.clearInterval(timer); }, []);
   const data = result.data?.data;
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    if (!data?.nextHourlyChangeAt) return;
+    const delay = Math.max(0, Date.parse(data.nextHourlyChangeAt) - Date.now()) + 1_000;
+    const timer = window.setTimeout(() => void result.refetch(), delay);
+    return () => window.clearTimeout(timer);
+  }, [data?.nextHourlyChangeAt, result.refetch]);
   return <>
     <PageHeader eyebrow="IX field intelligence" title="Distortion Tracker" description="Verified current state, observed history, and cautious pattern analysis for Destiny’s hourly destination Distortions." />
     <QueryState loading={result.isLoading} error={result.error as Error | null} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
@@ -28,7 +37,7 @@ export function DistortionsPage() {
       <section className={styles.distortionHero} data-state={data.state}>
         <div className={styles.distortionMark}><Waves /></div>
         <div><span>Current Distortion</span><h2>{data.current?.destination || "Location unavailable"}</h2><p>{data.current ? `Last verified ${new Date(data.current.lastConfirmedAt).toLocaleString()}` : "Guardian Nexus does not yet have a verified active-destination provider or recent manual observation."}</p></div>
-        <div className={styles.distortionTimer}><Clock3 /><span>Next hourly change</span><strong>{countdown(data.nextHourlyChangeAt)}</strong><small>{new Date(data.nextHourlyChangeAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</small></div>
+        <div className={styles.distortionTimer}><Clock3 /><span>Next hourly change</span><strong>{formatDistortionCountdown(data.nextHourlyChangeAt, now)}</strong><small>{new Date(data.nextHourlyChangeAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</small></div>
         <footer><b>{data.state.replace("-", " ")}</b><span>{data.sourceConfidence.replace("-", " ")} · {data.sourceLabel}</span>{data.lastSuccessfulUpdateAt && <time>Last success {new Date(data.lastSuccessfulUpdateAt).toLocaleString()}</time>}</footer>
       </section>
       <section className={styles.prediction} data-state={data.prediction.state}>
@@ -53,5 +62,8 @@ export function DistortionsPage() {
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return <article>{icon}<span>{label}</span><strong>{value}</strong></article>;
 }
-function countdown(value: string): string { const ms = Math.max(0, Date.parse(value) - Date.now()); return `${Math.floor(ms / 60_000)}m ${String(Math.floor(ms % 60_000 / 1_000)).padStart(2, "0")}s`; }
+export function formatDistortionCountdown(value: string, now = Date.now()): string {
+  const ms = Math.max(0, Date.parse(value) - now);
+  return `${Math.floor(ms / 60_000)}m ${String(Math.floor(ms % 60_000 / 1_000)).padStart(2, "0")}s`;
+}
 function duration(start: string, end: string): string { const minutes = Math.max(0, Math.round((Date.parse(end) - Date.parse(start)) / 60_000)); return `${Math.floor(minutes / 60)}h ${minutes % 60}m`; }

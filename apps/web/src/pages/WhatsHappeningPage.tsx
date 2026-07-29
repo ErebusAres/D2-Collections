@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { PageHeader, QueryState } from "../components/common/Page";
 import { categoryFor } from "../modules/notifications/categoryConfig";
+import { formatUtcAndLocalTime } from "../modules/time";
 import { api } from "../services/api/client";
 import styles from "./WorldState.module.css";
 
@@ -22,8 +23,22 @@ export function WhatsHappeningPage() {
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true
   });
-  const [, tick] = useState(0);
-  useEffect(() => { const timer = window.setInterval(() => tick((value) => value + 1), 30_000); return () => window.clearInterval(timer); }, []);
+  const [now, setNow] = useState(() => Date.now());
+  const nextDailyResetAt = result.data?.data.nextDailyResetAt;
+  useEffect(() => {
+    const remaining = nextDailyResetAt ? Date.parse(nextDailyResetAt) - now : Number.POSITIVE_INFINITY;
+    const delay = remaining <= 60 * 60_000
+      ? 1_000
+      : Math.min(30_000, Math.max(1_000, remaining - 60 * 60_000));
+    const timer = window.setTimeout(() => setNow(Date.now()), delay);
+    return () => window.clearTimeout(timer);
+  }, [nextDailyResetAt, now]);
+  useEffect(() => {
+    if (!nextDailyResetAt) return;
+    const delay = Math.max(0, Date.parse(nextDailyResetAt) - Date.now()) + 1_000;
+    const timer = window.setTimeout(() => void result.refetch(), delay);
+    return () => window.clearTimeout(timer);
+  }, [nextDailyResetAt, result.refetch]);
   const sections = useMemo(() => {
     const grouped = new Map<HappeningCard["section"], HappeningCard[]>();
     (result.data?.data.cards || []).forEach((card) => grouped.set(card.section, [...(grouped.get(card.section) || []), card]));
@@ -41,24 +56,24 @@ export function WhatsHappeningPage() {
     {result.data && <>
       {result.data.warnings.length > 0 && <div className={styles.warning}>{result.data.warnings.join(" ")}</div>}
       <section className={styles.resetStrip} aria-label="Reset schedule">
-        <Reset label="Daily reset" value={result.data.data.nextDailyResetAt} />
-        <Reset label="Weekly reset" value={result.data.data.nextWeeklyResetAt} />
+        <Reset label="Daily reset" value={result.data.data.nextDailyResetAt} now={now} />
+        <Reset label="Weekly reset" value={result.data.data.nextWeeklyResetAt} now={now} />
         <div><Globe2 /><span>World state</span><strong>{result.data.freshness.state}</strong><small>Updated {new Date(result.data.data.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small></div>
       </section>
       <div className={styles.sectionsGrid}>{sections.map(([section, cards]) => <section className={styles.worldSection} key={section}>
           <header><span>{sectionLabels[section]}</span><b>{cards.length}</b></header>
-          <div className={styles.cardGrid}>{cards.map((card) => <WorldCard card={card} key={card.id} />)}</div>
+          <div className={styles.cardGrid}>{cards.map((card) => <WorldCard card={card} now={now} key={card.id} />)}</div>
         </section>)}</div>
     </>}
   </>;
 }
 
-function WorldCard({ card }: { card: HappeningCard }) {
+function WorldCard({ card, now }: { card: HappeningCard; now: number }) {
   const config = categoryFor(card.category);
   const Icon = config.icon;
   const content = <article className={styles.worldCard} data-state={card.state} style={{ "--card-color": config.primaryColor, "--card-accent": config.accentColor } as React.CSSProperties}>
     <header><i><Icon /></i><span><small>{config.label}</small><strong>{card.title}</strong></span><b>{card.state.replace("-", " ")}</b></header>
-    <div><strong>{looksLikeDate(card.status) ? countdown(card.status) : card.status}</strong>{card.description && <p>{card.description}</p>}</div>
+    <div><strong>{looksLikeDate(card.status) ? formatResetCountdown(card.status, now) : card.status}</strong>{card.description && <p>{card.description}</p>}</div>
     <footer><span>{confidenceLabel(card.sourceConfidence)} · {card.sourceLabel}</span>{card.observedAt && <time dateTime={card.observedAt}>Updated {new Date(card.observedAt).toLocaleString()}</time>}</footer>
     {(card.destinationUrl || card.externalUrl) && <ArrowRight className={styles.cardArrow} />}
   </article>;
@@ -67,15 +82,18 @@ function WorldCard({ card }: { card: HappeningCard }) {
   return content;
 }
 
-function Reset({ label, value }: { label: string; value: string }) {
-  return <div><Clock3 /><span>{label}</span><strong>{countdown(value)}</strong><small>{new Date(value).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}</small></div>;
+function Reset({ label, value, now }: { label: string; value: string; now: number }) {
+  return <div><Clock3 /><span>{label} in</span><strong>{formatResetCountdown(value, now)}</strong><small>{formatUtcAndLocalTime(value)}</small></div>;
 }
 
-function countdown(value: string): string {
-  const milliseconds = Math.max(0, Date.parse(value) - Date.now());
+export function formatResetCountdown(value: string, now = Date.now()): string {
+  const milliseconds = Math.max(0, Date.parse(value) - now);
   const hours = Math.floor(milliseconds / 3_600_000);
   const minutes = Math.floor(milliseconds % 3_600_000 / 60_000);
-  return hours >= 24 ? `${Math.floor(hours / 24)}d ${hours % 24}h` : `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+  if (hours >= 1) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  const seconds = Math.floor(milliseconds % 60_000 / 1_000);
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
 function looksLikeDate(value: string): boolean { return Number.isFinite(Date.parse(value)) && value.includes("T"); }

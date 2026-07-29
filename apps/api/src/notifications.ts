@@ -706,7 +706,7 @@ function resetCard(id: string, section: "daily" | "weekly", title: string, at: D
 
 function nextDailyReset(now = new Date()): Date {
   const value = new Date(now);
-  value.setUTCHours(17, 0, 0, 0);
+  value.setUTCHours(19, 0, 0, 0);
   if (value <= now) value.setUTCDate(value.getUTCDate() + 1);
   return value;
 }

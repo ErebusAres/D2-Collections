@@ -38,10 +38,10 @@ describe("partyPresenceLabel", () => {
 });
 
 describe("xurSchedule", () => {
-  it("counts from Friday reset until Tuesday reset at 17:00 UTC", () => {
-    expect(xurSchedule(new Date("2026-07-17T16:59:59Z"))).toMatchObject({ active: false, target: "2026-07-17T17:00:00.000Z" });
-    expect(xurSchedule(new Date("2026-07-17T17:00:00Z"))).toMatchObject({ active: true, target: "2026-07-21T17:00:00.000Z" });
-    expect(xurSchedule(new Date("2026-07-21T17:00:00Z"))).toMatchObject({ active: false, target: "2026-07-24T17:00:00.000Z" });
+  it("counts from Friday reset until Tuesday reset at 19:00 UTC", () => {
+    expect(xurSchedule(new Date("2026-07-17T18:59:59Z"))).toMatchObject({ active: false, target: "2026-07-17T19:00:00.000Z" });
+    expect(xurSchedule(new Date("2026-07-17T19:00:00Z"))).toMatchObject({ active: true, target: "2026-07-21T19:00:00.000Z" });
+    expect(xurSchedule(new Date("2026-07-21T19:00:00Z"))).toMatchObject({ active: false, target: "2026-07-24T19:00:00.000Z" });
   });
 });
 

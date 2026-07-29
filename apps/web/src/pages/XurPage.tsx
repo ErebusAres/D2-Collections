@@ -5,6 +5,7 @@ import { Clock3, Coins, MapPin, Shield, Sparkles, Swords } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
+import { formatUtcAndLocalTime } from "../modules/time";
 import { api } from "../services/api/client";
 import styles from "./Pages.module.css";
 
@@ -40,7 +41,7 @@ export function XurPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && presentation && <>
       <section className={`${styles.xurHero} ${schedule.active && !presentation.lastShipment ? styles.xurActive : ""}`}>
-        <div className={styles.xurCountdown}><Coins /><span>{schedule.active ? "Xûr departs in" : "Xûr arrives in"}</span><strong>{countdown(schedule.target, now)}</strong><small>{new Date(schedule.target).toLocaleString([], { weekday: "long", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</small></div>
+        <div className={styles.xurCountdown}><Coins /><span>{schedule.active ? "Xûr departs in" : "Xûr arrives in"}</span><strong>{countdown(schedule.target, now)}</strong><small>{formatUtcAndLocalTime(schedule.target)}</small></div>
         <div><MapPin /><span>{presentation.locationLabel}</span><strong>Tower Bazaar</strong><small>Alley beside the Ramen Shop</small></div>
         <div><Clock3 /><span>Vendor signal</span><strong>{presentation.signalLabel}</strong><small>{storefrontCount} storefront offers{presentation.lastShipment && data.inventoryCapturedAt ? ` · verified ${new Date(data.inventoryCapturedAt).toLocaleString()}` : " across your classes"}</small></div>
       </section>

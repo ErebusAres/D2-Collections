@@ -65,7 +65,7 @@ describe("Xûr notification state", () => {
     });
     expect(xurShipmentNotification(shipment, now)).toMatchObject({
       title: "Xûr shipment available",
-      expiresAt: "2026-07-21T17:00:00.000Z"
+      expiresAt: "2026-07-21T19:00:00.000Z"
     });
   });
 
