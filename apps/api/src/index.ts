@@ -37,7 +37,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -50,7 +50,7 @@ import { normalizeLoadouts } from "./loadouts";
 import { normalizeRewardCodeStatus } from "./rewardCodes";
 import { buildsRoute, publishedBuildsForAdvisor } from "./builds";
 import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
-import { normalizePvpData, normalizePvpProgressions } from "./pvp";
+import { ironBannerHistoryResponse, normalizePvpData, normalizePvpProgressions } from "./pvp";
 import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizeJourneyProgress, trackedItemsFromJourney } from "./journeyProgress";
 import { normalizePower, powerItemHashes } from "./power";
@@ -479,14 +479,21 @@ async function pvp(row: SessionRow, env: Env, context: RequestContext): Promise<
   const characters = charactersFromProfile(profile);
   const character = selectedCharacter(characters, context.url.searchParams.get("characterId") || undefined);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const [manifest, historical] = await Promise.all([
+  const [manifest, historical, recent] = await Promise.all([
     loadRewardsManifest(env),
-    pvpHistoricalStatsFor(row, env, accessToken)
+    pvpHistoricalStatsFor(row, env, accessToken),
+    pvpRecentActivitiesFor(row, characters.map((entry) => entry.characterId), env, accessToken)
   ]);
-  const data = normalizePvpData({ profile, manifest, characterId: character.characterId, historicalStats: historical.responses });
+  const data = normalizePvpData({
+    profile,
+    manifest,
+    characterId: character.characterId,
+    historicalStats: [...historical.responses, ironBannerHistoryResponse(recent.activities)]
+  });
   const warnings = [
     ...(manifest.version === "unavailable" ? ["Current Crucible rank definitions are unavailable from the deployed Bungie manifest."] : []),
-    ...historical.warnings
+    ...historical.warnings,
+    ...recent.warnings
   ];
   return envelope<PvpData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
 }
