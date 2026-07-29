@@ -109,33 +109,33 @@ export function WhatsHappeningPage() {
           <small>Updated {new Date(result.data.data.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>
         </div>
       </section>
-      <nav className={styles.sectionFilters} aria-label="Filter current Destiny information">
-        <button className={activeSection === "all" ? styles.selectedFilter : undefined} onClick={() => setActiveSection("all")}>
-          All <b>{dashboardCards.length}</b>
-        </button>
-        {availableSections.map((section) => <button
-          className={activeSection === section ? styles.selectedFilter : undefined}
-          key={section}
-          onClick={() => setActiveSection(section)}
-        >
-          {sectionLabels[section]} <b>{dashboardCards.filter((card) => card.section === section).length}</b>
-        </button>)}
-      </nav>
+      {dashboardCards.length > 6 && <nav className={styles.sectionFilters} aria-label="Filter current Destiny information">
+          <button className={activeSection === "all" ? styles.selectedFilter : undefined} onClick={() => setActiveSection("all")}>
+            All <b>{dashboardCards.length}</b>
+          </button>
+          {availableSections.map((section) => <button
+            className={activeSection === section ? styles.selectedFilter : undefined}
+            key={section}
+            onClick={() => setActiveSection(section)}
+          >
+            {sectionLabels[section]} <b>{dashboardCards.filter((card) => card.section === section).length}</b>
+          </button>)}
+        </nav>}
       <div className={styles.sectionsGrid}>
         {sections.map(([section, cards]) => <section className={styles.worldSection} key={section}>
           <header><span>{sectionLabels[section]}</span><b>{cards.length}</b></header>
-          <div className={styles.cardGrid}>{cards.map((card) => <WorldCard card={card} now={now} key={card.id} />)}</div>
+          <div className={styles.cardGrid}>{cards.map((card) => <WorldCard card={card} compact now={now} key={card.id} />)}</div>
         </section>)}
       </div>
     </>}
   </>;
 }
 
-export function WorldCard({ card, now }: { card: HappeningCard; now: number }) {
+export function WorldCard({ card, compact = false, now }: { card: HappeningCard; compact?: boolean; now: number }) {
   const config = categoryFor(card.category);
   const Icon = config.icon;
   const content = <article
-    className={styles.worldCard}
+    className={`${styles.worldCard} ${compact ? styles.compactWorldCard : ""}`}
     data-state={card.state}
     style={{ "--card-color": config.primaryColor, "--card-accent": config.accentColor } as React.CSSProperties}
   >
@@ -147,7 +147,7 @@ export function WorldCard({ card, now }: { card: HappeningCard; now: number }) {
     <div>
       <strong>{cardStatus(card, now)}</strong>
       {card.description && <p>{card.description}</p>}
-      {card.imageUrl && <img className={styles.cardThumbnail} src={card.imageUrl} alt="" loading="lazy" />}
+      {card.imageUrl && !compact && <img className={styles.cardThumbnail} src={card.imageUrl} alt="" loading="lazy" />}
     </div>
     <footer>
       <span>{confidenceLabel(card.sourceConfidence)} · {card.sourceLabel}</span>
