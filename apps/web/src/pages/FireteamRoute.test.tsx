@@ -48,6 +48,8 @@ describe("Fireteam refresh cycle", () => {
 
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider>);
     expect(await screen.findByText(/Tracked refresh in/)).toBeTruthy();
+    expect(screen.getByText("Seasonal Hub Orders")).toBeTruthy();
+    expect(screen.getByText("Weekly order")).toBeTruthy();
 
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
@@ -64,7 +66,36 @@ function envelope() {
     sharingEnabled: true,
     sharingMode: "persistent",
     hiddenTrackedItemKeys: [],
-    members: [],
+    members: [{
+      membershipId: "member-1",
+      displayName: "Guardian",
+      inGameName: "Guardian#1234",
+      presenceLabel: "Fireteam member",
+      onlineState: "online",
+      activitySource: "shared",
+      isSelf: true,
+      isLeader: false,
+      syncState: "synced",
+      sharing: true,
+      sharingMode: "persistent",
+      trackedItems: [{
+        id: "order-1",
+        definitionHash: "order-hash",
+        kind: "order",
+        name: "Weekly order",
+        description: "Complete activities.",
+        icon: "",
+        context: "Order · Seasonal Hub",
+        trackedInDestiny: true,
+        trackedInGuardianNexus: false,
+        objectives: [{ objectiveHash: "objective-1", name: "Activities", progress: 2, completionValue: 5, percent: 40, complete: false, progressAvailable: true }],
+        percent: 40,
+        updatedAt: "now"
+      }],
+      quests: [],
+      overlaps: [],
+      freshness: { state: "fresh", observedAt: "now", ageSeconds: 0 }
+    }],
     social: { state: "available", friendsState: "available", clanState: "available", contacts: [] }
   };
   return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "fireteam" };
