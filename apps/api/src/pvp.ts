@@ -1,11 +1,25 @@
 import type { PvpData, PvpModeStats, PvpProgression, PvpProgressionKind, RewardsManifest } from "@guardian-nexus/contracts";
 import { imageUrl } from "@guardian-nexus/domain";
 
-const modeDefinitions: Array<{ kind: PvpModeStats["kind"]; name: string; mode: number; aliases: string[] }> = [
+const modeDefinitions: Array<{ kind: PvpModeStats["kind"]; name: string; mode: number; aliases: string[]; aggregateAlias?: string }> = [
   { kind: "all", name: "All Crucible", mode: 5, aliases: ["allPvP"] },
   { kind: "competitive", name: "Competitive", mode: 69, aliases: ["pvpCompetitive", "competitive"] },
   { kind: "trials", name: "Trials of Osiris", mode: 84, aliases: ["trialsOfOsiris"] },
-  { kind: "iron-banner", name: "Iron Banner", mode: 19, aliases: ["ironBanner"] }
+  {
+    kind: "iron-banner",
+    name: "Iron Banner",
+    mode: 19,
+    aggregateAlias: "ironBanner",
+    aliases: [
+      "ironBanner",
+      "ironBannerControl",
+      "ironBannerClash",
+      "ironBannerSupremacy",
+      "ironBannerSalvage",
+      "ironBannerRift",
+      "ironBannerZoneControl"
+    ]
+  }
 ];
 
 const progressionOrder: PvpProgressionKind[] = ["crucible", "competitive", "trials", "iron-banner"];
@@ -70,7 +84,7 @@ export function normalizePvpData(args: {
 }
 
 function normalizeMode(definition: typeof modeDefinitions[number], responses: any[]): PvpModeStats {
-  const rows = responses.map((response) => modeRow(response, definition.aliases)).filter(Boolean);
+  const rows = responses.flatMap((response) => modeRows(response, definition));
   const matches = sum(rows, "activitiesEntered");
   const wins = sum(rows, "activitiesWon");
   const kills = sum(rows, "kills");
@@ -102,12 +116,12 @@ function normalizeMode(definition: typeof modeDefinitions[number], responses: an
   };
 }
 
-function modeRow(response: any, aliases: string[]): any | undefined {
-  for (const alias of aliases) {
-    const mode = response?.[alias];
-    if (mode?.allTime) return mode.allTime;
-  }
-  return undefined;
+function modeRows(response: any, definition: typeof modeDefinitions[number]): any[] {
+  const aggregate = definition.aggregateAlias ? response?.[definition.aggregateAlias]?.allTime : undefined;
+  if (aggregate) return [aggregate];
+  return definition.aliases
+    .map((alias) => response?.[alias]?.allTime)
+    .filter(Boolean);
 }
 
 function liveProgression(profile: any, progressionHash: string, characterId?: string): any | undefined {
