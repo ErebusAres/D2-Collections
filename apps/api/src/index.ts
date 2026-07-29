@@ -481,7 +481,7 @@ async function pvp(row: SessionRow, env: Env, context: RequestContext): Promise<
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const [manifest, historical] = await Promise.all([
     loadRewardsManifest(env),
-    pvpHistoricalStatsFor(row, characters.map((entry) => entry.characterId), env, accessToken)
+    pvpHistoricalStatsFor(row, env, accessToken)
   ]);
   const data = normalizePvpData({ profile, manifest, characterId: character.characterId, historicalStats: historical.responses });
   const warnings = [
