@@ -35,12 +35,33 @@ function FireteamRefreshCountdown() {
   const [now, setNow] = useState(() => Date.now());
   const [nextRefreshAt, setNextRefreshAt] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [timerPinned, setTimerPinned] = useState(false);
   const refreshRunning = useRef(false);
+  const timerRail = useRef<HTMLElement | null>(null);
   const canRefreshTrackedProgress = Boolean(data?.sharingEnabled && mode && mode !== "off" && selectedCharacterId);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const updatePinnedState = () => {
+      const rail = timerRail.current;
+      if (!rail || window.innerWidth <= 1_200) {
+        setTimerPinned(false);
+        return;
+      }
+      const headerHeight = Number.parseFloat(getComputedStyle(rail).getPropertyValue("--shell-header-height")) || 130;
+      setTimerPinned(rail.getBoundingClientRect().top <= headerHeight + 10);
+    };
+    updatePinnedState();
+    window.addEventListener("scroll", updatePinnedState, { passive: true });
+    window.addEventListener("resize", updatePinnedState);
+    return () => {
+      window.removeEventListener("scroll", updatePinnedState);
+      window.removeEventListener("resize", updatePinnedState);
+    };
   }, []);
 
   const refreshTrackedProgress = useCallback(async () => {
@@ -97,8 +118,8 @@ function FireteamRefreshCountdown() {
     return `Tracked refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   }, [autoRefresh, canRefreshTrackedProgress, nextRefreshAt, now, refreshing]);
 
-  return <aside className={styles.fireteamRefreshRail}>
-    <span className={styles.fireteamRefreshTimer} aria-live="polite"><Timer size={15} />{label}</span>
+  return <aside ref={timerRail} className={styles.fireteamRefreshRail}>
+    <span className={`${styles.fireteamRefreshTimer} ${timerPinned ? styles.fireteamRefreshTimerPinned : ""}`} aria-live="polite"><Timer size={15} />{label}</span>
   </aside>;
 }
 
