@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -44,6 +44,26 @@ describe("bungieGet", () => {
 
     await expect(bungieGet("/Destiny2/3/Profile/1/", { BUNGIE_API_KEY: "test" } as Env))
       .rejects.toMatchObject({ status: 429, code: "bungie_throttled", retryAfterSeconds: 7 });
+  });
+});
+
+describe("pvpHistoricalStatsFor", () => {
+  it("loads Bungie's account aggregate with all supported Iron Banner modes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      ErrorCode: 1,
+      Response: { allPvP: { allTime: {} } }
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await pvpHistoricalStatsFor(
+      { membership_type: 3, membership_id: "member" } as SessionRow,
+      { BUNGIE_API_KEY: "test" } as Env,
+      "access"
+    );
+
+    expect(result.responses).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/Character/0/Stats/?groups=1&modes=5,69,84,19,43,44,45,68,90,91");
   });
 });
 
