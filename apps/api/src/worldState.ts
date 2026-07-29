@@ -13,6 +13,7 @@ import type { Env } from "./types";
 const MILESTONE_TTL_MS = 5 * 60_000;
 const ALERT_TTL_MS = 5 * 60_000;
 const NEWS_TTL_MS = 15 * 60_000;
+const MILESTONE_CACHE_KEY = "public-milestones:v2";
 const BUNGIE_NEWS_ROOT = "https://www.bungie.net";
 
 interface CachedCards {
@@ -36,7 +37,7 @@ interface ActivityClassification {
 
 export async function readPublicWorldCards(env: Env, force = false): Promise<HappeningCard[]> {
   const results = await Promise.all([
-    cachedCards(env, "public-milestones", MILESTONE_TTL_MS, loadMilestoneCards, force),
+    cachedCards(env, MILESTONE_CACHE_KEY, MILESTONE_TTL_MS, loadMilestoneCards, force),
     cachedCards(env, "bungie-global-alerts", ALERT_TTL_MS, loadAlertCards, force),
     cachedCards(env, "bungie-news", NEWS_TTL_MS, loadNewsCards, force)
   ]);
@@ -45,7 +46,7 @@ export async function readPublicWorldCards(env: Env, force = false): Promise<Hap
 
 export async function readRaidRotations(env: Env): Promise<RaidRotationsData> {
   const now = new Date();
-  const milestoneCards = await cachedCards(env, "public-milestones", MILESTONE_TTL_MS, loadMilestoneCards, false);
+  const milestoneCards = await cachedCards(env, MILESTONE_CACHE_KEY, MILESTONE_TTL_MS, loadMilestoneCards, false);
   return {
     cards: deduplicateCards(milestoneCards.cards.filter((card) => card.id.startsWith("milestone:raid:")))
       .sort((left, right) => left.title.localeCompare(right.title)),
@@ -452,12 +453,13 @@ function providerUnavailableCard(providerKey: string, observedAt: string): Happe
     "bungie-global-alerts": ["Service-alert source unavailable", "Bungie global alerts"],
     "bungie-news": ["Bungie news unavailable", "Bungie.net news"]
   } as const;
-  const [title, sourceLabel] = definitions[providerKey as keyof typeof definitions] || ["World-state source unavailable", "Guardian Nexus"];
+  const normalizedProviderKey = providerKey.split(":")[0]!;
+  const [title, sourceLabel] = definitions[normalizedProviderKey as keyof typeof definitions] || ["World-state source unavailable", "Guardian Nexus"];
   return {
     id: `provider-unavailable:${providerKey}`,
-    section: providerKey === "bungie-news" ? "news" : "live",
+    section: normalizedProviderKey === "bungie-news" ? "news" : "live",
     category: "outage",
-    priority: providerKey === "public-milestones" ? "high" : "normal",
+    priority: normalizedProviderKey === "public-milestones" ? "high" : "normal",
     state: "unavailable",
     title,
     status: "No current data",
