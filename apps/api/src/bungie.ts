@@ -345,24 +345,22 @@ export async function membershipsFor(accessToken: string, env: Env): Promise<any
 
 export async function pvpHistoricalStatsFor(
   row: SessionRow,
-  characterIds: string[],
   env: Env,
   accessToken: string
 ): Promise<{ responses: any[]; warnings: string[] }> {
-  const results = await Promise.all(characterIds.map(async (characterId) => {
-    try {
-      const response = await bungieGet(`/Destiny2/${row.membership_type}/Account/${row.membership_id}/Character/${characterId}/Stats/?groups=1&modes=5,69,84,19,43,44,45,68,90,91`, env, accessToken);
-      return { response };
-    } catch (error: any) {
-      return { warning: Number(error?.status) === 429
-        ? "Bungie throttled part of the Crucible history request. Some character totals may be missing."
-        : "Bungie did not return Crucible history for one character. The profile may have no PvP history or may restrict historical stats." };
-    }
-  }));
-  return {
-    responses: results.map((result) => result.response).filter(Boolean),
-    warnings: [...new Set(results.map((result) => result.warning).filter((warning): warning is string => Boolean(warning)))]
-  };
+  try {
+    // Bungie documents character ID 0 as the account aggregate. It includes
+    // Crucible history that may no longer belong to a current character.
+    const response = await bungieGet(`/Destiny2/${row.membership_type}/Account/${row.membership_id}/Character/0/Stats/?groups=1&modes=5,69,84,19,43,44,45,68,90,91`, env, accessToken);
+    return { responses: [response], warnings: [] };
+  } catch (error: any) {
+    return {
+      responses: [],
+      warnings: [Number(error?.status) === 429
+        ? "Bungie throttled the Crucible history refresh."
+        : "Bungie did not return the account-wide Crucible history. Historical stats may be private."]
+    };
+  }
 }
 
 export function primaryMembership(memberships: any): any {
