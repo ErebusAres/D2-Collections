@@ -2,6 +2,7 @@ import type { ApiEnvelope, SessionData, UpdateUserPreferenceRequest, UserPrefere
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, ApiRequestError, configureOfflineApi, mutationHeaders, queuedApi } from "../services/api/client";
+import { HEADER_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
 interface GuardianContextValue {
   session?: SessionData;
@@ -64,7 +65,7 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
   const sessionQuery = useQuery({
     queryKey: ["session", selectedCharacterId],
     queryFn: () => api<SessionData>(`/api/v1/session${selectedCharacterId ? `?characterId=${encodeURIComponent(selectedCharacterId)}` : ""}`),
-    refetchInterval: autoRefresh ? 60_000 : false,
+    refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
     initialData: readCachedSession,
     initialDataUpdatedAt: 0,
