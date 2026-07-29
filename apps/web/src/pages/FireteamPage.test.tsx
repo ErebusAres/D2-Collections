@@ -95,6 +95,24 @@ describe("Fireteam tracked items", () => {
     expect(enteringItem?.getAttribute("data-tracking-state")).toBe("active");
   });
 
+  it("keeps an item that disappeared during refresh visible for the removal animation", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><FireteamPage /></QueryClientProvider>);
+
+    await screen.findByText("Weekly order");
+    const updated = envelope();
+    updated.data.members[0]!.trackedItems = updated.data.members[0]!.trackedItems.slice(1);
+    act(() => client.setQueryData(["fireteam", "c1"], updated));
+
+    await waitFor(() => expect(screen.getByText("Weekly order").closest("[data-tracking-state]")?.getAttribute("data-tracking-state")).toBe("removing"));
+    const removingItem = screen.getByText("Weekly order").closest("[data-tracking-state]");
+    expect(removingItem?.closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("removed");
+    expect(playCompletionChime).not.toHaveBeenCalled();
+    await act(async () => { vi.advanceTimersByTime(1_600); });
+    expect(screen.queryByText("Weekly order")).toBeNull();
+  });
+
   it("removes a known completion after the exit and does not replay it after a remount", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const completed = envelope();
@@ -121,6 +139,7 @@ describe("Fireteam tracked items", () => {
   });
 
   it("untracks a Guardian Nexus pursuit from the self card and syncs the reduced pin list", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
     await screen.findByText("Weekly order");
     await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
@@ -130,6 +149,7 @@ describe("Fireteam tracked items", () => {
 
     expect(screen.getByText("Weekly order").closest("[data-tracking-state]")?.getAttribute("data-tracking-state")).toBe("removing");
     expect(screen.getByText("Weekly order").closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("removed");
+    await act(async () => { vi.advanceTimersByTime(1_600); });
     await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
     const [, init] = vi.mocked(queuedApi).mock.calls[0]!;
     expect(JSON.parse(String(init?.body))).toMatchObject({
@@ -141,6 +161,7 @@ describe("Fireteam tracked items", () => {
   });
 
   it("untracks a Guardian Rank objective and hides it while Destiny still tracks it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
     await screen.findByText("Rank service");
     await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
@@ -149,6 +170,7 @@ describe("Fireteam tracked items", () => {
     fireEvent.click(screen.getByRole("button", { name: "Untrack Rank service from Fireteam" }));
 
     expect(setPreference).toHaveBeenCalledWith("guardianRank.tracked", "[]");
+    await act(async () => { vi.advanceTimersByTime(1_600); });
     await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
     const [, init] = vi.mocked(queuedApi).mock.calls[0]!;
     expect(JSON.parse(String(init?.body))).toMatchObject({
