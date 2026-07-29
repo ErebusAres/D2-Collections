@@ -11,7 +11,7 @@ import { useGuardian } from "../../context/GuardianContext";
 import { OptionsPanel } from "./OptionsPanel";
 import { RewardCodeMarquee } from "../reward-codes/RewardCodeMarquee";
 import { getConnectionSnapshot, subscribeConnection } from "../../services/api/client";
-import { LIVE_REFRESH_INTERVAL_MS } from "../../services/liveRefresh";
+import { HEADER_REFRESH_INTERVAL_MS } from "../../services/liveRefresh";
 import styles from "./Shell.module.css";
 
 const tabs = [
@@ -36,7 +36,7 @@ export function Shell() {
     queryFn: () => api<RewardsPassData>(`/api/v1/me/rewards?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
     staleTime: 60_000,
-    refetchInterval: autoRefresh ? 60_000 : false,
+    refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
   const reportSummary = useQuery({
@@ -44,7 +44,7 @@ export function Shell() {
     queryFn: () => api<ReportAdminSummaryData>("/api/v1/admin/reports/summary"),
     enabled: Boolean(session?.authenticated && session.roles.reportAdmin),
     staleTime: 30_000,
-    refetchInterval: LIVE_REFRESH_INTERVAL_MS,
+    refetchInterval: HEADER_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false
   });
   const unresolvedTicketCount = reportSummary.data?.data.unresolvedCount ?? 0;
