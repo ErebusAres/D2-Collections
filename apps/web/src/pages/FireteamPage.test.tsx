@@ -113,6 +113,64 @@ describe("Fireteam tracked items", () => {
     expect(screen.queryByText("Weekly order")).toBeNull();
   });
 
+  it("replaces a pending red removal with the green completion state when confirmation arrives", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><FireteamPage /></QueryClientProvider>);
+
+    await screen.findByText("Weekly order");
+    const missing = envelope();
+    missing.data.members[0]!.trackedItems = missing.data.members[0]!.trackedItems.slice(1);
+    act(() => client.setQueryData(["fireteam", "c1"], missing));
+    await waitFor(() => expect(screen.getByText("Weekly order").closest("[data-tracking-state]")?.getAttribute("data-tracking-state")).toBe("removing"));
+
+    const completed = envelope();
+    const completedItem = completed.data.members[0]!.trackedItems[0]!;
+    completed.data.members[0]!.trackedItems = completed.data.members[0]!.trackedItems.slice(1);
+    completed.data.members[0]!.recentlyCompletedItems = [{
+      ...completedItem,
+      percent: 100,
+      objectives: completedItem.objectives.map((objective) => ({ ...objective, progress: objective.completionValue, percent: 100, complete: true })),
+      completedAt: "2026-07-22T12:01:00.000Z"
+    }];
+    act(() => client.setQueryData(["fireteam", "c1"], completed));
+
+    await waitFor(() => {
+      const items = screen.getAllByText("Weekly order");
+      expect(items).toHaveLength(1);
+      expect(items[0]!.closest("[data-tracking-state]")?.getAttribute("data-tracking-state")).toBe("exiting");
+      expect(items[0]!.closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("completed");
+    });
+    expect(playCompletionChime).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets confirmed completion override an in-flight manual untrack state", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><FireteamPage /></QueryClientProvider>);
+    await screen.findByText("Weekly order");
+
+    fireEvent.click(screen.getByRole("button", { name: "Untrack Weekly order from Fireteam" }));
+    expect(screen.getByText("Weekly order").closest("[data-tracking-state]")?.getAttribute("data-tracking-state")).toBe("removing");
+
+    const completed = envelope();
+    const completedItem = completed.data.members[0]!.trackedItems[0]!;
+    completed.data.members[0]!.trackedItems = completed.data.members[0]!.trackedItems.slice(1);
+    completed.data.members[0]!.recentlyCompletedItems = [{
+      ...completedItem,
+      percent: 100,
+      objectives: completedItem.objectives.map((objective) => ({ ...objective, progress: objective.completionValue, percent: 100, complete: true })),
+      completedAt: "2026-07-22T12:02:00.000Z"
+    }];
+    act(() => client.setQueryData(["fireteam", "c1"], completed));
+
+    await waitFor(() => {
+      const item = screen.getByText("Weekly order").closest("[data-tracking-state]");
+      expect(item?.getAttribute("data-tracking-state")).toBe("exiting");
+      expect(item?.closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("completed");
+    });
+  });
+
   it("removes a known completion after the exit and does not replay it after a remount", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const completed = envelope();

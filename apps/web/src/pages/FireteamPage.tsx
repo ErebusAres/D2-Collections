@@ -230,6 +230,24 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
     removalTimers.current.clear();
   }, []);
   const recentlyCompletedItems = member.recentlyCompletedItems || [];
+  const completedItemKeys = new Set(recentlyCompletedItems.map(trackedItemKey));
+  const completedItemSignature = [...completedItemKeys].sort().join("|");
+  useEffect(() => {
+    if (!completedItemKeys.size) return;
+    setRemovedItems((current) => {
+      const next = new Map(current);
+      let changed = false;
+      for (const key of completedItemKeys) {
+        if (next.delete(key)) changed = true;
+        const timer = removalTimers.current.get(key);
+        if (timer) {
+          window.clearTimeout(timer);
+          removalTimers.current.delete(key);
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [completedItemSignature]);
   const [dismissedCompletions, setDismissedCompletions] = useState<Set<string>>(() => readDismissedCompletionEvents(member.membershipId));
   const visibleCompletions = recentlyCompletedItems.filter((item) => !dismissedCompletions.has(completionEventKey(item)));
   const visibleCompletionKeys = visibleCompletions.map(completionEventKey).join("|");
@@ -248,7 +266,8 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
   }, [member.membershipId, visibleCompletionKeys]);
   const completingKeys = new Set(visibleCompletions.map(trackedItemKey));
   const orderedTrackedItems = orderTrackedItems(trackedItems, itemOrder);
-  const displayedItems = [...orderedTrackedItems.filter((item) => !completingKeys.has(trackedItemKey(item))), ...visibleCompletions, ...removedItems.values()];
+  const visibleRemovedItems = [...removedItems.values()].filter((item) => !completedItemKeys.has(trackedItemKey(item)));
+  const displayedItems = [...orderedTrackedItems.filter((item) => !completingKeys.has(trackedItemKey(item))), ...visibleCompletions, ...visibleRemovedItems];
   const [draggingKey, setDraggingKey] = useState("");
   const [dragOverKey, setDragOverKey] = useState("");
   const finishDrag = () => {
@@ -256,7 +275,8 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
     setDragOverKey("");
   };
   const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
-  const cardEvent = visibleCompletions.length ? "completed" : untrackingKey || removedItems.size ? "removed" : enteringKeys.size ? "added" : "idle";
+  const untrackingIsCompletion = Boolean(untrackingKey && completedItemKeys.has(untrackingKey));
+  const cardEvent = visibleCompletions.length ? "completed" : (!untrackingIsCompletion && untrackingKey) || visibleRemovedItems.length ? "removed" : enteringKeys.size ? "added" : "idle";
   return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""} ${cardEvent === "completed" ? styles.memberCardCompleted : cardEvent === "removed" ? styles.memberCardRemoved : cardEvent === "added" ? styles.memberCardAdded : ""}`} data-tracking-event={cardEvent}>
     <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "public" ? "Public location" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
@@ -285,7 +305,8 @@ function TrackedItem({ item, entering = false, completing = false, onUntrack, un
     ? item.trackedInGuardianNexus ? "Untrack in Guardian Nexus and hide while Destiny still tracks it" : "Hide from Fireteam sharing until Destiny stops tracking it"
     : "Untrack in Guardian Nexus";
   const trackingState = completing ? "exiting" : entering ? "entering" : "active";
-  return <div className={`${styles.sharedQuest} ${manageable ? styles.sharedQuestManageable : ""} ${reorderable ? styles.sharedQuestReorderable : ""} ${dragging ? styles.sharedQuestDragging : ""} ${dragOver ? styles.sharedQuestDragOver : ""} ${completing ? styles.sharedQuestCompleting : untracking ? styles.sharedQuestRemoving : entering ? styles.sharedQuestEntering : ""}`} data-completion-state={completing ? "exiting" : "active"} data-tracking-state={untracking ? "removing" : trackingState} onDragOver={reorderable ? (event) => { event.preventDefault(); onDragOver?.(); } : undefined} onDrop={reorderable ? (event) => { event.preventDefault(); onDrop?.(); } : undefined}>
+  const removing = untracking && !completing;
+  return <div className={`${styles.sharedQuest} ${manageable ? styles.sharedQuestManageable : ""} ${reorderable ? styles.sharedQuestReorderable : ""} ${dragging ? styles.sharedQuestDragging : ""} ${dragOver ? styles.sharedQuestDragOver : ""} ${completing ? styles.sharedQuestCompleting : removing ? styles.sharedQuestRemoving : entering ? styles.sharedQuestEntering : ""}`} data-completion-state={completing ? "exiting" : "active"} data-tracking-state={removing ? "removing" : trackingState} onDragOver={reorderable ? (event) => { event.preventDefault(); onDragOver?.(); } : undefined} onDrop={reorderable ? (event) => { event.preventDefault(); onDrop?.(); } : undefined}>
     {reorderable && <button type="button" draggable className={styles.sharedQuestDragHandle} aria-label={`Reorder ${item.name}`} title="Drag to reorder" onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", trackedItemKey(item)); onDragStart?.(); }} onDragEnd={onDragEnd} onKeyDown={(event) => {
       if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
       event.preventDefault();
