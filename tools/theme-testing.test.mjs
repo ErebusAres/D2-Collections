@@ -42,6 +42,85 @@ test("Theme Testing stays isolated from production notification and Fireteam sel
   assert.doesNotMatch(styleSource, /data-location-theme/);
 });
 
+test("Fireteam testing renders layered destination environments instead of two shared rails", () => {
+  for (const layer of ["destinationWorld", "worldBackdrop", "worldLandmark", "worldWeather", "worldForeground", "worldAccent"]) {
+    assert.match(pageSource, new RegExp(`styles\\.${layer}`));
+    assert.match(styleSource, new RegExp(`\\.${layer}`));
+  }
+  for (const optionName of [
+    "Encroaching World",
+    "Monument Field",
+    "Atmospheric Canopy",
+    "Fractured Perimeter",
+    "Environmental Breach",
+    "Living Passage",
+    "Artifact Invasion",
+    "Cinematic Restraint"
+  ]) {
+    assert.match(dataSource, new RegExp(optionName));
+  }
+});
+
+test("Notification families render purpose-built event layers and animations", () => {
+  for (const layer of ["notificationEvent", "eventPrimary", "eventSecondary", "eventParticles"]) {
+    assert.match(pageSource, new RegExp(`styles\\.${layer}`));
+    assert.match(styleSource, new RegExp(`\\.${layer}`));
+  }
+  for (const animation of [
+    "distortionRift",
+    "crucibleStrike",
+    "trialsEye",
+    "ironCloth",
+    "gambitCoil",
+    "vanguardFormation",
+    "exoticDecrypt",
+    "legendaryFacet",
+    "seasonDial",
+    "eververseRefract",
+    "transmissionLock",
+    "completionWreath",
+    "hazardMarch",
+    "outageDropout",
+    "terminalDecrypt",
+    "systemPlanet"
+  ]) {
+    assert.match(styleSource, new RegExp(`@keyframes ${animation}\\b`));
+  }
+  const distortion = section(styleSource, "/* Distortion is", ".notificationPreview[data-notification-motif=\"cross\"]");
+  assert.match(distortion, /radial-gradient\(ellipse/);
+  assert.match(distortion, /molten|reality wound/i);
+  assert.doesNotMatch(distortion, /repeating-radial-gradient/);
+});
+
+test("Every destination family has its own environmental motion language", () => {
+  const themeAnimations = [
+    "europaSnow",
+    "towerLight",
+    "lunarAsh",
+    "awokenMotes",
+    "neomunaRain",
+    "radiolariaFall",
+    "edzPollen",
+    "cosmodromeSparks",
+    "throneMoths",
+    "prismaticShear",
+    "marsDust",
+    "gravityDebris",
+    "soulEmbers",
+    "eternityStars",
+    "orbitStars",
+    "directorGrid"
+  ];
+  for (const animation of themeAnimations) {
+    assert.match(styleSource, new RegExp(`--world-weather-animation:${animation}\\b`));
+    assert.match(styleSource, new RegExp(`@keyframes ${animation}\\b`));
+  }
+  const europa = section(styleSource, "/* Europa —", "/* Tower / H.E.L.M.");
+  assert.match(europa, /polygon\(/);
+  assert.ok((europa.match(/radial-gradient/g) || []).length >= 4, "Europa needs several non-uniform snow fields");
+  assert.match(europa, /iceCardGlint/);
+});
+
 test("Theme Testing is lazy-routed and developer-admin gated", () => {
   assert.match(appSource, /lazy\(\(\) => import\("\.\/pages\/ThemeTestingPage"\)/);
   assert.match(appSource, /path="admin\/theme-testing"/);
