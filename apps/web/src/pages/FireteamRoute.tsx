@@ -1,4 +1,4 @@
-import type { FireteamData, FireteamSharingMode, FireteamTrackedItem } from "@guardian-nexus/contracts";
+import type { FireteamData, FireteamSharingMode, QuestData, QuestProgress } from "@guardian-nexus/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -22,8 +22,15 @@ function FireteamRefreshCountdown() {
   const result = useQuery({
     queryKey: ["fireteam", selectedCharacterId],
     queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled: Boolean(session?.authenticated),
+    enabled: Boolean(session?.authenticated && selectedCharacterId),
     refetchInterval: false
+  });
+  const orders = useQuery({
+    queryKey: ["quests", selectedCharacterId, ""],
+    queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=`),
+    enabled: Boolean(session?.authenticated && selectedCharacterId),
+    refetchInterval: false,
+    refetchIntervalInBackground: false
   });
   const data = result.data?.data;
   const membershipId = session?.guardian?.membershipId || "";
@@ -40,13 +47,12 @@ function FireteamRefreshCountdown() {
   const [timerPinned, setTimerPinned] = useState(false);
   const refreshRunning = useRef(false);
   const timerRail = useRef<HTMLElement | null>(null);
-  const canRefreshTrackedProgress = Boolean(data?.sharingEnabled && mode && mode !== "off" && selectedCharacterId);
-  const trackedSeasonalOrders = useMemo(() => {
-    const self = data?.members.find((member) => member.isSelf);
-    return (self?.trackedItems || [])
-      .filter((item) => item.kind === "order" && item.trackedInDestiny)
-      .sort((left, right) => left.name.localeCompare(right.name));
-  }, [data?.members]);
+  const canRefreshFireteam = Boolean(session?.authenticated && selectedCharacterId);
+  const canShareTrackedProgress = Boolean(data?.sharingEnabled && mode && mode !== "off");
+  const activeSeasonalOrders = useMemo(
+    () => (orders.data?.data.quests || []).filter((quest) => quest.category === "order" && !questComplete(quest)),
+    [orders.data?.data.quests]
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
@@ -72,33 +78,38 @@ function FireteamRefreshCountdown() {
     };
   }, []);
 
-  const refreshTrackedProgress = useCallback(async () => {
-    if (refreshRunning.current || !selectedCharacterId || !mode || mode === "off") return;
+  const refreshFireteamProgress = useCallback(async () => {
+    if (refreshRunning.current || !selectedCharacterId) return;
     refreshRunning.current = true;
     setRefreshing(true);
     try {
-      await queuedApi("/api/v1/fireteam/share", {
-        method: "PUT",
-        headers: mutationHeaders(session?.csrfToken),
-        body: JSON.stringify({
-          characterId: selectedCharacterId,
-          sitePinnedQuestIds: readStringArray(storageKey, 40),
-          siteTrackedGuardianRankIds: readPreferenceArray(guardianRankTracked),
-          siteTrackedJourneyIds: readPreferenceArray(journeyTracked),
-          siteTrackedCollectionIds: readPreferenceArray(collectionTracked),
-          hiddenTrackedItemKeys,
-          mode: mode as FireteamSharingMode
-        })
-      });
-      await queryClient.refetchQueries({ queryKey: ["fireteam", selectedCharacterId], exact: true, type: "active" });
+      if (canShareTrackedProgress) {
+        await queuedApi("/api/v1/fireteam/share", {
+          method: "PUT",
+          headers: mutationHeaders(session?.csrfToken),
+          body: JSON.stringify({
+            characterId: selectedCharacterId,
+            sitePinnedQuestIds: readStringArray(storageKey, 40),
+            siteTrackedGuardianRankIds: readPreferenceArray(guardianRankTracked),
+            siteTrackedJourneyIds: readPreferenceArray(journeyTracked),
+            siteTrackedCollectionIds: readPreferenceArray(collectionTracked),
+            hiddenTrackedItemKeys,
+            mode: mode as FireteamSharingMode
+          })
+        });
+      }
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ["fireteam", selectedCharacterId], exact: true, type: "active" }),
+        queryClient.refetchQueries({ queryKey: ["quests", selectedCharacterId, ""], exact: true, type: "active" })
+      ]);
     } finally {
       refreshRunning.current = false;
       setRefreshing(false);
     }
-  }, [collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
+  }, [canShareTrackedProgress, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
 
   useEffect(() => {
-    if (!autoRefresh || !canRefreshTrackedProgress) {
+    if (!autoRefresh || !canRefreshFireteam) {
       setNextRefreshAt(null);
       return;
     }
@@ -107,7 +118,7 @@ function FireteamRefreshCountdown() {
     const schedule = (delay: number) => {
       setNextRefreshAt(Date.now() + delay);
       timer = window.setTimeout(async () => {
-        try { await refreshTrackedProgress(); } catch { /* The page already surfaces service warnings. */ }
+        try { await refreshFireteamProgress(); } catch { /* The page already surfaces service warnings. */ }
         if (!cancelled) schedule(LIVE_REFRESH_INTERVAL_MS);
       }, delay);
     };
@@ -116,44 +127,52 @@ function FireteamRefreshCountdown() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [autoRefresh, canRefreshTrackedProgress, refreshTrackedProgress]);
+  }, [autoRefresh, canRefreshFireteam, refreshFireteamProgress]);
 
   const label = useMemo(() => {
-    if (!autoRefresh) return "Tracked refresh off";
-    if (!canRefreshTrackedProgress) return "Tracked sharing off";
-    if (refreshing) return "Refreshing tracked quests";
-    if (!nextRefreshAt) return "Scheduling tracked refresh";
+    if (!autoRefresh) return "Fireteam refresh off";
+    if (!canRefreshFireteam) return "Fireteam refresh unavailable";
+    if (refreshing) return "Refreshing Fireteam data";
+    if (!nextRefreshAt) return "Scheduling Fireteam refresh";
     const seconds = Math.max(0, Math.ceil((nextRefreshAt - now) / 1_000));
-    return `Tracked refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-  }, [autoRefresh, canRefreshTrackedProgress, nextRefreshAt, now, refreshing]);
+    return `Fireteam refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  }, [autoRefresh, canRefreshFireteam, nextRefreshAt, now, refreshing]);
 
   return <aside ref={timerRail} className={styles.fireteamRefreshRail}>
     <div className={`${styles.fireteamRefreshDock} ${timerPinned ? styles.fireteamRefreshDockPinned : ""}`}>
       <span className={styles.fireteamRefreshTimer} aria-live="polite"><Timer size={15} />{label}</span>
       <section className={styles.fireteamTrackedOrders}>
         <header>
-          <span>Tracked in Destiny</span>
+          <span>Active in Destiny · {activeSeasonalOrders.length}</span>
           <Link to="/journey/season"><strong>Seasonal Hub Orders</strong><ArrowRight /></Link>
         </header>
-        {trackedSeasonalOrders.length
-          ? trackedSeasonalOrders.map((order) => <TrackedSeasonalOrder key={`${order.kind}:${order.id}`} order={order} />)
-          : <p>No in-game orders tracked.</p>}
+        {activeSeasonalOrders.length
+          ? activeSeasonalOrders.map((order) => <SeasonalHubOrder key={order.instanceId} order={order} />)
+          : orders.isLoading
+            ? <p>Loading active Hub orders…</p>
+            : orders.isError
+              ? <p>Hub orders are temporarily unavailable.</p>
+              : <p>No active Seasonal Hub orders.</p>}
       </section>
     </div>
   </aside>;
 }
 
-function TrackedSeasonalOrder({ order }: { order: FireteamTrackedItem }) {
+function SeasonalHubOrder({ order }: { order: QuestProgress }) {
   const activeObjective = order.objectives.find((objective) => !objective.complete) || order.objectives[0];
-  return <Link className={styles.fireteamTrackedOrder} to={`/quests/${encodeURIComponent(order.id)}`}>
+  return <Link className={styles.fireteamTrackedOrder} to={`/quests/${encodeURIComponent(order.instanceId)}`}>
     <div>{order.icon ? <img src={order.icon} alt="" /> : <Timer />}</div>
     <span>
       <strong>{order.name}</strong>
-      <small>{activeObjective?.name || order.context}</small>
+      <small>{activeObjective?.name || order.currentStep || order.itemType || "Seasonal Hub order"}</small>
       <i><b style={{ width: `${order.percent}%` }} /></i>
     </span>
     <em>{order.percent}%</em>
   </Link>;
+}
+
+function questComplete(quest: QuestProgress): boolean {
+  return quest.percent >= 100 || (quest.objectives.length > 0 && quest.objectives.every((objective) => objective.complete));
 }
 
 function readPreferenceArray(value?: string): string[] {
