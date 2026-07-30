@@ -1,22 +1,909 @@
-[data-notification-atmosphere]{position:absolute;z-index:0;top:38px;right:0;left:0;height:190px;overflow:hidden;pointer-events:none;opacity:.92;mask-image:linear-gradient(#000 0 68%,transparent);filter:saturate(1.2);animation:gn-in 1.35s cubic-bezier(.16,.78,.2,1) both}
-[data-notification-atmosphere]::before,[data-notification-atmosphere]::after{content:"";position:absolute;pointer-events:none}
-[data-guardian-animation="distortion"]{box-shadow:inset 5px 0 #ff365f,0 0 24px #e92d564f!important;animation:gn-banner-tear 1.2s cubic-bezier(.12,.82,.17,1) both!important}[data-guardian-animation="distortion"]::before{background:radial-gradient(ellipse at 18% 55%,#080813 0 8%,#35112f 16%,#ff315d 18%,transparent 21%)!important;filter:drop-shadow(0 0 8px #ff315d);animation:gn-banner-rift 1.5s ease-out both!important}
-[data-notification-atmosphere="distortion"]{background:linear-gradient(108deg,#28091fbd,rgba(91,20,56,.58) 42%,transparent 76%)}[data-notification-atmosphere="distortion"]::before{top:-56px;left:2%;width:min(680px,66vw);height:205px;border-radius:50%;background:radial-gradient(circle at 23% 38%,#fff 0 .7px,transparent 1.6px),radial-gradient(circle at 61% 67%,#dabdff 0 1px,transparent 2px),radial-gradient(circle at 77% 29%,#fff 0 .8px,transparent 1.7px),radial-gradient(ellipse,#080712 0 40%,#1c0d2d 54%,#5c153c 59%,#ff2856 62%,#ff7790 64%,transparent 68%);filter:drop-shadow(0 0 10px #ff2758) drop-shadow(0 0 32px #d71948);transform:rotate(-7deg);animation:gn-distortion-mouth 4.8s ease-in-out infinite alternate}[data-notification-atmosphere="distortion"]::after{inset:-15px 0 0;background:linear-gradient(156deg,transparent 0 18%,#ff6d884d 18.4% 19%,#ff2857 19.4% 20%,transparent 20.5% 100%),linear-gradient(23deg,transparent 0 31%,#ff315e 31.4% 32%,#ff829864 32.4% 33%,transparent 33.5%),linear-gradient(171deg,transparent 0 53%,#c914484f 53.3% 54%,#ff4a6d 54.3% 55%,transparent 55.4%);clip-path:polygon(0 9%,16% 32%,34% 16%,51% 39%,72% 19%,100% 31%,100% 72%,76% 61%,58% 83%,39% 58%,15% 76%,0 54%);filter:drop-shadow(0 0 7px #ff2857);animation:gn-distortion-filaments 5.4s ease-in-out infinite alternate}
-[data-notification-atmosphere="ironBanner"]{transform-origin:top;background:linear-gradient(100deg,transparent 2%,#193f2766 3% 54%,transparent 59%),linear-gradient(172deg,#7fc78e28,transparent 46%);clip-path:polygon(3% 0,59% 0,54% 88%,34% 79%,7% 100%);filter:drop-shadow(0 12px 16px #102d1b);animation:gn-unfurl 1.8s cubic-bezier(.12,.76,.16,1) both,gn-cloth 3.6s 1.8s ease-in-out infinite alternate}[data-notification-atmosphere="ironBanner"]::before{top:-48px;left:20%;width:128px;height:128px;border:3px solid #b3efba88;box-shadow:0 0 24px #69b87966,inset 0 0 18px #69b87944;transform:rotate(45deg)}
-[data-notification-atmosphere="crucible"]{background:radial-gradient(ellipse at 28% 0,#d94c493e,transparent 52%)}[data-notification-atmosphere="crucible"]::before,[data-notification-atmosphere="crucible"]::after{top:56px;left:4%;width:68%;height:8px;background:linear-gradient(90deg,transparent,#ff928b,#d93d42,transparent);box-shadow:0 0 18px #e54c4c,0 0 42px #9e262b;transform:rotate(13deg);animation:gn-strike 2.5s ease-in-out infinite}[data-notification-atmosphere="crucible"]::after{transform:rotate(-13deg);animation-delay:-1.25s}
-[data-notification-atmosphere="trials"]{background:linear-gradient(106deg,#6f531b4d,transparent 52%)}[data-notification-atmosphere="trials"]::before{top:-72px;left:12%;width:170px;height:170px;border:5px solid #ffe19a;border-radius:50%;box-shadow:0 0 25px #e7b94e,inset 0 0 30px #d69e30;clip-path:polygon(0 35%,100% 35%,100% 65%,0 65%);animation:gn-trials-eye 3.8s ease-in-out infinite}[data-notification-atmosphere="trials"]::after{top:0;left:4%;width:340px;height:185px;background:conic-gradient(from 248deg at 50% 0,transparent 0 17deg,#f5cb684f 18deg 22deg,transparent 23deg 39deg,#ffe59e32 40deg 44deg,transparent 45deg);animation:gn-lighthouse 4.5s ease-in-out infinite alternate}
-[data-notification-atmosphere="gambit"]{background:radial-gradient(ellipse at 22% 0,#188c4d48,transparent 48%)}[data-notification-atmosphere="gambit"]::before{top:-65px;left:10%;width:180px;height:180px;border:12px double #6bf2a2;border-right-color:transparent;border-radius:50%;box-shadow:0 0 24px #28c56c;animation:gn-gambit-coil 4s cubic-bezier(.5,.1,.5,.9) infinite}[data-notification-atmosphere="gambit"]::after{top:44px;left:185px;width:18px;height:18px;border-radius:50%;background:#b7ffd0;box-shadow:0 0 12px #7cffae,0 0 40px #24c76b;animation:gn-mote-bank 2.2s ease-in-out infinite}
-[data-notification-atmosphere="vanguard"]{background:linear-gradient(105deg,#173d704f,transparent 55%)}[data-notification-atmosphere="vanguard"]::before{top:-30px;left:5%;width:270px;height:190px;background:linear-gradient(145deg,transparent 39%,#87b9ef 40% 44%,transparent 45%),linear-gradient(35deg,transparent 39%,#477ab4 40% 44%,transparent 45%);clip-path:polygon(0 0,100% 0,82% 100%,18% 100%);filter:drop-shadow(0 0 15px #477ab4);animation:gn-vanguard-rise 3.6s ease-in-out infinite alternate}[data-notification-atmosphere="vanguard"]::after{top:25px;left:126px;width:16px;height:125px;background:linear-gradient(#d8ebff,transparent);box-shadow:0 0 16px #8fc4ff;animation:gn-vanguard-beacon 2.4s ease-in-out infinite}
-[data-notification-atmosphere="exotic"]{background:radial-gradient(ellipse at 18% 0,#8c6a1f52,transparent 48%)}[data-notification-atmosphere="exotic"]::before{top:-54px;left:11%;width:150px;height:150px;border:3px solid #f3d77e;background:conic-gradient(from 22.5deg,#f3d77e32 0 12.5%,transparent 12.5% 25%,#f3d77e32 25% 37.5%,transparent 37.5% 50%,#f3d77e32 50% 62.5%,transparent 62.5% 75%,#f3d77e32 75% 87.5%,transparent 87.5%);clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%);box-shadow:0 0 28px #d4ad4c;animation:gn-exotic-decrypt 4.2s linear infinite}[data-notification-atmosphere="exotic"]::after{top:12px;left:176px;width:140px;height:2px;background:linear-gradient(90deg,#ffe89e,transparent);box-shadow:0 18px #f0cb6870,0 36px #f0cb6840;animation:gn-loot-scan 2.7s ease-in-out infinite}
-[data-notification-atmosphere="legendary"]{background:linear-gradient(110deg,#4c337d5c,transparent 52%)}[data-notification-atmosphere="legendary"]::before{top:-42px;left:10%;width:170px;height:165px;background:linear-gradient(135deg,#d9c1ff66,#62418e44 45%,#b38ce85c);clip-path:polygon(50% 0,92% 24%,79% 87%,50% 100%,18% 82%,7% 28%);filter:drop-shadow(0 0 18px #9f74d8);animation:gn-legendary-form 4s ease-in-out infinite alternate}[data-notification-atmosphere="legendary"]::after{top:15px;left:7%;width:280px;height:100px;background:linear-gradient(112deg,transparent 39%,#e5d4ff8c 40% 41%,transparent 42%),linear-gradient(68deg,transparent 51%,#9f74d86b 52% 53%,transparent 54%);animation:gn-prism-light 3s ease-in-out infinite}
-[data-notification-atmosphere="seasonal"]{background:radial-gradient(ellipse at 18% 0,#16777c4f,transparent 49%)}[data-notification-atmosphere="seasonal"]::before{top:-72px;left:8%;width:190px;height:190px;border:2px solid #83e1df;border-left-color:transparent;border-bottom-color:#3ca9ae;border-radius:50%;box-shadow:0 0 18px #3ca9ae;animation:gn-season-orbit 5s linear infinite}[data-notification-atmosphere="seasonal"]::after{top:48px;left:178px;width:25px;height:9px;border:2px solid #b7ffff;background:#3ca9ae;box-shadow:0 0 14px #75e4e0;animation:gn-satellite 5s linear infinite}
-[data-notification-atmosphere="eververse"]{background:linear-gradient(105deg,#496c794d,transparent 54%)}[data-notification-atmosphere="eververse"]::before{top:-38px;left:6%;width:250px;height:155px;background:conic-gradient(from 30deg at 50% 50%,#e5fbff70,transparent 12%,#8fb9c560 24%,transparent 36%,#d7f8ff65 48%,transparent 60%,#87b0bc55 72%,transparent 84%,#e5fbff70);clip-path:polygon(50% 0,100% 25%,88% 82%,50% 100%,12% 82%,0 25%);filter:drop-shadow(0 0 17px #a8c8d0);animation:gn-eververse-facet 4.6s ease-in-out infinite alternate}
-[data-notification-atmosphere="bungieNews"]{background:linear-gradient(90deg,#24547c59,transparent 64%)}[data-notification-atmosphere="bungieNews"]::before{top:15px;left:5%;width:310px;height:105px;border:1px solid #8fceff;background:linear-gradient(90deg,#62a7dc26,transparent);box-shadow:0 0 15px #4689bd;clip-path:polygon(0 0,88% 0,100% 18%,100% 100%,12% 100%,0 82%);animation:gn-transmission-in 3.5s ease-in-out infinite}[data-notification-atmosphere="bungieNews"]::after{top:35px;left:8%;width:230px;height:3px;background:#a8d9ff;box-shadow:0 17px #79bceaaa,0 34px #79bcea77,0 51px #79bcea44;animation:gn-transmission-scan 2.4s linear infinite}
-[data-notification-atmosphere="completion"]{background:radial-gradient(ellipse at 18% 0,#24794d52,transparent 49%)}[data-notification-atmosphere="completion"]::before{top:-62px;left:10%;width:170px;height:170px;border:7px double #8af0b9;border-radius:50%;box-shadow:0 0 22px #52d38e;animation:gn-completion-wreath 1.8s cubic-bezier(.15,.8,.2,1) both}[data-notification-atmosphere="completion"]::after{top:20px;left:148px;width:72px;height:35px;border-left:8px solid #c1ffdd;border-bottom:8px solid #c1ffdd;filter:drop-shadow(0 0 10px #64d99b);transform:rotate(-45deg);animation:gn-completion-check 1.2s .35s cubic-bezier(.15,.8,.2,1) both}
-[data-notification-atmosphere="warning"]{background:linear-gradient(105deg,#77501352,transparent 56%)}[data-notification-atmosphere="warning"]::before{inset:0 55% 0 3%;background:repeating-linear-gradient(135deg,#e0aa43 0 16px,#261d0d 17px 32px);clip-path:polygon(0 25%,100% 0,88% 75%,8% 100%);opacity:.52;animation:gn-warning-stripe 2.4s linear infinite}[data-notification-atmosphere="warning"]::after{top:20px;left:20%;width:12px;height:95px;background:#ffd17d;box-shadow:0 0 18px #e0aa43;animation:gn-warning-pulse 1.1s ease-in-out infinite}
-[data-notification-atmosphere="redemptionCode"]{background:linear-gradient(105deg,#345a914f,transparent 55%)}[data-notification-atmosphere="redemptionCode"]::before{top:12px;left:8%;width:210px;height:115px;border:2px solid #a9c8ff;background:linear-gradient(90deg,#6f91c92d,transparent);clip-path:polygon(0 10%,10% 0,100% 0,100% 90%,90% 100%,0 100%);box-shadow:0 0 17px #6f91c9;animation:gn-code-decode 3.2s steps(6) infinite}[data-notification-atmosphere="redemptionCode"]::after{top:25px;left:11%;width:150px;height:4px;background:#d4e4ff;box-shadow:24px 16px #8cace0,8px 32px #b6cefa,42px 48px #7f9fd5,15px 64px #d4e4ff;animation:gn-code-lines 2s ease-in-out infinite alternate}
-[data-notification-atmosphere="system"]{background:radial-gradient(ellipse at 18% 0,#456d7b4d,transparent 48%)}[data-notification-atmosphere="system"]::before{top:-60px;left:9%;width:175px;height:175px;border:2px solid #bde9ef;border-radius:50%;background:radial-gradient(circle at 35% 35%,#bde9ef26,transparent 38%);box-shadow:0 0 20px #7da5b3;animation:gn-world-turn 8s linear infinite}[data-notification-atmosphere="system"]::after{top:7px;left:4%;width:285px;height:120px;border:2px solid #8fc1cc;border-right-color:transparent;border-left-color:transparent;border-radius:50%;transform:rotate(-12deg);animation:gn-system-orbit 4.5s linear infinite}
-[data-notification-atmosphere="outage"]{background:repeating-linear-gradient(0deg,transparent 0 6px,#b83e4938 7px 9px);animation:gn-outage 1.3s steps(5,end) infinite}[data-notification-atmosphere="outage"]::before{inset:12px 0 auto;width:100%;height:8px;background:#ff788255;box-shadow:0 42px #b83e4933;animation:gn-break 1.7s steps(4) infinite}
-.gn-rank-fanfare{box-shadow:inset 4px 0 0 #f2d887,0 0 22px #f2d8873d!important;animation:gn-rank .95s ease-out both!important}.gn-rank-atmosphere::before{content:"◇"!important;color:#ffe28b!important;font-size:130px!important;animation:gn-symbol 2s ease-out both!important}
-@keyframes gn-in{from{opacity:0;transform:translateY(-48px) scaleY(.72);filter:blur(9px) brightness(1.8)}}@keyframes gn-banner-tear{from{opacity:0;clip-path:polygon(0 44%,0 44%,0 56%,0 56%);filter:brightness(2)}70%{clip-path:polygon(0 8%,84% 23%,100% 50%,78% 83%,0 94%)}to{clip-path:inset(0)}}@keyframes gn-banner-rift{from{opacity:0;transform:scale(.08,.4);transform-origin:left}65%{opacity:1;transform:scale(1.15,.9)}to{opacity:.45;transform:scale(1)}}@keyframes gn-distortion-mouth{from{transform:rotate(-7deg) scale(.92);filter:drop-shadow(0 0 8px #ff2758) drop-shadow(0 0 22px #d71948)}to{transform:rotate(-4deg) scale(1.08,1.03);filter:drop-shadow(0 0 15px #ff5577) drop-shadow(0 0 45px #d71948)}}@keyframes gn-distortion-filaments{to{transform:translateX(4%) scaleY(1.08);filter:drop-shadow(0 0 13px #ff2857)}}@keyframes gn-unfurl{from{opacity:0;transform:scaleY(.015) skewX(-8deg)}}@keyframes gn-cloth{to{transform:skewX(3deg) scaleX(1.035);filter:brightness(1.4)}}@keyframes gn-strike{50%{transform:translateX(24%) rotate(13deg) scaleX(1.38);filter:brightness(1.45)}}@keyframes gn-trials-eye{50%{transform:scaleX(1.18);filter:brightness(1.5)}}@keyframes gn-lighthouse{to{transform:rotate(7deg);filter:brightness(1.4)}}@keyframes gn-gambit-coil{to{transform:rotate(360deg)}}@keyframes gn-mote-bank{50%{transform:translate(-42px,34px) scale(1.7);filter:brightness(1.6)}}@keyframes gn-vanguard-rise{to{transform:translateY(-13px);filter:brightness(1.35)}}@keyframes gn-vanguard-beacon{50%{transform:scaleY(1.3);opacity:.5}}@keyframes gn-exotic-decrypt{to{transform:rotate(360deg)}}@keyframes gn-loot-scan{50%{transform:translateX(35px);filter:brightness(1.7)}}@keyframes gn-legendary-form{to{transform:rotateY(18deg) scale(1.1);filter:brightness(1.35)}}@keyframes gn-prism-light{50%{transform:translateX(24px);opacity:.35}}@keyframes gn-season-orbit{to{transform:rotate(360deg)}}@keyframes gn-satellite{50%{transform:translate(18px,-48px) rotate(18deg)}to{transform:translate(-55px,-73px) rotate(42deg)}}@keyframes gn-eververse-facet{to{transform:skewX(5deg) scale(1.08);filter:hue-rotate(16deg) brightness(1.4)}}@keyframes gn-transmission-in{50%{transform:translateX(8px);filter:brightness(1.4)}}@keyframes gn-transmission-scan{to{transform:translateY(45px);opacity:.25}}@keyframes gn-completion-wreath{from{opacity:0;transform:scale(.15) rotate(-45deg)}70%{transform:scale(1.15) rotate(8deg)}}@keyframes gn-completion-check{from{opacity:0;transform:rotate(-45deg) scale(.1)}70%{transform:rotate(-45deg) scale(1.25)}to{transform:rotate(-45deg)}}@keyframes gn-warning-stripe{to{background-position:46px 0}}@keyframes gn-warning-pulse{50%{opacity:.2;filter:brightness(1.8)}}@keyframes gn-code-decode{50%{clip-path:polygon(0 10%,10% 0,100% 0,100% 90%,90% 100%,0 100%);transform:translateX(8px)}}@keyframes gn-code-lines{to{transform:translateX(22px);filter:brightness(1.6)}}@keyframes gn-world-turn{to{transform:rotate(360deg)}}@keyframes gn-system-orbit{to{transform:rotate(348deg)}}@keyframes gn-outage{25%{opacity:.85;transform:translateX(6px)}55%{opacity:.16;transform:translateX(-7px)}}@keyframes gn-break{50%{transform:translate(11px,38px) scaleX(.62)}}@keyframes gn-symbol{50%{transform:scale(1.24) rotate(9deg);filter:brightness(1.45)}}@keyframes gn-rank{from{opacity:0;filter:brightness(2.4);clip-path:inset(0 50%)}to{clip-path:inset(0)}}
-@media(prefers-reduced-motion:reduce){:is([data-notification-atmosphere],[data-notification-atmosphere]::before,[data-notification-atmosphere]::after,.gn-rank-fanfare){animation:none}}html[data-notification-reduced-motion=true] :is([data-notification-atmosphere],[data-notification-atmosphere]::before,[data-notification-atmosphere]::after,.gn-rank-fanfare){animation:none}
+/*
+ * Guardian notification fanfare.
+ *
+ * Each notification family has its own visual grammar. The atmosphere performs
+ * for 30 seconds, then fades cleanly even though the banner may remain active.
+ */
+
+[data-notification-atmosphere] {
+  position: absolute;
+  z-index: 0;
+  top: 38px;
+  right: 0;
+  left: 0;
+  height: 210px;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  mask-image: linear-gradient(#000 0 72%, transparent);
+  filter: saturate(1.16);
+  animation: gn-fanfare-lifetime 30s linear forwards;
+}
+
+[data-notification-atmosphere]::before,
+[data-notification-atmosphere]::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Distortion — reality tears, then red corruption physically spreads across the banner. */
+[data-guardian-animation="distortion"] {
+  box-shadow:
+    inset 5px 0 0 #ff355f,
+    inset 0 -1px 0 #ff6e865e,
+    0 0 30px #d8174d58 !important;
+  animation: gn-distortion-banner-hit 1s cubic-bezier(.12,.82,.16,1) both !important;
+}
+
+[data-guardian-animation="distortion"]::before {
+  inset: 0 !important;
+  opacity: .76;
+  background:
+    radial-gradient(ellipse at 17% 50%, #05060d 0 5%, #2b0b22 10%, #fe315c 13%, transparent 18%),
+    linear-gradient(107deg, #bd123fbd, #ff315f6e 28%, #5d123d6e 54%, transparent 75%) !important;
+  clip-path: polygon(0 3%, 0 3%, 0 97%, 0 97%);
+  filter: drop-shadow(0 0 12px #ff315f);
+  animation:
+    gn-distortion-banner-spread 4.6s cubic-bezier(.12,.76,.16,1) both,
+    gn-banner-effect-life 30s linear forwards !important;
+}
+
+[data-notification-atmosphere="distortion"] {
+  background:
+    radial-gradient(ellipse at 12% 0, #5f0b315c, transparent 48%),
+    linear-gradient(106deg, #220719e8 0, #57113bb5 36%, #b1194d44 61%, transparent 80%);
+}
+
+[data-notification-atmosphere="distortion"]::before {
+  inset: -12px -4% 6px -7%;
+  background:
+    radial-gradient(ellipse at 6% 45%, #080711 0 5%, #2a0b25 9%, #a81745 12%, #ff315f 14%, transparent 18%),
+    radial-gradient(ellipse at 23% 62%, #100815 0 6%, #551039 10%, #ff315f 13%, transparent 17%),
+    radial-gradient(ellipse at 49% 31%, #0a0710 0 4%, #5a1038 8%, #ff355f 11%, transparent 15%),
+    linear-gradient(111deg, #8f123fa8, #e8225363 34%, #5b113a4d 63%, transparent 78%);
+  clip-path: polygon(0 4%, 9% 14%, 16% 8%, 23% 25%, 31% 16%, 40% 34%, 49% 24%, 58% 47%, 70% 35%, 82% 59%, 100% 49%, 100% 100%, 0 100%);
+  transform-origin: left center;
+  filter: drop-shadow(0 0 14px #ff315f) drop-shadow(20px 0 35px #bf1649);
+  animation: gn-corruption-front 7s cubic-bezier(.35,.06,.2,1) infinite alternate;
+}
+
+[data-notification-atmosphere="distortion"]::after {
+  inset: -10px 0 0;
+  background:
+    linear-gradient(158deg, transparent 0 17%, #ff789057 17.3% 17.9%, #ff2d5b 18.2% 19.1%, transparent 19.5%),
+    linear-gradient(23deg, transparent 0 31%, #ff315e 31.3% 32.2%, #ff92a54f 32.5% 33%, transparent 33.4%),
+    linear-gradient(171deg, transparent 0 52%, #d6184b62 52.3% 53.2%, #ff486e 53.5% 54.1%, transparent 54.5%),
+    linear-gradient(8deg, transparent 0 69%, #ff315e 69.3% 70%, transparent 70.4%);
+  clip-path: polygon(0 7%, 13% 29%, 27% 13%, 41% 42%, 57% 21%, 73% 52%, 100% 31%, 100% 78%, 79% 63%, 61% 87%, 42% 60%, 19% 82%, 0 56%);
+  filter: drop-shadow(0 0 8px #ff315f);
+  animation: gn-distortion-tears 5.6s steps(7,end) infinite;
+}
+
+/* Iron Banner — an actual ceremonial banner unfurls from a mast; wolf crest follows. */
+[data-guardian-animation="ironBanner"] {
+  box-shadow:
+    inset 5px 0 0 #78bd83,
+    inset 0 -1px 0 #9de1a36b,
+    0 0 26px #3b91504a !important;
+  transform-origin: left center;
+  animation: gn-iron-banner-arrive 1.25s cubic-bezier(.12,.78,.17,1) both !important;
+}
+
+[data-guardian-animation="ironBanner"]::before {
+  inset: 0 !important;
+  opacity: .48;
+  background:
+    linear-gradient(90deg, #d9f0d41c, transparent 13%),
+    repeating-linear-gradient(102deg, transparent 0 42px, #a5d7a82b 43px 45px, transparent 46px 86px) !important;
+  transform-origin: left center;
+  animation:
+    gn-banner-cloth-sweep 4.2s ease-in-out infinite alternate,
+    gn-banner-effect-life 30s linear forwards !important;
+}
+
+[data-notification-atmosphere="ironBanner"] {
+  background:
+    linear-gradient(90deg, #173923a8 0 8%, #2e6840a3 33%, #173b2669 59%, transparent 77%),
+    linear-gradient(180deg, #78b78524, transparent 66%);
+}
+
+[data-notification-atmosphere="ironBanner"]::before {
+  top: -8px;
+  left: 5%;
+  width: min(570px, 68vw);
+  height: 188px;
+  transform-origin: 0 0;
+  background:
+    linear-gradient(90deg, #0e1d12 0 8px, #9ad7a26b 9px 11px, transparent 12px),
+    linear-gradient(102deg, transparent 0 9%, #a9d8ad2b 10% 13%, transparent 14% 36%, #6eaa7830 37% 40%, transparent 41%),
+    linear-gradient(90deg, #1c452b 0, #2b603b 48%, #173622 100%);
+  clip-path: polygon(0 0, 96% 0, 86% 18%, 100% 35%, 88% 53%, 97% 73%, 84% 100%, 0 92%);
+  box-shadow:
+    inset 13px 0 18px #0c1b11a8,
+    inset -32px 0 45px #8fd39b1c,
+    0 14px 24px #0a1a10a8;
+  animation:
+    gn-flag-unfurl 2.2s cubic-bezier(.12,.78,.16,1) both,
+    gn-flag-wave 4.8s 2.2s ease-in-out infinite alternate;
+}
+
+[data-notification-atmosphere="ironBanner"]::after {
+  top: 18px;
+  left: clamp(132px, 20vw, 250px);
+  width: 118px;
+  height: 124px;
+  border: 3px solid #b9e3bcbd;
+  background:
+    linear-gradient(145deg, transparent 0 38%, #b9e3bc 39% 43%, transparent 44%),
+    linear-gradient(35deg, transparent 0 38%, #b9e3bc 39% 43%, transparent 44%),
+    radial-gradient(ellipse at 50% 60%, #a7dbac26, transparent 62%);
+  clip-path: polygon(50% 0, 88% 15%, 100% 49%, 77% 88%, 50% 100%, 23% 88%, 0 49%, 12% 15%);
+  box-shadow: 0 0 24px #8aca9566, inset 0 0 20px #8aca953d;
+  filter: drop-shadow(0 8px 12px #0e2415);
+  animation:
+    gn-wolf-crest 1.4s 1s cubic-bezier(.17,.82,.2,1) both,
+    gn-crest-breathe 4s 2.4s ease-in-out infinite alternate;
+}
+
+/* Crucible — crossed red combat marks strike and recoil. */
+[data-notification-atmosphere="crucible"] {
+  background:
+    radial-gradient(ellipse at 28% 0, #cb3c3c55, transparent 52%),
+    linear-gradient(104deg, #541d213c, transparent 63%);
+}
+
+[data-notification-atmosphere="crucible"]::before,
+[data-notification-atmosphere="crucible"]::after {
+  top: 63px;
+  left: 5%;
+  width: min(520px, 62vw);
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #ffb0a8, #e63f45 22% 78%, #ff8d87, transparent);
+  box-shadow: 0 0 16px #ec4b4b, 0 0 42px #93252c;
+}
+
+[data-notification-atmosphere="crucible"]::before {
+  transform: rotate(12deg);
+  animation: gn-crucible-strike-a 3.2s ease-in-out infinite;
+}
+
+[data-notification-atmosphere="crucible"]::after {
+  transform: rotate(-12deg);
+  animation: gn-crucible-strike-b 3.2s 1.6s ease-in-out infinite;
+}
+
+/* Trials — winged eye and Lighthouse rays in hot gold. */
+[data-notification-atmosphere="trials"] {
+  background:
+    radial-gradient(ellipse at 21% 0, #9b751b59, transparent 50%),
+    linear-gradient(105deg, #5d431832, transparent 60%);
+}
+
+[data-notification-atmosphere="trials"]::before {
+  top: 9px;
+  left: 8%;
+  width: 255px;
+  height: 106px;
+  border: 4px solid #ffe29a;
+  border-radius: 52% 48% 52% 48% / 68% 68% 32% 32%;
+  background:
+    radial-gradient(circle at 50% 48%, #fff7d5 0 5%, #d7a83b 6% 12%, #24190a 13% 18%, transparent 19%),
+    linear-gradient(90deg, transparent 0 11%, #f3c95d31 12% 88%, transparent 89%);
+  box-shadow: 0 0 27px #e4b344, inset 0 0 25px #d8a63c;
+  clip-path: polygon(0 50%, 17% 18%, 40% 8%, 50% 0, 60% 8%, 83% 18%, 100% 50%, 83% 82%, 60% 92%, 50% 100%, 40% 92%, 17% 82%);
+  animation: gn-trials-eye 4.1s ease-in-out infinite;
+}
+
+[data-notification-atmosphere="trials"]::after {
+  top: -25px;
+  left: 2%;
+  width: 390px;
+  height: 208px;
+  background: conic-gradient(
+    from 244deg at 50% 0,
+    transparent 0 12deg,
+    #ffe69f45 13deg 17deg,
+    transparent 18deg 31deg,
+    #eec55740 32deg 36deg,
+    transparent 37deg 51deg,
+    #ffeab034 52deg 56deg,
+    transparent 57deg
+  );
+  filter: drop-shadow(0 0 12px #d9a93f);
+  animation: gn-lighthouse-rays 5s ease-in-out infinite alternate;
+}
+
+/* Gambit — emerald snake coil and motes banking into the center. */
+[data-notification-atmosphere="gambit"] {
+  background:
+    radial-gradient(ellipse at 22% 0, #16864b55, transparent 51%),
+    linear-gradient(108deg, #0c4b2a31, transparent 62%);
+}
+
+[data-notification-atmosphere="gambit"]::before {
+  top: -42px;
+  left: 8%;
+  width: 188px;
+  height: 188px;
+  border: 13px double #70f3a7;
+  border-right-color: transparent;
+  border-bottom-color: #2ec96f;
+  border-radius: 50%;
+  box-shadow: 0 0 25px #27c66c, inset 0 0 22px #27c66c;
+  clip-path: polygon(0 0, 100% 0, 100% 74%, 71% 100%, 49% 77%, 28% 100%, 0 73%);
+  animation: gn-gambit-coil 4.7s cubic-bezier(.45,.08,.52,.94) infinite;
+}
+
+[data-notification-atmosphere="gambit"]::after {
+  top: 55px;
+  left: 228px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #c8ffdb;
+  box-shadow:
+    0 0 12px #89ffb4,
+    0 0 34px #2cca70,
+    52px -28px 0 -3px #83f5a8,
+    96px 16px 0 -4px #5adc8d,
+    138px -15px 0 -5px #9ef5b9;
+  animation: gn-bank-motes 3.1s ease-in-out infinite;
+}
+
+/* Vanguard — three command chevrons rise like a tactical beacon. */
+[data-notification-atmosphere="vanguard"] {
+  background:
+    linear-gradient(105deg, #173c6d5e, transparent 57%),
+    radial-gradient(ellipse at 20% 0, #437bb348, transparent 50%);
+}
+
+[data-notification-atmosphere="vanguard"]::before {
+  top: 8px;
+  left: 5%;
+  width: 292px;
+  height: 148px;
+  background:
+    linear-gradient(145deg, transparent 0 38%, #a8d0f6 39% 44%, transparent 45%),
+    linear-gradient(35deg, transparent 0 38%, #5c91c9 39% 44%, transparent 45%),
+    linear-gradient(145deg, transparent 0 54%, #6a9ccc 55% 59%, transparent 60%),
+    linear-gradient(35deg, transparent 0 54%, #bfdcff 55% 59%, transparent 60%);
+  clip-path: polygon(0 0, 100% 0, 82% 100%, 18% 100%);
+  filter: drop-shadow(0 0 17px #4e84bd);
+  animation: gn-vanguard-command 4.2s ease-in-out infinite alternate;
+}
+
+[data-notification-atmosphere="vanguard"]::after {
+  top: 20px;
+  left: 137px;
+  width: 18px;
+  height: 130px;
+  background: linear-gradient(#eef7ff, #7db7ec 34%, transparent 100%);
+  box-shadow: 0 0 17px #8bc4f8, 0 0 42px #4a84bc;
+  animation: gn-vanguard-beacon 2.5s ease-in-out infinite;
+}
+
+/* Exotic — a gold engram decrypts through counter-rotating facets. */
+[data-notification-atmosphere="exotic"] {
+  background:
+    radial-gradient(ellipse at 18% 0, #9a741f5e, transparent 50%),
+    linear-gradient(106deg, #5940142f, transparent 57%);
+}
+
+[data-notification-atmosphere="exotic"]::before {
+  top: -33px;
+  left: 8%;
+  width: 178px;
+  height: 178px;
+  border: 3px solid #f5db88;
+  background: conic-gradient(
+    from 22.5deg,
+    #f7dc8338 0 12.5%,
+    transparent 12.5% 25%,
+    #f7dc8338 25% 37.5%,
+    transparent 37.5% 50%,
+    #f7dc8338 50% 62.5%,
+    transparent 62.5% 75%,
+    #f7dc8338 75% 87.5%,
+    transparent 87.5%
+  );
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+  box-shadow: 0 0 30px #d8ae43, inset 0 0 24px #e9c75e;
+  animation: gn-exotic-decrypt 5s linear infinite;
+}
+
+[data-notification-atmosphere="exotic"]::after {
+  top: 10px;
+  left: 210px;
+  width: 164px;
+  height: 3px;
+  background: linear-gradient(90deg, #ffefb2, #dfb848 52%, transparent);
+  box-shadow:
+    0 19px #f0cb688f,
+    0 38px #f0cb6866,
+    0 57px #f0cb6840;
+  animation: gn-loot-decode 2.9s ease-in-out infinite;
+}
+
+/* Legendary — purple engram facets assemble, separate, and re-form. */
+[data-notification-atmosphere="legendary"] {
+  background:
+    linear-gradient(109deg, #51377d66, transparent 55%),
+    radial-gradient(ellipse at 18% 0, #8066b248, transparent 51%);
+}
+
+[data-notification-atmosphere="legendary"]::before {
+  top: -27px;
+  left: 8%;
+  width: 180px;
+  height: 172px;
+  background:
+    linear-gradient(135deg, #e0ceff7a, #7652a952 46%, #b48ce76b),
+    linear-gradient(45deg, transparent 47%, #f0e5ff75 48% 51%, transparent 52%);
+  clip-path: polygon(50% 0, 91% 21%, 83% 70%, 66% 100%, 34% 100%, 17% 70%, 9% 21%);
+  filter: drop-shadow(0 0 20px #9c73d7);
+  animation: gn-legendary-assemble 4.6s ease-in-out infinite alternate;
+}
+
+[data-notification-atmosphere="legendary"]::after {
+  top: 14px;
+  left: 7%;
+  width: 302px;
+  height: 113px;
+  background:
+    linear-gradient(112deg, transparent 0 38%, #eadcff9c 39% 40%, transparent 41%),
+    linear-gradient(68deg, transparent 0 51%, #a478dd84 52% 53%, transparent 54%),
+    linear-gradient(180deg, transparent 0 62%, #d7c1f94d 63% 64%, transparent 65%);
+  animation: gn-prism-flare 3.3s ease-in-out infinite;
+}
+
+/* Seasonal — a clean activity dial with orbiting objective marker. */
+[data-notification-atmosphere="seasonal"] {
+  background:
+    radial-gradient(ellipse at 18% 0, #17777b59, transparent 51%),
+    linear-gradient(108deg, #174d5230, transparent 58%);
+}
+
+[data-notification-atmosphere="seasonal"]::before {
+  top: -48px;
+  left: 7%;
+  width: 192px;
+  height: 192px;
+  border: 3px solid #8ce5e2;
+  border-left-color: transparent;
+  border-bottom-color: #3da9ad;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 0deg, transparent 0 18deg, #84e2df38 19deg 22deg, transparent 23deg 58deg);
+  box-shadow: 0 0 20px #3ca9ae, inset 0 0 18px #3ca9ae;
+  animation: gn-season-dial 6s linear infinite;
+}
+
+[data-notification-atmosphere="seasonal"]::after {
+  top: 48px;
+  left: 188px;
+  width: 28px;
+  height: 10px;
+  border: 2px solid #c1ffff;
+  background: #3ca9ae;
+  box-shadow: 0 0 15px #75e4e0;
+  animation: gn-season-marker 6s linear infinite;
+}
+
+/* Eververse — a Bright Engram prism refracts into icy cyan facets. */
+[data-notification-atmosphere="eververse"] {
+  background:
+    linear-gradient(105deg, #4d6f7a57, transparent 57%),
+    radial-gradient(ellipse at 18% 0, #9fc5cc3f, transparent 50%);
+}
+
+[data-notification-atmosphere="eververse"]::before {
+  top: -21px;
+  left: 6%;
+  width: 252px;
+  height: 168px;
+  background: conic-gradient(
+    from 30deg at 50% 50%,
+    #eaffff8a,
+    transparent 12%,
+    #91bdc86e 24%,
+    transparent 36%,
+    #ddfbff80 48%,
+    transparent 60%,
+    #83abb76b 72%,
+    transparent 84%,
+    #eaffff8a
+  );
+  clip-path: polygon(50% 0, 100% 25%, 88% 82%, 50% 100%, 12% 82%, 0 25%);
+  filter: drop-shadow(0 0 19px #a9ced6);
+  animation: gn-eververse-refract 5.2s ease-in-out infinite alternate;
+}
+
+[data-notification-atmosphere="eververse"]::after {
+  top: 9px;
+  left: 55px;
+  width: 155px;
+  height: 125px;
+  border: 2px solid #e9ffff;
+  clip-path: polygon(50% 0, 100% 28%, 84% 100%, 16% 100%, 0 28%);
+  box-shadow: 0 0 18px #c7edf4, inset 0 0 18px #b4dce4;
+  animation: gn-bright-engram-core 4.3s ease-in-out infinite;
+}
+
+/* Bungie news — holographic transmission card with scanning telemetry. */
+[data-notification-atmosphere="bungieNews"] {
+  background:
+    linear-gradient(90deg, #25567f64, transparent 66%),
+    radial-gradient(ellipse at 20% 0, #438dc247, transparent 50%);
+}
+
+[data-notification-atmosphere="bungieNews"]::before {
+  top: 18px;
+  left: 5%;
+  width: min(420px, 56vw);
+  height: 112px;
+  border: 1px solid #96d3ff;
+  background:
+    linear-gradient(90deg, #62a7dc2e, transparent),
+    linear-gradient(180deg, #a8d9ff19, transparent 42%);
+  box-shadow: 0 0 17px #4689bd;
+  clip-path: polygon(0 0, 89% 0, 100% 18%, 100% 100%, 12% 100%, 0 82%);
+  animation: gn-transmission-card 4s ease-in-out infinite;
+}
+
+[data-notification-atmosphere="bungieNews"]::after {
+  top: 38px;
+  left: 8%;
+  width: min(320px, 42vw);
+  height: 3px;
+  background: #b3e0ff;
+  box-shadow:
+    0 18px #79bcea,
+    0 36px #79bceaa6,
+    0 54px #79bcea72;
+  animation: gn-transmission-scan 2.6s linear infinite;
+}
+
+/* Completion — triumph wreath closes, then the check locks into place. */
+[data-notification-atmosphere="completion"] {
+  background:
+    radial-gradient(ellipse at 18% 0, #247b4d5c, transparent 51%),
+    linear-gradient(107deg, #1e5d3a2e, transparent 58%);
+}
+
+[data-notification-atmosphere="completion"]::before {
+  top: -35px;
+  left: 8%;
+  width: 176px;
+  height: 176px;
+  border: 8px double #8df1bb;
+  border-radius: 50%;
+  box-shadow: 0 0 24px #52d38e, inset 0 0 18px #52d38e;
+  clip-path: polygon(50% 0, 61% 14%, 78% 8%, 82% 26%, 100% 35%, 87% 51%, 100% 66%, 81% 72%, 77% 92%, 60% 84%, 50% 100%, 39% 84%, 22% 92%, 18% 72%, 0 66%, 13% 51%, 0 35%, 18% 26%, 22% 8%, 39% 14%);
+  animation: gn-completion-wreath 2s cubic-bezier(.15,.8,.2,1) both;
+}
+
+[data-notification-atmosphere="completion"]::after {
+  top: 28px;
+  left: 141px;
+  width: 78px;
+  height: 38px;
+  border-left: 9px solid #d1ffe5;
+  border-bottom: 9px solid #d1ffe5;
+  filter: drop-shadow(0 0 12px #64d99b);
+  transform: rotate(-45deg);
+  animation: gn-completion-check 1.25s .45s cubic-bezier(.15,.8,.2,1) both;
+}
+
+/* Warning — animated hazard panel with a hard amber scanner. */
+[data-notification-atmosphere="warning"] {
+  background:
+    linear-gradient(105deg, #7e55175c, transparent 59%),
+    radial-gradient(ellipse at 20% 0, #ca8a2940, transparent 50%);
+}
+
+[data-notification-atmosphere="warning"]::before {
+  inset: 6px 52% 4px 3%;
+  background: repeating-linear-gradient(135deg, #e3ad47 0 17px, #241a0a 18px 34px);
+  clip-path: polygon(0 24%, 100% 0, 88% 76%, 8% 100%);
+  opacity: .58;
+  box-shadow: 0 0 20px #cf9337;
+  animation: gn-warning-stripes 2.3s linear infinite;
+}
+
+[data-notification-atmosphere="warning"]::after {
+  top: 18px;
+  left: 21%;
+  width: 13px;
+  height: 105px;
+  background: #ffd681;
+  box-shadow: 0 0 20px #e0aa43, 0 0 48px #bc7625;
+  animation: gn-warning-scanner 1.2s ease-in-out infinite;
+}
+
+/* Reward code — a Destiny terminal decrypts lines into a framed token. */
+[data-notification-atmosphere="redemptionCode"] {
+  background:
+    linear-gradient(105deg, #365d955c, transparent 58%),
+    radial-gradient(ellipse at 20% 0, #7698cf42, transparent 50%);
+}
+
+[data-notification-atmosphere="redemptionCode"]::before {
+  top: 14px;
+  left: 7%;
+  width: 230px;
+  height: 121px;
+  border: 2px solid #b3ceff;
+  background:
+    linear-gradient(90deg, #7295cf30, transparent),
+    repeating-linear-gradient(0deg, transparent 0 14px, #b9d1ff1b 15px 16px);
+  clip-path: polygon(0 10%, 10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%);
+  box-shadow: 0 0 19px #7094cf;
+  animation: gn-code-frame 3.4s steps(7,end) infinite;
+}
+
+[data-notification-atmosphere="redemptionCode"]::after {
+  top: 29px;
+  left: 10%;
+  width: 164px;
+  height: 4px;
+  background: #dce9ff;
+  box-shadow:
+    28px 17px #92b0e3,
+    8px 34px #bdd3fa,
+    47px 51px #82a2d9,
+    18px 68px #dce9ff;
+  animation: gn-code-lines 2.2s ease-in-out infinite alternate;
+}
+
+/* World state — a compact Director orbit map, not a generic spinner. */
+[data-notification-atmosphere="system"] {
+  background:
+    radial-gradient(ellipse at 18% 0, #466f7d55, transparent 50%),
+    linear-gradient(108deg, #2e535f31, transparent 59%);
+}
+
+[data-notification-atmosphere="system"]::before {
+  top: -35px;
+  left: 8%;
+  width: 182px;
+  height: 182px;
+  border: 2px solid #c5eef2;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 37% 35%, #d7f9fb 0 2%, #7da5b34d 3% 7%, transparent 8%),
+    radial-gradient(circle at 64% 67%, #8fc1cc 0 2%, transparent 3%),
+    radial-gradient(circle at 50% 50%, #bde9ef1f, transparent 42%);
+  box-shadow: 0 0 22px #7da5b3;
+  animation: gn-world-turn 8.5s linear infinite;
+}
+
+[data-notification-atmosphere="system"]::after {
+  top: 12px;
+  left: 3%;
+  width: 300px;
+  height: 126px;
+  border: 2px solid #91c5d0;
+  border-right-color: transparent;
+  border-left-color: transparent;
+  border-radius: 50%;
+  transform: rotate(-12deg);
+  animation: gn-system-orbit 5s linear infinite;
+}
+
+/* Service outage — fractured scanlines and displaced red signal blocks. */
+[data-notification-atmosphere="outage"] {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 6px, #b83e493f 7px 9px),
+    linear-gradient(90deg, #771f2a57, transparent 64%);
+  animation:
+    gn-fanfare-lifetime 30s linear forwards,
+    gn-outage-jitter 1.25s steps(5,end) infinite;
+}
+
+[data-notification-atmosphere="outage"]::before {
+  inset: 15px 0 auto;
+  width: 100%;
+  height: 9px;
+  background: #ff7b855f;
+  box-shadow:
+    0 43px #c3424d42,
+    0 82px #ff657040;
+  animation: gn-signal-break 1.8s steps(4,end) infinite;
+}
+
+[data-notification-atmosphere="outage"]::after {
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0 17%, #ff4e5c3d 18% 24%, transparent 25% 61%, #c22f3a3b 62% 70%, transparent 71%),
+    linear-gradient(90deg, transparent 0 37%, #ff7b8540 38% 49%, transparent 50%);
+  clip-path: polygon(0 4%, 100% 4%, 100% 22%, 0 28%, 0 47%, 100% 41%, 100% 66%, 0 73%, 0 100%, 100% 100%);
+  animation: gn-outage-blocks 1.5s steps(6,end) infinite;
+}
+
+/* Rank-up keeps its own gold treatment but participates in the same lifecycle. */
+.gn-rank-fanfare {
+  box-shadow:
+    inset 4px 0 0 #f2d887,
+    0 0 24px #f2d88748 !important;
+  animation: gn-rank-banner 1s ease-out both !important;
+}
+
+.gn-rank-atmosphere::before {
+  top: -38px;
+  left: 8%;
+  width: 176px;
+  height: 176px;
+  border: 4px solid #ffe28b;
+  background: conic-gradient(from 45deg, transparent 0 11%, #ffe28b42 12% 14%, transparent 15% 24%);
+  clip-path: polygon(50% 0, 62% 37%, 100% 50%, 62% 63%, 50% 100%, 38% 63%, 0 50%, 38% 37%);
+  box-shadow: 0 0 25px #f2d887;
+  animation: gn-rank-diamond 2.2s ease-out both !important;
+}
+
+/* Banner-level accents for the remaining categories. */
+[data-guardian-animation="crucible"]::before,
+[data-guardian-animation="trials"]::before,
+[data-guardian-animation="gambit"]::before,
+[data-guardian-animation="vanguard"]::before,
+[data-guardian-animation="exotic"]::before,
+[data-guardian-animation="legendary"]::before,
+[data-guardian-animation="seasonal"]::before,
+[data-guardian-animation="eververse"]::before,
+[data-guardian-animation="bungieNews"]::before,
+[data-guardian-animation="completion"]::before,
+[data-guardian-animation="warning"]::before,
+[data-guardian-animation="redemptionCode"]::before,
+[data-guardian-animation="system"]::before,
+[data-guardian-animation="outage"]::before {
+  animation:
+    gn-banner-category-sweep 2.4s ease-out both,
+    gn-banner-effect-life 30s linear forwards !important;
+}
+
+@keyframes gn-fanfare-lifetime {
+  0% { opacity: 0; transform: translateY(-34px) scaleY(.76); filter: blur(9px) saturate(1.4) brightness(1.65); }
+  3.5% { opacity: .96; transform: translateY(0) scaleY(1); filter: blur(0) saturate(1.16) brightness(1); }
+  88% { opacity: .96; transform: translateY(0) scaleY(1); filter: blur(0) saturate(1.16) brightness(1); }
+  100% { opacity: 0; transform: translateY(-8px) scaleY(.98); filter: blur(2px) saturate(.9) brightness(.8); }
+}
+
+@keyframes gn-banner-effect-life {
+  0%, 88% { opacity: .76; }
+  100% { opacity: 0; }
+}
+
+@keyframes gn-distortion-banner-hit {
+  from { opacity: 0; filter: blur(10px) brightness(2); clip-path: polygon(0 45%, 0 45%, 0 55%, 0 55%); }
+  68% { opacity: 1; clip-path: polygon(0 7%, 82% 19%, 100% 50%, 79% 85%, 0 96%); }
+  to { clip-path: inset(0); filter: none; }
+}
+
+@keyframes gn-distortion-banner-spread {
+  0% { clip-path: polygon(0 4%, 0 4%, 0 96%, 0 96%); background-position: -220px 0, -300px 0; }
+  34% { clip-path: polygon(0 4%, 24% 7%, 31% 28%, 23% 48%, 39% 69%, 27% 96%, 0 96%); }
+  67% { clip-path: polygon(0 4%, 58% 8%, 68% 25%, 59% 45%, 78% 68%, 64% 96%, 0 96%); }
+  100% { clip-path: polygon(0 4%, 100% 4%, 100% 96%, 0 96%); background-position: 0 0, 0 0; }
+}
+
+@keyframes gn-corruption-front {
+  from { transform: translateX(-5%) scaleX(.82); filter: drop-shadow(0 0 10px #ff315f) brightness(.9); }
+  to { transform: translateX(7%) scaleX(1.08); filter: drop-shadow(0 0 18px #ff6a86) brightness(1.22); }
+}
+
+@keyframes gn-distortion-tears {
+  0%, 100% { transform: translateX(-1.5%); opacity: .56; }
+  35% { transform: translateX(1.5%) skewX(-2deg); opacity: .9; }
+  68% { transform: translateX(-.5%) skewX(2deg); opacity: .68; }
+}
+
+@keyframes gn-iron-banner-arrive {
+  from { opacity: 0; transform: translateX(-28px) scaleX(.88); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes gn-banner-cloth-sweep {
+  from { background-position: -90px 0, -80px 0; transform: skewX(-1deg); }
+  to { background-position: 80px 0, 90px 0; transform: skewX(1.6deg); }
+}
+
+@keyframes gn-flag-unfurl {
+  from { opacity: 0; transform: scaleX(.025) skewY(-4deg); }
+  68% { opacity: 1; transform: scaleX(1.05) skewY(1.5deg); }
+  to { transform: scaleX(1) skewY(0); }
+}
+
+@keyframes gn-flag-wave {
+  from { transform: perspective(700px) rotateY(-2deg) skewY(-.5deg); filter: brightness(.92); }
+  to { transform: perspective(700px) rotateY(4deg) skewY(1.2deg) scaleX(1.018); filter: brightness(1.16); }
+}
+
+@keyframes gn-wolf-crest {
+  from { opacity: 0; transform: scale(.22) rotate(-18deg); }
+  72% { opacity: 1; transform: scale(1.13) rotate(4deg); }
+  to { opacity: .95; transform: scale(1) rotate(0); }
+}
+
+@keyframes gn-crest-breathe {
+  to { filter: drop-shadow(0 8px 15px #0e2415) brightness(1.25); transform: scale(1.035); }
+}
+
+@keyframes gn-crucible-strike-a {
+  0%, 100% { transform: translateX(-18%) rotate(12deg) scaleX(.72); opacity: .25; }
+  43% { transform: translateX(19%) rotate(12deg) scaleX(1.32); opacity: 1; }
+  57% { transform: translateX(23%) rotate(12deg) scaleX(1.08); opacity: .65; }
+}
+
+@keyframes gn-crucible-strike-b {
+  0%, 100% { transform: translateX(-18%) rotate(-12deg) scaleX(.72); opacity: .25; }
+  43% { transform: translateX(19%) rotate(-12deg) scaleX(1.32); opacity: 1; }
+  57% { transform: translateX(23%) rotate(-12deg) scaleX(1.08); opacity: .65; }
+}
+
+@keyframes gn-trials-eye {
+  0%, 100% { transform: scaleX(.94); filter: brightness(.92); }
+  50% { transform: scaleX(1.08); filter: brightness(1.35); }
+}
+
+@keyframes gn-lighthouse-rays {
+  to { transform: rotate(7deg) scale(1.05); filter: brightness(1.35); }
+}
+
+@keyframes gn-gambit-coil {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes gn-bank-motes {
+  0%, 100% { transform: translate(35px, -18px) scale(.65); filter: brightness(.85); }
+  48% { transform: translate(-42px, 32px) scale(1.7); filter: brightness(1.6); }
+  70% { transform: translate(-64px, 7px) scale(.85); }
+}
+
+@keyframes gn-vanguard-command {
+  to { transform: translateY(-12px); filter: brightness(1.35); }
+}
+
+@keyframes gn-vanguard-beacon {
+  50% { transform: scaleY(1.26); opacity: .45; filter: brightness(1.5); }
+}
+
+@keyframes gn-exotic-decrypt {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes gn-loot-decode {
+  0%, 100% { transform: translateX(-14px); opacity: .45; }
+  50% { transform: translateX(42px); opacity: 1; filter: brightness(1.65); }
+}
+
+@keyframes gn-legendary-assemble {
+  from { transform: scale(.92) rotateY(-10deg); filter: brightness(.9); }
+  to { transform: scale(1.08) rotateY(18deg); filter: brightness(1.35); }
+}
+
+@keyframes gn-prism-flare {
+  0%, 100% { transform: translateX(-10px); opacity: .34; }
+  50% { transform: translateX(25px); opacity: .88; filter: brightness(1.45); }
+}
+
+@keyframes gn-season-dial {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes gn-season-marker {
+  0% { transform: translate(0, 0) rotate(0); }
+  33% { transform: translate(-32px, -62px) rotate(15deg); }
+  66% { transform: translate(-92px, -74px) rotate(32deg); }
+  100% { transform: translate(-174px, -8px) rotate(52deg); }
+}
+
+@keyframes gn-eververse-refract {
+  from { transform: perspective(600px) rotateY(-4deg) skewX(-2deg); filter: brightness(.94) hue-rotate(-3deg); }
+  to { transform: perspective(600px) rotateY(8deg) skewX(3deg) scale(1.07); filter: brightness(1.35) hue-rotate(15deg); }
+}
+
+@keyframes gn-bright-engram-core {
+  50% { transform: scale(.92) rotate(5deg); filter: brightness(1.4); opacity: .65; }
+}
+
+@keyframes gn-transmission-card {
+  0%, 100% { transform: translateX(-4px); filter: brightness(.95); }
+  50% { transform: translateX(9px); filter: brightness(1.3); }
+}
+
+@keyframes gn-transmission-scan {
+  to { transform: translateY(53px); opacity: .22; }
+}
+
+@keyframes gn-completion-wreath {
+  from { opacity: 0; transform: scale(.14) rotate(-48deg); }
+  70% { opacity: 1; transform: scale(1.14) rotate(7deg); }
+  to { transform: scale(1) rotate(0); }
+}
+
+@keyframes gn-completion-check {
+  from { opacity: 0; transform: rotate(-45deg) scale(.1); }
+  72% { opacity: 1; transform: rotate(-45deg) scale(1.25); }
+  to { transform: rotate(-45deg) scale(1); }
+}
+
+@keyframes gn-warning-stripes {
+  to { background-position: 48px 0; }
+}
+
+@keyframes gn-warning-scanner {
+  50% { opacity: .2; transform: translateX(26px); filter: brightness(1.8); }
+}
+
+@keyframes gn-code-frame {
+  50% { transform: translateX(8px); filter: brightness(1.28); }
+}
+
+@keyframes gn-code-lines {
+  to { transform: translateX(24px); filter: brightness(1.62); }
+}
+
+@keyframes gn-world-turn {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes gn-system-orbit {
+  to { transform: rotate(348deg); }
+}
+
+@keyframes gn-outage-jitter {
+  25% { transform: translateX(6px); }
+  55% { transform: translateX(-7px); }
+}
+
+@keyframes gn-signal-break {
+  50% { transform: translate(12px, 40px) scaleX(.58); }
+}
+
+@keyframes gn-outage-blocks {
+  0%, 100% { transform: translateX(-1%); opacity: .45; }
+  45% { transform: translateX(3%); opacity: .9; }
+  70% { transform: translateX(-2%); opacity: .3; }
+}
+
+@keyframes gn-rank-banner {
+  from { opacity: 0; filter: brightness(2.5); clip-path: inset(0 50%); }
+  to { opacity: 1; filter: none; clip-path: inset(0); }
+}
+
+@keyframes gn-rank-diamond {
+  from { opacity: 0; transform: scale(.18) rotate(-45deg); }
+  72% { opacity: 1; transform: scale(1.15) rotate(8deg); }
+  to { transform: scale(1) rotate(0); }
+}
+
+@keyframes gn-banner-category-sweep {
+  from { transform: translateX(-65%); opacity: 0; }
+  48% { opacity: .7; }
+  to { transform: translateX(68%); opacity: .18; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    [data-notification-atmosphere],
+    [data-notification-atmosphere]::before,
+    [data-notification-atmosphere]::after,
+    [data-guardian-animation]::before,
+    .gn-rank-fanfare,
+    .gn-rank-atmosphere::before
+  ) {
+    animation: none !important;
+  }
+}
+
+html[data-notification-reduced-motion="true"] :is(
+  [data-notification-atmosphere],
+  [data-notification-atmosphere]::before,
+  [data-notification-atmosphere]::after,
+  [data-guardian-animation]::before,
+  .gn-rank-fanfare,
+  .gn-rank-atmosphere::before
+) {
+  animation: none !important;
+}
