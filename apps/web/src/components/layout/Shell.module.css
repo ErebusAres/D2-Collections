@@ -60,13 +60,10 @@
   .tabs { padding-inline: 22px; }
   .tab, .activeTab { padding-inline: 8px; letter-spacing: .075em; }
   .main { width: min(1680px, calc(100% - 48px)); }
-}
+}/* Shared shell readability floor for dense desktop metadata. */
+.headerStat::after,.rewardProgress,.optionsButton span,.footer{font-size:12px}
 
-/* Shared shell readability floor for dense desktop metadata. */
-.headerStat::after{font-size:12px}
-.rewardProgress{font-size:12px}
-.optionsButton span{font-size:12px}
-.footer{font-size:12px}
+
 .nextStepsStat small{font-size:10px}
 
 @media (max-width: 1220px) {
@@ -97,9 +94,8 @@
   .main { width: calc(100% - 28px); padding-top: 26px; }
 }
 
-@media (max-width: 650px) {
-  .brand, .guardianIdentity img, .connectionStatus { display: none; }
-  .guardianIdentity:not(:has(img)) { display: none; }
+@media (max-width: 650px) {.brand, .guardianIdentity img, .connectionStatus,.guardianIdentity:not(:has(img)){ display: none; }
+  
   .signIn { margin-left: auto; }
   .identityDetails { min-width: 0; grid-template-columns: minmax(138px, 1fr); }
   .identityDetails > span, .identityDetails > strong, .identityDetails > small { display: none; }

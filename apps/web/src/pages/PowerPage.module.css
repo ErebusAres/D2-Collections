@@ -32,5 +32,5 @@
 .sourceNote { margin:15px 0 4px; padding:11px 13px; border-left:2px solid rgba(155,231,226,.42); background:rgba(155,231,226,.045); color:var(--muted); font-size:12px; line-height:1.45; }
 
 @media(max-width:1320px){.powerBoard{grid-template-columns:repeat(2,minmax(260px,1fr))}}
-@media(max-width:760px){.capBanner{grid-template-columns:38px 1fr}.capBanner p{grid-column:1/-1;justify-self:start;text-align:left}.powerBoard{grid-template-columns:1fr}.accountSummary{grid-template-columns:1fr}.powerColumn{max-width:620px;width:100%;justify-self:center}}
+@media(max-width:760px){.capBanner{grid-template-columns:38px 1fr}.capBanner p{grid-column:1/-1;justify-self:start;text-align:left}.powerBoard,.accountSummary{grid-template-columns:1fr}.powerColumn{max-width:620px;width:100%;justify-self:center}}
 @media(max-width:420px){.columnHeader{grid-template-columns:46px minmax(0,1fr) auto;padding-inline:8px}.columnEmblem,.columnEmblem img,.columnEmblem svg{width:44px;height:44px}.columnHeader>strong{font-size:26px}.slotList{padding-inline:5px}.capBanner{padding-inline:11px}}

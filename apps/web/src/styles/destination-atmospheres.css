@@ -7,6 +7,23 @@
  * Fireteam content remains stable and readable.
  */
 
+html body .gn-fireteam-location {
+  position: relative;
+  isolation: isolate;
+}
+
+html body .gn-fireteam-location > * {
+  position: relative;
+  z-index: 1;
+}
+
+html body .gn-fireteam-location::before,
+html body .gn-fireteam-location::after {
+  content: "";
+  position: fixed;
+  z-index: 0;
+}
+
 html body .gn-fireteam-location[data-fireteam-location-theme]::before,
 html body .gn-fireteam-location[data-fireteam-location-theme]::after {
   inset: 118px 0 0;

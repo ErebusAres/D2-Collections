@@ -509,13 +509,12 @@
   .buildFilters > span { min-height: 50px; }
   .reviewDate,
   .inventoryWarnings { grid-column: auto; }
-  .cardGrid { grid-template-columns: 1fr; }
-  .detailColumns,
+  .cardGrid { grid-template-columns: 1fr; }.detailColumns,
   .abilityGrid,
   .planGroup > div,
   .statPlan > div,
-  .scoreSummary { grid-template-columns: 1fr; }
-  .modPlan article { grid-template-columns: 1fr; }
+  .scoreSummary,.modPlan article{ grid-template-columns: 1fr; }
+  
   .acquisitionGuides header { grid-template-columns: 38px minmax(0, 1fr); }
   .acquisitionGuides header > strong { grid-column: 2; justify-self: start; }
   .detail > footer { align-items: stretch; flex-direction: column; }

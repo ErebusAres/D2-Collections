@@ -6,12 +6,17 @@ import type { GuardianNotificationsController } from "../../modules/notification
 import type { GuardianNotification, NotificationPreferences } from "@guardian-nexus/contracts";
 import { categoryFor } from "../../modules/notifications/categoryConfig";
 import { playCompletionChime } from "../../services/completionAudio";
+import guardianFanfareUrl from "../../styles/guardian-fanfare.css?url";
+import { ensureStylesheet } from "../../styles/loadStylesheet";
 import styles from "./GuardianFeed.module.css";
 
 const SHOWN_NOTIFICATIONS_KEY = "guardian-nexus:notifications:shown";
 const REPLAY_NOTIFICATION_EVENT = "guardian-nexus:notification-replay";
 
 export function GuardianFeed({ controller }: { controller: GuardianNotificationsController }) {
+  useEffect(() => {
+    ensureStylesheet("notification-fanfare", guardianFanfareUrl);
+  }, []);
   const { feed, preferences } = controller;
   const [shown, setShown] = useState<Set<string>>(readShownNotifications);
   const eligibleFeed = useMemo(() => feed.filter((entry) => !entry.autoDismiss || !shown.has(notificationVersion(entry))), [feed, shown]);
@@ -146,7 +151,6 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
         onFocusCapture={() => setPaused(true)}
         onBlurCapture={() => setPaused(false)}
       >
-        <link rel="stylesheet" href="/guardian-fanfare.css" />
         {destination
           ? notification.destinationUrl
             ? <Link to={notification.destinationUrl} onClick={() => controller.markRead(notification)}>{content}</Link>

@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import ts from "typescript";
 
-const workerPath = new URL("../apps/web/public/sw.js", import.meta.url);
+const workerPath = new URL("../apps/web/service-worker.ts", import.meta.url);
 
 test("navigation responses are cloned before the browser can consume them", async () => {
-  const source = await readFile(workerPath, "utf8");
+  const sourceText = await readFile(workerPath, "utf8");
+  const source = ts.transpileModule(sourceText, {
+    compilerOptions: { module: ts.ModuleKind.None, target: ts.ScriptTarget.ES2022 },
+    fileName: "service-worker.ts"
+  }).outputText;
   const listeners = new Map();
   const cachedBodies = [];
   let releaseCache;
