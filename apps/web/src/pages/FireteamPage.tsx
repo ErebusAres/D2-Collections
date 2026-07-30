@@ -19,6 +19,27 @@ interface ShareVariables {
 }
 
 const TRACKED_ITEM_EXIT_MS = 1_600;
+const FIRETEAM_LOCATION_CSS = String.raw`
+.gn-fireteam-location{position:relative;isolation:isolate}.gn-fireteam-location>*{position:relative;z-index:1}.gn-fireteam-location::before,.gn-fireteam-location::after{content:"";position:fixed;z-index:0;inset:130px 0 0;pointer-events:none}.gn-fireteam-location[data-fireteam-location-theme]::before{box-shadow:inset 18px 0 34px var(--loc-edge),inset -18px 0 34px var(--loc-edge);animation:gn-loc-breathe 5s ease-in-out infinite alternate}.gn-fireteam-location[data-fireteam-location-theme]::after{background:var(--loc-page);opacity:.42;animation:gn-loc-drift 12s linear infinite}
+[data-location-theme]{border-color:var(--loc-line)!important;box-shadow:inset 0 0 26px var(--loc-glow),0 0 14px var(--loc-glow)}[data-location-theme]::before{content:"";position:absolute;z-index:0;inset:0;pointer-events:none;background:var(--loc-card);opacity:.6;animation:var(--loc-animation,gn-loc-drift 10s linear infinite)}
+[data-location-theme=europa],.gn-fireteam-location[data-fireteam-location-theme=europa]{--loc-line:#b8edff99;--loc-glow:#9ee7ff24;--loc-edge:#b8edff1f;--loc-card:linear-gradient(135deg,#d9f7ff22,transparent 34%),repeating-linear-gradient(112deg,transparent 0 46px,#d8f7ff1f 47px 49px,transparent 50px 82px);--loc-page:radial-gradient(ellipse at 10% 15%,#c8f3ff24,transparent 26%),radial-gradient(ellipse at 90% 70%,#8ddfff1c,transparent 24%);--loc-animation:gn-frost 6s ease-in-out infinite alternate}
+[data-location-theme=tower],.gn-fireteam-location[data-fireteam-location-theme=tower]{--loc-line:#f3e4ac80;--loc-glow:#fff2b824;--loc-edge:#ffe8a51d;--loc-card:radial-gradient(circle,#fff2b8aa 0 1px,transparent 2px) 0 0/43px 37px;--loc-page:radial-gradient(circle,#fff2b866 0 1px,transparent 2px) 0 0/67px 53px;--loc-animation:gn-light 7s linear infinite}
+[data-location-theme=moon],.gn-fireteam-location[data-fireteam-location-theme=moon]{--loc-line:#b96a5890;--loc-glow:#8f392526;--loc-edge:#a74b351e;--loc-card:repeating-radial-gradient(ellipse at 20% 0,transparent 0 18px,#9b48351c 19px 20px,transparent 21px 38px);--loc-page:linear-gradient(120deg,#52201620,transparent 42%),radial-gradient(ellipse at 82% 75%,#a9653c18,transparent 28%)}
+[data-location-theme=dreaming],.gn-fireteam-location[data-fireteam-location-theme=dreaming]{--loc-line:#bd9df290;--loc-glow:#8067b32b;--loc-edge:#bd9df21c;--loc-card:radial-gradient(ellipse at 18% 0,#bd9df22e,transparent 40%),radial-gradient(circle,#e4d5ff77 0 1px,transparent 2px) 0 0/61px 43px;--loc-page:linear-gradient(135deg,#8067b322,transparent 44%,#62a7dc18);--loc-animation:gn-mist 7s ease-in-out infinite alternate}
+[data-location-theme=neomuna],.gn-fireteam-location[data-fireteam-location-theme=neomuna]{--loc-line:#61e7ef99;--loc-glow:#ef57d52a;--loc-edge:#49dae824;--loc-card:repeating-linear-gradient(90deg,transparent 0 58px,#48e7ef26 59px 60px),repeating-linear-gradient(0deg,transparent 0 31px,#ef57d51c 32px 33px);--loc-page:linear-gradient(115deg,#16bdcf16,transparent 35%,#df3fbd17);--loc-animation:gn-neon 4s steps(4) infinite}
+[data-location-theme=nessus],.gn-fireteam-location[data-fireteam-location-theme=nessus]{--loc-line:#d86e5d88;--loc-glow:#d54b3822;--loc-edge:#bb4e381a;--loc-card:linear-gradient(145deg,#cf523927,transparent 38%),repeating-linear-gradient(60deg,transparent 0 35px,#ef9c5d16 36px 38px);--loc-page:radial-gradient(ellipse at 7% 80%,#c44f3020,transparent 28%)}
+[data-location-theme=edz],.gn-fireteam-location[data-fireteam-location-theme=edz]{--loc-line:#8fa76f88;--loc-glow:#65814322;--loc-edge:#8299571a;--loc-card:radial-gradient(ellipse at 15% 100%,#718b502b,transparent 45%),repeating-linear-gradient(105deg,transparent 0 55px,#9caa7220 56px 58px);--loc-page:linear-gradient(120deg,#4d603c1d,transparent 38%)}
+[data-location-theme=cosmodrome],.gn-fireteam-location[data-fireteam-location-theme=cosmodrome]{--loc-line:#b28c6f88;--loc-glow:#895b4024;--loc-edge:#93664a1a;--loc-card:repeating-linear-gradient(115deg,transparent 0 43px,#a8755520 44px 46px),linear-gradient(#75442d20,transparent);--loc-page:radial-gradient(ellipse at 88% 80%,#8d56351f,transparent 30%)}
+[data-location-theme=throne-world],.gn-fireteam-location[data-fireteam-location-theme=throne-world]{--loc-line:#9fca8790;--loc-glow:#5f91472b;--loc-edge:#83b66a1d;--loc-card:repeating-conic-gradient(from 40deg at 15% 0,transparent 0 12deg,#7ca65e1d 13deg 15deg,transparent 16deg 30deg);--loc-page:radial-gradient(ellipse at 8% 20%,#668d4c26,transparent 31%)}
+[data-location-theme=pale-heart],.gn-fireteam-location[data-fireteam-location-theme=pale-heart]{--loc-line:#e4d5ff99;--loc-glow:#7fded82b;--loc-edge:#d7bbff1d;--loc-card:conic-gradient(from 120deg at 20% 0,#f7c4dc20,#8edee020,#d4c1ff22,transparent 42%);--loc-page:linear-gradient(130deg,#d4c1ff1b,transparent 28%,#81ddd91a)}
+[data-location-theme=mars],.gn-fireteam-location[data-fireteam-location-theme=mars]{--loc-line:#d98b5c90;--loc-glow:#bd63322a;--loc-edge:#c96e3c1b;--loc-card:repeating-linear-gradient(170deg,transparent 0 22px,#c8703c1d 23px 25px);--loc-page:linear-gradient(110deg,#a84e2824,transparent 36%)}
+[data-location-theme=kepler],.gn-fireteam-location[data-fireteam-location-theme=kepler]{--loc-line:#8072dc99;--loc-glow:#5945c532;--loc-edge:#6654d522;--loc-card:radial-gradient(ellipse at 15% 0,#6c4fe83b,transparent 43%),repeating-conic-gradient(from 90deg at 20% 0,transparent 0 18deg,#8e79ff1c 19deg 20deg,transparent 21deg 38deg);--loc-page:linear-gradient(120deg,#39258b28,transparent 38%)}
+[data-location-theme=dreadnaught],.gn-fireteam-location[data-fireteam-location-theme=dreadnaught]{--loc-line:#8dae658f;--loc-glow:#506c302d;--loc-edge:#728f4c1c;--loc-card:repeating-linear-gradient(125deg,transparent 0 31px,#7f9d561e 32px 34px),radial-gradient(ellipse at 15% 0,#4d682d2c,transparent 42%);--loc-page:linear-gradient(135deg,#34441f24,transparent 35%)}
+[data-location-theme=eternity],.gn-fireteam-location[data-fireteam-location-theme=eternity]{--loc-line:#86b9ef8c;--loc-glow:#8067b32b;--loc-edge:#8ab8ee1c;--loc-card:radial-gradient(circle,#d8e8ff99 0 1px,transparent 2px) 0 0/52px 39px;--loc-page:radial-gradient(circle,#fff 0 1px,transparent 2px) 0 0/79px 61px;--loc-animation:gn-stars 12s linear infinite}
+[data-location-theme=destination],.gn-fireteam-location[data-fireteam-location-theme=destination]{--loc-line:#7da5b380;--loc-glow:#61cfe72a;--loc-edge:#61cfe718;--loc-card:linear-gradient(125deg,#61cfe719,transparent 40%);--loc-page:radial-gradient(ellipse at 8% 40%,#61cfe718,transparent 27%)}
+@keyframes gn-loc-breathe{to{filter:brightness(1.35)}}@keyframes gn-loc-drift{to{background-position:80px 55px}}@keyframes gn-frost{to{filter:brightness(1.3);background-position:35px -20px}}@keyframes gn-light{to{background-position:43px -74px}}@keyframes gn-mist{to{transform:translateX(3%);filter:blur(2px)}}@keyframes gn-neon{50%{filter:brightness(1.6)}}@keyframes gn-stars{to{background-position:79px -61px}}
+@media(prefers-reduced-motion:reduce){.gn-fireteam-location::before,.gn-fireteam-location::after,[data-location-theme]::before{animation:none}}html[data-reduced-motion=true] .gn-fireteam-location::before,html[data-reduced-motion=true] .gn-fireteam-location::after,html[data-reduced-motion=true] [data-location-theme]::before{animation:none}
+`;
 
 export function FireteamPage() {
   const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
@@ -166,7 +187,10 @@ export function FireteamPage() {
     }, TRACKED_ITEM_EXIT_MS);
   };
 
-  return <AuthGate>
+  const pageLocationTheme = fireteamLocationTheme(presenceLocation(self, data?.activity), self?.onlineState);
+  return <div className="gn-fireteam-location" data-fireteam-location-theme={pageLocationTheme}>
+    <style>{FIRETEAM_LOCATION_CSS}</style>
+    <AuthGate>
     <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="Shared progress refreshes every 60 seconds while auto-refresh is enabled." actions={<>
       <Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />
       {data && !data.sharingEnabled && <>
@@ -189,7 +213,8 @@ export function FireteamPage() {
       <SocialRoster contacts={data.social?.contacts || []} friendsState={data.social?.friendsState || data.social?.state || "unavailable"} clanState={data.social?.clanState || (data.social?.state === "available" ? "available" : "unavailable")} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
       <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Status may be delayed</strong><p>Party presence and current activity are not guaranteed to be real time.</p></div></section>
     </>}
-  </AuthGate>;
+    </AuthGate>
+  </div>;
 }
 
 function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, onReorder, untrackingKey }: { member: FireteamMember; canManage: boolean; copied: string; onCopy: (label: string, command: string) => Promise<void>; onUntrack?: (item: FireteamTrackedItem) => void; itemOrder?: string[]; onReorder?: (sourceKey: string, targetKey: string) => void; untrackingKey?: string }) {
@@ -303,7 +328,7 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
   const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
   const untrackingIsCompletion = Boolean(untrackingKey && completedItemKeys.has(untrackingKey));
   const cardEvent = visibleCompletions.length ? "completed" : (!untrackingIsCompletion && untrackingKey) || visibleRemovedItems.length ? "removed" : enteringKeys.size ? "added" : "idle";
-  return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""} ${cardEvent === "completed" ? styles.memberCardCompleted : cardEvent === "removed" ? styles.memberCardRemoved : cardEvent === "added" ? styles.memberCardAdded : ""}`} data-tracking-event={cardEvent}>
+  return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""} ${cardEvent === "completed" ? styles.memberCardCompleted : cardEvent === "removed" ? styles.memberCardRemoved : cardEvent === "added" ? styles.memberCardAdded : ""}`} data-tracking-event={cardEvent} data-location-theme={fireteamLocationTheme(activity, member.onlineState)}>
     <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "public" ? "Public location" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
     {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => {
@@ -466,6 +491,27 @@ function presenceLocation(member: Pick<FireteamMember, "onlineState" | "activity
   if (member?.activity) return member.activity;
   if (fallback) return fallback;
   return member?.onlineState === "online" ? "Online · location unavailable" : "Presence unavailable";
+}
+
+export function fireteamLocationTheme(location: string | undefined, onlineState?: FireteamMember["onlineState"]): string | undefined {
+  if (onlineState === "offline" || !location || /offline|unavailable|unknown/i.test(location)) return undefined;
+  const value = location.toLocaleLowerCase();
+  if (/tower|h\.e\.l\.m|helm/.test(value)) return "tower";
+  if (/europa|eventide|cadmus|asterion/.test(value)) return "europa";
+  if (/dreaming city|rheasilvia|d[ei]valian|strand/.test(value)) return "dreaming";
+  if (/neomuna|neptune|zephyr|ahimsa|líming|liming/.test(value)) return "neomuna";
+  if (/savath[uû]n|throne world|miasma|quagmire|fluorescent canal/.test(value)) return "throne-world";
+  if (/pale heart|traveler/.test(value)) return "pale-heart";
+  if (/cosmodrome|skywatch|mothyards/.test(value)) return "cosmodrome";
+  if (/european dead zone|\bedz\b|tro[st]land|winding cove/.test(value)) return "edz";
+  if (/nessus|cistern|artifact's edge|watcher's grave/.test(value)) return "nessus";
+  if (/\bmoon\b|hellmouth|sorrow's harbor|archer's line/.test(value)) return "moon";
+  if (/\bmars\b|enclave|braytech futurescape/.test(value)) return "mars";
+  if (/kepler/.test(value)) return "kepler";
+  if (/dreadnaught/.test(value)) return "dreadnaught";
+  if (/eternity|dares of eternity|x[uû]r's treasure/.test(value)) return "eternity";
+  if (/mercury|venus|io|titan|tangled shore|reef/.test(value)) return "destination";
+  return "destination";
 }
 
 export function canJoinContact(contact: Pick<FireteamContact, "onlineState">): boolean {

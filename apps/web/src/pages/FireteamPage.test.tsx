@@ -6,7 +6,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
 import { playCompletionChime } from "../services/completionAudio";
-import { FireteamPage } from "./FireteamPage";
+import { FireteamPage, fireteamLocationTheme } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
 const setPreference = vi.fn();
@@ -276,6 +276,23 @@ describe("Fireteam tracked items", () => {
 
     expect(setPreference).toHaveBeenCalledWith("fireteam.trackedOrder", JSON.stringify(["guardian-rank:rank-record", "order:quest-instance"]));
     expect(queuedApi).not.toHaveBeenCalled();
+  });
+});
+
+describe("Fireteam location atmosphere", () => {
+  it("maps known destinations and leaves offline Guardians neutral", () => {
+    expect(fireteamLocationTheme("Europa · Eventide Ruins", "online")).toBe("europa");
+    expect(fireteamLocationTheme("The Tower", "online")).toBe("tower");
+    expect(fireteamLocationTheme("Neomuna · Zephyr Concourse", "online")).toBe("neomuna");
+    expect(fireteamLocationTheme("Europa", "offline")).toBeUndefined();
+  });
+
+  it("applies the current destination to the page edges and member card", async () => {
+    const view = render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+    await screen.findByText("Weekly order");
+
+    expect(view.container.querySelector('[data-fireteam-location-theme="tower"]')).toBeTruthy();
+    expect(screen.getByText("Guardian#1234").closest("[data-location-theme]")?.getAttribute("data-location-theme")).toBe("tower");
   });
 });
 
