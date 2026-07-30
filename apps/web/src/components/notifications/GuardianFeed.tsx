@@ -9,43 +9,16 @@ import { playCompletionChime } from "../../services/completionAudio";
 import styles from "./GuardianFeed.module.css";
 
 const GUARDIAN_FANFARE_CSS = String.raw`
-section[data-guardian-animation]{isolation:isolate;animation:gn-arrive .7s cubic-bezier(.16,.78,.2,1) both}
-section[data-guardian-animation]::before,section[data-guardian-animation]::after{content:"";position:absolute;z-index:1;inset:0;pointer-events:none}
-section[data-guardian-animation]::after{background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--notification-primary) 25%,transparent),transparent);animation:gn-afterglow 2s ease-out both}
-section[data-guardian-animation] .gn-fanfare-icon{animation:gn-emblem 1.35s cubic-bezier(.12,.9,.2,1) both}
-section[data-guardian-animation] .gn-fanfare-copy{animation:gn-copy 1s cubic-bezier(.16,.76,.24,1) .18s both}
-section[data-guardian-animation="distortion"]{animation:gn-corrupt 2s cubic-bezier(.12,.72,.16,1) both}
-section[data-guardian-animation="distortion"]::before{inset:-130% -8%;background:repeating-conic-gradient(from 255deg at 0 50%,transparent 0 8deg,color-mix(in srgb,var(--notification-primary) 60%,transparent) 9deg 11deg,transparent 12deg 18deg);transform-origin:left;animation:gn-corruption 2.5s cubic-bezier(.12,.7,.18,1) both}
-section[data-guardian-animation="distortion"]::after{inset:-20%;background:radial-gradient(ellipse at 4% 50%,color-mix(in srgb,var(--notification-accent) 72%,transparent),transparent 18%),repeating-linear-gradient(102deg,transparent 0 19px,color-mix(in srgb,var(--notification-primary) 24%,transparent) 20px 22px,transparent 23px 39px);animation:gn-corrupt-sky 2.6s ease-out both}
-section[data-guardian-animation="distortion"] .gn-fanfare-icon{animation:gn-glitch 1.8s steps(2,end) both}
-section[data-guardian-animation="ironBanner"]{transform-origin:left center;animation:gn-unfurl 1.85s cubic-bezier(.12,.82,.18,1) both}
-section[data-guardian-animation="ironBanner"]::before{inset:-35% -5%;background:linear-gradient(102deg,transparent 5%,color-mix(in srgb,var(--notification-accent) 14%,transparent) 34%,color-mix(in srgb,var(--notification-accent) 65%,transparent) 49%,color-mix(in srgb,var(--notification-primary) 18%,transparent) 63%,transparent 92%);animation:gn-cloth 2.2s cubic-bezier(.14,.68,.18,1) both}
-section[data-guardian-animation="ironBanner"]::after{inset:0 66% 0 0;border-right:1px solid color-mix(in srgb,var(--notification-accent) 85%,transparent);background:linear-gradient(90deg,color-mix(in srgb,var(--notification-primary) 40%,transparent),transparent);transform-origin:left;animation:gn-crest-wave 2s ease-out both}
-section[data-guardian-animation="ironBanner"] .gn-fanfare-icon{animation:gn-crest 1.7s cubic-bezier(.12,.88,.2,1) .12s both}
-section[data-guardian-animation="trials"]::before{inset:-190% -10%;background:conic-gradient(from 0deg at 15% 50%,transparent 0 9deg,color-mix(in srgb,var(--notification-accent) 65%,transparent) 10deg 12deg,transparent 13deg 29deg);animation:gn-spin-burst 2s ease-out both}
-section[data-guardian-animation="gambit"]::before{inset:-170% -8%;background:conic-gradient(from 20deg at 12% 50%,transparent,color-mix(in srgb,var(--notification-primary) 58%,transparent),transparent 24%,color-mix(in srgb,var(--notification-accent) 52%,transparent),transparent 51%);animation:gn-spin-burst 2s ease-out both}
-section[data-guardian-animation="exotic"]::before,section[data-guardian-animation="legendary"]::before,section[data-guardian-animation="completion"]::before{inset:-180% -6%;background:conic-gradient(from 0deg at 13% 50%,transparent 0 7deg,color-mix(in srgb,var(--notification-accent) 76%,transparent) 8deg 10deg,transparent 11deg 25deg);animation:gn-spin-burst 1.9s ease-out both}
-section[data-guardian-animation="seasonal"]::before{inset:-190% -5%;background:conic-gradient(from 0deg at 14% 50%,transparent 0 19%,color-mix(in srgb,var(--notification-accent) 62%,transparent) 20% 21%,transparent 22% 47%,color-mix(in srgb,var(--notification-primary) 52%,transparent) 48% 49%,transparent 50%);animation:gn-orbit 2.25s ease-out both}
-section[data-guardian-animation="warning"]::before,section[data-guardian-animation="outage"]::before{background:repeating-linear-gradient(118deg,transparent 0 28px,color-mix(in srgb,var(--notification-primary) 50%,transparent) 29px 38px,transparent 39px 68px);animation:gn-charge 1.7s ease-out both}
-section[data-guardian-animation="warning"]::after,section[data-guardian-animation="outage"]::after{box-shadow:inset 0 0 20px color-mix(in srgb,var(--notification-primary) 65%,transparent);animation:gn-alarm 2s ease-out both}
-@keyframes gn-arrive{from{opacity:0;transform:translateY(-16px) scaleY(.65)}65%{transform:translateY(2px) scaleY(1.05)}}
-@keyframes gn-afterglow{from{opacity:0;transform:scaleX(.1)}42%{opacity:.9}to{opacity:0;transform:scaleX(1)}}
-@keyframes gn-emblem{from{opacity:0;transform:scale(.15) rotate(-40deg);filter:brightness(2.3)}58%{transform:scale(1.35) rotate(8deg)}78%{transform:scale(.92) rotate(-3deg)}}
-@keyframes gn-copy{from{opacity:0;transform:translateX(-32px);filter:blur(5px)}}
-@keyframes gn-corrupt{0%{opacity:0;filter:blur(13px) saturate(2);clip-path:inset(0 100% 0 0)}30%{opacity:.75;filter:blur(2px) saturate(1.8)}47%{transform:translateX(4px);filter:none}55%{transform:translateX(-3px)}100%{clip-path:inset(0);transform:none}}
-@keyframes gn-corruption{0%{opacity:0;transform:scaleX(.01) rotate(-8deg)}40%{opacity:.95}100%{opacity:0;transform:scaleX(1.1)}}
-@keyframes gn-corrupt-sky{0%{opacity:0;transform:translateX(-30%) scaleX(.12)}38%{opacity:1}70%{opacity:.4;filter:hue-rotate(20deg)}100%{opacity:0;transform:translateX(18%) scaleX(1)}}
-@keyframes gn-glitch{0%{opacity:0;transform:scale(.15) skewX(-24deg)}35%{opacity:1;transform:scale(1.45) skewX(15deg);filter:brightness(2.4)}48%{transform:translateX(5px) scale(.9)}62%{transform:translateX(-4px) scale(1.12)}100%{transform:none}}
-@keyframes gn-unfurl{0%{opacity:0;clip-path:polygon(0 0,0 0,0 100%,0 100%);transform:perspective(500px) rotateY(-55deg) skewY(-5deg)}52%{opacity:1;clip-path:polygon(0 0,108% 11%,94% 87%,0 100%);transform:perspective(500px) rotateY(8deg) skewY(1deg)}74%{clip-path:polygon(0 0,99% 3%,103% 96%,0 100%);transform:rotateY(-3deg)}100%{clip-path:inset(0);transform:none}}
-@keyframes gn-cloth{0%{opacity:0;transform:translateX(-115%) skewX(-20deg)}42%{opacity:.95}72%{opacity:.4;transform:translateX(18%) skewX(9deg)}100%{opacity:0;transform:translateX(108%)}}
-@keyframes gn-crest-wave{0%{opacity:0;transform:scaleX(.03)}32%{opacity:.95;transform:scaleX(1.4)}100%{opacity:0;transform:scaleX(3.4)}}
-@keyframes gn-crest{0%{opacity:0;transform:translateX(-42px) scale(1.9) rotate(-20deg)}52%{opacity:1;transform:translateX(5px) scale(1.3) rotate(5deg);filter:brightness(2.3)}74%{transform:translateX(-2px) scale(.94)}100%{transform:none}}
-@keyframes gn-spin-burst{0%{opacity:0;transform:rotate(-70deg) scale(.08)}45%{opacity:1}100%{opacity:0;transform:rotate(38deg) scale(1)}}
-@keyframes gn-charge{0%{opacity:0;transform:translateX(-95%) skewX(-18deg)}44%{opacity:1}100%{opacity:0;transform:translateX(95%) skewX(-18deg)}}
-@keyframes gn-orbit{0%{opacity:0;transform:rotate(-130deg) scale(.1)}50%{opacity:.95}100%{opacity:0;transform:rotate(80deg) scale(1)}}
-@keyframes gn-alarm{0%,100%{opacity:0}25%,50%{opacity:1}38%,67%{opacity:.15}}
-@media(prefers-reduced-motion:reduce){section[data-guardian-animation],section[data-guardian-animation]::before,section[data-guardian-animation]::after,section[data-guardian-animation] .gn-fanfare-icon,section[data-guardian-animation] .gn-fanfare-copy{animation:none}}
-[data-notification-reduced-motion="true"] section[data-guardian-animation],[data-notification-reduced-motion="true"] section[data-guardian-animation]::before,[data-notification-reduced-motion="true"] section[data-guardian-animation]::after,[data-notification-reduced-motion="true"] section[data-guardian-animation] .gn-fanfare-icon,[data-notification-reduced-motion="true"] section[data-guardian-animation] .gn-fanfare-copy{animation:none}
+[data-notification-atmosphere]{position:absolute;z-index:0;top:38px;right:0;left:0;height:130px;overflow:hidden;pointer-events:none;opacity:.66;mask-image:linear-gradient(#000 0 58%,transparent);animation:gn-sky-in 1.4s ease-out both}
+[data-notification-atmosphere]::before{content:"";position:absolute;inset:-45% -8%;background:radial-gradient(ellipse at 15% 0,color-mix(in srgb,var(--notification-primary) 45%,transparent),transparent 42%);animation:gn-breathe 4.6s 1.3s ease-in-out infinite alternate}
+[data-notification-atmosphere="distortion"]{background:repeating-conic-gradient(from 198deg at 12% -10%,transparent 0 7deg,rgba(232,64,91,.25) 8deg 9deg,transparent 10deg 18deg),radial-gradient(ellipse at 12% 0,rgba(154,24,54,.6),transparent 46%);animation:gn-infect 1.7s ease-out both,gn-drift 5s 1.7s ease-in-out infinite alternate}
+[data-notification-atmosphere="ironBanner"]{transform-origin:top;background:repeating-linear-gradient(102deg,transparent 0 11%,rgba(190,139,63,.14) 12%,transparent 13% 22%),linear-gradient(90deg,transparent 5%,rgba(40,102,57,.28) 7% 45%,transparent 48%);animation:gn-standard 1.55s cubic-bezier(.12,.76,.16,1) both,gn-cloth 4s 1.55s ease-in-out infinite alternate}
+[data-notification-atmosphere="trials"],[data-notification-atmosphere="exotic"],[data-notification-atmosphere="legendary"],[data-notification-atmosphere="completion"]{background:repeating-conic-gradient(from 0deg at 25% -80%,color-mix(in srgb,var(--notification-accent) 18%,transparent) 0 3deg,transparent 4deg 13deg);animation:gn-rays 1.6s ease-out both}
+[data-notification-atmosphere="gambit"],[data-notification-atmosphere="seasonal"],[data-notification-atmosphere="system"]{background:radial-gradient(circle at 22% 0,transparent 0 34px,color-mix(in srgb,var(--notification-accent) 22%,transparent) 35px 36px,transparent 37px 68px);animation:gn-orbit 7s linear infinite}
+[data-notification-atmosphere="warning"],[data-notification-atmosphere="outage"]{background:repeating-linear-gradient(120deg,transparent 0 32px,color-mix(in srgb,var(--notification-primary) 18%,transparent) 33px 37px,transparent 38px 68px);animation:gn-hazard 3.8s linear infinite}
+.gn-rank-fanfare{box-shadow:inset 4px 0 0 #f2d887,0 0 22px rgba(242,216,135,.24)!important;animation:gn-rank .95s cubic-bezier(.16,.75,.2,1) both!important}.gn-rank-atmosphere{background:repeating-conic-gradient(from 0deg at 50% -90%,rgba(255,226,139,.17) 0 2deg,transparent 3deg 11deg)!important;animation:gn-rays 1.6s ease-out both!important}
+@keyframes gn-sky-in{from{opacity:0;transform:translateY(-35px);filter:blur(6px)}}@keyframes gn-breathe{from{filter:brightness(.65);transform:translateX(-3%)}to{filter:brightness(1.15);transform:translateX(4%)}}@keyframes gn-infect{from{opacity:0;clip-path:polygon(0 0,0 0,0 100%,0 100%);filter:blur(8px)}to{clip-path:polygon(0 0,100% 0,76% 100%,0 74%)}}@keyframes gn-drift{to{transform:translateX(6%) scaleX(1.12);filter:saturate(1.4)}}@keyframes gn-standard{from{opacity:0;transform:scaleY(.03) skewX(-5deg)}to{transform:scaleY(1);clip-path:polygon(0 0,100% 0,94% 100%,4% 86%)}}@keyframes gn-cloth{from{transform:skewX(-1deg);filter:brightness(.7)}to{transform:skewX(1deg);filter:brightness(1.15)}}@keyframes gn-rays{from{opacity:0;transform:scaleX(.1);filter:brightness(2)}55%{opacity:.95}to{opacity:.42;transform:scaleX(1)}}@keyframes gn-orbit{to{transform:rotate(3deg) scale(1.04)}}@keyframes gn-hazard{to{background-position:137px 0}}@keyframes gn-rank{from{opacity:0;filter:brightness(2);clip-path:inset(0 50%)}65%{clip-path:inset(0)}to{filter:none}}
+@media(prefers-reduced-motion:reduce){[data-notification-atmosphere], [data-notification-atmosphere]::before,.gn-rank-fanfare{animation:none}}[data-notification-reduced-motion=true] [data-notification-atmosphere],[data-notification-reduced-motion=true] [data-notification-atmosphere]::before,[data-notification-reduced-motion=true] .gn-rank-fanfare{animation:none}
 `;
 const SHOWN_NOTIFICATIONS_KEY = "guardian-nexus:notifications:shown";
 
@@ -137,19 +110,18 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
     {notification.badge && <b className={styles.badge}>{notification.badge}</b>}
     {notification.externalUrl && !notification.destinationUrl && <ExternalLink className={styles.external} aria-label="External link" />}
   </>;
-  const atmosphereClass = config.animation ? styles[`${config.animation}Atmosphere`] : styles.systemAtmosphere;
   return (
     <>
       <div
         key={`${notification.id}:atmosphere`}
-        className={`${styles.atmosphere} ${atmosphereClass || ""} ${isRankUpNotification(notification) ? styles.fanfareAtmosphere : ""}`}
+        className={isRankUpNotification(notification) ? "gn-rank-atmosphere" : undefined}
         style={style}
         data-notification-atmosphere={config.animation || "system"}
         aria-hidden="true"
       />
       <section
         key={notification.id}
-        className={`${styles.feed} ${styles[notification.priority]} ${config.animation ? styles[config.animation] : ""} ${isRankUpNotification(notification) ? styles.fanfare : ""}`}
+        className={`${styles.feed} ${styles[notification.priority]} ${config.animation ? styles[config.animation] : ""} ${isRankUpNotification(notification) ? "gn-rank-fanfare" : ""}`}
         data-guardian-animation={config.animation}
         style={style}
         aria-live={notification.priority === "critical" ? "assertive" : "polite"}
