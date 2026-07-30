@@ -54,6 +54,17 @@ describe("Guardian Feed session handoff", () => {
     view.rerender(<MemoryRouter><GuardianFeed controller={controller([notification("iron-banner", "Iron Banner unfurls", "iron-banner")])} /></MemoryRouter>);
     expect(view.container.querySelector('[data-notification-atmosphere="ironBanner"]')).toBeTruthy();
   });
+
+  it("removes the large environmental fanfare after one minute but leaves the banner visible", async () => {
+    const persistent = { ...notification("persistent", "Persistent world event", "distortion"), autoDismiss: false, autoDismissMs: undefined };
+    const view = render(<MemoryRouter><GuardianFeed controller={controller([persistent])} /></MemoryRouter>);
+    expect(view.container.querySelector('[data-notification-atmosphere="distortion"]')).toBeTruthy();
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+    expect(view.container.querySelector("[data-notification-atmosphere]")).toBeNull();
+    expect(screen.getByRole("region", { name: /Persistent world event/ })).toBeTruthy();
+  });
 });
 
 function notification(id: string, title: string, category: GuardianNotification["category"] = "system"): GuardianNotification {

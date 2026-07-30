@@ -91,6 +91,11 @@ describe("Fireteam tracked items", () => {
     const enteringItem = (await screen.findByText("New rank objective")).closest("[data-tracking-state]");
     expect(enteringItem?.getAttribute("data-tracking-state")).toBe("entering");
     expect(enteringItem?.closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("added");
+    const existingItem = screen.getByText("Weekly order").closest("[data-tracking-state]");
+    expect(enteringItem).not.toBeNull();
+    expect(existingItem).not.toBeNull();
+    expect(enteringItem!.compareDocumentPosition(existingItem!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(setPreference).toHaveBeenCalledWith("fireteam.trackedOrder", JSON.stringify(["guardian-rank:new-record", "order:quest-instance", "guardian-rank:rank-record"]));
     await act(async () => { vi.advanceTimersByTime(1_400); });
     expect(enteringItem?.getAttribute("data-tracking-state")).toBe("active");
   });

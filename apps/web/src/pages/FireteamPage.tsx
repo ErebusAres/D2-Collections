@@ -53,7 +53,9 @@ export function FireteamPage() {
   useEffect(() => setGuardianRankIds(preferenceGuardianRankIds), [preferences["guardianRank.tracked"]]);
   const journeyIds = useMemo(() => trackedPreference(preferences["journey.tracked"]), [preferences]);
   const collectionIds = useMemo(() => trackedPreference(preferences["collection.tracked"]), [preferences]);
-  const trackedItemOrder = useMemo(() => trackedPreference(preferences["fireteam.trackedOrder"]), [preferences]);
+  const preferenceTrackedItemOrder = useMemo(() => trackedPreference(preferences["fireteam.trackedOrder"]), [preferences]);
+  const [trackedItemOrder, setTrackedItemOrder] = useState(preferenceTrackedItemOrder);
+  useEffect(() => setTrackedItemOrder(preferenceTrackedItemOrder), [preferences["fireteam.trackedOrder"]]);
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
   const [manualRemovingKey, setManualRemovingKey] = useState("");
   const share = useMutation({
@@ -77,6 +79,29 @@ export function FireteamPage() {
     share.mutate({ mode: sharingMode });
   }, [result.data?.data.sharingEnabled, share, sharingMode, syncSignature, manualRemovingKey]);
   const self = data?.members.find((member) => member.isSelf);
+  const trackedOrderContext = `${membershipId}:${selectedCharacterId}`;
+  const previousTrackedOrderKeys = useRef<{ context: string; keys: Set<string> } | undefined>(undefined);
+  const selfTrackedItems = self ? (Array.isArray(self.trackedItems) ? self.trackedItems : self.quests.map(legacyTrackedItem)) : [];
+  const selfTrackedSignature = selfTrackedItems.map(trackedItemKey).sort().join("|");
+  useEffect(() => {
+    if (!self) return;
+    const currentKeys = new Set(selfTrackedItems.map(trackedItemKey));
+    const previous = previousTrackedOrderKeys.current;
+    previousTrackedOrderKeys.current = { context: trackedOrderContext, keys: currentKeys };
+    if (!previous || previous.context !== trackedOrderContext) {
+      if (!trackedItemOrder.length && currentKeys.size) {
+        const initialOrder = [...currentKeys];
+        setTrackedItemOrder(initialOrder);
+        setPreference("fireteam.trackedOrder", JSON.stringify(initialOrder));
+      }
+      return;
+    }
+    const addedKeys = [...currentKeys].filter((key) => !previous.keys.has(key));
+    if (!addedKeys.length) return;
+    const nextOrder = [...addedKeys, ...orderedTrackedItemKeys(selfTrackedItems, trackedItemOrder).filter((key) => !addedKeys.includes(key))];
+    setTrackedItemOrder(nextOrder);
+    setPreference("fireteam.trackedOrder", JSON.stringify(nextOrder));
+  }, [selfTrackedSignature, trackedOrderContext]);
   const reorderTrackedItems = (sourceKey: string, targetKey: string) => {
     if (!self || sourceKey === targetKey) return;
     const sourceItems = Array.isArray(self.trackedItems) ? self.trackedItems : self.quests.map(legacyTrackedItem);
@@ -85,6 +110,7 @@ export function FireteamPage() {
     const targetIndex = nextOrder.indexOf(targetKey);
     if (sourceIndex < 0 || targetIndex < 0) return;
     nextOrder.splice(targetIndex, 0, nextOrder.splice(sourceIndex, 1)[0]!);
+    setTrackedItemOrder(nextOrder);
     setPreference("fireteam.trackedOrder", JSON.stringify(nextOrder));
   };
   const [copied, setCopied] = useState("");
@@ -332,7 +358,8 @@ function trackedItemKey(item: Pick<FireteamTrackedItem, "kind" | "id">): string 
 
 function orderedTrackedItemKeys(items: FireteamTrackedItem[], order: string[] = []): string[] {
   const available = new Set(items.map(trackedItemKey));
-  return [...order.filter((key) => available.delete(key)), ...available];
+  const known = order.filter((key) => available.delete(key));
+  return [...available, ...known];
 }
 
 function orderTrackedItems(items: FireteamTrackedItem[], order: string[] = []): FireteamTrackedItem[] {
