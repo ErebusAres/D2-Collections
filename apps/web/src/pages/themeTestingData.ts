@@ -37,14 +37,14 @@ export const notificationThemeOptions: ThemeOption[] = [
 ];
 
 export const fireteamThemeOptions: ThemeOption[] = [
-  { number: 1, name: "Left Landmark", description: "A dominant left landmark with a sparse right-side navigation trace." },
-  { number: 2, name: "Right Landmark", description: "A heavier right destination feature balanced by a narrow left signal." },
-  { number: 3, name: "Staggered Rails", description: "Different top and bottom rail segments that never mirror one another." },
-  { number: 4, name: "Broken Segments", description: "Interrupted destination structures with irregular spacing and scale." },
-  { number: 5, name: "Opposed Corners", description: "A top-left artifact and lower-right counterweight frame the content." },
-  { number: 6, name: "Curved Passage", description: "One curved environmental passage with a separate linear edge response." },
-  { number: 7, name: "Artifact Clusters", description: "Uneven clusters of destination objects gathered around key cards." },
-  { number: 8, name: "Minimal Frame", description: "Thin premium rails and one destination-specific card signature." }
+  { number: 1, name: "Encroaching World", description: "Foreground scenery presses inward from unequal edges while weather crosses the full field." },
+  { number: 2, name: "Monument Field", description: "One enormous destination landmark owns the background and physically frames the card." },
+  { number: 3, name: "Atmospheric Canopy", description: "A heavy overhead environment hangs above low drifting debris, fog, snow, or light." },
+  { number: 4, name: "Fractured Perimeter", description: "Distinct destination material breaks around all four edges with an open center." },
+  { number: 5, name: "Environmental Breach", description: "A diagonal rupture, storm front, energy seam, or structure cuts through the scene." },
+  { number: 6, name: "Living Passage", description: "Curved environmental forms create a tunnel or passage with continuous directional motion." },
+  { number: 7, name: "Artifact Invasion", description: "Irregular destination objects gather around and visibly overtake the objective cards." },
+  { number: 8, name: "Cinematic Restraint", description: "Large negative space, one unmistakable landmark, and sparse premium ambient motion." }
 ];
 
 export const notificationThemeDefinitions: NotificationThemeDefinition[] = [
