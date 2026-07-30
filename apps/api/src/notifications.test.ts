@@ -41,6 +41,20 @@ describe("Distortion evidence handling", () => {
     expect(prediction.expectedDestination).toBeUndefined();
   });
 
+  it("confirms the next destination after four accurate complete loops", () => {
+    const rotation = ["Cosmodrome", "EDZ", "Dreaming City", "Savathun's Throne World", "Moon", "Europa", "Nessus"];
+    const history = Array.from({ length: 28 }, (_, index) => observation(rotation[index % rotation.length], index)).reverse();
+    const prediction = calculateDistortionPrediction(history);
+    expect(prediction).toMatchObject({
+      state: "available",
+      expectedDestination: "Cosmodrome",
+      confidencePercent: 100,
+      recentAccuracyPercent: 100,
+      sampleSize: 28
+    });
+    expect(prediction.explanation).toContain("Four complete seven-destination loops");
+  });
+
   it("calculates observed counts and intervals without inventing missing fields", () => {
     const history = [observation("Moon", 3), observation("Europa", 2), observation("Moon", 1)];
     const result = calculateDistortionStatistics(history);
