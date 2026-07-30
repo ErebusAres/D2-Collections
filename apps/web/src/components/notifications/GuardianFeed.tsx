@@ -7,6 +7,7 @@ import type { GuardianNotification, NotificationPreferences } from "@guardian-ne
 import { categoryFor } from "../../modules/notifications/categoryConfig";
 import { playCompletionChime } from "../../services/completionAudio";
 import guardianFanfareUrl from "../../styles/guardian-fanfare.css?url";
+import guardianFanfarePolishUrl from "../../styles/guardian-fanfare-polish.css?url";
 import { ensureStylesheet } from "../../styles/loadStylesheet";
 import styles from "./GuardianFeed.module.css";
 
@@ -16,6 +17,7 @@ const REPLAY_NOTIFICATION_EVENT = "guardian-nexus:notification-replay";
 export function GuardianFeed({ controller }: { controller: GuardianNotificationsController }) {
   useEffect(() => {
     ensureStylesheet("notification-fanfare", guardianFanfareUrl);
+    ensureStylesheet("notification-fanfare-polish", guardianFanfarePolishUrl);
   }, []);
   const { feed, preferences } = controller;
   const [shown, setShown] = useState<Set<string>>(readShownNotifications);
