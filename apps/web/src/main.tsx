@@ -11,11 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
 import { GuardianProvider } from "./context/GuardianContext";
 import { registerGuardianServiceWorker } from "./services/registerServiceWorker";
-import destinationAtmospheresUrl from "./styles/destination-atmospheres.css?url";
-import { ensureStylesheet } from "./styles/loadStylesheet";
 import "./styles/theme.css";
-
-ensureStylesheet("destination-atmospheres", destinationAtmospheresUrl);
 
 registerGuardianServiceWorker();
 

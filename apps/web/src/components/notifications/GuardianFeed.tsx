@@ -7,7 +7,6 @@ import type { GuardianNotification, NotificationPreferences } from "@guardian-ne
 import { categoryFor } from "../../modules/notifications/categoryConfig";
 import { playCompletionChime } from "../../services/completionAudio";
 import guardianFanfareUrl from "../../styles/guardian-fanfare.css?url";
-import guardianFanfarePolishUrl from "../../styles/guardian-fanfare-polish.css?url";
 import { ensureStylesheet } from "../../styles/loadStylesheet";
 import styles from "./GuardianFeed.module.css";
 
@@ -17,14 +16,12 @@ const REPLAY_NOTIFICATION_EVENT = "guardian-nexus:notification-replay";
 export function GuardianFeed({ controller }: { controller: GuardianNotificationsController }) {
   useEffect(() => {
     ensureStylesheet("notification-fanfare", guardianFanfareUrl);
-    ensureStylesheet("notification-fanfare-polish", guardianFanfarePolishUrl);
   }, []);
   const { feed, preferences } = controller;
   const [shown, setShown] = useState<Set<string>>(readShownNotifications);
   const eligibleFeed = useMemo(() => feed.filter((entry) => !entry.autoDismiss || !shown.has(notificationVersion(entry))), [feed, shown]);
   const [activeId, setActiveId] = useState<string>();
   const [paused, setPaused] = useState(false);
-  const [atmosphereVisible, setAtmosphereVisible] = useState(true);
   const [overflows, setOverflows] = useState(false);
   const [scrollDistance, setScrollDistance] = useState(0);
   const textRef = useRef<HTMLSpanElement>(null);
@@ -46,7 +43,6 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
         return updated;
       });
       setActiveId(detail.id);
-      setAtmosphereVisible(true);
     };
     window.addEventListener(REPLAY_NOTIFICATION_EVENT, replay);
     return () => window.removeEventListener(REPLAY_NOTIFICATION_EVENT, replay);
@@ -102,16 +98,6 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
     playedFanfare.current.add(version);
     playCompletionChime();
   }, [notification, notificationId, preferences.sound]);
-  useEffect(() => {
-    if (!notification) {
-      setAtmosphereVisible(false);
-      return;
-    }
-    setAtmosphereVisible(true);
-    const timer = window.setTimeout(() => setAtmosphereVisible(false), 30_000);
-    return () => window.clearTimeout(timer);
-  }, [notificationId, notification?.updatedAt, notification?.createdAt]);
-
   if (!preferences.bannerVisible || !notification) return null;
   const config = categoryFor(notification.category);
   const Icon = config.icon;
@@ -133,17 +119,9 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
     {notification.externalUrl && !notification.destinationUrl && <ExternalLink className={styles.external} aria-label="External link" />}
   </>;
   return (
-    <>
-      {atmosphereVisible && <div
-        key={`${notification.id}:atmosphere`}
-        className={isRankUpNotification(notification) ? "gn-rank-atmosphere" : undefined}
-        style={style}
-        data-notification-atmosphere={config.animation || "system"}
-        aria-hidden="true"
-      />}
       <section
-        key={notification.id}
-        className={`${styles.feed} ${styles[notification.priority]} ${config.animation ? styles[config.animation] : ""} ${isRankUpNotification(notification) ? "gn-rank-fanfare" : ""}`}
+        key={notificationVersion(notification)}
+        className={`${styles.feed} ${styles[notification.priority]} ${isRankUpNotification(notification) ? "gn-rank-fanfare" : ""}`}
         data-guardian-animation={config.animation}
         style={style}
         aria-live={notification.priority === "critical" ? "assertive" : "polite"}
@@ -161,7 +139,6 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
         <span className={styles.position} aria-hidden="true">{activeIndex + 1}/{eligibleFeed.length}</span>
         {notification.dismissible && <button type="button" onClick={() => { controller.dismiss(notification); setActiveId(eligibleFeed[(activeIndex + 1) % eligibleFeed.length]?.id); }} aria-label={`Dismiss ${notification.title}`}><X /></button>}
       </section>
-    </>
   );
 }
 
