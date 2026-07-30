@@ -5,6 +5,10 @@ on:
     branches:
       - refactor/css-typescript-cleanup
 
+concurrency:
+  group: final-css-cleanup
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
