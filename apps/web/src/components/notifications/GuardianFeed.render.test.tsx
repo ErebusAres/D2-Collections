@@ -47,23 +47,27 @@ describe("Guardian Feed session handoff", () => {
     expect(screen.queryByRole("region")).toBeNull();
   });
 
-  it("renders the environmental treatment configured for the active category", () => {
+  it("applies the configured entrance to the banner without mounting a page atmosphere", () => {
     const view = render(<MemoryRouter><GuardianFeed controller={controller([notification("distortion", "The sky is changing", "distortion")])} /></MemoryRouter>);
-    expect(view.container.querySelector('[data-notification-atmosphere="distortion"]')).toBeTruthy();
+    expect(screen.getByRole("region").getAttribute("data-guardian-animation")).toBe("distortion");
+    expect(view.container.querySelector("[data-notification-atmosphere]")).toBeNull();
 
     view.rerender(<MemoryRouter><GuardianFeed controller={controller([notification("iron-banner", "Iron Banner unfurls", "iron-banner")])} /></MemoryRouter>);
-    expect(view.container.querySelector('[data-notification-atmosphere="ironBanner"]')).toBeTruthy();
+    expect(screen.getByRole("region").getAttribute("data-guardian-animation")).toBe("ironBanner");
+    expect(view.container.querySelector("[data-notification-atmosphere]")).toBeNull();
   });
 
-  it("removes the large environmental fanfare after one minute but leaves the banner visible", async () => {
+  it("keeps a persistent notification static after its one-shot entrance", async () => {
     const persistent = { ...notification("persistent", "Persistent world event", "distortion"), autoDismiss: false, autoDismissMs: undefined };
     const view = render(<MemoryRouter><GuardianFeed controller={controller([persistent])} /></MemoryRouter>);
-    expect(view.container.querySelector('[data-notification-atmosphere="distortion"]')).toBeTruthy();
+    const banner = screen.getByRole("region", { name: /Persistent world event/ });
+    expect(banner.getAttribute("data-guardian-animation")).toBe("distortion");
+    expect(view.container.querySelector("[data-notification-atmosphere]")).toBeNull();
 
     await act(() => vi.advanceTimersByTimeAsync(60_000));
 
+    expect(screen.getByRole("region", { name: /Persistent world event/ })).toBe(banner);
     expect(view.container.querySelector("[data-notification-atmosphere]")).toBeNull();
-    expect(screen.getByRole("region", { name: /Persistent world event/ })).toBeTruthy();
   });
 });
 
