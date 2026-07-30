@@ -101,7 +101,7 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
       return;
     }
     setAtmosphereVisible(true);
-    const timer = window.setTimeout(() => setAtmosphereVisible(false), 60_000);
+    const timer = window.setTimeout(() => setAtmosphereVisible(false), 30_000);
     return () => window.clearTimeout(timer);
   }, [notificationId, notification?.updatedAt, notification?.createdAt]);
 
