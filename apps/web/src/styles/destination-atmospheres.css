@@ -1,15 +1,24 @@
 /*
- * Fireteam destination atmospheres.
+ * Fireteam destination themes.
  *
- * The page already exposes data-fireteam-location-theme and data-location-theme.
- * These rules deliberately override the earlier lightweight gradient pass with
- * destination-specific scene composition. Motion stays in the environment;
- * Fireteam content remains stable and readable.
+ * Destination identity is limited to narrow page-edge rails, Guardian card
+ * frames, and tracked-item borders. There is deliberately no page-wide scene,
+ * tint, gradient wash, or content background overlay.
  */
 
 html body .gn-fireteam-location {
   position: relative;
   isolation: isolate;
+  --destination-line: #8eb6c5a6;
+  --destination-accent: #78dbea;
+  --destination-glow: #4baec536;
+  --destination-rail:
+    repeating-linear-gradient(160deg, transparent 0 18px, #78dbea42 19px 21px, transparent 22px 40px),
+    linear-gradient(90deg, transparent, #78dbea24);
+  --destination-rail-size: 100% 80px;
+  --destination-rail-motion: gn-destination-rail-drift 15s linear infinite;
+  --destination-corner:
+    conic-gradient(from 45deg, transparent 0 35deg, #78dbea9e 36deg 44deg, transparent 45deg 90deg);
 }
 
 html body .gn-fireteam-location > * {
@@ -22,458 +31,408 @@ html body .gn-fireteam-location::after {
   content: "";
   position: fixed;
   z-index: 0;
-}
-
-html body .gn-fireteam-location[data-fireteam-location-theme]::before,
-html body .gn-fireteam-location[data-fireteam-location-theme]::after {
-  inset: 118px 0 0;
+  top: var(--shell-header-height, 130px);
+  bottom: 0;
+  width: clamp(16px, 2.4vw, 38px);
   pointer-events: none;
+  background: var(--destination-rail);
+  background-size: var(--destination-rail-size);
+  opacity: .78;
+  filter: drop-shadow(0 0 12px var(--destination-glow));
+  animation: var(--destination-rail-motion);
+  mask-image: linear-gradient(to bottom, transparent, #000 7%, #000 93%, transparent);
 }
 
-html body .gn-fireteam-location[data-fireteam-location-theme]::before {
-  background: var(--destination-edge) !important;
-  box-shadow:
-    inset 34px 0 54px var(--destination-edge-glow),
-    inset -34px 0 54px var(--destination-edge-glow) !important;
-  opacity: .9;
-  animation: gn-destination-breathe 8s ease-in-out infinite alternate !important;
+html body .gn-fireteam-location::before {
+  left: 0;
+  border-right: 1px solid var(--destination-line);
 }
 
-html body .gn-fireteam-location[data-fireteam-location-theme]::after {
-  background: var(--destination-scene) !important;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  opacity: .72 !important;
-  animation: var(--destination-page-motion, none) !important;
+html body .gn-fireteam-location::after {
+  right: 0;
+  border-left: 1px solid var(--destination-line);
+  transform: scaleX(-1);
 }
 
 html body [data-location-theme] {
+  position: relative;
   border-color: var(--destination-line) !important;
   box-shadow:
-    inset 0 0 26px var(--destination-card-glow),
-    0 0 16px var(--destination-card-glow) !important;
+    0 0 0 1px color-mix(in srgb, var(--destination-accent) 18%, transparent),
+    0 0 18px var(--destination-glow) !important;
+}
+
+html body [data-location-theme] > * {
+  position: relative;
+  z-index: 1;
 }
 
 html body [data-location-theme]::before {
-  background: var(--destination-card) !important;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: cover;
-  opacity: .62 !important;
-  animation: var(--destination-card-motion, none) !important;
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background:
+    var(--destination-corner) left top / 46px 46px no-repeat,
+    var(--destination-corner) right bottom / 46px 46px no-repeat,
+    linear-gradient(90deg, var(--destination-accent), transparent 28%, transparent 72%, var(--destination-accent)) left top / 100% 2px no-repeat,
+    linear-gradient(90deg, var(--destination-line), transparent 38%, transparent 62%, var(--destination-line)) left bottom / 100% 1px no-repeat,
+    linear-gradient(180deg, var(--destination-accent), transparent 34%, transparent 66%, var(--destination-accent)) left top / 3px 100% no-repeat,
+    linear-gradient(180deg, var(--destination-line), transparent 42%, transparent 58%, var(--destination-line)) right top / 2px 100% no-repeat;
+  opacity: .86;
+  filter: drop-shadow(0 0 7px var(--destination-glow));
+  animation: gn-destination-frame-breathe 8s ease-in-out infinite alternate;
 }
 
-/* Europa — fractured glacial shelves, blowing frost, hard blue-white edges. */
+html body [data-location-theme] [data-tracking-state] {
+  outline: 1px solid color-mix(in srgb, var(--destination-line) 62%, transparent);
+  outline-offset: -1px;
+  border-bottom-color: color-mix(in srgb, var(--destination-line) 54%, var(--line)) !important;
+  box-shadow:
+    inset 3px 0 0 var(--destination-accent),
+    inset -2px 0 0 color-mix(in srgb, var(--destination-line) 74%, transparent),
+    inset 12px 0 18px color-mix(in srgb, var(--destination-glow) 44%, transparent),
+    0 0 9px color-mix(in srgb, var(--destination-glow) 58%, transparent);
+  transition: outline-color .16s ease, box-shadow .16s ease;
+}
+
+html body [data-location-theme] [data-tracking-state]:hover,
+html body [data-location-theme] [data-tracking-state]:focus-within {
+  outline-color: var(--destination-line);
+  box-shadow:
+    inset 4px 0 0 var(--destination-accent),
+    inset -2px 0 0 var(--destination-line),
+    inset 15px 0 22px color-mix(in srgb, var(--destination-glow) 58%, transparent),
+    0 0 14px var(--destination-glow);
+}
+
+/* Europa — crystalline ice fractures and hard blue-white glints. */
 html body .gn-fireteam-location[data-fireteam-location-theme="europa"],
 html body [data-location-theme="europa"] {
   --destination-line: #d7f8ffcf;
-  --destination-card-glow: #8de6ff42;
-  --destination-edge-glow: #9be9ff3d;
-  --destination-edge:
-    linear-gradient(90deg, #bfefff29, transparent 13% 87%, #bfefff29),
-    linear-gradient(180deg, #eefeff10, transparent 42%);
-  --destination-scene:
-    conic-gradient(from 221deg at -4% 102%, transparent 0 10deg, #e9fcff73 11deg 16deg, transparent 17deg 24deg, #8ed9ec4f 25deg 31deg, transparent 32deg),
-    conic-gradient(from 37deg at 104% -4%, transparent 0 13deg, #effeff69 14deg 20deg, transparent 21deg 31deg, #83d5eb4f 32deg 39deg, transparent 40deg),
-    linear-gradient(116deg, transparent 0 11%, #f2feff2f 12% 13%, transparent 14% 72%, #9eeaff31 73% 74%, transparent 75%),
-    radial-gradient(ellipse at 50% 105%, #bdefff2e, transparent 50%);
-  --destination-card:
-    conic-gradient(from 214deg at 0 108%, transparent 0 12deg, #effeff72 13deg 18deg, transparent 19deg 29deg, #8bd8ec52 30deg 38deg, transparent 39deg),
-    conic-gradient(from 31deg at 101% -8%, transparent 0 15deg, #dffaff62 16deg 24deg, transparent 25deg 39deg),
-    linear-gradient(133deg, #f4feff35, transparent 36%);
-  --destination-page-motion: gn-europa-frost 10s ease-in-out infinite alternate;
-  --destination-card-motion: gn-ice-glint 7s ease-in-out infinite alternate;
+  --destination-accent: #9cecff;
+  --destination-glow: #74d9f04a;
+  --destination-rail:
+    linear-gradient(145deg, transparent 0 30%, #f1feffb5 31% 35%, transparent 36% 58%, #78d8ee80 59% 64%, transparent 65%) 0 0 / 100% 64px,
+    linear-gradient(35deg, transparent 0 39%, #bcefff70 40% 45%, transparent 46%) 0 18px / 100% 78px;
+  --destination-corner:
+    conic-gradient(from 222deg at 0 100%, transparent 0 13deg, #f4ffffdb 14deg 22deg, transparent 23deg 36deg, #82dcef9c 37deg 47deg, transparent 48deg);
+  --destination-rail-motion: gn-ice-rail 10s ease-in-out infinite alternate;
 }
 
-/* Tower — Traveler-lit skyline, warm daylight shafts, ceremonial gold. */
+/* Tower — Traveler-white geometry and ceremonial gold light. */
 html body .gn-fireteam-location[data-fireteam-location-theme="tower"],
 html body [data-location-theme="tower"] {
-  --destination-line: #f7e9b8b5;
-  --destination-card-glow: #ffe59a3d;
-  --destination-edge-glow: #f3d37235;
-  --destination-edge:
-    linear-gradient(90deg, #f1cf6f24, transparent 15% 85%, #f1cf6f24),
-    radial-gradient(circle at 50% -11%, #fff9df38, transparent 31%);
-  --destination-scene:
-    radial-gradient(circle at 50% -18%, #fffef0 0 8%, #f5e7b36e 9% 11%, transparent 12%),
-    linear-gradient(110deg, transparent 0 23%, #fff3bf2d 24% 25%, transparent 26% 67%, #ffe7a529 68% 69%, transparent 70%),
-    linear-gradient(180deg, transparent 0 68%, #d7b35b18 69% 73%, transparent 74%),
-    linear-gradient(90deg, transparent 0 7%, #f7e8b221 8% 9%, transparent 10% 31%, #f7e8b21b 32% 33%, transparent 34% 68%, #f7e8b21b 69% 70%, transparent 71%);
-  --destination-card:
-    radial-gradient(circle at 88% -8%, #fffceb 0 7%, #f4df9e55 8% 10%, transparent 11%),
-    linear-gradient(110deg, transparent 0 35%, #fff3bf37 36% 38%, transparent 39%),
-    linear-gradient(180deg, transparent 0 76%, #dcbf6b26 77%);
-  --destination-page-motion: gn-tower-light 12s ease-in-out infinite alternate;
-  --destination-card-motion: gn-light-sweep 9s ease-in-out infinite;
+  --destination-line: #f7e9b8c4;
+  --destination-accent: #f6d77a;
+  --destination-glow: #e3bc5942;
+  --destination-rail:
+    radial-gradient(circle at 50% 18px, #fffdf0 0 4px, #f5db8e9c 5px 7px, transparent 8px) 0 0 / 100% 84px,
+    linear-gradient(90deg, transparent, #f4d77b55 48% 53%, transparent) 0 0 / 100% 100%;
+  --destination-corner:
+    conic-gradient(from 45deg, transparent 0 37deg, #fffbe6d6 38deg 43deg, #e9c766b5 44deg 51deg, transparent 52deg 90deg);
+  --destination-rail-motion: gn-light-rail 12s ease-in-out infinite alternate;
 }
 
-/* Moon — Hellmouth rings, lunar dust, Scarlet Keep spires. */
+/* Moon — Scarlet Keep cuts and Hellmouth-red rings. */
 html body .gn-fireteam-location[data-fireteam-location-theme="moon"],
 html body [data-location-theme="moon"] {
-  --destination-line: #cb7865ad;
-  --destination-card-glow: #a743303d;
-  --destination-edge-glow: #9c3d2c35;
-  --destination-edge: linear-gradient(90deg, #7d271f30, transparent 15% 85%, #7d271f30);
-  --destination-scene:
-    radial-gradient(ellipse at 15% 109%, transparent 0 17%, #a84b383e 18% 20%, transparent 21% 28%, #6f271f38 29% 32%, transparent 33%),
-    linear-gradient(78deg, transparent 0 80%, #8f332a3b 81% 83%, transparent 84%),
-    linear-gradient(102deg, transparent 0 88%, #bc5b4638 89% 91%, transparent 92%),
-    linear-gradient(180deg, transparent 0 76%, #54211b28 77%);
-  --destination-card:
-    radial-gradient(ellipse at 13% 116%, transparent 0 31%, #c16b5148 32% 35%, transparent 36%),
-    linear-gradient(101deg, transparent 0 78%, #a143343f 79% 82%, transparent 83%),
-    linear-gradient(122deg, #59221c22, transparent 46%);
-  --destination-page-motion: gn-lunar-dust 13s ease-in-out infinite alternate;
+  --destination-line: #ce7d69bb;
+  --destination-accent: #c9503c;
+  --destination-glow: #8f332b46;
+  --destination-rail:
+    radial-gradient(ellipse at 50% 22px, transparent 0 9px, #c4614f9e 10px 12px, transparent 13px 20px, #752b2385 21px 24px, transparent 25px) 0 0 / 100% 88px,
+    repeating-linear-gradient(164deg, transparent 0 28px, #9e3c3070 29px 34px, transparent 35px 61px);
+  --destination-corner:
+    conic-gradient(from 198deg at 0 100%, transparent 0 18deg, #d66f58c7 19deg 27deg, transparent 28deg 39deg, #7d2d24a8 40deg 50deg, transparent 51deg);
+  --destination-rail-motion: gn-dust-rail 14s ease-in-out infinite alternate;
 }
 
-/* Dreaming City — Awoken arches, amethyst curse mist, pale cyan refraction. */
+/* Dreaming City — Awoken amethyst with pale cyan refraction. */
 html body .gn-fireteam-location[data-fireteam-location-theme="dreaming"],
 html body [data-location-theme="dreaming"] {
-  --destination-line: #d1b8ffbd;
-  --destination-card-glow: #9476cd44;
-  --destination-edge-glow: #b798e23a;
-  --destination-edge:
-    linear-gradient(90deg, #8e6bc82f, transparent 14% 86%, #6dbed12a),
-    radial-gradient(ellipse at 50% 103%, #7561ac24, transparent 45%);
-  --destination-scene:
-    radial-gradient(ellipse at 12% 92%, transparent 0 17%, #cbb6f04d 18% 19%, transparent 20% 27%, #78cbd646 28% 29%, transparent 30%),
-    radial-gradient(ellipse at 89% 91%, transparent 0 20%, #b79ae345 21% 22%, transparent 23% 30%),
-    linear-gradient(128deg, transparent 0 15%, #e7dcff38 16% 17%, transparent 18% 46%, #79d5e13a 47% 48%, transparent 49%),
-    radial-gradient(ellipse at 50% 52%, #806ab12d, transparent 61%);
-  --destination-card:
-    radial-gradient(ellipse at 12% 105%, transparent 0 33%, #d7c9f75a 34% 36%, transparent 37%),
-    linear-gradient(127deg, transparent 0 26%, #e1d5ff45 27% 29%, transparent 30% 67%, #83d5df37 68% 70%, transparent 71%),
-    radial-gradient(ellipse at 83% 21%, #9b7bd53b, transparent 38%);
-  --destination-page-motion: gn-awoken-mist 11s ease-in-out infinite alternate;
-  --destination-card-motion: gn-awoken-refraction 8s ease-in-out infinite alternate;
+  --destination-line: #d2b9ffca;
+  --destination-accent: #8edbe5;
+  --destination-glow: #8b6fc956;
+  --destination-rail:
+    radial-gradient(ellipse at 100% 32px, transparent 0 14px, #d6c4f7a3 15px 17px, transparent 18px 25px, #7fd5e099 26px 28px, transparent 29px) 0 0 / 100% 92px,
+    linear-gradient(140deg, #765aa35c, transparent 52%);
+  --destination-corner:
+    conic-gradient(from 228deg at 0 100%, transparent 0 15deg, #dfd1ffc9 16deg 22deg, transparent 23deg 35deg, #82d5e1ad 36deg 44deg, transparent 45deg);
+  --destination-rail-motion: gn-awoken-rail 11s ease-in-out infinite alternate;
 }
 
-/* Neomuna — neon skyline, CloudArk grid, cyan/magenta traffic streaks. */
+/* Neomuna — CloudArk grid with cyan and magenta neon. */
 html body .gn-fireteam-location[data-fireteam-location-theme="neomuna"],
 html body [data-location-theme="neomuna"] {
-  --destination-line: #72f4f6b8;
-  --destination-card-glow: #e24cc34a;
-  --destination-edge-glow: #36dce33d;
-  --destination-edge: linear-gradient(90deg, #24cbd233, transparent 12% 88%, #d83db42d);
-  --destination-scene:
-    repeating-linear-gradient(90deg, transparent 0 61px, #46ecf02b 62px 63px),
-    repeating-linear-gradient(0deg, transparent 0 35px, #e04bc022 36px 37px),
-    linear-gradient(112deg, transparent 0 29%, #5ff7fb3b 30% 31%, transparent 32% 63%, #f25bd03b 64% 65%, transparent 66%),
-    linear-gradient(180deg, transparent 0 63%, #13b7c52b 64% 100%);
-  --destination-card:
-    repeating-linear-gradient(90deg, transparent 0 46px, #55f2f42c 47px 48px),
-    repeating-linear-gradient(0deg, transparent 0 27px, #eb55c822 28px 29px),
-    linear-gradient(112deg, transparent 0 42%, #55f1f540 43% 45%, transparent 46%);
-  --destination-page-motion: gn-neomuna-grid 8s linear infinite;
-  --destination-card-motion: gn-neon-scan 5s steps(6) infinite;
+  --destination-line: #70f1f4c7;
+  --destination-accent: #f05bcf;
+  --destination-glow: #37dce45c;
+  --destination-rail:
+    repeating-linear-gradient(0deg, transparent 0 23px, #e955c780 24px 26px, transparent 27px 45px),
+    repeating-linear-gradient(90deg, transparent 0 12px, #51eef29c 13px 15px, transparent 16px 29px);
+  --destination-rail-size: 100% 100%;
+  --destination-corner:
+    conic-gradient(from 45deg, #58f1f2c9 0 9deg, transparent 10deg 34deg, #ed58cbb8 35deg 44deg, transparent 45deg 90deg);
+  --destination-rail-motion: gn-neon-rail 5s steps(6) infinite;
 }
 
-/* Nessus — Vex geometry, radiolarian light, red-orange canopy. */
+/* Nessus — Vex angular geometry and red-orange canopy. */
 html body .gn-fireteam-location[data-fireteam-location-theme="nessus"],
 html body [data-location-theme="nessus"] {
-  --destination-line: #ef8b72b0;
-  --destination-card-glow: #d9543d42;
-  --destination-edge-glow: #bd4b3637;
-  --destination-edge: linear-gradient(90deg, #b9483430, transparent 15% 85%, #e1845e2a);
-  --destination-scene:
-    conic-gradient(from 30deg at 8% 86%, transparent 0 28deg, #ef9b7045 29deg 33deg, transparent 34deg 58deg, #c24b393d 59deg 63deg, transparent 64deg),
-    conic-gradient(from 210deg at 92% 12%, transparent 0 28deg, #f0a06c3c 29deg 33deg, transparent 34deg 58deg),
-    radial-gradient(ellipse at 12% 107%, #d04c353d, transparent 36%),
-    linear-gradient(120deg, transparent 0 48%, #f6c59b22 49% 50%, transparent 51%);
-  --destination-card:
-    conic-gradient(from 30deg at 10% 90%, transparent 0 28deg, #ef9c704e 29deg 34deg, transparent 35deg 58deg, #c24b3940 59deg 64deg, transparent 65deg),
-    linear-gradient(145deg, #d24e3530, transparent 42%);
-  --destination-card-motion: gn-vex-phase 8s ease-in-out infinite alternate;
+  --destination-line: #ef9079bf;
+  --destination-accent: #e25b43;
+  --destination-glow: #bf493b4d;
+  --destination-rail:
+    conic-gradient(from 45deg at 50% 50%, transparent 0 36deg, #f09c729e 37deg 45deg, transparent 46deg 126deg, #c54837a3 127deg 136deg, transparent 137deg) 0 0 / 30px 30px,
+    linear-gradient(90deg, #7d2d2852, transparent);
+  --destination-corner:
+    conic-gradient(from 30deg, transparent 0 29deg, #f0a178c9 30deg 39deg, transparent 40deg 59deg, #c54d3ba8 60deg 70deg, transparent 71deg);
+  --destination-rail-motion: gn-vex-rail 9s linear infinite;
 }
 
-/* EDZ — forest canopy, moss, and broken Golden Age structure lines. */
+/* EDZ — moss, leaves, and broken Golden Age structure. */
 html body .gn-fireteam-location[data-fireteam-location-theme="edz"],
 html body [data-location-theme="edz"] {
-  --destination-line: #a7c486aa;
-  --destination-card-glow: #6e914d3c;
-  --destination-edge-glow: #73935235;
-  --destination-edge: linear-gradient(90deg, #5d793d2f, transparent 15% 85%, #718c4f2a);
-  --destination-scene:
-    radial-gradient(ellipse at 0 105%, #668b4550, transparent 35%),
-    radial-gradient(ellipse at 100% -5%, #8da56346, transparent 31%),
-    linear-gradient(90deg, transparent 0 13%, #a7b8792c 14% 16%, transparent 17% 31%, #697c4b2f 32% 34%, transparent 35% 78%, #9eae7330 79% 81%, transparent 82%),
-    linear-gradient(180deg, transparent 0 73%, #4c63382a 74%);
-  --destination-card:
-    radial-gradient(ellipse at 0 109%, #739a505a, transparent 43%),
-    linear-gradient(99deg, transparent 0 69%, #9ead723c 70% 73%, transparent 74%),
-    linear-gradient(133deg, #6179442e, transparent 48%);
-  --destination-page-motion: gn-canopy-shift 14s ease-in-out infinite alternate;
+  --destination-line: #abc98db8;
+  --destination-accent: #7ca257;
+  --destination-glow: #62864248;
+  --destination-rail:
+    radial-gradient(ellipse at 25% 22px, #9abb7296 0 6px, transparent 7px) 0 0 / 100% 63px,
+    radial-gradient(ellipse at 82% 48px, #648742a6 0 8px, transparent 9px) 0 0 / 100% 79px,
+    repeating-linear-gradient(90deg, transparent 0 13px, #a4b97955 14px 16px, transparent 17px 31px);
+  --destination-corner:
+    conic-gradient(from 210deg at 0 100%, #658b45ad 0 14deg, transparent 15deg 31deg, #abc184a3 32deg 39deg, transparent 40deg);
+  --destination-rail-motion: gn-canopy-rail 15s ease-in-out infinite alternate;
 }
 
-/* Cosmodrome — rusted launch gantries and a pale rocket contrail. */
+/* Cosmodrome — rusted gantries and pale launch contrails. */
 html body .gn-fireteam-location[data-fireteam-location-theme="cosmodrome"],
 html body [data-location-theme="cosmodrome"] {
-  --destination-line: #ca9e7ca9;
-  --destination-card-glow: #9b633f3e;
-  --destination-edge-glow: #94604435;
-  --destination-edge: linear-gradient(90deg, #7f4d342d, transparent 15% 85%, #9c6b4930);
-  --destination-scene:
-    linear-gradient(90deg, transparent 0 9%, #b7785139 10% 12%, transparent 13% 21%, #87543a38 22% 24%, transparent 25% 82%, #b27a5438 83% 85%, transparent 86%),
-    linear-gradient(104deg, transparent 0 66%, #e8d6c64d 67% 68%, transparent 69%),
-    repeating-linear-gradient(0deg, transparent 0 31px, #b5795130 32px 33px),
-    radial-gradient(ellipse at 88% 104%, #8d563542, transparent 33%);
-  --destination-card:
-    linear-gradient(90deg, transparent 0 13%, #bd7b513f 14% 17%, transparent 18% 71%, #75442f42 72% 75%, transparent 76%),
-    repeating-linear-gradient(0deg, transparent 0 20px, #ad704a2e 21px 22px),
-    linear-gradient(132deg, #75442d2e, transparent 48%);
-  --destination-page-motion: gn-contrail-drift 12s ease-in-out infinite alternate;
+  --destination-line: #cea17eb8;
+  --destination-accent: #b8734d;
+  --destination-glow: #8751364d;
+  --destination-rail:
+    repeating-linear-gradient(0deg, transparent 0 25px, #bb785098 26px 29px, transparent 30px 52px),
+    linear-gradient(105deg, transparent 0 42%, #ead8c5a6 43% 47%, transparent 48%);
+  --destination-corner:
+    conic-gradient(from 45deg, #c8865cb5 0 11deg, transparent 12deg 37deg, #79503aa8 38deg 48deg, transparent 49deg);
+  --destination-rail-motion: gn-contrail-rail 13s ease-in-out infinite alternate;
 }
 
-/* Savathûn's Throne World — swamp haze, bone-white spires, sickly green light. */
+/* Savathûn's Throne World — bone spires and swamp-green light. */
 html body .gn-fireteam-location[data-fireteam-location-theme="throne-world"],
 html body [data-location-theme="throne-world"] {
-  --destination-line: #b7dc9ab6;
-  --destination-card-glow: #6a974b41;
-  --destination-edge-glow: #82ad6138;
-  --destination-edge: linear-gradient(90deg, #5f833f30, transparent 14% 86%, #718f5230);
-  --destination-scene:
-    conic-gradient(from 22deg at 0 0, transparent 0 13deg, #b8dc9b46 14deg 18deg, transparent 19deg 31deg, #648c493f 32deg 37deg, transparent 38deg),
-    conic-gradient(from 203deg at 100% 100%, transparent 0 12deg, #97bd7a42 13deg 18deg, transparent 19deg 33deg, #4d713742 34deg 40deg, transparent 41deg),
-    radial-gradient(ellipse at 50% 112%, #688c4b38, transparent 44%),
-    linear-gradient(180deg, #c8d9b00e, transparent 44%);
-  --destination-card:
-    conic-gradient(from 24deg at 4% 0, transparent 0 12deg, #c4e3aa52 13deg 18deg, transparent 19deg 31deg, #658d4845 32deg 38deg, transparent 39deg),
-    radial-gradient(ellipse at 86% 111%, #597b3d40, transparent 42%);
-  --destination-page-motion: gn-swamp-breathe 12s ease-in-out infinite alternate;
+  --destination-line: #b9dd9dbd;
+  --destination-accent: #7fa65c;
+  --destination-glow: #61834250;
+  --destination-rail:
+    conic-gradient(from 18deg at 0 0, transparent 0 12deg, #c5e3adad 13deg 19deg, transparent 20deg 32deg, #648848a8 33deg 40deg, transparent 41deg) 0 0 / 100% 74px,
+    radial-gradient(ellipse at 100% 50%, #56743a60, transparent 68%);
+  --destination-corner:
+    conic-gradient(from 22deg at 0 0, transparent 0 12deg, #d0e9b9c7 13deg 19deg, transparent 20deg 33deg, #6e914ead 34deg 42deg, transparent 43deg);
+  --destination-rail-motion: gn-swamp-rail 12s ease-in-out infinite alternate;
 }
 
-/* Pale Heart — prismatic Traveler facets and impossible white geometry. */
+/* Pale Heart — prismatic Traveler facets without a page wash. */
 html body .gn-fireteam-location[data-fireteam-location-theme="pale-heart"],
 html body [data-location-theme="pale-heart"] {
-  --destination-line: #f0e4ffc2;
-  --destination-card-glow: #83e1de47;
-  --destination-edge-glow: #d7baf344;
-  --destination-edge:
-    linear-gradient(90deg, #d7bcf43a, transparent 13% 87%, #78d8d53a),
-    radial-gradient(circle at 50% -20%, #fff 0 7%, #e9dbff45 8% 10%, transparent 11%);
-  --destination-scene:
-    conic-gradient(from 115deg at 18% 0, #ffcade42, #8fe6e13d, #d8c2ff4c, transparent 43%),
-    conic-gradient(from 295deg at 83% 100%, #89ded94a, #f7c5dc3d, #d5bcff48, transparent 43%),
-    linear-gradient(129deg, transparent 0 21%, #fff9ff55 22% 23%, transparent 24% 66%, #79dedb40 67% 68%, transparent 69%);
-  --destination-card:
-    conic-gradient(from 116deg at 16% 0, #ffcade4a, #8ee6e14c, #dfc8ff55, transparent 45%),
-    linear-gradient(129deg, transparent 0 38%, #fff 39% 40%, transparent 41%);
-  --destination-page-motion: gn-prismatic-shift 11s ease-in-out infinite alternate;
-  --destination-card-motion: gn-prismatic-card 8s ease-in-out infinite alternate;
+  --destination-line: #f0e5ffce;
+  --destination-accent: #8de2de;
+  --destination-glow: #caaaf25c;
+  --destination-rail:
+    conic-gradient(from 118deg at 50% 50%, #ffcce0a3, #8de4df9e, #ddc7ffab, transparent 42%) 0 0 / 100% 72px,
+    repeating-linear-gradient(155deg, transparent 0 31px, #fff8ff9c 32px 35px, transparent 36px 67px);
+  --destination-corner:
+    conic-gradient(from 115deg, #ffcadec7, #8fe6e1c2, #dfc9ffc7, transparent 48%);
+  --destination-rail-motion: gn-prismatic-rail 10s ease-in-out infinite alternate;
 }
 
-/* Mars — ochre dunes, Braytech bands, polar glare. */
+/* Mars — ochre dunes and Braytech bands. */
 html body .gn-fireteam-location[data-fireteam-location-theme="mars"],
 html body [data-location-theme="mars"] {
-  --destination-line: #e69b67b2;
-  --destination-card-glow: #ca6b373f;
-  --destination-edge-glow: #cb704038;
-  --destination-edge: linear-gradient(90deg, #a44c2d30, transparent 14% 86%, #c26a3930);
-  --destination-scene:
-    radial-gradient(ellipse at 11% 112%, transparent 0 39%, #e48e5248 40% 43%, transparent 44%),
-    radial-gradient(ellipse at 88% 112%, transparent 0 32%, #b753303f 33% 36%, transparent 37%),
-    repeating-linear-gradient(164deg, transparent 0 39px, #df875037 40px 42px),
-    linear-gradient(112deg, #a64c2b31, transparent 44%);
-  --destination-card:
-    radial-gradient(ellipse at 23% 116%, transparent 0 35%, #e58d514e 36% 40%, transparent 41%),
-    repeating-linear-gradient(170deg, transparent 0 23px, #ca6d3a36 24px 26px),
-    linear-gradient(112deg, #a34a292d, transparent 44%);
-  --destination-page-motion: gn-martian-heat 10s ease-in-out infinite alternate;
+  --destination-line: #e69c68bd;
+  --destination-accent: #d66d3b;
+  --destination-glow: #ad4f2e50;
+  --destination-rail:
+    repeating-linear-gradient(164deg, transparent 0 31px, #e08a50a3 32px 36px, transparent 37px 68px),
+    linear-gradient(90deg, #9e462d66, transparent);
+  --destination-corner:
+    conic-gradient(from 205deg at 0 100%, transparent 0 17deg, #e78d53c4 18deg 28deg, transparent 29deg 41deg, #a84c2fab 42deg 52deg, transparent 53deg);
+  --destination-rail-motion: gn-heat-rail 11s ease-in-out infinite alternate;
 }
 
-/* Kepler — dark gravitational lens, violet accretion arcs, unstable light. */
+/* Kepler — violet gravitational lenses and unstable arcs. */
 html body .gn-fireteam-location[data-fireteam-location-theme="kepler"],
 html body [data-location-theme="kepler"] {
-  --destination-line: #a091f3bd;
-  --destination-card-glow: #654fd14d;
-  --destination-edge-glow: #725bdd42;
-  --destination-edge: linear-gradient(90deg, #5944b736, transparent 14% 86%, #725cd238);
-  --destination-scene:
-    radial-gradient(ellipse at 18% 50%, #080612 0 7%, #251850 8% 12%, #7f66ef66 13% 15%, transparent 16%),
-    radial-gradient(ellipse at 84% 37%, #080611 0 5%, #2e1c5e 6% 10%, #9b83ff5e 11% 13%, transparent 14%),
-    conic-gradient(from 88deg at 50% 52%, transparent 0 17deg, #8e78ff3f 18deg 21deg, transparent 22deg 37deg),
-    radial-gradient(ellipse at 50% 50%, #4e35ad2d, transparent 61%);
-  --destination-card:
-    radial-gradient(ellipse at 17% 50%, #080612 0 9%, #2b1a5b 10% 15%, #8d75ff6b 16% 18%, transparent 19%),
-    conic-gradient(from 90deg at 20% 50%, transparent 0 17deg, #9c87ff46 18deg 21deg, transparent 22deg 37deg),
-    linear-gradient(132deg, #5437b13a, transparent 47%);
-  --destination-page-motion: gn-kepler-lens 9s ease-in-out infinite alternate;
-  --destination-card-motion: gn-kepler-card 7s ease-in-out infinite alternate;
+  --destination-line: #a496f4c7;
+  --destination-accent: #8068ed;
+  --destination-glow: #5945c65e;
+  --destination-rail:
+    radial-gradient(ellipse at 50% 28px, #080611 0 7px, #302062 8px 12px, #927cffb5 13px 15px, transparent 16px) 0 0 / 100% 75px,
+    conic-gradient(from 90deg at 50% 50%, transparent 0 18deg, #8d77ff8f 19deg 23deg, transparent 24deg 39deg) 0 0 / 100% 82px;
+  --destination-corner:
+    radial-gradient(ellipse at 0 100%, #080611 0 14%, #34216a 15% 25%, #9a84ffc4 26% 31%, transparent 32%);
+  --destination-rail-motion: gn-lens-rail 9s ease-in-out infinite alternate;
 }
 
-/* Dreadnaught — Hive chitin ribs and green soul-fire vents. */
+/* Dreadnaught — Hive ribs and green soul-fire vents. */
 html body .gn-fireteam-location[data-fireteam-location-theme="dreadnaught"],
 html body [data-location-theme="dreadnaught"] {
-  --destination-line: #a9c77bae;
-  --destination-card-glow: #5b793b43;
-  --destination-edge-glow: #76984e39;
-  --destination-edge: linear-gradient(90deg, #4a633332, transparent 14% 86%, #617e4130);
-  --destination-scene:
-    conic-gradient(from 25deg at 0 0, transparent 0 10deg, #9fbd7448 11deg 16deg, transparent 17deg 27deg, #4c683546 28deg 34deg, transparent 35deg),
-    conic-gradient(from 205deg at 100% 100%, transparent 0 10deg, #91ae6945 11deg 16deg, transparent 17deg 28deg, #435c3044 29deg 35deg, transparent 36deg),
-    radial-gradient(ellipse at 50% 108%, #799c4e3f, transparent 36%),
-    linear-gradient(135deg, #2e3f202f, transparent 37% 68%, #5f7b4131);
-  --destination-card:
-    conic-gradient(from 25deg at 3% 0, transparent 0 10deg, #a5c27850 11deg 16deg, transparent 17deg 28deg, #506d384a 29deg 35deg, transparent 36deg),
-    radial-gradient(ellipse at 88% 110%, #6e93474a, transparent 40%);
-  --destination-page-motion: gn-soulfire 10s ease-in-out infinite alternate;
+  --destination-line: #abc97db8;
+  --destination-accent: #7da553;
+  --destination-glow: #56753852;
+  --destination-rail:
+    conic-gradient(from 24deg at 0 0, transparent 0 10deg, #abc780ac 11deg 16deg, transparent 17deg 28deg, #4d6b35ad 29deg 36deg, transparent 37deg) 0 0 / 100% 67px,
+    radial-gradient(ellipse at 100% 56%, #87b65866, transparent 62%);
+  --destination-corner:
+    conic-gradient(from 25deg at 0 0, transparent 0 10deg, #b8d38ec4 11deg 17deg, transparent 18deg 29deg, #52703ab5 30deg 37deg, transparent 38deg);
+  --destination-rail-motion: gn-soulfire-rail 10s ease-in-out infinite alternate;
 }
 
-/* Eternity — impossible planes and sparse, irregular star clusters. */
+/* Eternity — sparse star clusters and impossible angular planes. */
 html body .gn-fireteam-location[data-fireteam-location-theme="eternity"],
 html body [data-location-theme="eternity"] {
-  --destination-line: #9fc8f4b2;
-  --destination-card-glow: #8068bd42;
-  --destination-edge-glow: #789fd03b;
-  --destination-edge: linear-gradient(90deg, #506f9d2f, transparent 14% 86%, #7656a92f);
-  --destination-scene:
-    radial-gradient(circle at 7% 18%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 11% 23%, #a8cfff 0 .8px, transparent 1.8px),
-    radial-gradient(circle at 34% 8%, #fff 0 1.2px, transparent 2.2px),
-    radial-gradient(circle at 58% 29%, #bfcfff 0 .8px, transparent 1.8px),
-    radial-gradient(circle at 81% 12%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 93% 37%, #b9d8ff 0 1.3px, transparent 2.4px),
-    linear-gradient(157deg, transparent 0 35%, #a5c8ef38 36% 37%, transparent 38%),
-    linear-gradient(23deg, transparent 0 54%, #967ed03a 55% 56%, transparent 57%),
-    conic-gradient(from 235deg at 50% 105%, #1d2c493b, #46396d36, transparent 38%);
-  --destination-card:
-    radial-gradient(circle at 9% 19%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 31% 10%, #a8cfff 0 .8px, transparent 1.8px),
-    radial-gradient(circle at 74% 27%, #fff 0 1.2px, transparent 2.2px),
-    linear-gradient(153deg, transparent 0 39%, #b0d1f043 40% 42%, transparent 43%),
-    conic-gradient(from 230deg at 50% 112%, #2a36533b, #55447335, transparent 39%);
-  --destination-page-motion: gn-eternity-parallax 16s ease-in-out infinite alternate;
+  --destination-line: #a2caf4bb;
+  --destination-accent: #967fd6;
+  --destination-glow: #6e61a64d;
+  --destination-rail:
+    radial-gradient(circle at 25% 17px, #fff 0 1px, transparent 2px) 0 0 / 100% 67px,
+    radial-gradient(circle at 74% 43px, #b8d5ff 0 1.2px, transparent 2.3px) 0 0 / 100% 83px,
+    repeating-linear-gradient(157deg, transparent 0 39px, #a4c7ec80 40px 43px, transparent 44px 78px);
+  --destination-corner:
+    conic-gradient(from 233deg at 0 100%, #2b3b5c9c, #584a7fa3, transparent 42%);
+  --destination-rail-motion: gn-stars-rail 17s ease-in-out infinite alternate;
 }
 
-/* Orbit — planetary limb, atmospheric aurora, non-uniform star clusters. */
+/* Orbit — planetary limb, atmospheric blue, and irregular stars. */
 html body .gn-fireteam-location[data-fireteam-location-theme="orbit"],
 html body [data-location-theme="orbit"] {
-  --destination-line: #9ab9e2b8;
-  --destination-card-glow: #607fae46;
-  --destination-edge-glow: #6b8bb943;
-  --destination-edge: linear-gradient(90deg, #344e7434, transparent 13% 87%, #36547a34);
-  --destination-scene:
-    radial-gradient(ellipse at 79% 129%, #050b15 0 37%, #152b4778 38%, #426a9675 41%, #b9dbf278 42%, transparent 44%),
-    radial-gradient(ellipse at 79% 126%, transparent 0 39%, #5d86b449 44%, transparent 53%),
-    radial-gradient(ellipse at 9% 119%, #0a1322 0 23%, #31547862 24%, #9abbd864 26%, transparent 28%),
-    radial-gradient(circle at 6% 17%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 10% 21%, #a9c9ef 0 .7px, transparent 1.6px),
-    radial-gradient(circle at 28% 9%, #fff 0 1.2px, transparent 2.2px),
-    radial-gradient(circle at 45% 28%, #b9d5f5 0 .8px, transparent 1.8px),
-    radial-gradient(circle at 62% 13%, #fff 0 .7px, transparent 1.6px),
-    radial-gradient(circle at 91% 31%, #d4e7ff 0 1.1px, transparent 2.1px),
-    linear-gradient(126deg, transparent 0 28%, #6d9ac82a 43%, transparent 61%);
-  --destination-card:
-    radial-gradient(ellipse at 74% 143%, #07101d 0 42%, #2a4d765f 43%, #a8cae675 45%, transparent 47%),
-    radial-gradient(circle at 8% 18%, #fff 0 1px, transparent 2px),
-    radial-gradient(circle at 25% 11%, #a9c9ef 0 .7px, transparent 1.6px),
-    radial-gradient(circle at 53% 24%, #fff 0 1.1px, transparent 2.1px),
-    radial-gradient(circle at 91% 16%, #b8d6f4 0 .8px, transparent 1.8px),
-    linear-gradient(126deg, transparent 0 30%, #789bc32b 46%, transparent 63%);
-  --destination-page-motion: gn-orbit-drift 18s ease-in-out infinite alternate;
-  --destination-card-motion: gn-orbit-card 14s ease-in-out infinite alternate;
+  --destination-line: #9ebce4c2;
+  --destination-accent: #77a6d1;
+  --destination-glow: #5279a653;
+  --destination-rail:
+    radial-gradient(ellipse at 100% 30px, #06101e 0 15px, #31547dba 16px 20px, #b1d2edb5 21px 23px, transparent 24px) 0 0 / 100% 91px,
+    radial-gradient(circle at 20% 14px, #fff 0 1px, transparent 2px) 0 0 / 100% 63px,
+    radial-gradient(circle at 72% 47px, #bcd9f7 0 1.1px, transparent 2.2px) 0 0 / 100% 77px;
+  --destination-corner:
+    radial-gradient(ellipse at 0 100%, #07111f 0 40%, #345981a8 41% 47%, #b1d2ebbd 48% 51%, transparent 52%);
+  --destination-rail-motion: gn-orbit-rail 18s ease-in-out infinite alternate;
 }
 
-@keyframes gn-destination-breathe {
-  from { opacity: .72; filter: saturate(.95) brightness(.92); }
-  to { opacity: .98; filter: saturate(1.16) brightness(1.08); }
+/* Generic destination fallback. */
+html body .gn-fireteam-location[data-fireteam-location-theme="destination"],
+html body [data-location-theme="destination"] {
+  --destination-line: #89b6c3a6;
+  --destination-accent: #65cfdf;
+  --destination-glow: #4aa9b94a;
 }
-@keyframes gn-europa-frost {
-  from { transform: translate3d(-.5%, .6%, 0) scale(1.01); filter: brightness(.94); }
-  to { transform: translate3d(.7%, -.7%, 0) scale(1.025); filter: brightness(1.16); }
+
+@keyframes gn-destination-rail-drift {
+  to { background-position: 0 80px, 0 0; }
 }
-@keyframes gn-ice-glint {
-  0%, 100% { filter: brightness(.92); }
-  52% { filter: brightness(1.28); }
+
+@keyframes gn-destination-frame-breathe {
+  from { opacity: .67; filter: drop-shadow(0 0 4px var(--destination-glow)); }
+  to { opacity: .98; filter: drop-shadow(0 0 10px var(--destination-glow)); }
 }
-@keyframes gn-tower-light {
-  from { transform: translateY(0); filter: brightness(.96); }
-  to { transform: translateY(-1.2%); filter: brightness(1.12); }
+
+@keyframes gn-ice-rail {
+  from { background-position: 0 0, 0 18px; filter: brightness(.92); }
+  to { background-position: 0 -34px, 0 43px; filter: brightness(1.22); }
 }
-@keyframes gn-light-sweep {
-  0%, 100% { background-position: 0 0; filter: brightness(.94); }
-  50% { background-position: 18px -6px; filter: brightness(1.18); }
+
+@keyframes gn-light-rail {
+  from { background-position: 0 0, 0 0; filter: brightness(.94); }
+  to { background-position: 0 28px, 0 0; filter: brightness(1.18); }
 }
-@keyframes gn-lunar-dust {
-  from { transform: translateX(-.4%); filter: contrast(.96); }
-  to { transform: translateX(.8%); filter: contrast(1.12) brightness(1.04); }
+
+@keyframes gn-dust-rail {
+  from { background-position: 0 0, 0 0; filter: contrast(.95); }
+  to { background-position: 0 38px, 0 25px; filter: contrast(1.12) brightness(1.05); }
 }
-@keyframes gn-awoken-mist {
-  from { transform: translate3d(-.5%, .4%, 0); filter: hue-rotate(-4deg); }
-  to { transform: translate3d(.7%, -.6%, 0); filter: hue-rotate(7deg) brightness(1.12); }
+
+@keyframes gn-awoken-rail {
+  from { background-position: 0 0, 0 0; filter: hue-rotate(-4deg); }
+  to { background-position: 0 31px, 0 0; filter: hue-rotate(8deg) brightness(1.14); }
 }
-@keyframes gn-awoken-refraction {
-  50% { filter: brightness(1.22) hue-rotate(8deg); }
+
+@keyframes gn-neon-rail {
+  0%, 100% { background-position: 0 0, 0 0; filter: brightness(.9); }
+  45% { background-position: 0 24px, 13px 0; filter: brightness(1.35) saturate(1.3); }
 }
-@keyframes gn-neomuna-grid {
-  from { background-position: 0 0, 0 0, -50px 0, 0 0; }
-  to { background-position: 63px 0, 0 37px, 90px 0, 0 0; }
+
+@keyframes gn-vex-rail {
+  to { background-position: 30px 30px, 0 0; }
 }
-@keyframes gn-neon-scan {
-  0%, 100% { filter: brightness(.9); }
-  45% { filter: brightness(1.35) saturate(1.3); }
+
+@keyframes gn-canopy-rail {
+  from { background-position: 0 0, 0 0, 0 0; filter: brightness(.94); }
+  to { background-position: 0 22px, 0 -19px, 13px 0; filter: brightness(1.12); }
 }
-@keyframes gn-vex-phase {
-  from { filter: brightness(.92); transform: translateX(-.4%); }
-  to { filter: brightness(1.18); transform: translateX(.5%); }
+
+@keyframes gn-contrail-rail {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 31px, 0 -24px; }
 }
-@keyframes gn-canopy-shift {
-  from { transform: translateX(-.5%); filter: brightness(.96); }
-  to { transform: translateX(.7%); filter: brightness(1.08); }
+
+@keyframes gn-swamp-rail {
+  from { background-position: 0 0, 0 0; filter: saturate(.94); }
+  to { background-position: 0 28px, 0 0; filter: saturate(1.16) brightness(1.08); }
 }
-@keyframes gn-contrail-drift {
-  from { background-position: center, center, 0 0, center; }
-  to { background-position: center, 18px -10px, 0 26px, center; }
+
+@keyframes gn-prismatic-rail {
+  from { background-position: 0 0, 0 0; filter: hue-rotate(-5deg) brightness(.95); }
+  to { background-position: 0 25px, 0 -33px; filter: hue-rotate(10deg) brightness(1.18); }
 }
-@keyframes gn-swamp-breathe {
-  from { filter: brightness(.92) saturate(.95); transform: translateY(.4%); }
-  to { filter: brightness(1.13) saturate(1.08); transform: translateY(-.5%); }
+
+@keyframes gn-heat-rail {
+  from { background-position: 0 0, 0 0; filter: contrast(.94); }
+  to { background-position: 0 34px, 0 0; filter: contrast(1.12) brightness(1.1); }
 }
-@keyframes gn-prismatic-shift {
-  from { filter: hue-rotate(-4deg) brightness(.95); transform: translateX(-.4%); }
-  to { filter: hue-rotate(9deg) brightness(1.16); transform: translateX(.5%); }
+
+@keyframes gn-lens-rail {
+  from { background-position: 0 0, 0 0; filter: brightness(.9); }
+  to { background-position: 0 29px, 0 -18px; filter: brightness(1.2) saturate(1.2); }
 }
-@keyframes gn-prismatic-card {
-  50% { filter: hue-rotate(10deg) brightness(1.22); }
+
+@keyframes gn-soulfire-rail {
+  from { background-position: 0 0, 0 0; filter: brightness(.92); }
+  to { background-position: 0 31px, 0 0; filter: brightness(1.18) saturate(1.15); }
 }
-@keyframes gn-martian-heat {
-  from { filter: contrast(.95) brightness(.95); transform: translateY(.3%); }
-  to { filter: contrast(1.1) brightness(1.1); transform: translateY(-.4%); }
+
+@keyframes gn-stars-rail {
+  from { background-position: 0 0, 0 0, 0 0; filter: brightness(.9); }
+  to { background-position: 0 23px, 0 -29px, 0 41px; filter: brightness(1.17); }
 }
-@keyframes gn-kepler-lens {
-  from { filter: brightness(.9) saturate(.95); transform: scale(1.01); }
-  to { filter: brightness(1.18) saturate(1.2); transform: scale(1.025); }
+
+@keyframes gn-orbit-rail {
+  from { background-position: 0 0, 0 0, 0 0; filter: brightness(.92); }
+  to { background-position: 0 35px, 0 -21px, 0 28px; filter: brightness(1.14); }
 }
-@keyframes gn-kepler-card {
-  50% { filter: brightness(1.24) saturate(1.2); transform: translateX(.5%); }
-}
-@keyframes gn-soulfire {
-  from { filter: brightness(.92); }
-  to { filter: brightness(1.18) saturate(1.12); }
-}
-@keyframes gn-eternity-parallax {
-  from { transform: translate3d(-.4%, .25%, 0) scale(1.01); }
-  to { transform: translate3d(.6%, -.4%, 0) scale(1.02); }
-}
-@keyframes gn-orbit-drift {
-  from { transform: translate3d(-.5%, .2%, 0) scale(1.01); filter: brightness(.94); }
-  to { transform: translate3d(.7%, -.35%, 0) scale(1.024); filter: brightness(1.1); }
-}
-@keyframes gn-orbit-card {
-  50% { transform: translateY(-.6%); filter: brightness(1.15); }
+
+@media (max-width: 900px) {
+  html body .gn-fireteam-location::before,
+  html body .gn-fireteam-location::after {
+    width: 12px;
+    opacity: .65;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html body .gn-fireteam-location[data-fireteam-location-theme]::before,
-  html body .gn-fireteam-location[data-fireteam-location-theme]::after,
+  html body .gn-fireteam-location::before,
+  html body .gn-fireteam-location::after,
   html body [data-location-theme]::before {
     animation: none !important;
   }
 }
 
-html[data-notification-reduced-motion="true"] body .gn-fireteam-location[data-fireteam-location-theme]::before,
-html[data-notification-reduced-motion="true"] body .gn-fireteam-location[data-fireteam-location-theme]::after,
-html[data-notification-reduced-motion="true"] body [data-location-theme]::before {
+html[data-notification-reduced-motion="true"] body .gn-fireteam-location::before,
+html[data-notification-reduced-motion="true"] body .gn-fireteam-location::after,
+html[data-notification-reduced-motion="true"] body [data-location-theme]::before,
+html[data-reduced-motion="true"] body .gn-fireteam-location::before,
+html[data-reduced-motion="true"] body .gn-fireteam-location::after,
+html[data-reduced-motion="true"] body [data-location-theme]::before {
   animation: none !important;
 }
