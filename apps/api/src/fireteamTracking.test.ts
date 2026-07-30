@@ -1,7 +1,7 @@
 import type { GuardianRankData, QuestProgress } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import { profileComponentsFor } from "./bungie";
-import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 
 describe("Fireteam tracked items", () => {
   it("requests both pursuit and Guardian Rank profile components when refreshing a share", () => {
@@ -65,6 +65,35 @@ describe("Fireteam tracked items", () => {
     expect(mergeTrackedItems([item], [{ ...item, percent: 80 }])).toEqual([{ ...item, percent: 80 }]);
   });
 
+  it("adds only explicitly tracked missing Exotics with their acquisition guide", () => {
+    const items = trackedItemsFromCollection(collection(false), new Set(["exotic-1"]), "2026-07-29T12:00:00.000Z");
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: "exotic-1",
+      kind: "exotic",
+      trackedInDestiny: false,
+      trackedInGuardianNexus: true,
+      percent: 0,
+      acquisitionGuide: {
+        summary: "Complete the Exotic mission.",
+        steps: ["Launch the mission.", "Claim the reward."],
+        prerequisites: ["Finish the introduction."]
+      }
+    });
+  });
+
+  it("uses the existing completion event path when a tracked Exotic becomes owned", () => {
+    const tracked = new Set(["exotic-1"]);
+    const previous = trackedItemsFromCollection(collection(false), tracked, "2026-07-29T12:00:00.000Z");
+    const active = trackedItemsFromCollection(collection(true), tracked, "2026-07-29T12:01:00.000Z");
+    const candidates = trackedItemsFromCollection(collection(true), tracked, "2026-07-29T12:01:00.000Z", true, new Set(["exotic:exotic-1"]));
+
+    expect(active).toEqual([]);
+    expect(completedTrackedItemEvents(previous, candidates, [], "2026-07-29T12:01:00.000Z", 180_000))
+      .toMatchObject([{ kind: "exotic", id: "exotic-1", percent: 100 }]);
+  });
+
   it("hides requested Fireteam items and drops exclusions after the source is no longer tracked", () => {
     const items = trackedItemsFromQuests([
       quest({ instanceId: "shown", sitePinned: true }),
@@ -94,6 +123,35 @@ describe("Fireteam tracked items", () => {
     expect(retained).toEqual(events);
   });
 });
+
+function collection(owned: boolean) {
+  return {
+    manifestVersion: "test",
+    entries: [{
+      itemHash: "exotic-1",
+      name: "Test Exotic",
+      description: "An Exotic.",
+      icon: "/exotic.png",
+      kind: "weapon" as const,
+      slot: "Kinetic",
+      itemType: "Exotic Auto Rifle",
+      source: "Exotic mission",
+      owned,
+      catalyst: "unavailable" as const,
+      xurSelling: false,
+      guide: {
+        itemHash: "exotic-1",
+        acquisition: "Complete the Exotic mission.",
+        steps: ["Launch the mission.", "Claim the reward."],
+        prerequisites: ["Finish the introduction."],
+        confidence: "verified" as const,
+        sources: []
+      }
+    }],
+    totals: { owned: owned ? 1 : 0, available: 1, catalystsAvailable: 0, catalystsOwned: 0, catalystsComplete: 0, xurSelling: 0 },
+    xur: { state: "unavailable" as const, checkedAt: "2026-07-29T12:00:00.000Z" }
+  };
+}
 
 function quest(overrides: Partial<QuestProgress>): QuestProgress {
   return {

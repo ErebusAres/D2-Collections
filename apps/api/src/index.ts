@@ -57,7 +57,7 @@ import { normalizeJourneyProgress, trackedItemsFromJourney } from "./journeyProg
 import { normalizePower, powerItemHashes } from "./power";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
-import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemKey, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemKey, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 import { buildAdvisorRecommendationItems, normalizeBuildAdvisorData } from "./buildAdvisor";
 import { buildAdvisorTemplatesFromPublishedBuilds } from "./buildAdvisorPublished";
 import { BUILD_ADVISOR_TEMPLATES } from "./buildAdvisorTemplates";
@@ -78,6 +78,7 @@ const shareSchema = z.object({
   sitePinnedQuestIds: z.array(z.string()).max(40).default([]),
   siteTrackedGuardianRankIds: z.array(z.string()).max(200).optional(),
   siteTrackedJourneyIds: z.array(z.string()).max(500).optional(),
+  siteTrackedCollectionIds: z.array(z.string()).max(200).optional(),
   hiddenTrackedItemKeys: z.array(z.string()).max(200).optional(),
   mode: z.enum(["temporary", "persistent"]).default("temporary")
 });
@@ -106,7 +107,7 @@ const equipBuildAdvisorSchema = z.object({
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
-  z.object({ key: z.enum(["gear.filters", "collection.filters", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters"]), value: z.string().max(12_000) }),
+  z.object({ key: z.enum(["gear.filters", "collection.filters", "collection.tracked", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters"]), value: z.string().max(12_000) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion"]), value: z.enum(["true", "false"]) }),
@@ -846,7 +847,7 @@ async function auditGear(row: SessionRow, env: Env, action: string, itemId: stri
 
 async function upsertShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = shareSchema.parse(await request.json());
-  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds);
+  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds, input.siteTrackedCollectionIds);
   return envelope({
     sharing: true,
     mode: input.mode,
@@ -864,14 +865,16 @@ async function storeShare(
   mode: FireteamSharingMode,
   providedGuardianRankIds?: string[],
   providedHiddenTrackedItemKeys?: string[],
-  providedJourneyIds?: string[]
+  providedJourneyIds?: string[],
+  providedCollectionIds?: string[]
 ): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string }> {
-  const [{ profile }, manifest, guardianRankManifest, journeyManifest, activityManifest, previousShare] = await Promise.all([
+  const [{ profile }, manifest, guardianRankManifest, journeyManifest, activityManifest, collectionManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
     loadQuestManifest(env),
     loadGuardianRankManifest(env),
     loadJourneyProgressManifest(env),
     loadActivityManifest(env),
+    loadManifest(env),
     env.DB.prepare("SELECT payload_json FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<{ payload_json: string }>()
   ]);
   let previousPayload: any = null;
@@ -894,10 +897,15 @@ async function storeShare(
     ? await trackedPreferenceIds(row.membership_id, env, "journey.tracked")
     : new Set(providedJourneyIds);
   const journey = normalizeJourneyProgress(profile, journeyManifest, activityManifest, character.characterId);
+  const collectionTrackedIds = providedCollectionIds === undefined
+    ? await trackedPreferenceIds(row.membership_id, env, "collection.tracked")
+    : new Set(providedCollectionIds);
+  const collection = normalizeCollection(profile, collectionManifest);
   const assembledTrackedItems = mergeTrackedItems(
     activeTrackedQuests,
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || new Date().toISOString()),
-    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString())
+    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString()),
+    trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString())
   );
   const visibility = applyTrackedItemVisibility(
     assembledTrackedItems,
@@ -908,7 +916,8 @@ async function storeShare(
   const completedCandidates = mergeTrackedItems(
     trackedItemsFromQuests(allQuests.quests, true, previousTrackedKeys),
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
-    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || updatedAt, true)
+    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || updatedAt, true),
+    trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys)
   );
   const recentlyCompletedItems = completedTrackedItemEvents(
     previousTrackedItems,

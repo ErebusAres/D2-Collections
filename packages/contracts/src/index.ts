@@ -576,7 +576,7 @@ export interface JourneyProgressData {
   manifestVersion: string;
 }
 
-export type FireteamTrackedItemKind = "quest" | "bounty" | "order" | "guardian-rank" | "triumph" | "title" | "seasonal" | "weekly";
+export type FireteamTrackedItemKind = "quest" | "bounty" | "order" | "guardian-rank" | "triumph" | "title" | "seasonal" | "weekly" | "exotic";
 
 export interface FireteamTrackedItemObjective {
   objectiveHash: string;
@@ -602,6 +602,11 @@ export interface FireteamTrackedItem {
   objectives: FireteamTrackedItemObjective[];
   percent: number;
   updatedAt: string;
+  acquisitionGuide?: {
+    summary: string;
+    steps: string[];
+    prerequisites: string[];
+  };
 }
 
 export interface FireteamCompletedTrackedItem extends FireteamTrackedItem {
@@ -920,6 +925,7 @@ export type UserPreferenceKey =
   | "gear.filters"
   | "collection.sort"
   | "collection.filters"
+  | "collection.tracked"
   | "quests.layout"
   | "quests.filters"
   | "guardianRank.tracked"

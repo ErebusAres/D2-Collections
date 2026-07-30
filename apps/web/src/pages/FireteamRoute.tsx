@@ -32,6 +32,7 @@ function FireteamRefreshCountdown() {
   const hiddenKeysSignature = hiddenTrackedItemKeys.join(",");
   const guardianRankTracked = preferences["guardianRank.tracked"];
   const journeyTracked = preferences["journey.tracked"];
+  const collectionTracked = preferences["collection.tracked"];
   const [now, setNow] = useState(() => Date.now());
   const [nextRefreshAt, setNextRefreshAt] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -83,6 +84,7 @@ function FireteamRefreshCountdown() {
           sitePinnedQuestIds: readStringArray(storageKey, 40),
           siteTrackedGuardianRankIds: readPreferenceArray(guardianRankTracked),
           siteTrackedJourneyIds: readPreferenceArray(journeyTracked),
+          siteTrackedCollectionIds: readPreferenceArray(collectionTracked),
           hiddenTrackedItemKeys,
           mode: mode as FireteamSharingMode
         })
@@ -92,7 +94,7 @@ function FireteamRefreshCountdown() {
       refreshRunning.current = false;
       setRefreshing(false);
     }
-  }, [guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
+  }, [collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
 
   useEffect(() => {
     if (!autoRefresh || !canRefreshTrackedProgress) {

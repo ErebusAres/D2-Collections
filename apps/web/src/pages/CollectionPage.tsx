@@ -1,7 +1,7 @@
 import type { CatalystState, CollectionData, ExoticCollectionEntry } from "@guardian-nexus/contracts";
 import { sortCollectionEntries, xurSchedule, type CollectionSortMode } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Check, ChevronRight, Coins, Search, Shield, Sparkles, Swords, X } from "lucide-react";
+import { BookOpen, Bookmark, Check, ChevronRight, Coins, Search, Shield, Sparkles, Swords, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
@@ -53,6 +53,12 @@ export function CollectionPage() {
     refetchIntervalInBackground: false
   });
   const data = result.data?.data;
+  const tracked = useMemo(() => readTracked(preferences["collection.tracked"]), [preferences]);
+  const toggleTracked = (itemHash: string) => {
+    const next = new Set(tracked);
+    if (next.has(itemHash)) next.delete(itemHash); else next.add(itemHash);
+    setPreference("collection.tracked", JSON.stringify([...next]));
+  };
   const xurSellingLive = Boolean(data?.xur.state === "available" && xurSchedule(now).active);
   useEffect(() => {
     if (!xurSellingLive && availability === "xur") setAvailability("all");
@@ -102,7 +108,7 @@ export function CollectionPage() {
         </section>)}
       </div> : <div className={styles.inlineEmpty}><Sparkles /><h2>No Exotics match this view</h2><p>Adjust filters, or run the manifest sync if the catalog reports Offline.</p></div>}
     </>}
-    <GuideDrawer entry={selected} xurSellingLive={xurSellingLive} onClose={() => setSelected(null)} />
+    <GuideDrawer entry={selected} xurSellingLive={xurSellingLive} tracked={Boolean(selected && tracked.has(selected.itemHash))} onToggleTracked={() => selected && toggleTracked(selected.itemHash)} onClose={() => setSelected(null)} />
   </AuthGate>;
 }
 
@@ -133,10 +139,11 @@ function catalystLabel(state: CatalystState): string {
   return state === "unavailable" ? "No catalyst" : state === "missing" ? "Catalyst missing" : state === "obtained" ? "Catalyst found" : "Catalyst complete";
 }
 
-function GuideDrawer({ entry, xurSellingLive, onClose }: { entry: ExoticCollectionEntry | null; xurSellingLive: boolean; onClose: () => void }) {
+function GuideDrawer({ entry, xurSellingLive, tracked, onToggleTracked, onClose }: { entry: ExoticCollectionEntry | null; xurSellingLive: boolean; tracked: boolean; onToggleTracked: () => void; onClose: () => void }) {
   return <><button className={`${styles.drawerScrim} ${entry ? styles.drawerOpen : ""}`} onClick={onClose} aria-label="Close guide" /><aside className={`${styles.guideDrawer} ${entry ? styles.drawerOpen : ""}`} aria-hidden={!entry}>
     {entry && <><header><div><span>Acquisition guide</span><h2>{entry.name}</h2></div><button onClick={onClose}><X /></button></header>
       <div className={styles.guideHero}>{entry.icon && <img src={entry.icon} alt="" />}<div><span>{entry.kind} · {entry.slot}</span><p>{entry.description || "Description unavailable."}</p><b className={`${styles.confidence} ${styles[entry.guide.confidence]}`}>{entry.guide.confidence}</b></div></div>
+      {!entry.owned && <button type="button" className={`${styles.guideTrackAction} ${tracked ? styles.guideTrackActionActive : ""}`} onClick={onToggleTracked} aria-pressed={tracked}><Bookmark fill={tracked ? "currentColor" : "none"} />{tracked ? "Tracked on Fireteam" : "Track on Fireteam"}</button>}
       <div className={styles.guideFacts}><div><span>Collection</span><strong>{entry.owned ? "Owned" : "Missing"}</strong></div><div><span>Type</span><strong>{entry.itemType}</strong></div><div><span>Slot</span><strong>{entry.slot}</strong></div>{entry.damageType && <div><span>Damage</span><strong>{entry.damageType}</strong></div>}</div>
       {xurSellingLive && entry.xurSelling && <GuideSection title="Available from Xûr"><p>Available in Xûr's current inventory.</p></GuideSection>}
       <GuideSection title="Current source"><p>{entry.guide.acquisition}</p></GuideSection>
@@ -150,3 +157,10 @@ function GuideDrawer({ entry, xurSellingLive, onClose }: { entry: ExoticCollecti
 }
 
 function GuideSection({ title, children }: { title: string; children: React.ReactNode }) { return <section className={styles.guideSection}><h3>{title}</h3>{children}</section>; }
+
+function readTracked(value?: string): Set<string> {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return new Set(Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 200) : []);
+  } catch { return new Set(); }
+}

@@ -13,6 +13,7 @@ interface ShareVariables {
   sitePinnedQuestIds?: string[];
   siteTrackedGuardianRankIds?: string[];
   siteTrackedJourneyIds?: string[];
+  siteTrackedCollectionIds?: string[];
   hiddenTrackedItemKeys?: string[];
   untrackingKey?: string;
 }
@@ -51,10 +52,11 @@ export function FireteamPage() {
   const [guardianRankIds, setGuardianRankIds] = useState(preferenceGuardianRankIds);
   useEffect(() => setGuardianRankIds(preferenceGuardianRankIds), [preferences["guardianRank.tracked"]]);
   const journeyIds = useMemo(() => trackedPreference(preferences["journey.tracked"]), [preferences]);
+  const collectionIds = useMemo(() => trackedPreference(preferences["collection.tracked"]), [preferences]);
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
   const [manualRemovingKey, setManualRemovingKey] = useState("");
   const share = useMutation({
-    mutationFn: ({ mode, sitePinnedQuestIds = pinnedIds, siteTrackedGuardianRankIds = guardianRankIds, siteTrackedJourneyIds = journeyIds, hiddenTrackedItemKeys: hiddenKeys = hiddenTrackedItemKeys }: ShareVariables) => queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedJourneyIds, hiddenTrackedItemKeys: hiddenKeys, mode }) }),
+    mutationFn: ({ mode, sitePinnedQuestIds = pinnedIds, siteTrackedGuardianRankIds = guardianRankIds, siteTrackedJourneyIds = journeyIds, siteTrackedCollectionIds = collectionIds, hiddenTrackedItemKeys: hiddenKeys = hiddenTrackedItemKeys }: ShareVariables) => queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedJourneyIds, siteTrackedCollectionIds, hiddenTrackedItemKeys: hiddenKeys, mode }) }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
   const stop = useMutation({
@@ -62,7 +64,7 @@ export function FireteamPage() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
   const sharingMode = data?.sharingMode;
-  const syncSignature = shareSignature(selectedCharacterId, pinnedIds, guardianRankIds, journeyIds, hiddenTrackedItemKeys);
+  const syncSignature = shareSignature(selectedCharacterId, pinnedIds, guardianRankIds, journeyIds, collectionIds, hiddenTrackedItemKeys);
   const lastSyncSignature = useRef("");
   useEffect(() => {
     if (!result.data?.data.sharingEnabled || !sharingMode || sharingMode === "off") {
@@ -91,8 +93,12 @@ export function FireteamPage() {
       ? guardianRankIds.filter((id) => id !== item.id)
       : guardianRankIds;
     const nextJourneyIds = !["quest", "bounty", "order", "guardian-rank"].includes(item.kind) && item.trackedInGuardianNexus
+      && item.kind !== "exotic"
       ? journeyIds.filter((id) => id !== item.id)
       : journeyIds;
+    const nextCollectionIds = item.kind === "exotic" && item.trackedInGuardianNexus
+      ? collectionIds.filter((id) => id !== item.id)
+      : collectionIds;
     const nextHiddenKeys = new Set(hiddenTrackedItemKeys);
     if (item.trackedInDestiny) nextHiddenKeys.add(key); else nextHiddenKeys.delete(key);
     const hiddenKeys = [...nextHiddenKeys];
@@ -106,8 +112,9 @@ export function FireteamPage() {
       setPreference("guardianRank.tracked", JSON.stringify(nextGuardianRankIds));
     }
     if (nextJourneyIds !== journeyIds) setPreference("journey.tracked", JSON.stringify(nextJourneyIds));
+    if (nextCollectionIds !== collectionIds) setPreference("collection.tracked", JSON.stringify(nextCollectionIds));
 
-    lastSyncSignature.current = shareSignature(selectedCharacterId, nextPinnedIds, nextGuardianRankIds, nextJourneyIds, hiddenKeys);
+    lastSyncSignature.current = shareSignature(selectedCharacterId, nextPinnedIds, nextGuardianRankIds, nextJourneyIds, nextCollectionIds, hiddenKeys);
     setManualRemovingKey(key);
     window.setTimeout(() => {
       share.mutate({
@@ -115,6 +122,7 @@ export function FireteamPage() {
         sitePinnedQuestIds: nextPinnedIds,
         siteTrackedGuardianRankIds: nextGuardianRankIds,
         siteTrackedJourneyIds: nextJourneyIds,
+        siteTrackedCollectionIds: nextCollectionIds,
         hiddenTrackedItemKeys: hiddenKeys,
         untrackingKey: key
       }, { onSettled: () => setManualRemovingKey((current) => current === key ? "" : current) });
@@ -257,6 +265,7 @@ function TrackedItem({ item, entering = false, completing = false, onUntrack, un
       <div className={styles.sharedQuestTitle}><b>{item.name}</b><em>{item.context}</em></div>
       <small>{item.description}</small>
       {item.objectives.length > 0 && <div className={styles.sharedObjectives}>{item.objectives.map((objective) => <div key={objective.objectiveHash}><span>{objective.name}</span><strong>{objective.complete ? "Complete" : !objective.progressAvailable ? "Unavailable" : objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : `${objective.percent}%`}</strong></div>)}</div>}
+      {item.acquisitionGuide && <div className={styles.sharedAcquisitionGuide}><strong>How to get it</strong><p>{item.acquisitionGuide.summary}</p>{item.acquisitionGuide.steps.length > 0 && <ol>{item.acquisitionGuide.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>}{item.acquisitionGuide.prerequisites.length > 0 && <><strong>Prerequisites</strong><ul>{item.acquisitionGuide.prerequisites.map((step, index) => <li key={index}>{step}</li>)}</ul></>}</div>}
       <i className={styles.sharedQuestBar}><span style={{ width: `${progressKnown ? item.percent : 0}%` }} /></i>
     </div>
     <strong className={styles.sharedQuestPercent}>{progressKnown ? `${item.percent}%` : "—"}</strong>
@@ -327,8 +336,8 @@ function readPinnedIds(storageKey: string): string[] {
   } catch { return []; }
 }
 
-function shareSignature(characterId: string, pinnedIds: string[], guardianRankIds: string[], journeyIds: string[], hiddenKeys: string[]): string {
-  return `${characterId}|${pinnedIds.join(",")}|${guardianRankIds.join(",")}|${journeyIds.join(",")}|${hiddenKeys.join(",")}`;
+function shareSignature(characterId: string, pinnedIds: string[], guardianRankIds: string[], journeyIds: string[], collectionIds: string[], hiddenKeys: string[]): string {
+  return `${characterId}|${pinnedIds.join(",")}|${guardianRankIds.join(",")}|${journeyIds.join(",")}|${collectionIds.join(",")}|${hiddenKeys.join(",")}`;
 }
 
 function SocialRoster({ contacts, friendsState, clanState, warning, copied, onCopy }: { contacts: FireteamContact[]; friendsState: "available" | "reauthorization-required" | "unavailable"; clanState: "available" | "unavailable"; warning?: string; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {
