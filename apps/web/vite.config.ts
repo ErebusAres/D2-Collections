@@ -7,5 +7,17 @@ export default defineConfig({
     port: 5173,
     proxy: { "/api": { target: "http://localhost:8787", changeOrigin: true } }
   },
-  build: { target: "es2022", sourcemap: true }
+  build: {
+    target: "es2022",
+    sourcemap: true,
+    rollupOptions: {
+      input: {
+        index: "index.html",
+        sw: "service-worker.ts"
+      },
+      output: {
+        entryFileNames: (chunk) => chunk.name === "sw" ? "sw.js" : "assets/[name]-[hash].js"
+      }
+    }
+  }
 });
