@@ -141,6 +141,12 @@ export function ThemeTestingPage() {
       data-fireteam-motif={activeFireteam.motif}
       style={fireteamStyle(activeFireteam)}
     >
+      <div className={styles.pageWorld} aria-hidden="true">
+        <i className={styles.pageWorldBackdrop} />
+        <i className={styles.pageWorldLandmark} />
+        <i className={styles.pageWorldWeather} />
+        <i className={styles.pageWorldForeground} />
+      </div>
       <span className={styles.pageRailLeft} aria-hidden="true" />
       <span className={styles.pageRailRight} aria-hidden="true" />
       <PageHeader eyebrow="Restricted visual laboratory" title="Theme Testing" description="Preview and save numbered candidates without changing production notification fanfare or Fireteam destination themes." />
@@ -174,7 +180,7 @@ export function ThemeTestingPage() {
       <section className={styles.labSection}>
         <header className={styles.sectionHeader}>
           <Map />
-          <div><span>Independent system B</span><h2>Fireteam destination laboratory</h2><p>Each candidate uses unequal left and right edges plus a separate card signature. None of these candidates creates a page-wide background wash.</p></div>
+          <div><span>Independent system B</span><h2>Fireteam destination laboratory</h2><p>Each destination owns its scenery, weather, silhouettes, particles, border material, and movement. The eight candidates are different compositions rather than resized versions of one frame.</p></div>
         </header>
         <div className={styles.familyPicker} aria-label="Fireteam destination">
           {fireteamThemeDefinitions.map((entry) => {
@@ -213,6 +219,11 @@ function NotificationPreview({ definition, option, replayKey = 0, compact = fals
     style={notificationStyle(definition.id)}
   >
     <span className={styles.notificationAtmosphere} aria-hidden="true" />
+    <span className={styles.notificationEvent} aria-hidden="true">
+      <i className={styles.eventPrimary} />
+      <i className={styles.eventSecondary} />
+      <i className={styles.eventParticles} />
+    </span>
     <div className={styles.notificationBanner}>
       <i><Icon /></i>
       <span><small>{config.label} · Candidate #{option}</small><strong>{compact ? optionDefinition.name : `${optionDefinition.name} theme preview`}</strong></span>
@@ -231,6 +242,13 @@ function FireteamVariantCard({ definition, option, selected, onSelect }: { defin
 
 function FireteamPreview({ definition, option, compact = false }: { definition: FireteamThemeDefinition; option: ThemeOptionNumber; compact?: boolean }) {
   return <div className={`${styles.fireteamPreview} ${compact ? styles.compactFireteam : ""}`} data-fireteam-option={option} data-fireteam-motif={definition.motif} style={fireteamStyle(definition)}>
+    <div className={styles.destinationWorld} aria-hidden="true">
+      <i className={styles.worldBackdrop} />
+      <i className={styles.worldLandmark} />
+      <i className={styles.worldWeather} />
+      <i className={styles.worldForeground} />
+      <i className={styles.worldAccent} />
+    </div>
     <i className={styles.fireteamLeft} aria-hidden="true" />
     <i className={styles.fireteamRight} aria-hidden="true" />
     <article className={styles.guardianCard}>
