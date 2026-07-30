@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { FireteamData } from "@guardian-nexus/contracts";
+import type { FireteamData, QuestData, QuestProgress } from "@guardian-nexus/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -23,6 +23,7 @@ vi.mock("./FireteamPage", () => ({ FireteamPage: () => <div>Fireteam content</di
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   localStorage.setItem("pins:member-1:c1", "[]");
+  vi.mocked(queuedApi).mockResolvedValue({ data: { sharing: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "share" });
 });
 
 afterEach(() => {
@@ -34,31 +35,57 @@ afterEach(() => {
 
 describe("Fireteam refresh cycle", () => {
   it("finishes writing tracked progress before it reads the refreshed Fireteam snapshot", async () => {
-    const calls: string[] = [];
+    let fireteamReads = 0;
+    let orderReads = 0;
     let finishWrite!: () => void;
     const writeFinished = new Promise<void>((resolve) => { finishWrite = resolve; });
-    vi.mocked(api).mockImplementation(async () => {
-      calls.push("read");
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path.startsWith("/api/v1/me/quests")) {
+        orderReads += 1;
+        return ordersEnvelope();
+      }
+      fireteamReads += 1;
       return envelope();
     });
     vi.mocked(queuedApi).mockImplementation(async () => {
-      calls.push("write");
       await writeFinished;
       return { data: { sharing: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "share" };
     });
 
     render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText(/Tracked refresh in/)).toBeTruthy();
+    expect(await screen.findByText(/Fireteam refresh in/)).toBeTruthy();
+    expect(await screen.findByText("Active in Destiny · 6")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Seasonal Hub Orders" }).getAttribute("href")).toBe("/journey/season");
-    expect(screen.getByRole("link", { name: /Weekly order/ }).getAttribute("href")).toBe("/quests/order-1");
+    expect(screen.getByRole("link", { name: /Hub order 1/ }).getAttribute("href")).toBe("/quests/order-1");
+    await waitFor(() => expect(fireteamReads).toBe(1));
+    expect(orderReads).toBe(1);
 
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
-    expect(calls).toEqual(["read", "write"]);
+    expect(fireteamReads).toBe(1);
+    expect(orderReads).toBe(1);
 
     finishWrite();
-    await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
-    expect(calls).toEqual(["read", "write", "read"]);
+    await waitFor(() => expect(fireteamReads).toBe(2));
+    expect(orderReads).toBe(2);
+  });
+
+  it("shows every active Hub order and dismisses one when Bungie reports it complete", async () => {
+    let firstOrderComplete = false;
+    vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests")
+      ? ordersEnvelope(firstOrderComplete)
+      : envelope());
+
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
+    expect(await screen.findByText("Active in Destiny · 6")).toBeTruthy();
+    expect(screen.getByText("Hub order 1")).toBeTruthy();
+    expect(screen.getByText("Hub order 6")).toBeTruthy();
+
+    firstOrderComplete = true;
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    await waitFor(() => expect(screen.getByText("Active in Destiny · 5")).toBeTruthy());
+    expect(screen.queryByText("Hub order 1")).toBeNull();
+    expect(screen.getByText("Hub order 6")).toBeTruthy();
   });
 });
 
@@ -100,4 +127,38 @@ function envelope() {
     social: { state: "available", friendsState: "available", clanState: "available", contacts: [] }
   };
   return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "fireteam" };
+}
+
+
+function ordersEnvelope(firstOrderComplete = false) {
+  const quests: QuestProgress[] = Array.from({ length: 6 }, (_, index) => {
+    const complete = firstOrderComplete && index === 0;
+    return {
+      instanceId: `order-${index + 1}`,
+      itemHash: `order-hash-${index + 1}`,
+      name: `Hub order ${index + 1}`,
+      description: "Complete Seasonal Hub activities.",
+      itemType: "Order",
+      icon: "",
+      currentStep: `Order objective ${index + 1}`,
+      characterId: "c1",
+      inGameTracked: false,
+      sitePinned: false,
+      isExoticUnlock: false,
+      rewards: [],
+      objectives: [{
+        objectiveHash: `objective-${index + 1}`,
+        name: `Activities ${index + 1}`,
+        progress: complete ? 5 : 2,
+        completionValue: 5,
+        complete,
+        percent: complete ? 100 : 40
+      }],
+      percent: complete ? 100 : 40,
+      updatedAt: "now",
+      category: "order"
+    };
+  });
+  const data: QuestData = { quests, recommendations: [] };
+  return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "orders" };
 }
