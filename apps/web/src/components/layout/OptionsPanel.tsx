@@ -1,5 +1,5 @@
 import type { FireteamData, ReportAdminSummaryData } from "@guardian-nexus/contracts";
-import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
+import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, LogOut, Palette, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import { useEffect, useRef, type RefObject } from "react";
@@ -63,6 +63,8 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [onClose, open, returnFocusRef]);
 
+  const hasAdminTools = Boolean(session?.roles.reportAdmin || session?.roles.dev || session?.roles.matrixWriter);
+
   return (
     <>
       <button className={`${styles.scrim} ${open ? styles.open : ""}`} onClick={() => { onClose(); returnFocusRef?.current?.focus(); }} aria-label="Dismiss options" tabIndex={open ? 0 : -1} />
@@ -87,18 +89,19 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
           <h3>Fireteam privacy</h3>
           <Toggle label="Always share with friends" description={fireteam.data?.data.sharingMode === "persistent" ? "Background updates are active until you disable sharing or sign out." : "Keep a timestamped last-known snapshot visible to your current fireteam."} checked={fireteam.data?.data.sharingMode === "persistent"} onChange={(value) => setPersistentSharing.mutate(value)} />
         </section>}
-        {session?.roles.reportAdmin && <section className={styles.adminTools}>
+        {hasAdminTools && <section className={styles.adminTools}>
           <h3>Admin tools</h3>
           <div>
-            <Link className={styles.ticketQueue} to="/reports/admin" onClick={onClose}>
+            {session?.roles.reportAdmin && <Link className={styles.ticketQueue} to="/reports/admin" onClick={onClose}>
               <ClipboardList size={17} />
               <span><b>Ticket queue</b><small>{reportSummary ? `${reportSummary.counts.open} new · ${reportSummary.counts.in_progress} in progress` : "Loading…"}</small></span>
               <strong aria-label={`${reportSummary?.unresolvedCount ?? 0} unresolved tickets`}>{reportSummary?.unresolvedCount ?? 0}</strong>
               <ChevronRight size={14} />
-            </Link>
-            {session.roles.dev && <AdminLink to="/audience" label="Audience" icon={<Eye />} onClick={onClose} />}
-            {session.roles.dev && <AdminLink to="/dev" label="API Lab" icon={<Wrench />} onClick={onClose} />}
-            {session.roles.matrixWriter && <AdminLink to="/matrix" label="Matrix sync" icon={<GitCompareArrows />} onClick={onClose} />}
+            </Link>}
+            {session?.roles.dev && <AdminLink to="/admin/theme-testing" label="Theme Testing" icon={<Palette />} onClick={onClose} />}
+            {session?.roles.dev && <AdminLink to="/audience" label="Audience" icon={<Eye />} onClick={onClose} />}
+            {session?.roles.dev && <AdminLink to="/dev" label="API Lab" icon={<Wrench />} onClick={onClose} />}
+            {session?.roles.matrixWriter && <AdminLink to="/matrix" label="Matrix sync" icon={<GitCompareArrows />} onClick={onClose} />}
           </div>
         </section>}
         <section className={styles.actions}>
