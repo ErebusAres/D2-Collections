@@ -7,6 +7,16 @@ import { api } from "../services/api/client";
 import styles from "./WorldState.module.css";
 
 type Range = "24h" | "7d" | "30d" | "all";
+export const DISTORTION_DESTINATION_ROTATION = [
+  "EDZ",
+  "Dreaming City",
+  "Savathûn's Throne World",
+  "Moon",
+  "Europa",
+  "Nessus",
+  "Cosmodrome"
+] as const;
+type DistortionDestination = typeof DISTORTION_DESTINATION_ROTATION[number];
 
 export function DistortionsPage() {
   const [range, setRange] = useState<Range>("7d");
@@ -30,6 +40,10 @@ export function DistortionsPage() {
     const timer = window.setTimeout(() => void result.refetch(), delay);
     return () => window.clearTimeout(timer);
   }, [data?.nextHourlyChangeAt, result.refetch]);
+  const activeDestination = canonicalDistortionDestination(data?.current?.destination);
+  const expectedDestination = canonicalDistortionDestination(data?.prediction.expectedDestination);
+  const destinationRotation = rotateDistortionDestinations(data?.current?.destination);
+
   return <>
     <PageHeader eyebrow="IX field intelligence" title="Distortion Tracker" description="Verified current state, observed history, and cautious pattern analysis for Destiny’s hourly destination Distortions." />
     <QueryState loading={result.isLoading} error={result.error as Error | null} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
@@ -41,7 +55,26 @@ export function DistortionsPage() {
         <footer><b>{data.state.replace("-", " ")}</b><span>{data.sourceConfidence.replace("-", " ")} · {data.sourceLabel}</span>{data.lastSuccessfulUpdateAt && <time>Last success {new Date(data.lastSuccessfulUpdateAt).toLocaleString()}</time>}</footer>
       </section>
       <section className={styles.prediction} data-state={data.prediction.state}>
-        <AlertTriangle /><div><span>Pattern analysis</span><h3>{data.prediction.state.replaceAll("-", " ")}</h3><p>{data.prediction.explanation}</p></div><b>{data.prediction.sampleSize} observations</b>
+        <header>
+          <AlertTriangle />
+          <div><span>Pattern analysis</span><h3>Destination rotation</h3><p>{data.prediction.explanation}</p></div>
+          <b>{data.prediction.state.replaceAll("-", " ")} · {data.prediction.sampleSize} observations</b>
+        </header>
+        <div className={styles.distortionRotationViewport}>
+          <ol className={styles.distortionRotation} aria-label="Distortion destination rotation">
+            {destinationRotation.map((destination, index) => {
+              const active = destination === activeDestination;
+              const expected = destination === expectedDestination && !active;
+              return <li key={destination} data-active={active} data-expected={expected}>
+                <i aria-hidden="true"><span /></i>
+                <small>{active ? "Current / active" : activeDestination && index === 1 ? "Next in rotation" : `Rotation +${index}`}</small>
+                <strong>{destination}</strong>
+                {expected && <em>Expected</em>}
+              </li>;
+            })}
+          </ol>
+        </div>
+        <footer><span>Current destination stays leftmost</span><b>Distortion red → corruption black</b></footer>
       </section>
       <section className={styles.statsGrid}>
         <Stat icon={<Database />} label="Observations" value={data.statistics.observations} />
@@ -62,6 +95,38 @@ export function DistortionsPage() {
 function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) {
   return <article>{icon}<span>{label}</span><strong>{value}</strong></article>;
 }
+export function canonicalDistortionDestination(value?: string): DistortionDestination | undefined {
+  const normalized = normalizeDestination(value);
+  if (!normalized) return undefined;
+  if (normalized === "edz" || normalized.includes("european dead zone")) return "EDZ";
+  if (normalized.includes("dreaming city")) return "Dreaming City";
+  if (normalized.includes("throne world")) return "Savathûn's Throne World";
+  if (normalized === "moon" || normalized === "the moon") return "Moon";
+  if (normalized.includes("europa")) return "Europa";
+  if (normalized.includes("nessus")) return "Nessus";
+  if (normalized.includes("cosmodrome")) return "Cosmodrome";
+  return undefined;
+}
+
+export function rotateDistortionDestinations(currentDestination?: string): DistortionDestination[] {
+  const current = canonicalDistortionDestination(currentDestination);
+  if (!current) return [...DISTORTION_DESTINATION_ROTATION];
+  const currentIndex = DISTORTION_DESTINATION_ROTATION.indexOf(current);
+  return [
+    ...DISTORTION_DESTINATION_ROTATION.slice(currentIndex),
+    ...DISTORTION_DESTINATION_ROTATION.slice(0, currentIndex)
+  ];
+}
+
+function normalizeDestination(value?: string): string {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 export function formatDistortionCountdown(value: string, now = Date.now()): string {
   const ms = Math.max(0, Date.parse(value) - now);
   return `${Math.floor(ms / 60_000)}m ${String(Math.floor(ms % 60_000 / 1_000)).padStart(2, "0")}s`;
