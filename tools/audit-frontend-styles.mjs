@@ -4,13 +4,11 @@ import path from "node:path";
 const root = process.cwd();
 const scanRoots = ["apps/web/src", "apps/web/public"];
 const sourceExtensions = new Set([".ts", ".tsx", ".js", ".jsx", ".html"]);
-const cssExtensions = new Set([".css"]);
 const ignoredDirectories = new Set(["node_modules", "dist", ".git", ".wrangler", "coverage"]);
 
 function walk(relativeRoot) {
   const absoluteRoot = path.join(root, relativeRoot);
   if (!fs.existsSync(absoluteRoot)) return [];
-
   const files = [];
   const stack = [absoluteRoot];
   while (stack.length > 0) {
@@ -46,8 +44,8 @@ function extractRules(css) {
   while ((match = matcher.exec(clean)) !== null) {
     const selector = match[1].trim().replace(/\s+/g, " ");
     const declarations = normalizeDeclarations(match[2]);
-    if (!selector || !declarations || selector.startsWith("@")) continue;
-    rules.push({ selector, declarations });
+    if (!selector || !declarations || selector.startsWith("@") || /^(from|to|\d+%|\d+%,)/.test(selector)) continue;
+    rules.push({ selector, declarations, propertyCount: declarations.split(";").length });
   }
   return rules;
 }
@@ -55,9 +53,7 @@ function extractRules(css) {
 function extractClassSelectors(css) {
   const classes = new Set();
   const clean = stripCssComments(css);
-  for (const match of clean.matchAll(/\.(-?[_a-zA-Z]+[_a-zA-Z0-9-]*)/g)) {
-    classes.add(match[1]);
-  }
+  for (const match of clean.matchAll(/\.(-?[_a-zA-Z]+[_a-zA-Z0-9-]*)/g)) classes.add(match[1]);
   return [...classes].sort();
 }
 
@@ -73,46 +69,54 @@ function countOccurrences(haystack, needle) {
 }
 
 const allFiles = scanRoots.flatMap(walk);
-const cssFiles = allFiles.filter((file) => cssExtensions.has(path.extname(file)));
+const cssFiles = allFiles.filter((file) => path.extname(file) === ".css");
 const sourceFiles = allFiles.filter((file) => sourceExtensions.has(path.extname(file)));
 const legacyJsFiles = allFiles.filter((file) => [".js", ".jsx"].includes(path.extname(file)));
 const sourceCorpus = sourceFiles
   .map((file) => `\n/* FILE:${file} */\n${fs.readFileSync(path.join(root, file), "utf8")}`)
   .join("\n");
 
-const declarationsToRules = new Map();
 const cssInventory = [];
 const unusedClassCandidates = [];
+const duplicateSelectors = [];
+const sameFileDeclarationGroups = [];
+const orphanCssCandidates = [];
 
 for (const file of cssFiles) {
   const absolute = path.join(root, file);
   const css = fs.readFileSync(absolute, "utf8");
   const rules = extractRules(css);
   const classes = extractClassSelectors(css);
+  cssInventory.push({ file, bytes: Buffer.byteLength(css), rules: rules.length, classes: classes.length });
 
-  cssInventory.push({
-    file,
-    bytes: Buffer.byteLength(css),
-    rules: rules.length,
-    classes: classes.length,
-  });
-
+  const bySelector = new Map();
+  const byDeclarations = new Map();
   for (const rule of rules) {
-    const entries = declarationsToRules.get(rule.declarations) ?? [];
-    entries.push({ file, selector: rule.selector });
-    declarationsToRules.set(rule.declarations, entries);
+    const selectorRules = bySelector.get(rule.selector) ?? [];
+    selectorRules.push(rule.declarations);
+    bySelector.set(rule.selector, selectorRules);
+
+    if (rule.propertyCount >= 2 && rule.declarations.length >= 30) {
+      const declarationRules = byDeclarations.get(rule.declarations) ?? [];
+      declarationRules.push(rule.selector);
+      byDeclarations.set(rule.declarations, declarationRules);
+    }
+  }
+
+  for (const [selector, declarations] of bySelector) {
+    if (declarations.length > 1) duplicateSelectors.push({ file, selector, declarations });
+  }
+  for (const [declarations, selectors] of byDeclarations) {
+    if (selectors.length > 1) sameFileDeclarationGroups.push({ file, declarations, selectors });
   }
 
   for (const className of classes) {
-    const plainCount = countOccurrences(sourceCorpus, className);
-    if (plainCount === 0) unusedClassCandidates.push({ file, className });
+    if (countOccurrences(sourceCorpus, className) === 0) unusedClassCandidates.push({ file, className });
   }
-}
 
-const duplicateGroups = [...declarationsToRules.entries()]
-  .map(([declarations, entries]) => ({ declarations, entries }))
-  .filter(({ entries }) => entries.length > 1)
-  .sort((a, b) => b.entries.length - a.entries.length || a.entries[0].file.localeCompare(b.entries[0].file));
+  const basename = path.basename(file);
+  if (!sourceCorpus.includes(basename) && !file.startsWith("apps/web/public/")) orphanCssCandidates.push(file);
+}
 
 console.log("FRONTEND STYLE / TYPESCRIPT INVENTORY");
 console.log(`Scanned roots: ${scanRoots.join(", ")}`);
@@ -132,15 +136,29 @@ if (legacyJsFiles.length === 0) console.log("none");
 else legacyJsFiles.forEach((file) => console.log(file));
 console.log("");
 
-console.log("IDENTICAL DECLARATION GROUPS (2+ RULES)");
-console.log(`Groups: ${duplicateGroups.length}`);
-for (const [index, group] of duplicateGroups.entries()) {
-  console.log(`\n[${index + 1}] ${group.declarations}`);
-  for (const entry of group.entries) console.log(`  ${entry.file} :: ${entry.selector}`);
+console.log("CSS FILES WITHOUT A SOURCE IMPORT CANDIDATE");
+console.log("Public stylesheets are excluded because they may be linked by URL.");
+if (orphanCssCandidates.length === 0) console.log("none");
+else orphanCssCandidates.forEach((file) => console.log(file));
+console.log("");
+
+console.log("DUPLICATE SELECTOR DEFINITIONS");
+console.log(`Candidates: ${duplicateSelectors.length}`);
+for (const candidate of duplicateSelectors) {
+  console.log(`\n${candidate.file} :: ${candidate.selector}`);
+  candidate.declarations.forEach((declarations, index) => console.log(`  [${index + 1}] ${declarations}`));
+}
+console.log("");
+
+console.log("SAME-FILE IDENTICAL MULTI-PROPERTY DECLARATIONS");
+console.log(`Groups: ${sameFileDeclarationGroups.length}`);
+for (const group of sameFileDeclarationGroups) {
+  console.log(`\n${group.file} :: ${group.declarations}`);
+  group.selectors.forEach((selector) => console.log(`  ${selector}`));
 }
 console.log("");
 
 console.log("UNREFERENCED CLASS-NAME CANDIDATES");
-console.log("Heuristic only: dynamic selector construction and CSS-only state classes require manual review.");
+console.log("Heuristic only: computed CSS-module keys and CSS-only state classes require manual review.");
 console.log(`Candidates: ${unusedClassCandidates.length}`);
 for (const candidate of unusedClassCandidates) console.log(`${candidate.file} :: .${candidate.className}`);
