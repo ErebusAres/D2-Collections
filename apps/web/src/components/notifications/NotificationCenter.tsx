@@ -43,7 +43,7 @@ export function NotificationCenter({ controller }: { controller: GuardianNotific
     <button className={`${styles.scrim} ${open ? styles.open : ""}`} onClick={() => setOpen(false)} aria-label="Close notifications" tabIndex={open ? 0 : -1} />
     <aside ref={panelRef} className={`${styles.panel} ${open ? styles.open : ""}`} aria-hidden={!open} inert={!open} role="dialog" aria-modal={open ? "true" : undefined} aria-label="Notification center">
       <header><div><span>Guardian Feed</span><h2>Notifications</h2></div><button onClick={() => setOpen(false)} aria-label="Close notification center"><X /></button></header>
-      <div className={styles.tools}><label><Search /><input ref={searchRef} type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search history" /></label><button onClick={markAllRead}><CheckCheck /> Mark all read</button></div>
+      <div className={styles.tools}><label><Search /><input ref={searchRef} type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search history" /></label><div style={{ display: "flex", gap: 7 }}><button onClick={() => controller.savePreferences({ ...controller.preferences, bannerVisible: !controller.preferences.bannerVisible })}><Bell /> {controller.preferences.bannerVisible ? "Hide banner" : "Show banner"}</button><button onClick={markAllRead}><CheckCheck /> Mark all read</button></div></div>
       <div className={styles.list}>
         {filtered.map((notification) => {
           const config = categoryFor(notification.category);

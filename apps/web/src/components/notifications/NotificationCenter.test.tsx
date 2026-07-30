@@ -61,4 +61,13 @@ describe("NotificationCenter", () => {
     expect(screen.getByLabelText("Notification center").getAttribute("aria-hidden")).toBe("true");
     expect(document.activeElement).toBe(trigger);
   });
+
+  it("toggles the scrolling banner directly from the pullout", () => {
+    const savePreferences = vi.fn();
+    render(<MemoryRouter><NotificationCenter controller={{ ...controller, preferences: { ...controller.preferences, bannerVisible: false }, savePreferences }} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Open notifications" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show banner" }));
+
+    expect(savePreferences).toHaveBeenCalledWith(expect.objectContaining({ bannerVisible: true }));
+  });
 });

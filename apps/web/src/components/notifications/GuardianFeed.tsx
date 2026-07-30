@@ -8,19 +8,6 @@ import { categoryFor } from "../../modules/notifications/categoryConfig";
 import { playCompletionChime } from "../../services/completionAudio";
 import styles from "./GuardianFeed.module.css";
 
-const GUARDIAN_FANFARE_CSS = String.raw`
-[data-notification-atmosphere]{position:absolute;z-index:0;top:38px;right:0;left:0;height:130px;overflow:hidden;pointer-events:none;opacity:.7;mask-image:linear-gradient(#000 0 62%,transparent);animation:gn-in 1.2s ease-out both}
-[data-notification-atmosphere]::before,[data-notification-atmosphere]::after{content:"";position:absolute;pointer-events:none}
-[data-notification-atmosphere="distortion"]{background:radial-gradient(ellipse at 12% 0,rgba(154,24,54,.58),transparent 48%)}[data-notification-atmosphere="distortion"]::before{inset:-20% 30% 5% -8%;background:#b8465666;clip-path:polygon(0 0,62% 0,54% 18%,92% 24%,58% 37%,78% 50%,48% 58%,66% 76%,34% 67%,18% 100%,0 78%);animation:gn-corrupt 4.5s ease-in-out infinite alternate}[data-notification-atmosphere="distortion"]::after{inset:0;background:radial-gradient(circle,#ff667d99 0 1px,transparent 2px) 0 0/43px 29px;animation:gn-spores 6s linear infinite}
-[data-notification-atmosphere="ironBanner"]{transform-origin:top;background:linear-gradient(100deg,transparent 4%,#28663a55 5% 48%,transparent 52%);clip-path:polygon(4% 0,54% 0,49% 88%,6% 100%);animation:gn-unfurl 1.5s cubic-bezier(.12,.76,.16,1) both,gn-cloth 4s 1.5s ease-in-out infinite alternate}[data-notification-atmosphere="ironBanner"]::before{top:-34px;left:22%;width:92px;height:92px;border:2px solid #9fe3a755;transform:rotate(45deg)}
-[data-notification-atmosphere="crucible"]::before,[data-notification-atmosphere="crucible"]::after{top:44px;left:8%;width:58%;height:5px;background:linear-gradient(90deg,transparent,#ff7770,transparent);box-shadow:0 0 12px #d45252;transform:rotate(12deg);animation:gn-strike 2.8s ease-in-out infinite}[data-notification-atmosphere="crucible"]::after{transform:rotate(-12deg);animation-delay:-1.4s}
-[data-notification-atmosphere="trials"]::before,[data-notification-atmosphere="gambit"]::before,[data-notification-atmosphere="exotic"]::before,[data-notification-atmosphere="legendary"]::before,[data-notification-atmosphere="seasonal"]::before,[data-notification-atmosphere="system"]::before,[data-notification-atmosphere="completion"]::before{top:-34px;left:16%;color:var(--notification-accent);font:100px/1 sans-serif;text-shadow:0 0 18px var(--notification-primary);animation:gn-symbol 3.8s ease-in-out infinite}
-[data-notification-atmosphere="trials"]::before{content:"☼"}[data-notification-atmosphere="gambit"]::before{content:"●  ·  ●"}[data-notification-atmosphere="exotic"]::before{content:"✦"}[data-notification-atmosphere="legendary"]::before{content:"◆"}[data-notification-atmosphere="seasonal"]::before,[data-notification-atmosphere="system"]::before{content:"◎"}[data-notification-atmosphere="completion"]::before{content:"✓"}
-[data-notification-atmosphere="outage"]{background:repeating-linear-gradient(0deg,transparent 0 6px,#b83e4938 7px 9px);animation:gn-outage 1.3s steps(5,end) infinite}[data-notification-atmosphere="outage"]::before{inset:12px 0 auto;width:100%;height:8px;background:#ff788255;box-shadow:0 42px #b83e4933;animation:gn-break 1.7s steps(4) infinite}
-.gn-rank-fanfare{box-shadow:inset 4px 0 0 #f2d887,0 0 22px #f2d8873d!important;animation:gn-rank .95s ease-out both!important}.gn-rank-atmosphere::before{content:"◇"!important;color:#ffe28b!important;font-size:130px!important;animation:gn-symbol 2s ease-out both!important}
-@keyframes gn-in{from{opacity:0;transform:translateY(-25px);filter:blur(5px)}}@keyframes gn-corrupt{to{transform:translateX(12%) scale(1.18);filter:saturate(1.5)}}@keyframes gn-spores{to{background-position:43px 29px}}@keyframes gn-unfurl{from{opacity:0;transform:scaleY(.03) skewX(-5deg)}}@keyframes gn-cloth{to{transform:skewX(2deg);filter:brightness(1.25)}}@keyframes gn-strike{50%{transform:translateX(18%) rotate(12deg) scaleX(1.25)}}@keyframes gn-symbol{50%{transform:scale(1.15) rotate(8deg)}}@keyframes gn-outage{25%{opacity:.75;transform:translateX(4px)}55%{opacity:.2;transform:translateX(-5px)}}@keyframes gn-break{50%{transform:translate(8px,30px) scaleX(.7)}}@keyframes gn-rank{from{opacity:0;filter:brightness(2);clip-path:inset(0 50%)}to{clip-path:inset(0)}}
-@media(prefers-reduced-motion:reduce){:is([data-notification-atmosphere],[data-notification-atmosphere]::before,[data-notification-atmosphere]::after,.gn-rank-fanfare){animation:none}}html[data-notification-reduced-motion=true] :is([data-notification-atmosphere],[data-notification-atmosphere]::before,[data-notification-atmosphere]::after,.gn-rank-fanfare){animation:none}
-`;
 const SHOWN_NOTIFICATIONS_KEY = "guardian-nexus:notifications:shown";
 
 export function GuardianFeed({ controller }: { controller: GuardianNotificationsController }) {
@@ -142,7 +129,7 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
         onFocusCapture={() => setPaused(true)}
         onBlurCapture={() => setPaused(false)}
       >
-        <style>{GUARDIAN_FANFARE_CSS}</style>
+        <link rel="stylesheet" href="/guardian-fanfare.css" />
         {destination
           ? notification.destinationUrl
             ? <Link to={notification.destinationUrl} onClick={() => controller.markRead(notification)}>{content}</Link>

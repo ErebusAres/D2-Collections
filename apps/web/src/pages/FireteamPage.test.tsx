@@ -284,6 +284,7 @@ describe("Fireteam location atmosphere", () => {
     expect(fireteamLocationTheme("Europa · Eventide Ruins", "online")).toBe("europa");
     expect(fireteamLocationTheme("The Tower", "online")).toBe("tower");
     expect(fireteamLocationTheme("Neomuna · Zephyr Concourse", "online")).toBe("neomuna");
+    expect(fireteamLocationTheme("In Orbit", "online")).toBe("orbit");
     expect(fireteamLocationTheme("Europa", "offline")).toBeUndefined();
   });
 
