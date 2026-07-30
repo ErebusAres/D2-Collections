@@ -12,6 +12,7 @@ import { App } from "./App";
 import { GuardianProvider } from "./context/GuardianContext";
 import { registerGuardianServiceWorker } from "./services/registerServiceWorker";
 import "./styles/theme.css";
+import "./styles/destination-atmospheres.css";
 
 registerGuardianServiceWorker();
 
