@@ -46,13 +46,21 @@ describe("Guardian Feed session handoff", () => {
     render(<MemoryRouter><GuardianFeed controller={controller([first])} /></MemoryRouter>);
     expect(screen.queryByRole("region")).toBeNull();
   });
+
+  it("renders the environmental treatment configured for the active category", () => {
+    const view = render(<MemoryRouter><GuardianFeed controller={controller([notification("distortion", "The sky is changing", "distortion")])} /></MemoryRouter>);
+    expect(view.container.querySelector('[data-notification-atmosphere="distortion"]')).toBeTruthy();
+
+    view.rerender(<MemoryRouter><GuardianFeed controller={controller([notification("iron-banner", "Iron Banner unfurls", "iron-banner")])} /></MemoryRouter>);
+    expect(view.container.querySelector('[data-notification-atmosphere="ironBanner"]')).toBeTruthy();
+  });
 });
 
-function notification(id: string, title: string): GuardianNotification {
+function notification(id: string, title: string, category: GuardianNotification["category"] = "system"): GuardianNotification {
   return {
     id,
     type: "test",
-    category: "system",
+    category,
     scope: "global",
     priority: "normal",
     status: "active",

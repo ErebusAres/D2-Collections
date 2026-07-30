@@ -137,28 +137,38 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
     {notification.badge && <b className={styles.badge}>{notification.badge}</b>}
     {notification.externalUrl && !notification.destinationUrl && <ExternalLink className={styles.external} aria-label="External link" />}
   </>;
+  const atmosphereClass = config.animation ? styles[`${config.animation}Atmosphere`] : styles.systemAtmosphere;
   return (
-    <section
-      key={notification.id}
-      className={`${styles.feed} ${styles[notification.priority]} ${config.animation ? styles[config.animation] : ""} ${isRankUpNotification(notification) ? styles.fanfare : ""}`}
-      data-guardian-animation={config.animation}
-      style={style}
-      aria-live={notification.priority === "critical" ? "assertive" : "polite"}
-      aria-label={`${config.label}: ${notification.title}`}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={() => setPaused(false)}
-    >
-      <style>{GUARDIAN_FANFARE_CSS}</style>
-      {destination
-        ? notification.destinationUrl
-          ? <Link to={notification.destinationUrl} onClick={() => controller.markRead(notification)}>{content}</Link>
-          : <a href={notification.externalUrl} target="_blank" rel="noopener noreferrer" onClick={() => controller.markRead(notification)}>{content}</a>
-        : <div>{content}</div>}
-      <span className={styles.position} aria-hidden="true">{activeIndex + 1}/{eligibleFeed.length}</span>
-      {notification.dismissible && <button type="button" onClick={() => { controller.dismiss(notification); setActiveId(eligibleFeed[(activeIndex + 1) % eligibleFeed.length]?.id); }} aria-label={`Dismiss ${notification.title}`}><X /></button>}
-    </section>
+    <>
+      <div
+        key={`${notification.id}:atmosphere`}
+        className={`${styles.atmosphere} ${atmosphereClass || ""} ${isRankUpNotification(notification) ? styles.fanfareAtmosphere : ""}`}
+        style={style}
+        data-notification-atmosphere={config.animation || "system"}
+        aria-hidden="true"
+      />
+      <section
+        key={notification.id}
+        className={`${styles.feed} ${styles[notification.priority]} ${config.animation ? styles[config.animation] : ""} ${isRankUpNotification(notification) ? styles.fanfare : ""}`}
+        data-guardian-animation={config.animation}
+        style={style}
+        aria-live={notification.priority === "critical" ? "assertive" : "polite"}
+        aria-label={`${config.label}: ${notification.title}`}
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onFocusCapture={() => setPaused(true)}
+        onBlurCapture={() => setPaused(false)}
+      >
+        <style>{GUARDIAN_FANFARE_CSS}</style>
+        {destination
+          ? notification.destinationUrl
+            ? <Link to={notification.destinationUrl} onClick={() => controller.markRead(notification)}>{content}</Link>
+            : <a href={notification.externalUrl} target="_blank" rel="noopener noreferrer" onClick={() => controller.markRead(notification)}>{content}</a>
+          : <div>{content}</div>}
+        <span className={styles.position} aria-hidden="true">{activeIndex + 1}/{eligibleFeed.length}</span>
+        {notification.dismissible && <button type="button" onClick={() => { controller.dismiss(notification); setActiveId(eligibleFeed[(activeIndex + 1) % eligibleFeed.length]?.id); }} aria-label={`Dismiss ${notification.title}`}><X /></button>}
+      </section>
+    </>
   );
 }
 
