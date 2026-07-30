@@ -59,8 +59,11 @@ export function ThemeTestingPage() {
   if (session?.authenticated && !session.roles.dev) return <Navigate to="/director" replace />;
 
   const selectNotificationFamily = (family: NotificationCategory) => {
-    const saved = state.notificationPicks[family] || 1;
-    setState((current) => ({ ...current, notificationFamily: family, notificationOption: saved }));
+    setState((current) => ({
+      ...current,
+      notificationFamily: family,
+      notificationOption: current.notificationPicks[family] || 1
+    }));
     setNotificationReplay((value) => value + 1);
   };
   const selectNotificationOption = (option: ThemeOptionNumber) => {
@@ -71,15 +74,35 @@ export function ThemeTestingPage() {
     }));
     setNotificationReplay((value) => value + 1);
   };
+  const selectSavedNotification = (definition: NotificationThemeDefinition, option: ThemeOptionNumber) => {
+    setState((current) => ({
+      ...current,
+      notificationFamily: definition.id,
+      notificationOption: option,
+      notificationPicks: { ...current.notificationPicks, [definition.id]: option }
+    }));
+    setNotificationReplay((value) => value + 1);
+  };
   const selectFireteamTheme = (theme: string) => {
-    const saved = state.fireteamPicks[theme] || 1;
-    setState((current) => ({ ...current, fireteamTheme: theme, fireteamOption: saved }));
+    setState((current) => ({
+      ...current,
+      fireteamTheme: theme,
+      fireteamOption: current.fireteamPicks[theme] || 1
+    }));
   };
   const selectFireteamOption = (option: ThemeOptionNumber) => {
     setState((current) => ({
       ...current,
       fireteamOption: option,
       fireteamPicks: { ...current.fireteamPicks, [current.fireteamTheme]: option }
+    }));
+  };
+  const selectSavedFireteam = (definition: FireteamThemeDefinition, option: ThemeOptionNumber) => {
+    setState((current) => ({
+      ...current,
+      fireteamTheme: definition.id,
+      fireteamOption: option,
+      fireteamPicks: { ...current.fireteamPicks, [definition.id]: option }
     }));
   };
   const resetChoices = () => {
@@ -135,8 +158,9 @@ export function ThemeTestingPage() {
         <div className={styles.familyPicker} aria-label="Notification family">
           {notificationThemeDefinitions.map((entry) => {
             const config = notificationCategoryConfig[entry.id];
+            const Icon = config.icon;
             const saved = state.notificationPicks[entry.id];
-            return <button type="button" key={entry.id} className={entry.id === activeNotification.id ? styles.activeFamily : ""} onClick={() => selectNotificationFamily(entry.id)}><config.icon /><span>{config.label}</span>{saved && <b>#{saved}</b>}</button>;
+            return <button type="button" key={entry.id} className={entry.id === activeNotification.id ? styles.activeFamily : ""} onClick={() => selectNotificationFamily(entry.id)}><Icon /><span>{config.label}</span>{saved && <b>#{saved}</b>}</button>;
           })}
         </div>
         <div className={styles.intent}><strong>{notificationCategoryConfig[activeNotification.id].label}</strong><span>{activeNotification.designIntent}</span></div>
@@ -165,7 +189,7 @@ export function ThemeTestingPage() {
         </div>
       </section>
 
-      <SelectionLedger state={state} onNotificationSelect={(definition, option) => { selectNotificationFamily(definition.id); selectNotificationOption(option); }} onFireteamSelect={(definition, option) => { selectFireteamTheme(definition.id); selectFireteamOption(option); }} />
+      <SelectionLedger state={state} onNotificationSelect={selectSavedNotification} onFireteamSelect={selectSavedFireteam} />
     </div>
   </AuthGate>;
 }
@@ -192,7 +216,7 @@ function NotificationPreview({ definition, option, replayKey = 0, compact = fals
     <div className={styles.notificationBanner}>
       <i><Icon /></i>
       <span><small>{config.label} · Candidate #{option}</small><strong>{compact ? optionDefinition.name : `${optionDefinition.name} theme preview`}</strong></span>
-      <em>{compact ? "#" + option : "Now"}</em>
+      <em>{compact ? `#${option}` : "Now"}</em>
       <b className={styles.notificationFx} aria-hidden="true" />
     </div>
   </div>;
@@ -274,11 +298,21 @@ function validOption(value: unknown): value is ThemeOptionNumber {
 function sanitizeNotificationPicks(value: unknown): Partial<Record<NotificationCategory, ThemeOptionNumber>> {
   if (!value || typeof value !== "object") return {};
   const source = value as Record<string, unknown>;
-  return Object.fromEntries(notificationThemeDefinitions.flatMap((entry) => validOption(source[entry.id]) ? [[entry.id, source[entry.id]]] : [])) as Partial<Record<NotificationCategory, ThemeOptionNumber>>;
+  const result: Partial<Record<NotificationCategory, ThemeOptionNumber>> = {};
+  for (const entry of notificationThemeDefinitions) {
+    const option = source[entry.id];
+    if (validOption(option)) result[entry.id] = option;
+  }
+  return result;
 }
 
 function sanitizeFireteamPicks(value: unknown): Record<string, ThemeOptionNumber> {
   if (!value || typeof value !== "object") return {};
   const source = value as Record<string, unknown>;
-  return Object.fromEntries(fireteamThemeDefinitions.flatMap((entry) => validOption(source[entry.id]) ? [[entry.id, source[entry.id]]] : []));
+  const result: Record<string, ThemeOptionNumber> = {};
+  for (const entry of fireteamThemeDefinitions) {
+    const option = source[entry.id];
+    if (validOption(option)) result[entry.id] = option;
+  }
+  return result;
 }
