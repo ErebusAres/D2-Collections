@@ -34,6 +34,7 @@ jobs:
       - name: Commit validated CSS removal
         run: |
           rm tools/remove-final-unused-css-once.mjs
+          rm tools/.final-css-trigger
           rm .github/workflows/remove-final-unused-css-once.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
