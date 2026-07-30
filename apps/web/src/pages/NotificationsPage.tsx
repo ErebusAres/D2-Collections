@@ -6,6 +6,7 @@ import { PageHeader } from "../components/common/Page";
 import { categoryFor, notificationCategoryConfig } from "../modules/notifications/categoryConfig";
 import { useGuardianNotifications } from "../modules/notifications/useGuardianNotifications";
 import { relativeTime } from "../components/notifications/GuardianFeed";
+import { primeCompletionAudio } from "../services/completionAudio";
 import styles from "./WorldState.module.css";
 
 type ScopeFilter = "all" | "global" | "account";
@@ -46,7 +47,7 @@ export function NotificationsPage() {
 }
 
 function NotificationSettings({ preferences, onSave }: { preferences: NotificationPreferences; onSave: (value: NotificationPreferences) => void }) {
-  const update = (patch: Partial<NotificationPreferences>) => onSave({ ...preferences, ...patch, sound: false });
+  const update = (patch: Partial<NotificationPreferences>) => onSave({ ...preferences, ...patch });
   const toggleCategory = (category: NotificationCategory, enabled: boolean) => update({
     enabledCategories: enabled
       ? [...new Set([...preferences.enabledCategories, category])]
@@ -70,7 +71,10 @@ function NotificationSettings({ preferences, onSave }: { preferences: Notificati
     </fieldset>
     <Toggle label="Low-priority feed items" detail="Low-priority records always remain in history." value={preferences.lowPriorityInFeed} set={(value) => update({ lowPriorityInFeed: value })} />
     <Toggle label="Reduced notification motion" detail="Stops scrolling and decorative movement." value={preferences.reducedMotion} set={(value) => update({ reducedMotion: value })} />
-    <Toggle label="Sound" detail="Disabled by default; browser permission is never requested." value={false} disabled set={() => undefined} />
+    <Toggle label="Rank-up fanfare sound" detail="Off by default. Plays only for private Guardian Rank and Rewards Pass rank-up alerts." value={preferences.sound} set={(value) => {
+      if (value) primeCompletionAudio();
+      update({ sound: value });
+    }} />
     <label className={styles.preferenceSelect}><span><b>Feed frequency</b><small>Control which priorities enter the banner.</small></span><select value={preferences.frequency} onChange={(event) => update({ frequency: event.target.value as NotificationPreferences["frequency"] })}><option value="all">All enabled</option><option value="important">Normal and above</option><option value="minimal">Critical and high only</option></select></label>
     <label className={styles.preferenceSelect}><span><b>Default display time</b><small>Individual urgent alerts may remain longer.</small></span><select value={preferences.autoDismissMs} onChange={(event) => update({ autoDismissMs: Number(event.target.value) })}><option value={8000}>8 seconds</option><option value={10000}>10 seconds</option><option value={12000}>12 seconds</option><option value={16000}>16 seconds</option></select></label>
   </aside>;
