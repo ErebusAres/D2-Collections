@@ -916,7 +916,7 @@ async function storeShare(
   const completedCandidates = mergeTrackedItems(
     trackedItemsFromQuests(allQuests.quests, true, previousTrackedKeys),
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
-    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || updatedAt, true),
+    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
     trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys)
   );
   const recentlyCompletedItems = completedTrackedItemEvents(

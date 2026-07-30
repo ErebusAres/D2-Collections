@@ -131,6 +131,39 @@ describe("mergeCollection", () => {
 
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ itemHash: "current", owned: true, catalyst: "unavailable" });
+    expect(entries[0]?.guide).toMatchObject({
+      acquisition: "Exotic Engrams and current Exotic focusing",
+      steps: ["Earn Exotic Engrams from current activity rewards and weekly challenges.", "Decrypt the Engram at the Cryptarch, or focus Phoenix Protocol there when it is eligible."]
+    });
+    expect(entries[0]?.guide.steps.join(" ")).not.toMatch(/check (the )?(source|sources)/i);
+  });
+
+  it("uses a sibling variant's published acquisition source when the display variant has none", () => {
+    const variants: CompactManifest["items"] = [
+      { itemHash: "display", collectibleHash: "collection", name: "Test Helm", description: "Current display definition", icon: "/display.png", kind: "armor", className: "Hunter", slot: "Helmet", itemType: "Helmet", source: "", catalystRecordHashes: [] },
+      { itemHash: "source", name: "Test Helm", description: "", icon: "", kind: "armor", className: "Hunter", slot: "Helmet", itemType: "Helmet", source: "Source: Exotic Armor Focusing.", catalystRecordHashes: [] }
+    ];
+    const [entry] = mergeCollection({ version: "test", generatedAt: "now", items: variants, itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} }, {
+      ownedCollectibleHashes: new Set(), completedRecordHashes: new Set(), visibleRecordHashes: new Set()
+    }, "Hunter");
+
+    expect(entry?.itemHash).toBe("display");
+    expect(entry?.guide.acquisition).toBe("Exotic Armor Focusing at the Cryptarch in the Tower");
+    expect(entry?.guide.steps.join(" ")).toContain("Cryptarch");
+    expect(entry?.guide.steps.join(" ")).not.toMatch(/check (the )?(source|sources)/i);
+  });
+
+  it("provides current concrete steps for an Exotic whose manifest source is blank", () => {
+    const items: CompactManifest["items"] = [
+      { itemHash: "cull", name: "Cull's Shadow", description: "", icon: "", kind: "weapon", slot: "Kinetic", itemType: "Hand Cannon", source: "", catalystRecordHashes: [] }
+    ];
+    const [entry] = mergeCollection({ version: "test", generatedAt: "now", items, itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: {}, recordDefinitions: {} }, {
+      ownedCollectibleHashes: new Set(), completedRecordHashes: new Set(), visibleRecordHashes: new Set()
+    });
+
+    expect(entry?.guide).toMatchObject({ acquisition: "Oblation: Bloodline Exotic Mission", confidence: "verified" });
+    expect(entry?.guide.steps.join(" ")).toContain("Scarlet Keep");
+    expect(entry?.guide.steps.join(" ")).toContain("Moon");
   });
 
   it("combines ownership and catalyst state for duplicate weapon definitions", () => {

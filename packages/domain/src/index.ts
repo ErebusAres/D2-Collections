@@ -217,21 +217,110 @@ export function recommendQuests(
 }
 
 function fallbackGuide(item: CompactManifest["items"][number]): GuideEntry {
-  const source = item.source || "Bungie does not currently publish a clear acquisition source.";
+  const curated = curatedAcquisitionGuide(item);
+  if (curated) return curated;
+  const source = item.source.trim().replace(/^source:\s*/i, "").replace(/\.$/, "");
+  const route = acquisitionRoute(item.name, item.kind, source);
   return {
     itemHash: item.itemHash,
-    acquisition: source,
-    steps: [
-      `Start with the current Bungie source: ${source}`,
-      "Check the relevant vendor, activity, quest, or Collections entry for any account-specific prerequisite.",
-      "Complete the source requirement, then verify the item in Collections before pursuing catalysts or alternate features."
-    ],
-    prerequisites: [],
+    acquisition: route.acquisition,
+    steps: route.steps,
+    prerequisites: route.prerequisites,
     catalystSource: item.catalystRecordHashes.length ? "Catalyst record detected in the current Bungie manifest." : undefined,
     catalystCompletion: item.catalystRecordHashes.length ? "Open the catalyst record in Destiny to confirm its current objective." : undefined,
-    confidence: item.source ? "partial" : "pending",
+    confidence: source ? "partial" : "pending",
     sources: [{ label: "Bungie manifest" }]
   };
+}
+
+function acquisitionRoute(name: string, kind: "weapon" | "armor", source: string): Pick<GuideEntry, "acquisition" | "steps" | "prerequisites"> {
+  if (/exotic armor focusing/i.test(source)) return {
+    acquisition: "Exotic Armor Focusing at the Cryptarch in the Tower",
+    steps: [`Visit the Cryptarch in the Tower and open Exotic Armor Focusing.`, `Select ${name} when it appears in the focusing list and meet the displayed Engram and currency cost.`],
+    prerequisites: ["Use the class that can equip this armor."]
+  };
+  if (/exotic archive|monument to lost lights/i.test(source)) return {
+    acquisition: "Monument to Lost Lights Exotic Archive in the Tower",
+    steps: [`Visit the Monument to Lost Lights beside the Vault in the Tower.`, `Open the matching expansion section, select ${name}, and pay the materials shown on the item.`],
+    prerequisites: ["Own the expansion or pack shown on the archive entry.", "Bring the displayed Exotic Cipher, Glimmer, and any additional required material."]
+  };
+  if (/\bengrams?\b|world drops/i.test(source)) return {
+    acquisition: "Exotic Engrams and current Exotic focusing",
+    steps: ["Earn Exotic Engrams from current activity rewards and weekly challenges.", `Decrypt the Engram at the Cryptarch, or focus ${name} there when it is eligible.`],
+    prerequisites: kind === "armor" ? ["Use the class that can equip this armor."] : []
+  };
+  if (/season pass|rewards pass/i.test(source)) return {
+    acquisition: source,
+    steps: [`Claim ${name} from its Rewards Pass rank if that pass is active.`, "For a retired weapon reward, visit the Monument to Lost Lights in the Tower and open its matching year or expansion section."],
+    prerequisites: []
+  };
+  if (/xûr|xur/i.test(source)) return {
+    acquisition: "Xûr",
+    steps: [`Visit Xûr while he is available and purchase ${name} if it is in his current inventory.`],
+    prerequisites: ["Bring the Strange Coins or other currency displayed by Xûr."]
+  };
+  if (/raid/i.test(source)) return {
+    acquisition: source,
+    steps: [`Launch ${source.replace(/\braid\b\.?$/i, "").trim()} from the Director and complete the encounter that awards ${name}.`, "Complete any listed Triumphs that increase the Exotic drop chance before repeating the eligible encounter."],
+    prerequisites: ["Own the expansion or content pack required by the raid."]
+  };
+  if (/dungeon|vesper's host|sundered doctrine/i.test(source)) return {
+    acquisition: source,
+    steps: [`Launch ${source.replace(/^dungeon\s*/i, "").replace(/^["']|["']$/g, "")} from the Director and complete its final encounter for a chance at ${name}.`, "Complete the dungeon Triumphs that list an increased Exotic drop chance before farming additional clears."],
+    prerequisites: ["Own the Dungeon Key or content entitlement required by the activity."]
+  };
+  if (/quest|mission|campaign|empire hunt|exploring|equilibrium|fortress|renegades|episode:|season of|monument of triumph/i.test(source)) return {
+    acquisition: source,
+    steps: [`Locate ${source} in the Director, Portal, Timeline, or active quest log.`, `Complete its objectives and claim ${name} from the final quest step or reward chest.`],
+    prerequisites: []
+  };
+  if (/pre-order|deluxe edition/i.test(source)) return {
+    acquisition: source,
+    steps: [`Visit the Special Deliveries kiosk in the Tower and claim ${name} from the matching entitlement.`],
+    prerequisites: ["Own the edition or preorder entitlement that includes this item."]
+  };
+  if (/guardian games/i.test(source)) return {
+    acquisition: "Guardian Games event reward",
+    steps: [`During Guardian Games, speak with the event vendor in the Tower and complete the event requirement that awards ${name}.`],
+    prerequisites: ["Guardian Games must be active."]
+  };
+  return kind === "armor" ? {
+    acquisition: "Exotic Armor Focusing or Exotic Engrams",
+    steps: [`Visit the Cryptarch in the Tower and look for ${name} in Exotic Armor Focusing.`, "If it is not focusable yet, earn and decrypt Exotic Engrams until its unlock requirement is met."],
+    prerequisites: ["Use the class that can equip this armor."]
+  } : {
+    acquisition: source || "Current Exotic weapon source unavailable in the Bungie manifest",
+    steps: source
+      ? [`Complete the published requirement for ${source} and claim ${name} from its final reward.`]
+      : [`Search the Monument to Lost Lights in the Tower for ${name}.`, "If it is not archived there, use its current Exotic quest or mission rather than spending materials on a different item."],
+    prerequisites: []
+  };
+}
+
+function curatedAcquisitionGuide(item: CompactManifest["items"][number]): GuideEntry | undefined {
+  if (item.name === "Cull's Shadow") return {
+    itemHash: item.itemHash,
+    acquisition: "Oblation: Bloodline Exotic Mission",
+    steps: [
+      "Launch The Scarlet Keep with a Weapon of Sorrow equipped and destroy the hidden runes during the final encounter.",
+      "Enter the opened room, interact with the Hive object, then follow the Soulfire Frequency trails across the Moon patrol zones.",
+      "Finish the Moon investigation to reveal Oblation: Bloodline, then complete the Exotic Mission and claim Cull's Shadow."
+    ],
+    prerequisites: ["Have access to the Moon and The Scarlet Keep.", "Bring a Weapon of Sorrow such as Thorn, Osteo Striga, Necrochasm, or Touch of Malice."],
+    confidence: "verified",
+    verifiedAt: "2026-07-30",
+    sources: [{ label: "Current Oblation: Bloodline guide", url: "https://games.gg/destiny-2/guides/destiny-2-how-to-get-culls-shadow/" }]
+  };
+  if (item.name === "Wolfsbane") return {
+    itemHash: item.itemHash,
+    acquisition: "Heliostat Exotic Mission",
+    steps: ["Open the Portal and select Heliostat from Pinnacle Ops.", "Complete Heliostat and claim Wolfsbane from the mission reward."],
+    prerequisites: ["Own the content entitlement required to launch Heliostat."],
+    confidence: "verified",
+    verifiedAt: "2026-07-30",
+    sources: [{ label: "Bungie Heliostat announcement", url: "https://www.bungie.net/7/en/News/Article/twid_10_09_2025" }]
+  };
+  return undefined;
 }
 
 export function mergeCollection(
@@ -268,7 +357,9 @@ export function mergeCollection(
         || Boolean(state.ownedItemHashes?.has(variant.itemHash))
       );
       const xurSelling = variants.some((variant) => state.xurSaleItemHashes?.has(variant.itemHash));
-      const guide = variants.map((variant) => guides[variant.itemHash]).find(Boolean) ?? fallbackGuide({ ...item, catalystRecordHashes });
+      const guideSource = variants.find((variant) => variant.source.trim()) || item;
+      const guide = variants.map((variant) => guides[variant.itemHash]).find(Boolean)
+        ?? fallbackGuide({ ...item, source: guideSource.source, catalystRecordHashes });
       const catalysts = catalystRecordHashes.map((recordHash) => {
         const definition = manifest.recordDefinitions[recordHash] as any;
         const properties = definition?.displayProperties || {};

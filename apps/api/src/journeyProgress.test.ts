@@ -102,5 +102,17 @@ describe("Journey progress", () => {
     const tracked = trackedItemsFromJourney(data, new Set(["10", "40:50"]), "2026-07-28T12:00:00.000Z");
     expect(tracked).toHaveLength(2);
     expect(tracked.map((item) => item.kind)).toEqual(["title", "weekly"]);
+    const completedTitle = data.titles.find((record) => record.recordHash === "10")!;
+    completedTitle.complete = true;
+    completedTitle.percent = 100;
+    completedTitle.objectives.forEach((objective) => {
+      objective.complete = true;
+      objective.percent = 100;
+      objective.progress = objective.completionValue;
+    });
+
+    const candidates = trackedItemsFromJourney(data, new Set(), "2026-07-28T12:01:00.000Z", true, new Set(["title:10"]));
+
+    expect(candidates).toMatchObject([{ id: "10", kind: "title", percent: 100, trackedInGuardianNexus: false }]);
   });
 });

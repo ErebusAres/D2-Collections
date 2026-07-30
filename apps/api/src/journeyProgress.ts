@@ -100,13 +100,13 @@ function dedupeWeeklyChallenges(rows: JourneyWeeklyChallenge[]): JourneyWeeklyCh
   return [...unique.values()];
 }
 
-export function trackedItemsFromJourney(data: JourneyProgressData, trackedIds: Set<string>, updatedAt: string, includeCompleted = false): FireteamTrackedItem[] {
+export function trackedItemsFromJourney(data: JourneyProgressData, trackedIds: Set<string>, updatedAt: string, includeCompleted = false, previouslyTracked = new Set<string>()): FireteamTrackedItem[] {
   const records = [
     ...data.titles.map((record) => ({ ...record, kind: "title" as const, context: "Title & Seal", description: record.description })),
     ...data.triumphs.map((record) => ({ ...record, kind: "triumph" as const, context: record.category })),
     ...data.seasonalChallenges.map((record) => ({ ...record, kind: "seasonal" as const, context: "Seasonal Challenge" }))
   ];
-  const recordItems = records.filter((record) => trackedIds.has(record.recordHash) && (includeCompleted || !record.complete)).map((record) => ({
+  const recordItems = records.filter((record) => (trackedIds.has(record.recordHash) || previouslyTracked.has(`${record.kind}:${record.recordHash}`)) && (includeCompleted || !record.complete)).map((record) => ({
     id: record.recordHash,
     definitionHash: record.recordHash,
     kind: record.kind,
@@ -115,12 +115,12 @@ export function trackedItemsFromJourney(data: JourneyProgressData, trackedIds: S
     icon: record.icon,
     context: record.context,
     trackedInDestiny: record.tracked,
-    trackedInGuardianNexus: true,
+    trackedInGuardianNexus: trackedIds.has(record.recordHash),
     objectives: record.objectives.map((objective) => ({ ...objective, progressAvailable: true })),
     percent: record.percent,
     updatedAt
   }));
-  const weeklyItems = data.weeklyChallenges.filter((challenge) => trackedIds.has(challenge.id) && (includeCompleted || !challenge.objective.complete)).map((challenge) => ({
+  const weeklyItems = data.weeklyChallenges.filter((challenge) => (trackedIds.has(challenge.id) || previouslyTracked.has(`weekly:${challenge.id}`)) && (includeCompleted || !challenge.objective.complete)).map((challenge) => ({
     id: challenge.id,
     definitionHash: challenge.objective.objectiveHash,
     kind: "weekly" as const,
@@ -129,7 +129,7 @@ export function trackedItemsFromJourney(data: JourneyProgressData, trackedIds: S
     icon: challenge.icon,
     context: "Weekly Challenge",
     trackedInDestiny: false,
-    trackedInGuardianNexus: true,
+    trackedInGuardianNexus: trackedIds.has(challenge.id),
     objectives: [{ ...challenge.objective, progressAvailable: true }],
     percent: challenge.objective.percent,
     updatedAt
