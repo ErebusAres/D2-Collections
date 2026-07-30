@@ -11,7 +11,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
 import { GuardianProvider } from "./context/GuardianContext";
 import { registerGuardianServiceWorker } from "./services/registerServiceWorker";
+import destinationAtmospheresUrl from "./styles/destination-atmospheres.css?url";
 import "./styles/theme.css";
+
+const destinationAtmospheres = document.createElement("link");
+destinationAtmospheres.rel = "stylesheet";
+destinationAtmospheres.href = destinationAtmospheresUrl;
+destinationAtmospheres.dataset.guardianDestinationAtmospheres = "true";
+document.head.appendChild(destinationAtmospheres);
 
 registerGuardianServiceWorker();
 
