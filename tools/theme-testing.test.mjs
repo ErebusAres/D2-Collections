@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+// This suite also acts as the deployment boundary for the isolated visual laboratory.
 const dataSource = await readFile(new URL("../apps/web/src/pages/themeTestingData.ts", import.meta.url), "utf8");
 const pageSource = await readFile(new URL("../apps/web/src/pages/ThemeTestingPage.tsx", import.meta.url), "utf8");
 const styleSource = await readFile(new URL("../apps/web/src/pages/ThemeTestingPage.module.css", import.meta.url), "utf8");
