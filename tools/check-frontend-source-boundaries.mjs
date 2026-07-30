@@ -67,11 +67,15 @@ for (const relative of requiredFiles) {
 }
 
 const forbiddenFiles = [
-  "apps/web/public/sw.js",
-  "apps/web/public/guardian-fanfare.css",
+  ["apps/web/public/sw.js", "legacy public source must be removed"],
+  ["apps/web/public/guardian-fanfare.css", "legacy public source must be removed"],
+  [".github/workflows/remove-final-unused-css-once.yml", "one-shot cleanup workflow must not remain in the repository"],
+  ["tools/remove-final-unused-css-once.mjs", "one-shot cleanup script must not remain in the repository"],
+  ["tools/.final-css-trigger", "cleanup trigger marker must not remain in the repository"],
+  ["tools/.final-css-pr-trigger", "cleanup trigger marker must not remain in the repository"],
 ];
-for (const relative of forbiddenFiles) {
-  if (fs.existsSync(path.join(root, relative))) failures.push(`${relative}: legacy public source must be removed`);
+for (const [relative, reason] of forbiddenFiles) {
+  if (fs.existsSync(path.join(root, relative))) failures.push(`${relative}: ${reason}`);
 }
 
 for (const file of sourceFiles.filter((candidate) => candidate.endsWith(".css") && !candidate.endsWith(".module.css"))) {
