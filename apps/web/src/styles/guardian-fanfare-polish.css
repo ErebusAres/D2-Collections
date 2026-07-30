@@ -1,0 +1,183 @@
+/*
+ * Restraint pass for notification fanfare.
+ *
+ * The base fanfare stylesheet keeps each category's identity. This layer lowers
+ * the shared luminance and replaces Distortion's stacked glow/noise treatment
+ * with broad spatial folds and a single fracture seam.
+ */
+
+html [data-notification-atmosphere]:not([data-notification-atmosphere="outage"]) {
+  filter: saturate(1.02) contrast(1.01);
+  mask-image: linear-gradient(to bottom, #000 0 58%, rgba(0, 0, 0, .78) 74%, transparent 100%);
+  animation: gn-fanfare-lifetime-soft 30s linear forwards !important;
+}
+
+html [data-notification-atmosphere="outage"] {
+  filter: saturate(1.02) contrast(1.01);
+  mask-image: linear-gradient(to bottom, #000 0 58%, rgba(0, 0, 0, .78) 74%, transparent 100%);
+  animation:
+    gn-fanfare-lifetime-soft 30s linear forwards,
+    gn-outage-jitter 1.25s steps(5, end) infinite !important;
+}
+
+html [data-guardian-animation="distortion"] {
+  box-shadow:
+    inset 3px 0 0 rgba(181, 38, 73, .88),
+    inset 0 -1px 0 rgba(131, 31, 59, .34),
+    0 7px 18px rgba(23, 4, 13, .28) !important;
+  animation: gn-distortion-banner-settle .88s cubic-bezier(.18, .74, .24, 1) both !important;
+}
+
+html [data-guardian-animation="distortion"]::before {
+  inset: 0 !important;
+  opacity: .22;
+  background:
+    linear-gradient(180deg, transparent 0 27%, rgba(118, 22, 51, .22) 28% 34%, transparent 35% 67%, rgba(91, 18, 42, .16) 68% 72%, transparent 73%),
+    linear-gradient(96deg, transparent 0 12%, rgba(153, 32, 65, .18) 12.5% 13.4%, transparent 14% 46%, rgba(96, 21, 48, .13) 47% 48%, transparent 49%) !important;
+  clip-path: inset(0);
+  filter: none;
+  animation:
+    gn-distortion-banner-fold 3.2s cubic-bezier(.2, .66, .18, 1) both,
+    gn-banner-effect-life-soft 30s linear forwards !important;
+}
+
+html [data-notification-atmosphere="distortion"] {
+  background:
+    radial-gradient(ellipse at 15% 16%, rgba(103, 17, 48, .15), transparent 42%),
+    linear-gradient(104deg, rgba(7, 5, 10, .9) 0, rgba(27, 8, 20, .58) 34%, rgba(55, 12, 33, .17) 60%, transparent 82%) !important;
+}
+
+html [data-notification-atmosphere="distortion"]::before {
+  inset: 8px 5% 32px 2%;
+  background:
+    linear-gradient(164deg, transparent 0 25%, rgba(126, 25, 57, .18) 25.4% 27%, rgba(7, 4, 10, .72) 27.3% 38%, rgba(96, 20, 48, .14) 38.3% 39.2%, transparent 39.6%),
+    linear-gradient(14deg, transparent 0 43%, rgba(6, 4, 9, .76) 43.4% 54%, rgba(130, 27, 59, .16) 54.3% 55.1%, transparent 55.5%);
+  clip-path: polygon(0 19%, 17% 9%, 35% 20%, 51% 8%, 69% 23%, 87% 12%, 100% 24%, 100% 76%, 83% 88%, 64% 75%, 47% 91%, 29% 77%, 12% 89%, 0 79%);
+  transform-origin: left center;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .52));
+  backdrop-filter: blur(.7px);
+  animation: gn-distortion-fold-drift 9.5s cubic-bezier(.37, .04, .24, 1) infinite alternate !important;
+}
+
+html [data-notification-atmosphere="distortion"]::after {
+  top: 18px;
+  right: auto;
+  bottom: auto;
+  left: 3%;
+  width: min(760px, 78vw);
+  height: 128px;
+  background:
+    linear-gradient(166deg, transparent 0 48.8%, rgba(150, 37, 70, .34) 49.1% 49.5%, rgba(15, 5, 10, .88) 49.8% 52.2%, rgba(91, 23, 49, .2) 52.5% 52.9%, transparent 53.3%),
+    linear-gradient(7deg, transparent 0 67%, rgba(87, 21, 46, .14) 67.4% 68%, transparent 68.4%);
+  clip-path: polygon(0 15%, 18% 24%, 34% 12%, 51% 28%, 67% 16%, 84% 31%, 100% 22%, 100% 69%, 82% 58%, 65% 76%, 48% 62%, 30% 81%, 14% 66%, 0 73%);
+  filter: drop-shadow(0 4px 7px rgba(0, 0, 0, .46));
+  opacity: .68;
+  transform-origin: center;
+  animation: gn-distortion-fracture-seam 7.6s cubic-bezier(.4, .04, .23, 1) infinite !important;
+}
+
+@keyframes gn-fanfare-lifetime-soft {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px) scaleY(.9);
+    filter: blur(3px) saturate(.96) contrast(1.01);
+  }
+  4% {
+    opacity: .66;
+    transform: translateY(0) scaleY(1);
+    filter: blur(0) saturate(1.02) contrast(1.01);
+  }
+  88% {
+    opacity: .62;
+    transform: translateY(0) scaleY(1);
+    filter: blur(0) saturate(1.02) contrast(1.01);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-5px) scaleY(.99);
+    filter: blur(1px) saturate(.9) contrast(.98);
+  }
+}
+
+@keyframes gn-banner-effect-life-soft {
+  0%, 88% { opacity: .22; }
+  100% { opacity: 0; }
+}
+
+@keyframes gn-distortion-banner-settle {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px) scaleX(.985);
+    clip-path: inset(35% 0 38% 0);
+  }
+  38% {
+    opacity: .72;
+    transform: translateX(3px) scaleX(1.005);
+    clip-path: inset(9% 0 14% 0);
+  }
+  72% {
+    opacity: 1;
+    transform: translateX(-1px) scaleX(.998);
+    clip-path: inset(0);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0);
+  }
+}
+
+@keyframes gn-distortion-banner-fold {
+  0% { opacity: 0; transform: translateX(-16%) skewX(-2deg); }
+  34% { opacity: .28; transform: translateX(-3%) skewX(1deg); }
+  68% { opacity: .14; transform: translateX(7%) skewX(-.6deg); }
+  100% { opacity: 0; transform: translateX(15%) skewX(0); }
+}
+
+@keyframes gn-distortion-fold-drift {
+  0% {
+    transform: perspective(900px) translateX(-2.5%) rotateY(-2.2deg) skewY(-.4deg) scaleX(.985);
+    opacity: .5;
+  }
+  46% {
+    transform: perspective(900px) translateX(1.2%) rotateY(1.1deg) skewY(.35deg) scaleX(1.008);
+    opacity: .64;
+  }
+  100% {
+    transform: perspective(900px) translateX(3.4%) rotateY(2.8deg) skewY(-.15deg) scaleX(1.018);
+    opacity: .54;
+  }
+}
+
+@keyframes gn-distortion-fracture-seam {
+  0%, 100% {
+    transform: translateX(-1.2%) scaleX(.992) skewX(-.5deg);
+    opacity: .48;
+  }
+  42% {
+    transform: translateX(1.5%) scaleX(1.01) skewX(.35deg);
+    opacity: .68;
+  }
+  68% {
+    transform: translateX(.4%) scaleX(1.003) skewX(-.2deg);
+    opacity: .57;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html [data-notification-atmosphere],
+  html [data-notification-atmosphere]::before,
+  html [data-notification-atmosphere]::after,
+  html [data-guardian-animation="distortion"],
+  html [data-guardian-animation="distortion"]::before {
+    animation: none !important;
+  }
+}
+
+html[data-notification-reduced-motion="true"] [data-notification-atmosphere],
+html[data-notification-reduced-motion="true"] [data-notification-atmosphere]::before,
+html[data-notification-reduced-motion="true"] [data-notification-atmosphere]::after,
+html[data-notification-reduced-motion="true"] [data-guardian-animation="distortion"],
+html[data-notification-reduced-motion="true"] [data-guardian-animation="distortion"]::before {
+  animation: none !important;
+}
