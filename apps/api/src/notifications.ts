@@ -304,10 +304,10 @@ export async function readDistortions(env: Env, range = "7d"): Promise<Distortio
     SELECT * FROM distortion_observations WHERE observed_start_at >= ? ORDER BY observed_start_at DESC LIMIT 1000
   `).bind(cutoff).all<Record<string, unknown>>();
   const history = (result.results || []).map(distortionFromRow);
-  const predictionHistory = history.length >= DISTORTION_PREDICTION_SAMPLE_SIZE
+  const predictionHistory = range === "all"
     ? history
     : ((await env.DB.prepare(`
-      SELECT * FROM distortion_observations ORDER BY observed_start_at DESC LIMIT ${DISTORTION_PREDICTION_SAMPLE_SIZE}
+      SELECT * FROM distortion_observations ORDER BY observed_start_at DESC LIMIT 1000
     `).all<Record<string, unknown>>()).results || []).map(distortionFromRow);
   const latest = history[0];
   const age = latest ? now.getTime() - Date.parse(latest.lastConfirmedAt) : Number.POSITIVE_INFINITY;
@@ -683,37 +683,76 @@ export function calculateDistortionPrediction(history: DistortionObservation[]):
     explanation: `Guardian Nexus needs four complete seven-destination loops before confirming the rotation (${history.length}/${DISTORTION_PREDICTION_SAMPLE_SIZE} observations).`
   };
 
-  const recent = [...history]
+  const destinations = [...history]
     .sort((a, b) => Date.parse(a.observedStartAt) - Date.parse(b.observedStartAt))
-    .slice(-DISTORTION_PREDICTION_SAMPLE_SIZE);
-  const destinations = recent.map((entry) => canonicalDistortionDestination(entry.destination));
-  let matchingTransitions = 0;
-  for (let index = 1; index < destinations.length; index += 1) {
-    const previousIndex = DISTORTION_ROTATION.indexOf(destinations[index - 1] as typeof DISTORTION_ROTATION[number]);
-    const expected = previousIndex >= 0 ? DISTORTION_ROTATION[(previousIndex + 1) % DISTORTION_ROTATION.length] : undefined;
-    if (expected && destinations[index] === expected) matchingTransitions += 1;
-  }
-  const recentAccuracyPercent = Math.round(matchingTransitions / (destinations.length - 1) * 100);
-  const latestDestination = destinations.at(-1);
-  const latestIndex = latestDestination ? DISTORTION_ROTATION.indexOf(latestDestination) : -1;
+    .map((entry) => canonicalDistortionDestination(entry.destination));
+  const recentDestinations = destinations.slice(-DISTORTION_PREDICTION_SAMPLE_SIZE);
+  const recentLoop = repeatedDistortionLoop(recentDestinations);
 
-  if (latestIndex < 0 || recentAccuracyPercent < 90) return {
+  if (recentLoop) {
+    const latestDestination = recentDestinations.at(-1);
+    const latestIndex = latestDestination ? recentLoop.indexOf(latestDestination) : -1;
+    return {
+      state: "available",
+      expectedDestination: recentLoop[(latestIndex + 1) % recentLoop.length],
+      confidencePercent: 100,
+      sampleSize: history.length,
+      calculatedAt,
+      recentAccuracyPercent: 100,
+      explanation: "Four complete seven-destination loops match exactly. Evidence tracking remains active through future resets."
+    };
+  }
+
+  let establishedLoop: Array<typeof DISTORTION_ROTATION[number]> | undefined;
+  for (let end = DISTORTION_PREDICTION_SAMPLE_SIZE; end < destinations.length; end += 1) {
+    establishedLoop = repeatedDistortionLoop(destinations.slice(end - DISTORTION_PREDICTION_SAMPLE_SIZE, end)) || establishedLoop;
+  }
+  if (establishedLoop) {
+    const recentAccuracyPercent = distortionTransitionAccuracy(recentDestinations, establishedLoop);
+    return {
+      state: "pattern-changed",
+      sampleSize: history.length,
+      calculatedAt,
+      recentAccuracyPercent,
+      explanation: "The latest observations no longer follow the established seven-destination loop. Evidence tracking remains active while Guardian Nexus tests for a new repeatable order."
+    };
+  }
+
+  return {
     state: "no-reliable-pattern",
     sampleSize: history.length,
     calculatedAt,
-    recentAccuracyPercent,
-    explanation: `Four complete loops are recorded, but their order matches the candidate rotation only ${recentAccuracyPercent}% of the time.`
+    explanation: "Four loop-length windows are recorded, but they do not yet repeat in a reliable order. Evidence tracking remains active."
   };
+}
 
-  return {
-    state: "available",
-    expectedDestination: DISTORTION_ROTATION[(latestIndex + 1) % DISTORTION_ROTATION.length],
-    confidencePercent: recentAccuracyPercent,
-    sampleSize: history.length,
-    calculatedAt,
-    recentAccuracyPercent,
-    explanation: `Four complete seven-destination loops match the hourly rotation at ${recentAccuracyPercent}% transition accuracy.`
-  };
+function repeatedDistortionLoop(
+  destinations: Array<typeof DISTORTION_ROTATION[number] | undefined>
+): Array<typeof DISTORTION_ROTATION[number]> | undefined {
+  if (destinations.length !== DISTORTION_PREDICTION_SAMPLE_SIZE || destinations.some((destination) => !destination)) return undefined;
+  const loop = destinations.slice(0, DISTORTION_ROTATION.length) as Array<typeof DISTORTION_ROTATION[number]>;
+  if (new Set(loop).size !== DISTORTION_ROTATION.length) return undefined;
+  for (let index = DISTORTION_ROTATION.length; index < destinations.length; index += 1) {
+    if (destinations[index] !== loop[index % loop.length]) return undefined;
+  }
+  return loop;
+}
+
+function distortionTransitionAccuracy(
+  destinations: Array<typeof DISTORTION_ROTATION[number] | undefined>,
+  loop: Array<typeof DISTORTION_ROTATION[number]>
+): number {
+  let matches = 0;
+  let evaluated = 0;
+  for (let index = 1; index < destinations.length; index += 1) {
+    const previous = destinations[index - 1];
+    const current = destinations[index];
+    const previousIndex = previous ? loop.indexOf(previous) : -1;
+    if (previousIndex < 0 || !current) continue;
+    evaluated += 1;
+    if (loop[(previousIndex + 1) % loop.length] === current) matches += 1;
+  }
+  return evaluated ? Math.round(matches / evaluated * 100) : 0;
 }
 
 function canonicalDistortionDestination(value: string): typeof DISTORTION_ROTATION[number] | undefined {
