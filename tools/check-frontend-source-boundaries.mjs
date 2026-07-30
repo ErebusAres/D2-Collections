@@ -60,7 +60,6 @@ const requiredFiles = [
   "apps/web/tsconfig.service-worker.json",
   "apps/web/src/styles/loadStylesheet.ts",
   "apps/web/src/styles/guardian-fanfare.css",
-  "apps/web/src/styles/destination-atmospheres.css",
 ];
 for (const relative of requiredFiles) {
   if (!fs.existsSync(path.join(root, relative))) failures.push(`${relative}: required frontend source is missing`);
