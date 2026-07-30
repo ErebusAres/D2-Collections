@@ -1,4 +1,4 @@
-import type { AudienceDetailData, AudienceMetrics, GuardianSummary } from "@guardian-nexus/contracts";
+import type { AudienceDetailData, AudienceMetrics, GuardianNotification, GuardianSummary } from "@guardian-nexus/contracts";
 import { allowlist, cookie, parseCookies, randomToken, sha256 } from "./security";
 import type { Env, RequestContext } from "./types";
 
@@ -36,9 +36,78 @@ export async function readAudienceMetrics(env: Env): Promise<AudienceMetrics> {
 export async function rememberAudienceGuardian(env: Env, guardian: GuardianSummary): Promise<void> {
   const selected = guardian.characters.find((character) => character.characterId === guardian.selectedCharacterId);
   const now = new Date();
-  await env.DB.prepare(`UPDATE users SET last_profile_at = ?, last_character_class = ?, last_power = ?, last_guardian_rank = ?, last_rewards_pass_rank = ?, last_emblem_path = ?
-    WHERE membership_id = ?`)
-    .bind(now.toISOString(), selected?.className || null, guardian.stats.power, guardian.stats.guardianRank, guardian.stats.rewardsPassRank, selected?.emblemPath || null, guardian.membershipId).run();
+  const previous = await env.DB.prepare(`
+    SELECT last_guardian_rank, last_rewards_pass_rank FROM users WHERE membership_id = ?
+  `).bind(guardian.membershipId).first<{ last_guardian_rank: number | null; last_rewards_pass_rank: number | null }>();
+  const notifications = rankUpNotifications(previous, guardian, now);
+  await env.DB.batch([
+    ...notifications.map((notification) => env.DB.prepare(`
+      INSERT OR IGNORE INTO guardian_notifications (
+        id, event_key, type, category, scope, account_membership_id, priority, title, subtitle,
+        badge, destination_url, created_at, updated_at, expires_at, dismissible, auto_dismiss,
+        auto_dismiss_ms, repeatable, source, source_label, source_confidence, metadata_json
+      ) VALUES (?, ?, ?, 'completion', 'account', ?, 'high', ?, ?, 'RANK UP', ?, ?, ?, ?, 1, 1, 14000, 0, 'bungie-profile', 'Live Bungie profile', 'live-api', ?)
+    `).bind(
+      notification.id,
+      notification.eventKey,
+      notification.type,
+      guardian.membershipId,
+      notification.title,
+      notification.subtitle || null,
+      notification.destinationUrl || null,
+      notification.createdAt,
+      notification.updatedAt || notification.createdAt,
+      notification.expiresAt || null,
+      JSON.stringify(notification.metadata || {})
+    )),
+    env.DB.prepare(`UPDATE users SET last_profile_at = ?, last_character_class = ?, last_power = ?, last_guardian_rank = ?, last_rewards_pass_rank = ?, last_emblem_path = ?
+      WHERE membership_id = ?`)
+      .bind(now.toISOString(), selected?.className || null, guardian.stats.power, guardian.stats.guardianRank, guardian.stats.rewardsPassRank, selected?.emblemPath || null, guardian.membershipId)
+  ]);
+}
+
+export function rankUpNotifications(
+  previous: { last_guardian_rank: number | null; last_rewards_pass_rank: number | null } | null | undefined,
+  guardian: GuardianSummary,
+  now = new Date()
+): GuardianNotification[] {
+  if (!previous) return [];
+  const createdAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60_000).toISOString();
+  const entries: GuardianNotification[] = [];
+  const add = (kind: "guardian-rank" | "rewards-pass", oldValue: number | null, newValue: number, destinationUrl: string) => {
+    if (oldValue == null || !Number.isFinite(oldValue) || newValue <= oldValue) return;
+    const guardianRank = kind === "guardian-rank";
+    entries.push({
+      id: `account:${guardian.membershipId}:${kind}:${newValue}`,
+      eventKey: `${kind}-up:${newValue}`,
+      type: `${kind}-up`,
+      category: "completion",
+      scope: "account",
+      priority: "high",
+      status: "active",
+      title: guardianRank ? `Guardian Rank ${newValue} reached` : `Rewards Pass rank ${newValue} reached`,
+      subtitle: guardianRank
+        ? `Advanced from Guardian Rank ${oldValue}`
+        : `Advanced from Rewards Pass rank ${oldValue}`,
+      badge: "RANK UP",
+      destinationUrl,
+      createdAt,
+      updatedAt: createdAt,
+      expiresAt,
+      dismissible: true,
+      autoDismiss: true,
+      autoDismissMs: 14_000,
+      repeatable: false,
+      source: "bungie-profile",
+      sourceLabel: "Live Bungie profile",
+      sourceConfidence: "live-api",
+      metadata: { fanfare: "rank-up", previousRank: oldValue, currentRank: newValue }
+    });
+  };
+  add("guardian-rank", previous.last_guardian_rank, guardian.stats.guardianRank, "/journey/guardian-rank");
+  add("rewards-pass", previous.last_rewards_pass_rank, guardian.stats.rewardsPassRank, "/rewards");
+  return entries;
 }
 
 export async function readAudienceDetails(env: Env): Promise<AudienceDetailData> {

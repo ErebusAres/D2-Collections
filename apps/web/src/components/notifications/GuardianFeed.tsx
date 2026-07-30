@@ -1,10 +1,11 @@
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { GuardianNotificationsController } from "../../modules/notifications/useGuardianNotifications";
 import type { GuardianNotification, NotificationPreferences } from "@guardian-nexus/contracts";
 import { categoryFor } from "../../modules/notifications/categoryConfig";
+import { playCompletionChime } from "../../services/completionAudio";
 import styles from "./GuardianFeed.module.css";
 
 const GUARDIAN_FANFARE_CSS = String.raw`
@@ -46,20 +47,37 @@ section[data-guardian-animation="warning"]::after,section[data-guardian-animatio
 @media(prefers-reduced-motion:reduce){section[data-guardian-animation],section[data-guardian-animation]::before,section[data-guardian-animation]::after,section[data-guardian-animation] .gn-fanfare-icon,section[data-guardian-animation] .gn-fanfare-copy{animation:none}}
 [data-notification-reduced-motion="true"] section[data-guardian-animation],[data-notification-reduced-motion="true"] section[data-guardian-animation]::before,[data-notification-reduced-motion="true"] section[data-guardian-animation]::after,[data-notification-reduced-motion="true"] section[data-guardian-animation] .gn-fanfare-icon,[data-notification-reduced-motion="true"] section[data-guardian-animation] .gn-fanfare-copy{animation:none}
 `;
+const SHOWN_NOTIFICATIONS_KEY = "guardian-nexus:notifications:shown";
 
 export function GuardianFeed({ controller }: { controller: GuardianNotificationsController }) {
   const { feed, preferences } = controller;
-  const [index, setIndex] = useState(0);
+  const [shown, setShown] = useState<Set<string>>(readShownNotifications);
+  const eligibleFeed = useMemo(() => feed.filter((entry) => !entry.autoDismiss || !shown.has(notificationVersion(entry))), [feed, shown]);
+  const [activeId, setActiveId] = useState<string>();
   const [paused, setPaused] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const [scrollDistance, setScrollDistance] = useState(0);
   const textRef = useRef<HTMLSpanElement>(null);
-  const notification = feed[index % Math.max(1, feed.length)];
+  const playedFanfare = useRef(new Set<string>());
+  const previousVersions = useRef<Set<string>>(new Set());
+  const activeIndex = Math.max(0, eligibleFeed.findIndex((entry) => entry.id === activeId));
+  const notification = eligibleFeed[activeIndex];
   const notificationId = notification?.id;
   const rotationDuration = notification ? notificationDisplayDuration(notification, preferences) : 0;
-  const canRotate = Boolean(notificationId) && !paused && feed.length > 1;
+  const canRotate = shouldRotateFeed(notification, paused, eligibleFeed.length);
 
-  useEffect(() => { if (index >= feed.length) setIndex(0); }, [feed.length, index]);
+  useEffect(() => {
+    if (!eligibleFeed.length) {
+      if (activeId) setActiveId(undefined);
+      previousVersions.current = new Set();
+      return;
+    }
+    const current = eligibleFeed.find((entry) => entry.id === activeId);
+    const newEntry = eligibleFeed.find((entry) => !previousVersions.current.has(notificationVersion(entry)));
+    if (!current) setActiveId(eligibleFeed[0]!.id);
+    else if (newEntry && priorityValue(newEntry.priority) < priorityValue(current.priority)) setActiveId(newEntry.id);
+    previousVersions.current = new Set(eligibleFeed.map(notificationVersion));
+  }, [activeId, eligibleFeed]);
   useEffect(() => {
     const update = () => {
       const distance = textRef.current ? Math.max(0, textRef.current.scrollWidth - textRef.current.clientWidth) : 0;
@@ -77,9 +95,27 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
   }, [notification?.id]);
   useEffect(() => {
     if (!canRotate) return;
-    const timer = window.setTimeout(() => setIndex((value) => (value + 1) % feed.length), rotationDuration);
+    const timer = window.setTimeout(() => {
+      const next = eligibleFeed[(activeIndex + 1) % eligibleFeed.length];
+      if (notification.autoDismiss) {
+        const version = notificationVersion(notification);
+        setShown((current) => {
+          const updated = new Set(current).add(version);
+          writeShownNotifications(updated);
+          return updated;
+        });
+      }
+      setActiveId(next?.id === notification.id && notification.autoDismiss ? undefined : next?.id);
+    }, rotationDuration);
     return () => window.clearTimeout(timer);
-  }, [canRotate, feed.length, notificationId, rotationDuration]);
+  }, [activeIndex, canRotate, eligibleFeed, notification, notificationId, rotationDuration]);
+  useEffect(() => {
+    if (!notification || !isRankUpNotification(notification) || !preferences.sound) return;
+    const version = notificationVersion(notification);
+    if (playedFanfare.current.has(version)) return;
+    playedFanfare.current.add(version);
+    playCompletionChime();
+  }, [notification, notificationId, preferences.sound]);
 
   if (!preferences.bannerVisible || !notification) return null;
   const config = categoryFor(notification.category);
@@ -104,7 +140,7 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
   return (
     <section
       key={notification.id}
-      className={`${styles.feed} ${styles[notification.priority]} ${config.animation ? styles[config.animation] : ""}`}
+      className={`${styles.feed} ${styles[notification.priority]} ${config.animation ? styles[config.animation] : ""} ${isRankUpNotification(notification) ? styles.fanfare : ""}`}
       data-guardian-animation={config.animation}
       style={style}
       aria-live={notification.priority === "critical" ? "assertive" : "polite"}
@@ -120,8 +156,8 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
           ? <Link to={notification.destinationUrl} onClick={() => controller.markRead(notification)}>{content}</Link>
           : <a href={notification.externalUrl} target="_blank" rel="noopener noreferrer" onClick={() => controller.markRead(notification)}>{content}</a>
         : <div>{content}</div>}
-      <span className={styles.position} aria-hidden="true">{index + 1}/{feed.length}</span>
-      {notification.dismissible && <button type="button" onClick={() => { controller.dismiss(notification); setIndex((value) => value % Math.max(1, feed.length - 1)); }} aria-label={`Dismiss ${notification.title}`}><X /></button>}
+      <span className={styles.position} aria-hidden="true">{activeIndex + 1}/{eligibleFeed.length}</span>
+      {notification.dismissible && <button type="button" onClick={() => { controller.dismiss(notification); setActiveId(eligibleFeed[(activeIndex + 1) % eligibleFeed.length]?.id); }} aria-label={`Dismiss ${notification.title}`}><X /></button>}
     </section>
   );
 }
@@ -131,7 +167,7 @@ export function shouldRotateFeed(
   paused: boolean,
   feedLength: number
 ): notification is GuardianNotification {
-  return Boolean(notification) && !paused && feedLength > 1;
+  return notification !== undefined && !paused && (notification.autoDismiss || feedLength > 1);
 }
 
 export function notificationDisplayDuration(notification: GuardianNotification, preferences: NotificationPreferences): number {
@@ -150,4 +186,33 @@ export function relativeTime(value: string): string {
   if (absolute < 3_600) return formatter.format(Math.round(seconds / 60), "minute");
   if (absolute < 86_400) return formatter.format(Math.round(seconds / 3_600), "hour");
   return formatter.format(Math.round(seconds / 86_400), "day");
+}
+
+export function notificationVersion(notification: GuardianNotification): string {
+  return `${notification.id}:${notification.updatedAt || notification.createdAt}`;
+}
+
+export function isRankUpNotification(notification: GuardianNotification): boolean {
+  return notification.type === "guardian-rank-up"
+    || notification.type === "rewards-pass-up"
+    || notification.metadata?.fanfare === "rank-up";
+}
+
+function readShownNotifications(): Set<string> {
+  if (typeof sessionStorage === "undefined") return new Set();
+  try {
+    const value = JSON.parse(sessionStorage.getItem(SHOWN_NOTIFICATIONS_KEY) || "[]");
+    return new Set(Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string").slice(-200) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeShownNotifications(value: Set<string>): void {
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.setItem(SHOWN_NOTIFICATIONS_KEY, JSON.stringify([...value].slice(-200)));
+}
+
+function priorityValue(priority: GuardianNotification["priority"]): number {
+  return { critical: 0, high: 1, normal: 2, low: 3 }[priority];
 }

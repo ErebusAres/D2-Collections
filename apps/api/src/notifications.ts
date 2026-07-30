@@ -63,7 +63,7 @@ const preferencesSchema = z.object({
     bannerVisible: z.boolean(),
     autoDismissMs: z.number().int().min(4_000).max(60_000),
     reducedMotion: z.boolean(),
-    sound: z.literal(false),
+    sound: z.boolean(),
     lowPriorityInFeed: z.boolean(),
     frequency: z.enum(["all", "important", "minimal"])
   }).strict()
