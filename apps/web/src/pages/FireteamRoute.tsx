@@ -1,7 +1,8 @@
 import type { FireteamData, FireteamSharingMode, FireteamTrackedItem } from "@guardian-nexus/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Timer } from "lucide-react";
+import { ArrowRight, Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
@@ -130,7 +131,10 @@ function FireteamRefreshCountdown() {
     <div className={`${styles.fireteamRefreshDock} ${timerPinned ? styles.fireteamRefreshDockPinned : ""}`}>
       <span className={styles.fireteamRefreshTimer} aria-live="polite"><Timer size={15} />{label}</span>
       <section className={styles.fireteamTrackedOrders}>
-        <header><span>Tracked in Destiny</span><strong>Seasonal Hub Orders</strong></header>
+        <header>
+          <span>Tracked in Destiny</span>
+          <Link to="/journey/season"><strong>Seasonal Hub Orders</strong><ArrowRight /></Link>
+        </header>
         {trackedSeasonalOrders.length
           ? trackedSeasonalOrders.map((order) => <TrackedSeasonalOrder key={`${order.kind}:${order.id}`} order={order} />)
           : <p>No in-game orders tracked.</p>}
@@ -141,7 +145,7 @@ function FireteamRefreshCountdown() {
 
 function TrackedSeasonalOrder({ order }: { order: FireteamTrackedItem }) {
   const activeObjective = order.objectives.find((objective) => !objective.complete) || order.objectives[0];
-  return <article className={styles.fireteamTrackedOrder}>
+  return <Link className={styles.fireteamTrackedOrder} to={`/quests/${encodeURIComponent(order.id)}`}>
     <div>{order.icon ? <img src={order.icon} alt="" /> : <Timer />}</div>
     <span>
       <strong>{order.name}</strong>
@@ -149,7 +153,7 @@ function TrackedSeasonalOrder({ order }: { order: FireteamTrackedItem }) {
       <i><b style={{ width: `${order.percent}%` }} /></i>
     </span>
     <em>{order.percent}%</em>
-  </article>;
+  </Link>;
 }
 
 function readPreferenceArray(value?: string): string[] {
