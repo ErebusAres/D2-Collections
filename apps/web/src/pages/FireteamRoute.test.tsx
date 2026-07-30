@@ -3,6 +3,7 @@
 import type { FireteamData } from "@guardian-nexus/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
 import { FireteamRoute } from "./FireteamRoute";
@@ -46,10 +47,10 @@ describe("Fireteam refresh cycle", () => {
       return { data: { sharing: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "share" };
     });
 
-    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider>);
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
     expect(await screen.findByText(/Tracked refresh in/)).toBeTruthy();
-    expect(screen.getByText("Seasonal Hub Orders")).toBeTruthy();
-    expect(screen.getByText("Weekly order")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Seasonal Hub Orders" }).getAttribute("href")).toBe("/journey/season");
+    expect(screen.getByRole("link", { name: /Weekly order/ }).getAttribute("href")).toBe("/quests/order-1");
 
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
