@@ -101,6 +101,7 @@ function controller(feed: GuardianNotification[]): GuardianNotificationsControll
     },
     loading: false,
     dismiss: vi.fn(),
+    restore: vi.fn(),
     markRead: vi.fn(),
     archive: vi.fn(),
     savePreferences: vi.fn(),

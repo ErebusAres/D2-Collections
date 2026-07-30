@@ -1,9 +1,9 @@
-import { Bell, CheckCheck, ChevronRight, Search, X } from "lucide-react";
+import { Bell, BellRing, CheckCheck, ChevronRight, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { GuardianNotificationsController } from "../../modules/notifications/useGuardianNotifications";
 import { categoryFor } from "../../modules/notifications/categoryConfig";
-import { relativeTime } from "./GuardianFeed";
+import { relativeTime, replayNotificationInBanner } from "./GuardianFeed";
 import { trapFocusWithin } from "../common/focusTrap";
 import styles from "./NotificationCenter.module.css";
 
@@ -49,12 +49,18 @@ export function NotificationCenter({ controller }: { controller: GuardianNotific
           const config = categoryFor(notification.category);
           const Icon = config.icon;
           const destination = notification.destinationUrl || notification.externalUrl;
+          const replay = () => {
+            controller.savePreferences({ ...controller.preferences, bannerVisible: true });
+            controller.restore(notification);
+            replayNotificationInBanner(notification);
+          };
           const item = <><i style={{ color: config.accentColor }}><Icon /></i><span><small>{config.label} · {relativeTime(notification.updatedAt || notification.createdAt)}</small><strong>{notification.title}</strong>{notification.subtitle && <em>{notification.subtitle}</em>}</span>{destination && <ChevronRight />}</>;
           return <article key={notification.id} data-read={Boolean(notification.readAt)} style={{ borderLeftColor: config.primaryColor }}>
             {notification.destinationUrl ? <Link to={notification.destinationUrl} onClick={() => { controller.markRead(notification); setOpen(false); }}>{item}</Link>
               : notification.externalUrl ? <a href={notification.externalUrl} target="_blank" rel="noopener noreferrer" onClick={() => controller.markRead(notification)}>{item}</a>
                 : <button onClick={() => controller.markRead(notification)}>{item}</button>}
             {notification.dismissible && !notification.dismissedAt && <button className={styles.dismiss} onClick={() => controller.dismiss(notification)} aria-label={`Dismiss ${notification.title}`}><X /></button>}
+            {notification.status !== "expired" && <button className={`${styles.dismiss} ${styles.replay}`} onClick={replay} aria-label={`Show ${notification.title} in banner`}><BellRing /></button>}
           </article>;
         })}
         {!filtered.length && <p>No notifications match this view.</p>}

@@ -20,6 +20,7 @@ export interface GuardianNotificationsController {
   loading: boolean;
   error?: Error | null;
   dismiss(notification: GuardianNotification): void;
+  restore(notification: GuardianNotification): void;
   markRead(notification: GuardianNotification, read?: boolean): void;
   archive(notification: GuardianNotification): void;
   savePreferences(preferences: NotificationPreferences): void;
@@ -43,7 +44,7 @@ export function useGuardianNotifications(history = false): GuardianNotifications
   const queryClient = useQueryClient();
   const membershipId = session?.guardian?.membershipId;
   const rewardStatus = useRewardCodeStatus(membershipId, Boolean(session?.authenticated), autoRefresh);
-  const [localState, setLocalState] = useState<Record<string, { readAt?: string; dismissedAt?: string; archivedAt?: string }>>(() => readJson(ANONYMOUS_STATE_KEY, {}));
+  const [localState, setLocalState] = useState<Record<string, { readAt?: string; dismissedAt?: string; archivedAt?: string; restoredAt?: string }>>(() => readJson(ANONYMOUS_STATE_KEY, {}));
   const [localPreferences, setLocalPreferences] = useState<NotificationPreferences>(() => ({ ...fallbackPreferences, ...readJson(ANONYMOUS_PREFERENCES_KEY, {}) }));
   const [temporalNow, setTemporalNow] = useState(() => Date.now());
   const query = useQuery({
@@ -139,6 +140,7 @@ export function useGuardianNotifications(history = false): GuardianNotifications
     if (action === "dismiss") updateLocalState(notification, { dismissedAt: now });
     if (action === "read") updateLocalState(notification, { readAt: now });
     if (action === "unread") updateLocalState(notification, { readAt: undefined });
+    if (action === "restore") updateLocalState(notification, { readAt: undefined, dismissedAt: undefined, archivedAt: undefined, restoredAt: now });
     if (action === "archive") updateLocalState(notification, { archivedAt: now });
     if (session?.authenticated && !notification.id.startsWith("reward-code:")) {
       stateMutation.mutate({ notificationId: notification.id, action });
@@ -158,6 +160,7 @@ export function useGuardianNotifications(history = false): GuardianNotifications
     loading: query.isLoading,
     error: (query.error || stateMutation.error || preferencesMutation.error) as Error | null,
     dismiss: (notification) => updateState(notification, "dismiss"),
+    restore: (notification) => updateState(notification, "restore"),
     markRead: (notification, read = true) => updateState(notification, read ? "read" : "unread"),
     archive: (notification) => updateState(notification, "archive"),
     savePreferences,
@@ -172,12 +175,13 @@ function compareNotifications(a: GuardianNotification, b: GuardianNotification):
 
 export function notificationStatusAt(
   notification: GuardianNotification,
-  local: { readAt?: string; dismissedAt?: string; archivedAt?: string } | undefined,
+  local: { readAt?: string; dismissedAt?: string; archivedAt?: string; restoredAt?: string } | undefined,
   now: number
 ): GuardianNotification["status"] {
   if (local?.dismissedAt) return "dismissed";
   if (local?.archivedAt) return "archived";
   if (notification.expiresAt && Date.parse(notification.expiresAt) <= now) return "expired";
+  if (local?.restoredAt) return "active";
   if (local?.readAt) return "read";
   return notification.status;
 }

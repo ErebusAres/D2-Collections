@@ -52,7 +52,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 
 const stateSchema = z.object({
   notificationId: z.string().min(1).max(180),
-  action: z.enum(["read", "unread", "dismiss", "archive", "delete"])
+  action: z.enum(["read", "unread", "dismiss", "restore", "archive", "delete"])
 }).strict();
 
 const preferencesSchema = z.object({
@@ -158,6 +158,15 @@ export async function updateNotificationState(request: Request, session: { token
   `).bind(input.notificationId, session.row.membership_id).first<{ id: string }>();
   if (!notification) throw httpError(404, "notification_not_found", "That notification is no longer available.");
   const now = new Date().toISOString();
+  if (input.action === "restore") {
+    await env.DB.prepare(`
+      INSERT INTO notification_user_state (membership_id, notification_id, read_at, dismissed_at, archived_at, updated_at)
+      VALUES (?, ?, NULL, NULL, NULL, ?)
+      ON CONFLICT(membership_id, notification_id) DO UPDATE SET
+        read_at = NULL, dismissed_at = NULL, archived_at = NULL, deleted_at = NULL, updated_at = excluded.updated_at
+    `).bind(session.row.membership_id, input.notificationId, now).run();
+    return { updated: true };
+  }
   const fields = {
     read: ["read_at", now],
     unread: ["read_at", null],

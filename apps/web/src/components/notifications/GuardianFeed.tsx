@@ -9,6 +9,7 @@ import { playCompletionChime } from "../../services/completionAudio";
 import styles from "./GuardianFeed.module.css";
 
 const SHOWN_NOTIFICATIONS_KEY = "guardian-nexus:notifications:shown";
+const REPLAY_NOTIFICATION_EVENT = "guardian-nexus:notification-replay";
 
 export function GuardianFeed({ controller }: { controller: GuardianNotificationsController }) {
   const { feed, preferences } = controller;
@@ -27,6 +28,22 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
   const notificationId = notification?.id;
   const rotationDuration = notification ? notificationDisplayDuration(notification, preferences) : 0;
   const canRotate = shouldRotateFeed(notification, paused, eligibleFeed.length);
+  useEffect(() => {
+    const replay = (event: Event) => {
+      const detail = (event as CustomEvent<{ id: string; version: string }>).detail;
+      if (!detail?.version) return;
+      setShown((current) => {
+        const updated = new Set(current);
+        updated.delete(detail.version);
+        writeShownNotifications(updated);
+        return updated;
+      });
+      setActiveId(detail.id);
+      setAtmosphereVisible(true);
+    };
+    window.addEventListener(REPLAY_NOTIFICATION_EVENT, replay);
+    return () => window.removeEventListener(REPLAY_NOTIFICATION_EVENT, replay);
+  }, []);
 
   useEffect(() => {
     if (!eligibleFeed.length) {
@@ -170,6 +187,14 @@ export function relativeTime(value: string): string {
 
 export function notificationVersion(notification: GuardianNotification): string {
   return `${notification.id}:${notification.updatedAt || notification.createdAt}`;
+}
+
+export function replayNotificationInBanner(notification: GuardianNotification): void {
+  const version = notificationVersion(notification);
+  const shown = readShownNotifications();
+  shown.delete(version);
+  writeShownNotifications(shown);
+  window.dispatchEvent(new CustomEvent(REPLAY_NOTIFICATION_EVENT, { detail: { id: notification.id, version } }));
 }
 
 export function isRankUpNotification(notification: GuardianNotification): boolean {

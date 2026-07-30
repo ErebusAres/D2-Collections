@@ -1726,7 +1726,7 @@ export interface NotificationFeedData {
 
 export interface UpdateNotificationStateRequest {
   notificationId: string;
-  action: "read" | "unread" | "dismiss" | "archive" | "delete";
+  action: "read" | "unread" | "dismiss" | "restore" | "archive" | "delete";
 }
 
 export interface UpdateNotificationPreferencesRequest {

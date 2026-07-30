@@ -23,6 +23,7 @@ const controller: GuardianNotificationsController = {
   },
   loading: false,
   dismiss: vi.fn(),
+  restore: vi.fn(),
   markRead: vi.fn(),
   archive: vi.fn(),
   savePreferences: vi.fn(),
@@ -68,6 +69,23 @@ describe("NotificationCenter", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open notifications" }));
     fireEvent.click(screen.getByRole("button", { name: "Show banner" }));
 
+    expect(savePreferences).toHaveBeenCalledWith(expect.objectContaining({ bannerVisible: true }));
+  });
+
+  it("restores one notification to the banner and unread counter", () => {
+    const restore = vi.fn();
+    const savePreferences = vi.fn();
+    const notification = {
+      id: "distortion:test", type: "distortion", category: "distortion" as const, scope: "global" as const,
+      priority: "high" as const, status: "dismissed" as const, title: "Distortion active",
+      createdAt: "2026-07-30T00:00:00.000Z", dismissible: true, autoDismiss: false,
+      dismissedAt: "2026-07-30T00:01:00.000Z"
+    };
+    render(<MemoryRouter><NotificationCenter controller={{ ...controller, notifications: [notification], restore, savePreferences }} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Open notifications" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show Distortion active in banner" }));
+
+    expect(restore).toHaveBeenCalledWith(notification);
     expect(savePreferences).toHaveBeenCalledWith(expect.objectContaining({ bannerVisible: true }));
   });
 });
