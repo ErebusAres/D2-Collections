@@ -41,6 +41,51 @@ describe("Distortion evidence handling", () => {
     expect(prediction.expectedDestination).toBeUndefined();
   });
 
+  it("confirms the next destination after four accurate complete loops", () => {
+    const rotation = ["Cosmodrome", "EDZ", "Dreaming City", "Savathun's Throne World", "Moon", "Europa", "Nessus"];
+    const history = Array.from({ length: 28 }, (_, index) => observation(rotation[index % rotation.length]!, index)).reverse();
+    const prediction = calculateDistortionPrediction(history);
+    expect(prediction).toMatchObject({
+      state: "available",
+      expectedDestination: "Cosmodrome",
+      confidencePercent: 100,
+      recentAccuracyPercent: 100,
+      sampleSize: 28
+    });
+    expect(prediction.explanation).toContain("Four complete seven-destination loops");
+  });
+
+  it("marks the established pattern changed as soon as a later observation breaks it", () => {
+    const rotation = ["Cosmodrome", "EDZ", "Dreaming City", "Savathun's Throne World", "Moon", "Europa", "Nessus"] as const;
+    const destinations = Array.from({ length: 29 }, (_, index) => rotation[index % rotation.length]!);
+    destinations[28] = "Moon";
+    const history = destinations.map((destination, index) => observation(destination, index)).reverse();
+    const prediction = calculateDistortionPrediction(history);
+    expect(prediction).toMatchObject({
+      state: "pattern-changed",
+      sampleSize: 29
+    });
+    expect(prediction.expectedDestination).toBeUndefined();
+    expect(prediction.explanation).toContain("tests for a new repeatable order");
+  });
+
+  it("confirms a changed order only after that new loop repeats four times", () => {
+    const original = ["Cosmodrome", "EDZ", "Dreaming City", "Savathun's Throne World", "Moon", "Europa", "Nessus"] as const;
+    const changed = ["EDZ", "Cosmodrome", "Nessus", "Europa", "Moon", "Savathun's Throne World", "Dreaming City"] as const;
+    const destinations = [
+      ...Array.from({ length: 28 }, (_, index) => original[index % original.length]!),
+      ...Array.from({ length: 28 }, (_, index) => changed[index % changed.length]!)
+    ];
+    const history = destinations.map((destination, index) => observation(destination, index)).reverse();
+    const prediction = calculateDistortionPrediction(history);
+    expect(prediction).toMatchObject({
+      state: "available",
+      expectedDestination: "EDZ",
+      confidencePercent: 100,
+      sampleSize: 56
+    });
+  });
+
   it("calculates observed counts and intervals without inventing missing fields", () => {
     const history = [observation("Moon", 3), observation("Europa", 2), observation("Moon", 1)];
     const result = calculateDistortionStatistics(history);

@@ -74,7 +74,6 @@ export function DistortionsPage() {
             })}
           </ol>
         </div>
-        <footer><span>Current destination stays leftmost</span><b>Distortion red → corruption black</b></footer>
       </section>
       <section className={styles.statsGrid}>
         <Stat icon={<Database />} label="Observations" value={data.statistics.observations} />

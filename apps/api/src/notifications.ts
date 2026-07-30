@@ -37,6 +37,7 @@ const DISTORTION_ROTATION = [
 const DISTORTION_ANCHOR_HOUR = 494_803;
 const DISTORTION_ANCHOR_INDEX = 5;
 const DISTORTION_SOURCE = "Community-confirmed rotation";
+const DISTORTION_PREDICTION_SAMPLE_SIZE = DISTORTION_ROTATION.length * 4;
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   enabledCategories: ALL_CATEGORIES,
@@ -303,6 +304,11 @@ export async function readDistortions(env: Env, range = "7d"): Promise<Distortio
     SELECT * FROM distortion_observations WHERE observed_start_at >= ? ORDER BY observed_start_at DESC LIMIT 1000
   `).bind(cutoff).all<Record<string, unknown>>();
   const history = (result.results || []).map(distortionFromRow);
+  const predictionHistory = range === "all"
+    ? history
+    : ((await env.DB.prepare(`
+      SELECT * FROM distortion_observations ORDER BY observed_start_at DESC LIMIT 1000
+    `).all<Record<string, unknown>>()).results || []).map(distortionFromRow);
   const latest = history[0];
   const age = latest ? now.getTime() - Date.parse(latest.lastConfirmedAt) : Number.POSITIVE_INFINITY;
   const observedCurrent = latest && !latest.observedEndAt && age <= 75 * 60_000 ? latest : undefined;
@@ -314,7 +320,7 @@ export async function readDistortions(env: Env, range = "7d"): Promise<Distortio
     nextHourlyChangeAt: nextUtcHour(now),
     history,
     statistics: calculateDistortionStatistics(history),
-    prediction: calculateDistortionPrediction(history),
+    prediction: calculateDistortionPrediction(predictionHistory),
     sourceLabel: current.source,
     sourceConfidence: current.confidence,
     lastSuccessfulUpdateAt: typeof provider?.last_success_at === "string" ? provider.last_success_at : current.lastConfirmedAt
@@ -670,18 +676,100 @@ export function calculateDistortionStatistics(history: DistortionObservation[]):
 
 export function calculateDistortionPrediction(history: DistortionObservation[]): DistortionData["prediction"] {
   const calculatedAt = new Date().toISOString();
-  if (history.length < 48) return {
+  if (history.length < DISTORTION_PREDICTION_SAMPLE_SIZE) return {
     state: "insufficient-data",
     sampleSize: history.length,
     calculatedAt,
-    explanation: "Guardian Nexus is collecting observed Distortion history to determine whether a reliable rotation or pattern exists."
+    explanation: `Guardian Nexus needs four complete seven-destination loops before confirming the rotation (${history.length}/${DISTORTION_PREDICTION_SAMPLE_SIZE} observations).`
   };
+
+  const destinations = [...history]
+    .sort((a, b) => Date.parse(a.observedStartAt) - Date.parse(b.observedStartAt))
+    .map((entry) => canonicalDistortionDestination(entry.destination));
+  const recentDestinations = destinations.slice(-DISTORTION_PREDICTION_SAMPLE_SIZE);
+  const recentLoop = repeatedDistortionLoop(recentDestinations);
+
+  if (recentLoop) {
+    const latestDestination = recentDestinations.at(-1);
+    const latestIndex = latestDestination ? recentLoop.indexOf(latestDestination) : -1;
+    return {
+      state: "available",
+      expectedDestination: recentLoop[(latestIndex + 1) % recentLoop.length],
+      confidencePercent: 100,
+      sampleSize: history.length,
+      calculatedAt,
+      recentAccuracyPercent: 100,
+      explanation: "Four complete seven-destination loops match exactly. Evidence tracking remains active through future resets."
+    };
+  }
+
+  let establishedLoop: Array<typeof DISTORTION_ROTATION[number]> | undefined;
+  for (let end = DISTORTION_PREDICTION_SAMPLE_SIZE; end < destinations.length; end += 1) {
+    establishedLoop = repeatedDistortionLoop(destinations.slice(end - DISTORTION_PREDICTION_SAMPLE_SIZE, end)) || establishedLoop;
+  }
+  if (establishedLoop) {
+    const recentAccuracyPercent = distortionTransitionAccuracy(recentDestinations, establishedLoop);
+    return {
+      state: "pattern-changed",
+      sampleSize: history.length,
+      calculatedAt,
+      recentAccuracyPercent,
+      explanation: "The latest observations no longer follow the established seven-destination loop. Evidence tracking remains active while Guardian Nexus tests for a new repeatable order."
+    };
+  }
+
   return {
     state: "no-reliable-pattern",
     sampleSize: history.length,
     calculatedAt,
-    explanation: "Enough observations exist for analysis, but no prediction is shown until a pattern also passes the accuracy threshold."
+    explanation: "Four loop-length windows are recorded, but they do not yet repeat in a reliable order. Evidence tracking remains active."
   };
+}
+
+function repeatedDistortionLoop(
+  destinations: Array<typeof DISTORTION_ROTATION[number] | undefined>
+): Array<typeof DISTORTION_ROTATION[number]> | undefined {
+  if (destinations.length !== DISTORTION_PREDICTION_SAMPLE_SIZE || destinations.some((destination) => !destination)) return undefined;
+  const loop = destinations.slice(0, DISTORTION_ROTATION.length) as Array<typeof DISTORTION_ROTATION[number]>;
+  if (new Set(loop).size !== DISTORTION_ROTATION.length) return undefined;
+  for (let index = DISTORTION_ROTATION.length; index < destinations.length; index += 1) {
+    if (destinations[index] !== loop[index % loop.length]) return undefined;
+  }
+  return loop;
+}
+
+function distortionTransitionAccuracy(
+  destinations: Array<typeof DISTORTION_ROTATION[number] | undefined>,
+  loop: Array<typeof DISTORTION_ROTATION[number]>
+): number {
+  let matches = 0;
+  let evaluated = 0;
+  for (let index = 1; index < destinations.length; index += 1) {
+    const previous = destinations[index - 1];
+    const current = destinations[index];
+    const previousIndex = previous ? loop.indexOf(previous) : -1;
+    if (previousIndex < 0 || !current) continue;
+    evaluated += 1;
+    if (loop[(previousIndex + 1) % loop.length] === current) matches += 1;
+  }
+  return evaluated ? Math.round(matches / evaluated * 100) : 0;
+}
+
+function canonicalDistortionDestination(value: string): typeof DISTORTION_ROTATION[number] | undefined {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  if (normalized === "edz" || normalized.includes("european dead zone")) return "EDZ";
+  if (normalized.includes("dreaming city")) return "Dreaming City";
+  if (normalized.includes("throne world")) return "Savathun's Throne World";
+  if (normalized === "moon" || normalized === "the moon") return "Moon";
+  if (normalized.includes("europa")) return "Europa";
+  if (normalized.includes("nessus")) return "Nessus";
+  if (normalized.includes("cosmodrome")) return "Cosmodrome";
+  return undefined;
 }
 
 function notificationForReset(kind: "daily" | "weekly", at: Date): GuardianNotification {
