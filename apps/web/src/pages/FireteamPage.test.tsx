@@ -198,6 +198,22 @@ describe("Fireteam tracked items", () => {
     expect(screen.getAllByRole("button", { name: "Untrack Weekly order from Fireteam" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Untrack Rank service from Fireteam" })).toHaveLength(1);
   });
+
+  it("persists a reordered self-card list without changing the Fireteam share payload", async () => {
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+    await screen.findByText("Weekly order");
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    vi.mocked(queuedApi).mockClear();
+
+    const source = screen.getByRole("button", { name: "Reorder Weekly order" });
+    const target = screen.getByText("Rank service").closest("[data-tracking-state]")!;
+    fireEvent.dragStart(source, { dataTransfer: { effectAllowed: "", setData: vi.fn() } });
+    fireEvent.dragOver(target);
+    fireEvent.drop(target);
+
+    expect(setPreference).toHaveBeenCalledWith("fireteam.trackedOrder", JSON.stringify(["guardian-rank:rank-record", "order:quest-instance"]));
+    expect(queuedApi).not.toHaveBeenCalled();
+  });
 });
 
 function envelope() {

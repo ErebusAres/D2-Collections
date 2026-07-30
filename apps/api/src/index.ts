@@ -107,7 +107,7 @@ const equipBuildAdvisorSchema = z.object({
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
-  z.object({ key: z.enum(["gear.filters", "collection.filters", "collection.tracked", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters"]), value: z.string().max(12_000) }),
+  z.object({ key: z.enum(["gear.filters", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters"]), value: z.string().max(12_000) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion"]), value: z.enum(["true", "false"]) }),

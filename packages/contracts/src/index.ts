@@ -926,6 +926,7 @@ export type UserPreferenceKey =
   | "collection.sort"
   | "collection.filters"
   | "collection.tracked"
+  | "fireteam.trackedOrder"
   | "quests.layout"
   | "quests.filters"
   | "guardianRank.tracked"

@@ -63,6 +63,7 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
   </>;
   return (
     <section
+      key={notification.id}
       className={`${styles.feed} ${styles[notification.priority]} ${config.animation ? styles[config.animation] : ""}`}
       style={style}
       aria-live={notification.priority === "critical" ? "assertive" : "polite"}

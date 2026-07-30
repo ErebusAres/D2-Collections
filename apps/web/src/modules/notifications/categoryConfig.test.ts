@@ -15,6 +15,7 @@ describe("notification category configuration", () => {
       expect(config.icon).toBeTruthy();
       expect(config.defaultAutoDismissMs).toBeGreaterThanOrEqual(8_000);
       expect(config.backgroundGradient).toContain("gradient");
+      expect(config.animation).toBeTruthy();
     });
   });
 });
