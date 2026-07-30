@@ -165,9 +165,7 @@ export function FireteamPage() {
     }, TRACKED_ITEM_EXIT_MS);
   };
 
-  const pageLocationTheme = fireteamLocationTheme(presenceLocation(self, data?.activity), self?.onlineState);
-  return <div className="gn-fireteam-location" data-fireteam-location-theme={pageLocationTheme}>
-    <AuthGate>
+  return <AuthGate>
     <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="Shared progress refreshes every 60 seconds while auto-refresh is enabled." actions={<>
       <Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />
       {data && !data.sharingEnabled && <>
@@ -190,8 +188,7 @@ export function FireteamPage() {
       <SocialRoster contacts={data.social?.contacts || []} friendsState={data.social?.friendsState || data.social?.state || "unavailable"} clanState={data.social?.clanState || (data.social?.state === "available" ? "available" : "unavailable")} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
       <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Status may be delayed</strong><p>Party presence and current activity are not guaranteed to be real time.</p></div></section>
     </>}
-    </AuthGate>
-  </div>;
+  </AuthGate>;
 }
 
 function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, onReorder, untrackingKey }: { member: FireteamMember; canManage: boolean; copied: string; onCopy: (label: string, command: string) => Promise<void>; onUntrack?: (item: FireteamTrackedItem) => void; itemOrder?: string[]; onReorder?: (sourceKey: string, targetKey: string) => void; untrackingKey?: string }) {
@@ -305,7 +302,7 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
   const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
   const untrackingIsCompletion = Boolean(untrackingKey && completedItemKeys.has(untrackingKey));
   const cardEvent = visibleCompletions.length ? "completed" : (!untrackingIsCompletion && untrackingKey) || visibleRemovedItems.length ? "removed" : enteringKeys.size ? "added" : "idle";
-  return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""} ${cardEvent === "completed" ? styles.memberCardCompleted : cardEvent === "removed" ? styles.memberCardRemoved : cardEvent === "added" ? styles.memberCardAdded : ""}`} data-tracking-event={cardEvent} data-location-theme={fireteamLocationTheme(activity, member.onlineState)}>
+  return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""} ${cardEvent === "completed" ? styles.memberCardCompleted : cardEvent === "removed" ? styles.memberCardRemoved : cardEvent === "added" ? styles.memberCardAdded : ""}`} data-tracking-event={cardEvent}>
     <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {member.syncState === "synced" ? member.sharingMode === "persistent" ? "Auto synced" : "Synced" : "Not synced"}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "public" ? "Public location" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
     {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => {
@@ -468,28 +465,6 @@ function presenceLocation(member: Pick<FireteamMember, "onlineState" | "activity
   if (member?.activity) return member.activity;
   if (fallback) return fallback;
   return member?.onlineState === "online" ? "Online · location unavailable" : "Presence unavailable";
-}
-
-export function fireteamLocationTheme(location: string | undefined, onlineState?: FireteamMember["onlineState"]): string | undefined {
-  if (onlineState === "offline" || !location || /offline|unavailable|unknown/i.test(location)) return undefined;
-  const value = location.toLocaleLowerCase();
-  if (/\borbit\b/.test(value)) return "orbit";
-  if (/tower|h\.e\.l\.m|helm/.test(value)) return "tower";
-  if (/europa|eventide|cadmus|asterion/.test(value)) return "europa";
-  if (/dreaming city|rheasilvia|d[ei]valian|strand/.test(value)) return "dreaming";
-  if (/neomuna|neptune|zephyr|ahimsa|líming|liming/.test(value)) return "neomuna";
-  if (/savath[uû]n|throne world|miasma|quagmire|fluorescent canal/.test(value)) return "throne-world";
-  if (/pale heart|traveler/.test(value)) return "pale-heart";
-  if (/cosmodrome|skywatch|mothyards/.test(value)) return "cosmodrome";
-  if (/european dead zone|\bedz\b|tro[st]land|winding cove/.test(value)) return "edz";
-  if (/nessus|cistern|artifact's edge|watcher's grave/.test(value)) return "nessus";
-  if (/\bmoon\b|hellmouth|sorrow's harbor|archer's line/.test(value)) return "moon";
-  if (/\bmars\b|enclave|braytech futurescape/.test(value)) return "mars";
-  if (/kepler/.test(value)) return "kepler";
-  if (/dreadnaught/.test(value)) return "dreadnaught";
-  if (/eternity|dares of eternity|x[uû]r's treasure/.test(value)) return "eternity";
-  if (/mercury|venus|io|titan|tangled shore|reef/.test(value)) return "destination";
-  return "destination";
 }
 
 export function canJoinContact(contact: Pick<FireteamContact, "onlineState">): boolean {
