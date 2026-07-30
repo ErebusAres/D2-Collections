@@ -4,6 +4,7 @@ import { LoaderCircle } from "lucide-react";
 import { Shell } from "./components/layout/Shell";
 const CollectionPage = lazy(() => import("./pages/CollectionPage").then((module) => ({ default: module.CollectionPage })));
 const DevPage = lazy(() => import("./pages/DevPage").then((module) => ({ default: module.DevPage })));
+const ThemeTestingPage = lazy(() => import("./pages/ThemeTestingPage").then((module) => ({ default: module.ThemeTestingPage })));
 const FireteamPage = lazy(() => import("./pages/FireteamRoute").then((module) => ({ default: module.FireteamRoute })));
 const GearPage = lazy(() => import("./pages/GearPage").then((module) => ({ default: module.GearPage })));
 const MatrixPage = lazy(() => import("./pages/MatrixPage").then((module) => ({ default: module.MatrixPage })));
@@ -86,6 +87,7 @@ export function App() {
         <Route path="builds/:buildId" element={<PageRoute><BuildDetailPage /></PageRoute>} />
         <Route path="mailbox" element={<PageRoute><MailboxPage /></PageRoute>} />
         <Route path="dev" element={<PageRoute><DevPage /></PageRoute>} />
+        <Route path="admin/theme-testing" element={<PageRoute><ThemeTestingPage /></PageRoute>} />
         <Route path="*" element={<Navigate to="/director" replace />} />
       </Route>
     </Routes>
