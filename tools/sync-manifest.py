@@ -33,6 +33,10 @@ COMPANION_CHUNK_COUNT = 24
 QUEST_BUCKET_HASH = "1345459588"
 ARMOR_STAT_HASHES = {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}
 COLLECTION_FEATURE_PATTERN = re.compile(r"\b(?:stance|faction|lawless|crystal|form|combo|reversal|mode|catalyst)\b", re.IGNORECASE)
+GENERIC_CATALYST_ICON_PATHS = {
+    "/common/destiny2_content/icons/2fff7489b0b975f8ba1dd4e041daf011.png",
+    "/common/destiny2_content/icons/62890cb9e33bbed6a3587a1064dc860e.png",
+}
 BUILD_CLASSES = {0: "titan", 1: "hunter", 2: "warlock"}
 BUILD_CLASS_ICONS = {
     "hunter": "/icons/destiny/class-hunter.svg",
@@ -96,6 +100,39 @@ def display(definition: dict) -> dict:
         "icon": props.get("icon", ""),
         "hasIcon": bool(props.get("hasIcon")),
     }
+
+
+def catalyst_artwork_by_name(inventory: dict[str, dict]) -> dict[str, str]:
+    candidates: dict[str, tuple[int, str]] = {}
+    for definition in inventory.values():
+        props = definition.get("displayProperties") or {}
+        name = str(props.get("name") or "").strip()
+        icon = str(props.get("icon") or "").strip()
+        if not name.casefold().endswith(" catalyst") or not icon or icon in GENERIC_CATALYST_ICON_PATHS:
+            continue
+        plug_category = str((definition.get("plug") or {}).get("plugCategoryIdentifier") or "").casefold()
+        score = (100 if "masterwork" in plug_category or "catalyst" in plug_category else 0) + (10 if icon.casefold().endswith(".jpg") else 0)
+        key = name.casefold()
+        if score > candidates.get(key, (-1, ""))[0]:
+            candidates[key] = (score, icon)
+    return {name: icon for name, (_, icon) in candidates.items()}
+
+
+def catalyst_artwork_for_record(record: dict, weapon_name: str, weapon_icon: str, artwork_by_name: dict[str, str]) -> str:
+    record_name = str((record.get("displayProperties") or {}).get("name") or "").strip()
+    for name in (record_name, f"{weapon_name} Catalyst"):
+        artwork = artwork_by_name.get(name.casefold())
+        if artwork:
+            return artwork
+    return weapon_icon
+
+
+def catalyst_record_display(definition: dict, artwork: str | None) -> dict:
+    result = display(definition)
+    if artwork:
+        result["icon"] = artwork
+        result["hasIcon"] = True
+    return result
 
 
 def minimal_item(definition: dict) -> dict:
@@ -1151,6 +1188,8 @@ def main() -> None:
         key: value for key, value in records.items()
         if "catalyst" in (value.get("displayProperties") or {}).get("name", "").lower()
     }
+    catalyst_artwork = catalyst_artwork_by_name(inventory)
+    catalyst_artwork_by_record: dict[str, str] = {}
     quest_defs = {key: value for key, value in inventory.items() if is_quest_definition(value)}
     pursuit_defs = {
         key: value for key, value in inventory.items()
@@ -1190,6 +1229,12 @@ def main() -> None:
             record_hash for record_hash, record in catalyst_records.items()
             if lowered_name in (record.get("displayProperties") or {}).get("name", "").lower()
         ]
+        if item_type == 3:
+            for record_hash in catalyst_hashes:
+                catalyst_artwork_by_record.setdefault(
+                    record_hash,
+                    catalyst_artwork_for_record(catalyst_records[record_hash], name, str(props.get("icon") or ""), catalyst_artwork),
+                )
         items.append({
             "itemHash": item_hash,
             "collectibleHash": collectible_hash or None,
@@ -1255,7 +1300,7 @@ def main() -> None:
             for key, value in activities.items()
         },
         "recordDefinitions": {
-            key: {"hash": key, "displayProperties": display(value), "objectives": value.get("objectives") or []}
+            key: {"hash": key, "displayProperties": catalyst_record_display(value, catalyst_artwork_by_record.get(key)), "objectives": value.get("objectives") or []}
             for key, value in catalyst_records.items()
         },
     }

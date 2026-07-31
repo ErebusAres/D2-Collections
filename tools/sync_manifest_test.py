@@ -13,6 +13,31 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_catalyst_artwork_prefers_the_real_plug_icon_over_bungies_generic_symbol(self) -> None:
+        artwork = SYNC_MANIFEST.catalyst_artwork_by_name({
+            "generic": {
+                "displayProperties": {
+                    "name": "Sunshot Catalyst",
+                    "icon": "/common/destiny2_content/icons/62890cb9e33bbed6a3587a1064dc860e.png",
+                },
+                "plug": {"plugCategoryIdentifier": "v300_new_hand_cannon1_masterwork"},
+            },
+            "actual": {
+                "displayProperties": {"name": "Sunshot Catalyst", "icon": "/sunshot-catalyst.jpg"},
+                "plug": {"plugCategoryIdentifier": "v300_new_hand_cannon1_masterwork"},
+            },
+        })
+
+        self.assertEqual(artwork, {"sunshot catalyst": "/sunshot-catalyst.jpg"})
+
+    def test_catalyst_record_uses_weapon_art_when_bungie_has_no_separate_catalyst_artwork(self) -> None:
+        record = {"displayProperties": {"name": "Exotic Catalyst I", "icon": "/generic-record.png"}}
+        icon = SYNC_MANIFEST.catalyst_artwork_for_record(record, "Revision Zero", "/revision-zero.jpg", {})
+        display = SYNC_MANIFEST.catalyst_record_display(record, icon)
+
+        self.assertEqual(display["icon"], "/revision-zero.jpg")
+        self.assertTrue(display["hasIcon"])
+
     def test_quest_definitions_follow_the_official_inventory_bucket_after_type_changes(self) -> None:
         self.assertTrue(SYNC_MANIFEST.is_quest_definition({"itemType": 12, "inventory": {}}))
         self.assertTrue(SYNC_MANIFEST.is_quest_definition({"itemType": 26, "itemTypeDisplayName": "", "inventory": {"bucketTypeHash": 1345459588}}))
