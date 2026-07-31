@@ -1,5 +1,5 @@
-import type { CatalystState, CollectionData, ExoticCollectionEntry } from "@guardian-nexus/contracts";
-import { sortCollectionEntries, xurSchedule, type CollectionSortMode } from "@guardian-nexus/domain";
+import type { CatalystState, CollectionData, ExoticCollectionEntry, QuestObjective } from "@guardian-nexus/contracts";
+import { catalystTrackingId, sortCollectionEntries, xurSchedule, type CollectionSortMode } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Bookmark, Check, ChevronRight, Coins, Search, Shield, Sparkles, Swords, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -22,6 +22,10 @@ export interface CatalystCollectionItem {
   description: string;
   icon: string;
   state: Exclude<CatalystState, "unavailable">;
+  objectives: QuestObjective[];
+  percent: number;
+  progressAvailable: boolean;
+  trackedInDestiny: boolean;
   weapon: ExoticCollectionEntry;
 }
 
@@ -72,9 +76,9 @@ export function CollectionPage() {
   });
   const data = result.data?.data;
   const tracked = useMemo(() => readTracked(preferences["collection.tracked"]), [preferences]);
-  const toggleTracked = (itemHash: string) => {
+  const toggleTracked = (trackingId: string) => {
     const next = new Set(tracked);
-    if (next.has(itemHash)) next.delete(itemHash); else next.add(itemHash);
+    if (next.has(trackingId)) next.delete(trackingId); else next.add(trackingId);
     setPreference("collection.tracked", JSON.stringify([...next]));
   };
   const xurSellingLive = Boolean(data?.xur.state === "available" && xurSchedule(now).active);
@@ -151,11 +155,11 @@ export function CollectionPage() {
         </section>
         {shownCatalysts.length ? <section className={styles.catalystCollection}>
           <header><div><span>Patterns &amp; catalysts</span><h2>Exotic Weapon Catalysts</h2></div><strong>{totals.catalystsOwned} acquired · {totals.catalystsComplete} masterworked</strong></header>
-          <div className={styles.catalystGrid}>{shownCatalysts.map((item) => <CatalystCard key={`${item.weapon.itemHash}-${item.recordHash}`} item={item} onOpen={() => { setSelected(item.weapon); setSelectedCatalyst(item); }} />)}</div>
+          <div className={styles.catalystGrid}>{shownCatalysts.map((item) => <CatalystCard key={`${item.weapon.itemHash}-${item.recordHash}`} item={item} tracked={tracked.has(catalystTrackingId(item.recordHash))} onToggleTracked={() => toggleTracked(catalystTrackingId(item.recordHash))} onOpen={() => { setSelected(item.weapon); setSelectedCatalyst(item); }} />)}</div>
         </section> : <div className={styles.inlineEmpty}><BookOpen /><h2>No catalysts match this view</h2><p>Adjust the status, slot, weapon type, or search filters.</p></div>}
       </>}
     </>}
-    <GuideDrawer entry={selected} focusedCatalyst={selectedCatalyst} xurSellingLive={xurSellingLive} tracked={Boolean(selected && tracked.has(selected.itemHash))} onToggleTracked={() => selected && toggleTracked(selected.itemHash)} onClose={() => { setSelected(null); setSelectedCatalyst(null); }} />
+    <GuideDrawer entry={selected} focusedCatalyst={selectedCatalyst} xurSellingLive={xurSellingLive} tracked={Boolean(selected && tracked.has(selectedCatalyst ? catalystTrackingId(selectedCatalyst.recordHash) : selected.itemHash))} onToggleTracked={() => selected && toggleTracked(selectedCatalyst ? catalystTrackingId(selectedCatalyst.recordHash) : selected.itemHash)} onClose={() => { setSelected(null); setSelectedCatalyst(null); }} />
   </AuthGate>;
 }
 
@@ -178,13 +182,24 @@ function ItemCard({ entry, xurSellingLive, onOpen }: { entry: ExoticCollectionEn
   </button>;
 }
 
-function CatalystCard({ item, onOpen }: { item: CatalystCollectionItem; onOpen: () => void }) {
+function CatalystCard({ item, tracked, onToggleTracked, onOpen }: { item: CatalystCollectionItem; tracked: boolean; onToggleTracked: () => void; onOpen: () => void }) {
   const stateClass = item.state === "complete" ? styles.catalystComplete : item.state === "obtained" ? styles.catalystObtained : styles.catalystMissing;
-  return <button type="button" className={`${styles.catalystCard} ${stateClass}`} onClick={onOpen}>
-    <div className={styles.catalystArt}>{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <BookOpen />}{item.state === "complete" && <span><Check /></span>}</div>
-    <div className={styles.catalystBody}><span>{catalystViewLabel(item.state)}</span><h3>{item.name}</h3><p>{item.weapon.name}</p><small>{item.weapon.itemType} · {item.weapon.slot}</small></div>
-    <ChevronRight className={styles.chevron} size={18} />
-  </button>;
+  const objective = item.objectives.find((entry) => !entry.complete) || item.objectives[0];
+  return <article className={`${styles.catalystCard} ${stateClass}`}>
+    <button type="button" className={styles.catalystCardOpen} onClick={onOpen}>
+      <div className={styles.catalystArt}>{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <BookOpen />}{item.state === "complete" && <span><Check /></span>}</div>
+      <div className={styles.catalystBody}><span>{catalystViewLabel(item.state)}</span><h3>{item.name}</h3><p>{item.weapon.name}</p><small>{item.weapon.itemType} · {item.weapon.slot}</small>{objective && <CatalystObjective objective={objective} progressAvailable={item.progressAvailable} />}</div>
+      <ChevronRight className={styles.chevron} size={18} />
+    </button>
+    {item.state === "obtained" && <button type="button" className={`${styles.catalystTrackAction} ${tracked ? styles.catalystTrackActionActive : ""}`} onClick={onToggleTracked} aria-pressed={tracked} aria-label={`${tracked ? "Untrack" : "Track"} ${item.name} on Fireteam`}><Bookmark fill={tracked ? "currentColor" : "none"} />{tracked ? "Tracked" : "Track"}</button>}
+  </article>;
+}
+
+function CatalystObjective({ objective, progressAvailable }: { objective: QuestObjective; progressAvailable: boolean }) {
+  const value = objective.complete ? "Complete" : progressAvailable && objective.completionValue > 0
+    ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}`
+    : objective.completionValue > 0 ? `${objective.completionValue.toLocaleString()} required` : "Progress unavailable";
+  return <div className={styles.catalystObjective}><span>{objective.name}</span><strong>{value}</strong><i><span style={{ width: `${progressAvailable ? objective.percent : 0}%` }} /></i></div>;
 }
 
 function StateBadge({ active, label, gold, icon }: { active: boolean; label: string; gold?: boolean; icon?: React.ReactNode }) {
@@ -203,13 +218,14 @@ function GuideDrawer({ entry, focusedCatalyst, xurSellingLive, tracked, onToggle
   return <><button className={`${styles.drawerScrim} ${entry ? styles.drawerOpen : ""}`} onClick={onClose} aria-label="Close guide" /><aside className={`${styles.guideDrawer} ${entry ? styles.drawerOpen : ""}`} aria-hidden={!entry}>
     {entry && <><header><div><span>{focusedCatalyst ? "Catalyst details" : "Acquisition guide"}</span><h2>{focusedCatalyst?.name || entry.name}</h2></div><button onClick={onClose}><X /></button></header>
       <div className={styles.guideHero}>{(focusedCatalyst?.icon || entry.icon) && <img src={focusedCatalyst?.icon || entry.icon} alt="" />}<div><span>{focusedCatalyst ? `${entry.name} · ${catalystViewLabel(focusedCatalyst.state)}` : `${entry.kind} · ${entry.slot}`}</span><p>{focusedCatalyst?.description || entry.description || "Description unavailable."}</p>{!focusedCatalyst && <b className={`${styles.confidence} ${styles[entry.guide.confidence]}`}>{entry.guide.confidence}</b>}</div></div>
-      {!focusedCatalyst && !entry.owned && <button type="button" className={`${styles.guideTrackAction} ${tracked ? styles.guideTrackActionActive : ""}`} onClick={onToggleTracked} aria-pressed={tracked}><Bookmark fill={tracked ? "currentColor" : "none"} />{tracked ? "Tracked on Fireteam" : "Track on Fireteam"}</button>}
+      {((focusedCatalyst && focusedCatalyst.state === "obtained") || (!focusedCatalyst && !entry.owned)) && <button type="button" className={`${styles.guideTrackAction} ${tracked ? styles.guideTrackActionActive : ""}`} onClick={onToggleTracked} aria-pressed={tracked}><Bookmark fill={tracked ? "currentColor" : "none"} />{tracked ? "Tracked on Fireteam" : "Track on Fireteam"}</button>}
       <div className={styles.guideFacts}>{focusedCatalyst ? <><div><span>Status</span><strong>{catalystViewLabel(focusedCatalyst.state)}</strong></div><div><span>Weapon</span><strong>{entry.name}</strong></div><div><span>Type</span><strong>{entry.itemType}</strong></div><div><span>Slot</span><strong>{entry.slot}</strong></div></> : <><div><span>Collection</span><strong>{entry.owned ? "Owned" : "Missing"}</strong></div><div><span>Type</span><strong>{entry.itemType}</strong></div><div><span>Slot</span><strong>{entry.slot}</strong></div>{entry.damageType && <div><span>Damage</span><strong>{entry.damageType}</strong></div>}</>}</div>
       {xurSellingLive && entry.xurSelling && <GuideSection title="Available from Xûr"><p>Available in Xûr's current inventory.</p></GuideSection>}
       <GuideSection title={focusedCatalyst ? "Weapon source" : "Current source"}><p>{entry.guide.acquisition}</p></GuideSection>
       {!focusedCatalyst && <GuideSection title="Acquisition steps"><ol>{entry.guide.steps.length ? entry.guide.steps.map((step, index) => <li key={index}>{step}</li>) : <li>Acquisition steps unavailable.</li>}</ol></GuideSection>}
       {!focusedCatalyst && entry.guide.prerequisites.length > 0 && <GuideSection title="Prerequisites"><ul>{entry.guide.prerequisites.map((step, index) => <li key={index}>{step}</li>)}</ul></GuideSection>}
       {focusedCatalyst && entry.guide.catalystCompletion && <GuideSection title="Completion"><p>{entry.guide.catalystCompletion}</p></GuideSection>}
+      {focusedCatalyst && focusedCatalyst.objectives.length > 0 && <GuideSection title="Masterwork progress"><div className={styles.catalystObjectiveList}>{focusedCatalyst.objectives.map((objective) => <CatalystObjective key={objective.objectiveHash} objective={objective} progressAvailable={focusedCatalyst.progressAvailable} />)}</div></GuideSection>}
       {entry.kind === "weapon" && <GuideSection title={entry.catalysts?.length === 1 ? "Catalyst" : "Catalysts"}>{entry.catalysts?.length ? <div className={styles.guideFeatureList}>{entry.catalysts.map((catalystEntry) => <article key={catalystEntry.recordHash}>{catalystEntry.icon ? <img src={catalystEntry.icon} alt="" /> : <BookOpen />}<div><span>{catalystLabel(catalystEntry.state)}</span><strong>{catalystEntry.name}</strong><p>{catalystEntry.description}</p></div></article>)}</div> : <p>No catalyst is currently mapped for this weapon.</p>}{!focusedCatalyst && entry.guide.catalystCompletion && <p>{entry.guide.catalystCompletion}</p>}</GuideSection>}
       {Boolean(entry.features?.length) && <GuideSection title="Selectable features and sockets"><div className={styles.guideFeatureList}>{entry.features!.map((feature) => <article key={feature.itemHash}>{feature.icon ? <img src={feature.icon} alt="" /> : <Sparkles />}<div><strong>{feature.name}</strong><p>{feature.description}</p></div></article>)}</div></GuideSection>}
       <GuideSection title="Verification"><p>{entry.guide.verifiedAt ? `Verified ${new Date(entry.guide.verifiedAt).toLocaleDateString()}.` : "Needs a current source verification pass."}</p>{entry.guide.sources.map((source) => source.url ? <a key={source.label} href={source.url} target="_blank" rel="noreferrer">{source.label} <ChevronRight size={13} /></a> : <span key={source.label}>{source.label}</span>)}</GuideSection>
@@ -237,6 +253,10 @@ export function catalystCollectionItems(entries: ExoticCollectionEntry[]): Catal
       description: weapon.guide.catalystCompletion || "Open the catalyst record in Destiny for its current objective.",
       icon: weapon.icon,
       state: weapon.catalyst,
+      objectives: [],
+      percent: weapon.catalyst === "complete" ? 100 : 0,
+      progressAvailable: false,
+      trackedInDestiny: false,
       weapon
     }];
   });

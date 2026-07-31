@@ -7,6 +7,7 @@ import type {
   ExoticCollectionEntry,
   GuardianClass,
   GuideEntry,
+  QuestObjective,
   QuestProgress,
   QuestRecommendation
 } from "@guardian-nexus/contracts";
@@ -329,6 +330,8 @@ export function mergeCollection(
     ownedCollectibleHashes: ReadonlySet<string>;
     completedRecordHashes: ReadonlySet<string>;
     visibleRecordHashes: ReadonlySet<string>;
+    recordObjectives?: ReadonlyMap<string, QuestObjective[]>;
+    destinyTrackedRecordHashes?: ReadonlySet<string>;
     ownedItemHashes?: ReadonlySet<string>;
     xurSaleItemHashes?: ReadonlySet<string>;
   },
@@ -365,12 +368,25 @@ export function mergeCollection(
         const properties = definition?.displayProperties || {};
         const complete = state.completedRecordHashes.has(recordHash);
         const obtained = state.visibleRecordHashes.has(recordHash);
+        const liveObjectives = state.recordObjectives?.get(recordHash) || [];
+        const progressAvailable = liveObjectives.length > 0;
+        const objectiveRows = progressAvailable ? liveObjectives : catalystDefinitionObjectives(definition, manifest);
+        const objectives = complete ? objectiveRows.map((objective) => ({
+          ...objective,
+          progress: objective.completionValue > 0 ? objective.completionValue : objective.progress,
+          complete: true,
+          percent: 100
+        })) : objectiveRows;
         return {
           recordHash,
           name: String(properties.name || `${item.name} Catalyst`),
           description: String(properties.description || "Open the catalyst record in Destiny for its current objective."),
           icon: imageUrl(properties.icon),
-          state: complete ? "complete" as const : obtained ? "obtained" as const : "missing" as const
+          state: complete ? "complete" as const : obtained ? "obtained" as const : "missing" as const,
+          objectives,
+          percent: complete ? 100 : objectives.length ? Math.round(objectives.reduce((sum, objective) => sum + objective.percent, 0) / objectives.length) : 0,
+          progressAvailable,
+          trackedInDestiny: Boolean(state.destinyTrackedRecordHashes?.has(recordHash))
         };
       });
       const features = collectionFeatures(manifest, variants.map((variant) => variant.itemHash));
@@ -387,6 +403,27 @@ export function mergeCollection(
       } satisfies ExoticCollectionEntry;
     })
     .sort((a, b) => a.kind.localeCompare(b.kind) || a.slot.localeCompare(b.slot) || a.name.localeCompare(b.name));
+}
+
+function catalystDefinitionObjectives(definition: any, manifest: CompactManifest): QuestObjective[] {
+  const hashes = Array.isArray(definition?.objectiveHashes) ? definition.objectiveHashes : [];
+  return hashes.map((value: unknown) => {
+    const objectiveHash = String(value || "");
+    const objective = manifest.objectiveDefinitions[objectiveHash] as any;
+    const completionValue = Number(objective?.completionValue || 0);
+    return {
+      objectiveHash,
+      name: String(objective?.progressDescription || objective?.displayProperties?.name || "Catalyst objective"),
+      progress: 0,
+      completionValue,
+      complete: false,
+      percent: 0
+    };
+  }).filter((objective: QuestObjective) => Boolean(objective.objectiveHash));
+}
+
+export function catalystTrackingId(recordHash: string): string {
+  return `catalyst:${recordHash}`;
 }
 
 function collectionFeatures(manifest: CompactManifest, itemHashes: string[]): CollectionFeature[] {

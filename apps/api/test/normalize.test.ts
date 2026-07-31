@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest } from "@guardian-nexus/contracts";
-import { activityName, guardianLocation, guardianOnlineState, normalizeGuardian, normalizeQuests } from "../src/normalize";
+import { activityName, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests } from "../src/normalize";
 
 const manifest = {
   version: "test",
@@ -79,6 +79,42 @@ describe("normalizeGuardian", () => {
 
     expect(guardian.selectedCharacterId).toBe("c2");
     expect(guardian.stats.mailboxCount).toBe(1);
+  });
+});
+
+describe("normalizeCollection", () => {
+  it("maps catalyst record objectives to their live progress and Destiny tracking state", () => {
+    const collectionManifest = { ...manifest,
+      items: [{ itemHash: "weapon", name: "ABC", description: "", icon: "/weapon.png", kind: "weapon" as const, slot: "Kinetic Weapons", itemType: "Auto Rifle", source: "Quest", catalystRecordHashes: ["record"] }],
+      objectiveDefinitions: { objective: { progressDescription: "Kill enemies", completionValue: 50 } },
+      recordDefinitions: { record: { displayProperties: { name: "ABC Catalyst", description: "Defeat enemies using ABC.", icon: "/catalyst.png" }, objectiveHashes: ["objective"] } }
+    } satisfies CompactManifest;
+    const profile = {
+      profileRecords: { data: { trackedRecordHash: "record", records: { record: { state: 0, objectives: [{ objectiveHash: "objective", progress: 23, completionValue: 50, complete: false }] } } } }
+    };
+
+    const catalyst = normalizeCollection(profile, collectionManifest).entries[0]!.catalysts![0]!;
+
+    expect(catalyst).toMatchObject({
+      recordHash: "record",
+      state: "obtained",
+      percent: 46,
+      progressAvailable: true,
+      trackedInDestiny: true,
+      objectives: [{ name: "Kill enemies", progress: 23, completionValue: 50, percent: 46 }]
+    });
+  });
+
+  it("keeps the manifest requirement when live catalyst progress is not exposed yet", () => {
+    const collectionManifest = { ...manifest,
+      items: [{ itemHash: "weapon", name: "ABC", description: "", icon: "/weapon.png", kind: "weapon" as const, slot: "Kinetic Weapons", itemType: "Auto Rifle", source: "Quest", catalystRecordHashes: ["record"] }],
+      objectiveDefinitions: { objective: { progressDescription: "Kill enemies", completionValue: 50 } },
+      recordDefinitions: { record: { displayProperties: { name: "ABC Catalyst" }, objectiveHashes: ["objective"] } }
+    } satisfies CompactManifest;
+
+    const catalyst = normalizeCollection({}, collectionManifest).entries[0]!.catalysts![0]!;
+
+    expect(catalyst).toMatchObject({ progressAvailable: false, objectives: [{ name: "Kill enemies", progress: 0, completionValue: 50 }] });
   });
 });
 

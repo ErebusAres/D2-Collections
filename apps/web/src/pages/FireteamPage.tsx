@@ -1,4 +1,5 @@
 import type { FireteamCompletedTrackedItem, FireteamContact, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem } from "@guardian-nexus/contracts";
+import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, BookmarkMinus, CheckCircle2, Copy, Crown, EyeOff, GripVertical, Link2, LogIn, MessageSquare, Radio, Repeat2, Share2, ShieldCheck, Timer, UserMinus, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -128,12 +129,12 @@ export function FireteamPage() {
     const nextGuardianRankIds = item.kind === "guardian-rank" && item.trackedInGuardianNexus
       ? guardianRankIds.filter((id) => id !== item.id)
       : guardianRankIds;
-    const nextJourneyIds = !["quest", "bounty", "order", "guardian-rank"].includes(item.kind) && item.trackedInGuardianNexus
-      && item.kind !== "exotic"
+    const nextJourneyIds = !["quest", "bounty", "order", "guardian-rank", "exotic", "catalyst"].includes(item.kind) && item.trackedInGuardianNexus
       ? journeyIds.filter((id) => id !== item.id)
       : journeyIds;
-    const nextCollectionIds = item.kind === "exotic" && item.trackedInGuardianNexus
-      ? collectionIds.filter((id) => id !== item.id)
+    const collectionTrackingId = item.kind === "catalyst" ? catalystTrackingId(item.id) : item.id;
+    const nextCollectionIds = ["exotic", "catalyst"].includes(item.kind) && item.trackedInGuardianNexus
+      ? collectionIds.filter((id) => id !== collectionTrackingId)
       : collectionIds;
     const nextHiddenKeys = new Set(hiddenTrackedItemKeys);
     if (item.trackedInDestiny) nextHiddenKeys.add(key); else nextHiddenKeys.delete(key);

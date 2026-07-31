@@ -392,6 +392,10 @@ export interface CollectionCatalyst {
   description: string;
   icon: string;
   state: CatalystState;
+  objectives: QuestObjective[];
+  percent: number;
+  progressAvailable: boolean;
+  trackedInDestiny: boolean;
 }
 
 export interface CollectionFeature {
@@ -576,7 +580,7 @@ export interface JourneyProgressData {
   manifestVersion: string;
 }
 
-export type FireteamTrackedItemKind = "quest" | "bounty" | "order" | "guardian-rank" | "triumph" | "title" | "seasonal" | "weekly" | "exotic";
+export type FireteamTrackedItemKind = "quest" | "bounty" | "order" | "guardian-rank" | "triumph" | "title" | "seasonal" | "weekly" | "exotic" | "catalyst";
 
 export interface FireteamTrackedItemObjective {
   objectiveHash: string;

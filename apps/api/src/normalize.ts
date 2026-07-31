@@ -128,18 +128,34 @@ function collectibleStates(profile: any): Map<string, number> {
   return rows;
 }
 
-function recordSets(profile: any): { completed: Set<string>; visible: Set<string> } {
+function recordSets(profile: any, manifest: CompactManifest): { completed: Set<string>; visible: Set<string>; objectives: Map<string, QuestObjective[]>; tracked: Set<string> } {
   const completed = new Set<string>();
   const visible = new Set<string>();
-  const apply = (component: any) => Object.entries(component?.records || {}).forEach(([hash, row]: [string, any]) => {
-    const state = Number(row?.state || 0);
-    const objectives = row?.objectives || [];
-    if (!(state & 16) && !(state & 8)) visible.add(hash);
-    if ((state & 1) || (objectives.length > 0 && objectives.every((objective: any) => objective.complete))) completed.add(hash);
-  });
+  const objectives = new Map<string, QuestObjective[]>();
+  const tracked = new Set<string>();
+  const apply = (component: any) => {
+    const trackedRecordHash = String(component?.trackedRecordHash || "");
+    if (trackedRecordHash && trackedRecordHash !== "0") tracked.add(trackedRecordHash);
+    Object.entries(component?.records || {}).forEach(([hash, row]: [string, any]) => {
+      const state = Number(row?.state || 0);
+      const progress = [...(row?.objectives || []), ...(row?.intervalObjectives || [])];
+      if (!(state & 16) && !(state & 8)) visible.add(hash);
+      if ((state & 1) || (progress.length > 0 && progress.every((objective: any) => objective.complete))) completed.add(hash);
+      if (progress.length) objectives.set(hash, mergeObjectiveRows(objectives.get(hash) || [], objectiveRows({ objectives: progress }, manifest)));
+    });
+  };
   apply(profile?.profileRecords?.data);
   Object.values(profile?.characterRecords?.data || {}).forEach(apply);
-  return { completed, visible };
+  return { completed, visible, objectives, tracked };
+}
+
+function mergeObjectiveRows(current: QuestObjective[], incoming: QuestObjective[]): QuestObjective[] {
+  const rows = new Map(current.map((objective) => [objective.objectiveHash, objective]));
+  for (const objective of incoming) {
+    const existing = rows.get(objective.objectiveHash);
+    if (!existing || objective.complete || objective.progress > existing.progress) rows.set(objective.objectiveHash, objective);
+  }
+  return [...rows.values()];
 }
 
 function ownedItemHashes(profile: any): Set<string> {
@@ -156,11 +172,13 @@ function ownedItemHashes(profile: any): Set<string> {
 
 export function normalizeCollection(profile: any, manifest: CompactManifest, selectedClass?: CharacterSummary["className"], xurSaleItemHashes = new Set<string>()): CollectionData {
   const states = collectibleStates(profile);
-  const records = recordSets(profile);
+  const records = recordSets(profile, manifest);
   const entries = mergeCollection(manifest, {
     ownedCollectibleHashes: new Set([...states].filter(([, state]) => (state & 1) === 0).map(([hash]) => hash)),
     completedRecordHashes: records.completed,
     visibleRecordHashes: records.visible,
+    recordObjectives: records.objectives,
+    destinyTrackedRecordHashes: records.tracked,
     ownedItemHashes: ownedItemHashes(profile),
     xurSaleItemHashes
   }, selectedClass);

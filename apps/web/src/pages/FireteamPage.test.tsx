@@ -17,7 +17,7 @@ vi.mock("../context/GuardianContext", () => ({
     session: { authenticated: true, csrfToken: "csrf", guardian: { membershipId: "member-1" } },
     selectedCharacterId: "c1",
     autoRefresh: false,
-    preferences: { "guardianRank.tracked": JSON.stringify(["rank-record"]) },
+    preferences: { "guardianRank.tracked": JSON.stringify(["rank-record"]), "collection.tracked": JSON.stringify(["catalyst:catalyst-record"]) },
     setPreference
   })
 }));
@@ -241,6 +241,30 @@ describe("Fireteam tracked items", () => {
       siteTrackedGuardianRankIds: [],
       hiddenTrackedItemKeys: ["guardian-rank:rank-record"]
     });
+  });
+
+  it("shows catalyst kill progress and removes its prefixed Collection tracking id", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const tracked = envelope();
+    tracked.data.members[0]!.trackedItems.push({
+      id: "catalyst-record", definitionHash: "catalyst-record", kind: "catalyst", name: "ABC Catalyst", description: "Defeat enemies using ABC.", icon: "", context: "Catalyst · ABC",
+      trackedInDestiny: false, trackedInGuardianNexus: true, objectives: [{ objectiveHash: "kills", name: "Kill enemies", progress: 23, completionValue: 50, percent: 46, complete: false, progressAvailable: true }], percent: 46, updatedAt: "now"
+    });
+    vi.mocked(api).mockResolvedValue(tracked);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    await screen.findByText("ABC Catalyst");
+    expect(screen.getByText("23 / 50")).toBeTruthy();
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    vi.mocked(queuedApi).mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Untrack ABC Catalyst from Fireteam" }));
+
+    expect(setPreference).toHaveBeenCalledWith("collection.tracked", "[]");
+    await act(async () => { vi.advanceTimersByTime(1_600); });
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    const [, init] = vi.mocked(queuedApi).mock.calls[0]!;
+    expect(JSON.parse(String(init?.body))).toMatchObject({ siteTrackedCollectionIds: [] });
   });
 
   it("does not expose tracking controls on another Guardian's card", async () => {
