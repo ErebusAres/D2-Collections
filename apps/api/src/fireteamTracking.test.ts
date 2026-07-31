@@ -1,4 +1,4 @@
-import type { GuardianRankData, QuestProgress } from "@guardian-nexus/contracts";
+import type { CollectionData, GuardianRankData, QuestProgress } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import { profileComponentsFor } from "./bungie";
 import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
@@ -94,6 +94,31 @@ describe("Fireteam tracked items", () => {
       .toMatchObject([{ kind: "exotic", id: "exotic-1", percent: 100 }]);
   });
 
+  it("shares a tracked catalyst with its exact masterwork objective counter", () => {
+    const items = trackedItemsFromCollection(catalystCollection("obtained", 23), new Set(["catalyst:catalyst-record"]), "2026-07-29T12:00:00.000Z");
+
+    expect(items).toMatchObject([{
+      id: "catalyst-record",
+      kind: "catalyst",
+      name: "ABC Catalyst",
+      context: "Catalyst · Test Exotic",
+      trackedInGuardianNexus: true,
+      percent: 46,
+      objectives: [{ name: "Kill enemies", progress: 23, completionValue: 50, progressAvailable: true }]
+    }]);
+  });
+
+  it("dismisses a completed catalyst through the existing Fireteam completion event", () => {
+    const tracked = new Set(["catalyst:catalyst-record"]);
+    const previous = trackedItemsFromCollection(catalystCollection("obtained", 49), tracked, "2026-07-29T12:00:00.000Z");
+    const active = trackedItemsFromCollection(catalystCollection("complete", 50), tracked, "2026-07-29T12:01:00.000Z");
+    const candidates = trackedItemsFromCollection(catalystCollection("complete", 50), tracked, "2026-07-29T12:01:00.000Z", true, new Set(["catalyst:catalyst-record"]));
+
+    expect(active).toEqual([]);
+    expect(completedTrackedItemEvents(previous, candidates, [], "2026-07-29T12:01:00.000Z", 180_000))
+      .toMatchObject([{ kind: "catalyst", id: "catalyst-record", percent: 100, objectives: [{ progress: 50, complete: true, percent: 100 }] }]);
+  });
+
   it("hides requested Fireteam items and drops exclusions after the source is no longer tracked", () => {
     const items = trackedItemsFromQuests([
       quest({ instanceId: "shown", sitePinned: true }),
@@ -124,7 +149,7 @@ describe("Fireteam tracked items", () => {
   });
 });
 
-function collection(owned: boolean) {
+function collection(owned: boolean): CollectionData {
   return {
     manifestVersion: "test",
     entries: [{
@@ -151,6 +176,23 @@ function collection(owned: boolean) {
     totals: { owned: owned ? 1 : 0, available: 1, catalystsAvailable: 0, catalystsOwned: 0, catalystsComplete: 0, xurSelling: 0 },
     xur: { state: "unavailable" as const, checkedAt: "2026-07-29T12:00:00.000Z" }
   };
+}
+
+function catalystCollection(state: "obtained" | "complete", progress: number) {
+  const data = collection(true);
+  data.entries[0]!.catalyst = state;
+  data.entries[0]!.catalysts = [{
+    recordHash: "catalyst-record",
+    name: "ABC Catalyst",
+    description: "Defeat enemies using ABC.",
+    icon: "/catalyst.png",
+    state,
+    objectives: [{ objectiveHash: "kills", name: "Kill enemies", progress, completionValue: 50, complete: state === "complete", percent: progress * 2 }],
+    percent: progress * 2,
+    progressAvailable: true,
+    trackedInDestiny: false
+  }];
+  return data;
 }
 
 function quest(overrides: Partial<QuestProgress>): QuestProgress {

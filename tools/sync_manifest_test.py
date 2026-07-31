@@ -38,6 +38,14 @@ class BuildCatalogClassificationTests(unittest.TestCase):
         self.assertEqual(display["icon"], "/revision-zero.jpg")
         self.assertTrue(display["hasIcon"])
 
+    def test_catalyst_record_keeps_regular_and_interval_objective_hashes(self) -> None:
+        hashes = SYNC_MANIFEST.record_objective_hashes({
+            "objectiveHashes": [101, 102],
+            "intervalInfo": {"intervalObjectives": [{"intervalObjectiveHash": 102}, {"intervalObjectiveHash": 103}]},
+        })
+
+        self.assertEqual(hashes, ["101", "102", "103"])
+
     def test_quest_definitions_follow_the_official_inventory_bucket_after_type_changes(self) -> None:
         self.assertTrue(SYNC_MANIFEST.is_quest_definition({"itemType": 12, "inventory": {}}))
         self.assertTrue(SYNC_MANIFEST.is_quest_definition({"itemType": 26, "itemTypeDisplayName": "", "inventory": {"bucketTypeHash": 1345459588}}))

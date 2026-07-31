@@ -32,8 +32,8 @@ describe("catalyst collection", () => {
   it("shows each catalyst record and excludes weapons without catalysts", () => {
     const items = catalystCollectionItems([
       weapon("Multi", "obtained", {}, [
-        { recordHash: "one", name: "First Catalyst", description: "First", icon: "/one.png", state: "complete" },
-        { recordHash: "two", name: "Second Catalyst", description: "Second", icon: "/two.png", state: "obtained" }
+        { recordHash: "one", name: "First Catalyst", description: "First", icon: "/one.png", state: "complete", objectives: [], percent: 100, progressAvailable: true, trackedInDestiny: false },
+        { recordHash: "two", name: "Second Catalyst", description: "Second", icon: "/two.png", state: "obtained", objectives: [{ objectiveHash: "kills", name: "Kill enemies", progress: 23, completionValue: 50, complete: false, percent: 46 }], percent: 46, progressAvailable: true, trackedInDestiny: false }
       ]),
       weapon("No Catalyst", "unavailable"),
       weapon("Legacy", "missing")
@@ -44,6 +44,7 @@ describe("catalyst collection", () => {
       ["Second Catalyst", "obtained"],
       ["Legacy Catalyst", "missing"]
     ]);
+    expect(items[1]).toMatchObject({ percent: 46, objectives: [{ name: "Kill enemies", progress: 23, completionValue: 50 }] });
   });
 
   it("filters by status, slot, type, and weapon or catalyst search text", () => {

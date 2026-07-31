@@ -1,4 +1,5 @@
 import type { CollectionData, FireteamCompletedTrackedItem, FireteamTrackedItem, GuardianRankData, GuardianRankTier, QuestProgress } from "@guardian-nexus/contracts";
+import { catalystTrackingId } from "@guardian-nexus/domain";
 
 export function trackedItemsFromQuests(quests: QuestProgress[], includeCompleted = false, previouslyTracked = new Set<string>()): FireteamTrackedItem[] {
   return quests.filter((quest) => (quest.inGameTracked || quest.sitePinned || previouslyTracked.has(`quest:${quest.instanceId}`) || previouslyTracked.has(`bounty:${quest.instanceId}`) || previouslyTracked.has(`order:${quest.instanceId}`)) && (includeCompleted || !questComplete(quest))).map((quest) => ({
@@ -51,7 +52,7 @@ export function trackedItemsFromGuardianRanks(data: GuardianRankData, siteTracke
 }
 
 export function trackedItemsFromCollection(data: CollectionData, siteTracked: ReadonlySet<string>, updatedAt: string, includeOwned = false, previouslyTracked = new Set<string>()): FireteamTrackedItem[] {
-  return data.entries
+  const exotics: FireteamTrackedItem[] = data.entries
     .filter((entry) => siteTracked.has(entry.itemHash) || previouslyTracked.has(`exotic:${entry.itemHash}`))
     .filter((entry) => includeOwned || !entry.owned)
     .map((entry) => ({
@@ -73,6 +74,28 @@ export function trackedItemsFromCollection(data: CollectionData, siteTracked: Re
         prerequisites: entry.guide.prerequisites
       }
     }));
+  const catalysts: FireteamTrackedItem[] = data.entries.flatMap((entry) => (entry.catalysts || [])
+    .filter((catalyst) => catalyst.state !== "missing")
+    .filter((catalyst) => {
+      const trackingId = catalystTrackingId(catalyst.recordHash);
+      return catalyst.trackedInDestiny || siteTracked.has(trackingId) || previouslyTracked.has(trackingId);
+    })
+    .filter((catalyst) => includeOwned || catalyst.state !== "complete")
+    .map((catalyst) => ({
+      id: catalyst.recordHash,
+      definitionHash: catalyst.recordHash,
+      kind: "catalyst" as const,
+      name: catalyst.name,
+      description: catalyst.description,
+      icon: catalyst.icon,
+      context: `Catalyst · ${entry.name}`,
+      trackedInDestiny: catalyst.trackedInDestiny,
+      trackedInGuardianNexus: siteTracked.has(catalystTrackingId(catalyst.recordHash)),
+      objectives: catalyst.objectives.map((objective) => ({ ...objective, progressAvailable: catalyst.progressAvailable })),
+      percent: boundedPercent(catalyst.percent),
+      updatedAt
+    })));
+  return [...exotics, ...catalysts];
 }
 
 export function mergeTrackedItems(...groups: FireteamTrackedItem[][]): FireteamTrackedItem[] {

@@ -135,6 +135,16 @@ def catalyst_record_display(definition: dict, artwork: str | None) -> dict:
     return result
 
 
+def record_objective_hashes(definition: dict) -> list[str]:
+    hashes = [str(value) for value in definition.get("objectiveHashes") or [] if value]
+    hashes.extend(
+        str(value.get("intervalObjectiveHash"))
+        for value in ((definition.get("intervalInfo") or {}).get("intervalObjectives") or [])
+        if value.get("intervalObjectiveHash")
+    )
+    return list(dict.fromkeys(hashes))
+
+
 def minimal_item(definition: dict) -> dict:
     return {
         "hash": str(definition.get("hash", "")),
@@ -1188,6 +1198,11 @@ def main() -> None:
         key: value for key, value in records.items()
         if "catalyst" in (value.get("displayProperties") or {}).get("name", "").lower()
     }
+    catalyst_objective_hashes = {
+        objective_hash
+        for definition in catalyst_records.values()
+        for objective_hash in record_objective_hashes(definition)
+    }
     catalyst_artwork = catalyst_artwork_by_name(inventory)
     catalyst_artwork_by_record: dict[str, str] = {}
     quest_defs = {key: value for key, value in inventory.items() if is_quest_definition(value)}
@@ -1293,14 +1308,14 @@ def main() -> None:
         "itemDefinitions": {key: minimal_item(value) for key, value in quest_defs.items()},
         "objectiveDefinitions": {
             key: {"hash": key, "displayProperties": display(value), "progressDescription": value.get("progressDescription", ""), "completionValue": value.get("completionValue", 0)}
-            for key, value in objectives.items() if key in base_objective_hashes
+            for key, value in objectives.items() if key in base_objective_hashes or key in catalyst_objective_hashes
         },
         "activityDefinitions": {
             key: {"hash": key, "displayProperties": display(value), "activityTypeHash": str(value.get("activityTypeHash") or ""), "challenges": value.get("challenges") or []}
             for key, value in activities.items()
         },
         "recordDefinitions": {
-            key: {"hash": key, "displayProperties": catalyst_record_display(value, catalyst_artwork_by_record.get(key)), "objectives": value.get("objectives") or []}
+            key: {"hash": key, "displayProperties": catalyst_record_display(value, catalyst_artwork_by_record.get(key)), "objectiveHashes": record_objective_hashes(value)}
             for key, value in catalyst_records.items()
         },
     }
