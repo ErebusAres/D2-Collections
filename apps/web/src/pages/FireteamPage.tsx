@@ -1,7 +1,7 @@
 import type { FireteamCompletedTrackedItem, FireteamContact, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, AlertTriangle, BookmarkMinus, CheckCircle2, Copy, Crown, EyeOff, GripVertical, Link2, LogIn, MessageSquare, Radio, Repeat2, Share2, ShieldCheck, Timer, UserMinus, Users } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpToLine, BookmarkMinus, CheckCircle2, Copy, Crown, EyeOff, GripVertical, Link2, LogIn, MessageSquare, Radio, Repeat2, Share2, ShieldCheck, Timer, UserMinus, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
@@ -294,6 +294,7 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
   const orderedTrackedItems = orderTrackedItems(trackedItems, itemOrder);
   const visibleRemovedItems = [...removedItems.values()].filter((item) => !completedItemKeys.has(trackedItemKey(item)));
   const displayedItems = [...orderedTrackedItems.filter((item) => !completingKeys.has(trackedItemKey(item))), ...visibleCompletions, ...visibleRemovedItems];
+  const activeItems = displayedItems.filter((item) => !("completedAt" in item) && !removedItems.has(trackedItemKey(item)));
   const [draggingKey, setDraggingKey] = useState("");
   const [dragOverKey, setDragOverKey] = useState("");
   const finishDrag = () => {
@@ -309,22 +310,24 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
     {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => {
       const key = trackedItemKey(item);
       const transient = "completedAt" in item || removedItems.has(key);
+      const activeIndex = activeItems.findIndex((candidate) => trackedItemKey(candidate) === key);
       return <TrackedItem key={key} item={item} entering={enteringKeys.has(key)} completing={"completedAt" in item} onUntrack={onUntrack} untracking={untrackingKey === key || removedItems.has(key)} reorderable={Boolean(onReorder && !transient)} dragging={draggingKey === key} dragOver={dragOverKey === key && draggingKey !== key} onDragStart={() => setDraggingKey(key)} onDragOver={() => setDragOverKey(key)} onDrop={() => {
         if (draggingKey && draggingKey !== key) onReorder?.(draggingKey, key);
         finishDrag();
       }} onDragEnd={finishDrag} onMove={(direction) => {
-        const activeItems = displayedItems.filter((candidate) => !("completedAt" in candidate) && !removedItems.has(trackedItemKey(candidate)));
-        const index = activeItems.findIndex((candidate) => trackedItemKey(candidate) === key);
-        const target = activeItems[index + direction];
+        const target = activeItems[activeIndex + direction];
         if (target) onReorder?.(key, trackedItemKey(target));
-      }} />;
+      }} onMoveToEdge={(edge) => {
+        const target = edge === "top" ? activeItems[0] : activeItems[activeItems.length - 1];
+        if (target && trackedItemKey(target) !== key) onReorder?.(key, trackedItemKey(target));
+      }} atTop={activeIndex === 0} atBottom={activeIndex === activeItems.length - 1} />;
     }) : <p>Nothing is currently tracked.</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
     {!member.isSelf && <div className={styles.memberCommands}><button onClick={() => void onCopy(`whisper-${member.membershipId}`, `/whisper ${member.inGameName} `)} title="Copies a Destiny 2 text-chat command"><MessageSquare size={13} />{copied === `whisper-${member.membershipId}` ? "Copied" : "Whisper"}</button>{canManage && <button className={styles.managementCommand} onClick={() => void onCopy(`kick-${member.membershipId}`, `/kick ${member.inGameName}`)} title="Copies a Destiny 2 text-chat command; Guardian Nexus cannot kick through the Bungie API"><UserMinus size={13} />{copied === `kick-${member.membershipId}` ? "Copied" : "Kick command"}</button>}</div>}
     {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>Shared progress opportunity:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
   </article>;
 }
 
-function TrackedItem({ item, entering = false, completing = false, onUntrack, untracking = false, reorderable = false, dragging = false, dragOver = false, onDragStart, onDragOver, onDrop, onDragEnd, onMove }: { item: FireteamTrackedItem; entering?: boolean; completing?: boolean; onUntrack?: (item: FireteamTrackedItem) => void; untracking?: boolean; reorderable?: boolean; dragging?: boolean; dragOver?: boolean; onDragStart?: () => void; onDragOver?: () => void; onDrop?: () => void; onDragEnd?: () => void; onMove?: (direction: -1 | 1) => void }) {
+function TrackedItem({ item, entering = false, completing = false, onUntrack, untracking = false, reorderable = false, dragging = false, dragOver = false, onDragStart, onDragOver, onDrop, onDragEnd, onMove, onMoveToEdge, atTop = false, atBottom = false }: { item: FireteamTrackedItem; entering?: boolean; completing?: boolean; onUntrack?: (item: FireteamTrackedItem) => void; untracking?: boolean; reorderable?: boolean; dragging?: boolean; dragOver?: boolean; onDragStart?: () => void; onDragOver?: () => void; onDrop?: () => void; onDragEnd?: () => void; onMove?: (direction: -1 | 1) => void; onMoveToEdge?: (edge: "top" | "bottom") => void; atTop?: boolean; atBottom?: boolean }) {
   const progressKnown = item.objectives.length === 0 || item.objectives.some((objective) => objective.progressAvailable);
   const manageable = Boolean(onUntrack && !completing);
   const untrackTitle = item.trackedInDestiny
@@ -348,7 +351,10 @@ function TrackedItem({ item, entering = false, completing = false, onUntrack, un
       <i className={styles.sharedQuestBar}><span style={{ width: `${progressKnown ? item.percent : 0}%` }} /></i>
     </div>
     <strong className={styles.sharedQuestPercent}>{progressKnown ? `${item.percent}%` : "—"}</strong>
-    {manageable && <button type="button" className={styles.sharedQuestUntrack} onClick={() => onUntrack?.(item)} disabled={untracking} title={untrackTitle} aria-label={`Untrack ${item.name} from Fireteam`}><BookmarkMinus /></button>}
+    {manageable && <div className={styles.sharedQuestActions}>
+      {reorderable && <><button type="button" className={styles.sharedQuestMoveEdge} onClick={() => onMoveToEdge?.("top")} disabled={atTop || untracking} title="To top" aria-label={`Move ${item.name} to top`}><ArrowUpToLine /></button><button type="button" className={styles.sharedQuestMoveEdge} onClick={() => onMoveToEdge?.("bottom")} disabled={atBottom || untracking} title="To bottom" aria-label={`Move ${item.name} to bottom`}><ArrowDownToLine /></button></>}
+      <button type="button" className={styles.sharedQuestUntrack} onClick={() => onUntrack?.(item)} disabled={untracking} title={untrackTitle} aria-label={`Untrack ${item.name} from Fireteam`}><BookmarkMinus /></button>
+    </div>}
   </div>;
 }
 
