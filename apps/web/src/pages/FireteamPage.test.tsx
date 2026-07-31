@@ -301,6 +301,34 @@ describe("Fireteam tracked items", () => {
     expect(setPreference).toHaveBeenCalledWith("fireteam.trackedOrder", JSON.stringify(["guardian-rank:rank-record", "order:quest-instance"]));
     expect(queuedApi).not.toHaveBeenCalled();
   });
+
+  it("moves tracked items directly to the top or bottom from controls left of Dismiss", async () => {
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+    await screen.findByText("Weekly order");
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    vi.mocked(queuedApi).mockClear();
+
+    const toTop = screen.getByRole("button", { name: "Move Weekly order to top" }) as HTMLButtonElement;
+    const toBottom = screen.getByRole("button", { name: "Move Weekly order to bottom" }) as HTMLButtonElement;
+    const dismiss = screen.getByRole("button", { name: "Untrack Weekly order from Fireteam" });
+    const actions = dismiss.parentElement!;
+
+    expect([...actions.querySelectorAll("button")].map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Move Weekly order to top",
+      "Move Weekly order to bottom",
+      "Untrack Weekly order from Fireteam"
+    ]);
+    expect(toTop.disabled).toBe(true);
+    expect(toBottom.disabled).toBe(false);
+
+    fireEvent.click(toBottom);
+    expect(setPreference).toHaveBeenCalledWith("fireteam.trackedOrder", JSON.stringify(["guardian-rank:rank-record", "order:quest-instance"]));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Move Weekly order to bottom" }) as HTMLButtonElement).disabled).toBe(true));
+
+    fireEvent.click(screen.getByRole("button", { name: "Move Weekly order to top" }));
+    expect(setPreference).toHaveBeenCalledWith("fireteam.trackedOrder", JSON.stringify(["order:quest-instance", "guardian-rank:rank-record"]));
+    expect(queuedApi).not.toHaveBeenCalled();
+  });
 });
 
 function envelope() {
