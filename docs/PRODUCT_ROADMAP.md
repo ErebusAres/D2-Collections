@@ -17,7 +17,9 @@ Last updated: 2026-08-01
 - **Validated on the PR branch:** Guardian snapshots are separately stored, player-curated, private by default, optionally unlisted through unguessable links, field-selective, and revocable; inventory and Collections fields are rejected.
 - **Validated on the PR branch:** Guardian Projects provides account-private activity plans, clan coordination drafts, reusable collection checklists, optional display-label assignments, and clearly player-recorded completion history.
 - **Validated on the PR branch:** Private recent-activity history now uses Bungie's per-character activity endpoint with explicit available, partial, empty, and unavailable states; a versioned evergreen new-Guardian guide explains account truth and practical first steps.
-- **Active next implementation:** Accessibility/localization foundations and broader cross-tool adapters.
+- **Validated on the PR branch:** Accessibility preferences now include high contrast, three base text sizes, reduced motion, and persistent root semantics; typed English, Spanish, and French catalogs cover core navigation/settings with explicit fallback and preview scope.
+- **Validated on the PR branch:** Guardian Projects now export account-neutral JSON, import as new private active projects, and copy Markdown briefs through an explicit player action.
+- **Active next implementation:** Fashion and challenge/community modes plus the remaining feature-specific mobile review.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -68,7 +70,8 @@ Last updated: 2026-08-01
 - [x] Private or unlisted Guardian snapshots with explicit field selection and revocation.
 - [x] Account-private clan/activity planning and broader collectible checklists with player-recorded completion history.
 - [x] Bungie-backed recent activity history with partial/unavailable handling and versioned new-player explanations.
-- [ ] Broader cross-tool adapters, accessibility/localization, and fashion or challenge modes.
+- [x] Portable Guardian Project JSON/Markdown adapters and accessibility/localization foundations.
+- [ ] Fashion or challenge modes and remaining feature-specific narrow-layout review.
 
 ## Maintenance requirements
 

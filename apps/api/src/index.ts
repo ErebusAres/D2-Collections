@@ -130,7 +130,9 @@ const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("planner.duration"), value: z.enum(["30", "60", "120"]) }),
   z.object({ key: z.literal("planner.mode"), value: z.enum(["solo", "either", "fireteam"]) }),
   z.object({ key: z.literal("planner.focus"), value: z.enum(["any", "quest", "rank", "exotic"]) }),
-  z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion"]), value: z.enum(["true", "false"]) }),
+  z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion", "site.highContrast"]), value: z.enum(["true", "false"]) }),
+  z.object({ key: z.literal("site.textScale"), value: z.enum(["standard", "large", "largest"]) }),
+  z.object({ key: z.literal("site.locale"), value: z.enum(["en-US", "es-ES", "fr-FR"]) }),
   z.object({ key: z.literal("site.character"), value: z.string().regex(/^\d+$/) })
 ]);
 const rewardCodePreferenceSchema = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{3}(?:-[A-Z0-9]{3}){2}$/), redeemed: z.boolean() }).strict();

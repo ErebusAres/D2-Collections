@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete; Phase 5 now includes unlisted/portable builds, separately consented Guardian snapshots, private Guardian Projects, Bungie-backed recent activity history, and versioned new-player guidance. Accessibility/localization foundations and broader cross-tool adapters are next.
+Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete; Phase 5 now includes unlisted/portable builds, separately consented Guardian snapshots, private Guardian Projects, Bungie-backed recent activity history, versioned new-player guidance, portable project adapters, and accessibility/localization foundations. Fashion and challenge/community modes are next.
 
 ## Current repository state
 
@@ -62,6 +62,10 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 36. Added explicit available, partial, empty, and unavailable history states; failed or private characters generate warnings and never cause missing activity to be estimated.
 37. Added a responsive Journey history timeline with PvE, PvP, Gambit, and other filters, optional metrics only when Bungie returned them, and source freshness.
 38. Added a versioned, season-agnostic new-Guardian guide covering Guardian Rank, playable builds, physical ownership versus Collections, efficient planning, Postmaster safety, and the site's verified/unknown/player-recorded vocabulary.
+39. Added persistent high-contrast and three-level base-text preferences alongside reduced motion, applying the selected accessibility state at the document root with stronger focus indicators and contrast tokens from a Vite-managed opt-in stylesheet chunk.
+40. Added typed, complete core message catalogs for English, Spanish, and French with English fallback, persistent locale selection, document language semantics, and translated desktop/mobile navigation plus core settings labels. Spanish and French catalogs load on demand, and the Options drawer is a lazy boundary so these foundations reduce rather than inflate the entry bundle.
+41. Explicitly labels localization as a preview limited to core navigation/settings; Bungie-returned game data is not mistranslated or claimed as localized.
+42. Added a versioned portable Guardian Project envelope: JSON export strips private IDs, timestamps, completion history, and assignee labels by default; import is size/version checked and always creates a new private active project. Markdown brief copying is a separate explicit action that includes player-entered labels.
 
 ## Files in release scope
 
@@ -110,6 +114,12 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/web/src/modules/projects/projects.test.ts`
 - `apps/web/src/pages/ProjectsPage.tsx`
 - `apps/web/src/pages/ProjectsPage.module.css`
+- `apps/web/src/modules/projects/portableProject.ts`
+- `apps/web/src/modules/projects/portableProject.test.ts`
+- `apps/web/src/modules/i18n/catalog.ts`
+- `apps/web/src/modules/i18n/catalog.test.ts`
+- `apps/web/src/context/GuardianContext.tsx`
+- `apps/web/src/styles/theme.css`
 - `apps/web/src/pages/ActivityHistoryPage.tsx`
 - `apps/web/src/pages/ActivityHistoryPage.module.css`
 - `apps/web/src/pages/ActivityHistoryPage.test.tsx`
@@ -134,11 +144,11 @@ The following passed on 2026-08-01:
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
 - 173 API tests
-- 216 web tests
+- 220 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 374,404 bytes JavaScript, 114,912 bytes gzip, and 39,988 bytes entry CSS
+- performance budgets: 366,508 bytes JavaScript, 112,900 bytes gzip, and 34,124 bytes entry CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -200,7 +210,9 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Projects is routed through the existing lazy planning surface at `/next/projects` and linked from Next Steps, keeping the global header stable and the entry bundle inside its enforced budgets.
 - Completed Bungie-backed recent activity history at `/journey/history`, with private per-character reads, manifest labels, partial/unavailable states, and no inferred missing rows.
 - Completed the first versioned new-player explanation pack inside the same Journey surface; it contains evergreen guidance rather than hard-coded seasonal facts.
-- Next, build accessibility/localization foundations and broader cross-tool adapters; do not silently include Guardian snapshots in clan or Fireteam payloads.
+- Completed accessibility/localization foundations with persisted root-level presentation state, typed catalogs, fallback, semantic `lang`, and honest preview scope.
+- Completed portable project JSON and Markdown adapters with privacy-safe defaults and private-import semantics.
+- Next, build modular fashion and challenge/community modes; do not silently include Guardian snapshots in clan or Fireteam payloads.
 - Keep fashion/challenge modes and broader new-player explanations modular so they can consume the same snapshot/checklist contracts without hard-coded seasonal facts.
 
 ## Non-negotiable constraints

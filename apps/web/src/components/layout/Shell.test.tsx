@@ -10,6 +10,9 @@ import { Shell } from "./Shell";
 let devRole = false;
 let reportAdminRole = false;
 let editorRole = false;
+const setHighContrast = vi.fn();
+const setTextScale = vi.fn();
+const setLocale = vi.fn();
 
 vi.mock("../../context/GuardianContext", () => ({
   useGuardian: () => ({
@@ -30,7 +33,14 @@ vi.mock("../../context/GuardianContext", () => ({
     loading: false,
     signIn: vi.fn(),
     selectedCharacterId: "hunter",
-    autoRefresh: false
+    autoRefresh: false,
+    reducedMotion: false,
+    highContrast: false,
+    textScale: "standard",
+    locale: "en-US",
+    setHighContrast,
+    setTextScale,
+    setLocale
   })
 }));
 
@@ -56,7 +66,7 @@ afterEach(() => {
 });
 
 describe("Shell guardian identity", () => {
-  it("keeps the square emblem and adds the selected character's matching wide banner", () => {
+  it("keeps the square emblem and adds the selected character's matching wide banner", async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { container } = render(
       <QueryClientProvider client={queryClient}>
@@ -84,17 +94,17 @@ describe("Shell guardian identity", () => {
     expect(screen.queryByText(/Open pass/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
-    const optionsPanel = screen.getByLabelText("Guardian options");
+    const optionsPanel = await screen.findByLabelText("Guardian options", { selector: "aside:not([aria-hidden='true'])" });
     expect(optionsPanel.hasAttribute("inert")).toBe(false);
     const feedback = screen.getByRole("link", { name: /Feedback & reports/i });
     expect(feedback.getAttribute("href")).toBe("/reports?from=%2F");
     expect(screen.queryByText("Admin tools")).toBeNull();
   });
 
-  it("keeps closed options out of the tab order and restores focus after Escape", () => {
+  it("keeps closed options out of the tab order and restores focus after Escape", async () => {
     renderShell(<div>Page</div>);
     const trigger = screen.getByRole("button", { name: "Open options" });
-    const panel = screen.getByLabelText("Guardian options");
+    const panel = await screen.findByLabelText("Guardian options", { selector: "[role='dialog']" });
     expect(panel.hasAttribute("inert")).toBe(true);
 
     fireEvent.click(trigger);
@@ -107,6 +117,7 @@ describe("Shell guardian identity", () => {
 
   it("offers the browser install flow from Options when the app is installable", async () => {
     renderShell(<div>Page</div>);
+    await screen.findByLabelText("Guardian options", { selector: "[role='dialog']" });
     const prompt = vi.fn().mockResolvedValue(undefined);
     const event = new Event("beforeinstallprompt", { cancelable: true });
     Object.defineProperties(event, {
@@ -118,6 +129,19 @@ describe("Shell guardian identity", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Install Guardian Nexus/i }));
     expect(prompt).toHaveBeenCalledOnce();
+  });
+
+  it("persists accessibility and preview-locale choices from Options", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><MemoryRouter><Routes><Route element={<Shell />}><Route index element={<div>Page</div>} /></Route></Routes></MemoryRouter></QueryClientProvider>);
+    await screen.findByLabelText("Guardian options", { selector: "[role='dialog']" });
+    fireEvent.click(screen.getByRole("button", { name: "Open options" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /High contrast/i }));
+    fireEvent.change(screen.getByRole("combobox", { name: /Base text size/i }), { target: { value: "large" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /Interface language/i }), { target: { value: "es-ES" } });
+    expect(setHighContrast).toHaveBeenCalledWith(true);
+    expect(setTextScale).toHaveBeenCalledWith("large");
+    expect(setLocale).toHaveBeenCalledWith("es-ES");
   });
 
   it("shows the unresolved ticket queue only to report administrators", async () => {

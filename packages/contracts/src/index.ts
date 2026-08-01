@@ -1081,7 +1081,13 @@ export type UserPreferenceKey =
   | "projects.v1"
   | "site.autoRefresh"
   | "site.reducedMotion"
+  | "site.highContrast"
+  | "site.textScale"
+  | "site.locale"
   | "site.character";
+
+export type SiteLocale = "en-US" | "es-ES" | "fr-FR";
+export type SiteTextScale = "standard" | "large" | "largest";
 
 export interface UserPreferencesData {
   values: Partial<Record<UserPreferenceKey, string>>;
@@ -1119,6 +1125,15 @@ export interface GuardianProject {
 export interface GuardianProjectsDocument {
   schemaVersion: 1;
   projects: GuardianProject[];
+}
+
+export interface PortableGuardianProjectEnvelope {
+  kind: "guardian-nexus-project";
+  schemaVersion: 1;
+  exportedAt: string;
+  project: Omit<GuardianProject, "id" | "createdAt" | "updatedAt" | "completedAt" | "items"> & {
+    items: Array<Omit<GuardianProjectItem, "id">>;
+  };
 }
 
 export type BuildStatus = "draft" | "published" | "pending_review" | "rejected" | "archived";
