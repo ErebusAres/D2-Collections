@@ -14,7 +14,8 @@ Last updated: 2026-08-01
 - **Validated on the PR branch:** Mobile/PWA readiness now includes a safe-area-aware phone dock, prioritized app shortcuts, native install prompting, cache migration, and regression coverage.
 - **Validated on the PR branch:** Activity-scoped Fireteam readiness uses explicit opt-in, player-confirmed roles and prerequisites, public build summaries, and an official Bungie Fireteam Finder handoff without sharing inventory or Collections.
 - **Validated on the PR branch:** Build snapshots now support public discovery, unlisted direct links, private drafts, and a versioned account-neutral JSON export/import path.
-- **Active next implementation:** Private Guardian snapshots, clan planning/history, and broader checklist foundations.
+- **Validated on the PR branch:** Guardian snapshots are separately stored, player-curated, private by default, optionally unlisted through unguessable links, field-selective, and revocable; inventory and Collections fields are rejected.
+- **Active next implementation:** Clan planning/history and broader checklist foundations.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -62,7 +63,7 @@ Last updated: 2026-08-01
 
 - [x] Private drafts and unlisted direct-link build snapshots.
 - [x] Versioned account-neutral build export/import that always imports as a private draft.
-- [ ] Private or unlisted Guardian snapshots.
+- [x] Private or unlisted Guardian snapshots with explicit field selection and revocation.
 - [ ] Clan planning, activity history, broader collectible checklists, new-player explanations, broader cross-tool adapters, accessibility/localization, and fashion or challenge modes.
 
 ## Maintenance requirements

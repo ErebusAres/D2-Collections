@@ -1376,6 +1376,40 @@ export interface PortableBuildEnvelope {
   document: BuildDocument;
 }
 
+export type GuardianSnapshotVisibility = "private" | "unlisted";
+
+/** A player-curated card. Omitted fields stay private and no inventory ownership is supported. */
+export interface GuardianSnapshotDocument {
+  schemaVersion: 1;
+  title: string;
+  summary?: string;
+  visibility: GuardianSnapshotVisibility;
+  guardian?: {
+    displayName?: string;
+    className?: string;
+    power?: number;
+    guardianRank?: number;
+  };
+  role?: string;
+  selectedBuild?: { title: string; url?: string };
+  goals: string[];
+  tags: string[];
+  note?: string;
+  source: "player-curated";
+}
+
+export interface GuardianSnapshot {
+  slug: string;
+  document: GuardianSnapshotDocument;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+}
+
+export interface GuardianSnapshotsData {
+  snapshots: GuardianSnapshot[];
+}
+
 export interface BuildWorkingDraft {
   buildId: string;
   document: BuildDocument;

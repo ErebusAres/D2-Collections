@@ -28,6 +28,7 @@ const ReportsPage = lazy(() => import("./pages/ReportsPage").then((module) => ({
 const ReportDetailPage = lazy(() => import("./pages/ReportDetailPage").then((module) => ({ default: module.ReportDetailPage })));
 const ReportAdminPage = lazy(() => import("./pages/ReportAdminPage").then((module) => ({ default: module.ReportAdminPage })));
 const BuildsPage = lazy(() => import("./pages/BuildsPage").then((module) => ({ default: module.BuildsPage })));
+const GuardianSnapshotsPage = lazy(() => import("./pages/GuardianSnapshotsPage").then((module) => ({ default: module.GuardianSnapshotsPage })));
 const BuildDetailPage = lazy(() => import("./pages/BuildDetailPage").then((module) => ({ default: module.BuildDetailPage })));
 const BuildEditorPage = lazy(() => import("./pages/BuildEditorPage").then((module) => ({ default: module.BuildEditorPage })));
 const BuildAdvisorPage = lazy(() => import("./pages/BuildAdvisorPage").then((module) => ({ default: module.BuildAdvisorPage })));
@@ -86,6 +87,8 @@ export function App() {
         <Route path="builds/new" element={<PageRoute><BuildEditorPage /></PageRoute>} />
         <Route path="builds/:buildId/edit" element={<PageRoute><BuildEditorPage /></PageRoute>} />
         <Route path="builds/:buildId" element={<PageRoute><BuildDetailPage /></PageRoute>} />
+        <Route path="snapshots" element={<PageRoute><GuardianSnapshotsPage /></PageRoute>} />
+        <Route path="snapshots/:snapshotSlug" element={<PageRoute><GuardianSnapshotsPage /></PageRoute>} />
         <Route path="mailbox" element={<PageRoute><MailboxPage /></PageRoute>} />
         <Route path="dev" element={<PageRoute><DevPage /></PageRoute>} />
         <Route path="*" element={<Navigate to="/director" replace />} />

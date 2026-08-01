@@ -1,6 +1,6 @@
 import type { ReportAdminSummaryData, RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, Radar, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
+import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, IdCard, Layers3, ListTodo, Mail, Orbit, Radar, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
@@ -24,6 +24,7 @@ const tabs = [
   { to: "/builds", label: "Builds", icon: Hammer },
   { to: "/build-advisor", label: "Build Advisor", icon: ScanSearch },
   { to: "/watchlists", label: "Watchlists", icon: Radar },
+  { to: "/snapshots", label: "Snapshots", icon: IdCard },
   { to: "/fireteam", label: "Fireteam", icon: Users }
 ];
 

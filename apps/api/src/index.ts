@@ -72,6 +72,7 @@ import {
   updateNotificationState
 } from "./notifications";
 import { readRaidRotations } from "./worldState";
+import { guardianSnapshotsRoute } from "./guardianSnapshots";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -193,6 +194,8 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   }
   const buildsResponse = await buildsRoute(request, env, context);
   if (buildsResponse) return buildsResponse;
+  const snapshotsResponse = await guardianSnapshotsRoute(request, env, context);
+  if (snapshotsResponse) return snapshotsResponse;
 
   const session = await requireSession(request, env);
   const reportsResponse = await reportsRoute(request, env, context, session);

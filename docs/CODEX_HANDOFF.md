@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete, and the first Phase 5 slice adds unlisted builds plus portable build export/import. Private Guardian snapshots and planning/history/checklist foundations are next.
+Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete; Phase 5 now includes unlisted/portable builds and separately consented Guardian snapshots. Clan planning, history, and broader checklist foundations are next.
 
 ## Current repository state
 
@@ -52,6 +52,9 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 26. Added responsive readiness editing and member-card summaries plus a verified outward link to Bungie's official Fireteam Finder; Guardian Nexus does not recreate recruitment or matchmaking.
 27. Implemented published `unlisted` builds end to end: they remain absent from public catalog discovery but are available to anyone holding the direct link.
 28. Added versioned portable build JSON export/import. Exports explicitly omit membership IDs, author identity, votes, permissions, and server timestamps; imports are capped at 1 MB, version checked, normalized, and forced into a private draft.
+29. Added a separate Guardian snapshot contract and D1 store with owner-only private cards, unlisted direct-link cards using random UUID slugs, and immediate owner revocation.
+30. Added field-by-field snapshot inclusion for display name, class, Power, Guardian Rank, role, public build, goals, tags, and notes. The strict API schema rejects inventory, Collections, membership IDs, public discovery, unknown account fields, and unsafe link schemes.
+31. Added responsive snapshot creation, management, copy/open, public unlisted viewing, and revocation at `/snapshots`; snapshot responses never serialize the stored owner membership ID.
 
 ## Files in release scope
 
@@ -87,6 +90,11 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/web/src/modules/fireteam/readiness.test.ts`
 - `apps/web/src/modules/builds/portableBuild.ts`
 - `apps/web/src/modules/builds/portableBuild.test.ts`
+- `apps/api/src/guardianSnapshots.ts`
+- `apps/api/src/guardianSnapshots.test.ts`
+- `apps/api/migrations/0015_guardian_snapshots.sql`
+- `apps/web/src/pages/GuardianSnapshotsPage.tsx`
+- `apps/web/src/pages/GuardianSnapshotsPage.module.css`
 - `packages/contracts/src/index.ts`
 - `tools/sync-manifest.py`
 - `tools/sync_manifest_test.py`
@@ -106,12 +114,12 @@ The following passed on 2026-08-01:
 - ESLint with zero warnings
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
-- 169 API tests
+- 171 API tests
 - 213 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 373,722 bytes JavaScript, 114,735 bytes gzip, and 39,836 bytes entry CSS
+- performance budgets: 374,767 bytes JavaScript, 114,987 bytes gzip, and 39,836 bytes entry CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -128,6 +136,7 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 4. Mark the PR ready only after the reviewer agrees that the current phased scope is appropriate.
 5. Merge and deploy only when explicitly authorized; report merge SHA, workflow result, and production state separately.
 6. Continue the accepted roadmap in dependency order on the draft integration branch, updating this handoff after every validated slice.
+7. Apply D1 migration `0015_guardian_snapshots.sql` before deploying a web bundle that exposes `/snapshots`; no production migration or deployment has been performed from this branch.
 
 ## Next implementation queue
 
@@ -167,7 +176,8 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 ### P3: Expansion foundations
 
 - Completed the build portion of the versioned snapshot/export foundation: private drafts, link-only unlisted publication, account-neutral JSON export, and private-draft import.
-- Next, add a separately consented Guardian snapshot contract; do not reuse the build envelope for account state or add ownership fields to public/unlisted builds.
+- Completed the separately consented Guardian snapshot contract without reusing the build envelope or adding ownership fields to public/unlisted builds.
+- Next, build clan planning and activity-history summaries on private/account-scoped data; do not silently include Guardian snapshots in clan or Fireteam payloads.
 - Keep fashion/challenge modes and broader new-player explanations modular so they can consume the same snapshot/checklist contracts without hard-coded seasonal facts.
 
 ## Non-negotiable constraints
