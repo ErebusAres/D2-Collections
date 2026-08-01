@@ -1,7 +1,7 @@
 import type { GuardianRankData, JourneyProgressData, QuestData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Badge, CalendarDays, CheckSquare2, Crown, ListTodo, Radar, ScrollText, Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { JourneyNav } from "../components/journey/JourneyNav";
 import { ProgressSummaryCard } from "../components/journey/ProgressSummaryCard";
@@ -10,8 +10,14 @@ import { bountyCadence, guardianRankPercent, questKind, questPercent } from "../
 import { api } from "../services/api/client";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import styles from "./JourneyPage.module.css";
+import { ActivityHistoryPage } from "./ActivityHistoryPage";
 
 export function JourneyPage() {
+  const location = useLocation();
+  return location.pathname.endsWith("/history") ? <ActivityHistoryPage /> : <JourneyOverviewPage />;
+}
+
+function JourneyOverviewPage() {
   const { session, selectedCharacterId, autoRefresh } = useGuardian();
   const enabled = Boolean(session?.authenticated && selectedCharacterId);
   const quests = useQuery({

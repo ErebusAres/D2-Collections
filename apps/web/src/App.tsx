@@ -61,7 +61,7 @@ export function App() {
         <Route path="quests" element={<Navigate to="/journey" replace />} />
         <Route path="quests/tracker" element={<Navigate to="/journey/quests" replace />} />
         <Route path="quests/:questId" element={<PageRoute><QuestDetailPage /></PageRoute>} />
-        <Route path="journey" element={<PageRoute><JourneyPage /></PageRoute>} />
+        <Route path="journey/*" element={<PageRoute><JourneyPage /></PageRoute>} />
         <Route path="journey/quests" element={<PageRoute><QuestsPage /></PageRoute>} />
         <Route path="journey/bounties" element={<PageRoute><BountiesPage /></PageRoute>} />
         <Route path="journey/season" element={<PageRoute><SeasonalPage /></PageRoute>} />

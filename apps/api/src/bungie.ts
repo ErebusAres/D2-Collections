@@ -389,6 +389,33 @@ export async function pvpRecentActivitiesFor(
   };
 }
 
+export async function recentActivitiesFor(
+  row: SessionRow,
+  characterIds: string[],
+  env: Env,
+  accessToken: string,
+  count = 25
+): Promise<{ activities: Array<{ characterId: string; activity: any }>; returnedCharacters: number; warnings: string[] }> {
+  const boundedCount = Math.max(1, Math.min(50, Math.trunc(count)));
+  const results = await Promise.all(characterIds.map(async (characterId) => {
+    try {
+      const response = await bungieGet(`/Destiny2/${row.membership_type}/Account/${row.membership_id}/Character/${characterId}/Stats/Activities/?count=${boundedCount}&page=0`, env, accessToken);
+      return { characterId, activities: Array.isArray(response?.activities) ? response.activities : [] };
+    } catch (error: any) {
+      return {
+        characterId, activities: [], warning: Number(error?.status) === 429
+          ? "Bungie throttled part of the recent activity refresh."
+          : "Recent activity history could not be verified for one character. It may be private or temporarily unavailable."
+      };
+    }
+  }));
+  return {
+    activities: results.flatMap((result) => result.activities.map((activity: any) => ({ characterId: result.characterId, activity }))),
+    returnedCharacters: results.filter((result) => !result.warning).length,
+    warnings: [...new Set(results.flatMap((result) => result.warning ? [result.warning] : []))]
+  };
+}
+
 export function primaryMembership(memberships: any): any {
   const entries = memberships?.destinyMemberships || [];
   return entries.find((entry: any) => String(entry.membershipId) === String(memberships?.primaryMembershipId))

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-01",
+  "title": "Start with a playable Guardian",
+  "summary": "Use live account evidence first, then choose one achievable goal. Guardian Nexus never requires a perfect build before it gives you a useful next step.",
+  "steps": [
+    { "id": "rank", "title": "Follow Guardian Rank", "summary": "Guardian Rank objectives introduce core systems and give you a concrete next milestone.", "action": "Open Guardian Rank", "to": "/journey/guardian-rank" },
+    { "id": "build", "title": "Make a playable build", "summary": "Build Advisor checks the equipment Bungie returned, suggests owned alternatives, and separates playable-now upgrades from ideal targets.", "action": "Open Build Advisor", "to": "/build-advisor" },
+    { "id": "gear", "title": "Learn what you actually own", "summary": "A physical roll can be equipped; a Collections unlock may only prove that an item was discovered. Unknown data is not treated as missing.", "action": "Open Gear", "to": "/gear" },
+    { "id": "plan", "title": "Choose one session goal", "summary": "Next Steps looks for overlapping progress so a short session can advance more than one pursuit.", "action": "Plan a session", "to": "/next" },
+    { "id": "safety", "title": "Protect your rewards", "summary": "Check Postmaster capacity before long activities. Guardian Nexus may transfer or equip through supported APIs, but never dismantles gear or automates play.", "action": "Check Postmaster", "to": "/mailbox" }
+  ],
+  "terms": [
+    { "term": "Verified", "meaning": "Bungie returned enough account data to confirm the state shown." },
+    { "term": "Unknown", "meaning": "The required component was absent, private, stale, or unavailable; Guardian Nexus does not guess." },
+    { "term": "Collections unlock", "meaning": "The account has discovered an item. It does not prove a usable physical copy or a particular roll is currently owned." },
+    { "term": "Player-recorded", "meaning": "You entered or confirmed the information yourself; it is not presented as Bungie account truth." }
+  ]
+}

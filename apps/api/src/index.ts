@@ -1,5 +1,6 @@
 import type {
   ApiEnvelope,
+  ActivityHistoryData,
   AudienceDetailData,
   BuildAdvisorData,
   CollectionData,
@@ -38,7 +39,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, addXurCollectionStates, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -55,6 +56,7 @@ import { ironBannerHistoryResponse, normalizePvpData, normalizePvpProgressions }
 import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizeJourneyProgress, trackedItemsFromJourney } from "./journeyProgress";
 import { normalizePower, powerItemHashes } from "./power";
+import { normalizeActivityHistory } from "./activityHistory";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
 import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemKey, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
@@ -211,6 +213,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/guardian-rank" && request.method === "GET") return guardianRank(session.row, env, context);
   if (path === "/api/v1/me/power" && request.method === "GET") return power(session.row, env, context);
   if (path === "/api/v1/me/pvp" && request.method === "GET") return pvp(session.row, env, context);
+  if (path === "/api/v1/me/activity-history" && request.method === "GET") return activityHistory(session.row, env, context);
   if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "GET") return rewardCodeStatus(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateRewardCodePreference(request, session.row, env, context); }
@@ -561,6 +564,28 @@ async function pvp(row: SessionRow, env: Env, context: RequestContext): Promise<
     ...recent.warnings
   ];
   return envelope<PvpData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
+}
+
+async function activityHistory(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile, accessToken } = await profileFor(row, env, "session");
+  const characters = charactersFromProfile(profile);
+  const [manifest, recent] = await Promise.all([
+    loadActivityManifest(env),
+    recentActivitiesFor(row, characters.map((entry) => entry.characterId), env, accessToken)
+  ]);
+  const data = normalizeActivityHistory({
+    rows: recent.activities,
+    characterClasses: Object.fromEntries(characters.map((entry) => [entry.characterId, entry.className])),
+    activityDefinitions: manifest.activityDefinitions,
+    manifestVersion: manifest.version,
+    returnedCharacters: recent.returnedCharacters,
+    totalCharacters: characters.length
+  });
+  const warnings = [
+    ...(manifest.version === "unavailable" ? ["Current activity names are unavailable from the deployed Bungie manifest."] : []),
+    ...recent.warnings
+  ];
+  return envelope<ActivityHistoryData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
 }
 
 async function rewards(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

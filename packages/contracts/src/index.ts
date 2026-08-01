@@ -617,6 +617,39 @@ export interface FireteamCompletedTrackedItem extends FireteamTrackedItem {
   completedAt: string;
 }
 
+export type ActivityHistoryKind = "pve" | "pvp" | "gambit" | "other";
+
+export interface ActivityHistoryEntry {
+  instanceId: string;
+  characterId: string;
+  characterClass: GuardianClass;
+  period: string;
+  activityHash: string;
+  activityName: string;
+  activityDescription?: string;
+  kind: ActivityHistoryKind;
+  mode?: number;
+  modeName: string;
+  completed?: boolean;
+  durationSeconds?: number;
+  score?: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+}
+
+export interface ActivityHistoryData {
+  manifestVersion: string;
+  state: "available" | "partial" | "empty" | "unavailable";
+  activities: ActivityHistoryEntry[];
+  returnedCharacters: number;
+  totalCharacters: number;
+  sources: {
+    activities: "Destiny2.GetActivityHistory for each current character";
+    definitions: "DestinyActivityDefinition manifest data";
+  };
+}
+
 export type FireteamReadinessRole = "damage" | "support" | "control" | "flex";
 export type FireteamReadinessState = "ready" | "needs-attention" | "not-checked";
 
