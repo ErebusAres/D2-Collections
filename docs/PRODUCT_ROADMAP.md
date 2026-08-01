@@ -15,7 +15,8 @@ Last updated: 2026-08-01
 - **Validated on the PR branch:** Activity-scoped Fireteam readiness uses explicit opt-in, player-confirmed roles and prerequisites, public build summaries, and an official Bungie Fireteam Finder handoff without sharing inventory or Collections.
 - **Validated on the PR branch:** Build snapshots now support public discovery, unlisted direct links, private drafts, and a versioned account-neutral JSON export/import path.
 - **Validated on the PR branch:** Guardian snapshots are separately stored, player-curated, private by default, optionally unlisted through unguessable links, field-selective, and revocable; inventory and Collections fields are rejected.
-- **Active next implementation:** Clan planning/history and broader checklist foundations.
+- **Validated on the PR branch:** Guardian Projects provides account-private activity plans, clan coordination drafts, reusable collection checklists, optional display-label assignments, and clearly player-recorded completion history.
+- **Active next implementation:** Bungie-backed activity history summaries and broader new-player guidance.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -64,7 +65,8 @@ Last updated: 2026-08-01
 - [x] Private drafts and unlisted direct-link build snapshots.
 - [x] Versioned account-neutral build export/import that always imports as a private draft.
 - [x] Private or unlisted Guardian snapshots with explicit field selection and revocation.
-- [ ] Clan planning, activity history, broader collectible checklists, new-player explanations, broader cross-tool adapters, accessibility/localization, and fashion or challenge modes.
+- [x] Account-private clan/activity planning and broader collectible checklists with player-recorded completion history.
+- [ ] Bungie-backed activity history, new-player explanations, broader cross-tool adapters, accessibility/localization, and fashion or challenge modes.
 
 ## Maintenance requirements
 

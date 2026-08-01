@@ -1045,6 +1045,7 @@ export type UserPreferenceKey =
   | "planner.focus"
   | "watchlists.buildAcquisitions"
   | "watchlists.v1"
+  | "projects.v1"
   | "site.autoRefresh"
   | "site.reducedMotion"
   | "site.character";
@@ -1056,6 +1057,35 @@ export interface UserPreferencesData {
 export interface UpdateUserPreferenceRequest {
   key: UserPreferenceKey;
   value: string;
+}
+
+export type GuardianProjectKind = "activity" | "clan" | "collection";
+export type GuardianProjectItemState = "todo" | "done" | "skipped";
+
+export interface GuardianProjectItem {
+  id: string;
+  label: string;
+  state: GuardianProjectItemState;
+  assignee?: string;
+}
+
+export interface GuardianProject {
+  id: string;
+  kind: GuardianProjectKind;
+  title: string;
+  activity?: string;
+  scheduledAt?: string;
+  note?: string;
+  sourceUrl?: string;
+  items: GuardianProjectItem[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface GuardianProjectsDocument {
+  schemaVersion: 1;
+  projects: GuardianProject[];
 }
 
 export type BuildStatus = "draft" | "published" | "pending_review" | "rejected" | "archived";

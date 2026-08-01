@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete; Phase 5 now includes unlisted/portable builds and separately consented Guardian snapshots. Clan planning, history, and broader checklist foundations are next.
+Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete; Phase 5 now includes unlisted/portable builds, separately consented Guardian snapshots, and a private Guardian Projects workspace. Bungie-backed activity history and broader new-player guidance are next.
 
 ## Current repository state
 
@@ -55,6 +55,9 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 29. Added a separate Guardian snapshot contract and D1 store with owner-only private cards, unlisted direct-link cards using random UUID slugs, and immediate owner revocation.
 30. Added field-by-field snapshot inclusion for display name, class, Power, Guardian Rank, role, public build, goals, tags, and notes. The strict API schema rejects inventory, Collections, membership IDs, public discovery, unknown account fields, and unsafe link schemes.
 31. Added responsive snapshot creation, management, copy/open, public unlisted viewing, and revocation at `/snapshots`; snapshot responses never serialize the stored owner membership ID.
+32. Added a versioned `projects.v1` account preference with defensive normalization, bounded projects and checklist items, safe reference URLs, and backward-compatible empty defaults.
+33. Added private activity plans, clan coordination drafts, and broader collection checklists with optional player-entered assignee labels, schedules, notes, and progress states.
+34. Added explicit completion and restore controls plus a clearly labeled player-recorded history. It does not claim to be Bungie activity history or share data with clan members.
 
 ## Files in release scope
 
@@ -73,6 +76,7 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/web/src/pages/WatchlistsPage.tsx`
 - `apps/web/src/pages/WatchlistsPage.module.css`
 - `apps/web/src/App.tsx`
+- `apps/web/src/App.module.css`
 - `apps/web/src/components/layout/Shell.tsx`
 - `apps/web/src/components/layout/Shell.module.css`
 - `apps/web/src/components/layout/Shell.test.tsx`
@@ -95,6 +99,10 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/api/migrations/0015_guardian_snapshots.sql`
 - `apps/web/src/pages/GuardianSnapshotsPage.tsx`
 - `apps/web/src/pages/GuardianSnapshotsPage.module.css`
+- `apps/web/src/modules/projects/projects.ts`
+- `apps/web/src/modules/projects/projects.test.ts`
+- `apps/web/src/pages/ProjectsPage.tsx`
+- `apps/web/src/pages/ProjectsPage.module.css`
 - `packages/contracts/src/index.ts`
 - `tools/sync-manifest.py`
 - `tools/sync_manifest_test.py`
@@ -115,11 +123,11 @@ The following passed on 2026-08-01:
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
 - 171 API tests
-- 213 web tests
+- 215 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 374,767 bytes JavaScript, 114,987 bytes gzip, and 39,836 bytes entry CSS
+- performance budgets: 374,277 bytes JavaScript, 114,897 bytes gzip, and 39,988 bytes entry CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -177,7 +185,9 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 
 - Completed the build portion of the versioned snapshot/export foundation: private drafts, link-only unlisted publication, account-neutral JSON export, and private-draft import.
 - Completed the separately consented Guardian snapshot contract without reusing the build envelope or adding ownership fields to public/unlisted builds.
-- Next, build clan planning and activity-history summaries on private/account-scoped data; do not silently include Guardian snapshots in clan or Fireteam payloads.
+- Completed the account-private Guardian Projects foundation for activity plans, clan coordination drafts, broader collection checklists, and player-recorded completion history.
+- Projects is routed through the existing lazy planning surface at `/next/projects` and linked from Next Steps, keeping the global header stable and the entry bundle inside its enforced budgets.
+- Next, build Bungie-backed activity-history summaries on private/account-scoped data; do not silently include Guardian snapshots in clan or Fireteam payloads.
 - Keep fashion/challenge modes and broader new-player explanations modular so they can consume the same snapshot/checklist contracts without hard-coded seasonal facts.
 
 ## Non-negotiable constraints

@@ -2,11 +2,12 @@ import type { CollectionData, ExoticCollectionEntry, GuardianRankData, GuardianR
 import { useQuery } from "@tanstack/react-query";
 import { Bookmark, CheckCircle2, ChevronRight, Clock3, Compass, Crosshair, MapPin, Send, Shield, Sparkles, Swords, Timer } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { AuthGate, PageHeader, QueryState } from "../components/common/Page";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { api } from "../services/api/client";
 import styles from "./NextStepsPage.module.css";
+import { ProjectsPage } from "./ProjectsPage";
 
 export interface SuggestedGoal {
   id: string;
@@ -33,6 +34,11 @@ type SessionMode = "solo" | "either" | "fireteam";
 type SessionFocus = "any" | SuggestedGoal["kind"];
 
 export function NextStepsPage() {
+  const location = useLocation();
+  return location.pathname.endsWith("/projects") ? <ProjectsPage /> : <SessionPlannerPage />;
+}
+
+function SessionPlannerPage() {
   const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
   const membershipId = session?.guardian?.membershipId || "";
   const [tracked, setTracked] = useState<string[]>(() => readPins(membershipId, selectedCharacterId));
@@ -67,7 +73,7 @@ export function NextStepsPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Personalized Director" title="Next Steps" description="Game objectives selected from this Guardian's current pursuits, Journey progress, and missing Exotics." />
+    <PageHeader eyebrow="Personalized Director" title="Next Steps" description="Game objectives selected from this Guardian's current pursuits, Journey progress, and missing Exotics." actions={<Link to="/next/projects" style={{ minHeight: 36, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 10px", border: "1px solid var(--line)", color: "var(--ink)", textDecoration: "none" }}><Compass size={16} /> Guardian projects</Link>} />
     <QueryState loading={loading} error={error as Error} hasData={hasData} onRetry={() => void Promise.all([quests.refetch(), ranks.refetch(), collection.refetch()])} />
     {hasData && <>
       <section className={styles.hero}><Compass /><div><span>Not sure what to do?</span><h2>Pick a route and keep Fireteam open</h2><p>Tracking a live pursuit adds it to the same shared Fireteam feed used by Destiny-tracked quests, Orders, and Guardian Rank objectives.</p></div></section>

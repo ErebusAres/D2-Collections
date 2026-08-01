@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { lazy, Suspense, type ReactNode } from "react";
 import { LoaderCircle } from "lucide-react";
+import styles from "./App.module.css";
 import { Shell } from "./components/layout/Shell";
 const CollectionPage = lazy(() => import("./pages/CollectionPage").then((module) => ({ default: module.CollectionPage })));
 const DevPage = lazy(() => import("./pages/DevPage").then((module) => ({ default: module.DevPage })));
@@ -39,7 +40,7 @@ const RaidRotationsPage = lazy(() => import("./pages/RaidRotationsPage").then((m
 const WatchlistsPage = lazy(() => import("./pages/WatchlistsPage").then((module) => ({ default: module.WatchlistsPage })));
 
 function RouteFallback() {
-  return <section aria-live="polite" style={{ minHeight: 360, display: "grid", placeItems: "center", border: "1px solid var(--line)", background: "rgba(5,13,19,.55)", color: "var(--muted)" }}><span style={{ display: "grid", placeItems: "center", gap: 10, textTransform: "uppercase", letterSpacing: ".1em", fontSize: 11 }}><LoaderCircle className="spin" /> Loading Guardian data</span></section>;
+  return <section className={styles.fallback} aria-live="polite"><span><LoaderCircle /> Loading</span></section>;
 }
 
 function PageRoute({ children }: { children: ReactNode }) { return <Suspense fallback={<RouteFallback />}>{children}</Suspense>; }
@@ -79,7 +80,7 @@ export function App() {
         <Route path="fireteam" element={<PageRoute><FireteamPage /></PageRoute>} />
         <Route path="matrix" element={<PageRoute><MatrixPage /></PageRoute>} />
         <Route path="build-advisor" element={<PageRoute><BuildAdvisorPage /></PageRoute>} />
-        <Route path="next" element={<PageRoute><NextStepsPage /></PageRoute>} />
+        <Route path="next/*" element={<PageRoute><NextStepsPage /></PageRoute>} />
         <Route path="audience" element={<PageRoute><AudiencePage /></PageRoute>} />
         <Route path="gear" element={<PageRoute><GearPage /></PageRoute>} />
         <Route path="loadouts" element={<PageRoute><LoadoutsPage /></PageRoute>} />
