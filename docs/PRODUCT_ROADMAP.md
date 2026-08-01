@@ -6,11 +6,11 @@ Guardian Nexus is a player-decision companion. New features should help a Guardi
 
 Last updated: 2026-08-01
 
-- **Ready to publish:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization.
-- **Ready to publish:** The first Phase 3 session planner slice and the Phase 4 installable PWA foundation.
+- **Published for review:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are in draft PR #53.
+- **Published for review:** The first Phase 3 session planner slice and the Phase 4 installable PWA foundation are also in draft PR #53.
 - **Next implementation:** Phase 2 weapon workspace. Its first prerequisite is expanding the deliberately armor-only Gear manifest with versioned weapon definitions and relevant weapon plugs.
 - **After weapons:** Broader account-private watchlists, planner overlap/deadline logic, mobile surface refinement, and activity-scoped Fireteam readiness.
-- **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact working-tree state, checks, exclusions, and publish commands.
+- **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
 

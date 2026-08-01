@@ -14,9 +14,11 @@ Publish the cohesive Build Advisor 2, farming watchlist, session planner, and PW
 - Release branch: `agent/build-advisor-planning-foundation`
 - Base branch: `main` at `3390937b4dbe7de670636cf18bae869b7cd5baa2`
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
-- Local changes are not committed or pushed yet.
+- Implementation commit: `bd3e875` (`Add Build Advisor planning foundation`)
+- Draft pull request: `https://github.com/ErebusAres/D2-Collections/pull/53`
+- The release branch is pushed and tracks `origin/agent/build-advisor-planning-foundation`.
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
-- No production deployment has been requested. Publishing this change means branch, commit, push, and draft pull request only.
+- No production deployment has been requested or performed. The release is published for review only.
 
 ## Completed release scope
 
@@ -76,13 +78,12 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 
 ## Remaining release steps
 
-1. Review `git status -sb` and confirm `.codex-remote-attachments/` remains excluded.
-2. Stage only the files listed in **Files in release scope**.
-3. Inspect `git diff --cached --check` and `git diff --cached --stat`.
-4. Commit with `Add Build Advisor planning foundation`.
-5. Push the branch with upstream tracking.
-6. Open a draft PR targeting `main`. Include scope, player impact, backward compatibility, privacy guarantees, validation, dependency-advisory note, and deferred weapon-manifest work.
-7. Report the branch, commit SHA, draft PR URL, check state, and explicit deployment state to the user.
+1. Monitor draft PR #53 checks and inspect any failure before changing code.
+2. Perform review and any requested browser or live-account QA on the draft branch.
+3. Keep `.codex-remote-attachments/` excluded from future commits.
+4. Mark the PR ready only after the reviewer agrees that the current phased scope is appropriate.
+5. Merge and deploy only when explicitly authorized; report merge SHA, workflow result, and production state separately.
+6. Begin the weapon-manifest follow-up from the updated `main` after this PR lands rather than stacking unreviewed feature work onto the release branch.
 
 ## Next implementation queue
 
