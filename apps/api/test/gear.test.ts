@@ -2,6 +2,47 @@ import { describe, expect, it } from "vitest";
 import { normalizeGear } from "../src/gear";
 
 describe("normalizeGear", () => {
+  it("normalizes physical weapon rolls, selectable perks, and explainable duplicate review state", () => {
+    const profile = {
+      profileInventory: { data: { items: [
+        { itemHash: 11, itemInstanceId: "101" },
+        { itemHash: 11, itemInstanceId: "102" }
+      ] } },
+      itemComponents: {
+        sockets: { data: {
+          "101": { sockets: [{ plugHash: 21 }, { plugHash: 22 }, { plugHash: 23 }] },
+          "102": { sockets: [{ plugHash: 21 }, { plugHash: 24 }, { plugHash: 23 }] }
+        } },
+        reusablePlugs: { data: {
+          "101": { plugs: { "1": [{ plugItemHash: 22 }, { plugItemHash: 24 }] } },
+          "102": { plugs: { "1": [{ plugItemHash: 22 }, { plugItemHash: 24 }] } }
+        } },
+        instances: { data: {
+          "101": { primaryStat: { value: 500 }, isCrafted: true },
+          "102": { primaryStat: { value: 500 } }
+        } },
+        state: { data: {} }
+      }
+    };
+    const manifest: any = {
+      version: "weapon-test", generatedAt: "now",
+      gearItemDefinitions: { "11": { itemType: 3, itemTypeDisplayName: "Auto Rifle", defaultDamageType: 2, inventory: { tierTypeName: "Legendary", bucketTypeHash: "2465295065" }, displayProperties: { name: "Test Rifle", icon: "/rifle.png" } } },
+      plugDefinitions: {
+        "21": { hash: 21, displayProperties: { name: "Adaptive Frame" }, plug: { plugCategoryIdentifier: "weapon.intrinsics" } },
+        "22": { hash: 22, displayProperties: { name: "Incandescent" }, plug: { plugCategoryIdentifier: "weapon.traits" } },
+        "23": { hash: 23, displayProperties: { name: "Test Origin" }, plug: { plugCategoryIdentifier: "weapon.origin_traits" } },
+        "24": { hash: 24, displayProperties: { name: "Target Lock" }, plug: { plugCategoryIdentifier: "weapon.traits" } }
+      }, statDefinitions: {}
+    };
+
+    const data = normalizeGear(profile, manifest, "character", "Warlock", new Map(), "2026-08-01T00:00:00Z");
+    expect(data.gearSchemaVersion).toBe(2);
+    expect(data.weapons).toHaveLength(2);
+    expect(data.weapons?.[0]).toMatchObject({ name: "Test Rifle", slot: "Energy", damageType: "Arc", crafted: true, duplicateCount: 2, reviewState: "configured" });
+    expect(data.weapons?.[0]?.perkColumns[1]).toMatchObject({ active: { name: "Incandescent" }, options: expect.arrayContaining([expect.objectContaining({ name: "Target Lock" })]) });
+    expect(data.weapons?.[1]).toMatchObject({ duplicateCount: 2, reviewState: "duplicate-review" });
+  });
+
   it("uses Bungie manifest imagery and separates base from active adjustments", () => {
     const profile = {
       profileInventory: { data: { items: [{ itemHash: 10, itemInstanceId: "100", state: 1 }] } },

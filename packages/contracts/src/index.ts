@@ -758,13 +758,55 @@ export interface ArmorItem {
   isNew: boolean;
 }
 
+export type WeaponRollDataState = "complete" | "partial" | "unavailable";
+export type WeaponReviewState = "configured" | "unique" | "duplicate-review" | "incomplete-data";
+
+export interface WeaponPerkColumn {
+  socketIndex: number;
+  active?: ArmorPerk;
+  options: ArmorPerk[];
+}
+
+export interface WeaponItem {
+  instanceId: string;
+  itemHash: string;
+  name: string;
+  icon: string;
+  itemType: string;
+  slot: "Kinetic" | "Energy" | "Power" | "Unknown";
+  damageType: "Kinetic" | "Arc" | "Solar" | "Void" | "Stasis" | "Strand" | "Unknown";
+  rarity: string;
+  power: number;
+  ownerCharacterId?: string;
+  location: GearLocation;
+  equipped: boolean;
+  locked: boolean;
+  masterworked: boolean;
+  crafted: boolean;
+  enhanced: boolean;
+  perkColumns: WeaponPerkColumn[];
+  originTraits: ArmorPerk[];
+  masterwork?: ArmorPerk;
+  rollDataState: WeaponRollDataState;
+  reviewState: WeaponReviewState;
+  reviewReasons: string[];
+  duplicateCount: number;
+  wishlisted: boolean;
+  tag?: GearTag;
+  firstSeenAt: string;
+  dismissedAt?: string;
+  isNew: boolean;
+}
+
 export interface GearData {
+  gearSchemaVersion?: 2;
   manifestVersion: string;
   selectedCharacterId: string;
   selectedClass: GuardianClass;
   items: ArmorItem[];
+  weapons?: WeaponItem[];
   statIcons: Partial<Record<ArmorStatKey, string>>;
-  totals: { armor: number; vault: number; equipped: number; locked: number; grouped: number; newItems: number };
+  totals: { armor: number; weapons?: number; vault: number; equipped: number; locked: number; grouped: number; newItems: number };
 }
 
 export type GearActionRequest =
@@ -927,6 +969,9 @@ export interface LoadoutsData {
 export type UserPreferenceKey =
   | "gear.sort"
   | "gear.filters"
+  | "gear.workspace"
+  | "weapons.filters"
+  | "weapons.wishlist"
   | "collection.sort"
   | "collection.filters"
   | "collection.tracked"

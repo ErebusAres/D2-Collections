@@ -107,7 +107,8 @@ const equipBuildAdvisorSchema = z.object({
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
-  z.object({ key: z.enum(["gear.filters", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters", "watchlists.buildAcquisitions"]), value: z.string().max(12_000) }),
+  z.object({ key: z.enum(["gear.filters", "weapons.filters", "weapons.wishlist", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters", "watchlists.buildAcquisitions"]), value: z.string().max(12_000) }),
+  z.object({ key: z.literal("gear.workspace"), value: z.enum(["armor", "weapons"]) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.literal("planner.duration"), value: z.enum(["30", "60", "120"]) }),
@@ -618,11 +619,11 @@ async function gear(row: SessionRow, env: Env, context: RequestContext): Promise
   const states = await gearStates(row.membership_id, env);
   const now = new Date().toISOString();
   const data = normalizeGear(profile, manifest, character.characterId, character.className, states, now);
-  const missing = data.items.filter((item) => !states.has(item.instanceId));
+  const missing = [...data.items, ...(data.weapons || [])].filter((item) => !states.has(item.instanceId));
   for (let offset = 0; offset < missing.length; offset += 80) {
     await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
   }
-  return envelope<GearData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: manifest.version !== "unavailable" ? [] : ["Armor manifest data is unavailable; refresh the deployment manifest before using Gear."] });
+  return envelope<GearData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: manifest.version !== "unavailable" ? [] : ["Gear manifest data is unavailable; refresh the deployment manifest before using Gear."] });
 }
 
 async function mailbox(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -768,8 +769,9 @@ async function updateGearState(request: Request, row: SessionRow, env: Env, cont
   const character = selectedCharacter(charactersFromProfile(profile));
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const states = await gearStates(row.membership_id, env);
-  const item = normalizeGear(profile, manifest, character.characterId, character.className, states, new Date().toISOString()).items.find((entry) => entry.instanceId === input.itemInstanceId);
-  if (!item) throw httpError(404, "gear_item_missing", "That armor item does not belong to this Guardian.");
+  const gear = normalizeGear(profile, manifest, character.characterId, character.className, states, new Date().toISOString());
+  const item = [...gear.items, ...(gear.weapons || [])].find((entry) => entry.instanceId === input.itemInstanceId);
+  if (!item) throw httpError(404, "gear_item_missing", "That gear item does not belong to this Guardian.");
   const now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO gear_item_state (membership_id, item_instance_id, tag, first_seen_at, dismissed_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(membership_id, item_instance_id) DO UPDATE SET tag = excluded.tag, dismissed_at = excluded.dismissed_at, updated_at = excluded.updated_at`)
@@ -790,7 +792,8 @@ async function gearAction(request: Request, row: SessionRow, env: Env, context: 
   const characters = charactersFromProfile(profile);
   const selected = selectedCharacter(characters, "characterId" in input ? input.characterId : "targetCharacterId" in input ? input.targetCharacterId : undefined) || characters[0];
   if (!selected) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const items = normalizeGear(profile, manifest, selected.characterId, selected.className, await gearStates(row.membership_id, env), new Date().toISOString()).items;
+  const gear = normalizeGear(profile, manifest, selected.characterId, selected.className, await gearStates(row.membership_id, env), new Date().toISOString());
+  const items = [...gear.items, ...(gear.weapons || [])];
   const byId = new Map(items.map((item) => [item.instanceId, item]));
   const requested = input.action === "groupPull" ? input.itemInstanceIds : [input.itemInstanceId];
   const result: GearActionResult = { action: input.action, succeeded: [], skipped: [], failed: [] };
@@ -840,7 +843,7 @@ async function transfer(item: any, toVault: boolean, characterId: string, row: S
 async function moveToCharacter(item: any, characterId: string, row: SessionRow, env: Env, accessToken: string): Promise<void> {
   if (item.location === "vault") return transfer(item, false, characterId, row, env, accessToken);
   if (item.ownerCharacterId === characterId) return;
-  if (item.equipped) throw httpError(409, "item_equipped", "Equip another item before moving this equipped armor.");
+  if (item.equipped) throw httpError(409, "item_equipped", "Equip another item before moving this equipped gear item.");
   await transfer(item, true, item.ownerCharacterId, row, env, accessToken);
   await transfer(item, false, characterId, row, env, accessToken);
 }

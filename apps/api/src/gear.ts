@@ -1,4 +1,4 @@
-import type { ArmorAdjustment, ArmorItem, ArmorPerk, ArmorStatKey, ArmorStats, GearData, GearManifest, GearTag, GuardianClass } from "@guardian-nexus/contracts";
+import type { ArmorAdjustment, ArmorItem, ArmorPerk, ArmorStatKey, ArmorStats, GearData, GearManifest, GearTag, GuardianClass, WeaponItem, WeaponPerkColumn } from "@guardian-nexus/contracts";
 import { ARMOR_STAT_KEYS, armorGrade, imageUrl } from "@guardian-nexus/domain";
 
 const STAT_HASHES: Record<string, ArmorStatKey> = { "392767087": "health", "4244567218": "melee", "1735777505": "grenade", "144602215": "super", "1943323491": "class", "2996146975": "weapons" };
@@ -18,6 +18,8 @@ const ARCHETYPES = new Set([
   "powerhouse"
 ]);
 const TUNING_CATEGORY = "core.gear_systems.armor_tiering.plugs.tuning.mods";
+const WEAPON_SLOT_HASHES: Record<string, WeaponItem["slot"]> = { "1498876634": "Kinetic", "2465295065": "Energy", "953998645": "Power" };
+const DAMAGE_TYPES: Record<number, WeaponItem["damageType"]> = { 1: "Kinetic", 2: "Arc", 3: "Solar", 4: "Void", 6: "Stasis", 7: "Strand" };
 
 export interface GearStateRow { item_instance_id: string; tag?: GearTag; first_seen_at: string; dismissed_at?: string }
 
@@ -35,16 +37,36 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
   for (const [owner, container] of Object.entries(profile?.characterEquipment?.data || {}) as any) for (const item of container?.items || []) collected.push({ item, owner, location: "equipped", equipped: true });
   const seen = new Set<string>();
   const items: ArmorItem[] = [];
+  const weapons: WeaponItem[] = [];
   for (const entry of collected) {
     const instanceId = String(entry.item?.itemInstanceId || "");
     if (!instanceId || seen.has(instanceId)) continue;
     seen.add(instanceId);
     const itemHash = String(Number(entry.item?.itemHash) >>> 0);
     const definition: any = definitions[itemHash];
-    if (!definition || Number(definition.itemType) !== 2) continue;
+    if (!definition || ![2, 3].includes(Number(definition.itemType))) continue;
     const itemSockets = sockets[instanceId]?.sockets || [];
     const activePlugHashes = itemSockets.map((socket: any) => hashOf(socket?.plugHash || socket?.plugItemHash)).filter((hash: string) => hash !== "0");
     const activePlugs = activePlugHashes.map((hash: string) => plugs[hash]).filter(Boolean) as any[];
+    const state = states.get(instanceId);
+    const instance = instances[instanceId] || {};
+    const itemState = Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0);
+    if (Number(definition.itemType) === 3) {
+      const perkColumns = weaponPerkColumns(itemSockets, reusablePlugs[instanceId]?.plugs || {}, plugs);
+      const originTraits = activePlugs.filter((plug) => weaponPlugKind(plug) === "origin").map(perk).filter((value) => value.name);
+      const masterwork = activePlugs.find((plug) => weaponPlugKind(plug) === "masterwork");
+      const rollDataState: WeaponItem["rollDataState"] = perkColumns.length >= 2 && perkColumns.every((column) => column.active) ? "complete" : activePlugs.length || perkColumns.length ? "partial" : "unavailable";
+      const enhanced = activePlugs.some((plug) => /enhanced|enhancement/i.test(`${plug?.displayProperties?.name} ${plug?.plug?.plugCategoryIdentifier}`));
+      weapons.push({
+        instanceId, itemHash, name: String(definition.displayProperties?.name || "Unknown Weapon"), icon: imageUrl(definition.displayProperties?.icon), itemType: String(definition.itemTypeDisplayName || "Weapon"),
+        slot: WEAPON_SLOT_HASHES[String(definition.inventory?.bucketTypeHash || "")] || "Unknown", damageType: DAMAGE_TYPES[Number(definition.defaultDamageType)] || "Unknown",
+        rarity: String(definition.inventory?.tierTypeName || "Legendary"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
+        location: entry.location, equipped: entry.equipped, locked: Boolean(itemState & 1), masterworked: Boolean(itemState & 4), crafted: Boolean(instance.isCrafted), enhanced,
+        perkColumns, originTraits, ...(masterwork ? { masterwork: perk(masterwork) } : {}), rollDataState, reviewState: "unique", reviewReasons: [], duplicateCount: 1, wishlisted: false,
+        tag: state?.tag, firstSeenAt: state?.first_seen_at || now, dismissedAt: state?.dismissed_at, isNew: !state?.dismissed_at && !state?.tag
+      });
+      continue;
+    }
     const currentStats = statsFromComponent(stats[instanceId]?.stats || {});
     const archetypeDef = activePlugs.find((plug) => ARCHETYPES.has(normalize(plug?.displayProperties?.name)) || normalize(plug?.plug?.plugCategoryIdentifier).includes("archetype"));
     // Armor archetypes/intrinsics define the roll itself. DIM treats those as
@@ -56,9 +78,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
     const tunedStat = resolveTunedStat(itemSockets, reusablePlugs[instanceId]?.plugs || {}, plugs, tuningDef);
     const ornamentDef = activePlugs.find(isEquippedArmorOrnament);
     const setDefs = activePlugs.filter((plug) => /set bonus|piece bonus|pieces equipped/i.test(`${plug?.displayProperties?.name} ${plug?.displayProperties?.description}`));
-    const state = states.get(instanceId);
     const baseTotal = total(baseStats); const currentTotal = total(currentStats);
-    const instance = instances[instanceId] || {};
     items.push({
       instanceId, itemHash, name: String(definition.displayProperties?.name || "Unknown Armor"), icon: imageUrl(ornamentDef?.displayProperties?.icon || definition.displayProperties?.icon), className: CLASS_NAMES[Number(definition.classType)] || "Unknown",
       slot: String(definition.itemTypeDisplayName || "Armor"), rarity: String(definition.inventory?.tierTypeName || "Legendary"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
@@ -68,8 +88,48 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
       baseStats, currentStats, adjustments, baseTotal, currentTotal, grade: armorGrade(baseStats), tag: state?.tag, firstSeenAt: state?.first_seen_at || now, dismissedAt: state?.dismissed_at, isNew: !state?.dismissed_at && !state?.tag
     });
   }
+  const weaponCounts = new Map<string, number>();
+  for (const weapon of weapons) weaponCounts.set(weapon.itemHash, (weaponCounts.get(weapon.itemHash) || 0) + 1);
+  for (const weapon of weapons) {
+    weapon.duplicateCount = weaponCounts.get(weapon.itemHash) || 1;
+    weapon.reviewState = weapon.rollDataState !== "complete" ? "incomplete-data"
+      : weapon.crafted || weapon.enhanced || weapon.masterworked ? "configured"
+        : weapon.duplicateCount > 1 ? "duplicate-review" : "unique";
+    weapon.reviewReasons = weapon.reviewState === "incomplete-data" ? ["Bungie did not return enough socket data for a complete roll comparison."]
+      : weapon.reviewState === "configured" ? [weapon.crafted ? "This is a crafted weapon." : weapon.enhanced ? "This weapon has enhanced traits." : "This weapon is masterworked."]
+        : weapon.reviewState === "duplicate-review" ? [`You own ${weapon.duplicateCount} physical copies; compare perk columns before deciding which to keep.`]
+          : ["This is the only physical copy found on the account."];
+  }
   const statIcons = Object.fromEntries(Object.entries(STAT_HASHES).map(([hash, key]) => [key, imageUrl((manifest.statDefinitions[hash] as any)?.displayProperties?.icon)]).filter(([, icon]) => icon));
-  return { manifestVersion: manifest.version, selectedCharacterId, selectedClass, items, statIcons, totals: { armor: items.length, vault: items.filter((item) => item.location === "vault").length, equipped: items.filter((item) => item.equipped).length, locked: items.filter((item) => item.locked).length, grouped: 0, newItems: items.filter((item) => item.isNew).length } };
+  return { gearSchemaVersion: 2, manifestVersion: manifest.version, selectedCharacterId, selectedClass, items, weapons, statIcons, totals: { armor: items.length, weapons: weapons.length, vault: items.filter((item) => item.location === "vault").length, equipped: items.filter((item) => item.equipped).length, locked: items.filter((item) => item.locked).length, grouped: 0, newItems: items.filter((item) => item.isNew).length } };
+}
+
+function weaponPerkColumns(itemSockets: any[], reusableBySocket: Record<string, any[]>, plugs: Record<string, any>): WeaponPerkColumn[] {
+  return itemSockets.map((socket, socketIndex): WeaponPerkColumn | undefined => {
+    const activeHash = hashOf(socket?.plugHash || socket?.plugItemHash);
+    const activeDefinition = activeHash !== "0" ? plugs[activeHash] : undefined;
+    const optionHashes = [
+      ...(socket?.reusablePlugHashes || []),
+      ...(socket?.reusablePlugItems || []).map((entry: any) => entry?.plugItemHash ?? entry?.plugHash),
+      ...(reusableBySocket[String(socketIndex)] || []).map((entry: any) => entry?.plugItemHash ?? entry?.plugHash)
+    ].map(hashOf).filter((hash) => hash !== "0");
+    const definitions = [...new Map(optionHashes.map((hash) => [hash, plugs[hash]]).filter((entry): entry is [string, any] => Boolean(entry[1])))];
+    const kind = weaponPlugKind(activeDefinition || definitions[0]?.[1]);
+    if (!kind || kind === "origin" || kind === "masterwork") return undefined;
+    const options = definitions.map(([, definition]) => perk(definition)).filter((value) => value.name);
+    return { socketIndex, ...(activeDefinition ? { active: perk(activeDefinition) } : {}), options };
+  }).filter((value): value is WeaponPerkColumn => Boolean(value));
+}
+
+function weaponPlugKind(plug: any): "perk" | "origin" | "masterwork" | undefined {
+  if (!plug) return undefined;
+  const category = normalize(plug?.plug?.plugCategoryIdentifier);
+  const text = normalize(`${plug?.displayProperties?.name} ${plug?.itemTypeDisplayName} ${category}`);
+  if (/ornament|shader|tracker|kill counter|memento|empty /.test(text)) return undefined;
+  if (/origin/.test(category)) return "origin";
+  if (/masterwork/.test(category) || /masterwork/.test(plug?.itemTypeDisplayName || "")) return "masterwork";
+  if (/weapon|intrinsic|frame|barrel|magazine|scope|sight|grip|stock|trait|perk|enhancement/.test(category)) return "perk";
+  return undefined;
 }
 
 function resolveTunedStat(itemSockets: any[], reusableBySocket: Record<string, any[]>, plugs: Record<string, any>, applied?: any): ArmorStatKey | undefined {

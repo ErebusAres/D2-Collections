@@ -503,7 +503,11 @@ def minimal_gear_item(definition: dict) -> dict:
         "itemType": definition.get("itemType"),
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
         "classType": definition.get("classType"),
-        "inventory": {"tierTypeName": inventory.get("tierTypeName", "")},
+        "defaultDamageType": definition.get("defaultDamageType"),
+        "inventory": {
+            "tierTypeName": inventory.get("tierTypeName", ""),
+            "bucketTypeHash": str(inventory.get("bucketTypeHash") or ""),
+        },
     }
 
 
@@ -541,6 +545,27 @@ def relevant_armor_plug(definition: dict) -> bool:
         "archetype", "tuning", "artifice", "set bonus", "piece bonus", "pieces equipped",
         "paragon", "grenadier", "specialist", "brawler", "bulwark", "gunner"
     ))
+
+
+def relevant_weapon_plug(definition: dict) -> bool:
+    """Keep only roll-bearing weapon plugs; cosmetic and tracker sockets stay out."""
+    props = definition.get("displayProperties") or {}
+    plug = definition.get("plug") or {}
+    category = str(plug.get("plugCategoryIdentifier", "")).lower()
+    text = " ".join([
+        str(props.get("name", "")), str(props.get("description", "")),
+        str(definition.get("itemTypeDisplayName", "")), category,
+    ]).lower()
+    if any(term in text for term in ("ornament", "shader", "tracker", "kill counter", "memento", "empty ")):
+        return False
+    return "weapon" in category or any(term in category for term in (
+        "intrinsic", "frame", "barrel", "magazine", "scope", "sight", "grip",
+        "stock", "trait", "perk", "origin", "masterwork", "enhancement",
+    ))
+
+
+def relevant_gear_plug(definition: dict) -> bool:
+    return relevant_armor_plug(definition) or relevant_weapon_plug(definition)
 
 
 def build_icon(path: str) -> str:
@@ -1097,6 +1122,7 @@ def write_build_catalog_files(catalog: dict) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build compact Guardian Nexus manifest artifacts.")
     parser.add_argument("--companion-only", action="store_true", help="Only write the mailbox/loadouts companion artifact.")
+    parser.add_argument("--gear-only", action="store_true", help="Only write the armor and weapon Gear artifact.")
     parser.add_argument("--reward-codes-only", action="store_true", help="Only write the reward-code collectible mapping artifact.")
     parser.add_argument("--build-catalog-only", action="store_true", help="Only write the static Build Builder catalog.")
     args = parser.parse_args()
@@ -1158,6 +1184,20 @@ def main() -> None:
         resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
         print(f"Wrote {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings for manifest {version}.")
         return
+    if args.gear_only:
+        gear_defs = {key: value for key, value in inventory.items() if int(value.get("itemType", -1)) in (2, 3) and not value.get("redacted")}
+        plug_defs = {key: value for key, value in inventory.items() if value.get("plug") and (value.get("displayProperties") or {}).get("name") and relevant_gear_plug(value)}
+        gear_compact = {
+            "version": version,
+            "generatedAt": generated_at,
+            "gearItemDefinitions": {key: minimal_gear_item(value) for key, value in gear_defs.items()},
+            "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
+            "statDefinitions": {key: {"hash": key, "displayProperties": display(value)} for key, value in stat_definitions.items() if key in ARMOR_STAT_HASHES},
+        }
+        OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+        GEAR_OUTPUT.write_text(json.dumps(gear_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        print(f"Wrote {len(gear_defs)} gear definitions and {len(plug_defs)} roll-bearing plug definitions for manifest {version}.")
+        return
     build_catalog_compact = build_catalog_manifest(inventory, class_definitions, damage_types, buckets, plug_sets, item_sets, sandbox_perks, stat_definitions, version, generated_at)
     if args.build_catalog_only:
         OUTPUT.parent.mkdir(parents=True, exist_ok=True)
@@ -1212,8 +1252,8 @@ def main() -> None:
         and any(term in str(value.get("itemTypeDisplayName") or value.get("itemTypeAndTierDisplayName") or "").lower() for term in ("quest", "mission", "pursuit", "bounty", "order"))
     }
     all_quest_defs = {**quest_defs, **pursuit_defs}
-    gear_defs = {key: value for key, value in inventory.items() if int(value.get("itemType", -1)) == 2 and not value.get("redacted")}
-    plug_defs = {key: value for key, value in inventory.items() if value.get("plug") and (value.get("displayProperties") or {}).get("name") and relevant_armor_plug(value)}
+    gear_defs = {key: value for key, value in inventory.items() if int(value.get("itemType", -1)) in (2, 3) and not value.get("redacted")}
+    plug_defs = {key: value for key, value in inventory.items() if value.get("plug") and (value.get("displayProperties") or {}).get("name") and relevant_gear_plug(value)}
     base_objective_hashes = {
         str(value) for definition in quest_defs.values()
         for value in (definition.get("objectives") or {}).get("objectiveHashes", [])
@@ -1431,7 +1471,7 @@ def main() -> None:
     REWARD_CODE_OUTPUT.write_text(json.dumps(reward_code_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     write_build_catalog_files(build_catalog_compact)
     resolved_codes = sum(bool(value["items"]) for value in reward_code_compact["definitions"].values())
-    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} armor definitions, {len(plug_defs)} plug definitions, {len(build_catalog_compact['entries'])} Build Builder definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, {len(pvp_progressions)} PvP progressions, {len(guardian_rank_compact['ranks'])} Guardian Ranks, {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings, and {len(companion_items)} companion item definitions for manifest {version}.")
+    print(f"Wrote {len(items)} Exotics, {len(gear_defs)} gear definitions, {len(plug_defs)} roll-bearing plug definitions, {len(build_catalog_compact['entries'])} Build Builder definitions, {len(quest_defs)} quests, {len(pursuit_defs)} compact pursuits, {len(reward_item_hashes)} Rewards Pass items, {len(pvp_progressions)} PvP progressions, {len(guardian_rank_compact['ranks'])} Guardian Ranks, {resolved_codes}/{len(reward_code_compact['definitions'])} reward-code mappings, and {len(companion_items)} companion item definitions for manifest {version}.")
 
 
 if __name__ == "__main__":

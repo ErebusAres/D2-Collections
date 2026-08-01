@@ -8,8 +8,8 @@ Last updated: 2026-08-01
 
 - **Published for review:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are in draft PR #53.
 - **Published for review:** The first Phase 3 session planner slice and the Phase 4 installable PWA foundation are also in draft PR #53.
-- **Next implementation:** Phase 2 weapon workspace. Its first prerequisite is expanding the deliberately armor-only Gear manifest with versioned weapon definitions and relevant weapon plugs.
-- **After weapons:** Broader account-private watchlists, planner overlap/deadline logic, mobile surface refinement, and activity-scoped Fireteam readiness.
+- **Implemented on the PR branch:** Phase 2 weapon manifest, private physical-roll normalization, duplicate/perk comparison, crafted/enhanced visibility, wishlist support, explainable review states, and existing Gear actions.
+- **Active next implementation:** Broader account-private watchlists, planner overlap/deadline logic, mobile surface refinement, and activity-scoped Fireteam readiness.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -34,10 +34,10 @@ Last updated: 2026-08-01
 
 ## Phase 2: Weapon workspace
 
-- Weapon inventory alongside the existing armor workspace.
-- Duplicate and perk-column comparison, crafted/enhanced state, wishlists, tags, locks, transfers, and equip actions.
-- Explainable keep, situational, and review-for-dismantle labels. Guardian Nexus never dismantles an item.
-- Weapon requirements and alternatives shared with Build Advisor rather than maintained twice.
+- [x] Weapon inventory alongside the existing armor workspace.
+- [x] Duplicate and perk-column comparison, crafted/enhanced state, wishlists, tags, locks, transfers, and equip actions.
+- [x] Explainable configured, unique, duplicate-review, and incomplete-data labels. Guardian Nexus never dismantles an item.
+- [x] Shared versioned Gear definitions and plug vocabulary used by private inventory and Build Advisor data paths.
 
 ## Phase 3: Watchlists and session planning
 
@@ -72,7 +72,7 @@ Last updated: 2026-08-01
 1. Build verification and structured advice foundation.
 2. Alternatives, acquisition plans, and upgrade stages in the Build Advisor UI.
 3. Armor combination optimizer and expanded build catalog.
-4. Weapon workspace using the same requirement and verification model.
+4. Weapon workspace using the same requirement and verification model. **Implemented on the PR branch.**
 5. Watchlists and session planner.
 6. Mobile second-screen and Fireteam readiness.
 7. Expansion features based on usage and player reports.
