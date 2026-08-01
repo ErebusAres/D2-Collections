@@ -1079,6 +1079,7 @@ export type UserPreferenceKey =
   | "watchlists.buildAcquisitions"
   | "watchlists.v1"
   | "projects.v1"
+  | "fashion.looks.v1"
   | "site.autoRefresh"
   | "site.reducedMotion"
   | "site.highContrast"
@@ -1088,6 +1089,30 @@ export type UserPreferenceKey =
 
 export type SiteLocale = "en-US" | "es-ES" | "fr-FR";
 export type SiteTextScale = "standard" | "large" | "largest";
+
+export interface FashionLookSlot {
+  slot: BuildArmorSlot;
+  ornament?: BuildNamedEntry;
+  shader?: BuildNamedEntry;
+}
+
+export interface FashionLook {
+  id: string;
+  name: string;
+  classType: BuildGuardianClass;
+  slots: FashionLookSlot[];
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FashionLooksDocument { schemaVersion: 1; looks: FashionLook[]; }
+export interface PortableFashionLookEnvelope {
+  format: "guardian-nexus-fashion-look";
+  version: 1;
+  exportedAt: string;
+  look: Pick<FashionLook, "name" | "classType" | "slots" | "note">;
+}
 
 export interface UserPreferencesData {
   values: Partial<Record<UserPreferenceKey, string>>;

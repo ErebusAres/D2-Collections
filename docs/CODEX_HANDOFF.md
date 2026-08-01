@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete; Phase 5 now includes unlisted/portable builds, separately consented Guardian snapshots, private Guardian Projects, Bungie-backed recent activity history, versioned new-player guidance, portable project adapters, and accessibility/localization foundations. Fashion and challenge/community modes are next.
+Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete; Phase 5 now includes unlisted/portable builds, separately consented Guardian snapshots, private Guardian Projects, Bungie-backed recent activity history, versioned new-player guidance, portable project adapters, accessibility/localization foundations, and a private portable fashion workspace. Challenge/community modes are next.
 
 ## Current repository state
 
@@ -66,6 +66,10 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 40. Added typed, complete core message catalogs for English, Spanish, and French with English fallback, persistent locale selection, document language semantics, and translated desktop/mobile navigation plus core settings labels. Spanish and French catalogs load on demand, and the Options drawer is a lazy boundary so these foundations reduce rather than inflate the entry bundle.
 41. Explicitly labels localization as a preview limited to core navigation/settings; Bungie-returned game data is not mistranslated or claimed as localized.
 42. Added a versioned portable Guardian Project envelope: JSON export strips private IDs, timestamps, completion history, and assignee labels by default; import is size/version checked and always creates a new private active project. Markdown brief copying is a separate explicit action that includes player-entered labels.
+43. Added a private `/fashion` workspace for Hunter, Titan, and Warlock looks with five stable armor slots, per-slot ornament/shader references, notes, duplication, and a one-action shader application across all slots.
+44. Fashion selections search the versioned cached Bungie cosmetic manifest and are explicitly labeled as manifest references with unknown unlock ownership; the site does not claim an ornament or shader is owned and never equips fashion items.
+45. Added normalized `fashion.looks.v1` account storage capped at 20 looks and 40 KB, with backward-safe parsing at the read boundary.
+46. Added versioned, account-neutral fashion JSON export/import. Private IDs and timestamps are omitted on export and regenerated on import.
 
 ## Files in release scope
 
@@ -116,6 +120,11 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/web/src/pages/ProjectsPage.module.css`
 - `apps/web/src/modules/projects/portableProject.ts`
 - `apps/web/src/modules/projects/portableProject.test.ts`
+- `apps/web/src/modules/fashion/fashion.ts`
+- `apps/web/src/modules/fashion/fashion.test.ts`
+- `apps/web/src/pages/FashionPage.tsx`
+- `apps/web/src/pages/FashionPage.module.css`
+- `apps/web/src/pages/FashionPage.test.tsx`
 - `apps/web/src/modules/i18n/catalog.ts`
 - `apps/web/src/modules/i18n/catalog.test.ts`
 - `apps/web/src/context/GuardianContext.tsx`
@@ -144,11 +153,11 @@ The following passed on 2026-08-01:
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
 - 173 API tests
-- 220 web tests
+- 223 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 366,508 bytes JavaScript, 112,900 bytes gzip, and 34,124 bytes entry CSS
+- performance budgets: 367,014 bytes JavaScript, 113,083 bytes gzip, and 34,124 bytes entry CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -212,8 +221,9 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Completed the first versioned new-player explanation pack inside the same Journey surface; it contains evergreen guidance rather than hard-coded seasonal facts.
 - Completed accessibility/localization foundations with persisted root-level presentation state, typed catalogs, fallback, semantic `lang`, and honest preview scope.
 - Completed portable project JSON and Markdown adapters with privacy-safe defaults and private-import semantics.
-- Next, build modular fashion and challenge/community modes; do not silently include Guardian snapshots in clan or Fireteam payloads.
-- Keep fashion/challenge modes and broader new-player explanations modular so they can consume the same snapshot/checklist contracts without hard-coded seasonal facts.
+- Completed the modular private fashion workspace with manifest-backed references, honest unknown ownership, five stable slots, and account-neutral adapters.
+- Next, build challenge/community modes; do not silently include Guardian snapshots in clan or Fireteam payloads.
+- Keep challenge modes and broader new-player explanations modular so they can consume the same snapshot/checklist contracts without hard-coded seasonal facts.
 
 ## Non-negotiable constraints
 

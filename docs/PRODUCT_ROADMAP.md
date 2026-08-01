@@ -19,7 +19,8 @@ Last updated: 2026-08-01
 - **Validated on the PR branch:** Private recent-activity history now uses Bungie's per-character activity endpoint with explicit available, partial, empty, and unavailable states; a versioned evergreen new-Guardian guide explains account truth and practical first steps.
 - **Validated on the PR branch:** Accessibility preferences now include high contrast, three base text sizes, reduced motion, and persistent root semantics; typed English, Spanish, and French catalogs cover core navigation/settings with explicit fallback and preview scope.
 - **Validated on the PR branch:** Guardian Projects now export account-neutral JSON, import as new private active projects, and copy Markdown briefs through an explicit player action.
-- **Active next implementation:** Fashion and challenge/community modes plus the remaining feature-specific mobile review.
+- **Validated on the PR branch:** Fashion workspace saves private five-slot ornament/shader references, uses the versioned manifest without claiming unlock ownership, and supports account-neutral JSON import/export.
+- **Active next implementation:** Challenge/community modes plus the remaining feature-specific mobile review.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -71,7 +72,8 @@ Last updated: 2026-08-01
 - [x] Account-private clan/activity planning and broader collectible checklists with player-recorded completion history.
 - [x] Bungie-backed recent activity history with partial/unavailable handling and versioned new-player explanations.
 - [x] Portable Guardian Project JSON/Markdown adapters and accessibility/localization foundations.
-- [ ] Fashion or challenge modes and remaining feature-specific narrow-layout review.
+- [x] Private, portable fashion workspace with manifest-backed references and explicit unknown ownership.
+- [ ] Challenge/community modes and remaining feature-specific narrow-layout review.
 
 ## Maintenance requirements
 

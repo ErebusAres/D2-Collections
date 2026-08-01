@@ -44,7 +44,7 @@ export function ManifestPicker({ kind, label, placeholder, onSelect, context, al
   </label>;
 }
 
-export function ManifestSingleEditor({ value, onChange, kind, label, placeholder, context, required = false }: {
+export function ManifestSingleEditor({ value, onChange, kind, label, placeholder, context, required = false, filterEntry }: {
   value?: BuildNamedEntry;
   onChange: (value?: BuildNamedEntry, catalogEntry?: BuildCatalogEntry) => void;
   kind: BuildCatalogKind;
@@ -52,9 +52,10 @@ export function ManifestSingleEditor({ value, onChange, kind, label, placeholder
   placeholder: string;
   context?: PickerContext;
   required?: boolean;
+  filterEntry?: (entry: BuildCatalogEntry) => boolean;
 }) {
   return <div className={styles.manifestSingleEditor}>
-    {value ? <SelectedManifestEntry value={value} required={required} onRemove={() => onChange(undefined)} /> : <ManifestPicker kind={kind} label={label} placeholder={placeholder} context={context} onSelect={(entry) => onChange(isCatalogEntry(entry) ? namedEntryFromCatalog(entry) : entry, isCatalogEntry(entry) ? entry : undefined)} />}
+    {value ? <SelectedManifestEntry value={value} required={required} onRemove={() => onChange(undefined)} /> : <ManifestPicker kind={kind} label={label} placeholder={placeholder} context={context} filterEntry={filterEntry} onSelect={(entry) => onChange(isCatalogEntry(entry) ? namedEntryFromCatalog(entry) : entry, isCatalogEntry(entry) ? entry : undefined)} />}
   </div>;
 }
 
