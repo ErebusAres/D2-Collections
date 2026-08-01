@@ -9,7 +9,8 @@ Last updated: 2026-08-01
 - **Published for review:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are in draft PR #53.
 - **Published for review:** The first Phase 3 session planner slice and the Phase 4 installable PWA foundation are also in draft PR #53.
 - **Implemented on the PR branch:** Phase 2 weapon manifest, private physical-roll normalization, duplicate/perk comparison, crafted/enhanced visibility, wishlist support, explainable review states, and existing Gear actions.
-- **Active next implementation:** Broader account-private watchlists, planner overlap/deadline logic, mobile surface refinement, and activity-scoped Fireteam readiness.
+- **Validated on the PR branch:** Versioned account-private watchlists now cover items, perks, Xûr offers, Collection unlocks, catalysts, pursuits, Rewards Pass claims, and Postmaster thresholds with browser-alert consent, reset-aware expiry, and explicit unknown states.
+- **Active next implementation:** Planner overlap/deadline logic, mobile surface refinement, and activity-scoped Fireteam readiness.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -41,8 +42,8 @@ Last updated: 2026-08-01
 
 ## Phase 3: Watchlists and session planning
 
-- Account-private watchlists for items, perks, vendor offers, Collection gaps, catalysts, expiring pursuits, rewards, and Postmaster thresholds.
-- Browser notifications first; optional external delivery remains a separate consented integration.
+- [x] Account-private watchlists for items, perks, vendor offers, Collection gaps, catalysts, expiring pursuits, rewards, and Postmaster thresholds.
+- [x] Browser notifications first; optional external delivery remains a separate consented integration.
 - A session planner using available time, solo or Fireteam preference, desired outcome, tracked goals, rotations, and reset deadlines.
 - Plans maximize overlapping progress and can be sent to Fireteam tracking.
 

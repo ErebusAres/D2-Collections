@@ -865,6 +865,37 @@ export interface MailboxData {
   characters: MailboxCharacter[];
 }
 
+export type WatchlistKind = "item" | "perk" | "vendor" | "collection" | "catalyst" | "pursuit" | "reward" | "postmaster";
+export type WatchlistMatchState = "matched" | "unmatched" | "unknown" | "expired";
+
+export interface WatchlistEntry {
+  id: string;
+  kind: WatchlistKind;
+  label: string;
+  target: string;
+  notes?: string;
+  enabled: boolean;
+  notify: boolean;
+  createdAt: string;
+  expiresAt?: string;
+  resetAware?: boolean;
+  threshold?: number;
+}
+
+export interface WatchlistDocument {
+  schemaVersion: 1;
+  entries: WatchlistEntry[];
+}
+
+export interface WatchlistMatch {
+  entryId: string;
+  state: WatchlistMatchState;
+  summary: string;
+  reason: string;
+  source: "gear" | "xur" | "collection" | "quests" | "rewards" | "mailbox" | "preference";
+  destinationUrl: string;
+}
+
 export interface MailboxPullRequest {
   itemInstanceId: string;
   characterId: string;
@@ -987,6 +1018,7 @@ export type UserPreferenceKey =
   | "planner.mode"
   | "planner.focus"
   | "watchlists.buildAcquisitions"
+  | "watchlists.v1"
   | "site.autoRefresh"
   | "site.reducedMotion"
   | "site.character";

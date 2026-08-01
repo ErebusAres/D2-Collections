@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 and the weapon workspace are complete; expanded watchlists and planner integration are next.
+Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2, the weapon workspace, and unified private watchlists are complete; planner overlap/deadline and Fireteam handoff refinement are next.
 
 ## Current repository state
 
@@ -14,7 +14,9 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - Release branch: `agent/build-advisor-planning-foundation`
 - Base branch: `main` at `3390937b4dbe7de670636cf18bae869b7cd5baa2`
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
-- Implementation commit: `bd3e875` (`Add Build Advisor planning foundation`)
+- Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
+- Weapon workspace commit: `c2282b7` (`Add private weapon roll workspace`)
+- Use `git rev-parse HEAD` for the latest validated roadmap slice; this handoff intentionally avoids a self-referential stale tip SHA.
 - Draft pull request: `https://github.com/ErebusAres/D2-Collections/pull/53`
 - The release branch is pushed and tracks `origin/agent/build-advisor-planning-foundation`.
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
@@ -36,6 +38,10 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 12. Expanded the versioned Gear manifest from armor-only to armor and weapons, retaining roll-bearing plugs and adding a Gear-only sync command to prevent unrelated artifact churn.
 13. Added private physical weapon normalization with active/selectable perk columns, origin traits, weapon slots and damage types, crafted/enhanced/masterwork state, and roll-data certainty.
 14. Added the Weapon Rolls workspace beside Armor with duplicate comparison, search and filters, private wishlists, tags, locks, transfers, equip actions, and explainable review states.
+15. Added a versioned `watchlists.v1` contract and private preference with safe parsing, a 50-entry limit, pause/resume, per-watch alert consent, deadlines, and explicit matched, watching, unknown, and expired results.
+16. Added a unified responsive Watchlists page evaluating owned items, active/selectable weapon perks, Xûr inventory, Collection ownership, catalyst state, active pursuits, claimable Rewards Pass items, and configurable Postmaster thresholds.
+17. Connected Build Advisor farming targets and Weapon Rolls wishlists to the unified watchlist while retaining the older preference keys for backward compatibility.
+18. Added deduplicated browser notifications that fire only after permission is granted and only when a matched result changes; no external delivery or public account snapshot is created.
 
 ## Files in release scope
 
@@ -49,6 +55,12 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/web/src/pages/BuildAdvisorPage.module.css`
 - `apps/web/src/components/gear/WeaponWorkspace.tsx`
 - `apps/web/src/components/gear/WeaponWorkspace.test.tsx`
+- `apps/web/src/modules/watchlists/watchlists.ts`
+- `apps/web/src/modules/watchlists/watchlists.test.ts`
+- `apps/web/src/pages/WatchlistsPage.tsx`
+- `apps/web/src/pages/WatchlistsPage.module.css`
+- `apps/web/src/App.tsx`
+- `apps/web/src/components/layout/Shell.tsx`
 - `apps/web/src/pages/GearPage.tsx`
 - `apps/web/src/pages/Pages.module.css`
 - `apps/web/src/pages/NextStepsPage.tsx`
@@ -74,11 +86,11 @@ The following passed on 2026-08-01:
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
 - 168 API tests
-- 198 web tests
+- 202 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 371,093 bytes JavaScript, 114,044 bytes gzip, and 38,019 bytes CSS
+- performance budgets: 372,067 bytes JavaScript, 114,322 bytes gzip, and 38,019 bytes CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -106,11 +118,10 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 
 - Completed in the current PR branch. Review states describe verified configuration and comparison needs; they do not claim universal roll quality and never automate dismantling.
 
-### P1: Watchlist expansion
+### Completed: Watchlist expansion
 
-- Move the current build-farm preference into a versioned account-private watchlist contract when multiple watchlist types are introduced.
-- Add items, perks, vendor offers, catalysts, Collection gaps, expiring pursuits, rewards, and Postmaster thresholds.
-- Add deduplication, reset-aware expiry, source/freshness metadata, and notification consent controls.
+- Completed in the current PR branch with a versioned preference contract, eight source types, explicit unavailable-data handling, reset-aware deadlines, alert deduplication, and browser notification consent.
+- Build Advisor farms and Weapon Rolls wishlists dual-write into the unified document while legacy keys remain readable for rolling deployments.
 
 ### P2: Session planner refinement
 

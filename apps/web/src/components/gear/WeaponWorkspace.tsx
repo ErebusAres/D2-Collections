@@ -2,6 +2,7 @@ import type { GearActionRequest, GearData, GearTag, UserPreferenceKey, WeaponIte
 import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, Columns3, Hammer, Lock, LockOpen, Search, Shield, Sparkles, Star, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { GearTagBadge, GearTagFilter, GearTagPicker } from "./GearTagPicker";
+import { parseWatchlist } from "../../modules/watchlists/watchlists";
 import styles from "../../pages/Pages.module.css";
 
 interface Props {
@@ -47,8 +48,17 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
   const comparison = (data.weapons || []).filter((weapon) => weapon.itemHash === compareHash);
   const toggleWishlist = (itemHash: string) => {
     const next = new Set(wishlist);
-    if (next.has(itemHash)) next.delete(itemHash); else next.add(itemHash);
+    const adding = !next.has(itemHash);
+    if (!adding) next.delete(itemHash); else next.add(itemHash);
     setPreference("weapons.wishlist", JSON.stringify([...next]));
+    const weapon = data.weapons?.find((item) => item.itemHash === itemHash);
+    if (!weapon) return;
+    const watchlist = parseWatchlist(preferences["watchlists.v1"]);
+    const id = `weapon:${itemHash}`;
+    const entries = adding
+      ? [...watchlist.entries.filter((entry) => entry.id !== id), { id, kind: "item" as const, label: weapon.name, target: weapon.name, notes: "Added from the Weapon Rolls wishlist.", enabled: true, notify: true, createdAt: new Date().toISOString() }]
+      : watchlist.entries.filter((entry) => entry.id !== id);
+    setPreference("watchlists.v1", JSON.stringify({ schemaVersion: 1, entries }));
   };
 
   const newWeapons = (data.weapons || []).filter((weapon) => weapon.isNew).slice(0, 20);

@@ -44,6 +44,7 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
+import { parseWatchlist } from "../modules/watchlists/watchlists";
 import { storeAdvisorBuildImport } from "../modules/builds/advisorBuildImport";
 import { api } from "../services/api/client";
 import styles from "./BuildAdvisorPage.module.css";
@@ -152,10 +153,18 @@ function BuildAdvisor() {
     setEquipMessage("");
     equipBuild.mutate(recommendation);
   };
-  const toggleAcquisition = (trackingKey: string) => {
+  const toggleAcquisition = (plan: BuildAdvisorAcquisitionPlan) => {
+    const trackingKey = plan.trackingKey;
     const next = new Set(trackedAcquisitions);
-    if (next.has(trackingKey)) next.delete(trackingKey); else next.add(trackingKey);
+    const adding = !next.has(trackingKey);
+    if (!adding) next.delete(trackingKey); else next.add(trackingKey);
     setPreference("watchlists.buildAcquisitions", JSON.stringify([...next]));
+    const watchlist = parseWatchlist(preferences["watchlists.v1"]);
+    const id = `build-plan:${trackingKey}`;
+    const entries = adding
+      ? [...watchlist.entries.filter((entry) => entry.id !== id), { id, kind: "item" as const, label: plan.name, target: plan.name, notes: "Added from Build Advisor farming targets.", enabled: true, notify: true, resetAware: plan.routes.some((route) => Boolean(route.resetAt)), expiresAt: plan.routes.find((route) => route.resetAt)?.resetAt, createdAt: new Date().toISOString() }]
+      : watchlist.entries.filter((entry) => entry.id !== id);
+    setPreference("watchlists.v1", JSON.stringify({ schemaVersion: 1, entries }));
   };
 
   return <>
@@ -261,7 +270,7 @@ function RecommendationDetail({
   equipping: boolean;
   equipMessage: string;
   trackedAcquisitions: ReadonlySet<string>;
-  onToggleAcquisition: (trackingKey: string) => void;
+  onToggleAcquisition: (plan: BuildAdvisorAcquisitionPlan) => void;
 }) {
   const build = recommendation.build;
   const viabilityScore = recommendation.viabilityScore ?? recommendation.score;
@@ -348,7 +357,7 @@ function RecommendationDetail({
     </section> : null}
     {recommendation.acquisitionPlans?.length ? <section className={styles.farmingPlans}>
       <h3><MapPin /> Farming targets</h3>
-      <div>{recommendation.acquisitionPlans.map((plan) => <FarmingPlan key={plan.id} plan={plan} tracked={trackedAcquisitions.has(plan.trackingKey)} onToggle={() => onToggleAcquisition(plan.trackingKey)} />)}</div>
+      <div>{recommendation.acquisitionPlans.map((plan) => <FarmingPlan key={plan.id} plan={plan} tracked={trackedAcquisitions.has(plan.trackingKey)} onToggle={() => onToggleAcquisition(plan)} />)}</div>
     </section> : null}
     {recommendation.upgradePath?.length ? <section className={styles.upgradePath}>
       <h3><Gauge /> Build progression</h3>
