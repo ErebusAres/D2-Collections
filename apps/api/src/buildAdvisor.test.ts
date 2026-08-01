@@ -245,6 +245,12 @@ describe("Build Advisor inventory and scoring", () => {
     const template = BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === "hunter-void-gyrfalcon")!;
     const recommendation = buildAdvisorRecommendations(normalized, hunter, 0, [template]).recommendations[0]!;
     expect(recommendation.armor.find((entry) => entry.slot === "helmet")?.item?.instanceId).toBe("better-vault-helmet");
+    expect(recommendation.armorOptimization).toEqual(expect.objectContaining({
+      strategy: "account-wide-combination-v1",
+      candidatesEvaluated: expect.any(Number),
+      selected: expect.objectContaining({ items: expect.any(Array), targets: expect.any(Array) })
+    }));
+    expect(recommendation.armorOptimization!.selected.items.map((entry) => entry.instanceId)).toEqual(recommendation.armor.flatMap((entry) => entry.item ? [entry.item.instanceId] : []));
   });
 
   it("keeps collection-only unlocks separate from physical owned copies", () => {
@@ -341,6 +347,18 @@ describe("Build Advisor inventory and scoring", () => {
       acquisition: "Exotic Armor Focusing"
     }));
     expect(recommendation?.missingItemGuides.find((entry) => entry.name === "Gyrfalcon's Hauberk")?.steps.join(" ")).toMatch(/Exotic Armor Focusing/i);
+    expect(recommendation?.adviceSchemaVersion).toBe(2);
+    expect(recommendation?.componentVerifications).toContainEqual(expect.objectContaining({
+      kind: "exotic-armor",
+      state: "missing",
+      name: "Gyrfalcon's Hauberk"
+    }));
+    expect(recommendation?.acquisitionPlans?.find((entry) => entry.name === "Gyrfalcon's Hauberk")?.routes[0]).toEqual(expect.objectContaining({
+      source: "bungie-manifest",
+      availability: "available-now",
+      certainty: "deterministic"
+    }));
+    expect(recommendation?.upgradePath?.map((entry) => entry.kind)).toEqual(expect.arrayContaining(["playable-now", "next-upgrade", "ideal"]));
   });
 
   it("uses Collections reacquisition before the published source for an unlocked item without a physical copy", () => {
@@ -386,6 +404,28 @@ describe("Build Advisor inventory and scoring", () => {
     expect(heavy.quality).toBe("functional");
     expect(heavy.substitution).toBe("functional");
     expect(recommendation.status).toBe("assembleable-with-substitutions");
+    expect(recommendation.componentVerifications?.find((entry) => entry.id === "weapon:damage-heavy")?.state).toBe("functional-owned");
+  });
+
+  it("ranks additional owned rolls as structured alternatives", () => {
+    const { companion, collection } = manifests();
+    const inventory = profile({
+      vault: [
+        item(hashes.gyrfalcon, "armor"),
+        item(hashes.shotgun, "special"),
+        item(hashes.heavy, "heavy-best", 500),
+        item(hashes.heavy, "heavy-fallback", 490)
+      ],
+      inventories: { hunter: [item(hashes.graviton, "graviton")] },
+      plugs: { armor: [], special: [hashes.vorpal], "heavy-best": [hashes.bait], "heavy-fallback": [hashes.vorpal], graviton: [] }
+    });
+    const normalized = normalizeBuildAdvisorInventory(inventory, companion, collection, [hunter]);
+    const recommendation = buildAdvisorRecommendations(normalized, hunter).recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon")!;
+    expect(recommendation.alternatives).toContainEqual(expect.objectContaining({
+      requirementId: "damage-heavy",
+      name: "Deterministic Heavy",
+      item: expect.objectContaining({ instanceId: "heavy-fallback" })
+    }));
   });
 
   it("scores a wrong legendary roll below perfect", () => {

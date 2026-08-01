@@ -938,6 +938,10 @@ export type UserPreferenceKey =
   | "rewardCodes.filters"
   | "builds.filters"
   | "build.detail.layout"
+  | "planner.duration"
+  | "planner.mode"
+  | "planner.focus"
+  | "watchlists.buildAcquisitions"
   | "site.autoRefresh"
   | "site.reducedMotion"
   | "site.character";
@@ -1326,6 +1330,7 @@ export interface BuildAdvisorOwnedItem {
   armorCurrentTotal?: number;
   armorTier?: number;
   armorArchetype?: BuildNamedEntry;
+  armorSetBonuses?: BuildNamedEntry[];
   tunedStat?: BuildStatName;
   masterworked?: boolean;
 }
@@ -1379,6 +1384,109 @@ export interface BuildAdvisorMissingItemGuide {
   steps: string[];
 }
 
+export interface BuildAdvisorArmorTargetResult {
+  stat: BuildStatName;
+  target?: number;
+  actual: number;
+  met: boolean;
+}
+
+export interface BuildAdvisorArmorCombination {
+  id: string;
+  items: BuildAdvisorOwnedItem[];
+  score: number;
+  statTotals: Partial<Record<BuildStatName, number>>;
+  targets: BuildAdvisorArmorTargetResult[];
+  setBonuses: Array<{ name: string; pieces: number }>;
+}
+
+export interface BuildAdvisorArmorOptimization {
+  strategy: "account-wide-combination-v1";
+  candidatesEvaluated: number;
+  selected: BuildAdvisorArmorCombination;
+  alternatives: BuildAdvisorArmorCombination[];
+}
+
+export type BuildAdvisorComponentKind = "exotic-armor" | "weapon" | "armor" | "subclass" | "mod" | "artifact" | "catalyst";
+export type BuildAdvisorComponentState =
+  | "exact-owned"
+  | "strong-owned"
+  | "functional-owned"
+  | "configuration-needed"
+  | "collection-only"
+  | "owned-other-character"
+  | "missing"
+  | "unavailable"
+  | "unknown";
+
+/** Account-specific truth for one build requirement. Unknown is intentionally distinct from missing. */
+export interface BuildAdvisorComponentVerification {
+  id: string;
+  kind: BuildAdvisorComponentKind;
+  name: string;
+  state: BuildAdvisorComponentState;
+  required: boolean;
+  item?: BuildAdvisorOwnedItem | BuildAdvisorCollectionItem;
+  reasons: string[];
+  actions: string[];
+}
+
+export type BuildAdvisorAlternativeTier = "exact" | "strong" | "functional" | "easy-to-acquire";
+
+export interface BuildAdvisorAlternativeSuggestion {
+  id: string;
+  requirementId: string;
+  kind: "weapon" | "armor" | "mod" | "subclass";
+  name: string;
+  tier: BuildAdvisorAlternativeTier;
+  score: number;
+  item?: BuildAdvisorOwnedItem;
+  matchedTraits: string[];
+  missingTraits: string[];
+  benefits: string[];
+  tradeoffs: string[];
+}
+
+export type BuildAdvisorAcquisitionAvailability = "available-now" | "rotating" | "prerequisite" | "collection" | "unavailable" | "unknown";
+export type BuildAdvisorAcquisitionCertainty = "guaranteed" | "deterministic" | "random" | "unknown";
+
+export interface BuildAdvisorAcquisitionRoute {
+  id: string;
+  label: string;
+  description: string;
+  source: "collections" | "bungie-manifest" | "build-requirement" | "vendor" | "activity" | "quest";
+  availability: BuildAdvisorAcquisitionAvailability;
+  certainty: BuildAdvisorAcquisitionCertainty;
+  steps: string[];
+  prerequisites: string[];
+  externalUrl?: string;
+  resetAt?: string;
+}
+
+export interface BuildAdvisorAcquisitionPlan {
+  id: string;
+  componentId: string;
+  name: string;
+  targetTraits: {
+    required: string[];
+    preferred: string[];
+    acceptable: string[];
+  };
+  routes: BuildAdvisorAcquisitionRoute[];
+  trackingKey: string;
+}
+
+export type BuildAdvisorUpgradeStageKind = "playable-now" | "next-upgrade" | "strong" | "ideal";
+
+export interface BuildAdvisorUpgradeStage {
+  id: string;
+  kind: BuildAdvisorUpgradeStageKind;
+  title: string;
+  description: string;
+  readinessTarget: number;
+  componentIds: string[];
+}
+
 export interface BuildAdvisorSubclassValidation {
   state: "validated" | "unverified";
   checkedCount: number;
@@ -1416,6 +1524,8 @@ export interface BuildAdvisorEquipPlan {
 }
 
 export interface BuildAdvisorRecommendation {
+  /** Structured-advice schema. Absent on legacy cached responses. */
+  adviceSchemaVersion?: 2;
   id: string;
   templateId: string;
   templateVersion: number;
@@ -1437,10 +1547,15 @@ export interface BuildAdvisorRecommendation {
   exoticWeapon?: BuildAdvisorOwnedItem;
   weapons: BuildAdvisorWeaponEvaluation[];
   armor: BuildAdvisorArmorEvaluation[];
+  armorOptimization?: BuildAdvisorArmorOptimization;
   ghostFocus: BuildGhostFocus;
   missingItems: string[];
   missingItemGuides: BuildAdvisorMissingItemGuide[];
   substitutions: string[];
+  componentVerifications?: BuildAdvisorComponentVerification[];
+  alternatives?: BuildAdvisorAlternativeSuggestion[];
+  acquisitionPlans?: BuildAdvisorAcquisitionPlan[];
+  upgradePath?: BuildAdvisorUpgradeStage[];
   activities: string[];
   style: string;
   damageProfile: "high" | "medium" | "low";

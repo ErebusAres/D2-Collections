@@ -8,7 +8,7 @@ import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { api } from "../services/api/client";
 import styles from "./NextStepsPage.module.css";
 
-interface SuggestedGoal {
+export interface SuggestedGoal {
   id: string;
   title: string;
   detail: string;
@@ -16,10 +16,18 @@ interface SuggestedGoal {
   percent: number;
   to: string;
   quest?: QuestProgress;
+  effortMinutes: 30 | 60 | 120;
+  group: "solo" | "either" | "fireteam";
+  kind: "quest" | "rank" | "exotic";
+  reasons: string[];
 }
 
+type SessionLength = 30 | 60 | 120;
+type SessionMode = "solo" | "either" | "fireteam";
+type SessionFocus = "any" | SuggestedGoal["kind"];
+
 export function NextStepsPage() {
-  const { session, selectedCharacterId } = useGuardian();
+  const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
   const membershipId = session?.guardian?.membershipId || "";
   const [tracked, setTracked] = useState<string[]>(() => readPins(membershipId, selectedCharacterId));
   const quests = useQuery({ queryKey: ["next-quests", selectedCharacterId], queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=${encodeURIComponent(tracked.join(","))}`), enabled: Boolean(selectedCharacterId) });
@@ -28,7 +36,11 @@ export function NextStepsPage() {
   const loading = quests.isLoading || ranks.isLoading || collection.isLoading;
   const error = quests.error || ranks.error || collection.error;
   const hasData = Boolean(quests.data || ranks.data || collection.data);
-  const recommendations = useMemo(() => gameSuggestions(quests.data?.data, ranks.data?.data, collection.data?.data), [quests.data, ranks.data, collection.data]);
+  const sessionLength = sessionLengthPreference(preferences["planner.duration"]);
+  const sessionMode = sessionModePreference(preferences["planner.mode"]);
+  const sessionFocus = sessionFocusPreference(preferences["planner.focus"]);
+  const recommendationPool = useMemo(() => gameSuggestions(quests.data?.data, ranks.data?.data, collection.data?.data), [quests.data, ranks.data, collection.data]);
+  const recommendations = useMemo(() => planSession(recommendationPool, sessionLength, sessionMode, sessionFocus), [recommendationPool, sessionLength, sessionMode, sessionFocus]);
   const easyWeapons = useMemo(() => easyExotics(collection.data?.data, "weapon"), [collection.data]);
   const className = session?.guardian?.characters.find((entry) => entry.characterId === selectedCharacterId)?.className;
   const easyArmor = useMemo(() => easyExotics(collection.data?.data, "armor", className), [className, collection.data]);
@@ -43,10 +55,18 @@ export function NextStepsPage() {
     <QueryState loading={loading} error={error as Error} hasData={hasData} onRetry={() => void Promise.all([quests.refetch(), ranks.refetch(), collection.refetch()])} />
     {hasData && <>
       <section className={styles.hero}><Compass /><div><span>Not sure what to do?</span><h2>Pick a route and keep Fireteam open</h2><p>Tracking a live pursuit adds it to the same shared Fireteam feed used by Destiny-tracked quests, Orders, and Guardian Rank objectives.</p></div></section>
+      <section className={styles.planner} aria-label="Session planner">
+        <header><Timer /><div><span>Plan my session</span><h2>{sessionLength} minute route</h2></div><strong>{recommendations.reduce((total, goal) => total + goal.effortMinutes, 0)} min planned</strong></header>
+        <div>
+          <label><span>Available time</span><select value={sessionLength} onChange={(event) => setPreference("planner.duration", event.target.value)}><option value="30">30 minutes</option><option value="60">60 minutes</option><option value="120">120 minutes</option></select></label>
+          <label><span>Group preference</span><select value={sessionMode} onChange={(event) => setPreference("planner.mode", event.target.value)}><option value="solo">Solo friendly</option><option value="either">Solo or Fireteam</option><option value="fireteam">Fireteam activities</option></select></label>
+          <label><span>Main goal</span><select value={sessionFocus} onChange={(event) => setPreference("planner.focus", event.target.value)}><option value="any">Best overlap</option><option value="quest">Quest progress</option><option value="rank">Guardian Rank</option><option value="exotic">Missing Exotics</option></select></label>
+        </div>
+      </section>
       <section className={styles.section}>
         <header><Crosshair /><div><span>Recommended next</span><h2>{recommendations.length} game objectives</h2></div></header>
         <div className={styles.goalGrid}>{recommendations.length === 0 && <EmptySuggestion title="You're caught up" detail="No unfinished quests, rank objectives, or easy Exotic goals are available right now." />}{recommendations.map((goal) => <article className={styles.goal} key={goal.id}>
-          <header><span>{goal.context}</span><strong>{goal.percent}%</strong></header><h3>{goal.title}</h3><p>{goal.detail}</p><i><span style={{ width: `${goal.percent}%` }} /></i>
+          <header><span>{goal.context} · {goal.effortMinutes} min · {goal.group}</span><strong>{goal.percent}%</strong></header><h3>{goal.title}</h3><p>{goal.detail}</p><div className={styles.goalReasons}>{goal.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div><i><span style={{ width: `${goal.percent}%` }} /></i>
           <footer>{goal.quest && <button type="button" data-active={tracked.includes(goal.quest.instanceId)} onClick={() => trackQuest(goal.quest!)}><Bookmark />{tracked.includes(goal.quest.instanceId) ? "Tracked for Fireteam" : "Track this quest"}</button>}<Link to={goal.to}>Open details <ChevronRight /></Link></footer>
         </article>)}</div>
       </section>
@@ -78,15 +98,50 @@ function gameSuggestions(questData?: QuestData, rankData?: GuardianRankData, col
     .filter((quest, index, all) => quest.percent < 100 && all.findIndex((candidate) => candidate.instanceId === quest.instanceId) === index)
     .sort((left, right) => Number(right.inGameTracked) - Number(left.inGameTracked) || right.percent - left.percent)
     .slice(0, 6)
-    .map((quest): SuggestedGoal => ({ id: `quest:${quest.instanceId}`, title: quest.name, detail: quest.currentStep || quest.description, context: quest.category === "order" ? "Vanguard Order" : quest.isExoticUnlock ? "Exotic quest" : "Quest", percent: quest.percent, to: `/quests/${encodeURIComponent(quest.instanceId)}`, quest }));
+    .map((quest): SuggestedGoal => ({ id: `quest:${quest.instanceId}`, title: quest.name, detail: quest.currentStep || quest.description, context: quest.category === "order" ? "Vanguard Order" : quest.isExoticUnlock ? "Exotic quest" : "Quest", percent: quest.percent, to: `/quests/${encodeURIComponent(quest.instanceId)}`, quest, effortMinutes: effortForProgress(quest.percent), group: activityGroup(`${quest.activityName || ""} ${quest.currentStep || ""}`), kind: "quest", reasons: [quest.inGameTracked ? "Tracked in Destiny" : quest.sitePinned ? "Pinned in Guardian Nexus" : quest.percent >= 75 ? "Near completion" : quest.isExoticUnlock ? "Unlocks an Exotic" : "Active pursuit"] }));
   const rankGoals = currentRankQuests(rankData).slice(0, 2).map((quest): SuggestedGoal => ({
-    id: `rank:${quest.recordHash}`, title: quest.name, detail: quest.description, context: "Guardian Rank", percent: objectivePercent(quest), to: "/journey/guardian-rank"
+    id: `rank:${quest.recordHash}`, title: quest.name, detail: quest.description, context: "Guardian Rank", percent: objectivePercent(quest), to: "/journey/guardian-rank", effortMinutes: effortForProgress(objectivePercent(quest)), group: activityGroup(`${quest.name} ${quest.description}`), kind: "rank", reasons: ["Advances Guardian Rank"]
   }));
   const exoticGoals = easyExotics(collectionData, "weapon").slice(0, 2).map((entry): SuggestedGoal => ({
-    id: `exotic:${entry.itemHash}`, title: `Obtain ${entry.name}`, detail: entry.guide.steps[0] || entry.guide.acquisition, context: "Missing Exotic", percent: 0, to: "/collection"
+    id: `exotic:${entry.itemHash}`, title: `Obtain ${entry.name}`, detail: entry.guide.steps[0] || entry.guide.acquisition, context: "Missing Exotic", percent: 0, to: "/collection", effortMinutes: entry.guide.steps.length <= 2 ? 30 : entry.guide.steps.length <= 4 ? 60 : 120, group: activityGroup(`${entry.guide.acquisition} ${entry.guide.steps.join(" ")}`), kind: "exotic", reasons: [entry.xurSelling ? "Available from Xûr now" : "Expands your collection"]
   }));
   return [...questGoals, ...rankGoals, ...exoticGoals].slice(0, 10);
 }
+
+export function planSession(goals: SuggestedGoal[], duration: SessionLength, mode: SessionMode, focus: SessionFocus): SuggestedGoal[] {
+  const compatible = goals
+    .filter((goal) => mode === "either" || (mode === "solo" ? goal.group !== "fireteam" : goal.group !== "solo"))
+    .filter((goal) => focus === "any" || goal.kind === focus)
+    .sort((left, right) => sessionGoalScore(right, focus) - sessionGoalScore(left, focus) || left.effortMinutes - right.effortMinutes || left.title.localeCompare(right.title));
+  const selected: SuggestedGoal[] = [];
+  let remaining = duration;
+  for (const goal of compatible) {
+    if (goal.effortMinutes > remaining && selected.length) continue;
+    selected.push(goal);
+    remaining -= Math.min(remaining, goal.effortMinutes);
+    if (remaining <= 0 || selected.length >= 6) break;
+  }
+  return selected.length ? selected : compatible.slice(0, 1);
+}
+
+function sessionGoalScore(goal: SuggestedGoal, focus: SessionFocus): number {
+  return Number(focus !== "any" && goal.kind === focus) * 500 + Number(Boolean(goal.quest?.inGameTracked)) * 500 + Number(Boolean(goal.quest?.sitePinned)) * 250 + goal.percent * 2 + Number(goal.percent >= 75) * 200 + Number(goal.kind === "exotic") * 80 - goal.effortMinutes;
+}
+
+function effortForProgress(percent: number): 30 | 60 | 120 {
+  const remaining = 100 - percent;
+  return remaining <= 25 ? 30 : remaining <= 60 ? 60 : 120;
+}
+
+function activityGroup(value: string): SuggestedGoal["group"] {
+  if (/raid|dungeon|grandmaster|trials|fireteam|cooperative|expert/i.test(value)) return "fireteam";
+  if (/lost sector|patrol|solo|campaign|collections|archive|vendor|xûr/i.test(value)) return "solo";
+  return "either";
+}
+
+function sessionLengthPreference(value?: string): SessionLength { return value === "30" || value === "120" ? Number(value) as SessionLength : 60; }
+function sessionModePreference(value?: string): SessionMode { return value === "solo" || value === "fireteam" ? value : "either"; }
+function sessionFocusPreference(value?: string): SessionFocus { return value === "quest" || value === "rank" || value === "exotic" ? value : "any"; }
 
 function easyExotics(data: CollectionData | undefined, kind: "weapon" | "armor", className?: string): ExoticCollectionEntry[] {
   return (data?.entries || []).filter((entry) => !entry.owned && entry.kind === kind && (!className || kind === "weapon" || !entry.className || entry.className === className))

@@ -1,0 +1,27 @@
+{
+  "name": "Guardian Nexus",
+  "short_name": "Nexus",
+  "description": "A Destiny 2 collection, build, progression, and Fireteam companion.",
+  "id": "/director",
+  "start_url": "/director?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#050d13",
+  "theme_color": "#081018",
+  "categories": ["games", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Director", "short_name": "Director", "url": "/director" },
+    { "name": "Build Advisor", "short_name": "Builds", "url": "/build-advisor" },
+    { "name": "Xur", "short_name": "Xur", "url": "/xur" },
+    { "name": "Next Steps", "short_name": "Plan", "url": "/next" }
+  ]
+}

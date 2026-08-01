@@ -1,8 +1,12 @@
 import type {
   BuildAdvisorArmorEvaluation,
+  BuildAdvisorAcquisitionPlan,
+  BuildAdvisorAlternativeSuggestion,
   BuildAdvisorAssemblyStatus,
   BuildAdvisorCategory,
   BuildAdvisorData,
+  BuildAdvisorComponentState,
+  BuildAdvisorComponentVerification,
   BuildAdvisorFocus,
   BuildAdvisorMissingItemGuide,
   BuildAdvisorOwnedItem,
@@ -17,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
+  Bookmark,
   Boxes,
   CheckCircle2,
   ChevronDown,
@@ -51,18 +56,33 @@ const STATUS_LABELS: Record<BuildAdvisorAssemblyStatus, string> = {
   "not-viable": "Not viable"
 };
 
+const COMPONENT_STATE_LABELS: Record<BuildAdvisorComponentState, string> = {
+  "exact-owned": "Exact owned",
+  "strong-owned": "Strong owned",
+  "functional-owned": "Functional owned",
+  "configuration-needed": "Configuration needed",
+  "collection-only": "Collections only",
+  "owned-other-character": "Owned elsewhere",
+  missing: "Missing",
+  unavailable: "Unavailable",
+  unknown: "Unable to verify"
+};
+
 export function BuildAdvisorPage() {
   return <AuthGate><BuildAdvisor /></AuthGate>;
 }
 
 function BuildAdvisor() {
-  const { session, selectedCharacterId, selectCharacter, refresh } = useGuardian();
+  const { session, selectedCharacterId, selectCharacter, refresh, preferences = {}, setPreference = () => undefined } = useGuardian();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const forceNext = useRef(false);
   const [category, setCategory] = useState<BuildAdvisorCategory | "All">("All");
   const [subclass, setSubclass] = useState<BuildSubclass | "All">("All");
   const [focus, setFocus] = useState<BuildAdvisorFocus | "All">("All");
+  const [activity, setActivity] = useState("All");
+  const [complexity, setComplexity] = useState<"All" | BuildAdvisorRecommendation["complexity"]>("All");
+  const [assembly, setAssembly] = useState<"All" | "ready" | "substitutions" | "missing">("All");
   const [selectedId, setSelectedId] = useState("");
   const [equipMessage, setEquipMessage] = useState("");
   const result = useQuery({
@@ -99,13 +119,21 @@ function BuildAdvisor() {
   const categories = useMemo(() => [...new Set(data?.recommendations.flatMap((recommendation) => recommendation.categories) || [])], [data?.recommendations]);
   const subclasses = useMemo(() => [...new Set(data?.recommendations.map((recommendation) => recommendation.subclass) || [])], [data?.recommendations]);
   const focuses = useMemo(() => [...new Set(data?.recommendations.flatMap((recommendation) => recommendation.focuses) || [])], [data?.recommendations]);
+  const activities = useMemo(() => [...new Set(data?.recommendations.flatMap((recommendation) => recommendation.activities) || [])].sort(), [data?.recommendations]);
   const recommendations = useMemo(() => data?.recommendations.filter((recommendation) =>
     (category === "All" || recommendation.categories.includes(category))
     && (subclass === "All" || recommendation.subclass === subclass)
     && (focus === "All" || recommendation.focuses.includes(focus))
-  ) || [], [category, data?.recommendations, focus, subclass]);
+    && (activity === "All" || recommendation.activities.includes(activity))
+    && (complexity === "All" || recommendation.complexity === complexity)
+    && (assembly === "All"
+      || assembly === "ready" && recommendation.status === "fully-assembleable"
+      || assembly === "substitutions" && recommendation.status === "assembleable-with-substitutions"
+      || assembly === "missing" && ["missing-one-important-item", "missing-several-core-items"].includes(recommendation.status))
+  ) || [], [activity, assembly, category, complexity, data?.recommendations, focus, subclass]);
   const selected = recommendations.find((recommendation) => recommendation.id === selectedId) || recommendations[0];
   const warning = result.data?.warnings[0] || data?.analysis.warnings[0];
+  const trackedAcquisitions = useMemo(() => stringSetPreference(preferences["watchlists.buildAcquisitions"]), [preferences]);
 
   const refreshInventory = async () => {
     forceNext.current = true;
@@ -123,6 +151,11 @@ function BuildAdvisor() {
     if (!window.confirm(`Equip the ${plan.itemCount} physical gear items for ${recommendation.name}?${moving}`)) return;
     setEquipMessage("");
     equipBuild.mutate(recommendation);
+  };
+  const toggleAcquisition = (trackingKey: string) => {
+    const next = new Set(trackedAcquisitions);
+    if (next.has(trackingKey)) next.delete(trackingKey); else next.add(trackingKey);
+    setPreference("watchlists.buildAcquisitions", JSON.stringify([...next]));
   };
 
   return <>
@@ -155,6 +188,9 @@ function BuildAdvisor() {
             <option value="All">All focuses</option>
             {focuses.map((entry) => <option key={entry} value={entry}>{entry}</option>)}
           </select></label>
+          <label><span>Activity</span><select aria-label="Activity" value={activity} onChange={(event) => setActivity(event.target.value)}><option value="All">All activities</option>{activities.map((entry) => <option key={entry} value={entry}>{entry}</option>)}</select></label>
+          <label><span>Complexity</span><select aria-label="Complexity" value={complexity} onChange={(event) => setComplexity(event.target.value as typeof complexity)}><option value="All">Any complexity</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+          <label><span>Ownership</span><select aria-label="Ownership" value={assembly} onChange={(event) => setAssembly(event.target.value as typeof assembly)}><option value="All">Any readiness</option><option value="ready">Ready now</option><option value="substitutions">Ready with substitutions</option><option value="missing">Missing equipment</option></select></label>
           <span><b>{recommendations.length}</b><small>owned-gear option{recommendations.length === 1 ? "" : "s"}</small></span>
         </section>
         <nav className={styles.filters} aria-label="Recommendation categories">
@@ -172,6 +208,8 @@ function BuildAdvisor() {
             onEquip={() => equipRecommendation(selected)}
             equipping={equipBuild.isPending}
             equipMessage={equipMessage}
+            trackedAcquisitions={trackedAcquisitions}
+            onToggleAcquisition={toggleAcquisition}
           />}
         </div> : <section className={styles.empty}><ScanSearch /><h2>No owned-gear match for these filters</h2><p>Choose another subclass, focus, or recommendation category.</p></section>}
       </> : <section className={styles.empty}><ScanSearch /><h2>No strong near-complete build found</h2><p>Open inventory analysis to see which core pieces are missing, then refresh after your inventory changes.</p></section>}
@@ -212,7 +250,9 @@ function RecommendationDetail({
   onOpenBuilder,
   onEquip,
   equipping,
-  equipMessage
+  equipMessage,
+  trackedAcquisitions,
+  onToggleAcquisition
 }: {
   recommendation: BuildAdvisorRecommendation;
   canOpenBuilder: boolean;
@@ -220,6 +260,8 @@ function RecommendationDetail({
   onEquip: () => void;
   equipping: boolean;
   equipMessage: string;
+  trackedAcquisitions: ReadonlySet<string>;
+  onToggleAcquisition: (trackingKey: string) => void;
 }) {
   const build = recommendation.build;
   const viabilityScore = recommendation.viabilityScore ?? recommendation.score;
@@ -257,6 +299,12 @@ function RecommendationDetail({
     </section>
     <section className={styles.factorList}><h3><Gauge /> Score factors</h3>{recommendation.factors.map((factor) => <div key={factor.id}><span><b>{factor.label}</b><small>{factor.detail}</small></span><em>{factor.earned}/{factor.available}</em><i><span style={{ width: `${factor.available ? factor.earned / factor.available * 100 : 0}%` }} /></i></div>)}</section>
     <section><h3><Shield /> Five-piece armor plan</h3><div className={styles.armorList}>{recommendation.armor.map((entry) => <ArmorMatch key={entry.slot} armor={entry} />)}</div></section>
+    {recommendation.armorOptimization && <section className={styles.optimizerSummary}>
+      <h3><Gauge /> Account-wide armor optimizer</h3>
+      <div className={styles.optimizerMetrics}><span><small>Combinations checked</small><strong>{recommendation.armorOptimization.candidatesEvaluated.toLocaleString()}</strong></span><span><small>Selected score</small><strong>{recommendation.armorOptimization.selected.score}</strong></span><span><small>Alternatives retained</small><strong>{recommendation.armorOptimization.alternatives.length}</strong></span></div>
+      <div className={styles.optimizerTargets}>{recommendation.armorOptimization.selected.targets.map((target) => <span key={target.stat} data-met={target.met}><b>{target.stat}</b><strong>{target.actual}{target.target !== undefined ? ` / ${target.target}` : ""}</strong></span>)}</div>
+      {recommendation.armorOptimization.selected.setBonuses.length > 0 && <p>{recommendation.armorOptimization.selected.setBonuses.map((set) => `${set.name} ${set.pieces}-piece`).join(" · ")}</p>}
+    </section>}
     <section><h3><Crosshair /> Three-weapon loadout</h3><div className={styles.weaponList}>{recommendation.weapons.map((weapon) => <WeaponMatch key={weapon.requirementId} weapon={weapon} />)}</div></section>
     <section className={styles.subclassPlan}>
       <h3><Sparkles /> {build.subclass} subclass configuration</h3>
@@ -288,6 +336,24 @@ function RecommendationDetail({
         : recommendation.missingItems.map((item) => <p key={`missing-${item}`}><b>Missing</b> {item}</p>)}
       {recommendation.substitutions.length > 0 && <div className={styles.substitutions}>{recommendation.substitutions.map((item) => <p key={`sub-${item}`}><b>Substitute</b> {item}</p>)}</div>}
     </section>}
+    {recommendation.componentVerifications?.length ? <section className={styles.componentTruth}>
+      <h3><CheckCircle2 /> Account verification</h3>
+      <p>Physical ownership, Collections unlocks, substitutions, and unavailable Bungie data remain separate states.</p>
+      <div>{recommendation.componentVerifications.map((component) => <ComponentVerification key={component.id} component={component} />)}</div>
+    </section> : null}
+    {recommendation.alternatives?.length ? <section className={styles.alternativePlan}>
+      <h3><RefreshCw /> Owned alternatives</h3>
+      <p>Ranked fallbacks preserve the build role and show what changes.</p>
+      <div>{recommendation.alternatives.map((alternative) => <AlternativeSuggestion key={alternative.id} alternative={alternative} />)}</div>
+    </section> : null}
+    {recommendation.acquisitionPlans?.length ? <section className={styles.farmingPlans}>
+      <h3><MapPin /> Farming targets</h3>
+      <div>{recommendation.acquisitionPlans.map((plan) => <FarmingPlan key={plan.id} plan={plan} tracked={trackedAcquisitions.has(plan.trackingKey)} onToggle={() => onToggleAcquisition(plan.trackingKey)} />)}</div>
+    </section> : null}
+    {recommendation.upgradePath?.length ? <section className={styles.upgradePath}>
+      <h3><Gauge /> Build progression</h3>
+      <div>{recommendation.upgradePath.map((stage, index) => <article key={stage.id} data-kind={stage.kind}><i>{index + 1}</i><span><small>{stage.kind.replace(/-/g, " ")}</small><b>{stage.title}</b><p>{stage.description}</p></span><strong>{stage.readinessTarget}%</strong></article>)}</div>
+    </section> : null}
     <div className={styles.detailColumns}>
       <section><h3><Sparkles /> Gameplay loop</h3><ol>{recommendation.gameplayLoop.map((step) => <li key={step}>{step}</li>)}</ol></section>
       <section><h3><Swords /> Damage rotation</h3><ol>{recommendation.damageRotation.map((step) => <li key={step}>{step}</li>)}</ol></section>
@@ -320,6 +386,44 @@ function RecommendationDetail({
       </div>
     </footer>
   </aside>;
+}
+
+function ComponentVerification({ component }: { component: BuildAdvisorComponentVerification }) {
+  return <article data-state={component.state}>
+    {component.item?.icon ? <img src={component.item.icon} alt="" /> : component.state === "missing" || component.state === "unknown" ? <CircleHelp /> : <CheckCircle2 />}
+    <span><small>{component.kind.replace(/-/g, " ")}</small><b>{component.name}</b><em>{component.reasons[0]}</em></span>
+    <strong>{COMPONENT_STATE_LABELS[component.state]}</strong>
+    {component.actions[0] && <p>{component.actions[0]}</p>}
+  </article>;
+}
+
+function AlternativeSuggestion({ alternative }: { alternative: BuildAdvisorAlternativeSuggestion }) {
+  return <article data-tier={alternative.tier}>
+    {alternative.item?.icon ? <img src={alternative.item.icon} alt="" /> : <RefreshCw />}
+    <span><small>{alternative.kind} · {alternative.tier}</small><b>{alternative.name}</b><em>{alternative.benefits[0]}</em></span>
+    <strong>{alternative.score}</strong>
+    {(alternative.matchedTraits.length > 0 || alternative.missingTraits.length > 0) && <p>{alternative.matchedTraits.length ? `Matches ${alternative.matchedTraits.join(", ")}.` : ""}{alternative.missingTraits.length ? ` Missing ${alternative.missingTraits.join(", ")}.` : ""}</p>}
+  </article>;
+}
+
+function FarmingPlan({ plan, tracked, onToggle }: { plan: BuildAdvisorAcquisitionPlan; tracked: boolean; onToggle: () => void }) {
+  const route = plan.routes[0];
+  if (!route) return null;
+  return <article>
+    <header><span><small>{route.availability} · {route.certainty}</small><b>{plan.name}</b></span><div><strong>{route.source.replace(/-/g, " ")}</strong><button type="button" data-active={tracked} onClick={onToggle}><Bookmark />{tracked ? "Tracked" : "Track farm"}</button></div></header>
+    <p>{route.description}</p>
+    {(plan.targetTraits.required.length > 0 || plan.targetTraits.preferred.length > 0 || plan.targetTraits.acceptable.length > 0) && <div>
+      {plan.targetTraits.required.map((trait) => <em key={`required-${trait}`} data-priority="required">Required · {trait}</em>)}
+      {plan.targetTraits.preferred.map((trait) => <em key={`preferred-${trait}`} data-priority="preferred">Preferred · {trait}</em>)}
+      {plan.targetTraits.acceptable.map((trait) => <em key={`acceptable-${trait}`}>Fallback · {trait}</em>)}
+    </div>}
+    <ol>{route.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+  </article>;
+}
+
+function stringSetPreference(value?: string): Set<string> {
+  try { const parsed = JSON.parse(value || "[]"); return new Set(Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : []); }
+  catch { return new Set(); }
 }
 
 function AcquisitionGuide({ guide }: { guide: BuildAdvisorMissingItemGuide }) {

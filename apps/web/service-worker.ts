@@ -1,4 +1,4 @@
-const CORE_CACHE = "guardian-nexus-core-v1";
+const CORE_CACHE = "guardian-nexus-core-v2";
 const RUNTIME_CACHE = "guardian-nexus-runtime-v1";
 const CACHE_PREFIX = "guardian-nexus-";
 const RUNTIME_LIMIT = 300;
@@ -7,7 +7,7 @@ const worker = self as unknown as ServiceWorkerGlobalScope;
 worker.addEventListener("install", (event: ExtendableEvent) => {
   event.waitUntil(
     caches.open(CORE_CACHE)
-      .then((cache) => cache.addAll(["/", "/index.html"]))
+      .then((cache) => cache.addAll(["/", "/index.html", "/manifest.webmanifest", "/favicon.svg"]))
       .then(() => worker.skipWaiting()),
   );
 });
@@ -52,7 +52,7 @@ worker.addEventListener("fetch", (event: FetchEvent) => {
   const isLocalAsset = url.origin === worker.location.origin
     && (/^\/assets\//.test(url.pathname)
       || /^\/data\//.test(url.pathname)
-      || /\.(?:js|css|woff2?|png|jpe?g|svg|webp|ico)$/.test(url.pathname));
+      || /\.(?:js|css|woff2?|png|jpe?g|svg|webp|ico|webmanifest)$/.test(url.pathname));
   const isBungieImage = url.hostname.endsWith("bungie.net")
     && /\/common\/destiny2_content\//.test(url.pathname);
   if (isLocalAsset || isBungieImage) event.respondWith(staleWhileRevalidate(request));
