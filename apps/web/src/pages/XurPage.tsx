@@ -43,6 +43,12 @@ export function XurPage() {
       <section className={`${styles.xurHero} ${schedule.active && !presentation.lastShipment ? styles.xurActive : ""}`}>
         <div className={styles.xurCountdown}><Coins /><span>{schedule.active ? "Xûr departs in" : "Xûr arrives in"}</span><strong>{countdown(schedule.target, now)}</strong><small>{formatUtcAndLocalTime(schedule.target)}</small></div>
         <div><MapPin /><span>{presentation.locationLabel}</span><strong>Tower Bazaar</strong><small>Alley beside the Ramen Shop</small></div>
+        <div className={styles.xurCoinBalance}>
+          {data.strangeCoins?.icon ? <img src={data.strangeCoins.icon} alt="" /> : <Coins />}
+          <span>Your Strange Coins</span>
+          <strong>{data.strangeCoins ? data.strangeCoins.quantity.toLocaleString() : "Unavailable"}</strong>
+          <small>{data.strangeCoins ? "Account inventory" : "Bungie inventory data unavailable"}</small>
+        </div>
         <div><Clock3 /><span>Vendor signal</span><strong>{presentation.signalLabel}</strong><small>{storefrontCount} storefront offers{presentation.lastShipment && data.inventoryCapturedAt ? ` · verified ${new Date(data.inventoryCapturedAt).toLocaleString()}` : " across your classes"}</small></div>
       </section>
 

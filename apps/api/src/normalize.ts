@@ -9,12 +9,15 @@ import type {
   QuestStepProgress,
   PvpProgression,
   RewardsPassProgress,
+  XurCurrencyBalance,
   XurOffer
 } from "@guardian-nexus/contracts";
 import { className, imageUrl, mergeCollection, objectivePercent, questPercent, questStepPosition, recommendQuests } from "@guardian-nexus/domain";
 
 const raceNames: Record<number, string> = { 0: "Human", 1: "Awoken", 2: "Exo" };
 export const QUEST_BUCKET_HASH = "1345459588";
+export const STRANGE_COIN_ITEM_HASH = "800069450";
+const STRANGE_COIN_ICON = imageUrl("/common/destiny2_content/icons/1fa5806bb6ec16b5f8cdeb4b36d4bb01.jpg");
 
 export function charactersFromProfile(profile: any): CharacterSummary[] {
   return Object.values(profile?.characters?.data || {}).map((character: any) => ({
@@ -169,6 +172,29 @@ function ownedItemHashes(profile: any): Set<string> {
   Object.values(profile?.characterInventories?.data || {}).forEach(apply);
   Object.values(profile?.characterEquipment?.data || {}).forEach(apply);
   return hashes;
+}
+
+export function xurStrangeCoinBalance(profile: any, offers: XurOffer[] = []): XurCurrencyBalance | undefined {
+  const inventoryComponents = [
+    profile?.profileInventory?.data,
+    ...Object.values(profile?.characterInventories?.data || {})
+  ];
+  if (!inventoryComponents.some((component: any) => Array.isArray(component?.items))) return undefined;
+
+  const storefrontCurrency = offers
+    .flatMap((offer) => offer.costs)
+    .find((cost) => /^strange coins?$/i.test(cost.name.trim()));
+  const itemHash = storefrontCurrency?.itemHash || STRANGE_COIN_ITEM_HASH;
+  const quantity = inventoryComponents.reduce((total, component: any) => total + (component?.items || [])
+    .filter((item: any) => String(item?.itemHash || "") === itemHash)
+    .reduce((subtotal: number, item: any) => subtotal + Math.max(0, Number(item?.quantity || 0)), 0), 0);
+
+  return {
+    itemHash,
+    name: storefrontCurrency?.name || "Strange Coin",
+    icon: storefrontCurrency?.icon || STRANGE_COIN_ICON,
+    quantity
+  };
 }
 
 export function addXurCollectionStates(profile: any, manifest: CompactManifest, offers: XurOffer[]): XurOffer[] {

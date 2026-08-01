@@ -1069,12 +1069,20 @@ export interface XurOffer {
   perks: Array<{ itemHash: string; name: string; description: string; icon: string }>;
 }
 
+export interface XurCurrencyBalance {
+  itemHash: string;
+  name: string;
+  icon: string;
+  quantity: number;
+}
+
 export interface XurData {
   state: "available" | "away" | "unavailable";
   inventoryStatus?: "live" | "last-shipment";
   checkedAt: string;
   inventoryCapturedAt?: string;
   nextRefreshAt?: string;
+  strangeCoins?: XurCurrencyBalance;
   offers: XurOffer[];
 }
 

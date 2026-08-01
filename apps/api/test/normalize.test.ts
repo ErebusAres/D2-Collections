@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest } from "@guardian-nexus/contracts";
-import { activityName, addXurCollectionStates, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests } from "../src/normalize";
+import { activityName, addXurCollectionStates, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, STRANGE_COIN_ITEM_HASH, xurStrangeCoinBalance } from "../src/normalize";
 
 const manifest = {
   version: "test",
@@ -147,6 +147,36 @@ describe("Xûr collection ownership", () => {
     ]);
 
     expect(offers.map((offer) => offer.collectionState)).toEqual(["owned", "owned", "missing", "not-applicable"]);
+  });
+});
+
+describe("Xûr Strange Coin balance", () => {
+  it("reads the account-wide current currency quantity and uses the storefront icon", () => {
+    const profile = {
+      profileInventory: { data: { items: [{ itemHash: STRANGE_COIN_ITEM_HASH, quantity: 83 }] } },
+      characterInventories: { data: { c1: { items: [{ itemHash: 123, quantity: 4 }] } } }
+    };
+    const offers = [{
+      saleIndex: "1", itemHash: "offer", name: "Offer", description: "", icon: "", rarity: "Exotic", itemType: "Weapon",
+      slot: "Kinetic Weapons", category: "exotic-weapon" as const, quantity: 1,
+      costs: [{ itemHash: STRANGE_COIN_ITEM_HASH, name: "Strange Coin", icon: "https://www.bungie.net/coin.jpg", quantity: 23 }],
+      stats: [], perks: []
+    }];
+
+    expect(xurStrangeCoinBalance(profile, offers)).toEqual({
+      itemHash: STRANGE_COIN_ITEM_HASH,
+      name: "Strange Coin",
+      icon: "https://www.bungie.net/coin.jpg",
+      quantity: 83
+    });
+  });
+
+  it("returns zero when inventory is present but the Guardian has no Strange Coins", () => {
+    expect(xurStrangeCoinBalance({ profileInventory: { data: { items: [] } } })).toMatchObject({ quantity: 0 });
+  });
+
+  it("does not claim a balance when Bungie omitted inventory components", () => {
+    expect(xurStrangeCoinBalance({})).toBeUndefined();
   });
 });
 
