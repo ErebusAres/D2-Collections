@@ -9,8 +9,9 @@ Last updated: 2026-08-01
 - **Published for review:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are in draft PR #53.
 - **Published for review:** The first Phase 3 session planner slice and the Phase 4 installable PWA foundation are also in draft PR #53.
 - **Implemented on the PR branch:** Phase 2 weapon manifest, private physical-roll normalization, duplicate/perk comparison, crafted/enhanced visibility, wishlist support, explainable review states, and existing Gear actions.
-- **Validated on the PR branch:** Versioned account-private watchlists now cover items, perks, Xûr offers, Collection unlocks, catalysts, pursuits, Rewards Pass claims, and Postmaster thresholds with browser-alert consent, reset-aware expiry, and explicit unknown states.
-- **Active next implementation:** Planner overlap/deadline logic, mobile surface refinement, and activity-scoped Fireteam readiness.
+- **Published for review:** Versioned account-private watchlists now cover items, perks, Xûr offers, Collection unlocks, catalysts, pursuits, Rewards Pass claims, and Postmaster thresholds with browser-alert consent, reset-aware expiry, and explicit unknown states.
+- **Validated on the PR branch:** The session planner now uses source-aware effort confidence, objective overlap, known deadline urgency, and explicit handoff into Fireteam tracking.
+- **Active next implementation:** Mobile surface refinement and activity-scoped Fireteam readiness.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -44,8 +45,8 @@ Last updated: 2026-08-01
 
 - [x] Account-private watchlists for items, perks, vendor offers, Collection gaps, catalysts, expiring pursuits, rewards, and Postmaster thresholds.
 - [x] Browser notifications first; optional external delivery remains a separate consented integration.
-- A session planner using available time, solo or Fireteam preference, desired outcome, tracked goals, rotations, and reset deadlines.
-- Plans maximize overlapping progress and can be sent to Fireteam tracking.
+- [x] A session planner using available time, solo or Fireteam preference, desired outcome, tracked goals, rotations, and reset deadlines.
+- [x] Plans maximize overlapping progress and can be sent to Fireteam tracking.
 
 ## Phase 4: Mobile and Fireteam readiness
 

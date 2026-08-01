@@ -1,6 +1,6 @@
 import type { CollectionData, ExoticCollectionEntry, GuardianRankData, GuardianRankQuest, QuestData, QuestProgress } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { Bookmark, CheckCircle2, ChevronRight, Compass, Crosshair, MapPin, Shield, Sparkles, Swords, Timer } from "lucide-react";
+import { Bookmark, CheckCircle2, ChevronRight, Clock3, Compass, Crosshair, MapPin, Send, Shield, Sparkles, Swords, Timer } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AuthGate, PageHeader, QueryState } from "../components/common/Page";
@@ -20,6 +20,12 @@ export interface SuggestedGoal {
   group: "solo" | "either" | "fireteam";
   kind: "quest" | "rank" | "exotic";
   reasons: string[];
+  effortConfidence: "high" | "medium" | "low";
+  effortReason: string;
+  overlapKeys: string[];
+  deadlineAt?: string;
+  trackKind: "quest" | "guardian-rank" | "collection";
+  trackId: string;
 }
 
 type SessionLength = 30 | 60 | 120;
@@ -30,6 +36,7 @@ export function NextStepsPage() {
   const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
   const membershipId = session?.guardian?.membershipId || "";
   const [tracked, setTracked] = useState<string[]>(() => readPins(membershipId, selectedCharacterId));
+  const [routeSent, setRouteSent] = useState(false);
   const quests = useQuery({ queryKey: ["next-quests", selectedCharacterId], queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=${encodeURIComponent(tracked.join(","))}`), enabled: Boolean(selectedCharacterId) });
   const ranks = useQuery({ queryKey: ["next-ranks", selectedCharacterId], queryFn: () => api<GuardianRankData>(`/api/v1/me/guardian-rank?characterId=${encodeURIComponent(selectedCharacterId)}`), enabled: Boolean(selectedCharacterId) });
   const collection = useQuery({ queryKey: ["next-collection", selectedCharacterId], queryFn: () => api<CollectionData>(`/api/v1/me/collection?characterId=${encodeURIComponent(selectedCharacterId)}`), enabled: Boolean(selectedCharacterId) });
@@ -49,6 +56,15 @@ export function NextStepsPage() {
     setTracked(next);
     try { localStorage.setItem(pinsKey(membershipId, selectedCharacterId), JSON.stringify(next)); } catch { /* Keep the current-page state. */ }
   };
+  const sendRouteToFireteam = () => {
+    const { questIds, rankIds, collectionIds } = fireteamRouteTargets(recommendations);
+    const nextPins = [...new Set([...tracked, ...questIds])];
+    setTracked(nextPins);
+    try { localStorage.setItem(pinsKey(membershipId, selectedCharacterId), JSON.stringify(nextPins)); } catch { /* Keep the current-page state. */ }
+    if (rankIds.length) setPreference("guardianRank.tracked", JSON.stringify([...new Set([...readStringPreference(preferences["guardianRank.tracked"]), ...rankIds])]));
+    if (collectionIds.length) setPreference("collection.tracked", JSON.stringify([...new Set([...readStringPreference(preferences["collection.tracked"]), ...collectionIds])]));
+    setRouteSent(true);
+  };
 
   return <AuthGate>
     <PageHeader eyebrow="Personalized Director" title="Next Steps" description="Game objectives selected from this Guardian's current pursuits, Journey progress, and missing Exotics." />
@@ -62,11 +78,12 @@ export function NextStepsPage() {
           <label><span>Group preference</span><select value={sessionMode} onChange={(event) => setPreference("planner.mode", event.target.value)}><option value="solo">Solo friendly</option><option value="either">Solo or Fireteam</option><option value="fireteam">Fireteam activities</option></select></label>
           <label><span>Main goal</span><select value={sessionFocus} onChange={(event) => setPreference("planner.focus", event.target.value)}><option value="any">Best overlap</option><option value="quest">Quest progress</option><option value="rank">Guardian Rank</option><option value="exotic">Missing Exotics</option></select></label>
         </div>
+        <footer><span><b>{overlapCount(recommendations)} overlapping objective{overlapCount(recommendations) === 1 ? "" : "s"}</b><small>{nextDeadline(recommendations) || "No known deadline in this route"}</small></span><button type="button" disabled={!recommendations.length} onClick={sendRouteToFireteam}><Send /> {routeSent ? "Route added" : "Send route to Fireteam"}</button>{routeSent && <Link to="/fireteam">Open Fireteam <ChevronRight /></Link>}</footer>
       </section>
       <section className={styles.section}>
         <header><Crosshair /><div><span>Recommended next</span><h2>{recommendations.length} game objectives</h2></div></header>
         <div className={styles.goalGrid}>{recommendations.length === 0 && <EmptySuggestion title="You're caught up" detail="No unfinished quests, rank objectives, or easy Exotic goals are available right now." />}{recommendations.map((goal) => <article className={styles.goal} key={goal.id}>
-          <header><span>{goal.context} · {goal.effortMinutes} min · {goal.group}</span><strong>{goal.percent}%</strong></header><h3>{goal.title}</h3><p>{goal.detail}</p><div className={styles.goalReasons}>{goal.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div><i><span style={{ width: `${goal.percent}%` }} /></i>
+          <header><span>{goal.context} · {goal.effortMinutes} min ({goal.effortConfidence}) · {goal.group}</span><strong>{goal.percent}%</strong></header><h3>{goal.title}</h3><p>{goal.detail}</p><div className={styles.goalReasons}>{goal.reasons.map((reason) => <span key={reason}>{reason}</span>)}{sharedOverlapLabels(goal, recommendations).map((label) => <span key={`overlap-${label}`}>Overlaps: {label}</span>)}{goal.deadlineAt && <span><Clock3 /> {deadlineLabel(goal.deadlineAt)}</span>}</div><small className={styles.effortReason}>{goal.effortReason}</small><i><span style={{ width: `${goal.percent}%` }} /></i>
           <footer>{goal.quest && <button type="button" data-active={tracked.includes(goal.quest.instanceId)} onClick={() => trackQuest(goal.quest!)}><Bookmark />{tracked.includes(goal.quest.instanceId) ? "Tracked for Fireteam" : "Track this quest"}</button>}<Link to={goal.to}>Open details <ChevronRight /></Link></footer>
         </article>)}</div>
       </section>
@@ -98,12 +115,16 @@ function gameSuggestions(questData?: QuestData, rankData?: GuardianRankData, col
     .filter((quest, index, all) => quest.percent < 100 && all.findIndex((candidate) => candidate.instanceId === quest.instanceId) === index)
     .sort((left, right) => Number(right.inGameTracked) - Number(left.inGameTracked) || right.percent - left.percent)
     .slice(0, 6)
-    .map((quest): SuggestedGoal => ({ id: `quest:${quest.instanceId}`, title: quest.name, detail: quest.currentStep || quest.description, context: quest.category === "order" ? "Vanguard Order" : quest.isExoticUnlock ? "Exotic quest" : "Quest", percent: quest.percent, to: `/quests/${encodeURIComponent(quest.instanceId)}`, quest, effortMinutes: effortForProgress(quest.percent), group: activityGroup(`${quest.activityName || ""} ${quest.currentStep || ""}`), kind: "quest", reasons: [quest.inGameTracked ? "Tracked in Destiny" : quest.sitePinned ? "Pinned in Guardian Nexus" : quest.percent >= 75 ? "Near completion" : quest.isExoticUnlock ? "Unlocks an Exotic" : "Active pursuit"] }));
+    .map((quest): SuggestedGoal => {
+      const effort = effortForProgress(quest.percent, quest.objectives.length > 0);
+      const text = `${quest.activityName || ""} ${quest.name} ${quest.currentStep || ""} ${quest.objectives.map((objective) => objective.name).join(" ")}`;
+      return { id: `quest:${quest.instanceId}`, title: quest.name, detail: quest.currentStep || quest.description, context: quest.category === "order" ? "Vanguard Order" : quest.isExoticUnlock ? "Exotic quest" : "Quest", percent: quest.percent, to: `/quests/${encodeURIComponent(quest.instanceId)}`, quest, effortMinutes: effort.minutes, effortConfidence: effort.confidence, effortReason: effort.reason, overlapKeys: objectiveOverlapKeys(text), deadlineAt: quest.expiresAt, trackKind: "quest", trackId: quest.instanceId, group: activityGroup(text), kind: "quest", reasons: [quest.inGameTracked ? "Tracked in Destiny" : quest.sitePinned ? "Pinned in Guardian Nexus" : quest.percent >= 75 ? "Near completion" : quest.isExoticUnlock ? "Unlocks an Exotic" : "Active pursuit"] };
+    });
   const rankGoals = currentRankQuests(rankData).slice(0, 2).map((quest): SuggestedGoal => ({
-    id: `rank:${quest.recordHash}`, title: quest.name, detail: quest.description, context: "Guardian Rank", percent: objectivePercent(quest), to: "/journey/guardian-rank", effortMinutes: effortForProgress(objectivePercent(quest)), group: activityGroup(`${quest.name} ${quest.description}`), kind: "rank", reasons: ["Advances Guardian Rank"]
+    id: `rank:${quest.recordHash}`, title: quest.name, detail: quest.description, context: "Guardian Rank", percent: objectivePercent(quest), to: "/journey/guardian-rank", ...rankEffort(quest), overlapKeys: objectiveOverlapKeys(`${quest.name} ${quest.description} ${quest.objectives.map((objective) => objective.name).join(" ")}`), trackKind: "guardian-rank", trackId: quest.recordHash, group: activityGroup(`${quest.name} ${quest.description}`), kind: "rank", reasons: ["Advances Guardian Rank"]
   }));
   const exoticGoals = easyExotics(collectionData, "weapon").slice(0, 2).map((entry): SuggestedGoal => ({
-    id: `exotic:${entry.itemHash}`, title: `Obtain ${entry.name}`, detail: entry.guide.steps[0] || entry.guide.acquisition, context: "Missing Exotic", percent: 0, to: "/collection", effortMinutes: entry.guide.steps.length <= 2 ? 30 : entry.guide.steps.length <= 4 ? 60 : 120, group: activityGroup(`${entry.guide.acquisition} ${entry.guide.steps.join(" ")}`), kind: "exotic", reasons: [entry.xurSelling ? "Available from Xûr now" : "Expands your collection"]
+    id: `exotic:${entry.itemHash}`, title: `Obtain ${entry.name}`, detail: entry.guide.steps[0] || entry.guide.acquisition, context: "Missing Exotic", percent: 0, to: "/collection", ...exoticEffort(entry), overlapKeys: objectiveOverlapKeys(`${entry.guide.acquisition} ${entry.guide.steps.join(" ")}`), deadlineAt: entry.xurSelling ? collectionData?.xur.nextRefreshAt : undefined, trackKind: "collection", trackId: entry.itemHash, group: activityGroup(`${entry.guide.acquisition} ${entry.guide.steps.join(" ")}`), kind: "exotic", reasons: [entry.xurSelling ? "Available from Xûr now" : "Expands your collection"]
   }));
   return [...questGoals, ...rankGoals, ...exoticGoals].slice(0, 10);
 }
@@ -111,26 +132,98 @@ function gameSuggestions(questData?: QuestData, rankData?: GuardianRankData, col
 export function planSession(goals: SuggestedGoal[], duration: SessionLength, mode: SessionMode, focus: SessionFocus): SuggestedGoal[] {
   const compatible = goals
     .filter((goal) => mode === "either" || (mode === "solo" ? goal.group !== "fireteam" : goal.group !== "solo"))
-    .filter((goal) => focus === "any" || goal.kind === focus)
-    .sort((left, right) => sessionGoalScore(right, focus) - sessionGoalScore(left, focus) || left.effortMinutes - right.effortMinutes || left.title.localeCompare(right.title));
+    .filter((goal) => focus === "any" || goal.kind === focus);
   const selected: SuggestedGoal[] = [];
+  const remainingGoals = [...compatible];
   let remaining = duration;
-  for (const goal of compatible) {
-    if (goal.effortMinutes > remaining && selected.length) continue;
+  while (remainingGoals.length && selected.length < 6 && remaining > 0) {
+    remainingGoals.sort((left, right) => sessionGoalScore(right, focus, selected) - sessionGoalScore(left, focus, selected) || left.effortMinutes - right.effortMinutes || left.title.localeCompare(right.title));
+    const fittingIndex = remainingGoals.findIndex((goal) => goal.effortMinutes <= remaining || !selected.length);
+    if (fittingIndex < 0) break;
+    const goal = remainingGoals.splice(fittingIndex, 1)[0]!;
     selected.push(goal);
     remaining -= Math.min(remaining, goal.effortMinutes);
-    if (remaining <= 0 || selected.length >= 6) break;
   }
   return selected.length ? selected : compatible.slice(0, 1);
 }
 
-function sessionGoalScore(goal: SuggestedGoal, focus: SessionFocus): number {
-  return Number(focus !== "any" && goal.kind === focus) * 500 + Number(Boolean(goal.quest?.inGameTracked)) * 500 + Number(Boolean(goal.quest?.sitePinned)) * 250 + goal.percent * 2 + Number(goal.percent >= 75) * 200 + Number(goal.kind === "exotic") * 80 - goal.effortMinutes;
+export function fireteamRouteTargets(route: SuggestedGoal[]): { questIds: string[]; rankIds: string[]; collectionIds: string[] } {
+  return {
+    questIds: [...new Set(route.filter((goal) => goal.trackKind === "quest").map((goal) => goal.trackId))],
+    rankIds: [...new Set(route.filter((goal) => goal.trackKind === "guardian-rank").map((goal) => goal.trackId))],
+    collectionIds: [...new Set(route.filter((goal) => goal.trackKind === "collection").map((goal) => goal.trackId))]
+  };
 }
 
-function effortForProgress(percent: number): 30 | 60 | 120 {
+function sessionGoalScore(goal: SuggestedGoal, focus: SessionFocus, selected: SuggestedGoal[]): number {
+  const overlap = new Set(selected.flatMap((entry) => entry.overlapKeys));
+  const overlapBonus = goal.overlapKeys.filter((key) => overlap.has(key)).length * 180;
+  const deadlineBonus = goal.deadlineAt ? deadlineUrgency(goal.deadlineAt) : 0;
+  const confidenceBonus = goal.effortConfidence === "high" ? 40 : goal.effortConfidence === "medium" ? 20 : 0;
+  return Number(focus !== "any" && goal.kind === focus) * 500 + Number(Boolean(goal.quest?.inGameTracked)) * 500 + Number(Boolean(goal.quest?.sitePinned)) * 250 + goal.percent * 2 + Number(goal.percent >= 75) * 200 + Number(goal.kind === "exotic") * 80 + overlapBonus + deadlineBonus + confidenceBonus - goal.effortMinutes;
+}
+
+function effortForProgress(percent: number, progressKnown: boolean): { minutes: 30 | 60 | 120; confidence: "medium" | "low"; reason: string } {
   const remaining = 100 - percent;
-  return remaining <= 25 ? 30 : remaining <= 60 ? 60 : 120;
+  const minutes = remaining <= 25 ? 30 : remaining <= 60 ? 60 : 120;
+  return { minutes, confidence: progressKnown ? "medium" : "low", reason: progressKnown ? "Estimated from Bungie's remaining objective progress; activity time can vary." : "Coarse estimate because Bungie did not return objective-level progress." };
+}
+
+function rankEffort(quest: GuardianRankQuest): Pick<SuggestedGoal, "effortMinutes" | "effortConfidence" | "effortReason"> {
+  const estimate = effortForProgress(objectivePercent(quest), quest.objectives.length > 0);
+  return { effortMinutes: estimate.minutes, effortConfidence: estimate.confidence, effortReason: estimate.reason };
+}
+
+function exoticEffort(entry: ExoticCollectionEntry): Pick<SuggestedGoal, "effortMinutes" | "effortConfidence" | "effortReason"> {
+  const effortMinutes = entry.xurSelling || entry.guide.steps.length <= 2 ? 30 : entry.guide.steps.length <= 4 ? 60 : 120;
+  const deterministic = entry.xurSelling || /archive|collections|vendor|focusing|monument/i.test(`${entry.guide.acquisition} ${entry.source}`);
+  return {
+    effortMinutes,
+    effortConfidence: deterministic && entry.guide.confidence === "verified" ? "high" : entry.guide.confidence === "pending" ? "low" : "medium",
+    effortReason: deterministic ? "Estimate uses a documented deterministic acquisition route." : "Route length is estimated from guide steps; matchmaking and drop timing can vary."
+  };
+}
+
+const OVERLAP_TERMS: Array<[RegExp, string]> = [
+  [/vanguard|strike|nightfall/i, "Vanguard"], [/crucible|pvp|iron banner|trials/i, "Crucible"], [/gambit/i, "Gambit"],
+  [/raid/i, "Raid"], [/dungeon/i, "Dungeon"], [/lost sector/i, "Lost Sector"], [/patrol|public event/i, "Destination"],
+  [/solar/i, "Solar"], [/arc/i, "Arc"], [/void/i, "Void"], [/stasis/i, "Stasis"], [/strand/i, "Strand"],
+  [/auto rifle/i, "Auto Rifle"], [/pulse rifle/i, "Pulse Rifle"], [/scout rifle/i, "Scout Rifle"], [/hand cannon/i, "Hand Cannon"],
+  [/submachine|\bsmg\b/i, "SMG"], [/sidearm/i, "Sidearm"], [/bow/i, "Bow"], [/shotgun/i, "Shotgun"], [/sniper/i, "Sniper Rifle"],
+  [/combatant|enemy|defeat|kill/i, "Combatants"], [/precision/i, "Precision"], [/ability|grenade|melee|super/i, "Abilities"]
+];
+
+function objectiveOverlapKeys(value: string): string[] {
+  return OVERLAP_TERMS.filter(([pattern]) => pattern.test(value)).map(([, label]) => label);
+}
+
+function deadlineUrgency(deadlineAt: string, now = Date.now()): number {
+  const remaining = Date.parse(deadlineAt) - now;
+  if (!Number.isFinite(remaining) || remaining <= 0) return -500;
+  if (remaining <= 24 * 60 * 60_000) return 400;
+  if (remaining <= 3 * 24 * 60 * 60_000) return 250;
+  if (remaining <= 7 * 24 * 60 * 60_000) return 100;
+  return 0;
+}
+
+function sharedOverlapLabels(goal: SuggestedGoal, route: SuggestedGoal[]): string[] {
+  return goal.overlapKeys.filter((key) => route.some((candidate) => candidate.id !== goal.id && candidate.overlapKeys.includes(key)));
+}
+
+function overlapCount(route: SuggestedGoal[]): number {
+  return route.filter((goal) => sharedOverlapLabels(goal, route).length > 0).length;
+}
+
+function deadlineLabel(deadlineAt: string): string {
+  const remaining = Date.parse(deadlineAt) - Date.now();
+  if (remaining <= 0) return "deadline passed";
+  const hours = Math.ceil(remaining / 60 / 60_000);
+  return hours <= 48 ? `${hours}h left` : `${Math.ceil(hours / 24)}d left`;
+}
+
+function nextDeadline(route: SuggestedGoal[]): string | undefined {
+  const next = route.map((goal) => goal.deadlineAt).filter((value): value is string => typeof value === "string" && Date.parse(value) > Date.now()).sort((left, right) => Date.parse(left) - Date.parse(right))[0];
+  return next ? `Next known deadline: ${deadlineLabel(next)}` : undefined;
 }
 
 function activityGroup(value: string): SuggestedGoal["group"] {
@@ -180,6 +273,13 @@ function matchingQuest(entry: ExoticCollectionEntry, quests: QuestProgress[]): Q
 function readPins(membershipId: string, characterId: string): string[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(pinsKey(membershipId, characterId)) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch { return []; }
+}
+
+function readStringPreference(value?: string): string[] {
+  try {
+    const parsed = JSON.parse(value || "[]");
     return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
   } catch { return []; }
 }

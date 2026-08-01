@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2, the weapon workspace, and unified private watchlists are complete; planner overlap/deadline and Fireteam handoff refinement are next.
+Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2, weapon rolls, unified private watchlists, and the session-planner refinement are complete; mobile/PWA QA and activity-scoped Fireteam readiness are next.
 
 ## Current repository state
 
@@ -42,6 +42,9 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 16. Added a unified responsive Watchlists page evaluating owned items, active/selectable weapon perks, Xûr inventory, Collection ownership, catalyst state, active pursuits, claimable Rewards Pass items, and configurable Postmaster thresholds.
 17. Connected Build Advisor farming targets and Weapon Rolls wishlists to the unified watchlist while retaining the older preference keys for backward compatibility.
 18. Added deduplicated browser notifications that fire only after permission is granted and only when a matched result changes; no external delivery or public account snapshot is created.
+19. Reworked session planning into a bounded greedy route that rewards shared playlist, activity, element, weapon, combatant, precision, and ability requirements after the first objective is selected.
+20. Added known-deadline urgency, expired-deadline rejection, source-aware 30/60/120-minute estimates, and explicit high, medium, or low confidence explanations.
+21. Added an explicit route handoff that deduplicates and writes quest, Guardian Rank, and Collection objectives into the existing private Fireteam tracking channels before the player chooses whether to share them.
 
 ## Files in release scope
 
@@ -86,11 +89,11 @@ The following passed on 2026-08-01:
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
 - 168 API tests
-- 202 web tests
+- 205 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 372,067 bytes JavaScript, 114,322 bytes gzip, and 38,019 bytes CSS
+- performance budgets: 372,073 bytes JavaScript, 114,308 bytes gzip, and 38,019 bytes CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -123,12 +126,10 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Completed in the current PR branch with a versioned preference contract, eight source types, explicit unavailable-data handling, reset-aware deadlines, alert deduplication, and browser notification consent.
 - Build Advisor farms and Weapon Rolls wishlists dual-write into the unified document while legacy keys remain readable for rolling deployments.
 
-### P2: Session planner refinement
+### Completed: Session planner refinement
 
-- Replace coarse effort estimates with source-aware estimates and explicit uncertainty.
-- Detect objectives that overlap in activity, destination, combatant, weapon, or playlist requirements.
-- Incorporate reset deadlines and active rotations without claiming unsupported live state.
-- Allow explicitly sending a selected plan into Fireteam tracking.
+- Completed in the current PR branch with explainable estimate confidence, controlled overlap vocabulary, known deadline urgency, and explicit route handoff into the existing private tracking preferences.
+- Deadlines are used only when Bungie or an already verified source provides them; missing timing remains visibly unknown.
 
 ### P2: Mobile and Fireteam readiness
 
