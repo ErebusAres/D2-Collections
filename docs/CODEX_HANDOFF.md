@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2, weapon rolls, unified private watchlists, session planning, mobile/PWA readiness, and privacy-safe Fireteam readiness are complete; Phase 5 expansion foundations are next.
+Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete, and the first Phase 5 slice adds unlisted builds plus portable build export/import. Private Guardian snapshots and planning/history/checklist foundations are next.
 
 ## Current repository state
 
@@ -50,6 +50,8 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 24. Added a versioned, player-confirmed Fireteam readiness summary with activity, role, prerequisite states, optional public build summary, note, and timestamp validation.
 25. Added a private readiness draft preference and explicit share consent. The API stores only the scoped summary in the existing Fireteam payload, preserves it across background refreshes, and never includes inventory or Collections data.
 26. Added responsive readiness editing and member-card summaries plus a verified outward link to Bungie's official Fireteam Finder; Guardian Nexus does not recreate recruitment or matchmaking.
+27. Implemented published `unlisted` builds end to end: they remain absent from public catalog discovery but are available to anyone holding the direct link.
+28. Added versioned portable build JSON export/import. Exports explicitly omit membership IDs, author identity, votes, permissions, and server timestamps; imports are capped at 1 MB, version checked, normalized, and forced into a private draft.
 
 ## Files in release scope
 
@@ -83,6 +85,8 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/web/src/components/fireteam/FireteamReadinessPanel.test.tsx`
 - `apps/web/src/modules/fireteam/readiness.ts`
 - `apps/web/src/modules/fireteam/readiness.test.ts`
+- `apps/web/src/modules/builds/portableBuild.ts`
+- `apps/web/src/modules/builds/portableBuild.test.ts`
 - `packages/contracts/src/index.ts`
 - `tools/sync-manifest.py`
 - `tools/sync_manifest_test.py`
@@ -102,12 +106,12 @@ The following passed on 2026-08-01:
 - ESLint with zero warnings
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
-- 168 API tests
-- 210 web tests
+- 169 API tests
+- 213 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 373,764 bytes JavaScript, 114,737 bytes gzip, and 39,836 bytes entry CSS
+- performance budgets: 373,722 bytes JavaScript, 114,735 bytes gzip, and 39,836 bytes entry CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -162,7 +166,8 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 
 ### P3: Expansion foundations
 
-- Start with a versioned private/unlisted snapshot contract and export/import envelope that can later serve clan planning, history, broader checklists, and cross-tool portability without exposing account ownership.
+- Completed the build portion of the versioned snapshot/export foundation: private drafts, link-only unlisted publication, account-neutral JSON export, and private-draft import.
+- Next, add a separately consented Guardian snapshot contract; do not reuse the build envelope for account state or add ownership fields to public/unlisted builds.
 - Keep fashion/challenge modes and broader new-player explanations modular so they can consume the same snapshot/checklist contracts without hard-coded seasonal facts.
 
 ## Non-negotiable constraints

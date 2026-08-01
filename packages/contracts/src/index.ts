@@ -1367,6 +1367,15 @@ export interface BuildData {
   build: GuardianBuild;
 }
 
+/** Account-neutral export format. Identity, ownership, votes, and private Guardian data are intentionally excluded. */
+export interface PortableBuildEnvelope {
+  schemaVersion: 1;
+  kind: "guardian-nexus-build";
+  exportedAt: string;
+  source: "guardian-nexus";
+  document: BuildDocument;
+}
+
 export interface BuildWorkingDraft {
   buildId: string;
   document: BuildDocument;

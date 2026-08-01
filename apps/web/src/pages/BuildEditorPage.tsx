@@ -1,6 +1,6 @@
 import type { BuildData, BuildDocument, BuildWorkingDraftData, GuardianBuild } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Circle, CloudOff, Eye, FileInput, FilePenLine, RotateCcw, Save, Send, ShieldX, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, Circle, CloudOff, Eye, FileInput, FilePenLine, RotateCcw, Save, Send, Share2, ShieldX, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BuildDetailSections } from "../components/builds/BuildDetailSections";
@@ -14,6 +14,7 @@ import { readAdvisorBuildImport, removeAdvisorBuildImport } from "../modules/bui
 import { clearBuildRecovery, readBuildRecovery, writeBuildRecovery, type BuildRecoveryRecord } from "../modules/builds/buildDraftRecovery";
 import { emptyBuildDocument, prepareBuildDocument, titleCase } from "../modules/builds/builds";
 import { normalizeBuildStatPriorities } from "../modules/builds/buildStats";
+import { parsePortableBuild } from "../modules/builds/portableBuild";
 import { readLoadoutBuildImport, removeLoadoutBuildImport } from "../modules/loadouts/loadoutBuildImport";
 import { api, mutationHeaders } from "../services/api/client";
 import styles from "./Builds.module.css";
@@ -34,6 +35,7 @@ function BuildEditor() {
   const buildImport = advisorImport || loadoutImport;
   const queryClient = useQueryClient();
   const formRef = useRef<HTMLFormElement>(null);
+  const importRef = useRef<HTMLInputElement>(null);
   const hydrated = useRef(false);
   const draftRef = useRef<BuildDocument>(buildImport?.document || emptyBuildDocument());
   const [draft, setDraftState] = useState<BuildDocument>(() => buildImport?.document || emptyBuildDocument());
@@ -44,6 +46,7 @@ function BuildEditor() {
   const [lastSavedAt, setLastSavedAt] = useState<string>();
   const [publishReview, setPublishReview] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
+  const [portableImportStatus, setPortableImportStatus] = useState<{ ok: boolean; message: string }>();
 
   const existing = useQuery({ queryKey: ["build", buildId], queryFn: () => api<BuildData>(`/api/v1/builds/${encodeURIComponent(buildId)}`), enabled: editing && Boolean(session?.roles.buildEditor) });
   const working = useQuery({ queryKey: ["build-working-draft", buildId], queryFn: () => api<BuildWorkingDraftData>(`/api/v1/builds/${encodeURIComponent(buildId)}/working-draft`), enabled: editing && Boolean(session?.roles.buildEditor) });
@@ -153,7 +156,19 @@ function BuildEditor() {
     else create.mutate(document);
   };
   const reviewPublish = () => { if (formRef.current?.reportValidity() && draft.tags.length) setPublishReview(true); };
-  const confirmPublish = () => publish.mutate(prepareBuildDocument({ ...draft, status: "published", visibility: "public" }));
+  const confirmPublish = (visibility: "public" | "unlisted") => publish.mutate(prepareBuildDocument({ ...draft, status: "published", visibility }));
+  const importPortable = async (file?: File) => {
+    if (!file) return;
+    try {
+      const imported = parsePortableBuild(await file.text());
+      setDraft(imported);
+      setPortableImportStatus({ ok: true, message: `Imported ${imported.title} as a private draft. Review it before saving.` });
+    } catch (error) {
+      setPortableImportStatus({ ok: false, message: error instanceof Error ? error.message : "Build import failed." });
+    } finally {
+      if (importRef.current) importRef.current.value = "";
+    }
+  };
   const completion = useMemo(() => buildCompletion(draft), [draft]);
   const previewBuild: GuardianBuild = { ...prepareBuildDocument(draft), id: "preview", slug: "preview", authorMembershipId: membershipId || "preview", authorDisplayName: session?.guardian?.displayName || "Guardian", rating: { upvotes: 0, downvotes: 0, total: 0, score: 0 }, canEdit: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
   const pending = autosave.isPending || create.isPending || publish.isPending;
@@ -161,9 +176,10 @@ function BuildEditor() {
 
   if (!session?.roles.buildEditor) return <><PageHeader eyebrow="Restricted authoring" title="Build editor" description="Build authoring is limited to approved editors." /><section className={styles.editorDenied}><ShieldX /><h2>Browse access only</h2></section></>;
   return <>
-    <PageHeader eyebrow={editing ? "Revise Guardian field guide" : "New Guardian field guide"} title={editing ? "Edit build" : "Build creator"} description="Configure, preview, and publish a build." actions={<button className={styles.secondaryAction} type="button" onClick={() => setPreview((value) => !value)}><Eye /> {preview ? "Hide preview" : "Preview build"}</button>} />
+    <PageHeader eyebrow={editing ? "Revise Guardian field guide" : "New Guardian field guide"} title={editing ? "Edit build" : "Build creator"} description="Configure, preview, and publish a build." actions={<><input ref={importRef} hidden type="file" accept="application/json,.json" onChange={(event) => void importPortable(event.target.files?.[0])} /><button className={styles.secondaryAction} type="button" onClick={() => importRef.current?.click()}><FileInput /> Import build</button><button className={styles.secondaryAction} type="button" onClick={() => setPreview((value) => !value)}><Eye /> {preview ? "Hide preview" : "Preview build"}</button></>} />
     {editing && <QueryState loading={existing.isLoading || working.isLoading} error={(existing.error || working.error) as Error} hasData={Boolean(existing.data && working.isFetched)} onRetry={() => { void existing.refetch(); void working.refetch(); }} />}
     {buildImport && <section className={`${styles.recoveryBanner} ${styles.importBanner}`}><FileInput /><span><strong>Imported from {buildImport.sourceName}</strong><small>{advisorImport ? "The Advisor recommendation is ready to inspect, alter, and save through the existing Builder flow." : "Saved equipment, subclass choices, mods, cosmetics, and Artifact perks were prefilled. Complete the guide details, stats, tags, and gameplay notes before publishing."}</small></span></section>}
+    {portableImportStatus && <section className={`${styles.recoveryBanner} ${portableImportStatus.ok ? styles.importBanner : styles.editorError}`}><FileInput /><span><strong>{portableImportStatus.ok ? "Portable build imported" : "Import rejected"}</strong><small>{portableImportStatus.message}</small></span></section>}
     {recovery && <section className={styles.recoveryBanner}><RotateCcw /><span><strong>Unsaved recovery found</strong><small>Saved locally {new Date(recovery.savedAt).toLocaleString()}.</small></span><button type="button" onClick={() => { setDraft(recovery.document); setRecovery(undefined); }}>Restore</button><button type="button" onClick={() => { clearBuildRecovery(membershipId, buildId || "new"); setRecovery(undefined); }}><Trash2 /> Discard</button></section>}
     {serverAutosave && existingBuild?.status === "published" && <section className={styles.recoveryBanner}><Save /><span><strong>Private working draft active</strong><small>The published build remains unchanged until Review &amp; Publish.</small></span><span /><button type="button" disabled={discardWorking.isPending} onClick={() => discardWorking.mutate()}><Trash2 /> Discard working draft</button></section>}
     {(!editing || existing.data) && <>
@@ -180,7 +196,7 @@ function BuildEditor() {
         {preview && <aside className={styles.editorPreview}><header><Eye /><span><strong>Private preview</strong><small>This reflects the current unsaved editor state.</small></span></header><div className={styles.buildHero}><SubclassIcon subclass={previewBuild.subclass} icon={previewBuild.subclassIcon} large /><div><span><ClassIcon classType={previewBuild.classType} icon={previewBuild.classIcon} /> {titleCase(previewBuild.classType)} · {titleCase(previewBuild.subclass)}</span><h2>{previewBuild.title || "Untitled build"}</h2><p>{previewBuild.summary || "No card summary yet."}</p></div></div><BuildDetailSections build={previewBuild} showEmpty /></aside>}
       </div>
     </>}
-    {publishReview && <div className={styles.publishReviewBackdrop} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setPublishReview(false)}><section className={styles.publishReview} role="dialog" aria-modal="true" aria-labelledby="publish-review-title"><header><Send /><div><span>Final review</span><h2 id="publish-review-title">Publish {draft.title}</h2></div></header><p>This will make the current editor version public. Autosaved working drafts never publish on their own.</p><div>{completion.map((entry) => <span key={entry.id} data-state={entry.state}><b>{entry.label}</b><small>{entry.state === "optional" ? "Optional information not required" : entry.errors.join(" ") || "Ready"}</small></span>)}{publish.error && <aside className={styles.publishReviewError} role="alert"><AlertTriangle /> <span><b>Publish failed</b><small>{publish.error.message}</small></span></aside>}</div><footer><button type="button" onClick={() => setPublishReview(false)}>Return to editor</button><button type="button" className={styles.publishButton} disabled={publish.isPending} onClick={confirmPublish}><Send /> {publish.isPending ? "Publishing…" : "Publish build"}</button></footer></section></div>}
+    {publishReview && <div className={styles.publishReviewBackdrop} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setPublishReview(false)}><section className={styles.publishReview} role="dialog" aria-modal="true" aria-labelledby="publish-review-title"><header><Send /><div><span>Final review</span><h2 id="publish-review-title">Publish {draft.title}</h2></div></header><p>Choose public discovery or an unlisted link-only snapshot. Private autosaved drafts never publish on their own.</p><div>{completion.map((entry) => <span key={entry.id} data-state={entry.state}><b>{entry.label}</b><small>{entry.state === "optional" ? "Optional information not required" : entry.errors.join(" ") || "Ready"}</small></span>)}{publish.error && <aside className={styles.publishReviewError} role="alert"><AlertTriangle /> <span><b>Publish failed</b><small>{publish.error.message}</small></span></aside>}</div><footer><button type="button" onClick={() => setPublishReview(false)}>Return to editor</button><button type="button" disabled={publish.isPending} onClick={() => confirmPublish("unlisted")}><Share2 /> {publish.isPending ? "Publishing…" : "Publish unlisted"}</button><button type="button" className={styles.publishButton} disabled={publish.isPending} onClick={() => confirmPublish("public")}><Send /> {publish.isPending ? "Publishing…" : "Publish public"}</button></footer></section></div>}
   </>;
 }
 

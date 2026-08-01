@@ -162,7 +162,7 @@ export const buildDocumentSchema = z.object({
     date: z.string().datetime()
   })).max(50).default([]),
   status: z.enum(["draft", "published"]),
-  visibility: z.enum(["private", "public"])
+  visibility: z.enum(["private", "unlisted", "public"])
 }).strict();
 
 const storedBuildDocumentSchema = buildDocumentSchema.extend({
@@ -270,7 +270,7 @@ interface WorkingDraftRow { build_id: string; build_json: string; base_updated_a
 
 async function readBuild(identifier: string, viewer: SessionRow | undefined, editor: boolean, env: Env, context: RequestContext): Promise<Response> {
   const row = await findBuild(identifier, viewer?.membership_id || "", env);
-  if (!row || (!editor && !isPublic(row))) throw httpError(404, "build_not_found", "This build is unavailable or has not been published.");
+  if (!row || (!editor && !isLinkAccessible(row))) throw httpError(404, "build_not_found", "This build is unavailable or has not been published.");
   try { return buildEnvelope<BuildData>({ build: buildFromRow(row, editor) }, env, context); }
   catch (error) {
     logStoredBuildIssue(row, error);
@@ -345,7 +345,7 @@ async function deleteWorkingDraft(identifier: string, editorRow: SessionRow, env
 async function voteOnBuild(request: Request, identifier: string, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = buildVoteSchema.parse(await request.json());
   const build = await findBuild(identifier, row.membership_id, env);
-  if (!build || !isPublic(build)) throw httpError(404, "build_not_found", "Only published builds can be rated.");
+  if (!build || !isLinkAccessible(build)) throw httpError(404, "build_not_found", "Only published builds can be rated.");
   const now = new Date().toISOString();
   if (input.vote === null) {
     await env.DB.prepare("DELETE FROM build_votes WHERE build_id = ? AND membership_id = ?")
@@ -447,7 +447,7 @@ function normalizePublication(document: z.infer<typeof buildDocumentSchema>): Bu
     },
     tags: unique(document.tags),
     activityTags: unique(document.activityTags),
-    visibility: document.status === "published" ? "public" : "private"
+    visibility: document.status === "published" ? (document.visibility === "unlisted" ? "unlisted" : "public") : "private"
   };
 }
 
@@ -475,9 +475,9 @@ function voteValue(value: number | null): BuildVoteValue | undefined {
   return value === 1 ? "up" : value === -1 ? "down" : undefined;
 }
 
-function isPublic(row: BuildRow): boolean {
+function isLinkAccessible(row: BuildRow): boolean {
   const document = parseDocument(row.build_json);
-  return document.status === "published" && document.visibility === "public";
+  return document.status === "published" && document.visibility !== "private";
 }
 
 function isBuildEditor(row: SessionRow, env: Env): boolean {

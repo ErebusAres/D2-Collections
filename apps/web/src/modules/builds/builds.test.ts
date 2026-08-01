@@ -83,6 +83,12 @@ describe("build catalog filters", () => {
     expect(prepareBuildDocument(value).subclassConfig.transcendence).toBeUndefined();
   });
 
+  it("preserves link-only visibility for published builds and keeps drafts private", () => {
+    const value = emptyBuildDocument();
+    expect(prepareBuildDocument({ ...value, status: "published", visibility: "unlisted" }).visibility).toBe("unlisted");
+    expect(prepareBuildDocument({ ...value, status: "draft", visibility: "unlisted" }).visibility).toBe("private");
+  });
+
   it("keeps all seven Artifacts while removing duplicate perk selections", () => {
     const value = emptyBuildDocument();
     value.artifacts = Array.from({ length: 7 }, (_, index) => ({
