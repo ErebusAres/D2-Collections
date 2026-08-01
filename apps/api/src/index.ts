@@ -73,6 +73,17 @@ import {
 } from "./notifications";
 import { readRaidRotations } from "./worldState";
 
+const fireteamReadinessSchema = z.object({
+  schemaVersion: z.literal(1),
+  activityName: z.string().trim().min(1).max(80),
+  role: z.enum(["damage", "support", "control", "flex"]),
+  state: z.enum(["ready", "needs-attention", "not-checked"]),
+  build: z.object({ id: z.string().max(100).optional(), title: z.string().trim().min(1).max(100), subclass: z.string().trim().max(60).optional() }).optional(),
+  prerequisites: z.array(z.object({ id: z.string().min(1).max(60), label: z.string().trim().min(1).max(100), state: z.enum(["ready", "needs-attention", "not-checked"]) })).max(12),
+  note: z.string().trim().max(240).optional(),
+  source: z.literal("player-confirmed"),
+  updatedAt: z.string().datetime()
+});
 const shareSchema = z.object({
   characterId: z.string().min(1),
   sitePinnedQuestIds: z.array(z.string()).max(40).default([]),
@@ -80,6 +91,7 @@ const shareSchema = z.object({
   siteTrackedJourneyIds: z.array(z.string()).max(500).optional(),
   siteTrackedCollectionIds: z.array(z.string()).max(200).optional(),
   hiddenTrackedItemKeys: z.array(z.string()).max(200).optional(),
+  readiness: fireteamReadinessSchema.nullable().optional(),
   mode: z.enum(["temporary", "persistent"]).default("temporary")
 });
 const FIRETEAM_COMPLETION_RETENTION_MS = 3 * 60_000;
@@ -107,7 +119,7 @@ const equipBuildAdvisorSchema = z.object({
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
-  z.object({ key: z.enum(["gear.filters", "weapons.filters", "weapons.wishlist", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters", "watchlists.buildAcquisitions", "watchlists.v1"]), value: z.string().max(12_000) }),
+  z.object({ key: z.enum(["gear.filters", "weapons.filters", "weapons.wishlist", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "fireteam.readinessDraft.v1", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters", "watchlists.buildAcquisitions", "watchlists.v1"]), value: z.string().max(12_000) }),
   z.object({ key: z.literal("gear.workspace"), value: z.enum(["armor", "weapons"]) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
@@ -853,7 +865,7 @@ async function auditGear(row: SessionRow, env: Env, action: string, itemId: stri
 
 async function upsertShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = shareSchema.parse(await request.json());
-  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds, input.siteTrackedCollectionIds);
+  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds, input.siteTrackedCollectionIds, input.readiness);
   return envelope({
     sharing: true,
     mode: input.mode,
@@ -872,7 +884,8 @@ async function storeShare(
   providedGuardianRankIds?: string[],
   providedHiddenTrackedItemKeys?: string[],
   providedJourneyIds?: string[],
-  providedCollectionIds?: string[]
+  providedCollectionIds?: string[],
+  providedReadiness?: import("@guardian-nexus/contracts").FireteamReadinessSummary | null
 ): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string }> {
   const [{ profile }, manifest, guardianRankManifest, journeyManifest, activityManifest, collectionManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
@@ -933,7 +946,8 @@ async function storeShare(
     FIRETEAM_COMPLETION_RETENTION_MS
   );
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
-  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests };
+  const readiness = providedReadiness === undefined ? sharedReadiness(previousPayload) : providedReadiness || undefined;
+  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness };
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
@@ -1048,6 +1062,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       expiresAt: share?.sharing_mode === "temporary" ? share?.expires_at : undefined,
       trackedItems: memberTrackedItems,
       recentlyCompletedItems: sharedRecentlyCompletedItems(payload),
+      readiness: sharedReadiness(payload),
       quests: memberQuests,
       overlaps: memberTrackedItems.filter((item) => (trackedItemCounts.get(`${item.kind}:${item.definitionHash}`) || 0) > 1).map((item) => item.name),
       freshness: {
@@ -1073,6 +1088,11 @@ function sharedRecentlyCompletedItems(payload: any): FireteamCompletedTrackedIte
   return Array.isArray(payload?.recentlyCompletedItems)
     ? payload.recentlyCompletedItems.filter((item: FireteamCompletedTrackedItem) => Number.isFinite(Date.parse(item.completedAt)) && Date.parse(item.completedAt) >= cutoff)
     : [];
+}
+
+function sharedReadiness(payload: any): import("@guardian-nexus/contracts").FireteamReadinessSummary | undefined {
+  const parsed = fireteamReadinessSchema.safeParse(payload?.readiness);
+  return parsed.success ? parsed.data : undefined;
 }
 
 function sharedHiddenTrackedItemKeys(payload: any): string[] {

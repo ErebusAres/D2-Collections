@@ -617,6 +617,30 @@ export interface FireteamCompletedTrackedItem extends FireteamTrackedItem {
   completedAt: string;
 }
 
+export type FireteamReadinessRole = "damage" | "support" | "control" | "flex";
+export type FireteamReadinessState = "ready" | "needs-attention" | "not-checked";
+
+/** A player-confirmed, activity-scoped summary. It never contains raw inventory or Collections data. */
+export interface FireteamReadinessSummary {
+  schemaVersion: 1;
+  activityName: string;
+  role: FireteamReadinessRole;
+  state: FireteamReadinessState;
+  build?: {
+    id?: string;
+    title: string;
+    subclass?: string;
+  };
+  prerequisites: {
+    id: string;
+    label: string;
+    state: FireteamReadinessState;
+  }[];
+  note?: string;
+  source: "player-confirmed";
+  updatedAt: string;
+}
+
 export interface FireteamMember {
   membershipId: string;
   displayName: string;
@@ -635,6 +659,7 @@ export interface FireteamMember {
   expiresAt?: string;
   trackedItems: FireteamTrackedItem[];
   recentlyCompletedItems?: FireteamCompletedTrackedItem[];
+  readiness?: FireteamReadinessSummary;
   /** @deprecated Retained for compatibility with Fireteam shares created by older web bundles. */
   quests: QuestProgress[];
   overlaps: string[];
@@ -1007,6 +1032,7 @@ export type UserPreferenceKey =
   | "collection.filters"
   | "collection.tracked"
   | "fireteam.trackedOrder"
+  | "fireteam.readinessDraft.v1"
   | "quests.layout"
   | "quests.filters"
   | "guardianRank.tracked"

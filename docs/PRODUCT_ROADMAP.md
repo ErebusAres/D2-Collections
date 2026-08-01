@@ -12,7 +12,8 @@ Last updated: 2026-08-01
 - **Published for review:** Versioned account-private watchlists now cover items, perks, Xûr offers, Collection unlocks, catalysts, pursuits, Rewards Pass claims, and Postmaster thresholds with browser-alert consent, reset-aware expiry, and explicit unknown states.
 - **Validated on the PR branch:** The session planner now uses source-aware effort confidence, objective overlap, known deadline urgency, and explicit handoff into Fireteam tracking.
 - **Validated on the PR branch:** Mobile/PWA readiness now includes a safe-area-aware phone dock, prioritized app shortcuts, native install prompting, cache migration, and regression coverage.
-- **Active next implementation:** Activity-scoped Fireteam readiness.
+- **Validated on the PR branch:** Activity-scoped Fireteam readiness uses explicit opt-in, player-confirmed roles and prerequisites, public build summaries, and an official Bungie Fireteam Finder handoff without sharing inventory or Collections.
+- **Active next implementation:** Phase 5 private/unlisted snapshots and cross-tool portability foundations.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -53,8 +54,8 @@ Last updated: 2026-08-01
 
 - [x] Installable, responsive second-screen navigation for Director, alerts, Postmaster, tracked goals, and Fireteam, with safe-area support and native install prompting.
 - [ ] Finish narrow-layout review of feature-specific Xur and quick-inventory surfaces as those pages evolve.
-- Activity-scoped readiness with explicitly shared roles, prerequisites, and build summaries.
-- Recruitment remains in Bungie's official Fireteam Finder; Guardian Nexus prepares the group and links outward.
+- [x] Activity-scoped readiness with explicitly shared roles, prerequisites, and public build summaries.
+- [x] Recruitment remains in Bungie's official Fireteam Finder; Guardian Nexus prepares the group and links outward.
 
 ## Phase 5: Expansion features
 

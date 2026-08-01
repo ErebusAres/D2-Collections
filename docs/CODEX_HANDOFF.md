@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2, weapon rolls, unified private watchlists, the session-planner refinement, and mobile/PWA readiness are complete; activity-scoped Fireteam readiness is next.
+Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2, weapon rolls, unified private watchlists, session planning, mobile/PWA readiness, and privacy-safe Fireteam readiness are complete; Phase 5 expansion foundations are next.
 
 ## Current repository state
 
@@ -47,6 +47,9 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 21. Added an explicit route handoff that deduplicates and writes quest, Guardian Rank, and Collection objectives into the existing private Fireteam tracking channels before the player chooses whether to share them.
 22. Added a safe-area-aware mobile quick-action dock for Director, Watchlists, Next Steps, Postmaster, and Fireteam while preserving the full horizontally scrollable section navigation.
 23. Added native `beforeinstallprompt` handling in Options, prioritized mobile manifest shortcuts, edge-to-edge viewport metadata, and a versioned service-worker cache migration.
+24. Added a versioned, player-confirmed Fireteam readiness summary with activity, role, prerequisite states, optional public build summary, note, and timestamp validation.
+25. Added a private readiness draft preference and explicit share consent. The API stores only the scoped summary in the existing Fireteam payload, preserves it across background refreshes, and never includes inventory or Collections data.
+26. Added responsive readiness editing and member-card summaries plus a verified outward link to Bungie's official Fireteam Finder; Guardian Nexus does not recreate recruitment or matchmaking.
 
 ## Files in release scope
 
@@ -75,6 +78,11 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/web/src/pages/NextStepsPage.tsx`
 - `apps/web/src/pages/NextStepsPage.module.css`
 - `apps/web/src/pages/NextStepsPage.test.ts`
+- `apps/web/src/components/fireteam/FireteamReadinessPanel.tsx`
+- `apps/web/src/components/fireteam/FireteamReadinessPanel.module.css`
+- `apps/web/src/components/fireteam/FireteamReadinessPanel.test.tsx`
+- `apps/web/src/modules/fireteam/readiness.ts`
+- `apps/web/src/modules/fireteam/readiness.test.ts`
 - `packages/contracts/src/index.ts`
 - `tools/sync-manifest.py`
 - `tools/sync_manifest_test.py`
@@ -95,11 +103,11 @@ The following passed on 2026-08-01:
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
 - 168 API tests
-- 206 web tests
+- 210 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 373,723 bytes JavaScript, 114,739 bytes gzip, and 39,836 bytes CSS
+- performance budgets: 373,764 bytes JavaScript, 114,737 bytes gzip, and 39,836 bytes entry CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -145,11 +153,17 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Added a user-initiated native install action, prioritized OS shortcuts, Apple mobile metadata, and a bumped core cache so installed clients receive the shell update.
 - Component, manifest, service-worker, and type checks cover the install surface. The in-app browser confirmed the new navigation rendered from the live development branch; its fresh-tab viewport override continued to report desktop dimensions, so exact-device visual QA remains a release-review task rather than a correctness claim.
 
-#### Next: Fireteam readiness
+#### Completed: Fireteam readiness
 
-- Add activity-scoped, opt-in readiness summaries for roles, prerequisites, and selected build readiness.
-- Keep inventory and Collections private; share only the scoped summary the player chooses.
-- Link recruitment to Bungie's official Fireteam Finder rather than recreating matchmaking.
+- Readiness drafts remain private until the player enables the scoped share and names an activity; shared data is explicitly labeled player-confirmed.
+- Roles, overall state, prerequisite checks, optional public build title/subclass, and a short note are validated at the API boundary and rendered on Fireteam member cards.
+- Background share refreshes preserve the existing readiness summary when no readiness update is submitted. Disabling readiness explicitly removes it from the payload.
+- Recruitment links to Bungie's official Fireteam Finder rather than recreating matchmaking.
+
+### P3: Expansion foundations
+
+- Start with a versioned private/unlisted snapshot contract and export/import envelope that can later serve clan planning, history, broader checklists, and cross-tool portability without exposing account ownership.
+- Keep fashion/challenge modes and broader new-player explanations modular so they can consume the same snapshot/checklist contracts without hard-coded seasonal facts.
 
 ## Non-negotiable constraints
 
