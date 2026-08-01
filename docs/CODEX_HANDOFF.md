@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2, weapon rolls, unified private watchlists, and the session-planner refinement are complete; mobile/PWA QA and activity-scoped Fireteam readiness are next.
+Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2, weapon rolls, unified private watchlists, the session-planner refinement, and mobile/PWA readiness are complete; activity-scoped Fireteam readiness is next.
 
 ## Current repository state
 
@@ -45,6 +45,8 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 19. Reworked session planning into a bounded greedy route that rewards shared playlist, activity, element, weapon, combatant, precision, and ability requirements after the first objective is selected.
 20. Added known-deadline urgency, expired-deadline rejection, source-aware 30/60/120-minute estimates, and explicit high, medium, or low confidence explanations.
 21. Added an explicit route handoff that deduplicates and writes quest, Guardian Rank, and Collection objectives into the existing private Fireteam tracking channels before the player chooses whether to share them.
+22. Added a safe-area-aware mobile quick-action dock for Director, Watchlists, Next Steps, Postmaster, and Fireteam while preserving the full horizontally scrollable section navigation.
+23. Added native `beforeinstallprompt` handling in Options, prioritized mobile manifest shortcuts, edge-to-edge viewport metadata, and a versioned service-worker cache migration.
 
 ## Files in release scope
 
@@ -64,6 +66,10 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/web/src/pages/WatchlistsPage.module.css`
 - `apps/web/src/App.tsx`
 - `apps/web/src/components/layout/Shell.tsx`
+- `apps/web/src/components/layout/Shell.module.css`
+- `apps/web/src/components/layout/Shell.test.tsx`
+- `apps/web/src/components/layout/OptionsPanel.tsx`
+- `apps/web/src/components/layout/OptionsPanel.module.css`
 - `apps/web/src/pages/GearPage.tsx`
 - `apps/web/src/pages/Pages.module.css`
 - `apps/web/src/pages/NextStepsPage.tsx`
@@ -89,11 +95,11 @@ The following passed on 2026-08-01:
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
 - 168 API tests
-- 205 web tests
+- 206 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 372,073 bytes JavaScript, 114,308 bytes gzip, and 38,019 bytes CSS
+- performance budgets: 373,723 bytes JavaScript, 114,739 bytes gzip, and 39,836 bytes CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -133,7 +139,14 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 
 ### P2: Mobile and Fireteam readiness
 
-- QA the PWA install flow and responsive layouts on representative narrow viewports.
+#### Completed: Mobile/PWA readiness
+
+- Added persistent phone quick actions, 44-pixel-plus touch targets, notch/home-indicator spacing, scroll-safe section tabs, and content/scroll-top clearance for the dock.
+- Added a user-initiated native install action, prioritized OS shortcuts, Apple mobile metadata, and a bumped core cache so installed clients receive the shell update.
+- Component, manifest, service-worker, and type checks cover the install surface. The in-app browser confirmed the new navigation rendered from the live development branch; its fresh-tab viewport override continued to report desktop dimensions, so exact-device visual QA remains a release-review task rather than a correctness claim.
+
+#### Next: Fireteam readiness
+
 - Add activity-scoped, opt-in readiness summaries for roles, prerequisites, and selected build readiness.
 - Keep inventory and Collections private; share only the scoped summary the player chooses.
 - Link recruitment to Bungie's official Fireteam Finder rather than recreating matchmaking.

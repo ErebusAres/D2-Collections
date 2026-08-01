@@ -11,7 +11,8 @@ Last updated: 2026-08-01
 - **Implemented on the PR branch:** Phase 2 weapon manifest, private physical-roll normalization, duplicate/perk comparison, crafted/enhanced visibility, wishlist support, explainable review states, and existing Gear actions.
 - **Published for review:** Versioned account-private watchlists now cover items, perks, Xûr offers, Collection unlocks, catalysts, pursuits, Rewards Pass claims, and Postmaster thresholds with browser-alert consent, reset-aware expiry, and explicit unknown states.
 - **Validated on the PR branch:** The session planner now uses source-aware effort confidence, objective overlap, known deadline urgency, and explicit handoff into Fireteam tracking.
-- **Active next implementation:** Mobile surface refinement and activity-scoped Fireteam readiness.
+- **Validated on the PR branch:** Mobile/PWA readiness now includes a safe-area-aware phone dock, prioritized app shortcuts, native install prompting, cache migration, and regression coverage.
+- **Active next implementation:** Activity-scoped Fireteam readiness.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -50,7 +51,8 @@ Last updated: 2026-08-01
 
 ## Phase 4: Mobile and Fireteam readiness
 
-- Installable, responsive second-screen surfaces for Director, alerts, Xur, Postmaster, tracked goals, quick inventory actions, and Fireteam readiness.
+- [x] Installable, responsive second-screen navigation for Director, alerts, Postmaster, tracked goals, and Fireteam, with safe-area support and native install prompting.
+- [ ] Finish narrow-layout review of feature-specific Xur and quick-inventory surfaces as those pages evolve.
 - Activity-scoped readiness with explicitly shared roles, prerequisites, and build summaries.
 - Recruitment remains in Bungie's official Fireteam Finder; Guardian Nexus prepares the group and links outward.
 

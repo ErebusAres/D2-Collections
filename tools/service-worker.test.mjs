@@ -4,6 +4,20 @@ import test from "node:test";
 import ts from "typescript";
 
 const workerPath = new URL("../apps/web/service-worker.ts", import.meta.url);
+const manifestPath = new URL("../apps/web/public/manifest.webmanifest", import.meta.url);
+const indexPath = new URL("../apps/web/index.html", import.meta.url);
+
+test("the install surface exposes mobile priorities and safe-area metadata", async () => {
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const shortcutUrls = manifest.shortcuts.map((shortcut) => shortcut.url);
+  const html = await readFile(indexPath, "utf8");
+  const worker = await readFile(workerPath, "utf8");
+
+  assert.deepEqual(shortcutUrls, ["/director", "/watchlists", "/xur", "/next", "/mailbox", "/fireteam"]);
+  assert.match(html, /viewport-fit=cover/);
+  assert.match(html, /rel="apple-touch-icon"/);
+  assert.match(worker, /guardian-nexus-core-v3/);
+});
 
 test("navigation responses are cloned before the browser can consume them", async () => {
   const sourceText = await readFile(workerPath, "utf8");

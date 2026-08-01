@@ -1,8 +1,8 @@
 import type { FireteamData, ReportAdminSummaryData } from "@guardian-nexus/contracts";
-import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
+import { Bug, ChevronRight, ClipboardList, Download, Eye, GitCompareArrows, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
 import { clearGuardianOfflineData } from "../../services/api/offlineCache";
 import { LIVE_REFRESH_INTERVAL_SECONDS } from "../../services/liveRefresh";
@@ -10,12 +10,18 @@ import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import { trapFocusWithin } from "../common/focusTrap";
 import styles from "./OptionsPanel.module.css";
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
 export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: { open: boolean; onClose: () => void; returnFocusRef?: RefObject<HTMLButtonElement | null>; reportSummary?: ReportAdminSummaryData }) {
   const guardianState = useGuardian();
   const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
   const queryClient = useQueryClient();
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const session = guardianState.session;
   const fireteam = useQuery({
     queryKey: ["fireteam", guardianState.selectedCharacterId],
@@ -62,6 +68,26 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [onClose, open, returnFocusRef]);
+  useEffect(() => {
+    const offerInstall = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    const clearInstall = () => setInstallPrompt(null);
+    window.addEventListener("beforeinstallprompt", offerInstall);
+    window.addEventListener("appinstalled", clearInstall);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", offerInstall);
+      window.removeEventListener("appinstalled", clearInstall);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
 
   const hasAdminTools = Boolean(session?.roles.reportAdmin || session?.roles.dev || session?.roles.matrixWriter);
 
@@ -84,6 +110,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
           <h3>Experience</h3>
           <Toggle label="Auto-refresh live data" description={`Refresh visible live pages every ${LIVE_REFRESH_INTERVAL_SECONDS} seconds.`} checked={guardianState.autoRefresh} onChange={guardianState.setAutoRefresh} />
           <Toggle label="Reduce motion" description="Disable non-essential interface movement." checked={guardianState.reducedMotion} onChange={guardianState.setReducedMotion} />
+          {installPrompt && <button type="button" className={styles.installApp} onClick={() => void installApp()}><Download /><span><b>Install Guardian Nexus</b><small>Add the companion to this device for quicker access.</small></span></button>}
         </section>
         {session?.authenticated && <section>
           <h3>Fireteam privacy</h3>

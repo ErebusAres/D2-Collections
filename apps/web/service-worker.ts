@@ -1,4 +1,4 @@
-const CORE_CACHE = "guardian-nexus-core-v2";
+const CORE_CACHE = "guardian-nexus-core-v3";
 const RUNTIME_CACHE = "guardian-nexus-runtime-v1";
 const CACHE_PREFIX = "guardian-nexus-";
 const RUNTIME_LIMIT = 300;

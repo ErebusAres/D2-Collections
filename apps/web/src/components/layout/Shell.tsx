@@ -27,6 +27,14 @@ const tabs = [
   { to: "/fireteam", label: "Fireteam", icon: Users }
 ];
 
+const mobileActions = [
+  { to: "/director", label: "Director", icon: Globe2 },
+  { to: "/watchlists", label: "Alerts", icon: Radar },
+  { to: "/next", label: "Plan", icon: Compass },
+  { to: "/mailbox", label: "Postmaster", icon: Mail },
+  { to: "/fireteam", label: "Fireteam", icon: Users }
+];
+
 export function Shell() {
   const { session, loading, error, signIn, selectedCharacterId, autoRefresh } = useGuardian();
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -102,6 +110,9 @@ export function Shell() {
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>
+      <nav className={styles.mobileDock} aria-label="Mobile quick actions">
+        {mobileActions.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? styles.activeMobileAction : styles.mobileAction}><Icon aria-hidden="true" /><span>{label}</span></NavLink>)}
+      </nav>
       {showScrollTop && <button type="button" className={styles.scrollTop} aria-label="Scroll to top" title="Scroll to top" onClick={() => window.scrollTo({ top: 0, behavior: document.documentElement.dataset.reducedMotion === "true" ? "auto" : "smooth" })}><ArrowUp /></button>}
       <footer className={styles.footer}><span>Guardian Nexus</span><span>Destiny companion</span><span>Activity data may be delayed</span></footer>
       <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} returnFocusRef={optionsTriggerRef} reportSummary={reportSummary.data?.data} />
