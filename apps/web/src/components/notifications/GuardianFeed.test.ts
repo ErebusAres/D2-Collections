@@ -1,6 +1,6 @@
 import type { GuardianNotification, NotificationPreferences } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { isRankUpNotification, notificationDisplayDuration, notificationVersion, shouldRotateFeed } from "./GuardianFeed";
+import { isRankUpNotification, notificationAnimation, notificationDisplayDuration, notificationVersion, shouldRotateFeed } from "./GuardianFeed";
 
 const preferences: NotificationPreferences = {
   enabledCategories: ["system"],
@@ -62,5 +62,13 @@ describe("Guardian Feed timing", () => {
     expect(isRankUpNotification({ ...notification("high"), type: "guardian-rank-up" })).toBe(true);
     expect(isRankUpNotification({ ...notification("high"), type: "other", metadata: { fanfare: "rank-up" } })).toBe(true);
     expect(isRankUpNotification(notification("normal"))).toBe(false);
+  });
+
+  it("selects event-specific fanfare before the broader category treatment", () => {
+    expect(notificationAnimation({ ...notification("high"), type: "xur-arrived" }, "exotic")).toBe("xurArrival");
+    expect(notificationAnimation({ ...notification("high"), type: "xur-departed" }, "warning")).toBe("xurDeparture");
+    expect(notificationAnimation({ ...notification("high"), type: "guardian-rank-up" }, "completion")).toBe("guardianRank");
+    expect(notificationAnimation({ ...notification("high"), type: "rewards-pass-up" }, "completion")).toBe("rewardsRank");
+    expect(notificationAnimation(notification("normal"), "system")).toBe("system");
   });
 });

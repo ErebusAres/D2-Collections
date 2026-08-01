@@ -8,7 +8,8 @@ import type {
   QuestProgress,
   QuestStepProgress,
   PvpProgression,
-  RewardsPassProgress
+  RewardsPassProgress,
+  XurOffer
 } from "@guardian-nexus/contracts";
 import { className, imageUrl, mergeCollection, objectivePercent, questPercent, questStepPosition, recommendQuests } from "@guardian-nexus/domain";
 
@@ -168,6 +169,39 @@ function ownedItemHashes(profile: any): Set<string> {
   Object.values(profile?.characterInventories?.data || {}).forEach(apply);
   Object.values(profile?.characterEquipment?.data || {}).forEach(apply);
   return hashes;
+}
+
+export function addXurCollectionStates(profile: any, manifest: CompactManifest, offers: XurOffer[]): XurOffer[] {
+  const collection = normalizeCollection(profile, manifest);
+  const collectibleState = collectibleStates(profile);
+  const physicalItems = ownedItemHashes(profile);
+  const hasCollectionData = Boolean(profile?.profileCollectibles?.data || Object.keys(profile?.characterCollectibles?.data || {}).length);
+  const byHash = new Map(collection.entries.map((entry) => [entry.itemHash, entry]));
+  const byIdentity = new Map(collection.entries.map((entry) => [collectionIdentity(entry.name, entry.className), entry]));
+
+  return offers.map((offer) => {
+    if (offer.category === "other") return { ...offer, collectionState: "not-applicable" };
+    if (offer.category === "exotic-catalyst") {
+      const itemName = offer.name.replace(/\s+catalyst\s*$/i, "").trim();
+      const entry = byIdentity.get(collectionIdentity(itemName));
+      if (!entry || entry.catalyst === "unavailable") return { ...offer, collectionState: "unknown" };
+      return { ...offer, collectionState: entry.catalyst === "obtained" || entry.catalyst === "complete" ? "owned" : "missing" };
+    }
+
+    const collectionEntry = byHash.get(offer.itemHash)
+      || byIdentity.get(collectionIdentity(offer.name, offer.className));
+    if (collectionEntry) return { ...offer, collectionState: collectionEntry.owned ? "owned" : "missing" };
+    if (physicalItems.has(offer.itemHash)) return { ...offer, collectionState: "owned" };
+    if (offer.collectibleHash && hasCollectionData) {
+      const state = collectibleState.get(offer.collectibleHash);
+      return { ...offer, collectionState: state !== undefined && (state & 1) === 0 ? "owned" : "missing" };
+    }
+    return { ...offer, collectionState: "unknown" };
+  });
+}
+
+function collectionIdentity(name: string, className?: string): string {
+  return `${name.trim().toLocaleLowerCase()}|${className || ""}`;
 }
 
 export function normalizeCollection(profile: any, manifest: CompactManifest, selectedClass?: CharacterSummary["className"], xurSaleItemHashes = new Set<string>()): CollectionData {

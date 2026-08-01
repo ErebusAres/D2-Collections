@@ -57,6 +57,14 @@ describe("Guardian Feed session handoff", () => {
     expect(view.container.querySelector("[data-notification-atmosphere]")).toBeNull();
   });
 
+  it("uses distinct fanfare for Xûr and progression milestones", () => {
+    const view = render(<MemoryRouter><GuardianFeed controller={controller([{ ...notification("xur", "Xûr has arrived", "exotic"), type: "xur-arrived" }])} /></MemoryRouter>);
+    expect(screen.getByRole("region").getAttribute("data-guardian-animation")).toBe("xurArrival");
+
+    view.rerender(<MemoryRouter><GuardianFeed controller={controller([{ ...notification("rank", "Guardian Rank 8 reached", "completion"), type: "guardian-rank-up" }])} /></MemoryRouter>);
+    expect(screen.getByRole("region").getAttribute("data-guardian-animation")).toBe("guardianRank");
+  });
+
   it("keeps a persistent notification static after its one-shot entrance", async () => {
     const persistent = { ...notification("persistent", "Persistent world event", "distortion"), autoDismiss: false, autoDismissMs: undefined };
     const view = render(<MemoryRouter><GuardianFeed controller={controller([persistent])} /></MemoryRouter>);

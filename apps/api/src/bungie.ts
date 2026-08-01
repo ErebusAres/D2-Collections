@@ -199,6 +199,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
         return [{
           saleIndex: `${vendorHash}:${saleIndex}`, itemHash: hash, name, description: String(definition.displayProperties?.description || ""),
           icon: imageUrl(definition.displayProperties?.icon), rarity, itemType: itemTypeName, slot,
+          ...(definition.collectibleHash ? { collectibleHash: String(definition.collectibleHash) } : {}),
           ...(classType >= 0 && classType <= 2 ? { className: classes[classType] } : {}), quantity: Math.max(1, Number(sale?.quantity || 1)), category,
           costs, stats, ...(stats.length ? { statTotal: stats.reduce((sum: number, stat: any) => sum + stat.value, 0) } : {}), perks
         }];

@@ -101,6 +101,7 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
   if (!preferences.bannerVisible || !notification) return null;
   const config = categoryFor(notification.category);
   const Icon = config.icon;
+  const animation = notificationAnimation(notification, config.animation);
   const destination = notification.destinationUrl || notification.externalUrl;
   const style = {
     "--notification-primary": config.primaryColor,
@@ -122,7 +123,7 @@ export function GuardianFeed({ controller }: { controller: GuardianNotifications
       <section
         key={notificationVersion(notification)}
         className={`${styles.feed} ${styles[notification.priority]} ${isRankUpNotification(notification) ? "gn-rank-fanfare" : ""}`}
-        data-guardian-animation={config.animation}
+        data-guardian-animation={animation}
         style={style}
         aria-live={notification.priority === "critical" ? "assertive" : "polite"}
         aria-label={`${config.label}: ${notification.title}`}
@@ -184,6 +185,15 @@ export function isRankUpNotification(notification: GuardianNotification): boolea
   return notification.type === "guardian-rank-up"
     || notification.type === "rewards-pass-up"
     || notification.metadata?.fanfare === "rank-up";
+}
+
+export function notificationAnimation(notification: GuardianNotification, categoryAnimation?: string): string | undefined {
+  if (notification.type === "xur-arrived" || notification.metadata?.fanfare === "xur-arrival") return "xurArrival";
+  if (notification.type === "xur-departed" || notification.metadata?.fanfare === "xur-departure") return "xurDeparture";
+  if (notification.type === "guardian-rank-up") return "guardianRank";
+  if (notification.type === "rewards-pass-up") return "rewardsRank";
+  if (notification.metadata?.fanfare === "rank-up") return "guardianRank";
+  return categoryAnimation;
 }
 
 function readShownNotifications(): Set<string> {
