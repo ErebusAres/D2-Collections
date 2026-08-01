@@ -1,9 +1,14 @@
 import type {
   ArmorItem,
   BuildAdvisorArmorEvaluation,
+  BuildAdvisorArmorCombination,
+  BuildAdvisorArmorOptimization,
+  BuildAdvisorAcquisitionPlan,
+  BuildAdvisorAlternativeSuggestion,
   BuildAdvisorAssemblyStatus,
   BuildAdvisorCategory,
   BuildAdvisorCollectionItem,
+  BuildAdvisorComponentVerification,
   BuildAdvisorData,
   BuildAdvisorEquipPlan,
   BuildAdvisorFocus,
@@ -193,6 +198,7 @@ export function normalizeBuildAdvisorInventory(
         armorCurrentTotal: armor.currentTotal,
         armorTier: armor.gearTier,
         ...(armor.archetype ? { armorArchetype: armor.archetype } : {}),
+        ...(armor.setBonuses.length ? { armorSetBonuses: armor.setBonuses.map((bonus) => ({ name: bonus.name, hash: bonus.hash, icon: bonus.icon, description: bonus.description })) } : {}),
         ...(armor.tunedStat ? { tunedStat: ARMOR_STAT_TO_BUILD[armor.tunedStat] } : {}),
         masterworked: armor.masterworked
       } : {})
@@ -359,7 +365,8 @@ function scoreTemplate(
     }
     return evaluation;
   });
-  const armor = selectArmorLoadout(template, coreArmor, inventory.items, character);
+  const armorSelection = selectArmorLoadout(template, coreArmor, inventory.items, character);
+  const armor = armorSelection.evaluations;
   const ghostFocus = ghostFocusForTemplate(template, inventory);
   const missingItems = [
     ...(!coreArmor ? [template.requiredExoticArmor] : []),
@@ -370,6 +377,9 @@ function scoreTemplate(
     ...armor.filter((entry) => entry.quality === "missing").map((entry) => entry.label)
   ];
   const missingItemGuides = acquisitionGuides(template, coreArmor, collectionArmor, weapons, armor, ghostFocus, inventory, character);
+  const componentVerifications = verifyBuildComponents(template, coreArmor, collectionArmor, weapons, armor, character);
+  const alternatives = alternativeSuggestions(template, weapons, armor, inventory.items, character);
+  const acquisitionPlans = structuredAcquisitionPlans(template, missingItemGuides);
   const substitutions = weapons
     .filter((weapon) => ["strong", "functional", "poor"].includes(weapon.substitution))
     .map((weapon) => `${weapon.label}: ${weapon.item?.name || "no usable item"}`);
@@ -400,6 +410,7 @@ function scoreTemplate(
   const build = buildDocumentFromRecommendation(template, armor, weapons, ghostFocus, notes, inventory);
   const selectedExoticWeapon = weapons.find((weapon) => weapon.item?.exotic)?.item;
   const recommendation: BuildAdvisorRecommendation = {
+    adviceSchemaVersion: 2,
     id: `advisor:${template.id}`,
     templateId: template.id,
     templateVersion: template.version,
@@ -424,10 +435,15 @@ function scoreTemplate(
     ...(selectedExoticWeapon ? { exoticWeapon: selectedExoticWeapon } : {}),
     weapons,
     armor,
+    armorOptimization: armorSelection.optimization,
     ghostFocus,
     missingItems,
     missingItemGuides,
     substitutions,
+    componentVerifications,
+    alternatives,
+    acquisitionPlans,
+    upgradePath: buildUpgradePath(readinessScore, componentVerifications),
     activities: template.activities,
     style: template.style,
     damageProfile: template.damageProfile,
@@ -514,6 +530,245 @@ function acquisitionGuides(
     guides.push(armorSlotGuide(entry, ghostFocus, character));
   }
   return [...new Map(guides.map((guide) => [guide.id, guide])).values()];
+}
+
+function verifyBuildComponents(
+  template: BuildAdvisorTemplate,
+  coreArmor: BuildAdvisorOwnedItem | undefined,
+  collectionArmor: BuildAdvisorCollectionItem | undefined,
+  weapons: BuildAdvisorWeaponEvaluation[],
+  armor: BuildAdvisorArmorEvaluation[],
+  character: CharacterSummary
+): BuildAdvisorComponentVerification[] {
+  const core: BuildAdvisorComponentVerification = {
+    id: `core:${template.id}`,
+    kind: "exotic-armor",
+    name: template.requiredExoticArmor,
+    state: coreArmor
+      ? ownedLocationState(coreArmor, character.characterId, "exact-owned")
+      : collectionArmor ? "collection-only" : "missing",
+    required: true,
+    ...(coreArmor || collectionArmor ? { item: coreArmor || collectionArmor } : {}),
+    reasons: coreArmor
+      ? ["A physical copy of the required Exotic armor was found.", ...locationReasons(coreArmor, character.characterId)]
+      : collectionArmor
+        ? ["The Exotic is unlocked in Collections, but no physical copy was found."]
+        : ["Neither a physical copy nor a Collections unlock could be verified."],
+    actions: coreArmor
+      ? locationActions(coreArmor, character.characterId)
+      : collectionArmor
+        ? ["Reacquire the Exotic from Collections when Destiny permits it."]
+        : ["Open the acquisition plan and track this item."]
+  };
+  const weaponStates = weapons.map((weapon): BuildAdvisorComponentVerification => {
+    const baseState: BuildAdvisorComponentVerification["state"] = !weapon.item || weapon.quality === "missing"
+      ? "missing"
+      : weapon.quality === "unknown"
+        ? "unknown"
+        : weapon.substitution === "exact"
+          ? "exact-owned"
+          : weapon.quality === "perfect" || weapon.quality === "strong"
+            ? "strong-owned"
+            : weapon.missingPerks.length
+              ? "configuration-needed"
+              : "functional-owned";
+    const state = weapon.item ? ownedLocationState(weapon.item, character.characterId, baseState) : baseState;
+    return {
+      id: `weapon:${weapon.requirementId}`,
+      kind: "weapon",
+      name: weapon.label,
+      state,
+      required: true,
+      ...(weapon.item ? { item: weapon.item } : {}),
+      reasons: weapon.item
+        ? [...weapon.notes, ...locationReasons(weapon.item, character.characterId), `${weapon.quality} roll; ${weapon.substitution} requirement match.`]
+        : ["No physical owned weapon matched this requirement."],
+      actions: weapon.item
+        ? [...locationActions(weapon.item, character.characterId), ...(weapon.missingPerks.length ? [`Target ${weapon.missingPerks.join(", ")} on an upgrade.`] : [])]
+        : ["Review owned alternatives or track the farming plan."]
+    };
+  });
+  const armorStates = armor.map((entry): BuildAdvisorComponentVerification => {
+    const baseState: BuildAdvisorComponentVerification["state"] = !entry.item
+      ? "missing"
+      : entry.quality === "excellent" ? "exact-owned"
+        : entry.quality === "strong" ? "strong-owned" : "functional-owned";
+    return {
+      id: `armor:${entry.slot}`,
+      kind: "armor",
+      name: entry.label,
+      state: entry.item ? ownedLocationState(entry.item, character.characterId, baseState) : baseState,
+      required: true,
+      ...(entry.item ? { item: entry.item } : {}),
+      reasons: entry.item ? [...entry.notes, ...locationReasons(entry.item, character.characterId)] : entry.notes,
+      actions: entry.item ? locationActions(entry.item, character.characterId) : ["Use the recommended Ghost focus and track an armor source."]
+    };
+  });
+  return [core, ...weaponStates, ...armorStates];
+}
+
+function alternativeSuggestions(
+  template: BuildAdvisorTemplate,
+  weapons: BuildAdvisorWeaponEvaluation[],
+  armor: BuildAdvisorArmorEvaluation[],
+  items: BuildAdvisorOwnedItem[],
+  character: CharacterSummary
+): BuildAdvisorAlternativeSuggestion[] {
+  const weaponAlternatives = template.weapons.flatMap((requirement) => {
+    const selected = weapons.find((entry) => entry.requirementId === requirement.id)?.item;
+    return items
+      .filter(isWeapon)
+      .filter((item) => item.instanceId !== selected?.instanceId)
+      .filter((item) => weaponIdentityMatches(item, requirement))
+      .map((item) => evaluateRoll(item, requirement))
+      .filter((evaluation) => evaluation.quality !== "missing")
+      .sort((left, right) => rollRank(right.quality) - rollRank(left.quality)
+        || Number(right.item?.power || 0) - Number(left.item?.power || 0)
+        || String(left.item?.name || "").localeCompare(String(right.item?.name || "")))
+      .slice(0, 3)
+      .map((evaluation, index): BuildAdvisorAlternativeSuggestion => ({
+        id: `alternative:weapon:${requirement.id}:${evaluation.item!.instanceId}`,
+        requirementId: requirement.id,
+        kind: "weapon",
+        name: evaluation.item!.name,
+        tier: evaluation.substitution === "exact" ? "exact" : evaluation.quality === "perfect" || evaluation.quality === "strong" ? "strong" : "functional",
+        score: Math.max(1, Math.min(100, rollRank(evaluation.quality) * 20 + Math.min(15, Math.round(evaluation.item!.power / 50)) - index)),
+        item: evaluation.item,
+        matchedTraits: evaluation.matchedPerks,
+        missingTraits: evaluation.missingPerks,
+        benefits: [
+          `${evaluation.substitution} match for ${requirement.label}.`,
+          ...evaluation.matchedPerks.map((perk) => `Includes ${perk}.`)
+        ],
+        tradeoffs: [
+          ...evaluation.missingPerks.map((perk) => `Missing ${perk}.`),
+          ...(evaluation.item!.rollDataState === "unknown" ? ["Bungie did not return complete roll data."] : [])
+        ]
+      }));
+  });
+  const selectedArmorIds = new Set(armor.flatMap((entry) => entry.item ? [entry.item.instanceId] : []));
+  const armorAlternatives = armor.flatMap((entry) => {
+    if (entry.item?.exotic) return [];
+    return items
+      .filter(isArmor)
+      .filter((item) => !item.exotic && !selectedArmorIds.has(item.instanceId))
+      .filter((item) => armorSlot(item) === entry.slot)
+      .filter((item) => !item.className || item.className === character.className)
+      .sort((left, right) => armorCandidateScore(right, template) - armorCandidateScore(left, template) || right.power - left.power)
+      .slice(0, 2)
+      .map((item, index): BuildAdvisorAlternativeSuggestion => {
+        const score = Math.max(1, Math.min(99, Math.round(armorCandidateScore(item, template))));
+        const topStats = Object.entries(item.armorStats || {}).sort((left, right) => Number(right[1]) - Number(left[1])).slice(0, 2).map(([stat, value]) => `${stat} ${value}`);
+        return {
+          id: `alternative:armor:${entry.slot}:${item.instanceId}`,
+          requirementId: `armor:${entry.slot}`,
+          kind: "armor",
+          name: item.name,
+          tier: score >= 75 ? "strong" : "functional",
+          score: Math.max(1, score - index),
+          item,
+          matchedTraits: topStats,
+          missingTraits: [],
+          benefits: [topStats.length ? `Best stats: ${topStats.join(", ")}.` : "Provides a physical equippable fallback.", ...(item.masterworked ? ["Already masterworked."] : [])],
+          tradeoffs: [item.armorArchetype?.name && !sameName(item.armorArchetype.name, template.ghostFocus.archetype) ? `Uses ${item.armorArchetype.name} instead of ${template.ghostFocus.archetype}.` : ""] .filter(Boolean)
+        };
+      });
+  });
+  return [...weaponAlternatives, ...armorAlternatives];
+}
+
+function structuredAcquisitionPlans(template: BuildAdvisorTemplate, guides: BuildAdvisorMissingItemGuide[]): BuildAdvisorAcquisitionPlan[] {
+  return guides.map((guide): BuildAdvisorAcquisitionPlan => {
+    const requirement = guide.kind === "weapon-role"
+      ? template.weapons.find((entry) => `weapon-role:${entry.id}` === guide.id)
+      : undefined;
+    const availability = guide.source === "collections" ? "collection"
+      : /not available|unavailable/i.test(guide.acquisition) ? "unavailable"
+        : /rotation|when .* available|x[uÃ»]r/i.test(`${guide.acquisition} ${guide.steps.join(" ")}`) ? "rotating"
+          : /prerequisite|complete .* first/i.test(`${guide.acquisition} ${guide.steps.join(" ")}`) ? "prerequisite"
+            : guide.source === "bungie-manifest" ? "available-now" : "unknown";
+    const certainty = guide.source === "collections" ? "guaranteed"
+      : /focusing|archive|quest|reacquire/i.test(`${guide.acquisition} ${guide.steps.join(" ")}`) ? "deterministic"
+        : /drop|engram|reward|vendor|x[uÃ»]r/i.test(`${guide.acquisition} ${guide.steps.join(" ")}`) ? "random" : "unknown";
+    return {
+      id: `plan:${guide.id}`,
+      componentId: guide.kind === "weapon-role" ? `weapon:${requirement?.id || guide.id}` : guide.kind === "armor-slot" ? `armor:${guide.id.replace("armor-slot:", "")}` : `core:${template.id}`,
+      name: guide.name,
+      targetTraits: {
+        required: [...(requirement?.requiredPerks || [])],
+        preferred: [...(requirement?.preferredPerks || [])],
+        acceptable: [...(requirement?.acceptablePerks || [])]
+      },
+      routes: [{
+        id: `route:${guide.id}:primary`,
+        label: guide.acquisition,
+        description: guide.kind === "weapon-role" ? "Target a weapon that fulfills this build role." : `Acquire ${guide.name} for this build.`,
+        source: guide.source === "loadout-requirement" ? "build-requirement" : guide.source,
+        availability,
+        certainty,
+        steps: guide.steps,
+        prerequisites: []
+      }],
+      trackingKey: `build:${template.id}:${guide.id}`
+    };
+  });
+}
+
+function buildUpgradePath(readinessScore: number, components: BuildAdvisorComponentVerification[]): NonNullable<BuildAdvisorRecommendation["upgradePath"]> {
+  const owned = components.filter((entry) => !["missing", "unknown", "unavailable", "collection-only"].includes(entry.state)).map((entry) => entry.id);
+  const attention = components.filter((entry) => entry.state !== "exact-owned").map((entry) => entry.id);
+  const next = components.filter((entry) => ["missing", "collection-only", "configuration-needed", "unknown"].includes(entry.state)).slice(0, 2).map((entry) => entry.id);
+  return [
+    {
+      id: "playable-now",
+      kind: "playable-now",
+      title: "Playable now",
+      description: owned.length ? `Use the ${owned.length} verified owned components while Guardian Nexus preserves honest gaps.` : "No complete physical version can be assembled yet; use the closest owned alternatives shown below.",
+      readinessTarget: readinessScore,
+      componentIds: owned
+    },
+    ...(next.length ? [{
+      id: "next-upgrade",
+      kind: "next-upgrade" as const,
+      title: "Next upgrade",
+      description: "Resolve the highest-impact missing or uncertain requirements first.",
+      readinessTarget: Math.max(readinessScore, Math.min(90, readinessScore + 15)),
+      componentIds: next
+    }] : []),
+    {
+      id: "strong",
+      kind: "strong",
+      title: "Strong version",
+      description: "Use strong rolls and compatible armor while allowing practical substitutions.",
+      readinessTarget: Math.max(readinessScore, 85),
+      componentIds: attention
+    },
+    {
+      id: "ideal",
+      kind: "ideal",
+      title: "Ideal version",
+      description: "Complete every exact item, preferred trait, stat target, and configuration requirement.",
+      readinessTarget: 100,
+      componentIds: components.map((entry) => entry.id)
+    }
+  ];
+}
+
+function ownedLocationState(item: BuildAdvisorOwnedItem, characterId: string, fallback: BuildAdvisorComponentVerification["state"]): BuildAdvisorComponentVerification["state"] {
+  return item.location !== "vault" && Boolean(item.ownerCharacterId && item.ownerCharacterId !== characterId) ? "owned-other-character" : fallback;
+}
+
+function locationReasons(item: BuildAdvisorOwnedItem, characterId: string): string[] {
+  if (item.location === "vault") return ["The physical item is in the Vault."];
+  if (item.ownerCharacterId && item.ownerCharacterId !== characterId) return [`The physical item is on the ${item.ownerClassName || "another character"}.`];
+  if (item.equipped) return ["The physical item is already equipped on the selected Guardian."];
+  return ["The physical item is in the selected Guardian's inventory."];
+}
+
+function locationActions(item: BuildAdvisorOwnedItem, characterId: string): string[] {
+  if (item.location === "vault") return ["Transfer the item from the Vault before equipping."];
+  if (item.ownerCharacterId && item.ownerCharacterId !== characterId) return [item.equipped ? "Equip another item on its current character before transferring it." : "Transfer the item to the selected Guardian."];
+  return [];
 }
 
 function specificItemGuide(
@@ -914,21 +1169,29 @@ function selectArmorLoadout(
   coreArmor: BuildAdvisorOwnedItem | undefined,
   items: BuildAdvisorOwnedItem[],
   character: CharacterSummary
-): BuildAdvisorArmorEvaluation[] {
-  const used = new Set<string>();
-  return ARMOR_SLOTS.map((slot) => {
-    const coreSlot = coreArmor ? armorSlot(coreArmor) : undefined;
+): { evaluations: BuildAdvisorArmorEvaluation[]; optimization: BuildAdvisorArmorOptimization } {
+  const coreSlot = coreArmor ? armorSlot(coreArmor) : undefined;
+  const candidatesBySlot = Object.fromEntries(ARMOR_SLOTS.map((slot) => {
+    if (coreArmor && coreSlot === slot) return [slot, [coreArmor]];
     const candidates = items
       .filter(isArmor)
       .filter((item) => armorSlot(item) === slot)
       .filter((item) => !item.className || item.className === character.className)
       .filter((item) => !item.exotic)
-      .filter((item) => !used.has(item.instanceId))
       .sort((left, right) => armorCandidateScore(right, template) - armorCandidateScore(left, template)
         || right.power - left.power
         || itemEquipConvenience(right, character.characterId) - itemEquipConvenience(left, character.characterId)
-        || left.name.localeCompare(right.name));
-    const selected = coreArmor && coreSlot === slot ? coreArmor : candidates[0];
+        || left.name.localeCompare(right.name))
+      .slice(0, 12);
+    return [slot, candidates];
+  })) as Record<(typeof ARMOR_SLOTS)[number], BuildAdvisorOwnedItem[]>;
+  const optimized = optimizeArmorCombinations(template, candidatesBySlot);
+  const selectedBySlot = new Map(optimized.selected.items.flatMap((item) => {
+    const slot = armorSlot(item);
+    return slot ? [[slot, item] as const] : [];
+  }));
+  const evaluations: BuildAdvisorArmorEvaluation[] = ARMOR_SLOTS.map((slot): BuildAdvisorArmorEvaluation => {
+    const selected = selectedBySlot.get(slot);
     if (!selected) {
       return {
         slot,
@@ -938,7 +1201,6 @@ function selectArmorLoadout(
         notes: [`No owned ${ARMOR_SLOT_LABELS[slot].toLocaleLowerCase()} matched this character.`]
       };
     }
-    used.add(selected.instanceId);
     const exactArchetype = sameName(selected.armorArchetype?.name || "", template.ghostFocus.archetype);
     const score = coreArmor?.instanceId === selected.instanceId ? 100 : Math.max(1, Math.min(99, Math.round(armorCandidateScore(selected, template))));
     const quality: BuildAdvisorArmorEvaluation["quality"] = coreArmor?.instanceId === selected.instanceId || exactArchetype && Boolean(selected.armorStats)
@@ -965,6 +1227,93 @@ function selectArmorLoadout(
       ].filter(Boolean)
     };
   });
+  return { evaluations, optimization: optimized };
+}
+
+function optimizeArmorCombinations(
+  template: BuildAdvisorTemplate,
+  candidatesBySlot: Record<(typeof ARMOR_SLOTS)[number], BuildAdvisorOwnedItem[]>
+): BuildAdvisorArmorOptimization {
+  type SearchState = { items: BuildAdvisorOwnedItem[]; rawScore: number };
+  let states: SearchState[] = [{ items: [], rawScore: 0 }];
+  let candidatesEvaluated = 0;
+  for (const slot of ARMOR_SLOTS) {
+    const candidates = candidatesBySlot[slot];
+    if (!candidates.length) continue;
+    const expanded: SearchState[] = [];
+    for (const state of states) {
+      for (const item of candidates) {
+        candidatesEvaluated += 1;
+        if (state.items.some((entry) => entry.instanceId === item.instanceId)) continue;
+        expanded.push({ items: [...state.items, item], rawScore: state.rawScore + armorCandidateScore(item, template) });
+      }
+    }
+    states = expanded
+      .sort((left, right) => armorSearchScore(right, template) - armorSearchScore(left, template)
+        || armorCombinationId(left.items).localeCompare(armorCombinationId(right.items)))
+      .slice(0, 500);
+  }
+  const combinations = states
+    .map((state) => armorCombination(state.items, state.rawScore, template))
+    .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
+  const selected = combinations[0] || armorCombination([], 0, template);
+  return {
+    strategy: "account-wide-combination-v1",
+    candidatesEvaluated,
+    selected,
+    alternatives: combinations.slice(1, 4)
+  };
+}
+
+function armorSearchScore(state: { items: BuildAdvisorOwnedItem[]; rawScore: number }, template: BuildAdvisorTemplate): number {
+  const totals = armorStatTotals(state.items);
+  const targetScore = template.statPriorities.reduce((total, priority) => {
+    const target = priority.target || 0;
+    if (!target) return total;
+    const actual = Number(totals[priority.stat] || 0);
+    return total + Math.min(target, actual) * (7 - priority.priority) - Math.max(0, target - actual) * 2;
+  }, 0);
+  return state.rawScore + targetScore + armorSetScore(state.items, template);
+}
+
+function armorCombination(items: BuildAdvisorOwnedItem[], rawScore: number, template: BuildAdvisorTemplate): BuildAdvisorArmorCombination {
+  const statTotals = armorStatTotals(items);
+  const setCounts = armorSetCounts(items);
+  return {
+    id: armorCombinationId(items),
+    items,
+    score: Math.max(0, Math.round(rawScore + armorSearchScore({ items, rawScore: 0 }, template))),
+    statTotals,
+    targets: template.statPriorities.map((priority) => {
+      const actual = Number(statTotals[priority.stat] || 0);
+      return { stat: priority.stat, ...(priority.target !== undefined ? { target: priority.target } : {}), actual, met: priority.target === undefined || actual >= priority.target };
+    }),
+    setBonuses: [...setCounts.entries()].map(([name, pieces]) => ({ name, pieces })).sort((left, right) => right.pieces - left.pieces || left.name.localeCompare(right.name))
+  };
+}
+
+function armorStatTotals(items: BuildAdvisorOwnedItem[]): Partial<Record<BuildStatName, number>> {
+  const totals: Partial<Record<BuildStatName, number>> = {};
+  for (const item of items) {
+    for (const [stat, value] of Object.entries(item.armorStats || {}) as Array<[BuildStatName, number]>) totals[stat] = Number(totals[stat] || 0) + Number(value || 0);
+  }
+  return totals;
+}
+
+function armorSetCounts(items: BuildAdvisorOwnedItem[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const item of items) for (const bonus of item.armorSetBonuses || []) counts.set(bonus.name, (counts.get(bonus.name) || 0) + 1);
+  return counts;
+}
+
+function armorSetScore(items: BuildAdvisorOwnedItem[], template: BuildAdvisorTemplate): number {
+  const recommended = new Set((template.recommendedArmorSets || []).map(normalizeName));
+  if (!recommended.size) return 0;
+  return [...armorSetCounts(items).entries()].reduce((score, [name, pieces]) => score + (recommended.has(normalizeName(name)) ? pieces * 18 + (pieces >= 4 ? 30 : pieces >= 2 ? 12 : 0) : 0), 0);
+}
+
+function armorCombinationId(items: BuildAdvisorOwnedItem[]): string {
+  return items.map((item) => item.instanceId).sort().join(":") || "empty";
 }
 
 function armorCandidateScore(item: BuildAdvisorOwnedItem, template: BuildAdvisorTemplate): number {

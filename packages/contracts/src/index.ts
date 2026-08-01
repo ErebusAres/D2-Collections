@@ -617,6 +617,63 @@ export interface FireteamCompletedTrackedItem extends FireteamTrackedItem {
   completedAt: string;
 }
 
+export type ActivityHistoryKind = "pve" | "pvp" | "gambit" | "other";
+
+export interface ActivityHistoryEntry {
+  instanceId: string;
+  characterId: string;
+  characterClass: GuardianClass;
+  period: string;
+  activityHash: string;
+  activityName: string;
+  activityDescription?: string;
+  kind: ActivityHistoryKind;
+  mode?: number;
+  modeName: string;
+  completed?: boolean;
+  durationSeconds?: number;
+  score?: number;
+  kills?: number;
+  deaths?: number;
+  assists?: number;
+}
+
+export interface ActivityHistoryData {
+  manifestVersion: string;
+  state: "available" | "partial" | "empty" | "unavailable";
+  activities: ActivityHistoryEntry[];
+  returnedCharacters: number;
+  totalCharacters: number;
+  sources: {
+    activities: "Destiny2.GetActivityHistory for each current character";
+    definitions: "DestinyActivityDefinition manifest data";
+  };
+}
+
+export type FireteamReadinessRole = "damage" | "support" | "control" | "flex";
+export type FireteamReadinessState = "ready" | "needs-attention" | "not-checked";
+
+/** A player-confirmed, activity-scoped summary. It never contains raw inventory or Collections data. */
+export interface FireteamReadinessSummary {
+  schemaVersion: 1;
+  activityName: string;
+  role: FireteamReadinessRole;
+  state: FireteamReadinessState;
+  build?: {
+    id?: string;
+    title: string;
+    subclass?: string;
+  };
+  prerequisites: {
+    id: string;
+    label: string;
+    state: FireteamReadinessState;
+  }[];
+  note?: string;
+  source: "player-confirmed";
+  updatedAt: string;
+}
+
 export interface FireteamMember {
   membershipId: string;
   displayName: string;
@@ -635,6 +692,7 @@ export interface FireteamMember {
   expiresAt?: string;
   trackedItems: FireteamTrackedItem[];
   recentlyCompletedItems?: FireteamCompletedTrackedItem[];
+  readiness?: FireteamReadinessSummary;
   /** @deprecated Retained for compatibility with Fireteam shares created by older web bundles. */
   quests: QuestProgress[];
   overlaps: string[];
@@ -758,13 +816,55 @@ export interface ArmorItem {
   isNew: boolean;
 }
 
+export type WeaponRollDataState = "complete" | "partial" | "unavailable";
+export type WeaponReviewState = "configured" | "unique" | "duplicate-review" | "incomplete-data";
+
+export interface WeaponPerkColumn {
+  socketIndex: number;
+  active?: ArmorPerk;
+  options: ArmorPerk[];
+}
+
+export interface WeaponItem {
+  instanceId: string;
+  itemHash: string;
+  name: string;
+  icon: string;
+  itemType: string;
+  slot: "Kinetic" | "Energy" | "Power" | "Unknown";
+  damageType: "Kinetic" | "Arc" | "Solar" | "Void" | "Stasis" | "Strand" | "Unknown";
+  rarity: string;
+  power: number;
+  ownerCharacterId?: string;
+  location: GearLocation;
+  equipped: boolean;
+  locked: boolean;
+  masterworked: boolean;
+  crafted: boolean;
+  enhanced: boolean;
+  perkColumns: WeaponPerkColumn[];
+  originTraits: ArmorPerk[];
+  masterwork?: ArmorPerk;
+  rollDataState: WeaponRollDataState;
+  reviewState: WeaponReviewState;
+  reviewReasons: string[];
+  duplicateCount: number;
+  wishlisted: boolean;
+  tag?: GearTag;
+  firstSeenAt: string;
+  dismissedAt?: string;
+  isNew: boolean;
+}
+
 export interface GearData {
+  gearSchemaVersion?: 2;
   manifestVersion: string;
   selectedCharacterId: string;
   selectedClass: GuardianClass;
   items: ArmorItem[];
+  weapons?: WeaponItem[];
   statIcons: Partial<Record<ArmorStatKey, string>>;
-  totals: { armor: number; vault: number; equipped: number; locked: number; grouped: number; newItems: number };
+  totals: { armor: number; weapons?: number; vault: number; equipped: number; locked: number; grouped: number; newItems: number };
 }
 
 export type GearActionRequest =
@@ -821,6 +921,37 @@ export interface MailboxData {
   count: number;
   capacity: number;
   characters: MailboxCharacter[];
+}
+
+export type WatchlistKind = "item" | "perk" | "vendor" | "collection" | "catalyst" | "pursuit" | "reward" | "postmaster";
+export type WatchlistMatchState = "matched" | "unmatched" | "unknown" | "expired";
+
+export interface WatchlistEntry {
+  id: string;
+  kind: WatchlistKind;
+  label: string;
+  target: string;
+  notes?: string;
+  enabled: boolean;
+  notify: boolean;
+  createdAt: string;
+  expiresAt?: string;
+  resetAware?: boolean;
+  threshold?: number;
+}
+
+export interface WatchlistDocument {
+  schemaVersion: 1;
+  entries: WatchlistEntry[];
+}
+
+export interface WatchlistMatch {
+  entryId: string;
+  state: WatchlistMatchState;
+  summary: string;
+  reason: string;
+  source: "gear" | "xur" | "collection" | "quests" | "rewards" | "mailbox" | "preference";
+  destinationUrl: string;
 }
 
 export interface MailboxPullRequest {
@@ -927,10 +1058,14 @@ export interface LoadoutsData {
 export type UserPreferenceKey =
   | "gear.sort"
   | "gear.filters"
+  | "gear.workspace"
+  | "weapons.filters"
+  | "weapons.wishlist"
   | "collection.sort"
   | "collection.filters"
   | "collection.tracked"
   | "fireteam.trackedOrder"
+  | "fireteam.readinessDraft.v1"
   | "quests.layout"
   | "quests.filters"
   | "guardianRank.tracked"
@@ -938,9 +1073,67 @@ export type UserPreferenceKey =
   | "rewardCodes.filters"
   | "builds.filters"
   | "build.detail.layout"
+  | "planner.duration"
+  | "planner.mode"
+  | "planner.focus"
+  | "watchlists.buildAcquisitions"
+  | "watchlists.v1"
+  | "projects.v1"
+  | "fashion.looks.v1"
+  | "challenges.v1"
   | "site.autoRefresh"
   | "site.reducedMotion"
+  | "site.highContrast"
+  | "site.textScale"
+  | "site.locale"
   | "site.character";
+
+export type SiteLocale = "en-US" | "es-ES" | "fr-FR";
+export type SiteTextScale = "standard" | "large" | "largest";
+
+export interface FashionLookSlot {
+  slot: BuildArmorSlot;
+  ornament?: BuildNamedEntry;
+  shader?: BuildNamedEntry;
+}
+
+export interface FashionLook {
+  id: string;
+  name: string;
+  classType: BuildGuardianClass;
+  slots: FashionLookSlot[];
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FashionLooksDocument { schemaVersion: 1; looks: FashionLook[]; }
+export interface PortableFashionLookEnvelope {
+  format: "guardian-nexus-fashion-look";
+  version: 1;
+  exportedAt: string;
+  look: Pick<FashionLook, "name" | "classType" | "slots" | "note">;
+}
+
+export type CommunityChallengeMode = "solo" | "fireteam" | "clan";
+export interface CommunityChallengeTask { id: string; label: string; points: number; state: GuardianProjectItemState; }
+export interface CommunityChallenge {
+  id: string;
+  title: string;
+  description?: string;
+  mode: CommunityChallengeMode;
+  tasks: CommunityChallengeTask[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+export interface CommunityChallengesDocument { schemaVersion: 1; challenges: CommunityChallenge[]; }
+export interface PortableCommunityChallengeEnvelope {
+  format: "guardian-nexus-community-challenge";
+  version: 1;
+  exportedAt: string;
+  challenge: Pick<CommunityChallenge, "title" | "description" | "mode"> & { tasks: Array<Pick<CommunityChallengeTask, "label" | "points">>; };
+}
 
 export interface UserPreferencesData {
   values: Partial<Record<UserPreferenceKey, string>>;
@@ -949,6 +1142,44 @@ export interface UserPreferencesData {
 export interface UpdateUserPreferenceRequest {
   key: UserPreferenceKey;
   value: string;
+}
+
+export type GuardianProjectKind = "activity" | "clan" | "collection";
+export type GuardianProjectItemState = "todo" | "done" | "skipped";
+
+export interface GuardianProjectItem {
+  id: string;
+  label: string;
+  state: GuardianProjectItemState;
+  assignee?: string;
+}
+
+export interface GuardianProject {
+  id: string;
+  kind: GuardianProjectKind;
+  title: string;
+  activity?: string;
+  scheduledAt?: string;
+  note?: string;
+  sourceUrl?: string;
+  items: GuardianProjectItem[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface GuardianProjectsDocument {
+  schemaVersion: 1;
+  projects: GuardianProject[];
+}
+
+export interface PortableGuardianProjectEnvelope {
+  kind: "guardian-nexus-project";
+  schemaVersion: 1;
+  exportedAt: string;
+  project: Omit<GuardianProject, "id" | "createdAt" | "updatedAt" | "completedAt" | "items"> & {
+    items: Array<Omit<GuardianProjectItem, "id">>;
+  };
 }
 
 export type BuildStatus = "draft" | "published" | "pending_review" | "rejected" | "archived";
@@ -1260,6 +1491,49 @@ export interface BuildData {
   build: GuardianBuild;
 }
 
+/** Account-neutral export format. Identity, ownership, votes, and private Guardian data are intentionally excluded. */
+export interface PortableBuildEnvelope {
+  schemaVersion: 1;
+  kind: "guardian-nexus-build";
+  exportedAt: string;
+  source: "guardian-nexus";
+  document: BuildDocument;
+}
+
+export type GuardianSnapshotVisibility = "private" | "unlisted";
+
+/** A player-curated card. Omitted fields stay private and no inventory ownership is supported. */
+export interface GuardianSnapshotDocument {
+  schemaVersion: 1;
+  title: string;
+  summary?: string;
+  visibility: GuardianSnapshotVisibility;
+  guardian?: {
+    displayName?: string;
+    className?: string;
+    power?: number;
+    guardianRank?: number;
+  };
+  role?: string;
+  selectedBuild?: { title: string; url?: string };
+  goals: string[];
+  tags: string[];
+  note?: string;
+  source: "player-curated";
+}
+
+export interface GuardianSnapshot {
+  slug: string;
+  document: GuardianSnapshotDocument;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+}
+
+export interface GuardianSnapshotsData {
+  snapshots: GuardianSnapshot[];
+}
+
 export interface BuildWorkingDraft {
   buildId: string;
   document: BuildDocument;
@@ -1326,6 +1600,7 @@ export interface BuildAdvisorOwnedItem {
   armorCurrentTotal?: number;
   armorTier?: number;
   armorArchetype?: BuildNamedEntry;
+  armorSetBonuses?: BuildNamedEntry[];
   tunedStat?: BuildStatName;
   masterworked?: boolean;
 }
@@ -1379,6 +1654,109 @@ export interface BuildAdvisorMissingItemGuide {
   steps: string[];
 }
 
+export interface BuildAdvisorArmorTargetResult {
+  stat: BuildStatName;
+  target?: number;
+  actual: number;
+  met: boolean;
+}
+
+export interface BuildAdvisorArmorCombination {
+  id: string;
+  items: BuildAdvisorOwnedItem[];
+  score: number;
+  statTotals: Partial<Record<BuildStatName, number>>;
+  targets: BuildAdvisorArmorTargetResult[];
+  setBonuses: Array<{ name: string; pieces: number }>;
+}
+
+export interface BuildAdvisorArmorOptimization {
+  strategy: "account-wide-combination-v1";
+  candidatesEvaluated: number;
+  selected: BuildAdvisorArmorCombination;
+  alternatives: BuildAdvisorArmorCombination[];
+}
+
+export type BuildAdvisorComponentKind = "exotic-armor" | "weapon" | "armor" | "subclass" | "mod" | "artifact" | "catalyst";
+export type BuildAdvisorComponentState =
+  | "exact-owned"
+  | "strong-owned"
+  | "functional-owned"
+  | "configuration-needed"
+  | "collection-only"
+  | "owned-other-character"
+  | "missing"
+  | "unavailable"
+  | "unknown";
+
+/** Account-specific truth for one build requirement. Unknown is intentionally distinct from missing. */
+export interface BuildAdvisorComponentVerification {
+  id: string;
+  kind: BuildAdvisorComponentKind;
+  name: string;
+  state: BuildAdvisorComponentState;
+  required: boolean;
+  item?: BuildAdvisorOwnedItem | BuildAdvisorCollectionItem;
+  reasons: string[];
+  actions: string[];
+}
+
+export type BuildAdvisorAlternativeTier = "exact" | "strong" | "functional" | "easy-to-acquire";
+
+export interface BuildAdvisorAlternativeSuggestion {
+  id: string;
+  requirementId: string;
+  kind: "weapon" | "armor" | "mod" | "subclass";
+  name: string;
+  tier: BuildAdvisorAlternativeTier;
+  score: number;
+  item?: BuildAdvisorOwnedItem;
+  matchedTraits: string[];
+  missingTraits: string[];
+  benefits: string[];
+  tradeoffs: string[];
+}
+
+export type BuildAdvisorAcquisitionAvailability = "available-now" | "rotating" | "prerequisite" | "collection" | "unavailable" | "unknown";
+export type BuildAdvisorAcquisitionCertainty = "guaranteed" | "deterministic" | "random" | "unknown";
+
+export interface BuildAdvisorAcquisitionRoute {
+  id: string;
+  label: string;
+  description: string;
+  source: "collections" | "bungie-manifest" | "build-requirement" | "vendor" | "activity" | "quest";
+  availability: BuildAdvisorAcquisitionAvailability;
+  certainty: BuildAdvisorAcquisitionCertainty;
+  steps: string[];
+  prerequisites: string[];
+  externalUrl?: string;
+  resetAt?: string;
+}
+
+export interface BuildAdvisorAcquisitionPlan {
+  id: string;
+  componentId: string;
+  name: string;
+  targetTraits: {
+    required: string[];
+    preferred: string[];
+    acceptable: string[];
+  };
+  routes: BuildAdvisorAcquisitionRoute[];
+  trackingKey: string;
+}
+
+export type BuildAdvisorUpgradeStageKind = "playable-now" | "next-upgrade" | "strong" | "ideal";
+
+export interface BuildAdvisorUpgradeStage {
+  id: string;
+  kind: BuildAdvisorUpgradeStageKind;
+  title: string;
+  description: string;
+  readinessTarget: number;
+  componentIds: string[];
+}
+
 export interface BuildAdvisorSubclassValidation {
   state: "validated" | "unverified";
   checkedCount: number;
@@ -1416,6 +1794,8 @@ export interface BuildAdvisorEquipPlan {
 }
 
 export interface BuildAdvisorRecommendation {
+  /** Structured-advice schema. Absent on legacy cached responses. */
+  adviceSchemaVersion?: 2;
   id: string;
   templateId: string;
   templateVersion: number;
@@ -1437,10 +1817,15 @@ export interface BuildAdvisorRecommendation {
   exoticWeapon?: BuildAdvisorOwnedItem;
   weapons: BuildAdvisorWeaponEvaluation[];
   armor: BuildAdvisorArmorEvaluation[];
+  armorOptimization?: BuildAdvisorArmorOptimization;
   ghostFocus: BuildGhostFocus;
   missingItems: string[];
   missingItemGuides: BuildAdvisorMissingItemGuide[];
   substitutions: string[];
+  componentVerifications?: BuildAdvisorComponentVerification[];
+  alternatives?: BuildAdvisorAlternativeSuggestion[];
+  acquisitionPlans?: BuildAdvisorAcquisitionPlan[];
+  upgradePath?: BuildAdvisorUpgradeStage[];
   activities: string[];
   style: string;
   damageProfile: "high" | "medium" | "low";

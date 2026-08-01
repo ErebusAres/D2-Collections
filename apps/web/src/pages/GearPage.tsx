@@ -5,6 +5,7 @@ import { ArrowDownToLine, ArrowUpFromLine, ChevronRight, Grid2X2, Lock, LockOpen
 import { useEffect, useMemo, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { GearTagBadge, GearTagFilter, GearTagPicker } from "../components/gear/GearTagPicker";
+import { WeaponWorkspace } from "../components/gear/WeaponWorkspace";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import styles from "./Pages.module.css";
@@ -13,6 +14,7 @@ const STAT_LABELS: Record<ArmorStatKey, string> = { health: "Health", melee: "Me
 
 export function GearPage() {
   const { selectedCharacterId, session, autoRefresh, preferences, setPreference } = useGuardian();
+  const workspace = preferences["gear.workspace"] === "weapons" ? "weapons" : "armor";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState(""); const [searchFocused, setSearchFocused] = useState(false); const [slot, setSlot] = useState("all"); const [location, setLocation] = useState("all"); const [tag, setTag] = useState("all");
   const sort = GEAR_SORTS.has(preferences["gear.sort"] || "") ? preferences["gear.sort"]! : "analyzer";
@@ -47,9 +49,11 @@ export function GearPage() {
   const selectedGroup = groups.find((group) => group.id === groupId);
   const slots = [...new Set((data?.items || []).map((item) => item.slot))].sort();
 
-  return <AuthGate><PageHeader eyebrow="Account-wide armor intelligence" title="Gear" description="Compare true base distributions, audit every adjustment, and manage armor across your characters and vault." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button className={styles.gearRefresh} onClick={() => void result.refetch()}><RefreshCw size={14} /> Sync armor</button></>} />
+  return <AuthGate><PageHeader eyebrow="Account-wide gear intelligence" title="Gear" description={workspace === "weapons" ? "Compare physical weapon rolls and selectable perks without opaque god-roll scores or dismantling automation." : "Compare true base distributions, audit every adjustment, and manage armor across your characters and vault."} actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button className={styles.gearRefresh} onClick={() => void result.refetch()}><RefreshCw size={14} /> Sync gear</button></>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
+      <nav className={styles.gearWorkspaceTabs} aria-label="Gear workspace"><button data-active={workspace === "armor"} onClick={() => setPreference("gear.workspace", "armor")}>Armor workspace <b>{data.totals.armor}</b></button><button data-active={workspace === "weapons"} onClick={() => setPreference("gear.workspace", "weapons")}>Weapon rolls <b>{data.weapons?.length || 0}</b></button></nav>
+      {workspace === "weapons" ? <WeaponWorkspace data={data} selectedCharacterId={selectedCharacterId} preferences={preferences} setPreference={setPreference} onDismiss={(item) => stateMutation.mutate({ itemInstanceId: item.instanceId, dismissed: true })} onTag={(item, value) => stateMutation.mutate({ itemInstanceId: item.instanceId, tag: value || null })} onAction={(input, confirm) => (!confirm || window.confirm(confirm)) && actionMutation.mutate(input)} busy={stateMutation.isPending || actionMutation.isPending} /> : <>
       <section className={styles.gearSummary}>{[["Armor", data.totals.armor], ["Vault", data.totals.vault], ["Equipped", data.totals.equipped], ["Locked", data.totals.locked], ["Groups", groups.length], ["New", data.totals.newItems]].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</section>
       <section className={styles.gearControls}>
         <label className={styles.gearSearch}><Search size={15} /><input value={search} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Tab" && suggestions[0]) { event.preventDefault(); setSearch(applyGearSearchSuggestion(search, suggestions[0].value)); } }} placeholder="Search or try isrank:s isarchetype:paragon" role="combobox" aria-expanded={searchFocused && suggestions.length > 0} aria-controls="gear-search-suggestions" />{searchFocused && suggestions.length > 0 && <div id="gear-search-suggestions" className={styles.gearSearchSuggestions} role="listbox">{suggestions.map((suggestion) => <button key={suggestion.value} type="button" role="option" onMouseDown={(event) => event.preventDefault()} onClick={() => setSearch(applyGearSearchSuggestion(search, suggestion.value))}><b>{suggestion.value}</b><span>{suggestion.description}</span></button>)}</div>}</label>
@@ -70,6 +74,7 @@ export function GearPage() {
       <section className={styles.gearGrid}>{items.map((item) => <ArmorCard key={item.instanceId} item={item} statIcons={data.statIcons} group={groupedIds.get(item.instanceId)} selectedCharacterId={selectedCharacterId} onCompare={setGroupId} onTag={(value) => stateMutation.mutate({ itemInstanceId: item.instanceId, tag: value || null })} onAction={(input, confirm) => (!confirm || window.confirm(confirm)) && actionMutation.mutate(input)} busy={stateMutation.isPending || actionMutation.isPending} />)}</section>
       {!items.length && <section className={styles.xurEmpty}><Shield /><h2>No matching armor</h2><p>Change the filters or sync again after Bungie has minted fresh inventory data.</p></section>}
       {selectedGroup && <ComparisonStation group={selectedGroup} statIcons={data.statIcons} selectedCharacterId={selectedCharacterId} onClose={() => setGroupId("")} onAction={(input, message) => window.confirm(message) && actionMutation.mutate(input)} />}
+      </>}
       {(stateMutation.error || actionMutation.error) && <div className={styles.gearError}>{(stateMutation.error || actionMutation.error)?.message}</div>}
     </>}
   </AuthGate>;

@@ -1,8 +1,9 @@
 import type { CatalystState, CollectionData, ExoticCollectionEntry, QuestObjective } from "@guardian-nexus/contracts";
 import { catalystTrackingId, sortCollectionEntries, xurSchedule, type CollectionSortMode } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Bookmark, Check, ChevronRight, Coins, Search, Shield, Sparkles, Swords, X } from "lucide-react";
+import { BookOpen, Bookmark, Check, ChevronRight, Coins, Palette, Search, Shield, Sparkles, Swords, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
@@ -114,7 +115,7 @@ export function CollectionPage() {
   }), [scopedEntries, catalystItems]);
 
   return <AuthGate>
-    <PageHeader eyebrow="Personal archive" title="Collection" description="Ownership is account-wide; Exotic armor remains class-filterable." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Personal archive" title="Collection" description="Ownership is account-wide; Exotic armor remains class-filterable." actions={<><Link to="/fashion" style={{ minHeight: 34, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 9px", border: "1px solid var(--line)", color: "var(--ink)", textDecoration: "none" }}><Palette size={15} /> Fashion</Link><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /></>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.summaryGrid}>

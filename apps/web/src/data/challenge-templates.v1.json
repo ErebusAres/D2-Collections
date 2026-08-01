@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-01T00:00:00.000Z",
+  "source": "guardian-nexus-evergreen",
+  "templates": [
+    {
+      "id": "build-variety-night",
+      "title": "Build Variety Night",
+      "description": "Rotate through different playstyles without tying the challenge to one season or activity.",
+      "mode": "fireteam",
+      "tasks": [
+        { "label": "Complete an activity with three different subclasses across the group", "points": 3 },
+        { "label": "Finish an activity with a build nobody used in the previous run", "points": 2 },
+        { "label": "Share one useful build adjustment with the group", "points": 1 }
+      ]
+    },
+    {
+      "id": "collection-sprint",
+      "title": "Collection Sprint",
+      "description": "Choose a small collection goal and reward steady, visible progress.",
+      "mode": "solo",
+      "tasks": [
+        { "label": "Choose one pattern, catalyst, title, or armor chase", "points": 1 },
+        { "label": "Complete one source activity for the chosen goal", "points": 2 },
+        { "label": "Record the next concrete acquisition step", "points": 1 }
+      ]
+    },
+    {
+      "id": "fashion-showcase",
+      "title": "Guardian Fashion Showcase",
+      "description": "Create and compare looks through explicit player sharing, without exposing account ownership.",
+      "mode": "clan",
+      "tasks": [
+        { "label": "Create a five-slot look in the Fashion workspace", "points": 2 },
+        { "label": "Explain the look's theme in one sentence", "points": 1 },
+        { "label": "Share an account-neutral fashion export with the group", "points": 2 }
+      ]
+    }
+  ]
+}

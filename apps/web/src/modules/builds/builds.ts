@@ -204,7 +204,7 @@ export function prepareBuildDocument(value: BuildDocument): BuildDocument {
       ship: optionalNamed(value.cosmetics.ship)
     },
     changelog: value.changelog.filter((entry) => entry.notes.trim()).map((entry) => clean(entry)),
-    visibility: value.status === "published" ? "public" : "private"
+    visibility: value.status === "published" ? (value.visibility === "unlisted" ? "unlisted" : "public") : "private"
   });
 }
 

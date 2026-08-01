@@ -14,6 +14,7 @@
     "audit": "pnpm archive:audit && node tools/check-frontend-source-boundaries.mjs && node tools/check-css-module-usage.mjs && pnpm lint && pnpm typecheck && pnpm test && pnpm build && node tools/check-web-performance-budgets.mjs",
     "archive:audit": "node tools/check-no-archive-imports.mjs",
     "manifest:sync": "python tools/sync-manifest.py",
+    "manifest:sync:gear": "python tools/sync-manifest.py --gear-only",
     "codes:sync": "node tools/sync-reward-codes.mjs",
     "cf:deploy": "pnpm --filter @guardian-nexus/api run deploy && pnpm --filter @guardian-nexus/web run deploy"
   },

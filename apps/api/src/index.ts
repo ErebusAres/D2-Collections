@@ -1,5 +1,6 @@
 import type {
   ApiEnvelope,
+  ActivityHistoryData,
   AudienceDetailData,
   BuildAdvisorData,
   CollectionData,
@@ -38,7 +39,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, addXurCollectionStates, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -55,6 +56,7 @@ import { ironBannerHistoryResponse, normalizePvpData, normalizePvpProgressions }
 import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizeJourneyProgress, trackedItemsFromJourney } from "./journeyProgress";
 import { normalizePower, powerItemHashes } from "./power";
+import { normalizeActivityHistory } from "./activityHistory";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
 import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemKey, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
@@ -72,7 +74,19 @@ import {
   updateNotificationState
 } from "./notifications";
 import { readRaidRotations } from "./worldState";
+import { guardianSnapshotsRoute } from "./guardianSnapshots";
 
+const fireteamReadinessSchema = z.object({
+  schemaVersion: z.literal(1),
+  activityName: z.string().trim().min(1).max(80),
+  role: z.enum(["damage", "support", "control", "flex"]),
+  state: z.enum(["ready", "needs-attention", "not-checked"]),
+  build: z.object({ id: z.string().max(100).optional(), title: z.string().trim().min(1).max(100), subclass: z.string().trim().max(60).optional() }).optional(),
+  prerequisites: z.array(z.object({ id: z.string().min(1).max(60), label: z.string().trim().min(1).max(100), state: z.enum(["ready", "needs-attention", "not-checked"]) })).max(12),
+  note: z.string().trim().max(240).optional(),
+  source: z.literal("player-confirmed"),
+  updatedAt: z.string().datetime()
+});
 const shareSchema = z.object({
   characterId: z.string().min(1),
   sitePinnedQuestIds: z.array(z.string()).max(40).default([]),
@@ -80,6 +94,7 @@ const shareSchema = z.object({
   siteTrackedJourneyIds: z.array(z.string()).max(500).optional(),
   siteTrackedCollectionIds: z.array(z.string()).max(200).optional(),
   hiddenTrackedItemKeys: z.array(z.string()).max(200).optional(),
+  readiness: fireteamReadinessSchema.nullable().optional(),
   mode: z.enum(["temporary", "persistent"]).default("temporary")
 });
 const FIRETEAM_COMPLETION_RETENTION_MS = 3 * 60_000;
@@ -107,10 +122,19 @@ const equipBuildAdvisorSchema = z.object({
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
-  z.object({ key: z.enum(["gear.filters", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters"]), value: z.string().max(12_000) }),
+  z.object({ key: z.enum(["gear.filters", "weapons.filters", "weapons.wishlist", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "fireteam.readinessDraft.v1", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters", "watchlists.buildAcquisitions", "watchlists.v1"]), value: z.string().max(12_000) }),
+  z.object({ key: z.literal("projects.v1"), value: z.string().max(40_000) }),
+  z.object({ key: z.literal("fashion.looks.v1"), value: z.string().max(40_000) }),
+  z.object({ key: z.literal("challenges.v1"), value: z.string().max(40_000) }),
+  z.object({ key: z.literal("gear.workspace"), value: z.enum(["armor", "weapons"]) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
-  z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion"]), value: z.enum(["true", "false"]) }),
+  z.object({ key: z.literal("planner.duration"), value: z.enum(["30", "60", "120"]) }),
+  z.object({ key: z.literal("planner.mode"), value: z.enum(["solo", "either", "fireteam"]) }),
+  z.object({ key: z.literal("planner.focus"), value: z.enum(["any", "quest", "rank", "exotic"]) }),
+  z.object({ key: z.enum(["site.autoRefresh", "site.reducedMotion", "site.highContrast"]), value: z.enum(["true", "false"]) }),
+  z.object({ key: z.literal("site.textScale"), value: z.enum(["standard", "large", "largest"]) }),
+  z.object({ key: z.literal("site.locale"), value: z.enum(["en-US", "es-ES", "fr-FR"]) }),
   z.object({ key: z.literal("site.character"), value: z.string().regex(/^\d+$/) })
 ]);
 const rewardCodePreferenceSchema = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{3}(?:-[A-Z0-9]{3}){2}$/), redeemed: z.boolean() }).strict();
@@ -177,6 +201,8 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   }
   const buildsResponse = await buildsRoute(request, env, context);
   if (buildsResponse) return buildsResponse;
+  const snapshotsResponse = await guardianSnapshotsRoute(request, env, context);
+  if (snapshotsResponse) return snapshotsResponse;
 
   const session = await requireSession(request, env);
   const reportsResponse = await reportsRoute(request, env, context, session);
@@ -191,6 +217,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/guardian-rank" && request.method === "GET") return guardianRank(session.row, env, context);
   if (path === "/api/v1/me/power" && request.method === "GET") return power(session.row, env, context);
   if (path === "/api/v1/me/pvp" && request.method === "GET") return pvp(session.row, env, context);
+  if (path === "/api/v1/me/activity-history" && request.method === "GET") return activityHistory(session.row, env, context);
   if (path === "/api/v1/me/rewards" && request.method === "GET") return rewards(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "GET") return rewardCodeStatus(session.row, env, context);
   if (path === "/api/v1/me/reward-code-status" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateRewardCodePreference(request, session.row, env, context); }
@@ -543,6 +570,28 @@ async function pvp(row: SessionRow, env: Env, context: RequestContext): Promise<
   return envelope<PvpData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
 }
 
+async function activityHistory(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const { profile, accessToken } = await profileFor(row, env, "session");
+  const characters = charactersFromProfile(profile);
+  const [manifest, recent] = await Promise.all([
+    loadActivityManifest(env),
+    recentActivitiesFor(row, characters.map((entry) => entry.characterId), env, accessToken)
+  ]);
+  const data = normalizeActivityHistory({
+    rows: recent.activities,
+    characterClasses: Object.fromEntries(characters.map((entry) => [entry.characterId, entry.className])),
+    activityDefinitions: manifest.activityDefinitions,
+    manifestVersion: manifest.version,
+    returnedCharacters: recent.returnedCharacters,
+    totalCharacters: characters.length
+  });
+  const warnings = [
+    ...(manifest.version === "unavailable" ? ["Current activity names are unavailable from the deployed Bungie manifest."] : []),
+    ...recent.warnings
+  ];
+  return envelope<ActivityHistoryData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
+}
+
 async function rewards(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { profile, accessToken } = await profileFor(row, env, "session");
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
@@ -615,11 +664,11 @@ async function gear(row: SessionRow, env: Env, context: RequestContext): Promise
   const states = await gearStates(row.membership_id, env);
   const now = new Date().toISOString();
   const data = normalizeGear(profile, manifest, character.characterId, character.className, states, now);
-  const missing = data.items.filter((item) => !states.has(item.instanceId));
+  const missing = [...data.items, ...(data.weapons || [])].filter((item) => !states.has(item.instanceId));
   for (let offset = 0; offset < missing.length; offset += 80) {
     await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
   }
-  return envelope<GearData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: manifest.version !== "unavailable" ? [] : ["Armor manifest data is unavailable; refresh the deployment manifest before using Gear."] });
+  return envelope<GearData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: manifest.version !== "unavailable" ? [] : ["Gear manifest data is unavailable; refresh the deployment manifest before using Gear."] });
 }
 
 async function mailbox(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -765,8 +814,9 @@ async function updateGearState(request: Request, row: SessionRow, env: Env, cont
   const character = selectedCharacter(charactersFromProfile(profile));
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const states = await gearStates(row.membership_id, env);
-  const item = normalizeGear(profile, manifest, character.characterId, character.className, states, new Date().toISOString()).items.find((entry) => entry.instanceId === input.itemInstanceId);
-  if (!item) throw httpError(404, "gear_item_missing", "That armor item does not belong to this Guardian.");
+  const gear = normalizeGear(profile, manifest, character.characterId, character.className, states, new Date().toISOString());
+  const item = [...gear.items, ...(gear.weapons || [])].find((entry) => entry.instanceId === input.itemInstanceId);
+  if (!item) throw httpError(404, "gear_item_missing", "That gear item does not belong to this Guardian.");
   const now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO gear_item_state (membership_id, item_instance_id, tag, first_seen_at, dismissed_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(membership_id, item_instance_id) DO UPDATE SET tag = excluded.tag, dismissed_at = excluded.dismissed_at, updated_at = excluded.updated_at`)
@@ -787,7 +837,8 @@ async function gearAction(request: Request, row: SessionRow, env: Env, context: 
   const characters = charactersFromProfile(profile);
   const selected = selectedCharacter(characters, "characterId" in input ? input.characterId : "targetCharacterId" in input ? input.targetCharacterId : undefined) || characters[0];
   if (!selected) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const items = normalizeGear(profile, manifest, selected.characterId, selected.className, await gearStates(row.membership_id, env), new Date().toISOString()).items;
+  const gear = normalizeGear(profile, manifest, selected.characterId, selected.className, await gearStates(row.membership_id, env), new Date().toISOString());
+  const items = [...gear.items, ...(gear.weapons || [])];
   const byId = new Map(items.map((item) => [item.instanceId, item]));
   const requested = input.action === "groupPull" ? input.itemInstanceIds : [input.itemInstanceId];
   const result: GearActionResult = { action: input.action, succeeded: [], skipped: [], failed: [] };
@@ -837,7 +888,7 @@ async function transfer(item: any, toVault: boolean, characterId: string, row: S
 async function moveToCharacter(item: any, characterId: string, row: SessionRow, env: Env, accessToken: string): Promise<void> {
   if (item.location === "vault") return transfer(item, false, characterId, row, env, accessToken);
   if (item.ownerCharacterId === characterId) return;
-  if (item.equipped) throw httpError(409, "item_equipped", "Equip another item before moving this equipped armor.");
+  if (item.equipped) throw httpError(409, "item_equipped", "Equip another item before moving this equipped gear item.");
   await transfer(item, true, item.ownerCharacterId, row, env, accessToken);
   await transfer(item, false, characterId, row, env, accessToken);
 }
@@ -847,7 +898,7 @@ async function auditGear(row: SessionRow, env: Env, action: string, itemId: stri
 
 async function upsertShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = shareSchema.parse(await request.json());
-  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds, input.siteTrackedCollectionIds);
+  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds, input.siteTrackedCollectionIds, input.readiness);
   return envelope({
     sharing: true,
     mode: input.mode,
@@ -866,7 +917,8 @@ async function storeShare(
   providedGuardianRankIds?: string[],
   providedHiddenTrackedItemKeys?: string[],
   providedJourneyIds?: string[],
-  providedCollectionIds?: string[]
+  providedCollectionIds?: string[],
+  providedReadiness?: import("@guardian-nexus/contracts").FireteamReadinessSummary | null
 ): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string }> {
   const [{ profile }, manifest, guardianRankManifest, journeyManifest, activityManifest, collectionManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
@@ -927,7 +979,8 @@ async function storeShare(
     FIRETEAM_COMPLETION_RETENTION_MS
   );
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
-  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests };
+  const readiness = providedReadiness === undefined ? sharedReadiness(previousPayload) : providedReadiness || undefined;
+  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness };
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
@@ -1042,6 +1095,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       expiresAt: share?.sharing_mode === "temporary" ? share?.expires_at : undefined,
       trackedItems: memberTrackedItems,
       recentlyCompletedItems: sharedRecentlyCompletedItems(payload),
+      readiness: sharedReadiness(payload),
       quests: memberQuests,
       overlaps: memberTrackedItems.filter((item) => (trackedItemCounts.get(`${item.kind}:${item.definitionHash}`) || 0) > 1).map((item) => item.name),
       freshness: {
@@ -1067,6 +1121,11 @@ function sharedRecentlyCompletedItems(payload: any): FireteamCompletedTrackedIte
   return Array.isArray(payload?.recentlyCompletedItems)
     ? payload.recentlyCompletedItems.filter((item: FireteamCompletedTrackedItem) => Number.isFinite(Date.parse(item.completedAt)) && Date.parse(item.completedAt) >= cutoff)
     : [];
+}
+
+function sharedReadiness(payload: any): import("@guardian-nexus/contracts").FireteamReadinessSummary | undefined {
+  const parsed = fireteamReadinessSchema.safeParse(payload?.readiness);
+  return parsed.success ? parsed.data : undefined;
 }
 
 function sharedHiddenTrackedItemKeys(payload: any): string[] {
