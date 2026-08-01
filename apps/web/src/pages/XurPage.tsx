@@ -1,7 +1,7 @@
 import type { XurData, XurOffer } from "@guardian-nexus/contracts";
 import { xurSchedule } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
-import { Clock3, Coins, MapPin, Shield, Sparkles, Swords } from "lucide-react";
+import { CircleCheck, CircleHelp, CircleX, Clock3, Coins, MapPin, Shield, Sparkles, Swords } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
@@ -75,8 +75,13 @@ function XurSection({ title, icon, items, historical = false }: StoreSection & {
 function XurCard({ item, historical }: { item: XurOffer; historical: boolean }) {
   const quest = isExoticQuest(item);
   const detailLabel = quest ? "Weekly quest" : item.slot && item.slot !== "Miscellaneous" ? item.slot : item.itemType;
+  const ownership = xurOwnershipPresentation(item);
+  const OwnershipIcon = ownership?.icon;
   return <article className={styles.xurCard} data-rarity={item.rarity.toLowerCase()} data-class={item.className?.toLowerCase()}>
-    <div className={styles.xurCardArt}>{item.icon ? <img src={item.icon} alt="" /> : item.category.includes("weapon") ? <Swords /> : <Shield />}</div>
+    <div className={styles.xurCardArt}>
+      {item.icon ? <img src={item.icon} alt="" /> : item.category.includes("weapon") ? <Swords /> : <Shield />}
+      {ownership && OwnershipIcon && <span className={styles.xurOwnership} data-state={item.collectionState} title={ownership.label} aria-label={ownership.label}><OwnershipIcon aria-hidden="true" /></span>}
+    </div>
     <div className={styles.xurCardBody}>
       <span>{detailLabel}</span>
       <h3>{item.name}</h3>
@@ -90,6 +95,19 @@ function XurCard({ item, historical }: { item: XurOffer; historical: boolean }) 
     </div>
     {item.costs.length > 0 && <footer>{item.costs.map((cost) => <span key={cost.itemHash}>{cost.icon && <img src={cost.icon} alt="" />}{cost.quantity.toLocaleString()} {cost.name}</span>)}</footer>}
   </article>;
+}
+
+export function xurOwnershipPresentation(item: Pick<XurOffer, "category" | "collectionState">) {
+  if (item.collectionState === "owned") return {
+    label: item.category === "exotic-catalyst" ? "Catalyst owned" : "Owned in Collections",
+    icon: CircleCheck
+  };
+  if (item.collectionState === "missing") return {
+    label: item.category === "exotic-catalyst" ? "Catalyst not owned" : "Not unlocked in Collections",
+    icon: CircleX
+  };
+  if (item.collectionState === "unknown") return { label: "Collection status unavailable", icon: CircleHelp };
+  return undefined;
 }
 
 export function xurInventoryPresentation(data: Pick<XurData, "state" | "inventoryStatus" | "offers">, scheduleActive: boolean) {

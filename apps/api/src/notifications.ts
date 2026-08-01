@@ -134,9 +134,11 @@ export async function readNotificationFeed(request: Request, env: Env): Promise<
         LIMIT ?
       `).bind(history ? 1 : 0, now, now, cursor, cursor, limit + 1).all<NotificationRow>();
   const stored = (rows.results || []).slice(0, limit).map(notificationFromRow);
-  const visibleStored = history || xurSchedule().active
+  // Older shipment records used the vendor capture timestamp as their identity,
+  // which could put several copies of one Xûr visit in the live feed.
+  const visibleStored = history
     ? stored
-    : stored.filter((entry) => entry.eventKey !== "xur-shipment" || entry.status !== "active");
+    : stored.filter((entry) => entry.eventKey !== "xur-shipment");
   const generated = history || cursor ? [] : await generatedWorldNotifications(env);
   const missingGenerated = generated.filter((entry) => !visibleStored.some((storedEntry) => storedEntry.id === entry.id));
   if (missingGenerated.length) await materializeGeneratedNotifications(env, missingGenerated);
@@ -480,7 +482,7 @@ async function generatedWorldNotifications(env: Env): Promise<GuardianNotificati
     notificationForReset("weekly", nextWeeklyReset(now))
   ];
   const xur = await readLatestXurShipment(env);
-  const xurNotification = xur ? xurShipmentNotification(xur, now) : undefined;
+  const xurNotification = xurVisitNotification(xur, now);
   if (xurNotification) generated.push(xurNotification);
   const distortion = await readDistortions(env, "24h");
   if (distortion.current) {
@@ -529,27 +531,60 @@ export function xurHappeningCard(xur: StoredXurSnapshot, now = new Date()): Happ
   };
 }
 
-export function xurShipmentNotification(xur: StoredXurSnapshot, now = new Date()): GuardianNotification | undefined {
+export function xurVisitNotification(xur: StoredXurSnapshot | undefined, now = new Date()): GuardianNotification | undefined {
   const visit = xurSchedule(now);
-  if (!visit.active) return undefined;
+  if (!visit.active) {
+    const previousDeparture = new Date(Date.parse(visit.arrival) - 3 * 24 * 60 * 60_000);
+    const departureNoticeEnds = new Date(previousDeparture.getTime() + 24 * 60 * 60_000);
+    if (now < previousDeparture || now >= departureNoticeEnds) return undefined;
+    return {
+      id: `xur-departed:${previousDeparture.toISOString()}`,
+      eventKey: `xur-departed:${previousDeparture.toISOString()}`,
+      type: "xur-departed",
+      category: "warning",
+      scope: "global",
+      priority: "normal",
+      status: "active",
+      title: "Xûr has departed",
+      subtitle: "His previous shipment remains available for reference",
+      badge: "DEPARTED",
+      destinationUrl: "/xur",
+      createdAt: previousDeparture.toISOString(),
+      expiresAt: departureNoticeEnds.toISOString(),
+      dismissible: true,
+      autoDismiss: true,
+      autoDismissMs: 11_000,
+      repeatable: false,
+      source: "destiny-schedule",
+      sourceLabel: "Destiny weekly schedule",
+      sourceConfidence: "confirmed",
+      metadata: { fanfare: "xur-departure", nextArrivalAt: visit.arrival }
+    };
+  }
   return {
-    id: `xur-shipment:${xur.capturedAt}`,
-    eventKey: "xur-shipment",
-    type: "xur-shipment",
+    id: `xur-arrived:${visit.arrival}`,
+    eventKey: `xur-arrived:${visit.arrival}`,
+    type: "xur-arrived",
     category: "exotic",
     scope: "global",
-    priority: "normal",
+    priority: "high",
     status: "active",
-    title: "Xûr shipment available",
-    subtitle: `${xur.offers.length} offers in the latest captured inventory`,
+    title: "Xûr has arrived",
+    subtitle: xur?.offers.length
+      ? `${xur.offers.length} offers in the latest captured inventory`
+      : "His storefront is available in the Tower Bazaar",
+    badge: "ARRIVED",
     destinationUrl: "/xur",
-    createdAt: xur.capturedAt,
+    createdAt: visit.arrival,
     expiresAt: visit.departure,
     dismissible: true,
     autoDismiss: true,
-    source: "bungie-vendor-api",
-    sourceLabel: "Bungie vendor API",
-    sourceConfidence: "live-api"
+    autoDismissMs: 14_000,
+    repeatable: false,
+    source: xur ? "bungie-vendor-api" : "destiny-schedule",
+    sourceLabel: xur ? "Bungie vendor API" : "Destiny weekly schedule",
+    sourceConfidence: xur ? "live-api" : "confirmed",
+    metadata: { fanfare: "xur-arrival", departureAt: visit.departure }
   };
 }
 

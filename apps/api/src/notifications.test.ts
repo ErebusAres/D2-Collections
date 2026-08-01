@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DistortionObservation } from "@guardian-nexus/contracts";
 import type { StoredXurSnapshot } from "./xurSnapshot";
 import type { Env } from "./types";
-import { calculateDistortionPrediction, calculateDistortionStatistics, communityDistortionAt, materializeGeneratedNotifications, xurHappeningCard, xurShipmentNotification } from "./notifications";
+import { calculateDistortionPrediction, calculateDistortionStatistics, communityDistortionAt, materializeGeneratedNotifications, xurHappeningCard, xurVisitNotification } from "./notifications";
 
 function observation(destination: string, hour: number): DistortionObservation {
   const start = new Date(Date.UTC(2026, 6, 1, hour)).toISOString();
@@ -143,19 +143,40 @@ describe("Xûr notification state", () => {
       title: "Xûr’s current shipment",
       status: "1 storefront offer"
     });
-    expect(xurShipmentNotification(shipment, now)).toMatchObject({
-      title: "Xûr shipment available",
-      expiresAt: "2026-07-21T19:00:00.000Z"
+    expect(xurVisitNotification(shipment, now)).toMatchObject({
+      id: "xur-arrived:2026-07-17T19:00:00.000Z",
+      type: "xur-arrived",
+      title: "Xûr has arrived",
+      expiresAt: "2026-07-21T19:00:00.000Z",
+      metadata: { fanfare: "xur-arrival", departureAt: "2026-07-21T19:00:00.000Z" }
     });
   });
 
-  it("labels retained inventory as the previous shipment after Xûr leaves", () => {
-    const now = new Date("2026-07-22T20:00:00.000Z");
+  it("announces departure once and keeps the retained inventory labeled as previous", () => {
+    const now = new Date("2026-07-21T20:00:00.000Z");
     expect(xurHappeningCard(shipment, now)).toMatchObject({
       state: "inactive",
       title: "Xûr’s previous shipment",
       status: "1 archived offer"
     });
-    expect(xurShipmentNotification(shipment, now)).toBeUndefined();
+    expect(xurVisitNotification(shipment, now)).toMatchObject({
+      id: "xur-departed:2026-07-21T19:00:00.000Z",
+      type: "xur-departed",
+      title: "Xûr has departed",
+      expiresAt: "2026-07-22T19:00:00.000Z",
+      metadata: { fanfare: "xur-departure", nextArrivalAt: "2026-07-24T19:00:00.000Z" }
+    });
+  });
+
+  it("does not keep departure fanfare in the feed for the entire absence", () => {
+    expect(xurVisitNotification(shipment, new Date("2026-07-22T20:00:00.000Z"))).toBeUndefined();
+  });
+
+  it("announces arrival even while the vendor snapshot is still loading", () => {
+    expect(xurVisitNotification(undefined, new Date("2026-07-18T20:00:00.000Z"))).toMatchObject({
+      type: "xur-arrived",
+      subtitle: "His storefront is available in the Tower Bazaar",
+      sourceConfidence: "confirmed"
+    });
   });
 });

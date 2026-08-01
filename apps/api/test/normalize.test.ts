@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest } from "@guardian-nexus/contracts";
-import { activityName, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests } from "../src/normalize";
+import { activityName, addXurCollectionStates, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests } from "../src/normalize";
 
 const manifest = {
   version: "test",
@@ -115,6 +115,38 @@ describe("normalizeCollection", () => {
     const catalyst = normalizeCollection({}, collectionManifest).entries[0]!.catalysts![0]!;
 
     expect(catalyst).toMatchObject({ progressAvailable: false, objectives: [{ name: "Kill enemies", progress: 0, completionValue: 50 }] });
+  });
+});
+
+describe("Xûr collection ownership", () => {
+  it("joins Exotic, catalyst, and Legendary offers to private profile state", () => {
+    const collectionManifest = {
+      ...manifest,
+      items: [{
+        itemHash: "weapon", collectibleHash: "weapon-collectible", name: "ABC", description: "", icon: "/weapon.png",
+        kind: "weapon" as const, slot: "Kinetic Weapons", itemType: "Auto Rifle", source: "Quest", catalystRecordHashes: ["record"]
+      }],
+      recordDefinitions: { record: { displayProperties: { name: "ABC Catalyst" } } }
+    } satisfies CompactManifest;
+    const profile = {
+      profileCollectibles: { data: { collectibles: {
+        "weapon-collectible": { state: 0 },
+        "legendary-collectible": { state: 1 }
+      } } },
+      profileRecords: { data: { records: { record: { state: 0 } } } }
+    };
+    const baseOffer = {
+      saleIndex: "1", description: "", icon: "", rarity: "Exotic", itemType: "Weapon", slot: "Kinetic Weapons",
+      quantity: 1, costs: [], stats: [], perks: []
+    };
+    const offers = addXurCollectionStates(profile, collectionManifest, [
+      { ...baseOffer, itemHash: "weapon", name: "ABC", category: "exotic-weapon" },
+      { ...baseOffer, saleIndex: "2", itemHash: "catalyst", name: "ABC Catalyst", category: "exotic-catalyst" },
+      { ...baseOffer, saleIndex: "3", itemHash: "legendary", collectibleHash: "legendary-collectible", name: "Legendary", rarity: "Legendary", category: "legendary-weapon" },
+      { ...baseOffer, saleIndex: "4", itemHash: "quest", name: "Xenology", category: "other" }
+    ]);
+
+    expect(offers.map((offer) => offer.collectionState)).toEqual(["owned", "owned", "missing", "not-applicable"]);
   });
 });
 

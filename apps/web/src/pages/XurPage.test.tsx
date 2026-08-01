@@ -1,6 +1,6 @@
 import type { XurOffer } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { storefrontSections, xurInventoryPresentation } from "./XurPage";
+import { storefrontSections, xurInventoryPresentation, xurOwnershipPresentation } from "./XurPage";
 
 function offer(name: string, category: XurOffer["category"], overrides: Partial<XurOffer> = {}): XurOffer {
   return {
@@ -69,5 +69,17 @@ describe("Xur inventory presentation", () => {
 
   it("keeps an active storefront labeled as live", () => {
     expect(xurInventoryPresentation({ state: "available", inventoryStatus: "live", offers: [offer("Hawkmoon", "exotic-weapon")] }, true).signalLabel).toBe("Inventory live");
+  });
+});
+
+describe("Xûr collection marks", () => {
+  it("labels owned and missing gear without marking quests", () => {
+    expect(xurOwnershipPresentation(offer("Hawkmoon", "exotic-weapon", { collectionState: "owned" }))).toMatchObject({ label: "Owned in Collections" });
+    expect(xurOwnershipPresentation(offer("Stoicism", "exotic-class-item", { collectionState: "missing" }))).toMatchObject({ label: "Not unlocked in Collections" });
+    expect(xurOwnershipPresentation(offer("Xenology", "other", { collectionState: "not-applicable" }))).toBeUndefined();
+  });
+
+  it("uses catalyst-specific ownership language", () => {
+    expect(xurOwnershipPresentation(offer("Prometheus Lens Catalyst", "exotic-catalyst", { collectionState: "owned" }))).toMatchObject({ label: "Catalyst owned" });
   });
 });

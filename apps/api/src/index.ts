@@ -40,7 +40,7 @@ import type {
 import { z } from "zod";
 import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
-import { activityName, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
+import { activityName, addXurCollectionStates, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter } from "./normalize";
 import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { normalizeGear, type GearStateRow } from "./gear";
@@ -441,7 +441,7 @@ async function collection(row: SessionRow, env: Env, context: RequestContext): P
 }
 
 async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile, accessToken } = await profileFor(row, env, "session");
+  const [{ profile, accessToken }, manifest] = await Promise.all([profileFor(row, env, "collection"), loadManifest(env)]);
   const characters = uniqueXurCharacters(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   if (!characters.length) return envelope<XurData>({ state: "unavailable", checkedAt: new Date().toISOString(), offers: [] }, env, context, { warnings: ["Xûr inventory requires a selected character."] });
   const inventory = mergeXurInventories(await xurInventoriesForCharacters(row, characters.map((character) => character.characterId), env, accessToken, true));
@@ -451,14 +451,14 @@ async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<
       ? { state: "available", inventoryStatus: "live", checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers }
       : { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers };
     await saveLatestXurShipment(env, observedData);
-    return envelope<XurData>(observedData, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
+    return envelope<XurData>({ ...observedData, offers: addXurCollectionStates(profile, manifest, observedData.offers) }, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
   }
   const previous = await readLatestXurShipment(env);
   const liveData: XurData = { state: inventory.state, checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: [] };
   const data: XurData = previous
     ? { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: previous.capturedAt, nextRefreshAt: inventory.nextRefreshAt, offers: previous.offers }
     : liveData;
-  return envelope<XurData>(data, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
+  return envelope<XurData>({ ...data, offers: addXurCollectionStates(profile, manifest, data.offers) }, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
 }
 
 function uniqueXurCharacters(characters: ReturnType<typeof charactersFromProfile>, requestedCharacterId?: string) {
