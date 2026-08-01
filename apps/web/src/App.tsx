@@ -39,6 +39,7 @@ const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then((m
 const RaidRotationsPage = lazy(() => import("./pages/RaidRotationsPage").then((module) => ({ default: module.RaidRotationsPage })));
 const WatchlistsPage = lazy(() => import("./pages/WatchlistsPage").then((module) => ({ default: module.WatchlistsPage })));
 const FashionPage = lazy(() => import("./pages/FashionPage").then((module) => ({ default: module.FashionPage })));
+const ChallengesPage = lazy(() => import("./pages/ChallengesPage").then((module) => ({ default: module.ChallengesPage })));
 
 function RouteFallback() {
   return <section className={styles.fallback} aria-live="polite"><span><LoaderCircle /> Loading</span></section>;
@@ -59,6 +60,7 @@ export function App() {
         <Route path="activities/raids" element={<PageRoute><RaidRotationsPage /></PageRoute>} />
         <Route path="collection" element={<PageRoute><CollectionPage /></PageRoute>} />
         <Route path="fashion" element={<PageRoute><FashionPage /></PageRoute>} />
+        <Route path="challenges" element={<PageRoute><ChallengesPage /></PageRoute>} />
         <Route path="xur" element={<PageRoute><XurPage /></PageRoute>} />
         <Route path="quests" element={<Navigate to="/journey" replace />} />
         <Route path="quests/tracker" element={<Navigate to="/journey/quests" replace />} />

@@ -20,7 +20,9 @@ Last updated: 2026-08-01
 - **Validated on the PR branch:** Accessibility preferences now include high contrast, three base text sizes, reduced motion, and persistent root semantics; typed English, Spanish, and French catalogs cover core navigation/settings with explicit fallback and preview scope.
 - **Validated on the PR branch:** Guardian Projects now export account-neutral JSON, import as new private active projects, and copy Markdown briefs through an explicit player action.
 - **Validated on the PR branch:** Fashion workspace saves private five-slot ornament/shader references, uses the versioned manifest without claiming unlock ownership, and supports account-neutral JSON import/export.
-- **Active next implementation:** Challenge/community modes plus the remaining feature-specific mobile review.
+- **Validated on the PR branch:** Private challenge modes now support versioned evergreen templates, custom point goals, solo/Fireteam/clan labels, player-recorded scoring, portable invites, and explicit conversion into private Guardian Projects.
+- **Validated on the PR branch:** Xur and quick-inventory surfaces now collapse into compact, touch-friendly phone layouts without hiding verification or comparison controls.
+- **Accepted roadmap status:** All feature work listed below is implemented and validated. Draft PR review, live-account/device QA, migration, merge, and deployment remain release decisions rather than missing product scope.
 - **Release handoff:** See `docs/CODEX_HANDOFF.md` for the exact branch, PR, validation, exclusions, and remaining release steps.
 
 ## Product principles
@@ -60,7 +62,7 @@ Last updated: 2026-08-01
 ## Phase 4: Mobile and Fireteam readiness
 
 - [x] Installable, responsive second-screen navigation for Director, alerts, Postmaster, tracked goals, and Fireteam, with safe-area support and native install prompting.
-- [ ] Finish narrow-layout review of feature-specific Xur and quick-inventory surfaces as those pages evolve.
+- [x] Finish narrow-layout review of feature-specific Xur and quick-inventory surfaces as those pages evolve.
 - [x] Activity-scoped readiness with explicitly shared roles, prerequisites, and public build summaries.
 - [x] Recruitment remains in Bungie's official Fireteam Finder; Guardian Nexus prepares the group and links outward.
 
@@ -73,7 +75,7 @@ Last updated: 2026-08-01
 - [x] Bungie-backed recent activity history with partial/unavailable handling and versioned new-player explanations.
 - [x] Portable Guardian Project JSON/Markdown adapters and accessibility/localization foundations.
 - [x] Private, portable fashion workspace with manifest-backed references and explicit unknown ownership.
-- [ ] Challenge/community modes and remaining feature-specific narrow-layout review.
+- [x] Private challenge/community modes with updateable templates, custom scoring, portable invites, and Guardian Projects handoff.
 
 ## Maintenance requirements
 

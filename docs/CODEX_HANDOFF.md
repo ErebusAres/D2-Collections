@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-Implement every accepted product-roadmap feature in dependency order while keeping draft PR #53 reviewable. Build Advisor 2 through Fireteam readiness are complete; Phase 5 now includes unlisted/portable builds, separately consented Guardian snapshots, private Guardian Projects, Bungie-backed recent activity history, versioned new-player guidance, portable project adapters, accessibility/localization foundations, and a private portable fashion workspace. Challenge/community modes are next.
+All accepted product-roadmap feature work is implemented and validated on draft PR #53. The next owner should review CI and perform any requested live-account or exact-device QA; migration, merge, and production deployment still require explicit authorization.
 
 ## Current repository state
 
@@ -70,6 +70,10 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 44. Fashion selections search the versioned cached Bungie cosmetic manifest and are explicitly labeled as manifest references with unknown unlock ownership; the site does not claim an ornament or shader is owned and never equips fashion items.
 45. Added normalized `fashion.looks.v1` account storage capped at 20 looks and 40 KB, with backward-safe parsing at the read boundary.
 46. Added versioned, account-neutral fashion JSON export/import. Private IDs and timestamps are omitted on export and regenerated on import.
+47. Added a private `/challenges` workspace with versioned evergreen templates plus custom solo, Fireteam, and clan-labeled challenges. Scoring and completion are explicitly player-recorded and do not create a public leaderboard or community feed.
+48. Added bounded `challenges.v1` preference storage, defensive parsing, task state history, active/complete restore flows, and data-driven template content that can be updated independently of page logic.
+49. Added versioned account-neutral challenge JSON export/import, a Markdown invite copied only by explicit action, and an adapter that creates a new private Guardian Project without silently sharing Guardian snapshots.
+50. Completed the feature-specific phone pass for Xur and Gear with single-column summaries and controls, compact two-column vendor cards, scroll-safe tabs/recent gear, touch-size controls, and a full-width comparison overlay.
 
 ## Files in release scope
 
@@ -125,6 +129,12 @@ Implement every accepted product-roadmap feature in dependency order while keepi
 - `apps/web/src/pages/FashionPage.tsx`
 - `apps/web/src/pages/FashionPage.module.css`
 - `apps/web/src/pages/FashionPage.test.tsx`
+- `apps/web/src/data/challenge-templates.v1.json`
+- `apps/web/src/modules/challenges/challenges.ts`
+- `apps/web/src/modules/challenges/challenges.test.ts`
+- `apps/web/src/pages/ChallengesPage.tsx`
+- `apps/web/src/pages/ChallengesPage.module.css`
+- `apps/web/src/pages/ChallengesPage.test.tsx`
 - `apps/web/src/modules/i18n/catalog.ts`
 - `apps/web/src/modules/i18n/catalog.test.ts`
 - `apps/web/src/context/GuardianContext.tsx`
@@ -153,11 +163,11 @@ The following passed on 2026-08-01:
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
 - 173 API tests
-- 223 web tests
+- 226 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 367,014 bytes JavaScript, 113,083 bytes gzip, and 34,124 bytes entry CSS
+- performance budgets: 367,432 bytes JavaScript, 113,200 bytes gzip, and 34,124 bytes entry CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -173,7 +183,7 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 3. Keep `.codex-remote-attachments/` excluded from future commits.
 4. Mark the PR ready only after the reviewer agrees that the current phased scope is appropriate.
 5. Merge and deploy only when explicitly authorized; report merge SHA, workflow result, and production state separately.
-6. Continue the accepted roadmap in dependency order on the draft integration branch, updating this handoff after every validated slice.
+6. Treat additional feature work as a new reviewed roadmap addition; the currently accepted roadmap is complete on this branch.
 7. Apply D1 migration `0015_guardian_snapshots.sql` before deploying a web bundle that exposes `/snapshots`; no production migration or deployment has been performed from this branch.
 
 ## Next implementation queue
@@ -222,8 +232,9 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Completed accessibility/localization foundations with persisted root-level presentation state, typed catalogs, fallback, semantic `lang`, and honest preview scope.
 - Completed portable project JSON and Markdown adapters with privacy-safe defaults and private-import semantics.
 - Completed the modular private fashion workspace with manifest-backed references, honest unknown ownership, five stable slots, and account-neutral adapters.
-- Next, build challenge/community modes; do not silently include Guardian snapshots in clan or Fireteam payloads.
-- Keep challenge modes and broader new-player explanations modular so they can consume the same snapshot/checklist contracts without hard-coded seasonal facts.
+- Completed private challenge/community modes with versioned templates, custom point goals, portable invites, player-recorded status, and an explicit private Projects adapter; Guardian snapshots are never silently included.
+- Completed the remaining feature-specific phone review for Xur and Gear while preserving compact inventory verification and comparison controls.
+- No accepted feature remains queued. Preserve the modular, data-driven challenge and onboarding foundations when future scope is approved.
 
 ## Non-negotiable constraints
 

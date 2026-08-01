@@ -1,4 +1,4 @@
-import { Badge, CalendarDays, CheckSquare2, Clock3, Compass, Crown, ListTodo, ScrollText, Sparkles } from "lucide-react";
+import { Badge, CalendarDays, CheckSquare2, Clock3, Compass, Crown, Flag, ListTodo, ScrollText, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import styles from "./JourneyNav.module.css";
 
@@ -11,7 +11,8 @@ const destinations = [
   { to: "/journey/titles", label: "Titles & Seals", icon: Crown },
   { to: "/journey/triumphs", label: "Triumphs", icon: ScrollText },
   { to: "/journey/weekly", label: "Weekly", icon: CalendarDays },
-  { to: "/journey/history", label: "History & Guide", icon: Clock3 }
+  { to: "/journey/history", label: "History & Guide", icon: Clock3 },
+  { to: "/challenges", label: "Challenges", icon: Flag }
 ] as const;
 
 export function JourneyNav() {

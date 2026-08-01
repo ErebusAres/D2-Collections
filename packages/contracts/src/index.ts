@@ -1080,6 +1080,7 @@ export type UserPreferenceKey =
   | "watchlists.v1"
   | "projects.v1"
   | "fashion.looks.v1"
+  | "challenges.v1"
   | "site.autoRefresh"
   | "site.reducedMotion"
   | "site.highContrast"
@@ -1112,6 +1113,26 @@ export interface PortableFashionLookEnvelope {
   version: 1;
   exportedAt: string;
   look: Pick<FashionLook, "name" | "classType" | "slots" | "note">;
+}
+
+export type CommunityChallengeMode = "solo" | "fireteam" | "clan";
+export interface CommunityChallengeTask { id: string; label: string; points: number; state: GuardianProjectItemState; }
+export interface CommunityChallenge {
+  id: string;
+  title: string;
+  description?: string;
+  mode: CommunityChallengeMode;
+  tasks: CommunityChallengeTask[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+export interface CommunityChallengesDocument { schemaVersion: 1; challenges: CommunityChallenge[]; }
+export interface PortableCommunityChallengeEnvelope {
+  format: "guardian-nexus-community-challenge";
+  version: 1;
+  exportedAt: string;
+  challenge: Pick<CommunityChallenge, "title" | "description" | "mode"> & { tasks: Array<Pick<CommunityChallengeTask, "label" | "points">>; };
 }
 
 export interface UserPreferencesData {
