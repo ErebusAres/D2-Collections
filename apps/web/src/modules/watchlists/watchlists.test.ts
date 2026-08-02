@@ -1,6 +1,6 @@
 import type { GearData, WatchlistDocument, WatchlistEntry } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { evaluateWatchlist, parseWatchlist } from "./watchlists";
+import { evaluateWatchlist, parseWatchlist, watchlistSuggestions } from "./watchlists";
 
 const entry = (overrides: Partial<WatchlistEntry> = {}): WatchlistEntry => ({ id: "watch-1", kind: "perk", label: "Voltshot", target: "Voltshot", enabled: true, notify: true, createdAt: "2026-08-01T00:00:00Z", ...overrides });
 const document = (watch: WatchlistEntry): WatchlistDocument => ({ schemaVersion: 1, entries: [watch] });
@@ -9,6 +9,12 @@ describe("watchlist evaluation", () => {
   it("matches selectable perks without treating them as opaque roll scores", () => {
     const gear = { weapons: [{ name: "Test Weapon", perkColumns: [{ options: [{ name: "Voltshot" }] }] }] } as GearData;
     expect(evaluateWatchlist(document(entry()), { gear })[0]).toMatchObject({ state: "matched", source: "gear", summary: "Voltshot found on Test Weapon" });
+  });
+
+  it("offers exact, deduplicated names for the selected source", () => {
+    const gear = { weapons: [{ name: "Test Weapon", perkColumns: [{ active: { name: "Voltshot" }, options: [{ name: "Jolting Feedback" }, { name: "Voltshot" }] }] }] } as GearData;
+    expect(watchlistSuggestions("perk", { gear })).toEqual(["Jolting Feedback", "Voltshot"]);
+    expect(watchlistSuggestions("reward", {})).toEqual([]);
   });
 
   it("uses explicit unknown states when a private source is unavailable", () => {

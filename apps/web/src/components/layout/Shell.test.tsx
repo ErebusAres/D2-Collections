@@ -84,7 +84,7 @@ describe("Shell guardian identity", () => {
     expect(screen.getByLabelText("Light Level: 409 · Open").getAttribute("href")).toBe("/power");
     expect(screen.getByLabelText("Guardian Rank: 5 · Open").getAttribute("href")).toBe("/journey/guardian-rank");
     const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
-    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Watchlists", "Snapshots", "Fireteam"]);
+    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Alerts & Watches", "Share Cards", "Fireteam"]);
     expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");
     const mobileActions = [...screen.getByRole("navigation", { name: "Mobile quick actions" }).querySelectorAll("a")].map((entry) => [entry.textContent, entry.getAttribute("href")]);
     expect(mobileActions).toEqual([["Director", "/director"], ["Alerts", "/watchlists"], ["Plan", "/next"], ["Postmaster", "/mailbox"], ["Fireteam", "/fireteam"]]);
@@ -137,8 +137,8 @@ describe("Shell guardian identity", () => {
     await screen.findByLabelText("Guardian options", { selector: "[role='dialog']" });
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
     fireEvent.click(screen.getByRole("checkbox", { name: /High contrast/i }));
-    fireEvent.change(screen.getByRole("combobox", { name: /Base text size/i }), { target: { value: "large" } });
-    fireEvent.change(screen.getByRole("combobox", { name: /Interface language/i }), { target: { value: "es-ES" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /Interface size/i }), { target: { value: "large" } });
+    fireEvent.change(screen.getByRole("combobox", { name: /Core language preview/i }), { target: { value: "es-ES" } });
     expect(setHighContrast).toHaveBeenCalledWith(true);
     expect(setTextScale).toHaveBeenCalledWith("large");
     expect(setLocale).toHaveBeenCalledWith("es-ES");
@@ -173,7 +173,7 @@ describe("Shell guardian identity", () => {
     renderShell(<div>Page</div>);
 
     const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
-    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Watchlists", "Snapshots", "Fireteam"]);
+    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Alerts & Watches", "Share Cards", "Fireteam"]);
     expect(screen.queryByRole("link", { name: "API Lab" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Guardian Matrix" })).toBeNull();
     expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");

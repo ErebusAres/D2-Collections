@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { AuthGate, PageHeader } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
-import { evaluateWatchlist, parseWatchlist, WATCHLIST_KINDS } from "../modules/watchlists/watchlists";
+import { evaluateWatchlist, parseWatchlist, watchlistSuggestions, WATCHLIST_KINDS } from "../modules/watchlists/watchlists";
 import { api } from "../services/api/client";
 import styles from "./WatchlistsPage.module.css";
 
@@ -28,6 +28,7 @@ export function WatchlistsPage() {
   const rewards = useQuery({ queryKey: ["rewards", selectedCharacterId], queryFn: () => api<RewardsPassData>(`/api/v1/me/rewards?characterId=${encodeURIComponent(selectedCharacterId)}`), enabled, staleTime: 60_000, refetchInterval: refresh });
   const mailbox = useQuery({ queryKey: ["mailbox"], queryFn: () => api<MailboxData>("/api/v1/me/mailbox"), enabled, staleTime: 60_000, refetchInterval: refresh });
   const matches = useMemo(() => evaluateWatchlist(document, { gear: gear.data?.data, xur: xur.data?.data, collection: collection.data?.data, quests: quests.data?.data, rewards: rewards.data?.data, mailbox: mailbox.data?.data }), [collection.data, document, gear.data, mailbox.data, quests.data, rewards.data, xur.data]);
+  const suggestions = useMemo(() => watchlistSuggestions(kind, { gear: gear.data?.data, xur: xur.data?.data, collection: collection.data?.data, quests: quests.data?.data, rewards: rewards.data?.data, mailbox: mailbox.data?.data }), [collection.data, gear.data, kind, mailbox.data, quests.data, rewards.data, xur.data]);
   const membershipId = session?.guardian?.membershipId || "";
 
   useEffect(() => {
@@ -58,18 +59,18 @@ export function WatchlistsPage() {
   const loadingCount = [gear, xur, collection, quests, rewards, mailbox].filter((query) => query.isLoading).length;
 
   return <AuthGate>
-    <PageHeader eyebrow="Private account monitoring" title="Watchlists" description="Track gear, perks, vendors, Collection unlocks, catalysts, pursuits, rewards, and Postmaster capacity from one membership-scoped workspace." actions={<button className={styles.alertButton} type="button" onClick={() => void requestAlerts()}><BellRing /> Enable browser alerts</button>} />
+    <PageHeader eyebrow="Private account alerts" title="Alerts & watches" description="Tell Guardian Nexus what you are waiting for. It checks your current account data and reports when that named item, perk, reward, pursuit, or capacity condition is found." actions={<button className={styles.alertButton} type="button" onClick={() => void requestAlerts()}><BellRing /> Enable browser alerts</button>} />
     <section className={styles.privacy}><Radar /><div><strong>Private by construction</strong><p>Watch definitions sync through your account preferences. Matches are calculated from private Guardian endpoints and are never written into shared snapshots.</p></div><span>{loadingCount ? `${loadingCount} sources syncing` : "All sources checked"}</span></section>
     <section className={styles.layout}>
       <form className={styles.creator} onSubmit={submit}>
-        <header><Plus /><div><span>New watch</span><h2>Add a signal</h2></div></header>
-        <label><span>Source</span><select value={kind} onChange={(event) => setKind(event.target.value as WatchlistKind)}>{WATCHLIST_KINDS.map((entry) => <option value={entry.kind} key={entry.kind}>{entry.label}</option>)}</select><small>{WATCHLIST_KINDS.find((entry) => entry.kind === kind)?.hint}</small></label>
+        <header><Plus /><div><span>New watch</span><h2>What should I watch for?</h2></div></header>
+        <label><span>Source</span><select value={kind} onChange={(event) => { setKind(event.target.value as WatchlistKind); setTarget(""); }}>{WATCHLIST_KINDS.map((entry) => <option value={entry.kind} key={entry.kind}>{entry.label}</option>)}</select><small>{WATCHLIST_KINDS.find((entry) => entry.kind === kind)?.hint}</small></label>
         <label><span>Label <small>Optional</small></span><input value={label} onChange={(event) => setLabel(event.target.value)} maxLength={80} placeholder="My chase" /></label>
-        {kind !== "postmaster" && <label><span>Item, perk, or pursuit name</span><input value={target} onChange={(event) => setTarget(event.target.value)} maxLength={100} required placeholder="Type the Bungie name" /></label>}
+        {kind !== "postmaster" && <label><span>Search existing {WATCHLIST_KINDS.find((entry) => entry.kind === kind)?.label.toLocaleLowerCase()}</span><input list="watchlist-target-options" value={target} onChange={(event) => setTarget(event.target.value)} maxLength={100} required placeholder={suggestions.length ? "Start typing to search" : "No loaded suggestions · enter a name"} autoComplete="off" /><datalist id="watchlist-target-options">{suggestions.map((suggestion) => <option value={suggestion} key={suggestion} />)}</datalist><small>{suggestions.length ? `${suggestions.length} exact names available from currently loaded data. You can still enter another name.` : "This source has not returned searchable names. Free text remains available and will not be treated as a confirmed match."}</small></label>}
         {kind === "postmaster" && <label><span>Alert at occupied slots</span><input type="number" min="1" max="21" value={threshold} onChange={(event) => setThreshold(Number(event.target.value))} /></label>}
         <label><span>Deadline <small>Optional, reset-aware</small></span><input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></label>
         <button type="submit" disabled={document.entries.length >= 50}><Plus /> Add watch</button>
-        <p>{document.entries.length}/50 saved watches · alerts repeat only when the matched result changes.</p>
+        <p>Example: choose Xûr offer and enter the exact weapon name, or choose Postmaster and set the occupied-slot warning level. {document.entries.length}/50 saved watches.</p>
       </form>
       <section className={styles.board}>
         <header><div><span>Live evaluation</span><h2>{matches.filter((match) => match.state === "matched").length} matched signals</h2></div><b>{matches.length} total</b></header>
