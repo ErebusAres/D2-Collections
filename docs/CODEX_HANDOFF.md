@@ -77,6 +77,7 @@ The original roadmap is live on `main`. A follow-up Build Advisor 2.0 catalog co
 51. Corrected the under-delivered Build Advisor catalog by adding 17 alternate-role templates, bringing the total to 36. Hunter, Titan, and Warlock each have 12 entries, and every Arc, Solar, Void, Strand, Stasis, and Prismatic pairing has two different required Exotic armor paths.
 52. Every new path reuses the existing verified subclass configuration while supplying a distinct Exotic armor anchor, Exotic weapon preference, gameplay loop, strengths, weaknesses, role, upgrades, owned-item verification, alternative suggestions, trait targets, and acquisition-plan integration.
 53. Added an explicit catalog banner and truthful build-option count so the expansion is immediately visible instead of being hidden behind backend scoring terminology. All 24 newly referenced Exotic names were checked against the generated site manifests.
+54. Alternate Exotic weapons carry their own slot, damage type, and archetype profiles rather than inheriting those fields from the base build. Regression coverage explicitly checks slot-changing paths such as Lumina and Grand Overture so ownership verification cannot falsely report them missing.
 
 ## Files in release scope
 
@@ -165,7 +166,7 @@ The following passed on 2026-08-01:
 - ESLint with zero warnings
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
-- 173 API tests
+- 174 API tests
 - 226 web tests
 - Node tooling tests
 - 19 Python manifest tests
@@ -193,7 +194,7 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 
 - Intended focused files: `apps/api/src/buildAdvisorTemplates.ts`, `apps/api/src/buildAdvisor.test.ts`, `apps/web/src/pages/BuildAdvisorPage.tsx`, its CSS module and test, plus these two handoff documents.
 - Required invariant: 36 templates total, 12 per class, two per class/subclass pair, one required Exotic armor and one preferred Exotic weapon per template.
-- Full `pnpm run audit` passed on 2026-08-01: archive/source/CSS boundaries, lint, all TypeScript targets, 24 domain tests, 173 API tests, 226 web tests, Node tooling, 19 Python tests, production builds, and budgets of 367,432 bytes entry JavaScript, 113,190 bytes gzip, and 34,124 bytes entry CSS.
+- Full `pnpm run audit` passed on 2026-08-01: archive/source/CSS boundaries, lint, all TypeScript targets, 24 domain tests, 174 API tests, 226 web tests, Node tooling, 19 Python tests, production builds, and budgets of 367,432 bytes entry JavaScript, 113,190 bytes gzip, and 34,124 bytes entry CSS.
 - Keep `.codex-remote-attachments/` excluded, commit and push through the focused review branch, then monitor CI. Merge/deploy only after explicit authorization; after deployment, perform the signed-in 12-build-per-class check described above.
 
 ## Next implementation queue

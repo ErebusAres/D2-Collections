@@ -844,9 +844,26 @@ const ALTERNATE_BUILD_DEFINITIONS: AlternateBuildDefinition[] = [
   { id: "warlock-prismatic-nezarec", baseId: "warlock-prismatic-buddies", name: "Prismatic Nezarec Warlock", exoticArmor: "Nezarec's Sin", exoticWeapon: "Graviton Lance", summary: "Void weapon defeats accelerate the Prismatic ability kit while Devour and Hellion keep the Warlock aggressive.", role: "Weapon-led Prismatic ability engine", gameplayLoop: ["Trigger Devour with an ability defeat.", "Chain Graviton Lance defeats to activate Abyssal Extractors.", "Spend the accelerated Light and Dark abilities to build Transcendence, then repeat."], strengths: ["Broad ability acceleration", "Excellent Void add clear", "Simple Devour sustain"], weaknesses: ["Requires a Void weapon for best uptime", "Loses Getaway Artist's autonomous Arc Soul"] }
 ];
 
+const ALTERNATE_EXOTIC_WEAPON_PROFILES: Record<string, Pick<BuildAdvisorWeaponRequirement, "slots" | "damageTypes" | "archetypes">> = {
+  "Le Monarque": { slots: ["Energy Weapons"], damageTypes: ["Void"], archetypes: ["Bow"] },
+  Thunderlord: { slots: ["Power Weapons"], damageTypes: ["Arc"], archetypes: ["Machine Gun"] },
+  "Verglas Curve": { slots: ["Kinetic Weapons"], damageTypes: ["Stasis"], archetypes: ["Bow"] },
+  "Final Warning": { slots: ["Kinetic Weapons"], damageTypes: ["Strand"], archetypes: ["Sidearm"] },
+  "Khvostov 7G-0X": { slots: ["Kinetic Weapons"], damageTypes: ["Kinetic"], archetypes: ["Auto Rifle"] },
+  "Deterministic Chaos": { slots: ["Power Weapons"], damageTypes: ["Void"], archetypes: ["Machine Gun"] },
+  "Graviton Lance": { slots: ["Energy Weapons"], damageTypes: ["Void"], archetypes: ["Pulse Rifle"] },
+  "Polaris Lance": { slots: ["Energy Weapons"], damageTypes: ["Solar"], archetypes: ["Scout Rifle"] },
+  "Ice Breaker": { slots: ["Energy Weapons"], damageTypes: ["Solar"], archetypes: ["Sniper Rifle"] },
+  "Grand Overture": { slots: ["Power Weapons"], damageTypes: ["Arc"], archetypes: ["Machine Gun"] },
+  Riskrunner: { slots: ["Energy Weapons"], damageTypes: ["Arc"], archetypes: ["Submachine Gun"] },
+  Lumina: { slots: ["Kinetic Weapons"], damageTypes: ["Kinetic"], archetypes: ["Hand Cannon"] }
+};
+
 function alternateTemplate(definition: AlternateBuildDefinition): BuildAdvisorTemplate {
   const base = BASE_BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === definition.baseId);
   if (!base) throw new Error(`Unknown Build Advisor base template ${definition.baseId}.`);
+  const exoticProfile = ALTERNATE_EXOTIC_WEAPON_PROFILES[definition.exoticWeapon];
+  if (!exoticProfile) throw new Error(`Missing weapon profile for alternate Exotic ${definition.exoticWeapon}.`);
   return {
     ...base,
     id: definition.id,
@@ -859,7 +876,7 @@ function alternateTemplate(definition: AlternateBuildDefinition): BuildAdvisorTe
     summary: definition.summary,
     requiredExoticArmor: definition.exoticArmor,
     preferredExoticWeapon: definition.exoticWeapon,
-    weapons: base.weapons.map((requirement) => requirement.requiresExotic ? { ...requirement, preferredNames: [definition.exoticWeapon] } : { ...requirement }),
+    weapons: base.weapons.map((requirement) => requirement.requiresExotic ? { ...requirement, ...exoticProfile, preferredNames: [definition.exoticWeapon] } : { ...requirement }),
     gameplayLoop: definition.gameplayLoop,
     strengths: definition.strengths,
     weaknesses: definition.weaknesses,

@@ -562,6 +562,15 @@ describe("Build Advisor inventory and scoring", () => {
     }
   });
 
+  it("uses the alternate Exotic weapon's real slot and archetype instead of inheriting the base build profile", () => {
+    expect(BUILD_ADVISOR_TEMPLATES.find((template) => template.id === "warlock-solar-speakers")?.weapons.find((weapon) => weapon.requiresExotic)).toMatchObject({
+      preferredNames: ["Lumina"], slots: ["Kinetic Weapons"], damageTypes: ["Kinetic"], archetypes: ["Hand Cannon"]
+    });
+    expect(BUILD_ADVISOR_TEMPLATES.find((template) => template.id === "titan-prismatic-hazardous")?.weapons.find((weapon) => weapon.requiresExotic)).toMatchObject({
+      preferredNames: ["Grand Overture"], slots: ["Power Weapons"], damageTypes: ["Arc"], archetypes: ["Machine Gun"]
+    });
+  });
+
   it("does not expose token-shaped profile fields in recommendation output", () => {
     const { companion, collection } = manifests();
     const raw = fullyOwnedHunterProfile();
