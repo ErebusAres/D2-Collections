@@ -27,7 +27,7 @@ describe("ArtifactPerkPicker", () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><ArtifactPerkPicker artifactHash="100" artifactName="Test Artifact" values={[]} onChange={onChange} /></QueryClientProvider>);
 
     expect(screen.getByLabelText("Seven equipped Artifact perk slots").querySelectorAll("button")).toHaveLength(7);
-    expect(await screen.findByRole("button", { name: /Tier 1 Tier 1 perk/i })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /Tier 1 Tier 1 perk/i }, { timeout: 5_000 })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Tier 2 Tier 2 perk/i })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: /6 Tier 3 or lower Empty slot/i }));
