@@ -256,13 +256,10 @@ export function buildAdvisorRecommendations(
     .filter(({ validation }) => validation.state === "unverified" || validation.issues.length === 0)
     .map(({ template, validation }) => scoreTemplate(template, inventory, character, validation))
     .sort((left, right) => right.recommendation.score - left.recommendation.score || left.recommendation.name.localeCompare(right.recommendation.name));
-  const primary = scored.filter(({ recommendation }) => {
-    if (recommendation.status === "not-viable") return false;
-    if (recommendation.source.kind !== "published-build") return true;
-    const physicalCoreOwned = "instanceId" in recommendation.coreExoticArmor;
-    return physicalCoreOwned || recommendation.status !== "missing-several-core-items";
-  });
-  assignCategoryAwards(primary);
+  // Missing gear changes readiness, not catalog eligibility. Keep every valid
+  // template visible so the acquisition and substitution guidance can help a
+  // Guardian assemble builds they cannot equip yet.
+  assignCategoryAwards(scored);
 
   const exoticArmorByClass: BuildAdvisorInventoryAnalysis["ownedExoticArmorByClass"] = {};
   for (const item of inventory.items.filter((entry) => entry.exotic && isArmor(entry))) {
@@ -278,7 +275,7 @@ export function buildAdvisorRecommendations(
   const missingHighImpactItems = [...new Set(scored.flatMap((entry) => entry.recommendation.missingItems))].slice(0, 12);
 
   return {
-    recommendations: primary.map((entry) => entry.recommendation),
+    recommendations: scored.map((entry) => entry.recommendation),
     analysis: {
       physicalItemCount: inventory.items.length,
       savedLoadoutCount,

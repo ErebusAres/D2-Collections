@@ -616,8 +616,11 @@ describe("Build Advisor inventory and scoring", () => {
     });
     const normalized = normalizeBuildAdvisorInventory(raw, companion, collection, [hunter, titan, warlock]);
     const result = buildAdvisorRecommendations(normalized, character);
-    expect(result.recommendations.length).toBeGreaterThan(0);
+    expect(result.recommendations).toHaveLength(12);
     expect(result.recommendations.every((entry) => entry.classType === expectedClass)).toBe(true);
+    for (const subclass of ["arc", "solar", "void", "strand", "stasis", "prismatic"] as const) {
+      expect(result.recommendations.filter((entry) => entry.subclass === subclass)).toHaveLength(2);
+    }
     expect(BUILD_ADVISOR_TEMPLATES.some((template) => template.classType === expectedClass)).toBe(true);
   });
 });
