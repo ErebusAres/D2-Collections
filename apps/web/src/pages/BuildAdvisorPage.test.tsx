@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   signIn: vi.fn(),
   refresh: vi.fn().mockResolvedValue(undefined),
   selectCharacter: vi.fn(),
+  setPreference: vi.fn(),
   state: { authenticated: true }
 }));
 
@@ -24,7 +25,9 @@ vi.mock("../context/GuardianContext", () => ({
     refresh: mocks.refresh,
     selectedCharacterId: "hunter",
     selectCharacter: mocks.selectCharacter,
-    autoRefresh: false
+    autoRefresh: false,
+    preferences: {},
+    setPreference: mocks.setPreference
   })
 }));
 
@@ -37,6 +40,7 @@ afterEach(() => {
   mocks.signIn.mockReset();
   mocks.refresh.mockReset().mockResolvedValue(undefined);
   mocks.selectCharacter.mockReset();
+  mocks.setPreference.mockReset();
   vi.clearAllMocks();
   vi.restoreAllMocks();
 });
@@ -122,6 +126,16 @@ describe("Build Advisor page", () => {
     expect(await screen.findByLabelText("Build viability 86 out of 100")).toBeTruthy();
     expect(screen.getAllByText("96% ready").length).toBeGreaterThan(0);
     expect(screen.getByRole("region", { name: "Build recommendation scores" }).textContent).toContain("Overall match91");
+  });
+
+  it("tracks the complete recommendation checklist for Fireteam sharing", async () => {
+    vi.mocked(api).mockResolvedValue(envelope(advisorData("Tracked Build")));
+    renderPage();
+    await screen.findAllByText("Tracked Build");
+    fireEvent.click(screen.getByRole("button", { name: "Track build on Fireteam" }));
+    expect(mocks.setPreference).toHaveBeenCalledWith("buildAdvisor.trackedBuilds.v1", expect.any(String));
+    const value = mocks.setPreference.mock.calls.find(([key]) => key === "buildAdvisor.trackedBuilds.v1")?.[1];
+    expect(JSON.parse(String(value))).toEqual([expect.objectContaining({ kind: "build", name: "Tracked Build", trackedInDestiny: false })]);
   });
 
   it("confirms and submits a server-resolved build equip action", async () => {

@@ -10,6 +10,7 @@ import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import { trapFocusWithin } from "../common/focusTrap";
 import styles from "./OptionsPanel.module.css";
 import { SUPPORTED_LOCALES, useMessages, type MessageKey } from "../../modules/i18n/catalog";
+import { parseTrackedBuilds } from "../../modules/buildAdvisor/buildTracking";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -42,7 +43,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
         const parsed = JSON.parse(guardianState.preferences["guardianRank.tracked"] || "[]");
         siteTrackedGuardianRankIds = Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 200) : [];
       } catch { siteTrackedGuardianRankIds = []; }
-      return queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, mode: "persistent" }) });
+      return queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedBuilds: parseTrackedBuilds(guardianState.preferences["buildAdvisor.trackedBuilds.v1"]), mode: "persistent" }) });
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });

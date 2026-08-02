@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-The original roadmap is live on `main`. A follow-up Build Advisor 2.0 catalog correction expands template set v5 from 19 to 36 builds: 12 per class and exactly two core-Exotic paths for every subclass. The immediate task is to validate, publish, and live-check this focused correction; do not branch into unrelated roadmap work.
+The original roadmap and the v5 catalog correction are live on `main`. The current follow-up expands Build Advisor template set v6 to 54 builds: 18 per class and exactly three core-Exotic paths for every subclass. It also adds explicit, privacy-scoped build checklist tracking to Fireteam.
 
 ## Current repository state
 
@@ -78,6 +78,8 @@ The original roadmap is live on `main`. A follow-up Build Advisor 2.0 catalog co
 52. Fixed the post-release catalog visibility defect that hid builds when several core items were missing. All 12 valid builds for the selected class now remain visible; readiness ranking, ownership filters, substitutions, and acquisition guidance communicate what the player does not own instead of removing those builds from the response. The per-class API regression now requires exactly 12 recommendations and two per subclass even with a sparse inventory.
 53. Every new path reuses the existing verified subclass configuration while supplying a distinct Exotic armor anchor, Exotic weapon preference, gameplay loop, strengths, weaknesses, role, upgrades, owned-item verification, alternative suggestions, trait targets, and acquisition-plan integration.
 54. Added an explicit catalog banner and truthful build-option count so the expansion is immediately visible instead of being hidden behind backend scoring terminology. All 24 newly referenced Exotic names were checked against the generated site manifests.
+55. Expanded template set v6 to 54 builds, with 18 options per class and three distinct core-Exotic approaches for every class/subclass pair. Sparse accounts still receive the full class catalog with owned alternatives and structured acquisition routes.
+56. Added explicit Build Advisor checklist tracking to Fireteam. Only the player-selected build name, readiness, required-component states, and bounded acquisition steps are shared; inventory and Collections remain private, and unknown component data stays unknown.
 55. Alternate Exotic weapons carry their own slot, damage type, and archetype profiles rather than inheriting those fields from the base build. Regression coverage explicitly checks slot-changing paths such as Lumina and Grand Overture so ownership verification cannot falsely report them missing.
 
 ## Files in release scope
@@ -194,7 +196,7 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 ## Build Advisor v5 follow-up state
 
 - Intended focused files: `apps/api/src/buildAdvisorTemplates.ts`, `apps/api/src/buildAdvisor.test.ts`, `apps/web/src/pages/BuildAdvisorPage.tsx`, its CSS module and test, plus these two handoff documents.
-- Required invariant: 36 templates total, 12 per class, two per class/subclass pair, one required Exotic armor and one preferred Exotic weapon per template.
+- Required invariant: 54 templates total, 18 per class, three per class/subclass pair, one required Exotic armor and one preferred Exotic weapon per template.
 - Full `pnpm run audit` passed on 2026-08-01: archive/source/CSS boundaries, lint, all TypeScript targets, 24 domain tests, 174 API tests, 226 web tests, Node tooling, 19 Python tests, production builds, and budgets of 367,432 bytes entry JavaScript, 113,190 bytes gzip, and 34,124 bytes entry CSS.
 - Keep `.codex-remote-attachments/` excluded, commit and push through the focused review branch, then monitor CI. Merge/deploy only after explicit authorization; after deployment, perform the signed-in 12-build-per-class check described above.
 

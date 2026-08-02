@@ -580,7 +580,7 @@ export interface JourneyProgressData {
   manifestVersion: string;
 }
 
-export type FireteamTrackedItemKind = "quest" | "bounty" | "order" | "guardian-rank" | "triumph" | "title" | "seasonal" | "weekly" | "exotic" | "catalyst";
+export type FireteamTrackedItemKind = "quest" | "bounty" | "order" | "guardian-rank" | "triumph" | "title" | "seasonal" | "weekly" | "exotic" | "catalyst" | "build";
 
 export interface FireteamTrackedItemObjective {
   objectiveHash: string;
@@ -1077,6 +1077,7 @@ export type UserPreferenceKey =
   | "planner.mode"
   | "planner.focus"
   | "watchlists.buildAcquisitions"
+  | "buildAdvisor.trackedBuilds.v1"
   | "watchlists.v1"
   | "projects.v1"
   | "fashion.looks.v1"

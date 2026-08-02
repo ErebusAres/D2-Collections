@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
+import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
@@ -41,6 +42,7 @@ function FireteamRefreshCountdown() {
   const guardianRankTracked = preferences["guardianRank.tracked"];
   const journeyTracked = preferences["journey.tracked"];
   const collectionTracked = preferences["collection.tracked"];
+  const buildTracked = preferences["buildAdvisor.trackedBuilds.v1"];
   const [now, setNow] = useState(() => Date.now());
   const [nextRefreshAt, setNextRefreshAt] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,6 +95,7 @@ function FireteamRefreshCountdown() {
             siteTrackedGuardianRankIds: readPreferenceArray(guardianRankTracked),
             siteTrackedJourneyIds: readPreferenceArray(journeyTracked),
             siteTrackedCollectionIds: readPreferenceArray(collectionTracked),
+            siteTrackedBuilds: parseTrackedBuilds(buildTracked),
             hiddenTrackedItemKeys,
             mode: mode as FireteamSharingMode
           })
@@ -106,7 +109,7 @@ function FireteamRefreshCountdown() {
       refreshRunning.current = false;
       setRefreshing(false);
     }
-  }, [canShareTrackedProgress, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
+  }, [buildTracked, canShareTrackedProgress, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
 
   useEffect(() => {
     if (!autoRefresh || !canRefreshFireteam) {
