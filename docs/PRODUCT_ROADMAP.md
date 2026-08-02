@@ -6,10 +6,12 @@ Guardian Nexus is a player-decision companion. New features should help a Guardi
 
 Last updated: 2026-08-01
 
-- **Published for review:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are in draft PR #53.
-- **Published for review:** The first Phase 3 session planner slice and the Phase 4 installable PWA foundation are also in draft PR #53.
+- **Build Advisor 2.0 catalog correction:** Template set v5 contains 36 curated builds: 12 per class and two different core-Exotic paths for each of the 18 class/subclass combinations. The page now states the visible candidate count instead of describing backend foundations as catalog expansion.
+
+- **Live from PR #53:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are deployed.
+- **Live from PR #53:** The Phase 3 session planner and Phase 4 installable PWA foundation are deployed.
 - **Implemented on the PR branch:** Phase 2 weapon manifest, private physical-roll normalization, duplicate/perk comparison, crafted/enhanced visibility, wishlist support, explainable review states, and existing Gear actions.
-- **Published for review:** Versioned account-private watchlists now cover items, perks, Xûr offers, Collection unlocks, catalysts, pursuits, Rewards Pass claims, and Postmaster thresholds with browser-alert consent, reset-aware expiry, and explicit unknown states.
+- **Live from PR #53:** Versioned account-private watchlists cover items, perks, Xûr offers, Collection unlocks, catalysts, pursuits, Rewards Pass claims, and Postmaster thresholds with browser-alert consent, reset-aware expiry, and explicit unknown states.
 - **Validated on the PR branch:** The session planner now uses source-aware effort confidence, objective overlap, known deadline urgency, and explicit handoff into Fireteam tracking.
 - **Validated on the PR branch:** Mobile/PWA readiness now includes a safe-area-aware phone dock, prioritized app shortcuts, native install prompting, cache migration, and regression coverage.
 - **Validated on the PR branch:** Activity-scoped Fireteam readiness uses explicit opt-in, player-confirmed roles and prerequisites, public build summaries, and an official Bungie Fireteam Finder handoff without sharing inventory or Collections.
@@ -44,6 +46,7 @@ Last updated: 2026-08-01
 - Account-wide armor combination optimization with stat, Exotic, set-bonus, tuning, and mod constraints.
 - Build discovery by activity, anchor item, subclass, role, complexity, ownership, and content access.
 - Versioned template review and stale-build detection.
+- [x] Two distinct core-Exotic build paths for every Hunter, Titan, and Warlock subclass, with each path flowing through ownership checks, ranked alternatives, trait targets, acquisition plans, and progression stages.
 
 ## Phase 2: Weapon workspace
 

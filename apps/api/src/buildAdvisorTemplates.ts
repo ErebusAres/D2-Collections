@@ -78,8 +78,8 @@ export interface BuildAdvisorTemplate {
   upgrades: string[];
 }
 
-export const BUILD_ADVISOR_TEMPLATE_SET_VERSION = 4;
-export const BUILD_ADVISOR_TEMPLATE_REVIEWED_AT = "2026-07-28";
+export const BUILD_ADVISOR_TEMPLATE_SET_VERSION = 5;
+export const BUILD_ADVISOR_TEMPLATE_REVIEWED_AT = "2026-08-01";
 export const BUILD_ADVISOR_CURRENT_SANDBOX = "Monument of Triumph · Update 9.7.0";
 export const BUILD_ADVISOR_CURRENT_SANDBOX_RELEASED_AT = "2026-06-09";
 export const BUILD_ADVISOR_CURATED_VERIFICATION: BuildAdvisorVerification = {
@@ -110,7 +110,7 @@ function stats(...entries: Array<[BuildStatName, number, string]>): BuildAdvisor
   return entries.map(([stat, target, notes], index) => ({ stat, priority: index + 1, target, notes }));
 }
 
-export const BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
+const BASE_BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
   {
     id: "hunter-void-gyrfalcon",
     version: 1,
@@ -809,6 +809,69 @@ export const BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
     damageProfile: "high", bossDamage: "high", addClear: "high", survivability: "high", abilityUptime: "high", complexity: "low", solo: "high", group: "high", powerFriendly: true, difficultExecution: false, teammateDependency: "none",
     upgrades: ["Getaway Artist", "Smoke Jumper armor for its Orb-based protection", "No Time to Explain and its catalyst"]
   }
+];
+
+interface AlternateBuildDefinition {
+  id: string;
+  baseId: string;
+  name: string;
+  exoticArmor: string;
+  exoticWeapon: string;
+  summary: string;
+  role: string;
+  gameplayLoop: string[];
+  strengths: string[];
+  weaknesses: string[];
+}
+
+const ALTERNATE_BUILD_DEFINITIONS: AlternateBuildDefinition[] = [
+  { id: "hunter-void-orpheus", baseId: "hunter-void-gyrfalcon", name: "Orpheus Anchor Hunter", exoticArmor: "Orpheus Rig", exoticWeapon: "Le Monarque", summary: "Repeated Deadfall tethers control dense rooms while a Void primary sustains weaken and Devour loops.", role: "Super control and team add clear", gameplayLoop: ["Place Deadfall where waves converge.", "Use Void weapon defeats and Orbs to rebuild Super energy.", "Dodge and use Stylish Executioner when pressure reaches the firing line."], strengths: ["Frequent team-oriented tethers", "Safe ranged Void loop", "Strong Orb generation"], weaknesses: ["Less personal weapon amplification than Gyrfalcon", "Needs clustered targets for best Super returns"] },
+  { id: "hunter-arc-raiden", baseId: "hunter-arc-liars", name: "Raiden Storm Hunter", exoticArmor: "Raiden Flux", exoticWeapon: "Thunderlord", summary: "A safer Arc alternative that converts Arc Staff uptime into sustained roaming damage instead of committing to a melee loop.", role: "Roaming Super clear and Arc weapon pressure", gameplayLoop: ["Build Amplified with Arc weapon and ability defeats.", "Use dodge and Combination Blow for cleanup without depending on melee stacks.", "Deploy Arc Staff into dense or mobile waves and keep attacking to extend its value."], strengths: ["Safer than the Liar's melee loop", "Long roaming-Super uptime", "Strong Arc add clear"], weaknesses: ["Lower burst against stationary bosses", "Exotic contributes little outside Arc Staff"] },
+  { id: "hunter-stasis-bakris", baseId: "hunter-stasis-renewal", name: "Bakris Shift Hunter", exoticArmor: "Mask of Bakris", exoticWeapon: "Verglas Curve", summary: "Light Shift turns the Stasis dodge into an evasive damage setup for frozen targets and Arc or Stasis weapons.", role: "Mobile Stasis weapon damage and control", gameplayLoop: ["Freeze targets with Duskfield or Verglas Curve.", "Dodge through danger to trigger Light Shift.", "Use the damage window on frozen priority targets, then shatter and reposition."], strengths: ["Excellent repositioning", "Strong weapon burst into frozen targets", "Reliable Stasis control"], weaknesses: ["Dodge cooldown has deliberate downtime", "Less team protection than Renewal Grasps"] },
+  { id: "hunter-strand-sixth-coyote", baseId: "hunter-strand-cyrtarachne", name: "Double-Decoy Threadrunner", exoticArmor: "The Sixth Coyote", exoticWeapon: "Final Warning", summary: "A second dodge charge creates more Threaded Specters and safer openings for aggressive Strand weapon play.", role: "Decoy control and mobile Strand damage", gameplayLoop: ["Dodge near pressure to leave a Threaded Specter.", "Use the second charge to cross exposed space or redirect another wave.", "Apply unravel with Final Warning and clean up around the decoys."], strengths: ["Two emergency dodges", "Frequent decoys", "Flexible solo control"], weaknesses: ["Loses Cyrtarachne's Woven Mail trigger", "Requires careful dodge-charge management"] },
+  { id: "hunter-prismatic-gifted", baseId: "hunter-prismatic-liars", name: "Gifted Tempest Hunter", exoticArmor: "Gifted Conviction", exoticWeapon: "Khvostov 7G-0X", summary: "Ascension and jolt provide a ranged Prismatic alternative to the point-blank Cross Counter setup.", role: "Mobile jolt clear and team support", gameplayLoop: ["Use Ascension to jolt nearby targets and become Amplified.", "Defeat debuffed enemies to maintain Stylish Executioner safety.", "Alternate Light and Dark damage before using Transcendence on priority waves."], strengths: ["Does not require melee range", "Strong jolt coverage", "Good team movement support"], weaknesses: ["Lower single-target melee burst", "Relies on class-ability timing"] },
+  { id: "titan-arc-point-contact", baseId: "titan-arc-cuirass", name: "Thunderclap Titan", exoticArmor: "Point-Contact Cannon Brace", exoticWeapon: "Thunderlord", summary: "Thunderclap becomes a repeatable room-clearing tool while Arc weapons cover targets outside melee reach.", role: "Arc melee clear and frontline pressure", gameplayLoop: ["Charge Thunderclap from cover or behind a barricade.", "Release into grouped enemies to trigger lightning strikes.", "Use Arc weapon defeats and Orbs to rebuild melee energy before the next wave."], strengths: ["Powerful repeatable melee clear", "Strong Arc synergy", "Does not reserve the Exotic only for Super"], weaknesses: ["Charging Thunderclap can expose the Titan", "Lower boss burst than Cuirass"] },
+  { id: "titan-strand-abeyant", baseId: "titan-strand-synthoceps", name: "Abeyant Control Titan", exoticArmor: "Abeyant Leap", exoticWeapon: "Deterministic Chaos", summary: "Improved Drengr's Lash suspends lanes and creates Woven Mail openings for a safer Strand frontline.", role: "Suspend control and team safety", gameplayLoop: ["Cast barricade toward a lane to send improved suspending lashes.", "Defeat suspended enemies to stabilize the frontline.", "Use Deterministic Chaos on priority targets when the team needs ranged weaken support."], strengths: ["Excellent ranged suspend", "Safer than a melee-first Synthoceps loop", "Useful team control"], weaknesses: ["Lower close-range burst", "Barricade placement determines control value"] },
+  { id: "titan-void-second-chance", baseId: "titan-void-doom-fang", name: "Second-Chance Sentinel", exoticArmor: "Second Chance", exoticWeapon: "Graviton Lance", summary: "Two shield throws provide repeatable barrier utility and ranged weaken pressure between Sentinel Shield windows.", role: "Barrier utility and ranged Void support", gameplayLoop: ["Throw shields into priority targets to apply the build's Void setup.", "Use Graviton Lance to clear weakened groups and sustain Void effects.", "Reserve the second melee charge for champions or an emergency overshield cycle."], strengths: ["Two ranged melee charges", "Champion utility", "Safe Void play"], weaknesses: ["Less roaming-Super uptime than Doom Fang", "Shield throws require clear sightlines"] },
+  { id: "titan-solar-pyrogale", baseId: "titan-solar-hallowfire", name: "Pyrogale Maul Titan", exoticArmor: "Pyrogale Gauntlets", exoticWeapon: "Polaris Lance", summary: "Consecration clears waves while Pyrogale compresses Burning Maul into a focused boss-damage Super.", role: "Solar burst and Consecration clear", gameplayLoop: ["Scorch groups at range before closing in.", "Use Consecration through clustered enemies to trigger ignitions.", "Commit the Pyrogale Burning Maul slam to a priority target after applying Solar setup."], strengths: ["Strong one-and-done Super", "Excellent ignition clear", "Useful at both range and close quarters"], weaknesses: ["More execution-heavy than Hallowfire", "Consecration positioning can be punished"] },
+  { id: "titan-stasis-hoarfrost", baseId: "titan-stasis-icefall", name: "Hoarfrost Shatter Titan", exoticArmor: "Hoarfrost-Z", exoticWeapon: "Ice Breaker", summary: "The Stasis barricade creates crystals on demand for cover, Shatter Shards, and controlled burst damage.", role: "Crystal control and defensive shatter play", gameplayLoop: ["Cast the Hoarfrost barricade to create crystals and cover.", "Break selected crystals to gain Shatter Shards and damage nearby enemies.", "Repeat from a new angle while Ice Breaker handles distant priority targets."], strengths: ["On-demand cover", "Frequent crystal generation", "Strong defensive control"], weaknesses: ["Crystal placement can obstruct teammates", "Lower direct weapon bonus than Icefall Mantle"] },
+  { id: "titan-prismatic-hazardous", baseId: "titan-prismatic-consecration", name: "Hazardous Rocket Titan", exoticArmor: "Hazardous Propulsion", exoticWeapon: "Grand Overture", summary: "Thruster-loaded Exodus rockets create a weapon-led Prismatic option that does not depend on Consecration melee uptime.", role: "Rocket-assisted weapon damage", gameplayLoop: ["Build Exodus rocket charges with precision hits and defeats.", "Use Thruster to release rockets into a priority target.", "Follow with rocket-assisted heavy damage, then alternate Light and Dark abilities toward Transcendence."], strengths: ["Strong ranged burst", "Rewards normal weapon play", "Safer than melee-first Prismatic"], weaknesses: ["Needs weapon setup before each burst", "Missed Exodus rockets reduce the damage window"] },
+  { id: "warlock-void-nezarec", baseId: "warlock-void-contraverse", name: "Nezarec Devour Warlock", exoticArmor: "Nezarec's Sin", exoticWeapon: "Le Monarque", summary: "Void weapon and ability defeats accelerate every ability for a flexible Devour loop without charging every grenade.", role: "Void weapon clear and broad ability uptime", gameplayLoop: ["Start Devour with an ability defeat.", "Chain Void weapon defeats to trigger Abyssal Extractors.", "Spend the accelerated grenade, melee, and Rift cooldowns before returning to the Void weapon."], strengths: ["Improves every ability", "Flexible Void weapon choices", "Excellent general play"], weaknesses: ["Needs frequent Void defeats", "Less grenade damage resistance than Contraverse"] },
+  { id: "warlock-arc-fallen-sunstar", baseId: "warlock-arc-stormdancer", name: "Fallen Sunstar Warlock", exoticArmor: "Fallen Sunstar", exoticWeapon: "Riskrunner", summary: "Enhanced Ionic Traces feed the whole ability kit and nearby allies instead of concentrating value in Stormtrance.", role: "Arc ability battery and team support", gameplayLoop: ["Jolt groups with abilities or an Arc weapon.", "Collect Ionic Traces to refill abilities and support nearby allies.", "Spend abilities aggressively so incoming traces never waste energy."], strengths: ["Excellent neutral-game uptime", "Shares ability energy", "Strong Arc add clear"], weaknesses: ["Less Super scaling than Stormdancer's Brace", "Trace generation slows against isolated bosses"] },
+  { id: "warlock-solar-speakers", baseId: "warlock-solar-battle-harmony", name: "Speaker's Sight Warlock", exoticArmor: "Speaker's Sight", exoticWeapon: "Lumina", summary: "Healing turrets and Lumina provide a dedicated support option while Solar abilities maintain Radiant and Restoration.", role: "Fireteam healing and Solar support", gameplayLoop: ["Deploy a healing turret before the team takes sustained pressure.", "Use Lumina Noble Rounds to reinforce allies between grenade cycles.", "Maintain Solar buffs with melee and weapon defeats while repositioning with Phoenix Dive."], strengths: ["Excellent team healing", "Safe ranged support", "Strong Restoration access"], weaknesses: ["Lower personal damage than Battle Harmony", "Healing grenade energy is committed to support"] },
+  { id: "warlock-strand-swarmers", baseId: "warlock-strand-mataiodoxia", name: "Swarmers Threadling Warlock", exoticArmor: "Swarmers", exoticWeapon: "Final Warning", summary: "Tangles and Threadlings create autonomous Strand pressure as an alternative to Mataiodoxia suspend chains.", role: "Threadling clear and unravel support", gameplayLoop: ["Create Tangles with Strand debuffs and defeats.", "Destroy Tangles to release Threadlings through Swarmers.", "Use Final Warning to unravel priority targets while Threadlings clean up the field."], strengths: ["Strong autonomous add clear", "Frequent unravel", "Easy ranged Strand loop"], weaknesses: ["Less direct suspend than Mataiodoxia", "Threadling targeting can spread damage unpredictably"] },
+  { id: "warlock-stasis-osmiomancy", baseId: "warlock-stasis-frostpulse", name: "Osmiomancy Turret Warlock", exoticArmor: "Osmiomancy Gloves", exoticWeapon: "Verglas Curve", summary: "Two Coldsnap charges support Bleak Watcher turrets and repeated freezes from a safer distance.", role: "Long-duration Stasis turret control", gameplayLoop: ["Convert one grenade into a Bleak Watcher before the engagement.", "Use the second Coldsnap charge directly when a priority target must stop immediately.", "Shatter frozen groups and recover grenade energy through the control loop."], strengths: ["Exceptional ranged freeze control", "Two grenade charges", "Safe in difficult content"], weaknesses: ["Lower burst damage", "Turret placement and grenade economy require planning"] },
+  { id: "warlock-prismatic-nezarec", baseId: "warlock-prismatic-buddies", name: "Prismatic Nezarec Warlock", exoticArmor: "Nezarec's Sin", exoticWeapon: "Graviton Lance", summary: "Void weapon defeats accelerate the Prismatic ability kit while Devour and Hellion keep the Warlock aggressive.", role: "Weapon-led Prismatic ability engine", gameplayLoop: ["Trigger Devour with an ability defeat.", "Chain Graviton Lance defeats to activate Abyssal Extractors.", "Spend the accelerated Light and Dark abilities to build Transcendence, then repeat."], strengths: ["Broad ability acceleration", "Excellent Void add clear", "Simple Devour sustain"], weaknesses: ["Requires a Void weapon for best uptime", "Loses Getaway Artist's autonomous Arc Soul"] }
+];
+
+function alternateTemplate(definition: AlternateBuildDefinition): BuildAdvisorTemplate {
+  const base = BASE_BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === definition.baseId);
+  if (!base) throw new Error(`Unknown Build Advisor base template ${definition.baseId}.`);
+  return {
+    ...base,
+    id: definition.id,
+    version: 1,
+    reviewedAt: BUILD_ADVISOR_TEMPLATE_REVIEWED_AT,
+    release: BUILD_ADVISOR_CURRENT_SANDBOX,
+    sourceNotes: `Guardian Nexus alternate-role review derived from ${base.name}; recheck the core Exotic and subclass after sandbox changes.`,
+    verification: BUILD_ADVISOR_CURATED_VERIFICATION,
+    name: definition.name,
+    summary: definition.summary,
+    requiredExoticArmor: definition.exoticArmor,
+    preferredExoticWeapon: definition.exoticWeapon,
+    weapons: base.weapons.map((requirement) => requirement.requiresExotic ? { ...requirement, preferredNames: [definition.exoticWeapon] } : { ...requirement }),
+    gameplayLoop: definition.gameplayLoop,
+    strengths: definition.strengths,
+    weaknesses: definition.weaknesses,
+    style: definition.summary,
+    role: definition.role,
+    upgrades: [definition.exoticArmor, `${definition.exoticWeapon} and its catalyst when available`, ...base.upgrades.slice(0, 1)]
+  };
+}
+
+export const BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
+  ...BASE_BUILD_ADVISOR_TEMPLATES,
+  ...ALTERNATE_BUILD_DEFINITIONS.map(alternateTemplate)
 ];
 
 export function named(value: string, required = false): BuildNamedEntry {

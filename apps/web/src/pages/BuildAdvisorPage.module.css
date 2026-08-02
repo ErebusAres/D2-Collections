@@ -602,3 +602,4 @@
 
 /* Build advice is information-dense, but supporting copy should remain legible. */
 .buildFilters > span small,.card footer span,.verification small,.verification a,.scoreSummary small,.armorList small,.planEntry small,.planEntry em,.statPlan article small,.acquisitionGuides header small,.acquisitionGuides header em,.acquisitionGuides header > strong,.collectionItems small,.itemStrip em{font-size:10px}
+.catalogBanner{display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:12px 15px;border:1px solid rgba(155,231,226,.35);background:linear-gradient(90deg,rgba(155,231,226,.09),rgba(5,13,19,.72))}.catalogBanner>svg{flex:none;color:var(--cyan)}.catalogBanner>div{display:grid;gap:2px}.catalogBanner span{color:var(--cyan);font-size:10px;letter-spacing:.12em;text-transform:uppercase}.catalogBanner strong{font:600 18px "Barlow Condensed";text-transform:uppercase}.catalogBanner p{margin:0;color:var(--muted);font-size:12px}
