@@ -40,12 +40,13 @@ import {
   Swords,
   Vault
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import { parseWatchlist } from "../modules/watchlists/watchlists";
 import { storeAdvisorBuildImport } from "../modules/builds/advisorBuildImport";
+import { buildTrackingItem, parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import { api } from "../services/api/client";
 import styles from "./BuildAdvisorPage.module.css";
 
@@ -135,6 +136,20 @@ function BuildAdvisor() {
   const selected = recommendations.find((recommendation) => recommendation.id === selectedId) || recommendations[0];
   const warning = result.data?.warnings[0] || data?.analysis.warnings[0];
   const trackedAcquisitions = useMemo(() => stringSetPreference(preferences["watchlists.buildAcquisitions"]), [preferences]);
+  const trackedBuilds = useMemo(() => parseTrackedBuilds(preferences["buildAdvisor.trackedBuilds.v1"]), [preferences]);
+  useEffect(() => {
+    if (!data?.recommendations.length || !trackedBuilds.length) return;
+    let changed = false;
+    const next = trackedBuilds.map((item) => {
+      const recommendation = data.recommendations.find((entry) => entry.templateId === item.id);
+      if (!recommendation) return item;
+      const refreshed = buildTrackingItem(recommendation, item.updatedAt);
+      if (JSON.stringify(refreshed) === JSON.stringify(item)) return item;
+      changed = true;
+      return buildTrackingItem(recommendation);
+    });
+    if (changed) setPreference("buildAdvisor.trackedBuilds.v1", JSON.stringify(next));
+  }, [data?.recommendations, setPreference, trackedBuilds]);
 
   const refreshInventory = async () => {
     forceNext.current = true;
@@ -166,6 +181,14 @@ function BuildAdvisor() {
       : watchlist.entries.filter((entry) => entry.id !== id);
     setPreference("watchlists.v1", JSON.stringify({ schemaVersion: 1, entries }));
   };
+  const toggleBuildTracking = (recommendation: BuildAdvisorRecommendation) => {
+    const alreadyTracked = trackedBuilds.some((item) => item.id === recommendation.templateId);
+    const next = alreadyTracked
+      ? trackedBuilds.filter((item) => item.id !== recommendation.templateId)
+      : [...trackedBuilds.filter((item) => item.id !== recommendation.templateId), buildTrackingItem(recommendation)].slice(-8);
+    while (next.length > 1 && JSON.stringify(next).length > 11_500) next.shift();
+    setPreference("buildAdvisor.trackedBuilds.v1", JSON.stringify(next));
+  };
 
   return <>
     <PageHeader
@@ -188,7 +211,7 @@ function BuildAdvisor() {
     {data && <>
       {data.state !== "current" && <section className={styles.dataWarning} role="status"><AlertTriangle /><div><strong>{stateLabel(data.state)}</strong><p>{warning || "Refresh inventory before relying on these recommendations."}</p></div></section>}
       {data.recommendations.length ? <>
-        <section className={styles.catalogBanner}><Sparkles /><div><span>Expanded Build Advisor 2.0 catalog</span><strong>{data.recommendations.length} distinct {data.characterClass} build paths across {subclasses.length} subclasses</strong><p>Each subclass now has two different core-Exotic approaches, ranked against the physical equipment Bungie returned for this account.</p></div></section>
+        <section className={styles.catalogBanner}><Sparkles /><div><span>Expanded Build Advisor 2.0 catalog</span><strong>{data.recommendations.length} distinct {data.characterClass} build paths across {subclasses.length} subclasses</strong><p>Each subclass now has three different core-Exotic approaches. Missing equipment lowers readiness and adds acquisition steps; it never hides the build.</p></div></section>
         <section className={styles.buildFilters} aria-label="Build recommendation filters">
           <label><span>Subclass</span><select aria-label="Subclass" value={subclass} onChange={(event) => setSubclass(event.target.value as BuildSubclass | "All")}>
             <option value="All">All subclasses</option>
@@ -220,6 +243,8 @@ function BuildAdvisor() {
             equipMessage={equipMessage}
             trackedAcquisitions={trackedAcquisitions}
             onToggleAcquisition={toggleAcquisition}
+            buildTracked={trackedBuilds.some((item) => item.id === selected.templateId)}
+            onToggleBuildTracking={() => toggleBuildTracking(selected)}
           />}
         </div> : <section className={styles.empty}><ScanSearch /><h2>No owned-gear match for these filters</h2><p>Choose another subclass, focus, or recommendation category.</p></section>}
       </> : <section className={styles.empty}><ScanSearch /><h2>No strong near-complete build found</h2><p>Open inventory analysis to see which core pieces are missing, then refresh after your inventory changes.</p></section>}
@@ -262,7 +287,9 @@ function RecommendationDetail({
   equipping,
   equipMessage,
   trackedAcquisitions,
-  onToggleAcquisition
+  onToggleAcquisition,
+  buildTracked,
+  onToggleBuildTracking
 }: {
   recommendation: BuildAdvisorRecommendation;
   canOpenBuilder: boolean;
@@ -272,6 +299,8 @@ function RecommendationDetail({
   equipMessage: string;
   trackedAcquisitions: ReadonlySet<string>;
   onToggleAcquisition: (plan: BuildAdvisorAcquisitionPlan) => void;
+  buildTracked: boolean;
+  onToggleBuildTracking: () => void;
 }) {
   const build = recommendation.build;
   const viabilityScore = recommendation.viabilityScore ?? recommendation.score;
@@ -382,6 +411,7 @@ function RecommendationDetail({
         {equipMessage && <em className={styles.equipMessage} role="status">{equipMessage}</em>}
       </span>
       <div className={styles.detailActions}>
+        <button type="button" data-active={buildTracked} onClick={onToggleBuildTracking}><Bookmark />{buildTracked ? "Tracked on Fireteam" : "Track build on Fireteam"}</button>
         <button
           type="button"
           className={styles.equipButton}

@@ -87,12 +87,36 @@ const fireteamReadinessSchema = z.object({
   source: z.literal("player-confirmed"),
   updatedAt: z.string().datetime()
 });
+const fireteamTrackedBuildSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  definitionHash: z.string().trim().min(1).max(100),
+  kind: z.literal("build"),
+  name: z.string().trim().min(1).max(100),
+  description: z.string().trim().max(300),
+  icon: z.string().max(300),
+  context: z.string().trim().max(120),
+  trackedInDestiny: z.literal(false),
+  trackedInGuardianNexus: z.literal(true),
+  objectives: z.array(z.object({
+    objectiveHash: z.string().trim().min(1).max(100),
+    name: z.string().trim().min(1).max(120),
+    progress: z.number().int().min(0).max(1),
+    completionValue: z.literal(1),
+    percent: z.number().int().min(0).max(100),
+    complete: z.boolean(),
+    progressAvailable: z.boolean()
+  })).max(30),
+  percent: z.number().int().min(0).max(100),
+  updatedAt: z.string().datetime(),
+  acquisitionGuide: z.object({ summary: z.string().trim().max(300), steps: z.array(z.string().trim().min(1).max(300)).max(8), prerequisites: z.array(z.string().trim().min(1).max(300)).max(8) }).optional()
+});
 const shareSchema = z.object({
   characterId: z.string().min(1),
   sitePinnedQuestIds: z.array(z.string()).max(40).default([]),
   siteTrackedGuardianRankIds: z.array(z.string()).max(200).optional(),
   siteTrackedJourneyIds: z.array(z.string()).max(500).optional(),
   siteTrackedCollectionIds: z.array(z.string()).max(200).optional(),
+  siteTrackedBuilds: z.array(fireteamTrackedBuildSchema).max(8).optional(),
   hiddenTrackedItemKeys: z.array(z.string()).max(200).optional(),
   readiness: fireteamReadinessSchema.nullable().optional(),
   mode: z.enum(["temporary", "persistent"]).default("temporary")
@@ -122,7 +146,7 @@ const equipBuildAdvisorSchema = z.object({
 const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
-  z.object({ key: z.enum(["gear.filters", "weapons.filters", "weapons.wishlist", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "fireteam.readinessDraft.v1", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters", "watchlists.buildAcquisitions", "watchlists.v1"]), value: z.string().max(12_000) }),
+  z.object({ key: z.enum(["gear.filters", "weapons.filters", "weapons.wishlist", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "fireteam.readinessDraft.v1", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters", "watchlists.buildAcquisitions", "watchlists.v1", "buildAdvisor.trackedBuilds.v1"]), value: z.string().max(12_000) }),
   z.object({ key: z.literal("projects.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("fashion.looks.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("challenges.v1"), value: z.string().max(40_000) }),
@@ -898,7 +922,7 @@ async function auditGear(row: SessionRow, env: Env, action: string, itemId: stri
 
 async function upsertShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = shareSchema.parse(await request.json());
-  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds, input.siteTrackedCollectionIds, input.readiness);
+  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds, input.siteTrackedCollectionIds, input.readiness, input.siteTrackedBuilds);
   return envelope({
     sharing: true,
     mode: input.mode,
@@ -918,7 +942,8 @@ async function storeShare(
   providedHiddenTrackedItemKeys?: string[],
   providedJourneyIds?: string[],
   providedCollectionIds?: string[],
-  providedReadiness?: import("@guardian-nexus/contracts").FireteamReadinessSummary | null
+  providedReadiness?: import("@guardian-nexus/contracts").FireteamReadinessSummary | null,
+  providedTrackedBuilds?: import("@guardian-nexus/contracts").FireteamTrackedItem[]
 ): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string }> {
   const [{ profile }, manifest, guardianRankManifest, journeyManifest, activityManifest, collectionManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
@@ -953,11 +978,14 @@ async function storeShare(
     ? await trackedPreferenceIds(row.membership_id, env, "collection.tracked")
     : new Set(providedCollectionIds);
   const collection = normalizeCollection(profile, collectionManifest);
+  const trackedBuilds = providedTrackedBuilds === undefined ? sharedTrackedBuilds(previousPayload) : providedTrackedBuilds;
+  const activeTrackedBuilds = trackedBuilds.filter((item) => item.percent < 100);
   const assembledTrackedItems = mergeTrackedItems(
     activeTrackedQuests,
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || new Date().toISOString()),
     trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString()),
-    trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString())
+    trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString()),
+    activeTrackedBuilds
   );
   const visibility = applyTrackedItemVisibility(
     assembledTrackedItems,
@@ -969,7 +997,8 @@ async function storeShare(
     trackedItemsFromQuests(allQuests.quests, true, previousTrackedKeys),
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
     trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
-    trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys)
+    trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
+    trackedBuilds.filter((item) => item.percent >= 100)
   );
   const recentlyCompletedItems = completedTrackedItemEvents(
     previousTrackedItems,
@@ -1126,6 +1155,11 @@ function sharedRecentlyCompletedItems(payload: any): FireteamCompletedTrackedIte
 function sharedReadiness(payload: any): import("@guardian-nexus/contracts").FireteamReadinessSummary | undefined {
   const parsed = fireteamReadinessSchema.safeParse(payload?.readiness);
   return parsed.success ? parsed.data : undefined;
+}
+
+function sharedTrackedBuilds(payload: any): import("@guardian-nexus/contracts").FireteamTrackedItem[] {
+  const parsed = z.array(fireteamTrackedBuildSchema).max(8).safeParse(payload?.trackedItems?.filter((item: any) => item?.kind === "build") || []);
+  return parsed.success ? parsed.data : [];
 }
 
 function sharedHiddenTrackedItemKeys(payload: any): string[] {

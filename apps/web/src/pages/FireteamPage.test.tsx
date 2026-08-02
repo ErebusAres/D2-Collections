@@ -10,6 +10,7 @@ import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
 const setPreference = vi.fn();
+const trackedBuild = { id: "hunter-void-test", definitionHash: "hunter-void-test", kind: "build" as const, name: "Test Void Build", description: "Tracked build", icon: "", context: "Build Advisor · void", trackedInDestiny: false as const, trackedInGuardianNexus: true as const, objectives: [{ objectiveHash: "armor", name: "Required armor", progress: 0, completionValue: 1 as const, percent: 0, complete: false, progressAvailable: true }], percent: 50, updatedAt: "2026-08-02T00:00:00.000Z", acquisitionGuide: { summary: "Missing: Required armor", steps: ["Focus the Exotic armor."], prerequisites: [] } };
 
 vi.mock("../context/GuardianContext", () => ({
   pinsKey: (membershipId: string, characterId: string) => `pins:${membershipId}:${characterId}`,
@@ -17,7 +18,7 @@ vi.mock("../context/GuardianContext", () => ({
     session: { authenticated: true, csrfToken: "csrf", guardian: { membershipId: "member-1" } },
     selectedCharacterId: "c1",
     autoRefresh: false,
-    preferences: { "guardianRank.tracked": JSON.stringify(["rank-record"]), "collection.tracked": JSON.stringify(["catalyst:catalyst-record"]) },
+    preferences: { "guardianRank.tracked": JSON.stringify(["rank-record"]), "collection.tracked": JSON.stringify(["catalyst:catalyst-record"]), "buildAdvisor.trackedBuilds.v1": JSON.stringify([trackedBuild]) },
     setPreference
   })
 }));
@@ -48,6 +49,7 @@ describe("Fireteam tracked items", () => {
       characterId: "c1",
       sitePinnedQuestIds: ["quest-instance"],
       siteTrackedGuardianRankIds: ["rank-record"],
+      siteTrackedBuilds: [expect.objectContaining({ id: "hunter-void-test", kind: "build", percent: 50 })],
       mode: "temporary"
     });
   });
@@ -265,6 +267,25 @@ describe("Fireteam tracked items", () => {
     await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
     const [, init] = vi.mocked(queuedApi).mock.calls[0]!;
     expect(JSON.parse(String(init?.body))).toMatchObject({ siteTrackedCollectionIds: [] });
+  });
+
+  it("shows a tracked Build Advisor checklist and removes it from the private preference", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const tracked = envelope();
+    tracked.data.members[0]!.trackedItems.push(trackedBuild);
+    vi.mocked(api).mockResolvedValue(tracked);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    await screen.findByText("Test Void Build");
+    expect(screen.getByText("Focus the Exotic armor.")).toBeTruthy();
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    vi.mocked(queuedApi).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Untrack Test Void Build from Fireteam" }));
+    expect(setPreference).toHaveBeenCalledWith("buildAdvisor.trackedBuilds.v1", "[]");
+    await act(async () => { vi.advanceTimersByTime(1_600); });
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    const [, init] = vi.mocked(queuedApi).mock.calls[0]!;
+    expect(JSON.parse(String(init?.body))).toMatchObject({ siteTrackedBuilds: [] });
   });
 
   it("does not expose tracking controls on another Guardian's card", async () => {
