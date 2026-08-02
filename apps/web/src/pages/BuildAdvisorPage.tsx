@@ -188,6 +188,7 @@ function BuildAdvisor() {
     {data && <>
       {data.state !== "current" && <section className={styles.dataWarning} role="status"><AlertTriangle /><div><strong>{stateLabel(data.state)}</strong><p>{warning || "Refresh inventory before relying on these recommendations."}</p></div></section>}
       {data.recommendations.length ? <>
+        <section className={styles.catalogBanner}><Sparkles /><div><span>Expanded Build Advisor 2.0 catalog</span><strong>{data.recommendations.length} distinct {data.characterClass} build paths across {subclasses.length} subclasses</strong><p>Each subclass now has two different core-Exotic approaches, ranked against the physical equipment Bungie returned for this account.</p></div></section>
         <section className={styles.buildFilters} aria-label="Build recommendation filters">
           <label><span>Subclass</span><select aria-label="Subclass" value={subclass} onChange={(event) => setSubclass(event.target.value as BuildSubclass | "All")}>
             <option value="All">All subclasses</option>
@@ -200,7 +201,7 @@ function BuildAdvisor() {
           <label><span>Activity</span><select aria-label="Activity" value={activity} onChange={(event) => setActivity(event.target.value)}><option value="All">All activities</option>{activities.map((entry) => <option key={entry} value={entry}>{entry}</option>)}</select></label>
           <label><span>Complexity</span><select aria-label="Complexity" value={complexity} onChange={(event) => setComplexity(event.target.value as typeof complexity)}><option value="All">Any complexity</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
           <label><span>Ownership</span><select aria-label="Ownership" value={assembly} onChange={(event) => setAssembly(event.target.value as typeof assembly)}><option value="All">Any readiness</option><option value="ready">Ready now</option><option value="substitutions">Ready with substitutions</option><option value="missing">Missing equipment</option></select></label>
-          <span><b>{recommendations.length}</b><small>owned-gear option{recommendations.length === 1 ? "" : "s"}</small></span>
+          <span><b>{recommendations.length}</b><small>build option{recommendations.length === 1 ? "" : "s"}</small></span>
         </section>
         <nav className={styles.filters} aria-label="Recommendation categories">
           <button type="button" data-active={category === "All"} onClick={() => setCategory("All")}>All recommendations</button>

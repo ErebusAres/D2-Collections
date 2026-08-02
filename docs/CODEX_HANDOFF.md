@@ -6,21 +6,21 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-All accepted product-roadmap feature work is implemented and validated on draft PR #53. The next owner should review CI and perform any requested live-account or exact-device QA; migration, merge, and production deployment still require explicit authorization.
+The original roadmap is live on `main`. A follow-up Build Advisor 2.0 catalog correction expands template set v5 from 19 to 36 builds: 12 per class and exactly two core-Exotic paths for every subclass. The immediate task is to validate, publish, and live-check this focused correction; do not branch into unrelated roadmap work.
 
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Release branch: `agent/build-advisor-planning-foundation`
-- Base branch: `main` at `3390937b4dbe7de670636cf18bae869b7cd5baa2`
+- Follow-up branch: `agent/build-advisor-catalog-v5` (create from current `main` before publishing)
+- Base branch: `main` at merge commit `1b95714e983c2897ab4e823a6dc7edd1997d0626`
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
 - Weapon workspace commit: `c2282b7` (`Add private weapon roll workspace`)
 - Use `git rev-parse HEAD` for the latest validated roadmap slice; this handoff intentionally avoids a self-referential stale tip SHA.
-- Draft pull request: `https://github.com/ErebusAres/D2-Collections/pull/53`
-- The release branch is pushed and tracks `origin/agent/build-advisor-planning-foundation`.
+- Completed pull request: `https://github.com/ErebusAres/D2-Collections/pull/53`
+- PR #53 merged and deployed successfully through workflow run `30721416376`.
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
-- No production deployment has been requested or performed. The release is published for review only.
+- Production currently serves merge commit `1b95714`; this v5 catalog correction is not live until its follow-up PR is merged and deployed.
 
 ## Completed release scope
 
@@ -74,6 +74,10 @@ All accepted product-roadmap feature work is implemented and validated on draft 
 48. Added bounded `challenges.v1` preference storage, defensive parsing, task state history, active/complete restore flows, and data-driven template content that can be updated independently of page logic.
 49. Added versioned account-neutral challenge JSON export/import, a Markdown invite copied only by explicit action, and an adapter that creates a new private Guardian Project without silently sharing Guardian snapshots.
 50. Completed the feature-specific phone pass for Xur and Gear with single-column summaries and controls, compact two-column vendor cards, scroll-safe tabs/recent gear, touch-size controls, and a full-width comparison overlay.
+51. Corrected the under-delivered Build Advisor catalog by adding 17 alternate-role templates, bringing the total to 36. Hunter, Titan, and Warlock each have 12 entries, and every Arc, Solar, Void, Strand, Stasis, and Prismatic pairing has two different required Exotic armor paths.
+52. Every new path reuses the existing verified subclass configuration while supplying a distinct Exotic armor anchor, Exotic weapon preference, gameplay loop, strengths, weaknesses, role, upgrades, owned-item verification, alternative suggestions, trait targets, and acquisition-plan integration.
+53. Added an explicit catalog banner and truthful build-option count so the expansion is immediately visible instead of being hidden behind backend scoring terminology. All 24 newly referenced Exotic names were checked against the generated site manifests.
+54. Alternate Exotic weapons carry their own slot, damage type, and archetype profiles rather than inheriting those fields from the base build. Regression coverage explicitly checks slot-changing paths such as Lumina and Grand Overture so ownership verification cannot falsely report them missing.
 
 ## Files in release scope
 
@@ -162,12 +166,12 @@ The following passed on 2026-08-01:
 - ESLint with zero warnings
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
-- 173 API tests
+- 174 API tests
 - 226 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 367,432 bytes JavaScript, 113,200 bytes gzip, and 34,124 bytes entry CSS
+- performance budgets: 367,432 bytes JavaScript, 113,190 bytes gzip, and 34,124 bytes entry CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.
@@ -178,13 +182,20 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 
 ## Remaining release steps
 
-1. Monitor draft PR #53 checks and inspect any failure before changing code.
-2. Perform review and any requested browser or live-account QA on the draft branch.
+1. Complete and monitor the focused Build Advisor v5 follow-up PR checks.
+2. Perform a signed-in live-account check after deployment and confirm 12 recommendations for each selected class before inventory/readiness filters.
 3. Keep `.codex-remote-attachments/` excluded from future commits.
 4. Mark the PR ready only after the reviewer agrees that the current phased scope is appropriate.
 5. Merge and deploy only when explicitly authorized; report merge SHA, workflow result, and production state separately.
 6. Treat additional feature work as a new reviewed roadmap addition; the currently accepted roadmap is complete on this branch.
-7. Apply D1 migration `0015_guardian_snapshots.sql` before deploying a web bundle that exposes `/snapshots`; no production migration or deployment has been performed from this branch.
+7. D1 migration `0015_guardian_snapshots.sql` was applied successfully by production workflow `30721416376`; do not reframe it as pending.
+
+## Build Advisor v5 follow-up state
+
+- Intended focused files: `apps/api/src/buildAdvisorTemplates.ts`, `apps/api/src/buildAdvisor.test.ts`, `apps/web/src/pages/BuildAdvisorPage.tsx`, its CSS module and test, plus these two handoff documents.
+- Required invariant: 36 templates total, 12 per class, two per class/subclass pair, one required Exotic armor and one preferred Exotic weapon per template.
+- Full `pnpm run audit` passed on 2026-08-01: archive/source/CSS boundaries, lint, all TypeScript targets, 24 domain tests, 174 API tests, 226 web tests, Node tooling, 19 Python tests, production builds, and budgets of 367,432 bytes entry JavaScript, 113,190 bytes gzip, and 34,124 bytes entry CSS.
+- Keep `.codex-remote-attachments/` excluded, commit and push through the focused review branch, then monitor CI. Merge/deploy only after explicit authorization; after deployment, perform the signed-in 12-build-per-class check described above.
 
 ## Next implementation queue
 

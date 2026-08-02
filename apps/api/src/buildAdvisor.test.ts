@@ -539,6 +539,13 @@ describe("Build Advisor inventory and scoring", () => {
       expect(new Set(subclasses)).toEqual(expected);
     }
     expect(new Set(BUILD_ADVISOR_TEMPLATES.map((template) => `${template.classType}:${template.subclass}`)).size).toBe(18);
+    expect(BUILD_ADVISOR_TEMPLATES).toHaveLength(36);
+    for (const classType of ["hunter", "titan", "warlock"] as const) {
+      expect(BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === classType)).toHaveLength(12);
+      for (const subclass of expected) {
+        expect(BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === classType && template.subclass === subclass)).toHaveLength(2);
+      }
+    }
   });
 
   it("keeps several current-sandbox options per class with one exotic armor and one exotic weapon", () => {
@@ -549,9 +556,19 @@ describe("Build Advisor inventory and scoring", () => {
         expect(template.requiredExoticArmor).toBeTruthy();
         expect(template.preferredExoticWeapon).toBeTruthy();
         expect(template.weapons.filter((requirement) => requirement.requiresExotic)).toHaveLength(1);
+        expect(template.weapons.find((requirement) => requirement.requiresExotic)?.preferredNames).toContain(template.preferredExoticWeapon);
         expect(template.release).toMatch(/Monument of Triumph/);
       }
     }
+  });
+
+  it("uses the alternate Exotic weapon's real slot and archetype instead of inheriting the base build profile", () => {
+    expect(BUILD_ADVISOR_TEMPLATES.find((template) => template.id === "warlock-solar-speakers")?.weapons.find((weapon) => weapon.requiresExotic)).toMatchObject({
+      preferredNames: ["Lumina"], slots: ["Kinetic Weapons"], damageTypes: ["Kinetic"], archetypes: ["Hand Cannon"]
+    });
+    expect(BUILD_ADVISOR_TEMPLATES.find((template) => template.id === "titan-prismatic-hazardous")?.weapons.find((weapon) => weapon.requiresExotic)).toMatchObject({
+      preferredNames: ["Grand Overture"], slots: ["Power Weapons"], damageTypes: ["Arc"], archetypes: ["Machine Gun"]
+    });
   });
 
   it("does not expose token-shaped profile fields in recommendation output", () => {
