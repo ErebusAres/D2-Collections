@@ -22,6 +22,30 @@ export const WATCHLIST_KINDS: Array<{ kind: WatchlistKind; label: string; hint: 
 
 export function emptyWatchlist(): WatchlistDocument { return { schemaVersion: 1, entries: [] }; }
 
+export function watchlistSuggestions(kind: WatchlistKind, sources: WatchlistSources): string[] {
+  const values: string[] = [];
+  if (kind === "item") {
+    values.push(...(sources.gear?.items || []).map((item) => item.name));
+    values.push(...(sources.gear?.weapons || []).map((item) => item.name));
+    values.push(...(sources.xur?.offers || []).map((offer) => offer.name));
+  } else if (kind === "perk") {
+    for (const weapon of sources.gear?.weapons || []) {
+      for (const column of weapon.perkColumns) values.push(...[column.active, ...column.options].flatMap((perk) => perk?.name || []));
+    }
+  } else if (kind === "vendor") {
+    for (const offer of sources.xur?.offers || []) values.push(offer.name, ...offer.perks.map((perk) => perk.name));
+  } else if (kind === "collection") {
+    values.push(...(sources.collection?.entries || []).map((entry) => entry.name));
+  } else if (kind === "catalyst") {
+    for (const entry of sources.collection?.entries || []) values.push(...(entry.catalysts || []).map((catalyst) => catalyst.name));
+  } else if (kind === "pursuit") {
+    for (const quest of sources.quests?.quests || []) values.push(quest.name, ...quest.rewards.map((reward) => reward.name));
+  } else if (kind === "reward") {
+    values.push(...(sources.rewards?.rewards || []).map((reward) => reward.name));
+  }
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right));
+}
+
 export function parseWatchlist(raw?: string): WatchlistDocument {
   if (!raw) return emptyWatchlist();
   try {
