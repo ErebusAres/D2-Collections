@@ -252,9 +252,17 @@ export function buildAdvisorRecommendations(
     .filter((template) => template.enabled && template.classType === selectedClass)
     .map((template) => ({ template, validation: validateTemplateSubclass(template, inventory) }));
   const invalid = evaluated.filter(({ validation }) => validation.state === "validated" && validation.issues.length > 0);
-  const scored = evaluated
+  const curated = evaluated
     .filter(({ validation }) => validation.state === "unverified" || validation.issues.length === 0)
     .map(({ template, validation }) => scoreTemplate(template, inventory, character, validation))
+    .sort((left, right) => right.recommendation.score - left.recommendation.score || left.recommendation.name.localeCompare(right.recommendation.name));
+  const adaptive = adaptiveTemplates(curated).map((template) => {
+    const validation = validateTemplateSubclass(template, inventory);
+    return scoreTemplate(template, inventory, character, validation);
+  }).filter(({ recommendation, template }) => template.weapons.some((requirement) =>
+    requirement.preferredNames?.some((name) => recommendation.weapons.some((weapon) => weapon.requirementId === requirement.id && weapon.item && sameName(weapon.item.name, name)))
+  ));
+  const scored = [...curated, ...adaptive]
     .sort((left, right) => right.recommendation.score - left.recommendation.score || left.recommendation.name.localeCompare(right.recommendation.name));
   // Missing gear changes readiness, not catalog eligibility. Keep every valid
   // template visible so the acquisition and substitution guidance can help a
@@ -293,6 +301,43 @@ export function buildAdvisorRecommendations(
       ]
     }
   };
+}
+
+function adaptiveTemplates(scored: ScoredTemplate[]): BuildAdvisorTemplate[] {
+  const generated: BuildAdvisorTemplate[] = [];
+  const seen = new Set<string>();
+  for (const { recommendation, template } of scored) {
+    if (template.source?.kind === "published-build" || recommendation.readinessScore < 35) continue;
+    const candidates = (recommendation.alternatives || [])
+      .filter((alternative) => alternative.kind === "weapon" && !alternative.item?.exotic && alternative.item && alternative.score >= 60)
+      .filter((alternative) => template.weapons.some((requirement) => requirement.id === alternative.requirementId && !requirement.requiresExotic))
+      .filter((alternative) => !sameName(alternative.name, recommendation.weapons.find((weapon) => weapon.requirementId === alternative.requirementId)?.item?.name || ""))
+      .filter((alternative) => {
+        const key = `${template.id}:${alternative.requirementId}:${alternative.item!.itemHash}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 2);
+    for (const alternative of candidates) {
+      const item = alternative.item!;
+      generated.push({
+        ...template,
+        id: `${template.id}-adaptive-${alternative.requirementId}-${item.itemHash}`,
+        name: `${template.name} · ${item.name}`,
+        summary: `Account-generated ${template.subclass} variant using the owned ${item.name} as a verified match for ${alternative.requirementId}. ${template.summary}`,
+        sourceNotes: `Generated from the reviewed ${template.name} chassis and a physical owned weapon that matched its bounded role and trait requirements.`,
+        source: { kind: "curated-template", label: "Account-generated owned-gear variant" },
+        weapons: template.weapons.map((requirement) => requirement.id === alternative.requirementId
+          ? { ...requirement, preferredNames: [item.name] }
+          : { ...requirement }),
+        style: `Owned-gear variant centered on ${item.name}; ${template.role}.`,
+        upgrades: [`Improve or enhance the owned ${item.name} roll`, ...template.upgrades]
+      });
+      if (generated.length >= 24) return generated;
+    }
+  }
+  return generated;
 }
 
 export function normalizeBuildAdvisorData(
@@ -937,7 +982,7 @@ function evaluateRoll(item: BuildAdvisorOwnedItem, requirement: BuildAdvisorWeap
   const matchedAcceptable = acceptable.filter((perk) => hasPerk(perkNames, perk));
   const exactName = requirement.preferredNames?.some((name) => sameName(name, item.name)) || false;
   let quality: BuildAdvisorRollQuality;
-  if (item.exotic && exactName) quality = "perfect";
+  if (exactName && (!required.length || matchedRequired.length === required.length)) quality = "perfect";
   else if (item.rollDataState === "unknown" && (required.length || preferred.length || acceptable.length)) quality = "unknown";
   else if (required.length && matchedRequired.length < required.length) quality = matchedAcceptable.length ? "functional" : "poor";
   else if (preferred.length && matchedPreferred.length === preferred.length) quality = "perfect";

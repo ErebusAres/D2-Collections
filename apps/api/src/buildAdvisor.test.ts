@@ -30,6 +30,7 @@ const hashes = {
   solarPrimary: "2003",
   shotgun: "2004",
   heavy: "2005",
+  adaptiveHeavy: "2009",
   arcPrimary: "2006",
   glaive: "2007",
   bait: "3001",
@@ -77,6 +78,7 @@ function manifests(): { companion: CompanionManifest; collection: CompactManifes
     [hashes.solarPrimary]: { ...definition("Deterministic Solar Rifle", 3, "Auto Rifle", "Legendary", "Energy Weapons"), defaultDamageType: 3 },
     [hashes.shotgun]: definition("Deterministic Shotgun", 3, "Shotgun", "Legendary", "Kinetic Weapons"),
     [hashes.heavy]: definition("Deterministic Heavy", 3, "Rocket Launcher", "Legendary", "Power Weapons"),
+    [hashes.adaptiveHeavy]: definition("Adaptive Rocket", 3, "Rocket Launcher", "Legendary", "Power Weapons"),
     [hashes.arcPrimary]: { ...definition("Deterministic Arc Rifle", 3, "Auto Rifle", "Legendary", "Energy Weapons"), defaultDamageType: 2 },
     [hashes.glaive]: definition("Deterministic Glaive", 3, "Glaive", "Legendary", "Energy Weapons"),
     [hashes.bait]: definition("Bait and Switch", 3, "Perk"),
@@ -414,10 +416,11 @@ describe("Build Advisor inventory and scoring", () => {
         item(hashes.gyrfalcon, "armor"),
         item(hashes.shotgun, "special"),
         item(hashes.heavy, "heavy-best", 500),
-        item(hashes.heavy, "heavy-fallback", 490)
+        item(hashes.heavy, "heavy-fallback", 490),
+        item(hashes.adaptiveHeavy, "adaptive-heavy", 480)
       ],
       inventories: { hunter: [item(hashes.graviton, "graviton")] },
-      plugs: { armor: [], special: [hashes.vorpal], "heavy-best": [hashes.bait], "heavy-fallback": [hashes.vorpal], graviton: [] }
+      plugs: { armor: [], special: [hashes.vorpal], "heavy-best": [hashes.bait], "heavy-fallback": [hashes.vorpal], "adaptive-heavy": [hashes.bait], graviton: [] }
     });
     const normalized = normalizeBuildAdvisorInventory(inventory, companion, collection, [hunter]);
     const recommendation = buildAdvisorRecommendations(normalized, hunter).recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon")!;
@@ -425,6 +428,11 @@ describe("Build Advisor inventory and scoring", () => {
       requirementId: "damage-heavy",
       name: "Deterministic Heavy",
       item: expect.objectContaining({ instanceId: "heavy-fallback" })
+    }));
+    expect(buildAdvisorRecommendations(normalized, hunter).recommendations).toContainEqual(expect.objectContaining({
+      name: expect.stringContaining("Adaptive Rocket"),
+      source: expect.objectContaining({ label: "Account-generated owned-gear variant" }),
+      weapons: expect.arrayContaining([expect.objectContaining({ item: expect.objectContaining({ name: "Adaptive Rocket" }) })])
     }));
   });
 
