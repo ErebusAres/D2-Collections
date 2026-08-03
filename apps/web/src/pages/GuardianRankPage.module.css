@@ -46,7 +46,7 @@
 .commandBar button svg { width:13px; }.commandBar button.activeFilter { border-color:rgba(155,231,226,.48); background:rgba(155,231,226,.1); color:var(--cyan-bright); }
 .commandBar .foldControls { padding-left:7px; border-left:1px solid var(--line); }
 
-.categoryGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:12px; }
+.categoryGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:10px; padding:12px; }
 .category { min-width:0; border:1px solid var(--line); background:rgba(7,16,22,.76); }
 .category>header { min-height:70px; display:grid; grid-template-columns:38px minmax(0,1fr) auto 32px; align-items:center; gap:11px; padding:12px 14px; border-bottom:1px solid var(--line); background:linear-gradient(105deg,rgba(155,231,226,.07),transparent 52%); }
 .category>header>div { width:36px; height:36px; display:grid; place-items:center; border:1px solid rgba(155,231,226,.2); }.category>header img,.category>header svg { width:25px; height:25px; object-fit:contain; color:var(--cyan); }

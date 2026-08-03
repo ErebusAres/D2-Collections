@@ -6,7 +6,7 @@ Guardian Nexus is a player-decision companion. New features should help a Guardi
 
 Last updated: 2026-08-01
 
-- **Build Advisor 2.0 catalog expansion:** Template set v6 contains 54 curated builds: 18 per class and three different core-Exotic paths for each of the 18 class/subclass combinations. Missing gear changes readiness and acquisition guidance rather than catalog visibility. Players can explicitly track a bounded, privacy-scoped build checklist on Fireteam.
+- **Build Advisor 2.0 catalog expansion:** Template set v7 contains 72 curated builds: 24 per class and four different core-Exotic paths for each of the 18 class/subclass combinations. The UI groups recommendations by subclass so all alternatives remain visible. Missing gear changes readiness and acquisition guidance rather than catalog visibility. Players can explicitly track a bounded, privacy-scoped build checklist on Fireteam.
 
 - **Live from PR #53:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are deployed.
 - **Live from PR #53:** The Phase 3 session planner and Phase 4 installable PWA foundation are deployed.

@@ -539,11 +539,11 @@ describe("Build Advisor inventory and scoring", () => {
       expect(new Set(subclasses)).toEqual(expected);
     }
     expect(new Set(BUILD_ADVISOR_TEMPLATES.map((template) => `${template.classType}:${template.subclass}`)).size).toBe(18);
-    expect(BUILD_ADVISOR_TEMPLATES).toHaveLength(54);
+    expect(BUILD_ADVISOR_TEMPLATES).toHaveLength(72);
     for (const classType of ["hunter", "titan", "warlock"] as const) {
-      expect(BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === classType)).toHaveLength(18);
+      expect(BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === classType)).toHaveLength(24);
       for (const subclass of expected) {
-        expect(BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === classType && template.subclass === subclass)).toHaveLength(3);
+        expect(BUILD_ADVISOR_TEMPLATES.filter((template) => template.classType === classType && template.subclass === subclass)).toHaveLength(4);
       }
     }
   });
@@ -616,10 +616,10 @@ describe("Build Advisor inventory and scoring", () => {
     });
     const normalized = normalizeBuildAdvisorInventory(raw, companion, collection, [hunter, titan, warlock]);
     const result = buildAdvisorRecommendations(normalized, character);
-    expect(result.recommendations).toHaveLength(18);
+    expect(result.recommendations).toHaveLength(24);
     expect(result.recommendations.every((entry) => entry.classType === expectedClass)).toBe(true);
     for (const subclass of ["arc", "solar", "void", "strand", "stasis", "prismatic"] as const) {
-      expect(result.recommendations.filter((entry) => entry.subclass === subclass)).toHaveLength(3);
+      expect(result.recommendations.filter((entry) => entry.subclass === subclass)).toHaveLength(4);
     }
     expect(BUILD_ADVISOR_TEMPLATES.some((template) => template.classType === expectedClass)).toBe(true);
   });
