@@ -1,6 +1,6 @@
 import type { GuardianRankData, GuardianRankQuest, GuardianRankTier } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { Bookmark, Check, CheckCircle2, CircleDashed, Compass, Crosshair, History, LockKeyhole, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { Bookmark, Check, CheckCircle2, ChevronDown, ChevronUp, CircleDashed, Compass, Crosshair, History, LockKeyhole, Maximize2, Minimize2, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { CompletionPing, useCompletionPings } from "../components/common/CompletionPing";
@@ -18,6 +18,7 @@ export function GuardianRankPage() {
   const [selectedRankNumber, setSelectedRankNumber] = useState<number>();
   const [filter, setFilter] = useState<QuestFilter>("all");
   const [search, setSearch] = useState("");
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const completionState = useRef<{ characterId: string; values: Map<string, boolean> | null }>({ characterId: "", values: null });
   const { notice: completionNotice, announce: announceCompletion, dismiss: dismissCompletion, clear: clearCompletions } = useCompletionPings();
   const result = useQuery({
@@ -33,6 +34,7 @@ export function GuardianRankPage() {
     setSelectedRankNumber(undefined);
     setFilter("all");
     setSearch("");
+    setCollapsedCategories(new Set());
   }, [selectedCharacterId]);
   useEffect(() => {
     if (data && selectedRankNumber === undefined) setSelectedRankNumber(data.suggestedRank);
@@ -53,6 +55,9 @@ export function GuardianRankPage() {
     }
   }, [announceCompletion, clearCompletions, data, selectedCharacterId, setPreference, tracked]);
   const selectedRank = data?.ranks.find((rank) => rank.rankNumber === selectedRankNumber) || data?.ranks.find((rank) => rank.rankNumber === data.suggestedRank);
+  useEffect(() => {
+    setCollapsedCategories(new Set(selectedRank?.categories.filter(isCategoryComplete).map((category) => category.nodeHash) || []));
+  }, [selectedRank?.rankHash]);
   const visibleCategories = useMemo(() => selectedRank?.categories.map((category) => ({
     ...category,
     quests: category.quests.filter((quest) => {
@@ -72,6 +77,11 @@ export function GuardianRankPage() {
     if (next.has(recordHash)) next.delete(recordHash); else next.add(recordHash);
     setPreference("guardianRank.tracked", JSON.stringify([...next]));
   };
+  const toggleCategory = (nodeHash: string) => setCollapsedCategories((current) => {
+    const next = new Set(current);
+    if (next.has(nodeHash)) next.delete(nodeHash); else next.add(nodeHash);
+    return next;
+  });
 
   return <AuthGate>
     <CompletionPing notice={completionNotice} onDismiss={dismissCompletion} />
@@ -125,13 +135,23 @@ export function GuardianRankPage() {
           <div>{([[
             "all", "All", Compass
           ], ["tracked", "Tracked", Bookmark], ["incomplete", "Incomplete", CircleDashed], ["complete", "Complete", CheckCircle2]] as const).map(([value, label, Icon]) => <button key={value} className={filter === value ? styles.activeFilter : ""} onClick={() => setFilter(value)}><Icon />{label}</button>)}</div>
+          <div className={styles.foldControls} aria-label="Objective section display">
+            <button onClick={() => setCollapsedCategories(new Set(visibleCategories.map((category) => category.nodeHash)))}><Minimize2 />Collapse all</button>
+            <button onClick={() => setCollapsedCategories(new Set())}><Maximize2 />Expand all</button>
+          </div>
         </div>
 
-        {visibleCategories.length ? <div className={styles.categoryGrid}>{visibleCategories.map((category) => <section className={styles.category} key={category.nodeHash}>
-          <header><div>{category.icon ? <img src={category.icon} alt="" /> : <Sparkles />}</div><span><small>{category.seasonal ? "Seasonal objectives" : "Rank objectives"}</small><h3>{category.name}</h3></span><strong>{category.completed}/{category.total}</strong></header>
-          {category.description && <p>{category.description}</p>}
-          <div>{category.quests.map((quest) => <QuestCard key={quest.recordHash} quest={quest} tracked={tracked.has(quest.recordHash)} onTrack={() => toggleTracked(quest.recordHash)} />)}</div>
-        </section>)}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
+        {visibleCategories.length ? <div className={styles.categoryGrid}>{visibleCategories.map((category) => {
+          const complete = isCategoryComplete(category);
+          const collapsed = collapsedCategories.has(category.nodeHash);
+          return <section className={`${styles.category} ${complete ? styles.categoryComplete : ""} ${collapsed ? styles.categoryCollapsed : ""}`} key={category.nodeHash}>
+            <header><div>{category.icon ? <img src={category.icon} alt="" /> : complete ? <CheckCircle2 /> : <Sparkles />}</div><span><small>{complete ? "Completed" : category.seasonal ? "Seasonal objectives" : "Rank objectives"}</small><h3>{category.name}</h3></span><strong>{category.completed}/{category.total}</strong><button type="button" onClick={() => toggleCategory(category.nodeHash)} aria-expanded={!collapsed} aria-controls={`rank-category-${category.nodeHash}`} aria-label={`${collapsed ? "Expand" : "Collapse"} ${category.name}`} title={collapsed ? "Expand section" : "Collapse section"}>{collapsed ? <ChevronDown /> : <ChevronUp />}</button></header>
+            <div id={`rank-category-${category.nodeHash}`} hidden={collapsed} className={styles.categoryBody}>
+              {category.description && <p>{category.description}</p>}
+              <div>{category.quests.map((quest) => <QuestCard key={quest.recordHash} quest={quest} tracked={tracked.has(quest.recordHash)} onTrack={() => toggleTracked(quest.recordHash)} />)}</div>
+            </div>
+          </section>;
+        })}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
       </section>}
       <footer className={styles.sourceNote}>Current progress uses Bungie's renewed rank. Highest-achieved and lifetime-highest ranks remain separate. Missing objective data stays unavailable.</footer>
     </>}
@@ -180,4 +200,8 @@ function parseTracked(value?: string): Set<string> {
   } catch {
     return new Set();
   }
+}
+
+function isCategoryComplete(category: GuardianRankTier["categories"][number]): boolean {
+  return category.total > 0 && category.completed >= category.total;
 }
