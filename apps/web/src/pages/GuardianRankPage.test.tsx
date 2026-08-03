@@ -48,6 +48,12 @@ describe("Guardian Rank page", () => {
     expect(screen.getByText("Site tracked")).toBeTruthy();
     expect(screen.getByText("Progress to rank 7")).toBeTruthy();
     expect(screen.getByText("Ascension")).toBeTruthy();
+    const completedSectionButton = screen.getByRole("button", { name: "Expand Power" });
+    expect(completedSectionButton.getAttribute("aria-expanded")).toBe("false");
+    expect(completedSectionButton.getAttribute("aria-controls") && document.getElementById(completedSectionButton.getAttribute("aria-controls")!)?.hidden).toBe(true);
+    fireEvent.click(completedSectionButton);
+    expect(screen.getByText("Reach Power")).toBeTruthy();
+    expect(screen.getByText("Completed")).toBeTruthy();
     const previousRank = screen.getByRole("button", { name: "View rank 6: Veteran" });
     expect(previousRank.textContent).not.toContain("6");
 
@@ -65,6 +71,21 @@ describe("Guardian Rank page", () => {
     expect(await screen.findByRole("heading", { name: "Justiciar" })).toBeTruthy();
     expect(screen.getByTestId("selected-rank-artwork").querySelector("img")?.getAttribute("src")).toBe("/eight.png");
     expect(screen.getByText("Progress to rank 9")).toBeTruthy();
+  });
+
+  it("collapses and expands all visible objective sections", async () => {
+    vi.mocked(api).mockResolvedValue(envelope());
+    renderPage();
+
+    expect(await screen.findByRole("button", { name: "Expand Power" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(screen.getByRole("button", { name: "Collapse Power" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Reach Power")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    const collapsedButton = screen.getByRole("button", { name: "Expand Power" });
+    expect(collapsedButton.getAttribute("aria-expanded")).toBe("false");
+    expect(collapsedButton.getAttribute("aria-controls") && document.getElementById(collapsedButton.getAttribute("aria-controls")!)?.hidden).toBe(true);
   });
 });
 
