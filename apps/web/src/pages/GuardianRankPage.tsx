@@ -69,6 +69,11 @@ export function GuardianRankPage() {
       return textMatch && filterMatch;
     })
   })).filter((category) => category.quests.length) || [], [filter, search, selectedRank, tracked]);
+  const categoryGroups = useMemo(() => [{
+    key: "active", label: "Active sections", description: "Objectives that still need progress", categories: visibleCategories.filter((category) => !isCategoryComplete(category))
+  }, {
+    key: "completed", label: "Completed sections", description: "Finished objectives, collapsed by default", categories: visibleCategories.filter(isCategoryComplete)
+  }].filter((group) => group.categories.length > 0), [visibleCategories]);
   const currentRankTier = data?.ranks.find((rank) => rank.rankNumber === data.currentRank);
   const nextRank = data?.ranks.find((rank) => rank.rankNumber === data.currentRank + 1);
 
@@ -141,7 +146,9 @@ export function GuardianRankPage() {
           </div>
         </div>
 
-        {visibleCategories.length ? <div className={styles.categoryGrid}>{visibleCategories.map((category) => {
+        {visibleCategories.length ? <div className={styles.categoryGroups}>{categoryGroups.map((group) => <section className={styles.categoryGroup} key={group.key}>
+          <header><span><small>{group.description}</small><h2>{group.label}</h2></span><strong>{group.categories.length}</strong></header>
+          <div className={styles.categoryGrid}>{group.categories.map((category) => {
           const complete = isCategoryComplete(category);
           const collapsed = collapsedCategories.has(category.nodeHash);
           return <section className={`${styles.category} ${complete ? styles.categoryComplete : ""} ${collapsed ? styles.categoryCollapsed : ""}`} key={category.nodeHash}>
@@ -151,7 +158,7 @@ export function GuardianRankPage() {
               <div>{category.quests.map((quest) => <QuestCard key={quest.recordHash} quest={quest} tracked={tracked.has(quest.recordHash)} onTrack={() => toggleTracked(quest.recordHash)} />)}</div>
             </div>
           </section>;
-        })}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
+        })}</div></section>)}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
       </section>}
       <footer className={styles.sourceNote}>Current progress uses Bungie's renewed rank. Highest-achieved and lifetime-highest ranks remain separate. Missing objective data stays unavailable.</footer>
     </>}

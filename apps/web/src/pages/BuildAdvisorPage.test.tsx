@@ -116,7 +116,9 @@ describe("Build Advisor page", () => {
     expect(screen.queryByText("Void General Build")).toBeNull();
     expect(screen.getAllByText("Solar Boss Build").length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText("Focus"), { target: { value: "Boss Damage" } });
-    expect(screen.getByText("build option").parentElement?.textContent).toBe("1build option");
+    expect(screen.getByText("of 2 builds shown").parentElement?.textContent).toBe("1 of 2 builds shown");
+    fireEvent.click(screen.getByRole("button", { name: "Show all 2" }));
+    expect(screen.getAllByText("Void General Build").length).toBeGreaterThan(0);
     expect(screen.getByText(/Build Advisor 2.0 · Template set v/)).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Solar" })).toBeTruthy();
   });

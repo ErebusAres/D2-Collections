@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-The original roadmap and catalog corrections are live on `main`. The current follow-up expands Build Advisor template set v7 to 72 builds: 24 per class and exactly four core-Exotic paths for every subclass. It also groups visible recommendations by subclass so alternatives are not buried by global readiness sorting. Build checklist tracking remains privacy-scoped to Fireteam.
+The original roadmap and catalog corrections are live on `main`. Build Advisor template set v7 has 72 reviewed foundations: 24 per class and exactly four core-Exotic paths for every subclass. It groups visible recommendations by subclass and generates up to 24 additional account-specific variants when a different physical owned weapon strongly matches a reviewed template's bounded role. Generated variants never infer unsupported subclass setups or ownership. Build checklist tracking remains privacy-scoped to Fireteam.
 
 ## Current repository state
 

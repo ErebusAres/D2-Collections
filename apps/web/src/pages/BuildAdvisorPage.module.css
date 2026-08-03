@@ -73,7 +73,7 @@
 }
 
 .buildFilters > label,
-.buildFilters > span {
+.filterCount {
   min-height: 58px;
   border: 1px solid var(--line);
   background: rgba(6, 18, 26, .84);
@@ -82,7 +82,7 @@
 
 .buildFilters > label { display: grid; gap: 5px; }
 .buildFilters label > span,
-.buildFilters > span small { color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.filterCount small { color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
 .buildFilters select {
   width: 100%;
   border: 1px solid rgba(129, 170, 187, .35);
@@ -91,8 +91,7 @@
   padding: 7px 9px;
   font: 600 13px "Barlow", sans-serif;
 }
-.buildFilters > span { min-width: 120px; display: grid; place-content: center; text-align: center; }
-.buildFilters > span b { color: #70e4f6; font: 700 21px/1 "Barlow Condensed", sans-serif; }
+.filterCount { min-width:140px; display:grid; place-content:center; gap:5px; text-align:center; }.filterCount>span { display:flex; align-items:baseline; justify-content:center; gap:3px; }.filterCount b { color:#70e4f6; font:700 21px/1 "Barlow Condensed",sans-serif; }.filterCount button { min-height:24px; border:1px solid rgba(65,223,255,.35); background:rgba(65,223,255,.08); color:var(--cyan-bright); font:700 10px/1 "Barlow Condensed",sans-serif; letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
 
 .dataWarning {
   border: 1px solid rgba(255, 153, 91, .44);
@@ -579,7 +578,7 @@
   .commandBar,
   .buildFilters,
   .inventoryBody { grid-template-columns: 1fr; }
-  .buildFilters > span { min-height: 50px; }
+  .filterCount { min-height: 50px; }
   .reviewDate,
   .inventoryWarnings { grid-column: auto; }
   .cardGrid { grid-template-columns: 1fr; }.detailColumns,

@@ -139,6 +139,7 @@ function BuildAdvisor() {
   const minimumPathsPerSubclass = data?.recommendations.length && subclasses.length
     ? Math.min(...subclasses.map((entry) => data.recommendations.filter((recommendation) => recommendation.subclass === entry).length))
     : 0;
+  const filtersActive = Boolean(data && recommendations.length !== data.recommendations.length);
   const selected = recommendations.find((recommendation) => recommendation.id === selectedId) || recommendations[0];
   const warning = result.data?.warnings[0] || data?.analysis.warnings[0];
   const trackedAcquisitions = useMemo(() => stringSetPreference(preferences["watchlists.buildAcquisitions"]), [preferences]);
@@ -195,6 +196,14 @@ function BuildAdvisor() {
     while (next.length > 1 && JSON.stringify(next).length > 11_500) next.shift();
     setPreference("buildAdvisor.trackedBuilds.v1", JSON.stringify(next));
   };
+  const showAllBuilds = () => {
+    setCategory("All");
+    setSubclass("All");
+    setFocus("All");
+    setActivity("All");
+    setComplexity("All");
+    setAssembly("All");
+  };
 
   return <>
     <PageHeader
@@ -230,7 +239,7 @@ function BuildAdvisor() {
           <label><span>Activity</span><select aria-label="Activity" value={activity} onChange={(event) => setActivity(event.target.value)}><option value="All">All activities</option>{activities.map((entry) => <option key={entry} value={entry}>{entry}</option>)}</select></label>
           <label><span>Complexity</span><select aria-label="Complexity" value={complexity} onChange={(event) => setComplexity(event.target.value as typeof complexity)}><option value="All">Any complexity</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
           <label><span>Ownership</span><select aria-label="Ownership" value={assembly} onChange={(event) => setAssembly(event.target.value as typeof assembly)}><option value="All">Any readiness</option><option value="ready">Ready now</option><option value="substitutions">Ready with substitutions</option><option value="missing">Missing equipment</option></select></label>
-          <span><b>{recommendations.length}</b><small>build option{recommendations.length === 1 ? "" : "s"}</small></span>
+          <div className={styles.filterCount}><span><b>{recommendations.length}</b><small> of {data.recommendations.length} builds shown</small></span>{filtersActive && <button type="button" onClick={showAllBuilds}>Show all {data.recommendations.length}</button>}</div>
         </section>
         <nav className={styles.filters} aria-label="Recommendation categories">
           <button type="button" data-active={category === "All"} onClick={() => setCategory("All")}>All recommendations</button>
@@ -282,6 +291,7 @@ function RecommendationCard({ recommendation, selected, onSelect }: { recommenda
     <div className={styles.cardMetrics}><span><Swords /> Damage <b>{recommendation.damageProfile}</b></span><span><Shield /> Survival <b>{recommendation.survivability}</b></span><span><Gauge /> Complexity <b>{recommendation.complexity}</b></span></div>
     <footer>
       <span>{recommendation.verification.state === "verified-current" ? "Current sandbox verified" : "Current community build"}</span>
+      {recommendation.source.label.startsWith("Account-generated") && <span>Adaptive to your gear</span>}
       {visibleCategories.map((entry) => <span key={entry}>{entry}</span>)}
       {hiddenCategoryCount > 0 && <span title={recommendation.categories.slice(3).join(", ")}>+{hiddenCategoryCount} more</span>}
     </footer>
