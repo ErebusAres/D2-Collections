@@ -133,6 +133,12 @@ function BuildAdvisor() {
       || assembly === "substitutions" && recommendation.status === "assembleable-with-substitutions"
       || assembly === "missing" && ["missing-one-important-item", "missing-several-core-items"].includes(recommendation.status))
   ) || [], [activity, assembly, category, complexity, data?.recommendations, focus, subclass]);
+  const recommendationGroups = useMemo(() => subclasses
+    .map((entry) => ({ subclass: entry, recommendations: recommendations.filter((recommendation) => recommendation.subclass === entry) }))
+    .filter((group) => group.recommendations.length > 0), [recommendations, subclasses]);
+  const minimumPathsPerSubclass = data?.recommendations.length && subclasses.length
+    ? Math.min(...subclasses.map((entry) => data.recommendations.filter((recommendation) => recommendation.subclass === entry).length))
+    : 0;
   const selected = recommendations.find((recommendation) => recommendation.id === selectedId) || recommendations[0];
   const warning = result.data?.warnings[0] || data?.analysis.warnings[0];
   const trackedAcquisitions = useMemo(() => stringSetPreference(preferences["watchlists.buildAcquisitions"]), [preferences]);
@@ -211,7 +217,7 @@ function BuildAdvisor() {
     {data && <>
       {data.state !== "current" && <section className={styles.dataWarning} role="status"><AlertTriangle /><div><strong>{stateLabel(data.state)}</strong><p>{warning || "Refresh inventory before relying on these recommendations."}</p></div></section>}
       {data.recommendations.length ? <>
-        <section className={styles.catalogBanner}><Sparkles /><div><span>Expanded Build Advisor 2.0 catalog</span><strong>{data.recommendations.length} distinct {data.characterClass} build paths across {subclasses.length} subclasses</strong><p>Each subclass now has three different core-Exotic approaches. Missing equipment lowers readiness and adds acquisition steps; it never hides the build.</p></div></section>
+        <section className={styles.catalogBanner}><Sparkles /><div><span>Build Advisor 2.0 · Template set v{data.templateSetVersion}</span><strong>{data.recommendations.length} visible {data.characterClass} build paths across {subclasses.length} subclasses</strong><p>Every subclass has at least {minimumPathsPerSubclass} distinct core-Exotic approaches. Missing equipment lowers readiness and adds acquisition steps; it never hides the build.</p></div></section>
         <section className={styles.buildFilters} aria-label="Build recommendation filters">
           <label><span>Subclass</span><select aria-label="Subclass" value={subclass} onChange={(event) => setSubclass(event.target.value as BuildSubclass | "All")}>
             <option value="All">All subclasses</option>
@@ -232,7 +238,10 @@ function BuildAdvisor() {
         </nav>
         {recommendations.length > 0 ? <div className={styles.workspace}>
           <section className={styles.cardGrid} aria-label="Build recommendations">
-            {recommendations.map((recommendation) => <RecommendationCard key={recommendation.id} recommendation={recommendation} selected={selected?.id === recommendation.id} onSelect={() => setSelectedId(recommendation.id)} />)}
+            {recommendationGroups.map((group) => <section className={styles.subclassGroup} key={group.subclass} aria-labelledby={`advisor-${group.subclass}`}>
+              <header><span>{group.recommendations.length}</span><div><small>Subclass build paths</small><h2 id={`advisor-${group.subclass}`}>{subclassLabel(group.subclass)}</h2></div></header>
+              <div>{group.recommendations.map((recommendation) => <RecommendationCard key={recommendation.id} recommendation={recommendation} selected={selected?.id === recommendation.id} onSelect={() => setSelectedId(recommendation.id)} />)}</div>
+            </section>)}
           </section>
           {selected && <RecommendationDetail
             recommendation={selected}

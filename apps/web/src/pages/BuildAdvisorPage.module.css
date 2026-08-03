@@ -142,6 +142,12 @@
 }
 
 .cardGrid { display: grid; gap: 10px; }
+.subclassGroup { min-width:0; border:1px solid rgba(104,183,204,.24); background:rgba(4,13,19,.48); }
+.subclassGroup>header { min-height:58px; display:flex; align-items:center; gap:10px; padding:9px 11px; border-bottom:1px solid rgba(104,183,204,.2); background:linear-gradient(100deg,rgba(65,223,255,.1),transparent 65%); }
+.subclassGroup>header>span { width:36px; height:36px; flex:none; display:grid; place-items:center; border:1px solid rgba(65,223,255,.38); color:var(--cyan-bright); font:700 18px/1 "Barlow Condensed",sans-serif; }
+.subclassGroup>header small { color:var(--muted); font-size:9px; letter-spacing:.1em; text-transform:uppercase; }
+.subclassGroup>header h2 { margin:1px 0 0; color:var(--ink); font:600 21px/1 "Barlow Condensed",sans-serif; text-transform:uppercase; }
+.subclassGroup>div { display:grid; gap:8px; padding:8px; }
 
 .card {
   width: 100%;

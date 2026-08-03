@@ -117,7 +117,8 @@ describe("Build Advisor page", () => {
     expect(screen.getAllByText("Solar Boss Build").length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText("Focus"), { target: { value: "Boss Damage" } });
     expect(screen.getByText("build option").parentElement?.textContent).toBe("1build option");
-    expect(screen.getByText("Expanded Build Advisor 2.0 catalog")).toBeTruthy();
+    expect(screen.getByText(/Build Advisor 2.0 · Template set v/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Solar" })).toBeTruthy();
   });
 
   it("separates template viability from the Guardian's inventory readiness", async () => {
