@@ -146,9 +146,11 @@ export function GuardianRankPage() {
           </div>
         </div>
 
-        {visibleCategories.length ? <div className={styles.categoryGroups}>{categoryGroups.map((group) => <section className={styles.categoryGroup} key={group.key}>
+        {visibleCategories.length ? <div className={styles.categoryGroups}>{categoryGroups.map((group) => {
+          const columns = balanceCategoryColumns(group.categories, collapsedCategories);
+          return <section className={styles.categoryGroup} key={group.key}>
           <header><span><small>{group.description}</small><h2>{group.label}</h2></span><strong>{group.categories.length}</strong></header>
-          <div className={styles.categoryGrid}>{group.categories.map((category) => {
+          <div className={styles.categoryGrid}>{columns.map((columnCategories, column) => <div className={styles.categoryColumn} data-testid={`category-column-${group.key}-${column}`} key={column}>{columnCategories.map((category) => {
           const complete = isCategoryComplete(category);
           const collapsed = collapsedCategories.has(category.nodeHash);
           return <section className={`${styles.category} ${complete ? styles.categoryComplete : ""} ${collapsed ? styles.categoryCollapsed : ""}`} key={category.nodeHash}>
@@ -158,7 +160,8 @@ export function GuardianRankPage() {
               <div>{category.quests.map((quest) => <QuestCard key={quest.recordHash} quest={quest} tracked={tracked.has(quest.recordHash)} onTrack={() => toggleTracked(quest.recordHash)} />)}</div>
             </div>
           </section>;
-        })}</div></section>)}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
+        })}</div>)}</div></section>;
+        })}</div> : <section className={styles.empty}><History /><h2>{selectedRank.rankNumber === data.maximumRank ? "Maximum Guardian Rank" : "No objectives match this view"}</h2><p>{selectedRank.rankNumber === data.maximumRank ? `Rank ${data.maximumRank} is the highest achievable rank. There are no additional objectives after reaching it.` : selectedRank.total ? "Change the filter or search to see this rank's objectives." : "Bungie's current Guardian Rank definition contains no individual objectives for this rank."}</p></section>}
       </section>}
       <footer className={styles.sourceNote}>Current progress uses Bungie's renewed rank. Highest-achieved and lifetime-highest ranks remain separate. Missing objective data stays unavailable.</footer>
     </>}
@@ -211,4 +214,27 @@ function parseTracked(value?: string): Set<string> {
 
 function isCategoryComplete(category: GuardianRankTier["categories"][number]): boolean {
   return category.total > 0 && category.completed >= category.total;
+}
+
+function balanceCategoryColumns(
+  categories: GuardianRankTier["categories"],
+  collapsed: ReadonlySet<string>
+): [GuardianRankTier["categories"], GuardianRankTier["categories"]] {
+  if (categories.length === 1) return [[categories[0]!], []];
+  const columns: [GuardianRankTier["categories"], GuardianRankTier["categories"]] = [[], []];
+  const heights: [number, number] = [0, 0];
+  const weighted = categories.map((category, index) => ({ category, index, height: categoryHeight(category, collapsed.has(category.nodeHash)) }))
+    .sort((left, right) => right.height - left.height || left.index - right.index);
+  weighted.forEach((entry, index) => {
+    const column: 0 | 1 = index === 0 ? 1 : heights[0] <= heights[1] ? 0 : 1;
+    columns[column].push(entry.category);
+    heights[column] += entry.height;
+  });
+  return columns;
+}
+
+function categoryHeight(category: GuardianRankTier["categories"][number], collapsed: boolean): number {
+  if (collapsed) return 1;
+  return 1 + (category.description ? .35 : 0) + category.quests.reduce((height, quest) =>
+    height + 1.4 + (quest.description ? .45 : 0) + Math.max(1, quest.objectives.length) * .55, 0);
 }
