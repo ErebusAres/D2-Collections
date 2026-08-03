@@ -87,6 +87,34 @@ describe("Guardian Rank page", () => {
     expect(collapsedButton.getAttribute("aria-expanded")).toBe("false");
     expect(collapsedButton.getAttribute("aria-controls") && document.getElementById(collapsedButton.getAttribute("aria-controls")!)?.hidden).toBe(true);
   });
+
+  it("balances two smaller sections against one larger section", async () => {
+    const response = envelope();
+    const rank = response.data.ranks[0]!;
+    const template = rank.categories[0]!.quests[0]!;
+    const category = (nodeHash: string, name: string, questCount: number) => ({
+      nodeHash, name, description: "", icon: "", seasonal: false, completed: 0, total: questCount,
+      quests: Array.from({ length: questCount }, (_, index) => ({
+        ...template,
+        recordHash: `${nodeHash}-record-${index}`,
+        name: `${name} objective ${index + 1}`,
+        state: "in-progress" as const,
+        objectives: template.objectives.map((objective) => ({ ...objective, objectiveHash: `${nodeHash}-objective-${index}`, progress: 0, percent: 0, complete: false }))
+      }))
+    });
+    rank.completed = 0;
+    rank.total = 8;
+    rank.categories = [category("small-a", "Small A", 2), category("large", "Large", 4), category("small-b", "Small B", 2)];
+    vi.mocked(api).mockResolvedValue(response);
+    renderPage();
+
+    const left = await screen.findByTestId("category-column-active-0");
+    const right = screen.getByTestId("category-column-active-1");
+    expect(left.textContent).toContain("Small A");
+    expect(left.textContent).toContain("Small B");
+    expect(left.textContent).not.toContain("Large");
+    expect(right.textContent).toContain("Large");
+  });
 });
 
 function renderPage() {
