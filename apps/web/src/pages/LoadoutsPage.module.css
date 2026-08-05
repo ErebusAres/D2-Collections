@@ -5,7 +5,7 @@
 .notice span { color: var(--cyan); font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
 .notice strong { font: 600 18px "Barlow Condensed"; text-transform: uppercase; }
 .notice p { margin: 0; color: var(--muted); font-size: 12px; }
-.notice, .equippedArea, .loadoutGrid { margin-right: 132px; }
+.notice, .equippedArea, .loadoutGrid { margin-left: 132px; }
 .pageTopAnchor, .loadoutAnchor, .equippedArea { scroll-margin-top: 176px; }
 .pageTopAnchor { position: absolute; top: 0; }
 .equippedArea { margin-bottom: 22px; }
@@ -39,7 +39,7 @@
 .loadoutCollapsed > header { min-height: 64px; border-bottom: 0; }
 .collapsedIcons { display: flex; justify-content: flex-end; gap: 4px; overflow: hidden; }
 .collapsedIcons img, .collapsedIcons svg { width: 34px; height: 34px; flex: 0 0 34px; border: 1px solid rgba(255,255,255,.12); object-fit: cover; color: var(--gold); }
-.loadoutNavigator { position: fixed; z-index: 34; top: 50%; right: max(8px, calc((100vw - 1780px) / 2)); width: 122px; max-height: min(66vh, 620px); display: flex; flex-direction: column; gap: 3px; padding: 7px; overflow: auto; border: 1px solid rgba(155,231,226,.28); background: rgba(5,13,19,.93); box-shadow: 0 12px 34px rgba(0,0,0,.42); backdrop-filter: blur(12px); transform: translateY(-50%); }
+.loadoutNavigator { position: fixed; z-index: 34; top: 50%; left: max(8px, calc((100vw - 1780px) / 2)); width: 122px; max-height: min(66vh, 620px); display: flex; flex-direction: column; gap: 3px; padding: 7px; overflow: auto; border: 1px solid rgba(155,231,226,.28); background: rgba(5,13,19,.93); box-shadow: 0 12px 34px rgba(0,0,0,.42); backdrop-filter: blur(12px); transform: translateY(-50%); }
 .loadoutNavigator a { min-height: 34px; display: grid; grid-template-columns: 25px minmax(0,1fr); align-items: center; gap: 6px; padding: 4px; border: 1px solid transparent; color: var(--text); text-decoration: none; }
 .loadoutNavigator a:hover, .loadoutNavigator a:focus-visible { border-color: rgba(155,231,226,.42); background: rgba(155,231,226,.08); outline: none; }
 .loadoutNavigator b { width: 23px; height: 23px; display: grid; place-items: center; border: 1px solid rgba(155,231,226,.35); color: var(--cyan); font: 600 12px "Barlow Condensed"; }
@@ -95,8 +95,8 @@
 .success, .error { position: fixed; z-index: 55; right: 18px; bottom: 18px; display: flex; align-items: center; gap: 8px; max-width: 440px; padding: 12px 15px; border: 1px solid rgba(132,232,188,.45); background: #0a1918; color: var(--success); box-shadow: var(--shadow); font-size: 12px; }
 .error { border-color: rgba(239,121,134,.5); background: #1a0d12; color: var(--danger); }
 @media (max-width: 1250px) {.equipmentGrid,.artifactMods{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .notice, .equippedArea, .loadoutGrid { margin-right: 60px; }
-  .loadoutNavigator { right: 8px; width: 52px; }
+  .notice, .equippedArea, .loadoutGrid { margin-left: 60px; }
+  .loadoutNavigator { left: 8px; width: 52px; }
   .loadoutNavigator a { grid-template-columns: 1fr; }
   .loadoutNavigator span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 }
@@ -105,7 +105,7 @@
   .artifactLayout { grid-template-columns: 1fr; }
 }
 @media (max-width: 650px) {
-  .notice, .equippedArea, .loadoutGrid { margin-right: 0; }
+  .notice, .equippedArea, .loadoutGrid { margin-left: 0; }
   .pageTopAnchor, .loadoutAnchor, .equippedArea { scroll-margin-top: 150px; }
   .loadoutNavigator { top: auto; right: 8px; bottom: calc(78px + env(safe-area-inset-bottom)); left: 8px; width: auto; max-height: none; flex-direction: row; padding: 5px; transform: none; }
   .loadoutNavigator a { min-width: 34px; min-height: 34px; grid-template-columns: 1fr; padding: 3px; }
