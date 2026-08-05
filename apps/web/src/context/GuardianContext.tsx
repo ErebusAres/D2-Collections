@@ -41,21 +41,25 @@ function readCachedSession(): ApiEnvelope<SessionData> | undefined {
   } catch { return undefined; }
 }
 
-function cacheSafeSession(envelope: ApiEnvelope<SessionData> | undefined): void {
-  sessionStorage.removeItem(SESSION_CACHE_KEY);
-  if (!envelope?.data.authenticated || !envelope.data.guardian) { localStorage.removeItem(SESSION_CACHE_KEY); return; }
-  const safe: ApiEnvelope<SessionData> = {
+export function safeSessionForCache(envelope: ApiEnvelope<SessionData>): ApiEnvelope<SessionData> {
+  return {
     ...envelope,
     data: {
       ...envelope.data,
       csrfToken: undefined,
-      roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false },
-      guardian: { ...envelope.data.guardian, isInGame: false, currentActivity: undefined }
+      roles: { ...envelope.data.roles },
+      rolesState: "stale",
+      guardian: envelope.data.guardian ? { ...envelope.data.guardian, isInGame: false, currentActivity: undefined } : undefined
     },
     freshness: { ...envelope.freshness, state: "stale", observedAt: new Date().toISOString() },
     warnings: [...envelope.warnings, "Displaying the last safe session summary while Guardian services reconnect."]
   };
-  localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(safe));
+}
+
+function cacheSafeSession(envelope: ApiEnvelope<SessionData> | undefined): void {
+  sessionStorage.removeItem(SESSION_CACHE_KEY);
+  if (!envelope?.data.authenticated || !envelope.data.guardian) { localStorage.removeItem(SESSION_CACHE_KEY); return; }
+  localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(safeSessionForCache(envelope)));
 }
 
 function preferenceKey(membershipId: string | undefined, name: string): string {
