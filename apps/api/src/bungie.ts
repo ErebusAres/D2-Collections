@@ -441,7 +441,7 @@ export function profileComponentsFor(mode: ProfileMode): string {
     : mode === "mailbox"
       ? "100,200,201"
         : mode === "loadouts"
-          ? "100,102,200,201,205,206"
+          ? "100,102,200,201,205,206,305"
         : mode === "build-advisor"
           ? "100,102,104,200,201,204,205,206,300,301,302,304,305,306,307,308,309,310,800"
         : mode === "collectibles"

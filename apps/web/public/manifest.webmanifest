@@ -20,7 +20,7 @@
   ],
   "shortcuts": [
     { "name": "Director", "short_name": "Director", "url": "/director" },
-    { "name": "Watchlists", "short_name": "Alerts", "url": "/watchlists" },
+    { "name": "Loadouts", "short_name": "Loadouts", "url": "/loadouts" },
     { "name": "Xur", "short_name": "Xur", "url": "/xur" },
     { "name": "Next Steps", "short_name": "Plan", "url": "/next" },
     { "name": "Postmaster", "short_name": "Postmaster", "url": "/mailbox" },

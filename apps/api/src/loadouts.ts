@@ -41,10 +41,13 @@ export function normalizeLoadouts(profile: any, manifest: CompanionManifest, cha
       unresolvedItemCount: items.filter((item) => !item.definitionAvailable).length
     }];
   });
+  const equipped = normalizeEquipped(profile, manifest, character, instances);
   return {
     manifestVersion: manifest.version,
     characterId: character.characterId,
     characterClass: character.className,
+    equipped: equipped.loadout,
+    equippedState: equipped.state,
     loadouts,
     artifact: {
       mods: [],
@@ -52,6 +55,55 @@ export function normalizeLoadouts(profile: any, manifest: CompanionManifest, cha
       limitation: "Artifact data is saved per loadout; use each loadout's artifact and artifactMods fields."
     },
     equipRestriction: LOADOUT_EQUIP_RESTRICTION
+  };
+}
+
+function normalizeEquipped(profile: any, manifest: CompanionManifest, character: CharacterSummary, instances: Map<string, any>): { loadout?: GuardianLoadout; state: "available" | "partial" | "unavailable" } {
+  const rows = profile?.characterEquipment?.data?.[character.characterId]?.items;
+  if (!Array.isArray(rows) || rows.length === 0) return { state: "unavailable" };
+  const socketData = profile?.itemComponents?.sockets?.data;
+  const items = rows.map((item: any) => {
+    const instanceId = String(item?.itemInstanceId || "");
+    const sockets = instanceId && socketData?.[instanceId]?.sockets;
+    return normalizeLoadoutItem({
+      itemInstanceId: instanceId,
+      plugItemHashes: Array.isArray(sockets) ? sockets.map((socket: any) => socket?.plugHash).filter(Boolean) : []
+    }, instances, manifest);
+  });
+  const allSockets = dedupeSockets(items.flatMap((item) => item.sockets));
+  const subclass = items.find((item) => Number((manifest.itemDefinitions[item.itemHash] as any)?.itemType) === 16 || /subclass/i.test(item.equipmentSlot));
+  const artifact = items.find((item) => /^Artifacts?$/i.test(item.equipmentSlot) || item.sockets.some((socket) => socket.category === "artifact-perk"));
+  const artifactMods = dedupeSockets(artifact?.sockets.filter((socket) => (socket.category === "artifact-perk" || !socket.definitionAvailable) && !/^Empty Artifact Mod$/i.test(socket.name)) || [])
+    .slice(0, MAX_EQUIPPED_ARTIFACT_PERKS);
+  const element = elementFromSockets(subclass?.sockets || allSockets, manifest);
+  const isPrismatic = element === "Prismatic" || /prismatic/i.test(subclass?.name || "");
+  const unresolvedItemCount = items.filter((item) => !item.definitionAvailable).length;
+  const socketCoverageMissing = rows.some((item: any) => {
+    const instanceId = String(item?.itemInstanceId || "");
+    return instanceId && !Array.isArray(socketData?.[instanceId]?.sockets);
+  });
+  return {
+    state: unresolvedItemCount || socketCoverageMissing ? "partial" : "available",
+    loadout: {
+      index: -1,
+      name: "Equipped",
+      icon: subclass?.icon || "",
+      color: "",
+      element,
+      items,
+      equipment: equipmentItems(items, subclass),
+      subclass,
+      artifact,
+      artifactMods,
+      isPrismatic,
+      transcendence: isPrismatic ? allSockets.find((socket) => socket.category === "transcendence") : undefined,
+      prismaticGrenade: isPrismatic ? allSockets.find((socket) => socket.category === "prismatic-grenade") : undefined,
+      abilities: allSockets.filter((socket) => ["super", "melee", "grenade", "class-ability", "movement"].includes(socket.category)),
+      aspects: allSockets.filter((socket) => socket.category === "aspect"),
+      fragments: allSockets.filter((socket) => socket.category === "fragment"),
+      modifiers: allSockets.filter((socket) => socket.category === "modifier" || socket.category === "other"),
+      unresolvedItemCount
+    }
   };
 }
 

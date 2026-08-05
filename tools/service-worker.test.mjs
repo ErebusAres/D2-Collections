@@ -13,7 +13,7 @@ test("the install surface exposes mobile priorities and safe-area metadata", asy
   const html = await readFile(indexPath, "utf8");
   const worker = await readFile(workerPath, "utf8");
 
-  assert.deepEqual(shortcutUrls, ["/director", "/watchlists", "/xur", "/next", "/mailbox", "/fireteam"]);
+  assert.deepEqual(shortcutUrls, ["/director", "/loadouts", "/xur", "/next", "/mailbox", "/fireteam"]);
   assert.match(html, /viewport-fit=cover/);
   assert.match(html, /rel="apple-touch-icon"/);
   assert.match(worker, /guardian-nexus-core-v3/);

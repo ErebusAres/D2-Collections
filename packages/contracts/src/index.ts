@@ -1049,6 +1049,8 @@ export interface LoadoutsData {
   manifestVersion: string;
   characterId: string;
   characterClass: GuardianClass;
+  equipped?: GuardianLoadout;
+  equippedState?: "available" | "partial" | "unavailable";
   loadouts: GuardianLoadout[];
   /** @deprecated Retained temporarily so a Worker-first production rollout cannot break the previous web bundle. */
   artifact: LoadoutArtifact;
