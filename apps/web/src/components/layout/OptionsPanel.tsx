@@ -1,4 +1,4 @@
-import type { FireteamData, ReportAdminSummaryData, SiteLocale, SiteTextScale } from "@guardian-nexus/contracts";
+import type { FireteamData, ReportAdminSummaryData } from "@guardian-nexus/contracts";
 import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
@@ -9,13 +9,10 @@ import { LIVE_REFRESH_INTERVAL_SECONDS } from "../../services/liveRefresh";
 import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import { trapFocusWithin } from "../common/focusTrap";
 import styles from "./OptionsPanel.module.css";
-import { SUPPORTED_LOCALES, useMessages, type MessageKey } from "../../modules/i18n/catalog";
 import { parseTrackedBuilds } from "../../modules/buildAdvisor/buildTracking";
 
 export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: { open: boolean; onClose: () => void; returnFocusRef?: RefObject<HTMLButtonElement | null>; reportSummary?: ReportAdminSummaryData }) {
   const guardianState = useGuardian();
-  const text = useMessages(guardianState.locale);
-  const translated = (key: MessageKey, fallback: string) => text?.[key] || fallback;
   const panelRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
@@ -72,7 +69,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
     <>
       <button className={`${styles.scrim} ${open ? styles.open : ""}`} onClick={() => { onClose(); returnFocusRef?.current?.focus(); }} aria-label="Dismiss options" tabIndex={open ? 0 : -1} />
       <aside ref={panelRef} className={`${styles.panel} ${open ? styles.open : ""}`} aria-hidden={!open} inert={!open} role="dialog" aria-modal={open ? "true" : undefined} aria-label="Guardian options">
-        <header><div><span>{translated("settings", "Guardian settings")}</span><h2>{translated("options", "Options")}</h2></div><button ref={closeRef} onClick={() => { onClose(); returnFocusRef?.current?.focus(); }} aria-label="Close options"><X /></button></header>
+        <header><div><span>Guardian settings</span><h2>Options</h2></div><button ref={closeRef} onClick={() => { onClose(); returnFocusRef?.current?.focus(); }} aria-label="Close options"><X /></button></header>
         <section>
           <h3>Selected Guardian</h3>
           <div className={styles.characters}>
@@ -84,12 +81,10 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
           </div>
         </section>
         <section>
-          <h3>{translated("experience", "Experience")}</h3>
-          <Toggle label={translated("autoRefresh", "Auto-refresh live data")} description={`Refresh visible live pages every ${LIVE_REFRESH_INTERVAL_SECONDS} seconds.`} checked={guardianState.autoRefresh} onChange={guardianState.setAutoRefresh} />
-          <Toggle label={translated("reduceMotion", "Reduce motion")} description="Disable non-essential interface movement." checked={guardianState.reducedMotion} onChange={guardianState.setReducedMotion} />
-          <Toggle label={translated("highContrast", "High contrast")} description="Increase text, border, focus, and status contrast." checked={Boolean(guardianState.highContrast)} onChange={guardianState.setHighContrast || (() => undefined)} />
-          <label className={styles.toggle}><span><b>{translated("textSize", "Interface size")}</b><small>Enlarges the full Guardian Nexus interface, including text that uses fixed component sizing.</small></span><select value={guardianState.textScale || "standard"} onChange={(event) => guardianState.setTextScale?.(event.target.value as SiteTextScale)}><option value="standard">{translated("standard", "Standard")}</option><option value="large">{translated("large", "Large")}</option><option value="largest">{translated("largest", "Largest")}</option></select></label>
-          <label className={styles.toggle}><span><b>{translated("language", "Core language preview")}</b><small>Currently translates navigation and these settings only. Page content and Bungie game data remain in English.</small></span><select value={guardianState.locale || "en-US"} onChange={(event) => guardianState.setLocale?.(event.target.value as SiteLocale)}>{SUPPORTED_LOCALES.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select></label>
+          <h3>Experience</h3>
+          <Toggle label="Auto-refresh live data" description={`Refresh visible live pages every ${LIVE_REFRESH_INTERVAL_SECONDS} seconds.`} checked={guardianState.autoRefresh} onChange={guardianState.setAutoRefresh} />
+          <Toggle label="Reduce motion" description="Disable non-essential interface movement." checked={guardianState.reducedMotion} onChange={guardianState.setReducedMotion} />
+          <Toggle label="High contrast" description="Increase text, border, focus, and status contrast." checked={Boolean(guardianState.highContrast)} onChange={guardianState.setHighContrast || (() => undefined)} />
         </section>
         {session?.authenticated && <section>
           <h3>Fireteam privacy</h3>

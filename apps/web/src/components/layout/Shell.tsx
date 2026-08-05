@@ -12,20 +12,18 @@ import { GuardianFeed } from "../notifications/GuardianFeed";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { useGuardianNotifications } from "../../modules/notifications/useGuardianNotifications";
 import styles from "./Shell.module.css";
-import { useMessages, type MessageKey } from "../../modules/i18n/catalog";
 
 const OptionsPanel = lazy(() => import("./OptionsPanel").then((module) => ({ default: module.OptionsPanel })));
 
-const tabs: Array<{ to: string; message: MessageKey; label: string; icon: typeof Globe2 }> = [
-  { to: "/director", message: "director", label: "Director", icon: Globe2 }, { to: "/collection", message: "collection", label: "Collection", icon: Boxes },
-  { to: "/xur", message: "xur", label: "Xûr", icon: Coins }, { to: "/journey", message: "journey", label: "Journey", icon: ListTodo }, { to: "/gear", message: "gear", label: "Gear", icon: ShieldEllipsis },
-  { to: "/loadouts", message: "loadouts", label: "Loadouts", icon: Layers3 }, { to: "/builds", message: "builds", label: "Builds", icon: Hammer }, { to: "/build-advisor", message: "buildAdvisor", label: "Build Advisor", icon: ScanSearch },
-  { to: "/fireteam", message: "fireteam", label: "Fireteam", icon: Users }
+const tabs: Array<{ to: string; label: string; icon: typeof Globe2 }> = [
+  { to: "/director", label: "Director", icon: Globe2 }, { to: "/collection", label: "Collection", icon: Boxes },
+  { to: "/xur", label: "Xûr", icon: Coins }, { to: "/journey", label: "Journey", icon: ListTodo }, { to: "/gear", label: "Gear", icon: ShieldEllipsis },
+  { to: "/loadouts", label: "Loadouts", icon: Layers3 }, { to: "/builds", label: "Builds", icon: Hammer }, { to: "/build-advisor", label: "Build Advisor", icon: ScanSearch },
+  { to: "/fireteam", label: "Fireteam", icon: Users }
 ];
 
 export function Shell() {
-  const { session, loading, error, signIn, selectedCharacterId, autoRefresh, locale } = useGuardian();
-  const text = useMessages(locale);
+  const { session, loading, error, signIn, selectedCharacterId, autoRefresh } = useGuardian();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);
   const connection = useSyncExternalStore(subscribeConnection, getConnectionSnapshot, getConnectionSnapshot);
@@ -95,7 +93,7 @@ export function Shell() {
           </button>
         </div>
         <nav className={styles.tabs} aria-label="Guardian Nexus sections">
-          {tabs.map(({ to, message, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? styles.activeTab : styles.tab}><Icon size={17} /><span>{text?.[message] || label}</span></NavLink>)}
+          {tabs.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? styles.activeTab : styles.tab}><Icon size={17} /><span>{label}</span></NavLink>)}
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>
