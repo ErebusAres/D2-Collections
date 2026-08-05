@@ -12,6 +12,8 @@ The Alerts & Watches page has been removed from navigation, routing, mobile shor
 
 Guardian Share Cards have also been retired as a creation surface because they duplicated public Builds and Fireteam readiness while becoming stale manually. The primary navigation and Projects link are removed, and POST creation returns a retired-feature response. Legacy `/snapshots` management and unlisted direct links remain available solely so existing account-private cards are not deleted or made impossible to review and revoke.
 
+Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` listener, mobile quick-action dock, web-app manifest, and service-worker build/cache path are removed. Startup unregisters older Guardian Nexus service workers so previously installed caches do not keep serving stale bundles. Ordinary responsive CSS remains for narrow browser windows, but mobile-specific product work is not active scope.
+
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
@@ -37,7 +39,7 @@ Guardian Share Cards have also been retired as a creation surface because they d
 7. Added Build Advisor filters for subclass, focus, activity, complexity, and inventory readiness.
 8. Added account-private build-farm watchlists through namespaced user preferences.
 9. Added a session planner with 30, 60, and 120 minute budgets, solo or Fireteam preference, goal focus, and player-facing recommendation reasons.
-10. Added an installable web manifest, shortcuts, mobile metadata, and service-worker cache coverage as the PWA foundation.
+10. Added an installable PWA foundation; this was later retired when mobile-specific product work was paused.
 11. Added `docs/PRODUCT_ROADMAP.md` with product principles, phased delivery, and maintenance rules.
 12. Expanded the versioned Gear manifest from armor-only to armor and weapons, retaining roll-bearing plugs and adding a Gear-only sync command to prevent unrelated artifact churn.
 13. Added private physical weapon normalization with active/selectable perk columns, origin traits, weapon slots and damage types, crafted/enhanced/masterwork state, and roll-data certainty.
@@ -49,8 +51,8 @@ Guardian Share Cards have also been retired as a creation surface because they d
 19. Reworked session planning into a bounded greedy route that rewards shared playlist, activity, element, weapon, combatant, precision, and ability requirements after the first objective is selected.
 20. Added known-deadline urgency, expired-deadline rejection, source-aware 30/60/120-minute estimates, and explicit high, medium, or low confidence explanations.
 21. Added an explicit route handoff that deduplicates and writes quest, Guardian Rank, and Collection objectives into the existing private Fireteam tracking channels before the player chooses whether to share them.
-22. Added a safe-area-aware mobile quick-action dock for Director, Watchlists, Next Steps, Postmaster, and Fireteam while preserving the full horizontally scrollable section navigation.
-23. Added native `beforeinstallprompt` handling in Options, prioritized mobile manifest shortcuts, edge-to-edge viewport metadata, and a versioned service-worker cache migration.
+22. Added a safe-area-aware mobile quick-action dock; this was later removed when mobile-specific product work was paused.
+23. Added native PWA installation and cache migration; these surfaces were later retired, including active service-worker unregistration.
 24. Added a versioned, player-confirmed Fireteam readiness summary with activity, role, prerequisite states, optional public build summary, note, and timestamp validation.
 25. Added a private readiness draft preference and explicit share consent. The API stores only the scoped summary in the existing Fireteam payload, preserves it across background refreshes, and never includes inventory or Collections data.
 26. Added responsive readiness editing and member-card summaries plus a verified outward link to Bungie's official Fireteam Finder; Guardian Nexus does not recreate recruitment or matchmaking.
@@ -92,8 +94,6 @@ Guardian Share Cards have also been retired as a creation surface because they d
 - `apps/api/src/buildAdvisor.test.ts`
 - `apps/api/src/index.ts`
 - `apps/web/index.html`
-- `apps/web/public/manifest.webmanifest`
-- `apps/web/service-worker.ts`
 - `apps/web/src/pages/BuildAdvisorPage.tsx`
 - `apps/web/src/pages/BuildAdvisorPage.module.css`
 - `apps/web/src/components/gear/WeaponWorkspace.tsx`
@@ -224,11 +224,11 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 
 ### P2: Mobile and Fireteam readiness
 
-#### Completed: Mobile/PWA readiness
+#### Retired: Mobile/PWA readiness
 
 - Added persistent phone quick actions, 44-pixel-plus touch targets, notch/home-indicator spacing, scroll-safe section tabs, and content/scroll-top clearance for the dock.
 - Added a user-initiated native install action, prioritized OS shortcuts, Apple mobile metadata, and a bumped core cache so installed clients receive the shell update.
-- Component, manifest, service-worker, and type checks cover the install surface. The in-app browser confirmed the new navigation rendered from the live development branch; its fresh-tab viewport override continued to report desktop dimensions, so exact-device visual QA remains a release-review task rather than a correctness claim.
+- Install promotion, the mobile dock, manifest metadata, and service-worker caching are removed. Responsive browser layout remains, but no mobile-specific product delivery is currently planned.
 
 #### Completed: Fireteam readiness
 

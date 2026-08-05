@@ -23,11 +23,6 @@ const tabs: Array<{ to: string; message: MessageKey; label: string; icon: typeof
   { to: "/fireteam", message: "fireteam", label: "Fireteam", icon: Users }
 ];
 
-const mobileActions: Array<{ to: string; message: MessageKey; label: string; icon: typeof Globe2 }> = [
-  { to: "/director", message: "director", label: "Director", icon: Globe2 }, { to: "/loadouts", message: "loadouts", label: "Loadouts", icon: Layers3 },
-  { to: "/next", message: "plan", label: "Plan", icon: Compass }, { to: "/mailbox", message: "postmaster", label: "Postmaster", icon: Mail }, { to: "/fireteam", message: "fireteam", label: "Fireteam", icon: Users }
-];
-
 export function Shell() {
   const { session, loading, error, signIn, selectedCharacterId, autoRefresh, locale } = useGuardian();
   const text = useMessages(locale);
@@ -104,9 +99,6 @@ export function Shell() {
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>
-      <nav className={styles.mobileDock} aria-label="Mobile quick actions">
-        {mobileActions.map(({ to, message, label, icon: Icon }) => <NavLink key={to} to={to} className={({ isActive }) => isActive ? styles.activeMobileAction : styles.mobileAction}><Icon aria-hidden="true" /><span>{text?.[message] || label}</span></NavLink>)}
-      </nav>
       {showScrollTop && <button type="button" className={styles.scrollTop} aria-label="Scroll to top" title="Scroll to top" onClick={() => window.scrollTo({ top: 0, behavior: document.documentElement.dataset.reducedMotion === "true" ? "auto" : "smooth" })}><ArrowUp /></button>}
       <footer className={styles.footer}><span>Guardian Nexus</span><span>Destiny companion</span><span>Activity data may be delayed</span></footer>
       <Suspense fallback={<aside aria-label="Guardian options" aria-hidden="true" inert />}>

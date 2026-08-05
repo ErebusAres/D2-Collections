@@ -1,8 +1,8 @@
 import type { FireteamData, ReportAdminSummaryData, SiteLocale, SiteTextScale } from "@guardian-nexus/contracts";
-import { Bug, ChevronRight, ClipboardList, Download, Eye, GitCompareArrows, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
+import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
 import { clearGuardianOfflineData } from "../../services/api/offlineCache";
 import { LIVE_REFRESH_INTERVAL_SECONDS } from "../../services/liveRefresh";
@@ -12,11 +12,6 @@ import styles from "./OptionsPanel.module.css";
 import { SUPPORTED_LOCALES, useMessages, type MessageKey } from "../../modules/i18n/catalog";
 import { parseTrackedBuilds } from "../../modules/buildAdvisor/buildTracking";
 
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-}
-
 export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: { open: boolean; onClose: () => void; returnFocusRef?: RefObject<HTMLButtonElement | null>; reportSummary?: ReportAdminSummaryData }) {
   const guardianState = useGuardian();
   const text = useMessages(guardianState.locale);
@@ -25,7 +20,6 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
   const closeRef = useRef<HTMLButtonElement>(null);
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const session = guardianState.session;
   const fireteam = useQuery({
     queryKey: ["fireteam", guardianState.selectedCharacterId],
@@ -72,27 +66,6 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [onClose, open, returnFocusRef]);
-  useEffect(() => {
-    const offerInstall = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
-    };
-    const clearInstall = () => setInstallPrompt(null);
-    window.addEventListener("beforeinstallprompt", offerInstall);
-    window.addEventListener("appinstalled", clearInstall);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", offerInstall);
-      window.removeEventListener("appinstalled", clearInstall);
-    };
-  }, []);
-
-  const installApp = async () => {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    await installPrompt.userChoice;
-    setInstallPrompt(null);
-  };
-
   const hasAdminTools = Boolean(session?.roles.reportAdmin || session?.roles.dev || session?.roles.matrixWriter);
 
   return (
@@ -117,7 +90,6 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
           <Toggle label={translated("highContrast", "High contrast")} description="Increase text, border, focus, and status contrast." checked={Boolean(guardianState.highContrast)} onChange={guardianState.setHighContrast || (() => undefined)} />
           <label className={styles.toggle}><span><b>{translated("textSize", "Interface size")}</b><small>Enlarges the full Guardian Nexus interface, including text that uses fixed component sizing.</small></span><select value={guardianState.textScale || "standard"} onChange={(event) => guardianState.setTextScale?.(event.target.value as SiteTextScale)}><option value="standard">{translated("standard", "Standard")}</option><option value="large">{translated("large", "Large")}</option><option value="largest">{translated("largest", "Largest")}</option></select></label>
           <label className={styles.toggle}><span><b>{translated("language", "Core language preview")}</b><small>Currently translates navigation and these settings only. Page content and Bungie game data remain in English.</small></span><select value={guardianState.locale || "en-US"} onChange={(event) => guardianState.setLocale?.(event.target.value as SiteLocale)}>{SUPPORTED_LOCALES.map((entry) => <option key={entry.value} value={entry.value}>{entry.label}</option>)}</select></label>
-          {installPrompt && <button type="button" className={styles.installApp} onClick={() => void installApp()}><Download /><span><b>Install Guardian Nexus</b><small>Add the companion to this device for quicker access.</small></span></button>}
         </section>
         {session?.authenticated && <section>
           <h3>Fireteam privacy</h3>

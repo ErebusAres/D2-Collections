@@ -12,11 +12,11 @@ Last updated: 2026-08-05
 - **Share Cards retirement:** Guardian Share Cards duplicated public Builds and Fireteam readiness without live verification. New creation and user-facing navigation are removed. Existing private records, owner revocation, and previously issued unlisted links remain readable for privacy and backward compatibility.
 
 - **Live from PR #53:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are deployed.
-- **Live from PR #53:** The Phase 3 session planner and Phase 4 installable PWA foundation are deployed.
+- **Live from PR #53:** The Phase 3 session planner was deployed. The former installable PWA foundation has since been retired.
 - **Implemented on the PR branch:** Phase 2 weapon manifest, private physical-roll normalization, duplicate/perk comparison, crafted/enhanced visibility, wishlist support, explainable review states, and existing Gear actions.
 - **Live from PR #53:** Versioned account-private watchlists cover items, perks, Xûr offers, Collection unlocks, catalysts, pursuits, Rewards Pass claims, and Postmaster thresholds with browser-alert consent, reset-aware expiry, and explicit unknown states.
 - **Validated on the PR branch:** The session planner now uses source-aware effort confidence, objective overlap, known deadline urgency, and explicit handoff into Fireteam tracking.
-- **Validated on the PR branch:** Mobile/PWA readiness now includes a safe-area-aware phone dock, prioritized app shortcuts, native install prompting, cache migration, and regression coverage.
+- **Mobile/PWA retirement:** Mobile-specific planning is paused. Install prompting, the phone dock, app manifest, and service-worker caching are removed; ordinary responsive browser behavior remains.
 - **Validated on the PR branch:** Activity-scoped Fireteam readiness uses explicit opt-in, player-confirmed roles and prerequisites, public build summaries, and an official Bungie Fireteam Finder handoff without sharing inventory or Collections.
 - **Validated on the PR branch:** Build snapshots now support public discovery, unlisted direct links, private drafts, and a versioned account-neutral JSON export/import path.
 - **Validated on the PR branch:** Guardian snapshots are separately stored, player-curated, private by default, optionally unlisted through unguessable links, field-selective, and revocable; inventory and Collections fields are rejected.
@@ -65,10 +65,9 @@ Last updated: 2026-08-05
 - [x] A session planner using available time, solo or Fireteam preference, desired outcome, tracked goals, rotations, and reset deadlines.
 - [x] Plans maximize overlapping progress and can be sent to Fireteam tracking.
 
-## Phase 4: Mobile and Fireteam readiness
+## Phase 4: Fireteam readiness
 
-- [x] Installable, responsive second-screen navigation for Director, alerts, Postmaster, tracked goals, and Fireteam, with safe-area support and native install prompting.
-- [x] Finish narrow-layout review of feature-specific Xur and quick-inventory surfaces as those pages evolve.
+- Mobile-specific installation, navigation, and optimization work is retired from active scope.
 - [x] Activity-scoped readiness with explicitly shared roles, prerequisites, and public build summaries.
 - [x] Recruitment remains in Bungie's official Fireteam Finder; Guardian Nexus prepares the group and links outward.
 
