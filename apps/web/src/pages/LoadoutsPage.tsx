@@ -126,17 +126,20 @@ function LoadoutSlotVisual({ loadout, number }: { loadout: GuardianLoadout; numb
 }
 
 function LoadoutTooltip({ loadout, number, characterClass, anchor, pinned }: { loadout: GuardianLoadout; number: number; characterClass: string; anchor: DOMRect; pinned: boolean }) {
-  const width = 238;
-  const estimatedHeight = 92;
+  const exotics = loadout.equipment.filter((item, index, items) => item.rarity.toLowerCase() === "exotic" && items.findIndex((candidate) => candidate.instanceId === item.instanceId) === index);
+  const width = 278;
+  const estimatedHeight = 92 + (exotics.length ? 48 : 0);
   const left = Math.min(Math.max(8, anchor.left + anchor.width / 2 - width / 2), Math.max(8, window.innerWidth - width - 8));
+  const arrowX = Math.min(Math.max(14, anchor.left + anchor.width / 2 - left), width - 14);
   const fitsBelow = anchor.bottom + estimatedHeight + 12 <= window.innerHeight;
   const placement = pinned || fitsBelow ? "below" : "above";
   const top = placement === "below" ? anchor.bottom + 8 : Math.max(8, anchor.top - estimatedHeight - 8);
-  const style = { left, top, width, "--tooltip-color": loadout.color ? `url(${loadout.color})` : "none" } as React.CSSProperties;
+  const style = { left, top, width, "--tooltip-arrow-x": `${arrowX}px`, "--tooltip-color": loadout.color ? `url(${loadout.color})` : "none" } as React.CSSProperties;
   return createPortal(<aside className={styles.loadoutTooltip} data-placement={placement} style={style} role="tooltip">
     <LoadoutSlotVisual loadout={loadout} number={number} />
-    <div><small>Saved loadout {number}</small><strong>{loadout.name}</strong><span>{characterClass} · {loadout.element || "Subclass element unavailable"}</span></div>
+    <div className={styles.tooltipIdentity}><small>Saved loadout {number}</small><strong>{loadout.name}</strong><span>{characterClass} · {loadout.element || "Subclass element unavailable"}</span></div>
     <i aria-label={loadout.color ? "In-game loadout color" : "In-game loadout color unavailable"} />
+    {exotics.length > 0 && <div className={styles.tooltipExotics} aria-label="Saved Exotics">{exotics.map((item) => <span key={item.instanceId}>{item.icon ? <img src={item.icon} alt="" /> : <CircleHelp />}<b>{item.name}</b><small>{item.equipmentSlot}</small></span>)}</div>}
   </aside>, document.body);
 }
 

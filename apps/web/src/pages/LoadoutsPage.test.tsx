@@ -27,10 +27,15 @@ describe("Loadouts page", () => {
     const firstJump = screen.getByRole("link", { name: "Jump to loadout 1: Alpha" });
     expect(firstJump.querySelector('img[src="/loadout-icon.png"]')).toBeTruthy();
     expect(firstJump.querySelector("b")?.textContent).toBe("1");
+    firstJump.getBoundingClientRect = vi.fn(() => ({ left: 900, right: 940, top: 20, bottom: 60, width: 40, height: 40 } as DOMRect));
     fireEvent.mouseEnter(firstJump);
     const tooltip = screen.getByRole("tooltip");
     expect(tooltip.textContent).toContain("Alpha");
     expect(tooltip.textContent).toContain("Hunter · Solar");
+    expect(tooltip.textContent).toContain("Exotic Rifle");
+    expect(tooltip.textContent).toContain("Exotic Helmet");
+    expect(tooltip.querySelector('[aria-label="Saved Exotics"] img[src="/exotic-rifle.png"]')).toBeTruthy();
+    expect(Number.parseFloat(tooltip.style.left) + Number.parseFloat(tooltip.style.getPropertyValue("--tooltip-arrow-x"))).toBe(920);
     expect(tooltip.getAttribute("data-placement")).toBe("below");
     fireEvent.mouseLeave(firstJump);
     expect(screen.queryByRole("tooltip")).toBeNull();
@@ -74,5 +79,7 @@ function envelope(savedCount = 1) {
 
 function loadout(index: number, name: string): GuardianLoadout {
   const item = { instanceId: `${index}-weapon`, itemHash: "20", name: "Test Rifle", icon: "/rifle.png", itemType: "Auto Rifle", rarity: "Legendary", equipmentSlot: "Kinetic Weapons", definitionAvailable: true, sockets: [] };
-  return { index, name, icon: "/loadout-icon.png", color: "/loadout-color.png", element: "Solar", items: [item], equipment: [item], artifactMods: [], isPrismatic: false, abilities: [], aspects: [], fragments: [], modifiers: [], unresolvedItemCount: 0 };
+  const exoticWeapon = { ...item, instanceId: `${index}-exotic-weapon`, itemHash: "21", name: "Exotic Rifle", icon: "/exotic-rifle.png", rarity: "Exotic" };
+  const exoticArmor = { ...item, instanceId: `${index}-exotic-armor`, itemHash: "22", name: "Exotic Helmet", icon: "/exotic-helmet.png", itemType: "Helmet", rarity: "Exotic", equipmentSlot: "Helmet" };
+  return { index, name, icon: "/loadout-icon.png", color: "/loadout-color.png", element: "Solar", items: [item, exoticWeapon, exoticArmor], equipment: [item, exoticWeapon, exoticArmor], artifactMods: [], isPrismatic: false, abilities: [], aspects: [], fragments: [], modifiers: [], unresolvedItemCount: 0 };
 }
