@@ -1,7 +1,7 @@
 import type { EquipLoadoutRequest, EquipLoadoutResult, GuardianLoadout, LoadoutItem, LoadoutSocket, LoadoutsData } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowUp, Boxes, ChevronDown, ChevronUp, CircleHelp, Cpu, FilePlus2, RefreshCw, Sparkles, Zap } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, ArrowUp, Boxes, ChevronDown, ChevronUp, CircleHelp, Cpu, FilePlus2, GripHorizontal, RefreshCw, Sparkles, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, mutationHeaders } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
@@ -65,7 +65,33 @@ function LoadoutCard({ loadout, collapsed, onToggle, equippedState, busy = false
 }
 
 function LoadoutNavigator({ loadouts }: { loadouts: GuardianLoadout[] }) {
-  return <nav className={styles.loadoutNavigator} aria-label="Loadout jump list"><a href="#page-top" className={styles.navigatorTop}><ArrowUp /><span>Top</span></a><a href="#loadout-equipped"><b>0</b><span>Equipped</span></a>{loadouts.map((loadout, index) => <a href={`#loadout-${loadout.index}`} key={loadout.index}><b>{index + 1}</b><span>{loadout.name}</span></a>)}</nav>;
+  const sentinelRef = useRef<HTMLSpanElement>(null);
+  const [pinned, setPinned] = useState(false);
+  const [activated, setActivated] = useState(false);
+  const [stickyTop, setStickyTop] = useState(0);
+  useEffect(() => {
+    const update = () => {
+      const headerBottom = Math.max(0, document.querySelector<HTMLElement>("[data-site-header]")?.getBoundingClientRect().bottom || 0);
+      setStickyTop((current) => current === headerBottom ? current : headerBottom);
+      setPinned((current) => {
+        const next = Boolean(sentinelRef.current && sentinelRef.current.getBoundingClientRect().top <= headerBottom);
+        return current === next ? current : next;
+      });
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
+  useEffect(() => { if (!pinned) setActivated(false); }, [pinned]);
+  const available = loadouts.slice(0, 20);
+  return <><span ref={sentinelRef} className={styles.navigatorSentinel} data-testid="loadout-jump-sentinel" aria-hidden="true" /><nav className={`${styles.loadoutNavigator} ${pinned ? styles.navigatorPinned : ""} ${activated ? styles.navigatorActivated : ""}`} style={{ "--loadout-sticky-top": `${stickyTop}px` } as React.CSSProperties} aria-label="Loadout jump list">
+    <div className={styles.navigatorFrame}><a href="#page-top" className={styles.navigatorTop} onClick={() => setActivated(false)}><ArrowUp /><span>Top</span></a><span className={styles.navigatorLabel}>Jump to loadout</span><div className={styles.navigatorNumbers}>{available.map((loadout, index) => <a href={`#loadout-${loadout.index}`} key={loadout.index} title={`${index + 1} · ${loadout.name}`} aria-label={`Jump to loadout ${index + 1}: ${loadout.name}`} onClick={() => setActivated(false)}>{index + 1}</a>)}</div></div>
+    <button type="button" className={styles.navigatorHandle} aria-label={activated ? "Hide loadout jump list" : "Show loadout jump list"} aria-expanded={!pinned || activated} onClick={() => setActivated((current) => !current)}><GripHorizontal /><span>Jump to loadout</span></button>
+  </nav></>;
 }
 
 function toggleCollapsed(setCollapsed: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) {

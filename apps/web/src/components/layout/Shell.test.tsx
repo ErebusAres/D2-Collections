@@ -77,6 +77,7 @@ describe("Shell guardian identity", () => {
     );
 
     expect(container.querySelector('img[src="/emblem.svg"]')).toBeTruthy();
+    expect(container.querySelector("[data-site-header]")).toBeTruthy();
     expect(screen.getByTestId("guardian-banner")).toBeTruthy();
     expect(container.querySelector("[style]")?.getAttribute("style")).toContain("--guardian-banner: url(/banner.svg)");
     expect(screen.getByRole("button", { name: "Open notifications" })).toBeTruthy();
