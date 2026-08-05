@@ -71,7 +71,7 @@ export function Shell() {
   return (
     <div className={styles.shell} style={character?.emblemBackgroundPath ? { "--guardian-banner": `url(${character.emblemBackgroundPath})` } as React.CSSProperties : undefined}>
       <div className={styles.ambient} aria-hidden="true" />
-      <header className={styles.header}>
+      <header className={styles.header} data-site-header>
         <GuardianFeed controller={notifications} />
         <div className={styles.identityBar}>
           <NavLink to="/director" className={styles.brand} aria-label="Guardian Nexus home">
