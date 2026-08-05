@@ -10,6 +10,8 @@ The original roadmap and catalog corrections are live on `main`. Build Advisor t
 
 The Alerts & Watches page has been removed from navigation, routing, mobile shortcuts, and the PWA shortcut list pending a later product rethink. Existing private watchlist preference parsing remains for backward compatibility with Build Advisor and Weapon Rolls data. Loadouts now includes a separately labeled live Equipped area, honest partial/unavailable states, collapsible cards with icon previews, and a header-docked horizontal jump frame. Saved-loadout markers reuse Bungie's returned icon and color assets, retain the in-game slot number, and expose viewport-aware name/class/element tooltips.
 
+Guardian Share Cards have also been retired as a creation surface because they duplicated public Builds and Fireteam readiness while becoming stale manually. The primary navigation and Projects link are removed, and POST creation returns a retired-feature response. Legacy `/snapshots` management and unlisted direct links remain available solely so existing account-private cards are not deleted or made impossible to review and revoke.
+
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`

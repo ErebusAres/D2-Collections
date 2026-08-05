@@ -3,7 +3,7 @@ import { loadMessages, siteLocale, SUPPORTED_LOCALES, type MessageKey } from "./
 
 describe("interface message catalogs", () => {
   it("keeps every translated locale complete and leaves English in the interface bundle", async () => {
-    const keys: MessageKey[] = ["director", "collection", "xur", "journey", "gear", "loadouts", "builds", "buildAdvisor", "watchlists", "snapshots", "fireteam", "alerts", "plan", "postmaster", "options", "settings", "experience", "autoRefresh", "reduceMotion", "highContrast", "textSize", "language", "standard", "large", "largest"];
+    const keys: MessageKey[] = ["director", "collection", "xur", "journey", "gear", "loadouts", "builds", "buildAdvisor", "watchlists", "fireteam", "alerts", "plan", "postmaster", "options", "settings", "experience", "autoRefresh", "reduceMotion", "highContrast", "textSize", "language", "standard", "large", "largest"];
     for (const locale of SUPPORTED_LOCALES.filter((entry) => entry.value !== "en-US")) {
       const catalog = await loadMessages(locale.value);
       expect(catalog).toBeDefined();

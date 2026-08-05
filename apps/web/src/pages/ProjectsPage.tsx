@@ -1,7 +1,6 @@
 import type { GuardianProject, GuardianProjectItemState, GuardianProjectKind, GuardianProjectsDocument } from "@guardian-nexus/contracts";
-import { ArchiveRestore, CalendarClock, Check, Circle, Copy, Download, ExternalLink, FolderKanban, IdCard, Plus, SkipForward, Trash2, Upload, Users } from "lucide-react";
+import { ArchiveRestore, CalendarClock, Check, Circle, Copy, Download, ExternalLink, FolderKanban, Plus, SkipForward, Trash2, Upload, Users } from "lucide-react";
 import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Link } from "react-router-dom";
 import { AuthGate, PageHeader } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import { parseProjects, PROJECT_KINDS, projectProgress } from "../modules/projects/projects";
@@ -61,7 +60,7 @@ export function ProjectsPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Private coordination" title="Guardian projects" description="Plan activities, prepare clan sessions, and keep reusable collection checklists in one account-private workspace." actions={<Link to="/snapshots" style={{ minHeight: 36, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 10px", border: "1px solid var(--line)", color: "var(--ink)", textDecoration: "none" }}><IdCard size={16} /> Guardian snapshots</Link>} />
+    <PageHeader eyebrow="Private coordination" title="Guardian projects" description="Plan activities, prepare clan sessions, and keep reusable collection checklists in one account-private workspace." />
     <section className={styles.privacy}><Users /><div><strong>Only you can see this workspace</strong><p>Names are optional planning labels, not verified Bungie identities. Nothing here is published or sent to clan members.</p></div><span>Versioned account preference</span></section>
     <section className={styles.layout}>
       <form className={styles.creator} onSubmit={submit}>

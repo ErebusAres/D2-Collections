@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 export type MessageKey =
   | "director" | "collection" | "xur" | "journey" | "gear" | "loadouts" | "builds"
-  | "buildAdvisor" | "watchlists" | "snapshots" | "fireteam" | "alerts" | "plan" | "postmaster"
+  | "buildAdvisor" | "watchlists" | "fireteam" | "alerts" | "plan" | "postmaster"
   | "options" | "settings" | "experience" | "autoRefresh" | "reduceMotion" | "highContrast"
   | "textSize" | "language" | "standard" | "large" | "largest";
 

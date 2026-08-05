@@ -20,7 +20,7 @@ const tabs: Array<{ to: string; message: MessageKey; label: string; icon: typeof
   { to: "/director", message: "director", label: "Director", icon: Globe2 }, { to: "/collection", message: "collection", label: "Collection", icon: Boxes },
   { to: "/xur", message: "xur", label: "Xûr", icon: Coins }, { to: "/journey", message: "journey", label: "Journey", icon: ListTodo }, { to: "/gear", message: "gear", label: "Gear", icon: ShieldEllipsis },
   { to: "/loadouts", message: "loadouts", label: "Loadouts", icon: Layers3 }, { to: "/builds", message: "builds", label: "Builds", icon: Hammer }, { to: "/build-advisor", message: "buildAdvisor", label: "Build Advisor", icon: ScanSearch },
-  { to: "/snapshots", message: "snapshots", label: "Share Cards", icon: Badge }, { to: "/fireteam", message: "fireteam", label: "Fireteam", icon: Users }
+  { to: "/fireteam", message: "fireteam", label: "Fireteam", icon: Users }
 ];
 
 const mobileActions: Array<{ to: string; message: MessageKey; label: string; icon: typeof Globe2 }> = [
