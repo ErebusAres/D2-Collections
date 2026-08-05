@@ -1,4 +1,4 @@
-import type { ApiEnvelope, GuardianSnapshot, GuardianSnapshotDocument, GuardianSnapshotsData } from "@guardian-nexus/contracts";
+import type { ApiEnvelope, GuardianSnapshot, GuardianSnapshotsData } from "@guardian-nexus/contracts";
 import { z } from "zod";
 import { httpError, requireCsrf, sessionFromRequest } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
@@ -29,11 +29,7 @@ export async function guardianSnapshotsRoute(request: Request, env: Env, context
     return response<GuardianSnapshotsData>({ snapshots: (rows.results || []).flatMap((row) => { const snapshot = safeSnapshot(row, session.row); return snapshot ? [snapshot] : []; }) }, env, context);
   }
   if (path === "/api/v1/snapshots" && request.method === "POST") {
-    if (!session) throw httpError(401, "authentication_required", "Sign in to create a Guardian snapshot.");
-    await requireCsrf(request, session.token, env);
-    const parsed = guardianSnapshotSchema.safeParse(await request.json());
-    if (!parsed.success) throw httpError(400, "snapshot_validation_failed", parsed.error.issues[0]?.message || "Review the snapshot fields.");
-    return createSnapshot(parsed.data, session.row, env, context);
+    throw httpError(410, "snapshot_feature_retired", "Guardian Share Cards have been retired. Existing cards remain available for review or revocation.");
   }
   const match = path.match(/^\/api\/v1\/snapshots\/([a-z0-9-]+)$/i);
   if (!match) return null;
@@ -54,13 +50,6 @@ export async function guardianSnapshotsRoute(request: Request, env: Env, context
     return response({ deleted: true }, env, context);
   }
   return null;
-}
-
-async function createSnapshot(document: GuardianSnapshotDocument, owner: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const now = new Date().toISOString();
-  const slug = crypto.randomUUID();
-  await env.DB.prepare("INSERT INTO guardian_snapshots (id, slug, owner_membership_id, visibility, document_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), slug, owner.membership_id, document.visibility, JSON.stringify(document), now, now).run();
-  return response<GuardianSnapshot>({ slug, document, createdAt: now, updatedAt: now, canEdit: true }, env, context);
 }
 
 function safeSnapshot(row: SnapshotRow, viewer?: SessionRow): GuardianSnapshot | undefined {
