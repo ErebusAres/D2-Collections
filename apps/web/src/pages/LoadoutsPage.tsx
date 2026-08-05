@@ -2,6 +2,7 @@ import type { EquipLoadoutRequest, EquipLoadoutResult, GuardianLoadout, LoadoutI
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ArrowUp, Boxes, ChevronDown, ChevronUp, CircleHelp, Cpu, FilePlus2, GripHorizontal, RefreshCw, Sparkles, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { api, mutationHeaders } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
@@ -34,13 +35,13 @@ export function LoadoutsPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.notice}><Zap /><div><span>Hot swap</span><strong>{data.characterClass} · {data.loadouts.length} saved loadout{data.loadouts.length === 1 ? "" : "s"}</strong><p>{data.equipRestriction}</p></div></section>
-      <LoadoutNavigator loadouts={data.loadouts} />
+      <LoadoutNavigator loadouts={data.loadouts} characterClass={data.characterClass} />
       <section className={styles.equippedArea} id="loadout-equipped">
         <div className={styles.areaHeading}><span>0</span><div><small>Selected Guardian now</small><strong>Equipped area</strong></div></div>
         {data.equipped ? <LoadoutCard loadout={data.equipped} collapsed={collapsed.has("equipped")} onToggle={() => toggleCollapsed(setCollapsed, "equipped")} equippedState={data.equippedState} />
           : <section className={styles.equippedUnavailable}><CircleHelp /><div><strong>Equipped data unavailable</strong><p>Bungie did not return current equipment for this Guardian. Saved loadouts remain available below.</p></div></section>}
       </section>
-      {data.loadouts.length ? <section className={styles.loadoutGrid}>{data.loadouts.map((loadout, listIndex) => <div id={`loadout-${loadout.index}`} className={styles.loadoutAnchor} key={loadout.index}><div className={styles.areaHeading}><span>{listIndex + 1}</span><div><small>Saved loadout</small><strong>{loadout.name}</strong></div></div><LoadoutCard loadout={loadout} collapsed={collapsed.has(String(loadout.index))} onToggle={() => toggleCollapsed(setCollapsed, String(loadout.index))} busy={equip.isPending} canCreateBuild={Boolean(session?.roles.buildEditor)} onCreateBuild={() => {
+      {data.loadouts.length ? <section className={styles.loadoutGrid}>{data.loadouts.map((loadout, listIndex) => <div id={`loadout-${loadout.index}`} className={styles.loadoutAnchor} key={loadout.index}><div className={styles.areaHeading}><LoadoutHeadingBadge loadout={loadout} number={listIndex + 1} characterClass={data.characterClass} /><div><small>Saved loadout</small><strong>{loadout.name}</strong></div></div><LoadoutCard loadout={loadout} collapsed={collapsed.has(String(loadout.index))} onToggle={() => toggleCollapsed(setCollapsed, String(loadout.index))} busy={equip.isPending} canCreateBuild={Boolean(session?.roles.buildEditor)} onCreateBuild={() => {
         const token = storeLoadoutBuildImport({ version: 1, sourceName: loadout.name, sourceIndex: loadout.index, document: buildDocumentFromLoadout(loadout, data.characterClass) });
         navigate(`/builds/new?fromLoadout=${encodeURIComponent(token)}`);
       }} onEquip={() => window.confirm(`Equip ${loadout.name} on the selected ${data.characterClass}? Bungie will reject the change if the current activity does not allow loadout changes.`) && equip.mutate({ loadoutIndex: loadout.index, characterId: data.characterId })} /></div>)}</section>
@@ -64,7 +65,7 @@ function LoadoutCard({ loadout, collapsed, onToggle, equippedState, busy = false
   </article>;
 }
 
-function LoadoutNavigator({ loadouts }: { loadouts: GuardianLoadout[] }) {
+function LoadoutNavigator({ loadouts, characterClass }: { loadouts: GuardianLoadout[]; characterClass: string }) {
   const sentinelRef = useRef<HTMLSpanElement>(null);
   const [pinned, setPinned] = useState(false);
   const [activated, setActivated] = useState(false);
@@ -89,9 +90,54 @@ function LoadoutNavigator({ loadouts }: { loadouts: GuardianLoadout[] }) {
   useEffect(() => { if (!pinned) setActivated(false); }, [pinned]);
   const available = loadouts.slice(0, 20);
   return <><span ref={sentinelRef} className={styles.navigatorSentinel} data-testid="loadout-jump-sentinel" aria-hidden="true" /><nav className={`${styles.loadoutNavigator} ${pinned ? styles.navigatorPinned : ""} ${activated ? styles.navigatorActivated : ""}`} style={{ "--loadout-sticky-top": `${stickyTop}px` } as React.CSSProperties} aria-label="Loadout jump list">
-    <div className={styles.navigatorFrame}><a href="#page-top" className={styles.navigatorTop} onClick={() => setActivated(false)}><ArrowUp /><span>Top</span></a><span className={styles.navigatorLabel}>Jump to loadout</span><div className={styles.navigatorNumbers}>{available.map((loadout, index) => <a href={`#loadout-${loadout.index}`} key={loadout.index} title={`${index + 1} · ${loadout.name}`} aria-label={`Jump to loadout ${index + 1}: ${loadout.name}`} onClick={() => setActivated(false)}>{index + 1}</a>)}</div></div>
+    <div className={styles.navigatorFrame}><a href="#page-top" className={styles.navigatorTop} onClick={() => setActivated(false)}><ArrowUp /><span>Top</span></a><span className={styles.navigatorLabel}>Jump to loadout</span><div className={styles.navigatorNumbers}>{available.map((loadout, index) => <LoadoutJumpLink key={loadout.index} loadout={loadout} number={index + 1} characterClass={characterClass} pinned={pinned} onJump={() => setActivated(false)} />)}</div></div>
     <button type="button" className={styles.navigatorHandle} aria-label={activated ? "Hide loadout jump list" : "Show loadout jump list"} aria-expanded={!pinned || activated} onClick={() => setActivated((current) => !current)}><GripHorizontal /><span>Jump to loadout</span></button>
   </nav></>;
+}
+
+function LoadoutJumpLink({ loadout, number, characterClass, pinned, onJump }: { loadout: GuardianLoadout; number: number; characterClass: string; pinned: boolean; onJump: () => void }) {
+  const [anchor, setAnchor] = useState<DOMRect>();
+  const show = (element: HTMLElement) => setAnchor(element.getBoundingClientRect());
+  return <>
+    <a href={`#loadout-${loadout.index}`} aria-label={`Jump to loadout ${number}: ${loadout.name}`} onMouseEnter={(event) => show(event.currentTarget)} onMouseLeave={() => setAnchor(undefined)} onFocus={(event) => show(event.currentTarget)} onBlur={() => setAnchor(undefined)} onClick={onJump}>
+      <LoadoutSlotVisual loadout={loadout} number={number} />
+    </a>
+    {anchor && <LoadoutTooltip loadout={loadout} number={number} characterClass={characterClass} anchor={anchor} pinned={pinned} />}
+  </>;
+}
+
+function LoadoutHeadingBadge({ loadout, number, characterClass }: { loadout: GuardianLoadout; number: number; characterClass: string }) {
+  const [anchor, setAnchor] = useState<DOMRect>();
+  const show = (element: HTMLElement) => setAnchor(element.getBoundingClientRect());
+  return <>
+    <span className={styles.headingLoadoutBadge} role="img" tabIndex={0} aria-label={`Loadout ${number}: ${loadout.name}`} onMouseEnter={(event) => show(event.currentTarget)} onMouseLeave={() => setAnchor(undefined)} onFocus={(event) => show(event.currentTarget)} onBlur={() => setAnchor(undefined)}>
+      <LoadoutSlotVisual loadout={loadout} number={number} />
+    </span>
+    {anchor && <LoadoutTooltip loadout={loadout} number={number} characterClass={characterClass} anchor={anchor} pinned={false} />}
+  </>;
+}
+
+function LoadoutSlotVisual({ loadout, number }: { loadout: GuardianLoadout; number: number }) {
+  const style = loadout.color ? { "--slot-color": `url(${loadout.color})` } as React.CSSProperties : undefined;
+  return <span className={`${styles.loadoutSlotVisual} ${!loadout.color ? styles.loadoutSlotFallback : ""}`} style={style} aria-hidden="true">
+    {loadout.icon ? <img src={loadout.icon} alt="" /> : <Cpu />}
+    <b>{number}</b>
+  </span>;
+}
+
+function LoadoutTooltip({ loadout, number, characterClass, anchor, pinned }: { loadout: GuardianLoadout; number: number; characterClass: string; anchor: DOMRect; pinned: boolean }) {
+  const width = 238;
+  const estimatedHeight = 92;
+  const left = Math.min(Math.max(8, anchor.left + anchor.width / 2 - width / 2), Math.max(8, window.innerWidth - width - 8));
+  const fitsBelow = anchor.bottom + estimatedHeight + 12 <= window.innerHeight;
+  const placement = pinned || fitsBelow ? "below" : "above";
+  const top = placement === "below" ? anchor.bottom + 8 : Math.max(8, anchor.top - estimatedHeight - 8);
+  const style = { left, top, width, "--tooltip-color": loadout.color ? `url(${loadout.color})` : "none" } as React.CSSProperties;
+  return createPortal(<aside className={styles.loadoutTooltip} data-placement={placement} style={style} role="tooltip">
+    <LoadoutSlotVisual loadout={loadout} number={number} />
+    <div><small>Saved loadout {number}</small><strong>{loadout.name}</strong><span>{characterClass} · {loadout.element || "Subclass element unavailable"}</span></div>
+    <i aria-label={loadout.color ? "In-game loadout color" : "In-game loadout color unavailable"} />
+  </aside>, document.body);
 }
 
 function toggleCollapsed(setCollapsed: React.Dispatch<React.SetStateAction<Set<string>>>, key: string) {

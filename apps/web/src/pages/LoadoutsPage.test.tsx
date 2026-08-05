@@ -24,6 +24,16 @@ describe("Loadouts page", () => {
       ["Top", "#page-top"], ["1", "#loadout-0"]
     ]);
     expect(jumpList.querySelector('a[href="#loadout-equipped"]')).toBeNull();
+    const firstJump = screen.getByRole("link", { name: "Jump to loadout 1: Alpha" });
+    expect(firstJump.querySelector('img[src="/loadout-icon.png"]')).toBeTruthy();
+    expect(firstJump.querySelector("b")?.textContent).toBe("1");
+    fireEvent.mouseEnter(firstJump);
+    const tooltip = screen.getByRole("tooltip");
+    expect(tooltip.textContent).toContain("Alpha");
+    expect(tooltip.textContent).toContain("Hunter · Solar");
+    expect(tooltip.getAttribute("data-placement")).toBe("below");
+    fireEvent.mouseLeave(firstJump);
+    expect(screen.queryByRole("tooltip")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Minimize Alpha" }));
     const expand = screen.getByRole("button", { name: "Expand Alpha" });
     expect(expand.getAttribute("aria-expanded")).toBe("false");
@@ -64,5 +74,5 @@ function envelope(savedCount = 1) {
 
 function loadout(index: number, name: string): GuardianLoadout {
   const item = { instanceId: `${index}-weapon`, itemHash: "20", name: "Test Rifle", icon: "/rifle.png", itemType: "Auto Rifle", rarity: "Legendary", equipmentSlot: "Kinetic Weapons", definitionAvailable: true, sockets: [] };
-  return { index, name, icon: "", color: "", element: "Solar", items: [item], equipment: [item], artifactMods: [], isPrismatic: false, abilities: [], aspects: [], fragments: [], modifiers: [], unresolvedItemCount: 0 };
+  return { index, name, icon: "/loadout-icon.png", color: "/loadout-color.png", element: "Solar", items: [item], equipment: [item], artifactMods: [], isPrismatic: false, abilities: [], aspects: [], fragments: [], modifiers: [], unresolvedItemCount: 0 };
 }
