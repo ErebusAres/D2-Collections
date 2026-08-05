@@ -1,6 +1,6 @@
 import type { ReportAdminSummaryData, RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, Radar, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
+import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
@@ -20,11 +20,11 @@ const tabs: Array<{ to: string; message: MessageKey; label: string; icon: typeof
   { to: "/director", message: "director", label: "Director", icon: Globe2 }, { to: "/collection", message: "collection", label: "Collection", icon: Boxes },
   { to: "/xur", message: "xur", label: "Xûr", icon: Coins }, { to: "/journey", message: "journey", label: "Journey", icon: ListTodo }, { to: "/gear", message: "gear", label: "Gear", icon: ShieldEllipsis },
   { to: "/loadouts", message: "loadouts", label: "Loadouts", icon: Layers3 }, { to: "/builds", message: "builds", label: "Builds", icon: Hammer }, { to: "/build-advisor", message: "buildAdvisor", label: "Build Advisor", icon: ScanSearch },
-  { to: "/watchlists", message: "watchlists", label: "Alerts & Watches", icon: Radar }, { to: "/snapshots", message: "snapshots", label: "Share Cards", icon: Badge }, { to: "/fireteam", message: "fireteam", label: "Fireteam", icon: Users }
+  { to: "/snapshots", message: "snapshots", label: "Share Cards", icon: Badge }, { to: "/fireteam", message: "fireteam", label: "Fireteam", icon: Users }
 ];
 
 const mobileActions: Array<{ to: string; message: MessageKey; label: string; icon: typeof Globe2 }> = [
-  { to: "/director", message: "director", label: "Director", icon: Globe2 }, { to: "/watchlists", message: "alerts", label: "Alerts", icon: Radar },
+  { to: "/director", message: "director", label: "Director", icon: Globe2 }, { to: "/loadouts", message: "loadouts", label: "Loadouts", icon: Layers3 },
   { to: "/next", message: "plan", label: "Plan", icon: Compass }, { to: "/mailbox", message: "postmaster", label: "Postmaster", icon: Mail }, { to: "/fireteam", message: "fireteam", label: "Fireteam", icon: Users }
 ];
 

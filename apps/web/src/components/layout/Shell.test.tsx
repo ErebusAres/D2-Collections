@@ -84,10 +84,10 @@ describe("Shell guardian identity", () => {
     expect(screen.getByLabelText("Light Level: 409 · Open").getAttribute("href")).toBe("/power");
     expect(screen.getByLabelText("Guardian Rank: 5 · Open").getAttribute("href")).toBe("/journey/guardian-rank");
     const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
-    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Alerts & Watches", "Share Cards", "Fireteam"]);
+    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Share Cards", "Fireteam"]);
     expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");
     const mobileActions = [...screen.getByRole("navigation", { name: "Mobile quick actions" }).querySelectorAll("a")].map((entry) => [entry.textContent, entry.getAttribute("href")]);
-    expect(mobileActions).toEqual([["Director", "/director"], ["Alerts", "/watchlists"], ["Plan", "/next"], ["Postmaster", "/mailbox"], ["Fireteam", "/fireteam"]]);
+    expect(mobileActions).toEqual([["Director", "/director"], ["Loadouts", "/loadouts"], ["Plan", "/next"], ["Postmaster", "/mailbox"], ["Fireteam", "/fireteam"]]);
     const statLabels = [...screen.getByLabelText("Guardian stats").children].map((entry) => entry.getAttribute("aria-label"));
     expect(statLabels.slice(1, 4)).toEqual(["Guardian Rank: 5 · Open", "Crucible Rank: 7 · Brave II · Open", "Rewards Pass: 33 · Open"]);
     expect(screen.getByText("2,750 / 100,000 XP (2%)")).toBeTruthy();
@@ -173,7 +173,7 @@ describe("Shell guardian identity", () => {
     renderShell(<div>Page</div>);
 
     const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
-    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Alerts & Watches", "Share Cards", "Fireteam"]);
+    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Share Cards", "Fireteam"]);
     expect(screen.queryByRole("link", { name: "API Lab" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Guardian Matrix" })).toBeNull();
     expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");

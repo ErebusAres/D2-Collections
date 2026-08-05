@@ -37,7 +37,6 @@ const WhatsHappeningPage = lazy(() => import("./pages/WhatsHappeningPage").then(
 const DistortionsPage = lazy(() => import("./pages/DistortionsPage").then((module) => ({ default: module.DistortionsPage })));
 const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
 const RaidRotationsPage = lazy(() => import("./pages/RaidRotationsPage").then((module) => ({ default: module.RaidRotationsPage })));
-const WatchlistsPage = lazy(() => import("./pages/WatchlistsPage").then((module) => ({ default: module.WatchlistsPage })));
 const FashionPage = lazy(() => import("./pages/FashionPage").then((module) => ({ default: module.FashionPage })));
 const ChallengesPage = lazy(() => import("./pages/ChallengesPage").then((module) => ({ default: module.ChallengesPage })));
 
@@ -56,7 +55,7 @@ export function App() {
         <Route path="whats-happening" element={<Navigate to="/director" replace />} />
         <Route path="distortions" element={<PageRoute><DistortionsPage /></PageRoute>} />
         <Route path="notifications" element={<PageRoute><NotificationsPage /></PageRoute>} />
-        <Route path="watchlists" element={<PageRoute><WatchlistsPage /></PageRoute>} />
+        <Route path="watchlists" element={<Navigate to="/director" replace />} />
         <Route path="activities/raids" element={<PageRoute><RaidRotationsPage /></PageRoute>} />
         <Route path="collection" element={<PageRoute><CollectionPage /></PageRoute>} />
         <Route path="fashion" element={<PageRoute><FashionPage /></PageRoute>} />
