@@ -87,8 +87,7 @@ describe("Shell guardian identity", () => {
     const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
     expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Fireteam"]);
     expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");
-    const mobileActions = [...screen.getByRole("navigation", { name: "Mobile quick actions" }).querySelectorAll("a")].map((entry) => [entry.textContent, entry.getAttribute("href")]);
-    expect(mobileActions).toEqual([["Director", "/director"], ["Loadouts", "/loadouts"], ["Plan", "/next"], ["Postmaster", "/mailbox"], ["Fireteam", "/fireteam"]]);
+    expect(screen.queryByRole("navigation", { name: "Mobile quick actions" })).toBeNull();
     const statLabels = [...screen.getByLabelText("Guardian stats").children].map((entry) => entry.getAttribute("aria-label"));
     expect(statLabels.slice(1, 4)).toEqual(["Guardian Rank: 5 · Open", "Crucible Rank: 7 · Brave II · Open", "Rewards Pass: 33 · Open"]);
     expect(screen.getByText("2,750 / 100,000 XP (2%)")).toBeTruthy();
@@ -114,22 +113,6 @@ describe("Shell guardian identity", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(panel.hasAttribute("inert")).toBe(true);
     expect(document.activeElement).toBe(trigger);
-  });
-
-  it("offers the browser install flow from Options when the app is installable", async () => {
-    renderShell(<div>Page</div>);
-    await screen.findByLabelText("Guardian options", { selector: "[role='dialog']" });
-    const prompt = vi.fn().mockResolvedValue(undefined);
-    const event = new Event("beforeinstallprompt", { cancelable: true });
-    Object.defineProperties(event, {
-      prompt: { value: prompt },
-      userChoice: { value: Promise.resolve({ outcome: "accepted" }) }
-    });
-    fireEvent(window, event);
-    fireEvent.click(screen.getByRole("button", { name: "Open options" }));
-
-    fireEvent.click(await screen.findByRole("button", { name: /Install Guardian Nexus/i }));
-    expect(prompt).toHaveBeenCalledOnce();
   });
 
   it("persists accessibility and preview-locale choices from Options", async () => {

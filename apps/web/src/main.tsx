@@ -10,10 +10,11 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App";
 import { GuardianProvider } from "./context/GuardianContext";
-import { registerGuardianServiceWorker } from "./services/registerServiceWorker";
 import "./styles/theme.css";
 
-registerGuardianServiceWorker();
+if ("serviceWorker" in navigator) {
+  void navigator.serviceWorker.getRegistrations().then((registrations) => Promise.all(registrations.map((registration) => registration.unregister()))).catch(() => undefined);
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {

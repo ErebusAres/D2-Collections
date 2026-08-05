@@ -56,8 +56,6 @@ for (const file of textSourceFiles) {
 }
 
 const requiredFiles = [
-  "apps/web/service-worker.ts",
-  "apps/web/tsconfig.service-worker.json",
   "apps/web/src/styles/loadStylesheet.ts",
   "apps/web/src/styles/guardian-fanfare.css",
 ];
