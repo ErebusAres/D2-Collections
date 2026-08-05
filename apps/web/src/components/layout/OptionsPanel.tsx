@@ -124,7 +124,8 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
           <Toggle label="Always share with friends" description={fireteam.data?.data.sharingMode === "persistent" ? "Background updates are active until you disable sharing or sign out." : "Keep a timestamped last-known snapshot visible to your current fireteam."} checked={fireteam.data?.data.sharingMode === "persistent"} onChange={(value) => setPersistentSharing.mutate(value)} />
         </section>}
         {hasAdminTools && <section className={styles.adminTools}>
-          <h3>Admin tools</h3>
+          <h3>Admin tools{session?.rolesState === "stale" ? " · Last verified" : ""}</h3>
+          {session?.rolesState === "stale" && <p className={styles.adminState}>Live services are reconnecting. Access remains enforced by the server.</p>}
           <div>
             {session?.roles.reportAdmin && <Link className={styles.ticketQueue} to="/reports/admin" onClick={onClose}>
               <ClipboardList size={17} />

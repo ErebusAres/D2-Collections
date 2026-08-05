@@ -275,6 +275,7 @@ export interface SessionData {
   guardian?: GuardianSummary;
   csrfToken?: string;
   roles: { dev: boolean; matrixWriter: boolean; buildEditor: boolean; reportAdmin: boolean };
+  rolesState?: "verified" | "stale";
 }
 
 export type ReportCategory = "bug" | "suggestion" | "feedback" | "data" | "performance" | "accessibility" | "account" | "other";

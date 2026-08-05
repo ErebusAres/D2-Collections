@@ -406,7 +406,7 @@ async function finishAuth(request: Request, env: Env, context: RequestContext): 
 async function readSession(request: Request, env: Env, context: RequestContext): Promise<Response> {
   const visitorCookie = await recordAudienceVisitor(request, env, context);
   const session = await sessionFromRequest(request, env);
-  if (!session) return withSetCookie(envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false } }, env, context), visitorCookie);
+  if (!session) return withSetCookie(envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false }, rolesState: "verified" }, env, context), visitorCookie);
   const { profile, accessToken } = await profileFor(session.row, env, "session");
   const [manifest, pvpManifest] = await Promise.all([loadActivityManifest(env), loadRewardsManifest(env)]);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
@@ -432,7 +432,8 @@ async function readSession(request: Request, env: Env, context: RequestContext):
       matrixWriter: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id),
       buildEditor: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id),
       reportAdmin: isReportAdmin(session.row.membership_id, env)
-    }
+    },
+    rolesState: "verified"
   }, env, context, { sourceMintedAt: profile?.responseMintedTimestamp }), visitorCookie);
 }
 
