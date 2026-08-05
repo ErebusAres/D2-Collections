@@ -11,8 +11,6 @@ let devRole = false;
 let reportAdminRole = false;
 let editorRole = false;
 const setHighContrast = vi.fn();
-const setTextScale = vi.fn();
-const setLocale = vi.fn();
 
 vi.mock("../../context/GuardianContext", () => ({
   useGuardian: () => ({
@@ -36,11 +34,7 @@ vi.mock("../../context/GuardianContext", () => ({
     autoRefresh: false,
     reducedMotion: false,
     highContrast: false,
-    textScale: "standard",
-    locale: "en-US",
-    setHighContrast,
-    setTextScale,
-    setLocale
+    setHighContrast
   })
 }));
 
@@ -115,17 +109,15 @@ describe("Shell guardian identity", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it("persists accessibility and preview-locale choices from Options", async () => {
+  it("keeps working accessibility choices and omits retired preview controls", async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={queryClient}><MemoryRouter><Routes><Route element={<Shell />}><Route index element={<div>Page</div>} /></Route></Routes></MemoryRouter></QueryClientProvider>);
     await screen.findByLabelText("Guardian options", { selector: "[role='dialog']" });
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
     fireEvent.click(screen.getByRole("checkbox", { name: /High contrast/i }));
-    fireEvent.change(screen.getByRole("combobox", { name: /Interface size/i }), { target: { value: "large" } });
-    fireEvent.change(screen.getByRole("combobox", { name: /Core language preview/i }), { target: { value: "es-ES" } });
     expect(setHighContrast).toHaveBeenCalledWith(true);
-    expect(setTextScale).toHaveBeenCalledWith("large");
-    expect(setLocale).toHaveBeenCalledWith("es-ES");
+    expect(screen.queryByRole("combobox", { name: /Interface size/i })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /Core language preview/i })).toBeNull();
   });
 
   it("shows the unresolved ticket queue only to report administrators", async () => {

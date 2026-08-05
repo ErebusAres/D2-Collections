@@ -1,4 +1,4 @@
-import type { ApiEnvelope, SessionData, SiteLocale, SiteTextScale, UpdateUserPreferenceRequest, UserPreferenceKey, UserPreferencesData } from "@guardian-nexus/contracts";
+import type { ApiEnvelope, SessionData, UpdateUserPreferenceRequest, UserPreferenceKey, UserPreferencesData } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, ApiRequestError, configureOfflineApi, mutationHeaders, queuedApi } from "../services/api/client";
@@ -16,10 +16,6 @@ interface GuardianContextValue {
   setReducedMotion: (value: boolean) => void;
   highContrast: boolean;
   setHighContrast: (value: boolean) => void;
-  textScale: SiteTextScale;
-  setTextScale: (value: SiteTextScale) => void;
-  locale: SiteLocale;
-  setLocale: (value: SiteLocale) => void;
   preferences: UserPreferencesData["values"];
   setPreference: (key: UserPreferenceKey, value: string) => void;
   signIn: () => void;
@@ -72,8 +68,6 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
   const [autoRefresh, setAutoRefreshState] = useState(() => localStorage.getItem("guardian-nexus:auto-refresh") !== "false");
   const [reducedMotion, setReducedMotionState] = useState(() => localStorage.getItem("guardian-nexus:reduced-motion") === "true");
   const [highContrast, setHighContrastState] = useState(() => localStorage.getItem("guardian-nexus:high-contrast") === "true");
-  const [textScale, setTextScaleState] = useState<SiteTextScale>(() => textScaleValue(localStorage.getItem("guardian-nexus:text-scale")));
-  const [locale, setLocaleState] = useState<SiteLocale>(() => localeValue(localStorage.getItem("guardian-nexus:locale")));
   const [preferences, setPreferencesState] = useState<UserPreferencesData["values"]>({});
   const sessionQuery = useQuery({
     queryKey: ["session", selectedCharacterId],
@@ -135,21 +129,20 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     if (preferences["site.autoRefresh"] !== undefined) setAutoRefreshState(preferences["site.autoRefresh"] !== "false");
     if (preferences["site.reducedMotion"] !== undefined) setReducedMotionState(preferences["site.reducedMotion"] === "true");
     if (preferences["site.highContrast"] !== undefined) setHighContrastState(preferences["site.highContrast"] === "true");
-    if (preferences["site.textScale"] !== undefined) setTextScaleState(textScaleValue(preferences["site.textScale"]));
-    if (preferences["site.locale"] !== undefined) setLocaleState(localeValue(preferences["site.locale"]));
   }, [preferences]);
 
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(reducedMotion);
     document.documentElement.dataset.highContrast = String(highContrast);
-    document.documentElement.dataset.textScale = textScale;
-    document.documentElement.lang = locale;
-  }, [highContrast, locale, reducedMotion, textScale]);
+    delete document.documentElement.dataset.textScale;
+    document.documentElement.lang = "en";
+    localStorage.removeItem("guardian-nexus:text-scale");
+    localStorage.removeItem("guardian-nexus:locale");
+  }, [highContrast, reducedMotion]);
 
   useEffect(() => {
-    const enabled = highContrast || textScale !== "standard";
-    if (enabled) void import("../styles/accessibility.css");
-  }, [highContrast, textScale]);
+    if (highContrast) void import("../styles/accessibility.css");
+  }, [highContrast]);
 
   const setPreference = useCallback((key: UserPreferenceKey, preferenceValue: string) => {
     if (!membershipId) return;
@@ -183,12 +176,6 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
   const setHighContrast = useCallback((value: boolean) => {
     setHighContrastState(value); localStorage.setItem("guardian-nexus:high-contrast", String(value)); setPreference("site.highContrast", String(value));
   }, [setPreference]);
-  const setTextScale = useCallback((value: SiteTextScale) => {
-    setTextScaleState(value); localStorage.setItem("guardian-nexus:text-scale", value); setPreference("site.textScale", value);
-  }, [setPreference]);
-  const setLocale = useCallback((value: SiteLocale) => {
-    setLocaleState(value); localStorage.setItem("guardian-nexus:locale", value); setPreference("site.locale", value);
-  }, [setPreference]);
 
   const value = useMemo<GuardianContextValue>(() => ({
     session,
@@ -202,21 +189,14 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     setReducedMotion,
     highContrast,
     setHighContrast,
-    textScale,
-    setTextScale,
-    locale,
-    setLocale,
     preferences,
     setPreference,
     signIn: () => { window.location.href = `/api/v1/auth/start?returnTo=${encodeURIComponent(window.location.pathname)}`; },
     refresh: async () => { await sessionQuery.refetch(); await queryClient.invalidateQueries(); }
-  }), [session, sessionQuery.isLoading, sessionQuery.error, sessionQuery.refetch, selectedCharacterId, selectCharacter, autoRefresh, setAutoRefresh, reducedMotion, setReducedMotion, highContrast, setHighContrast, textScale, setTextScale, locale, setLocale, preferences, setPreference, queryClient]);
+  }), [session, sessionQuery.isLoading, sessionQuery.error, sessionQuery.refetch, selectedCharacterId, selectCharacter, autoRefresh, setAutoRefresh, reducedMotion, setReducedMotion, highContrast, setHighContrast, preferences, setPreference, queryClient]);
 
   return <GuardianContext.Provider value={value}>{children}</GuardianContext.Provider>;
 }
-
-function textScaleValue(value: string | null | undefined): SiteTextScale { return value === "large" || value === "largest" ? value : "standard"; }
-function localeValue(value: string | null | undefined): SiteLocale { return value === "es-ES" || value === "fr-FR" ? value : "en-US"; }
 
 export function useGuardian(): GuardianContextValue {
   const value = useContext(GuardianContext);

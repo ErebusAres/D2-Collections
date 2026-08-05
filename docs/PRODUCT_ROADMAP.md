@@ -78,7 +78,7 @@ Last updated: 2026-08-05
 - [x] Private or unlisted Guardian snapshots with explicit field selection and revocation.
 - [x] Account-private clan/activity planning and broader collectible checklists with player-recorded completion history.
 - [x] Bungie-backed recent activity history with partial/unavailable handling and versioned new-player explanations.
-- [x] Portable Guardian Project JSON/Markdown adapters and accessibility/localization foundations.
+- [x] Portable Guardian Project JSON/Markdown adapters plus validated high-contrast and reduced-motion controls. Partial localization and interface scaling are retired from active scope.
 - [x] Private, portable fashion workspace with manifest-backed references and explicit unknown ownership.
 - [x] Private challenge/community modes with updateable templates, custom scoring, portable invites, and Guardian Projects handoff.
 
