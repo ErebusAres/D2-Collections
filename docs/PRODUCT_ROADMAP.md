@@ -10,6 +10,7 @@ Last updated: 2026-08-05
 - **Watchlists revisit:** The standalone Alerts & Watches page and its navigation/PWA entries are removed pending a clearer product direction. Existing private preference formats remain readable so no account data is discarded and Build Advisor/Weapon Rolls compatibility is preserved.
 - **Loadout workspace:** The selected Guardian's live equipped configuration appears above saved loadouts using the same item, socket, subclass, and Artifact presentation. Bungie gaps remain partial or unavailable; loadout cards can minimize to headers with item icons, while a header-docked horizontal jump frame uses each saved slot's Bungie icon, color, and number with viewport-aware identity tooltips.
 - **Share Cards retirement:** Guardian Share Cards duplicated public Builds and Fireteam readiness without live verification. New creation and user-facing navigation are removed. Existing private records, owner revocation, and previously issued unlisted links remain readable for privacy and backward compatibility.
+- **Loot management:** Gear now has a shared Loot workspace plus compact recent rows on Armor, Weapons, and Fireteam. Physical-item tags remain account-private and consistent across every surface, with focused/hovered Shift+number shortcuts. “Acquired” is explicitly the first Guardian Nexus observation because Bungie does not provide a reliable universal drop timestamp. Catalyst observations remain local/account-scoped. The versioned weapon evaluator accepts exact reviewed community-roll records and returns unrated/unknown when coverage is absent instead of inventing quality.
 
 - **Live from PR #53:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are deployed.
 - **Live from PR #53:** The Phase 3 session planner was deployed. The former installable PWA foundation has since been retired.
@@ -22,7 +23,7 @@ Last updated: 2026-08-05
 - **Validated on the PR branch:** Guardian snapshots are separately stored, player-curated, private by default, optionally unlisted through unguessable links, field-selective, and revocable; inventory and Collections fields are rejected.
 - **Validated on the PR branch:** Guardian Projects provides account-private activity plans, clan coordination drafts, reusable collection checklists, optional display-label assignments, and clearly player-recorded completion history.
 - **Validated on the PR branch:** Private recent-activity history now uses Bungie's per-character activity endpoint with explicit available, partial, empty, and unavailable states; a versioned evergreen new-Guardian guide explains account truth and practical first steps.
-- **Validated on the PR branch:** Accessibility preferences now include high contrast, three base text sizes, reduced motion, and persistent root semantics; typed English, Spanish, and French catalogs cover core navigation/settings with explicit fallback and preview scope.
+- **Validated on the PR branch:** Working high-contrast and reduced-motion preferences remain; incomplete interface scaling and partial localization were retired.
 - **Validated on the PR branch:** Guardian Projects now export account-neutral JSON, import as new private active projects, and copy Markdown briefs through an explicit player action.
 - **Validated on the PR branch:** Fashion workspace saves private five-slot ornament/shader references, uses the versioned manifest without claiming unlock ownership, and supports account-neutral JSON import/export.
 - **Validated on the PR branch:** Private challenge modes now support versioned evergreen templates, custom point goals, solo/Fireteam/clan labels, player-recorded scoring, portable invites, and explicit conversion into private Guardian Projects.
@@ -57,6 +58,7 @@ Last updated: 2026-08-05
 - [x] Duplicate and perk-column comparison, crafted/enhanced state, wishlists, tags, locks, transfers, and equip actions.
 - [x] Explainable configured, unique, duplicate-review, and incomplete-data labels. Guardian Nexus never dismantles an item.
 - [x] Shared versioned Gear definitions and plug vocabulary used by private inventory and Build Advisor data paths.
+- [x] Shared recent-loot components, global physical-item tags, keyboard tag shortcuts, and a versioned exact-roll evaluation boundary with honest unknown coverage.
 
 ## Phase 3: Watchlists and session planning
 

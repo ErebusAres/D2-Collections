@@ -1062,6 +1062,7 @@ export type UserPreferenceKey =
   | "gear.sort"
   | "gear.filters"
   | "gear.workspace"
+  | "fireteam.recentLoot.v1"
   | "weapons.filters"
   | "weapons.wishlist"
   | "collection.sort"

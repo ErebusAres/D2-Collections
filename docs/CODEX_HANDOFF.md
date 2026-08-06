@@ -14,6 +14,8 @@ Guardian Share Cards have also been retired as a creation surface because they d
 
 Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` listener, mobile quick-action dock, web-app manifest, and service-worker build/cache path are removed. Startup unregisters older Guardian Nexus service workers so previously installed caches do not keep serving stale bundles. Ordinary responsive CSS remains for narrow browser windows, but mobile-specific product work is not active scope.
 
+Gear loot management now uses the existing private `gear_item_state` source of truth. A third Loot tab combines newly observed physical weapons and armor, while Armor, Weapons, and Fireteam reuse the same recent-item cards, tooltips, tags, and Shift+1–5 shortcuts. Fireteam can hide its private recent-loot panel and also records first local observation of catalysts reported obtained/complete by Bungie. Times are labeled first observed, never exact acquisition. Weapon value data is versioned and exact-roll based; missing community coverage is unrated rather than scored down.
+
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
@@ -85,6 +87,9 @@ Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` lis
 55. Expanded template set v7 to 72 builds, with 24 options per class and four distinct core-Exotic approaches for every class/subclass pair. Sparse accounts still receive the full class catalog with owned alternatives and structured acquisition routes. Recommendations are visibly grouped by subclass with a path count.
 56. Added explicit Build Advisor checklist tracking to Fireteam. Only the player-selected build name, readiness, required-component states, and bounded acquisition steps are shared; inventory and Collections remain private, and unknown component data stays unknown.
 55. Alternate Exotic weapons carry their own slot, damage type, and archetype profiles rather than inheriting those fields from the base build. Regression coverage explicitly checks slot-changing paths such as Lumina and Grand Overture so ownership verification cannot falsely report them missing.
+57. Added a third Gear Loot workspace with chronological first-observed weapons/armor, shared detail tooltips, rarity treatment, filtering, quick global tags, and keyboard shortcuts across Loot, Armor, Weapons, and Fireteam.
+58. Added optional private Fireteam recent-loot visibility plus locally observed catalyst acquisition/completion signals. No inventory is added to Fireteam share payloads.
+59. Added a versioned exact-roll weapon evaluation boundary sourced to DIM community wishlist documentation. It supports separate PvE/PvP/overall values when reviewed records are loaded and returns explicit unrated or incomplete states otherwise.
 
 ## Files in release scope
 

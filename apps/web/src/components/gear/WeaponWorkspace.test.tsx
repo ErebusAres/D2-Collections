@@ -22,7 +22,7 @@ describe("WeaponWorkspace", () => {
   afterEach(cleanup);
 
   it("shows physical rolls and opens a perk-column duplicate comparison", () => {
-    render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={vi.fn()} onDismiss={vi.fn()} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
+    render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={vi.fn()} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
     expect(screen.getAllByText("Test Rifle")).toHaveLength(2);
     expect(screen.getByText("Incandescent")).toBeTruthy();
     fireEvent.click(screen.getAllByRole("button", { name: "Compare 2" })[0]!);
@@ -32,7 +32,7 @@ describe("WeaponWorkspace", () => {
 
   it("persists a weapon-name wishlist without exposing inventory publicly", () => {
     const setPreference = vi.fn();
-    render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={setPreference} onDismiss={vi.fn()} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
+    render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={setPreference} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
     fireEvent.click(screen.getAllByTitle("Add weapon to wishlist")[0]!);
     expect(setPreference).toHaveBeenCalledWith("weapons.wishlist", JSON.stringify(["10"]));
   });
