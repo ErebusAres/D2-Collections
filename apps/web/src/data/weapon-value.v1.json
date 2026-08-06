@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-06",
+  "sources": [
+    {
+      "name": "DIM community wish lists",
+      "url": "https://github.com/DestinyItemManager/DIM/wiki/Wish-Lists",
+      "scope": "Exact curator-selected weapon rolls"
+    }
+  ],
+  "weights": { "exactRoll": 100, "partialPerk": 0 },
+  "rolls": []
+}
