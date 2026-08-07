@@ -1,6 +1,6 @@
 # Guardian Nexus Codex handoff
 
-Last updated: 2026-08-05
+Last updated: 2026-08-07
 
 This file is the operational handoff for Chris Codex or another maintainer continuing the current Guardian Nexus roadmap implementation. Keep it current when scope, validation, or publish state changes.
 
@@ -15,6 +15,8 @@ Guardian Share Cards have also been retired as a creation surface because they d
 Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` listener, mobile quick-action dock, web-app manifest, and service-worker build/cache path are removed. Startup unregisters older Guardian Nexus service workers so previously installed caches do not keep serving stale bundles. Ordinary responsive CSS remains for narrow browser windows, but mobile-specific product work is not active scope.
 
 Gear loot management now uses the existing private `gear_item_state` source of truth. The Loot tab defaults to a tall rolling seven-day history of first-observed physical weapons and armor, retains reviewed/tagged items in that period, and offers 1/3/7/14/30-day filters. Armor and Weapons keep compact recent rows; Fireteam uses a distinct single-line private glance bar with up to five gear items and two catalyst signals. Shared cards, tooltips, tags, and Shift+1–5 shortcuts remain consistent, and tooltips escape the Fireteam frame rather than being clipped. Fireteam can hide the bar and records first local observation of catalysts reported obtained/complete by Bungie. Times are labeled first observed, never exact acquisition. Weapon value data is versioned and exact-roll based; missing community coverage is unrated rather than scored down.
+
+Gear now also has a dedicated Vault tab after Loot. It combines only physical vaulted weapons and armor, supports item kind, slot, rarity, weapon type/element, armor class, lock, tag, search, sort, and six-stat base/current range filters, and renders large result sets in bounded 120-item increments. Existing private tags and Bungie-supported lock, pull, and equip actions are reused. Bungie's third-party API exposes no delete/dismantle operation, so the workspace explicitly sends filtered cleanup candidates through the private Junk tag for in-game verification instead of claiming unsupported deletion.
 
 ## Current repository state
 
@@ -90,6 +92,7 @@ Gear loot management now uses the existing private `gear_item_state` source of t
 57. Added a third Gear Loot workspace with chronological first-observed weapons/armor, shared detail tooltips, rarity treatment, filtering, quick global tags, and keyboard shortcuts across Loot, Armor, Weapons, and Fireteam.
 58. Added optional private Fireteam recent-loot visibility plus locally observed catalyst acquisition/completion signals. No inventory is added to Fireteam share payloads.
 59. Added a versioned exact-roll weapon evaluation boundary sourced to DIM community wishlist documentation. It supports separate PvE/PvP/overall values when reviewed records are loaded and returns explicit unrated or incomplete states otherwise.
+60. Added a dedicated combined Vault workspace with vault-only physical gear, broad weapon/armor metadata filters, six-stat base/current ranges, bounded rendering, private tags, and supported lock/pull/equip actions. Dismantling remains explicitly in-game because Bungie's API has no third-party delete operation.
 
 ## Files in release scope
 
@@ -101,6 +104,10 @@ Gear loot management now uses the existing private `gear_item_state` source of t
 - `apps/web/src/pages/BuildAdvisorPage.module.css`
 - `apps/web/src/components/gear/WeaponWorkspace.tsx`
 - `apps/web/src/components/gear/WeaponWorkspace.test.tsx`
+- `apps/web/src/components/gear/VaultWorkspace.tsx`
+- `apps/web/src/components/gear/VaultWorkspace.test.tsx`
+- `apps/web/src/components/gear/RecentLoot.tsx`
+- `apps/web/src/components/gear/RecentLoot.module.css`
 - `apps/web/src/modules/watchlists/watchlists.ts`
 - `apps/web/src/modules/watchlists/watchlists.test.ts`
 - `apps/web/src/App.tsx`
@@ -165,7 +172,7 @@ Gear loot management now uses the existing private `gear_item_state` source of t
 
 ## Validation completed
 
-The following passed on 2026-08-01:
+The following passed on 2026-08-07:
 
 - `pnpm run audit`
 - archive boundary audit
@@ -174,12 +181,12 @@ The following passed on 2026-08-01:
 - ESLint with zero warnings
 - TypeScript checks for contracts, domain, API, web, service worker, and edge functions
 - 24 domain tests
-- 174 API tests
-- 226 web tests
+- 176 API tests
+- 240 web tests
 - Node tooling tests
 - 19 Python manifest tests
 - API and web production builds
-- performance budgets: 367,432 bytes JavaScript, 113,190 bytes gzip, and 34,124 bytes entry CSS
+- performance budgets: 364,482 bytes JavaScript, 112,355 bytes gzip, and 32,989 bytes entry CSS
 - `git diff --check` with only expected Windows LF-to-CRLF notices
 
 The package-manager vulnerability command `pnpm audit` is distinct from the repository script `pnpm run audit`. The former currently reports four high-severity upstream advisories involving Wrangler/Miniflare's `sharp`, React Router, and transitive `brace-expansion`. Do not apply major dependency upgrades inside this feature PR without a separate compatibility review.

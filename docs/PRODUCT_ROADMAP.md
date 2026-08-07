@@ -4,13 +4,14 @@ Guardian Nexus is a player-decision companion. New features should help a Guardi
 
 ## Delivery status
 
-Last updated: 2026-08-05
+Last updated: 2026-08-07
 
 - **Build Advisor 2.0 catalog expansion:** Template set v7 contains 72 reviewed foundations: 24 per class and four different core-Exotic paths for each of the 18 class/subclass combinations. The API can add bounded account-specific variants when a different owned weapon strongly satisfies a reviewed template role, so the recommendation set adapts as inventory changes without inventing unsupported subclass configurations. The UI groups recommendations by subclass and distinguishes filtered counts from the full result set. Missing gear changes readiness and acquisition guidance rather than catalog visibility. Players can explicitly track a bounded, privacy-scoped build checklist on Fireteam.
 - **Watchlists revisit:** The standalone Alerts & Watches page and its navigation/PWA entries are removed pending a clearer product direction. Existing private preference formats remain readable so no account data is discarded and Build Advisor/Weapon Rolls compatibility is preserved.
 - **Loadout workspace:** The selected Guardian's live equipped configuration appears above saved loadouts using the same item, socket, subclass, and Artifact presentation. Bungie gaps remain partial or unavailable; loadout cards can minimize to headers with item icons, while a header-docked horizontal jump frame uses each saved slot's Bungie icon, color, and number with viewport-aware identity tooltips.
 - **Share Cards retirement:** Guardian Share Cards duplicated public Builds and Fireteam readiness without live verification. New creation and user-facing navigation are removed. Existing private records, owner revocation, and previously issued unlisted links remain readable for privacy and backward compatibility.
 - **Loot management:** Gear now has a tall Loot workspace that defaults to all first-observed physical items in a rolling seven-day period, preserves tagged/reviewed entries during that period, and supports 1/3/7/14/30-day views. Armor and Weapons retain compact recent rows, while Fireteam has a distinct single-line private glance bar for up to five gear items and two catalyst signals. Physical-item tags remain account-private and consistent across every surface, with focused/hovered Shift+number shortcuts. “Acquired” is explicitly the first Guardian Nexus observation because Bungie does not provide a reliable universal drop timestamp. Catalyst observations remain local/account-scoped. The versioned weapon evaluator accepts exact reviewed community-roll records and returns unrated/unknown when coverage is absent instead of inventing quality.
+- **Vault management:** Gear has a fourth Vault workspace that displays only currently vaulted physical weapons and armor. It supports combined search, weapon and armor slot filters, Exotic/non-Exotic and exact rarity filters, weapon type/element, armor class, lock/tag state, sorting, and minimum/maximum filters across all six base or current armor stats. Lock, pull, equip, and private tags reuse supported Gear actions. Bungie's third-party API does not expose dismantling, so filtered candidates can be marked Junk but must be reviewed and dismantled in-game.
 
 - **Live from PR #53:** Phase 1 structured Build Advisor advice, account verification, owned alternatives, acquisition plans, farming watchlists, upgrade stages, and account-wide armor optimization are deployed.
 - **Live from PR #53:** The Phase 3 session planner was deployed. The former installable PWA foundation has since been retired.
@@ -59,6 +60,7 @@ Last updated: 2026-08-05
 - [x] Explainable configured, unique, duplicate-review, and incomplete-data labels. Guardian Nexus never dismantles an item.
 - [x] Shared versioned Gear definitions and plug vocabulary used by private inventory and Build Advisor data paths.
 - [x] Shared recent-loot components, global physical-item tags, keyboard tag shortcuts, and a versioned exact-roll evaluation boundary with honest unknown coverage.
+- [x] Dedicated vault-only inventory management with combined weapon/armor filtering, six-stat cleanup ranges, bounded rendering, and supported item actions without pretending third-party dismantling exists.
 
 ## Phase 3: Watchlists and session planning
 

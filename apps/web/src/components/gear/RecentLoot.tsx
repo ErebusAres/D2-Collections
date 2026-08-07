@@ -9,19 +9,19 @@ export type LootItem = ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & W
 const SHORTCUT_TAGS: Record<string, GearTag> = { "1": "favorite", "2": "keep", "3": "junk", "4": "archive", "5": "infuse" };
 
 export function recentLoot(armor: ArmorItem[], weapons: WeaponItem[], kind: "all" | "armor" | "weapon" = "all", limit = 30): LootItem[] {
-  return lootItems(armor, weapons, kind)
+  return gearLootItems(armor, weapons, kind)
     .filter((item) => item.isNew).sort(byNewest).slice(0, limit);
 }
 
 export function observedLootWithin(armor: ArmorItem[], weapons: WeaponItem[], days: number, kind: "all" | "armor" | "weapon" = "all", now = Date.now()): LootItem[] {
   const earliest = now - Math.max(1, days) * 24 * 60 * 60_000;
-  return lootItems(armor, weapons, kind).filter((item) => {
+  return gearLootItems(armor, weapons, kind).filter((item) => {
     const observedAt = Date.parse(item.firstSeenAt);
     return Number.isFinite(observedAt) && observedAt >= earliest && observedAt <= now;
   }).sort(byNewest);
 }
 
-function lootItems(armor: ArmorItem[], weapons: WeaponItem[], kind: "all" | "armor" | "weapon"): LootItem[] {
+export function gearLootItems(armor: ArmorItem[], weapons: WeaponItem[], kind: "all" | "armor" | "weapon" = "all"): LootItem[] {
   return [
     ...(kind !== "weapon" ? armor.map((item) => ({ ...item, kind: "armor" as const })) : []),
     ...(kind !== "armor" ? weapons.map((item) => ({ ...item, kind: "weapon" as const })) : [])
@@ -42,10 +42,10 @@ export function RecentItemRow({ title, items, onTag, busy = false, empty = "No n
   return <section className={styles.row}><header><Sparkles /><span><strong>{title}</strong><small>{items.length} new · first observed by Guardian Nexus</small></span></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} busy={busy} />)}</div> : <p>{empty}</p>}</section>;
 }
 
-export function LootHistoryGrid({ title, subtitle, items, onTag, busy = false, empty }: { title: string; subtitle: string; items: LootItem[]; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; empty: string }) {
+export function LootHistoryGrid({ title, subtitle, items, onTag, busy = false, empty, itemActions }: { title: string; subtitle: string; items: LootItem[]; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; empty: string; itemActions?: (item: LootItem) => ReactNode }) {
   const active = useRef<LootItem | undefined>(undefined);
   useLootShortcuts(active, onTag);
-  return <section className={styles.history}><header><span><strong>{title}</strong><small>{subtitle}</small></span><b>{items.length}</b></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} busy={busy} />)}</div> : <p>{empty}</p>}</section>;
+  return <section className={styles.history}><header><span><strong>{title}</strong><small>{subtitle}</small></span><b>{items.length}</b></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} busy={busy} actions={itemActions?.(item)} />)}</div> : <p>{empty}</p>}</section>;
 }
 
 export function CompactRecentLootBar({ items, onTag, busy = false, onHide, trailing }: { items: LootItem[]; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; onHide: () => void; trailing?: ReactNode }) {
@@ -54,13 +54,14 @@ export function CompactRecentLootBar({ items, onTag, busy = false, onHide, trail
   return <section className={styles.compactBar}><header><Sparkles /><span><strong>Recent loot</strong><small>Private · first observed</small></span></header><div>{items.length ? items.slice(0, 5).map((item) => <RecentItemCard compact key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} busy={busy} />) : <p>No newly observed gear.</p>}{trailing}</div><button type="button" onClick={onHide}>Hide</button></section>;
 }
 
-export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, compact = false }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; busy: boolean; compact?: boolean }) {
+export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, compact = false, actions }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; busy: boolean; compact?: boolean; actions?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
-  return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} tabIndex={0} onFocus={() => { onActivate(); setOpen(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onDeactivate(); setOpen(false); } }} onMouseEnter={() => { onActivate(); setOpen(true); }} onMouseLeave={() => { onDeactivate(); setOpen(false); }}>
+  return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} tabIndex={0} onFocus={() => { onActivate(); setOpen(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onDeactivate(); setOpen(false); } }} onMouseEnter={() => { onActivate(); setOpen(true); }} onMouseLeave={() => { onDeactivate(); setOpen(false); }}>
     <div className={styles.art}>{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></div><span><b>{item.name}</b><small>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : `${item.rarity} · ${item.slot}`}</small><em><Clock3 />{formatObserved(item.firstSeenAt)}</em></span>
     {item.kind === "weapon" && <strong className={styles.score} data-state={value?.state}>{value?.state === "scored" ? `${value.overall ?? "—"}` : "?"}<small>{value?.state === "scored" ? "value" : "unrated"}</small></strong>}
     <GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />
+    {actions && <div className={styles.actions}>{actions}</div>}
     {open && <ItemTooltip item={item} />}
   </article>;
 }

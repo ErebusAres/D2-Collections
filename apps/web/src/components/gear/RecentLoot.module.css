@@ -25,6 +25,7 @@
   outline: 0;
   background: #09131a;
 }
+.card[data-actions="true"] { grid-template-columns: 42px minmax(0, 1fr) auto auto auto; }
 .card:focus-visible, .card:hover { border-color: var(--cyan); }
 .card:hover, .card:focus-within { z-index: 50; }
 .card[data-rarity="Exotic"] { border-color: rgba(231, 200, 119, .48); }
@@ -39,6 +40,11 @@
 .score { display: grid; place-items: center; min-width: 32px; color: var(--cyan); font: 600 16px "Barlow Condensed"; }
 .score small { color: var(--faint); font: 8px "Barlow"; text-transform: uppercase; }
 .score[data-state="unavailable"], .score[data-state="incomplete"] { color: var(--faint); }
+.actions { display: flex; align-items: center; gap: 4px; }
+.actions button { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); background: rgba(255,255,255,.025); color: var(--muted); }
+.actions button:hover,.actions button:focus-visible { border-color: var(--cyan); color: var(--cyan); outline: 0; }
+.actions button:disabled { opacity: .45; cursor: wait; }
+.actions svg { width: 13px; height: 13px; }
 
 .history {
   min-height: 540px;
