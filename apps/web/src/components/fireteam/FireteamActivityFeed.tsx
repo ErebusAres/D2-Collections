@@ -43,10 +43,23 @@ function ActivityLine({ entry }: { entry: FireteamActivityFeedEntry }) {
   const tooltipId = useId();
   if (entry.type === "message") return <div className={styles.line}><strong>{entry.displayName}:</strong><span>{entry.body}</span><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time></div>;
   const event = entry.event;
+  const rarity = event.rarity || event.gear?.rarity || (event.kind.includes("catalyst") ? "Exotic" : "Common");
+  const tier = lootTier(rarity);
   return <div className={`${styles.line} ${styles.loot}`} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) setOpen(false); }} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} tabIndex={0}>
-    <strong>{entry.displayName}:</strong><button type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen((value) => !value)}>{event.icon ? <img src={event.icon} alt="" /> : <Sparkles />}<b data-rarity={event.rarity || event.gear?.rarity || (event.kind.includes("catalyst") ? "Exotic" : undefined)}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
+    <strong>{entry.displayName}:</strong><button type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen((value) => !value)}><span className={styles.tierBadge} data-rarity={rarity} aria-label={`Tier ${tier} ${rarity}`}><span>{tier}</span></span>{event.icon ? <img className={styles.itemIcon} src={event.icon} alt="" /> : <Sparkles className={styles.itemIcon} />}<b data-rarity={rarity}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
     {open && <span className={styles.tooltip}>{event.gear ? <ItemTooltip id={tooltipId} item={event.gear} /> : <TimelineEventTooltip id={tooltipId} event={event} />}</span>}
   </div>;
+}
+
+export function lootTier(rarity?: string): number {
+  const key = String(rarity || "").trim().toLowerCase();
+  if (key === "exotic") return 6;
+  if (key === "legendary" || key === "superior") return 5;
+  if (key === "rare") return 4;
+  if (key === "common") return 3;
+  if (key === "uncommon" || key === "basic") return 2;
+  if (key === "currency") return 1;
+  return 0;
 }
 
 function shortTime(value: string): string {
