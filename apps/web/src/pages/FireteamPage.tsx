@@ -12,7 +12,7 @@ import { FireteamReadinessPanel, SharedReadiness } from "../components/fireteam/
 import { parseReadinessDraft, readinessSummary, type FireteamReadinessDraft } from "../modules/fireteam/readiness";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
-import { CompactRecentLootBar, recentLoot, type LootItem } from "../components/gear/RecentLoot";
+import { CompactRecentLootBar, observedLootWithin, type LootItem } from "../components/gear/RecentLoot";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -28,7 +28,7 @@ interface ShareVariables {
 
 const TRACKED_ITEM_EXIT_MS = 1_600;
 export function FireteamPage() {
-  const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
+  const { session, selectedCharacterId, autoRefresh, preferences, setPreference } = useGuardian();
   const queryClient = useQueryClient();
   const result = useQuery({
     queryKey: ["fireteam", selectedCharacterId],
@@ -61,10 +61,16 @@ export function FireteamPage() {
   const journeyIds = useMemo(() => trackedPreference(preferences["journey.tracked"]), [preferences]);
   const collectionIds = useMemo(() => trackedPreference(preferences["collection.tracked"]), [preferences]);
   const trackedBuilds = useMemo(() => parseTrackedBuilds(preferences["buildAdvisor.trackedBuilds.v1"]), [preferences]);
-  const builds = useQuery({ queryKey: ["builds"], queryFn: () => api<BuildsData>("/api/v1/builds"), staleTime: 5 * 60_000 });
-  const recentGear = useQuery({ queryKey: ["gear", selectedCharacterId], queryFn: () => api<GearData>(`/api/v1/me/gear?characterId=${encodeURIComponent(selectedCharacterId)}`), enabled: Boolean(session?.authenticated && selectedCharacterId), staleTime: 30_000 });
-  const collection = useQuery({ queryKey: ["fireteam-collection", selectedCharacterId], queryFn: () => api<CollectionData>(`/api/v1/me/collection?characterId=${encodeURIComponent(selectedCharacterId)}`), enabled: Boolean(session?.authenticated && selectedCharacterId), staleTime: 60_000 });
   const showRecentLoot = preferences["fireteam.recentLoot.v1"] !== "off";
+  const builds = useQuery({ queryKey: ["builds"], queryFn: () => api<BuildsData>("/api/v1/builds"), staleTime: 5 * 60_000 });
+  const recentGear = useQuery({
+    queryKey: ["gear", selectedCharacterId],
+    queryFn: () => api<GearData>(`/api/v1/me/gear?characterId=${encodeURIComponent(selectedCharacterId)}`),
+    enabled: Boolean(session?.authenticated && selectedCharacterId && showRecentLoot),
+    staleTime: 30_000,
+    refetchInterval: showRecentLoot && autoRefresh ? 60_000 : false
+  });
+  const collection = useQuery({ queryKey: ["fireteam-collection", selectedCharacterId], queryFn: () => api<CollectionData>(`/api/v1/me/collection?characterId=${encodeURIComponent(selectedCharacterId)}`), enabled: Boolean(session?.authenticated && selectedCharacterId), staleTime: 60_000 });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] }) });
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
   const observedCatalysts = useMemo(() => catalystObservations(collection.data?.data, membershipId), [collection.data?.data, membershipId]);
@@ -214,8 +220,8 @@ export function FireteamPage() {
         <div><Activity /><span>Current location</span><strong>{presenceLocation(self, data.activity)}</strong></div>
         <div><ShieldCheck /><span>Your sharing</span><strong>{data.sharingMode === "persistent" ? "Always on / background refresh" : data.sharingMode === "temporary" ? "Temporary / 15 minutes" : "Private"}</strong></div>
       </section>
-      {showRecentLoot ? <CompactRecentLootBar items={recentLoot(recentGear.data?.data.items || [], recentGear.data?.data.weapons || [], "all", 5)} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} trailing={observedCatalysts.slice(0, 2).map((catalyst) => <Link className={styles.fireteamCatalystChip} key={catalyst.recordHash} to="/collection?view=catalysts" title={`${catalyst.name} · ${catalyst.state === "complete" ? "Completed" : `${catalyst.percent}% obtained`}`}>{catalyst.icon && <img src={catalyst.icon} alt="" />}<span><b>{catalyst.name}</b><small>Catalyst</small></span></Link>)} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account loot hidden</strong><small>Private to you</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show bar</button></section>}
       <FireteamReadinessPanel draft={readinessDraft} builds={builds.data?.data.builds || []} sharing={data.sharingEnabled} onChange={updateReadinessDraft} />
+      {showRecentLoot ? <CompactRecentLootBar items={observedLootWithin(recentGear.data?.data.items || [], recentGear.data?.data.weapons || [], 7, "all").slice(0, 5)} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} trailing={observedCatalysts.slice(0, 2).map((catalyst) => <Link className={styles.fireteamCatalystChip} key={catalyst.recordHash} to="/collection?view=catalysts" title={`${catalyst.name} · ${catalyst.state === "complete" ? "Completed" : `${catalyst.percent}% obtained`}`}>{catalyst.icon && <img src={catalyst.icon} alt="" />}<span><b>{catalyst.name}</b><small>Catalyst</small></span></Link>)} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account loot hidden</strong><small>Private to you</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show bar</button></section>}
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
       <SocialRoster contacts={data.social?.contacts || []} friendsState={data.social?.friendsState || data.social?.state || "unavailable"} clanState={data.social?.clanState || (data.social?.state === "available" ? "available" : "unavailable")} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
       <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Status may be delayed</strong><p>Party presence and current activity are not guaranteed to be real time.</p></div></section>

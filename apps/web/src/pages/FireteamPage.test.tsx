@@ -34,6 +34,30 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("Fireteam tracked items", () => {
+  it("keeps recent tagged loot interactive between readiness and the tracked-item segment", async () => {
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (String(path).startsWith("/api/v1/me/gear")) return gearEnvelope() as never;
+      return envelope() as never;
+    });
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    const readiness = (await screen.findByRole("heading", { name: "Fireteam readiness" })).closest("section")!;
+    const recent = (await screen.findByText("Recent loot")).closest("section")!;
+    const tracked = (await screen.findByText("Shared tracked items")).closest("section")!;
+    expect(readiness.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(recent.compareDocumentPosition(tracked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
+    expect((await screen.findByRole("tooltip")).textContent).toContain("Recent Rifle");
+    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
+    vi.mocked(queuedApi).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Favorite" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Keep" }));
+    await waitFor(() => expect(vi.mocked(queuedApi).mock.calls.some(([path]) => path === "/api/v1/me/gear/item-state")).toBe(true));
+    const [, init] = vi.mocked(queuedApi).mock.calls.find(([path]) => path === "/api/v1/me/gear/item-state")!;
+    expect(JSON.parse(String(init?.body))).toEqual({ itemInstanceId: "loot-1", tag: "keep" });
+  });
+
   it("shows quest-like and Guardian Rank tracking and refreshes the active share with both site lists", async () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
@@ -388,4 +412,18 @@ function envelope() {
     social: { state: "available", friendsState: "available", clanState: "available", contacts: [] }
   };
   return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "fireteam" };
+}
+
+function gearEnvelope() {
+  return {
+    data: {
+      items: [],
+      weapons: [{
+        instanceId: "loot-1", itemHash: "2", name: "Recent Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 550,
+        location: "vault", equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable",
+        reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-08T00:00:00.000Z", isNew: false, tag: "favorite"
+      }]
+    },
+    freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "gear"
+  };
 }

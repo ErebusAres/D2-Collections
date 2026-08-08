@@ -98,6 +98,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 63. Added the independent `/support` route and `/api/v1/support/diagnostics` endpoint. The page renders without `GuardianProvider`, probes only the current session, preserves Bungie HTTP/application error fields, tests every linked membership with Profiles/Characters, detects 1601/wrong-platform/stale-mapping/zero-character states, exercises the real profile loader and account normalizer, checks sanitized D1/session/build state, and copies text or JSON only on explicit user action.
 64. Corrected OAuth completion to probe all returned Destiny memberships and prefer a verified usable D2 profile over an unusable primary/first entry. Cross Save and primary membership remain ranking signals rather than unverified assumptions.
 65. Corrected Fireteam Seasonal Hub order completion precedence. An observed incomplete-to-complete transition now enters the shared `CompletionPing` pipeline and displays `Order complete` before the active rail cleans up the completed order; it is no longer treated as an unexplained dismissal.
+66. Restored Fireteam Recent Loot after the icon-card redesign: the compact bar now reserves the cards' full interaction height and keeps its tag control visible, shows the five newest items first observed within seven days even after tagging, refreshes visible gear every 60 seconds when auto-refresh is enabled, and sits directly below Fireteam Readiness and above the tracked-item/member segment.
 
 ## Files in release scope
 

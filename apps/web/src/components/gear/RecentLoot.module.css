@@ -57,7 +57,7 @@
 .history > p { margin: 0; padding: 55px 20px; text-align: center; color: var(--faint); }
 
 .compactBar {
-  height: 52px;
+  min-height: 149px;
   display: grid;
   grid-template-columns: 135px minmax(0, 1fr) auto;
   align-items: stretch;
@@ -70,7 +70,7 @@
 .compactBar > header span { display: grid; }
 .compactBar > header strong { font-size: 10px; text-transform: uppercase; }
 .compactBar > header small { color: var(--faint); font-size: 8px; }
-.compactBar > div { display: flex; align-items: center; gap: 5px; min-width: 0; padding: 4px 6px; overflow: visible; }
+.compactBar > div { display: flex; align-items: flex-start; gap: 5px; min-width: 0; padding: 5px 6px; overflow: visible; }
 .compactBar > div > p { margin: 0; color: var(--faint); font-size: 10px; }
 .compactBar > button { border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--faint); font-size: 9px; text-transform: uppercase; }
 .compactCard { min-width: 175px; height: 42px; grid-template-columns: 34px minmax(0, 1fr) auto; padding: 3px; }
@@ -159,10 +159,11 @@
 .cardActions button { min-width: 24px; height: 26px; padding: 0 4px; }
 .history > div { grid-template-columns: repeat(auto-fill, minmax(104px, 104px)); align-items: start; gap: 10px; }
 .history .card { min-width: 104px; min-height: 0; }
-.compactCard { min-width: 82px; width: 82px; height: auto; padding: 3px; }
+.compactCard { min-width: 82px; width: 82px; min-height: 137px; height: auto; padding: 3px; }
 .compactCard .art { width: 74px; height: 74px; }
 .compactCard .metrics { min-height: 20px; }
-.compactCard .cardName, .compactCard .cardActions { display: none; }
+.compactCard .cardName { display: none; }
+.compactCard .cardActions { display: flex; }
 
 .tooltip { width: min(450px, calc(100vw - 44px)); text-align: left; }
 .identity { display: flex; align-items: center; gap: 10px; margin: 8px -10px 0; padding: 9px 10px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
