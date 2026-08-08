@@ -23,8 +23,8 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Release branch: `codex/fireteam-activity-feed`. Implementation and the full local audit are complete; consult GitHub for the final PR/merge/deployment state after this handoff commit.
-- Base branch: `main` at merge commit `5469ee738d44ad363513066bc8d0a2adb35d6799` (PR #85, Fireteam social deduplication).
+- Current implementation branch: no active product branch. `codex/fireteam-activity-live-handoff` records the final delivery state only.
+- Base branch: `main` at merge commit `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86, private Fireteam activity and chat).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
 - Weapon workspace commit: `c2282b7` (`Add private weapon roll workspace`)
@@ -34,6 +34,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
 - Production deployed merge commit `036d7db42c6f58d706b398d3f322876b12b74e60` successfully through Guardian Nexus workflow run `31273219961` on 2026-08-08.
 - Fireteam activity validation on 2026-08-08: archive/source/CSS boundaries, ESLint, every TypeScript target, 193 API tests, 259 web tests, 24 domain tests, tooling/Python tests, API and Web production builds, and performance budgets all pass. Entry output is 365,120 bytes JavaScript (112,518 bytes gzip) and 33,043 bytes CSS.
+- PR #86 merged and deployed successfully through production workflow run `31280373982`; additive migration `0017_fireteam_activity_feed.sql`, API, and Web deployment all passed. Signed-in production QA confirmed the opted-out existing-share state, correct placement below member quest tracking and above Social, disabled solo composer, minimize/restore controls, and zero browser console errors.
 
 ## Completed release scope
 
