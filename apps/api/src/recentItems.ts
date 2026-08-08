@@ -25,6 +25,7 @@ interface ObservationRow {
 const COALESCE_MS = 10 * 60_000;
 const RETENTION_DAYS = 30;
 const MAX_EVENTS = 200;
+const RAW_EVENT_SCAN_LIMIT = MAX_EVENTS * 5;
 
 export async function observeRecentItems(input: {
   membershipId: string;
@@ -41,10 +42,11 @@ export async function observeRecentItems(input: {
     ...input.armor.map((item) => ({ ...item, kind: "armor" as const })),
     ...input.weapons.map((item) => ({ ...item, kind: "weapon" as const }))
   ];
+  const inventoryAvailable = inventorySnapshotAvailable(input.profile, input.companionManifest);
   const observations: Observation[] = [
     ...gear.map(gearObservation),
     ...catalystObservations(input.collection),
-    ...inventoryObservations(input.profile, input.companionManifest)
+    ...(inventoryAvailable ? inventoryObservations(input.profile, input.companionManifest) : [])
   ];
   const previousResult = await input.env.DB.prepare("SELECT * FROM recent_item_observations WHERE membership_id = ?")
     .bind(input.membershipId).all<ObservationRow>();
@@ -52,7 +54,7 @@ export async function observeRecentItems(input: {
   const firstAccountObservation = previous.size === 0;
   const currentKeys = new Set(observations.map((observation) => observation.key));
   for (const prior of previous.values()) {
-    if (prior.observation_kind !== "inventory" || currentKeys.has(prior.observation_key)) continue;
+    if (!inventoryAvailable || prior.observation_kind !== "inventory" || currentKeys.has(prior.observation_key)) continue;
     let metadata: Record<string, unknown> = {};
     try { metadata = JSON.parse(prior.metadata_json || "{}"); } catch { metadata = {}; }
     observations.push({ key: prior.observation_key, kind: "inventory", state: "absent", quantity: 0, metadata });
@@ -62,12 +64,12 @@ export async function observeRecentItems(input: {
     const prior = previous.get(observation.key);
     if (observation.kind === "catalyst" && prior?.state_value === "missing" && observation.state === "complete") {
       const found = eventForTransition({ ...observation, state: "obtained" }, prior, firstAccountObservation, now);
-      if (found) await saveEvent(input.env, input.membershipId, found, now);
+      if (found) await saveEvent(input.env, input.membershipId, found, await eventId(input.membershipId, found, observation, prior));
       const completed = eventForTransition(observation, { ...prior, state_value: "obtained" }, firstAccountObservation, now);
-      if (completed) await saveEvent(input.env, input.membershipId, completed, now);
+      if (completed) await saveEvent(input.env, input.membershipId, completed, await eventId(input.membershipId, completed, observation, prior));
     } else {
       const event = eventForTransition(observation, prior, firstAccountObservation, now);
-      if (event) await saveEvent(input.env, input.membershipId, event, now);
+      if (event) await saveEvent(input.env, input.membershipId, event, await eventId(input.membershipId, event, observation, prior));
     }
   }
 
@@ -82,12 +84,15 @@ export async function observeRecentItems(input: {
 
   const cutoff = new Date(Date.parse(now) - RETENTION_DAYS * 86_400_000).toISOString();
   await input.env.DB.prepare("DELETE FROM recent_item_events WHERE membership_id = ? AND last_observed_at < ?").bind(input.membershipId, cutoff).run();
-  const rows = await input.env.DB.prepare("SELECT * FROM recent_item_events WHERE membership_id = ? ORDER BY observed_at DESC, id DESC LIMIT ?")
-    .bind(input.membershipId, MAX_EVENTS).all<any>();
+  const rows = await input.env.DB.prepare("SELECT * FROM recent_item_events WHERE membership_id = ? ORDER BY last_observed_at DESC, id DESC LIMIT ?")
+    .bind(input.membershipId, RAW_EVENT_SCAN_LIMIT).all<any>();
   const currentGear = new Map(gear.map((item) => [item.instanceId, item]));
+  const events = coalesceTimelineEvents((rows.results || []).map(eventFromRow))
+    .slice(0, MAX_EVENTS)
+    .map((event) => event.instanceId && currentGear.has(event.instanceId) ? { ...event, gear: currentGear.get(event.instanceId) } : event);
   return {
     timelineSchemaVersion: 1,
-    events: (rows.results || []).map(eventFromRow).map((event) => event.instanceId && currentGear.has(event.instanceId) ? { ...event, gear: currentGear.get(event.instanceId) } : event),
+    events,
     retentionDays: RETENTION_DAYS,
     firstObservationEstablished: firstAccountObservation,
     observedAt: now
@@ -133,12 +138,18 @@ export function inventoryObservations(profile: any, manifest: CompanionManifest)
   });
 }
 
+export function inventorySnapshotAvailable(profile: any, manifest: CompanionManifest): boolean {
+  return manifest.version !== "unavailable"
+    && Array.isArray(profile?.profileInventory?.data?.items)
+    && Boolean(profile?.characterInventories?.data && typeof profile.characterInventories.data === "object");
+}
+
 export function eventForTransition(observation: Observation, prior: Pick<ObservationRow, "state_value" | "quantity" | "observed_at"> | undefined, firstAccountObservation: boolean, now: string): Omit<RecentItemEvent, "id"> | undefined {
   const metadata = observation.metadata as any;
   if (observation.kind === "gear") {
     if (prior) return undefined;
+    if (firstAccountObservation) return undefined;
     const firstSeenAt = String(metadata.gear?.firstSeenAt || now);
-    if (firstAccountObservation && Date.parse(firstSeenAt) < Date.parse(now) - 7 * 86_400_000) return undefined;
     return { kind: observation.state === "weapon" ? "weapon-found" : "armor-found", sourceKey: observation.key, itemHash: metadata.itemHash, instanceId: metadata.instanceId, name: metadata.name, description: "", icon: metadata.icon, quantity: 1, observedAt: firstSeenAt, lastObservedAt: firstSeenAt, gear: metadata.gear };
   }
   if (!prior || firstAccountObservation) return undefined;
@@ -155,22 +166,54 @@ export function eventForTransition(observation: Observation, prior: Pick<Observa
   }
 }
 
-async function saveEvent(env: Env, membershipId: string, event: Omit<RecentItemEvent, "id">, now: string): Promise<void> {
-  if (event.kind === "inventory-gained") {
-    const prior = await env.DB.prepare("SELECT id, quantity, last_observed_at FROM recent_item_events WHERE membership_id = ? AND event_kind = 'inventory-gained' AND source_key = ? ORDER BY last_observed_at DESC LIMIT 1")
-      .bind(membershipId, event.sourceKey).first<{ id: string; quantity: number; last_observed_at: string }>();
-    if (prior && Date.parse(now) - Date.parse(prior.last_observed_at) <= COALESCE_MS) {
-      await env.DB.prepare("UPDATE recent_item_events SET quantity = ?, last_observed_at = ? WHERE id = ?")
-        .bind(Number(prior.quantity) + event.quantity, now, prior.id).run();
-      return;
-    }
-  }
-  const id = crypto.randomUUID();
+async function saveEvent(env: Env, membershipId: string, event: Omit<RecentItemEvent, "id">, id: string): Promise<void> {
   const metadata = { ...event };
-  await env.DB.prepare(`INSERT INTO recent_item_events
+  await env.DB.prepare(`INSERT OR IGNORE INTO recent_item_events
     (id, membership_id, event_kind, source_key, item_hash, instance_id, record_hash, name, description, icon, quantity, metadata_json, observed_at, last_observed_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .bind(id, membershipId, event.kind, event.sourceKey, event.itemHash || null, event.instanceId || null, event.recordHash || null, event.name, event.description || "", event.icon || "", event.quantity, JSON.stringify(metadata), event.observedAt, event.lastObservedAt).run();
+}
+
+export async function eventId(membershipId: string, event: Omit<RecentItemEvent, "id">, observation: Observation, prior: ObservationRow | undefined): Promise<string> {
+  const transition = event.kind === "inventory-gained"
+    ? `${prior?.updated_at || prior?.observed_at || "initial"}:${prior?.quantity || 0}->${observation.quantity}`
+    : event.kind;
+  const bytes = new TextEncoder().encode(`${membershipId}|${event.sourceKey}|${transition}`);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+export function coalesceTimelineEvents(input: RecentItemEvent[]): RecentItemEvent[] {
+  const ascending = [...input].sort((left, right) => Date.parse(left.observedAt) - Date.parse(right.observedAt));
+  const output: RecentItemEvent[] = [];
+  const lastInventoryBySource = new Map<string, RecentItemEvent>();
+  for (const event of ascending) {
+    if (event.kind !== "inventory-gained") {
+      output.push(event);
+      continue;
+    }
+    const prior = lastInventoryBySource.get(event.sourceKey);
+    if (prior && Date.parse(event.observedAt) - Date.parse(prior.lastObservedAt) <= COALESCE_MS) {
+      prior.quantity += event.quantity;
+      prior.lastObservedAt = event.lastObservedAt > prior.lastObservedAt ? event.lastObservedAt : prior.lastObservedAt;
+      continue;
+    }
+    const copy = { ...event };
+    output.push(copy);
+    lastInventoryBySource.set(event.sourceKey, copy);
+  }
+  return output.sort((left, right) => {
+    const time = Date.parse(right.lastObservedAt) - Date.parse(left.lastObservedAt);
+    if (time) return time;
+    const priority = eventPriority(right.kind) - eventPriority(left.kind);
+    return priority || right.id.localeCompare(left.id);
+  });
+}
+
+function eventPriority(kind: RecentItemEvent["kind"]): number {
+  if (kind === "catalyst-completed") return 2;
+  if (kind === "catalyst-found") return 1;
+  return 0;
 }
 
 function eventFromRow(row: any): RecentItemEvent {

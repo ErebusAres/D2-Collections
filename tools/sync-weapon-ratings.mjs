@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const SOURCE_URL = "https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt";
-export const COLUMN_WEIGHTS = [0.25, 0.25, 1, 1];
+export const COLUMN_WEIGHTS = [1, 1, 1, 1];
 
 export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toISOString().slice(0, 10)) {
   const definitions = Object.values(manifest.gearItemDefinitions || {}).filter((entry) => Number(entry.itemType) === 3);
@@ -14,9 +14,8 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
 
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
-    if (line.startsWith("title:") || line.startsWith("//notes:")) context = line;
-    else if (line.startsWith("description:")) context = `${context} ${line}`.slice(-12_000);
-    if (!line.startsWith("dimwishlist:item=")) continue;
+    if (line.startsWith("//notes:")) { context = line; continue; }
+    if (!line.startsWith("dimwishlist:item=")) { if (!line.startsWith("title:") && !line.startsWith("description:")) context = ""; continue; }
     const match = line.match(/^dimwishlist:item=(\d+)&perks=([\d,]+)/);
     if (!match || !currentWeapons.has(match[1])) continue;
     const modeContext = context.match(/\|tags:(.*)$/i)?.[1] || context;
@@ -28,6 +27,7 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
     const item = items.get(match[1]) || { itemType: currentWeapons.get(match[1]), pve: bucket(), pvp: bucket() };
     for (const mode of modes) {
       item[mode].recommendations += 1;
+      if (aligned[2] || aligned[3]) item[mode].traitPairs.add(`${aligned[2] || ""},${aligned[3] || ""}`);
       aligned.forEach((perk, index) => { if (perk) item[mode].columns[index].add(perk); });
     }
     items.set(match[1], item);
@@ -42,7 +42,7 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
   const typeNames = [...new Set(definitions.map((entry) => String(entry.itemTypeDisplayName || "Unknown weapon")))].sort();
 
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     reviewedAt,
     source: {
       name: "DIM default community wishlist (Voltron)",
@@ -53,7 +53,7 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
     method: {
       columnWeights: COLUMN_WEIGHTS,
       tiers: { excellent: 90, strong: 75, mixed: 50, weak: 25 },
-      note: "Weapon-specific scores normalize DIM recommendations by actual perk column. Unreviewed weapons use clearly labeled weapon-type evidence, never a fabricated item-specific verdict."
+      note: "Exact scores preserve DIM-recommended trait pairings and compare all specified perk columns with equal weight. Unreviewed weapons use clearly labeled weapon-type evidence, never a fabricated item-specific verdict."
     },
     coverage: {
       manifestWeapons: definitions.length,
@@ -73,8 +73,8 @@ function alignColumns(perks) {
   return result;
 }
 
-function bucket() { return { recommendations: 0, columns: [new Set(), new Set(), new Set(), new Set()] }; }
-function serializeBucket(value) { return { recommendations: value.recommendations, columns: value.columns.map((column) => [...column].sort((a, b) => Number(a) - Number(b))) }; }
+function bucket() { return { recommendations: 0, columns: [new Set(), new Set(), new Set(), new Set()], traitPairs: new Set() }; }
+function serializeBucket(value) { return { recommendations: value.recommendations, columns: value.columns.map((column) => [...column].sort((a, b) => Number(a) - Number(b))), traitPairs: [...value.traitPairs].sort() }; }
 
 function buildTypeProfiles(items) {
   const profiles = new Map();
@@ -115,7 +115,7 @@ export async function main() {
   const manifest = JSON.parse(await readFile(new URL("../apps/web/public/data/gear-manifest.json", import.meta.url), "utf8"));
   const text = await readFile(inputPath, "utf8");
   const output = compileWeaponRatings(manifest, text);
-  await writeFile(new URL("../apps/web/public/data/weapon-value.v3.json", import.meta.url), `${JSON.stringify(output)}\n`);
+  await writeFile(new URL("../apps/web/public/data/weapon-value.v4.json", import.meta.url), `${JSON.stringify(output)}\n`);
   console.log(`Wrote ${output.coverage.reviewedWeapons}/${output.coverage.manifestWeapons} weapon records and ${output.coverage.reviewedTypes}/${output.coverage.supportedTypes} type profiles from ${SOURCE_URL}.`);
 }
 

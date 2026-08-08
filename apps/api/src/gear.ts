@@ -19,6 +19,7 @@ const ARCHETYPES = new Set([
 ]);
 const TUNING_CATEGORY = "core.gear_systems.armor_tiering.plugs.tuning.mods";
 const WEAPON_SLOT_HASHES: Record<string, WeaponItem["slot"]> = { "1498876634": "Kinetic", "2465295065": "Energy", "953998645": "Power" };
+const POSTMASTER_BUCKET_HASH = "215593132";
 const DAMAGE_TYPES: Record<number, WeaponItem["damageType"]> = { 1: "Kinetic", 2: "Arc", 3: "Solar", 4: "Void", 6: "Stasis", 7: "Strand" };
 const WEAPON_STATS: Record<string, { name: string; maximumValue: number; displayAsNumeric?: boolean }> = {
   "4284893193": { name: "Rounds Per Minute", maximumValue: 1000, displayAsNumeric: true },
@@ -45,9 +46,9 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
   const instances = profile?.itemComponents?.instances?.data || {};
   const itemStates = profile?.itemComponents?.state?.data || {};
   const itemObjectives = profile?.itemComponents?.objectives?.data || {};
-  const collected: Array<{ item: any; owner?: string; location: ArmorItem["location"]; equipped: boolean }> = [];
+  const collected: Array<{ item: any; owner?: string; location: ArmorItem["location"]; equipped: boolean; inPostmaster?: boolean }> = [];
   for (const item of profile?.profileInventory?.data?.items || []) collected.push({ item, location: "vault", equipped: false });
-  for (const [owner, container] of Object.entries(profile?.characterInventories?.data || {}) as any) for (const item of container?.items || []) collected.push({ item, owner, location: "inventory", equipped: false });
+  for (const [owner, container] of Object.entries(profile?.characterInventories?.data || {}) as any) for (const item of container?.items || []) collected.push({ item, owner, location: "inventory", equipped: false, inPostmaster: String(item?.bucketHash || "") === POSTMASTER_BUCKET_HASH });
   for (const [owner, container] of Object.entries(profile?.characterEquipment?.data || {}) as any) for (const item of container?.items || []) collected.push({ item, owner, location: "equipped", equipped: true });
   const seen = new Set<string>();
   const items: ArmorItem[] = [];
@@ -80,7 +81,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
         instanceId, itemHash, name: String(definition.displayProperties?.name || "Unknown Weapon"), icon: imageUrl(definition.displayProperties?.icon), itemType: String(definition.itemTypeDisplayName || "Weapon"),
         slot: WEAPON_SLOT_HASHES[String(definition.inventory?.bucketTypeHash || "")] || "Unknown", damageType: DAMAGE_TYPES[Number(definition.defaultDamageType)] || "Unknown",
         rarity: String(definition.inventory?.tierTypeName || "Legendary"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
-        location: entry.location, equipped: entry.equipped, locked: Boolean(itemState & 1), masterworked: Boolean(itemState & 4), crafted: Boolean(instance.isCrafted), enhanced,
+        location: entry.location, ...(entry.inPostmaster ? { inPostmaster: true } : {}), equipped: entry.equipped, locked: Boolean(itemState & 1), masterworked: Boolean(itemState & 4), crafted: Boolean(instance.isCrafted), enhanced,
         perkColumns, originTraits, ...(masterwork ? { masterwork: perk(masterwork) } : {}), stats: weaponStats, ...(trackerValue !== undefined ? { trackerValue } : {}), rollDataState, reviewState: "unique", reviewReasons: [], duplicateCount: 1, wishlisted: false,
         tag: state?.tag, firstSeenAt: state?.first_seen_at || now, dismissedAt: state?.dismissed_at, isNew: !state?.dismissed_at && !state?.tag
       });
@@ -101,7 +102,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
     items.push({
       instanceId, itemHash, name: String(definition.displayProperties?.name || "Unknown Armor"), icon: imageUrl(ornamentDef?.displayProperties?.icon || definition.displayProperties?.icon), className: CLASS_NAMES[Number(definition.classType)] || "Unknown",
       slot: String(definition.itemTypeDisplayName || "Armor"), rarity: String(definition.inventory?.tierTypeName || "Legendary"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
-      location: entry.location, equipped: entry.equipped, locked: Boolean(Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0) & 1), masterworked: Boolean(Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0) & 4), gearTier: Number(instance.gearTier || 0),
+      location: entry.location, ...(entry.inPostmaster ? { inPostmaster: true } : {}), equipped: entry.equipped, locked: Boolean(Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0) & 1), masterworked: Boolean(Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0) & 4), gearTier: Number(instance.gearTier || 0),
       archetype: archetypeDef ? perk(archetypeDef) : undefined, tuning: tuningDef ? { ...perk(tuningDef), stats: statsFromInvestment(tuningDef.investmentStats || []) } : undefined, tunedStat,
       setBonuses: setDefs.map((plug) => ({ ...perk(plug), pieces: pieceCount(plug), active: true })), perks: activePlugs.filter((plug) => plug !== archetypeDef && plug !== tuningDef && !setDefs.includes(plug)).map(perk).filter((value) => value.name),
       baseStats, currentStats, adjustments, baseTotal, currentTotal, grade: armorGrade(baseStats), tag: state?.tag, firstSeenAt: state?.first_seen_at || now, dismissedAt: state?.dismissed_at, isNew: !state?.dismissed_at && !state?.tag

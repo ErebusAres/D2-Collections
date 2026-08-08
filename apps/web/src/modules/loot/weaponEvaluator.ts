@@ -20,12 +20,12 @@ export interface WeaponValue {
   reviewedAt?: string;
 }
 
-interface RatingBucket { recommendations: number; columns: string[][] }
+interface RatingBucket { recommendations: number; columns: string[][]; traitPairs: string[] }
 interface RatingRecord { itemType: string; pve: RatingBucket; pvp: RatingBucket }
 interface TypeBucket { weapons: number; columns: Array<Record<string, number>> }
 interface TypeRecord { pve: TypeBucket; pvp: TypeBucket }
 export interface WeaponRatingDatabase {
-  schemaVersion: 3;
+  schemaVersion: 4;
   reviewedAt: string;
   source: { name: string };
   method: { columnWeights: number[] };
@@ -40,11 +40,11 @@ let loadPromise: Promise<WeaponRatingDatabase | undefined> | undefined;
 
 export function loadWeaponRatings(): Promise<WeaponRatingDatabase | undefined> {
   if (loadedDatabase) return Promise.resolve(loadedDatabase);
-  loadPromise ||= fetch("/data/weapon-value.v3.json", { cache: "force-cache" })
+  loadPromise ||= fetch("/data/weapon-value.v4.json", { cache: "no-cache" })
     .then(async (response) => {
       if (!response.ok) throw new Error(`Weapon ratings returned HTTP ${response.status}.`);
       const candidate = await response.json() as Partial<WeaponRatingDatabase>;
-      if (candidate.schemaVersion !== 3 || !candidate.reviewedAt || !candidate.source?.name || !candidate.method?.columnWeights || !candidate.items || !candidate.types) throw new Error("Weapon ratings have an unsupported schema.");
+      if (candidate.schemaVersion !== 4 || !candidate.reviewedAt || !candidate.source?.name || !candidate.method?.columnWeights || !candidate.items || !candidate.types) throw new Error("Weapon ratings have an unsupported schema.");
       loadedDatabase = candidate as WeaponRatingDatabase;
       return loadedDatabase;
     })
@@ -69,7 +69,7 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
     return scoredValue(pveResult, pvpResult, {
       basis: "weapon",
       confidence: "high",
-      reason: "Compared each active perk with DIM recommendations for this exact weapon; trait columns carry four times the weight of barrel and magazine columns.",
+      reason: `Compared the active perks with DIM recommendations for this exact weapon while preserving curated trait pairings. Each specified perk column has equal weight.`,
       source: database.source.name,
       reviewedAt: database.reviewedAt,
       totalColumns: activeCount
@@ -107,14 +107,25 @@ function alignActiveColumns(weapon: WeaponItem): Array<string | undefined> {
 
 function scoreWeaponMode(bucket: RatingBucket, active: Array<string | undefined>, weights: number[]): ModeScore | undefined {
   if (!bucket?.recommendations) return undefined;
-  let earned = 0; let possible = 0; let compared = 0; let matched = 0;
-  active.forEach((perk, index) => {
-    if (!perk || !bucket.columns[index]?.length) return;
-    const weight = weights[index] || 1;
-    possible += weight; compared += 1;
-    if (bucket.columns[index].includes(perk)) { earned += weight; matched += 1; }
+  const traitPairs = bucket.traitPairs?.length ? bucket.traitPairs : [","];
+  const candidates = traitPairs.flatMap((encodedPair) => {
+    const traits = encodedPair.split(",");
+    const recommended: Array<string | undefined> = [
+      active[0] && bucket.columns[0]?.includes(active[0]) ? active[0] : bucket.columns[0]?.[0],
+      active[1] && bucket.columns[1]?.includes(active[1]) ? active[1] : bucket.columns[1]?.[0],
+      traits[0] || undefined,
+      traits[1] || undefined
+    ];
+    let earned = 0; let possible = 0; let compared = 0; let matched = 0;
+    recommended.forEach((perk, index) => {
+      if (!perk) return;
+      const weight = weights[index] || 1;
+      possible += weight; compared += 1;
+      if (active[index] === perk) { earned += weight; matched += 1; }
+    });
+    return possible ? [{ score: Math.round(earned / possible * 100), compared, matched }] : [];
   });
-  return possible ? { score: Math.round(earned / possible * 100), compared, matched } : undefined;
+  return candidates.sort((left, right) => right.score - left.score || right.matched - left.matched || right.compared - left.compared)[0];
 }
 
 function scoreTypeMode(bucket: TypeBucket, active: Array<string | undefined>, weights: number[]): ModeScore | undefined {
@@ -145,7 +156,7 @@ function scoredValue(pve: ModeScore | undefined, pvp: ModeScore | undefined, met
     basis: meta.basis,
     comparedColumns,
     totalColumns: meta.totalColumns,
-    reasons: [meta.reason, `${comparedColumns}/${meta.totalColumns} active columns had applicable evidence. Scores judge this roll, not the weapon's overall sandbox meta position.`],
+    reasons: [meta.reason, `${comparedColumns}/${meta.totalColumns} active columns had applicable evidence. This is a community roll-match score, not the weapon's overall sandbox meta position.`],
     source: meta.source,
     reviewedAt: meta.reviewedAt
   };
