@@ -857,17 +857,57 @@ export async function socialRosterFor(row: SessionRow, accessToken: string, env:
   }
 
   const available = friendsAvailable || clanAvailable;
+  const uniqueContacts = dedupeSocialContacts([...contacts.values()]);
   const value: FireteamSocialData = {
     state: available ? "available" : reauthorizationRequired ? "reauthorization-required" : "unavailable",
     friendsState: friendsAvailable ? "available" : reauthorizationRequired ? "reauthorization-required" : "unavailable",
     clanState: clanAvailable ? "available" : "unavailable",
-    contacts: [...contacts.values()].sort((a, b) => socialOrder(a) - socialOrder(b) || a.displayName.localeCompare(b.displayName)),
+    contacts: uniqueContacts.sort((a, b) => socialOrder(a) - socialOrder(b) || a.displayName.localeCompare(b.displayName)),
     ...(!friendsAvailable && reauthorizationRequired
       ? { warning: "Bungie friends require the ReadUserData app permission and a fresh authorization." }
       : !available ? { warning: "Bungie friends and clan presence are temporarily unavailable." } : {})
   };
   socialRosterCache.set(row.membership_id, { value, expiresAt: Date.now() + 2 * 60_000 });
   return value;
+}
+
+export function dedupeSocialContacts(contacts: FireteamContact[]): FireteamContact[] {
+  const unique = new Map<string, FireteamContact>();
+  for (const contact of contacts) {
+    // A complete Bungie Name (including its discriminator) is globally unique.
+    // Cross-save clan rosters may still return one row per platform membership.
+    const normalizedName = contact.displayName.trim().toLocaleLowerCase();
+    const key = /#\d{4}$/.test(normalizedName) ? `name:${normalizedName}` : `membership:${contact.membershipId || normalizedName}`;
+    const existing = unique.get(key);
+    if (!existing) {
+      unique.set(key, contact);
+      continue;
+    }
+
+    const preferIncomingIdentity = existing.onlineState !== "online" && contact.onlineState === "online";
+    unique.set(key, {
+      ...existing,
+      ...(preferIncomingIdentity ? {
+        membershipId: contact.membershipId,
+        membershipType: contact.membershipType || existing.membershipType
+      } : {}),
+      source: mergeSocialSources(existing.source, contact.source),
+      clanName: mergeClanNames(existing.clanName, contact.clanName || "") || undefined,
+      onlineState: existing.onlineState === "online" || contact.onlineState === "online"
+        ? "online"
+        : existing.onlineState === "unknown" || contact.onlineState === "unknown"
+          ? "unknown"
+          : "offline",
+      inDestiny2: existing.inDestiny2 || contact.inDestiny2
+    });
+  }
+  return [...unique.values()];
+}
+
+function mergeSocialSources(left: FireteamContact["source"], right: FireteamContact["source"]): FireteamContact["source"] {
+  if (left === right) return left;
+  if (left === "friend-and-clan" || right === "friend-and-clan") return "friend-and-clan";
+  return "friend-and-clan";
 }
 
 function mergeClanNames(existing: string | undefined, next: string): string {
