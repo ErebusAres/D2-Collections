@@ -40,6 +40,7 @@ function FireteamRefreshCountdown() {
   const storageKey = membershipId && selectedCharacterId ? pinsKey(membershipId, selectedCharacterId) : "";
   const mode = data?.sharingMode;
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
+  const activityFeedEnabled = data?.activityFeed?.enabled === true;
   const hiddenKeysSignature = hiddenTrackedItemKeys.join(",");
   const guardianRankTracked = preferences["guardianRank.tracked"];
   const journeyTracked = preferences["journey.tracked"];
@@ -118,6 +119,7 @@ function FireteamRefreshCountdown() {
             siteTrackedCollectionIds: readPreferenceArray(collectionTracked),
             siteTrackedBuilds: parseTrackedBuilds(buildTracked),
             hiddenTrackedItemKeys,
+            activityFeedEnabled,
             mode: mode as FireteamSharingMode
           })
         });
@@ -130,7 +132,7 @@ function FireteamRefreshCountdown() {
       refreshRunning.current = false;
       setRefreshing(false);
     }
-  }, [buildTracked, canShareTrackedProgress, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
+  }, [activityFeedEnabled, buildTracked, canShareTrackedProgress, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
 
   useEffect(() => {
     if (!autoRefresh || !canRefreshFireteam) {

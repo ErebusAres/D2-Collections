@@ -87,7 +87,7 @@ export async function observeRecentItems(input: {
   const rows = await input.env.DB.prepare("SELECT * FROM recent_item_events WHERE membership_id = ? ORDER BY last_observed_at DESC, id DESC LIMIT ?")
     .bind(input.membershipId, RAW_EVENT_SCAN_LIMIT).all<any>();
   const currentGear = new Map(gear.map((item) => [item.instanceId, item]));
-  const events = coalesceTimelineEvents((rows.results || []).map(eventFromRow))
+  const events = coalesceTimelineEvents((rows.results || []).map(recentItemEventFromRow))
     .slice(0, MAX_EVENTS)
     .map((event) => event.instanceId && currentGear.has(event.instanceId) ? { ...event, gear: currentGear.get(event.instanceId) } : event);
   return {
@@ -133,9 +133,17 @@ export function inventoryObservations(profile: any, manifest: CompanionManifest)
     if (!name) return [];
     return [{ key: `inventory:${itemHash}`, kind: "inventory" as const, state: "owned", quantity, metadata: {
       itemHash, name, description: String(definition?.displayProperties?.description || ""), icon: imageUrl(definition?.displayProperties?.icon),
-      itemType: String(definition?.itemTypeDisplayName || "Inventory item"), rarity: String(definition?.inventory?.tierTypeName || "Common")
+      itemType: String(definition?.itemTypeDisplayName || "Inventory item"), rarity: String(definition?.inventory?.tierTypeName || "Common"),
+      exoticEngram: isExoticEngramDefinition(definition)
     } }];
   });
+}
+
+export function isExoticEngramDefinition(definition: any): boolean {
+  const name = String(definition?.displayProperties?.name || "").trim().toLowerCase();
+  const type = String(definition?.itemTypeDisplayName || "").trim().toLowerCase();
+  const rarity = String(definition?.inventory?.tierTypeName || "").trim().toLowerCase();
+  return rarity === "exotic" && (type === "engram" || name === "exotic engram");
 }
 
 export function inventorySnapshotAvailable(profile: any, manifest: CompanionManifest): boolean {
@@ -156,7 +164,7 @@ export function eventForTransition(observation: Observation, prior: Pick<Observa
   if (observation.kind === "inventory") {
     const gained = observation.quantity - Number(prior.quantity || 0);
     if (gained <= 0) return undefined;
-    return { kind: "inventory-gained", sourceKey: observation.key, itemHash: metadata.itemHash, name: metadata.name, description: metadata.description, icon: metadata.icon, quantity: gained, observedAt: now, lastObservedAt: now, itemType: metadata.itemType, rarity: metadata.rarity };
+    return { kind: metadata.exoticEngram ? "exotic-engram-found" : "inventory-gained", sourceKey: observation.key, itemHash: metadata.itemHash, name: metadata.name, description: metadata.description, icon: metadata.icon, quantity: gained, observedAt: now, lastObservedAt: now, itemType: metadata.itemType, rarity: metadata.rarity };
   }
   if (prior.state_value === "missing" && (observation.state === "obtained" || observation.state === "complete")) {
     return { kind: "catalyst-found", sourceKey: observation.key, recordHash: metadata.recordHash, name: metadata.name, description: metadata.description, icon: metadata.icon, quantity: 1, observedAt: now, lastObservedAt: now, percent: metadata.percent };
@@ -175,7 +183,7 @@ async function saveEvent(env: Env, membershipId: string, event: Omit<RecentItemE
 }
 
 export async function eventId(membershipId: string, event: Omit<RecentItemEvent, "id">, observation: Observation, prior: ObservationRow | undefined): Promise<string> {
-  const transition = event.kind === "inventory-gained"
+  const transition = event.kind === "inventory-gained" || event.kind === "exotic-engram-found"
     ? `${prior?.updated_at || prior?.observed_at || "initial"}:${prior?.quantity || 0}->${observation.quantity}`
     : event.kind;
   const bytes = new TextEncoder().encode(`${membershipId}|${event.sourceKey}|${transition}`);
@@ -188,7 +196,7 @@ export function coalesceTimelineEvents(input: RecentItemEvent[]): RecentItemEven
   const output: RecentItemEvent[] = [];
   const lastInventoryBySource = new Map<string, RecentItemEvent>();
   for (const event of ascending) {
-    if (event.kind !== "inventory-gained") {
+    if (event.kind !== "inventory-gained" && event.kind !== "exotic-engram-found") {
       output.push(event);
       continue;
     }
@@ -216,7 +224,7 @@ function eventPriority(kind: RecentItemEvent["kind"]): number {
   return 0;
 }
 
-function eventFromRow(row: any): RecentItemEvent {
+export function recentItemEventFromRow(row: any): RecentItemEvent {
   let metadata: any = {};
   try { metadata = JSON.parse(row.metadata_json || "{}"); } catch { metadata = {}; }
   return { ...metadata, id: String(row.id), kind: row.event_kind, sourceKey: row.source_key, itemHash: row.item_hash || undefined, instanceId: row.instance_id || undefined, recordHash: row.record_hash || undefined, name: row.name, description: row.description, icon: row.icon, quantity: Number(row.quantity || 1), observedAt: row.observed_at, lastObservedAt: row.last_observed_at };

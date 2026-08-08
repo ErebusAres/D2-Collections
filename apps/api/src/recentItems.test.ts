@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable } from "./recentItems";
+import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition } from "./recentItems";
 
 describe("recent item timeline transitions", () => {
   const now = "2026-08-08T12:00:00.000Z";
@@ -21,6 +21,16 @@ describe("recent item timeline transitions", () => {
       { state_value: "owned", quantity: 10, observed_at: "2026-08-08T11:59:00.000Z" }, false, now
     );
     expect(event).toMatchObject({ kind: "inventory-gained", quantity: 4, name: "Enhancement Core" });
+  });
+
+  it("promotes Exotic Engram gains to a dedicated timeline event", () => {
+    const event = eventForTransition(
+      { key: "inventory:99", kind: "inventory", state: "owned", quantity: 2, metadata: { itemHash: "99", name: "Exotic Engram", itemType: "Engram", rarity: "Exotic", exoticEngram: true } },
+      { state_value: "owned", quantity: 1, observed_at: now }, false, now
+    );
+    expect(event).toMatchObject({ kind: "exotic-engram-found", quantity: 1, rarity: "Exotic" });
+    expect(isExoticEngramDefinition({ itemTypeDisplayName: "Engram", inventory: { tierTypeName: "Exotic" }, displayProperties: { name: "Exotic Engram" } })).toBe(true);
+    expect(isExoticEngramDefinition({ itemTypeDisplayName: "Engram", inventory: { tierTypeName: "Legendary" }, displayProperties: { name: "Legendary Engram" } })).toBe(false);
   });
 
   it("records catalyst acquisition and completion as separate transitions", () => {
@@ -60,6 +70,14 @@ describe("recent item timeline transitions", () => {
       expect.objectContaining({ id: "first", quantity: 5, observedAt: "2026-08-08T12:00:00.000Z", lastObservedAt: "2026-08-08T12:05:00.000Z" }),
       expect.objectContaining({ id: "catalyst" })
     ]);
+  });
+
+  it("coalesces rapid Exotic Engram gains", () => {
+    const events: any[] = [
+      { id: "a", kind: "exotic-engram-found", sourceKey: "inventory:99", name: "Exotic Engram", icon: "", quantity: 1, observedAt: "2026-08-08T12:00:00.000Z", lastObservedAt: "2026-08-08T12:00:00.000Z" },
+      { id: "b", kind: "exotic-engram-found", sourceKey: "inventory:99", name: "Exotic Engram", icon: "", quantity: 2, observedAt: "2026-08-08T12:02:00.000Z", lastObservedAt: "2026-08-08T12:02:00.000Z" }
+    ];
+    expect(coalesceTimelineEvents(events)).toEqual([expect.objectContaining({ id: "a", quantity: 3 })]);
   });
 
   it("uses a stable event identity for retries but a new identity for a later material transition", async () => {

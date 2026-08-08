@@ -16,13 +16,15 @@ Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` lis
 
 Gear loot management uses the existing private `gear_item_state` source of truth. Fireteam consumes `/api/v1/me/recent-items`, a private schema-v1 D1 timeline of observed weapon, armor, catalyst-acquired, catalyst-completed, and stackable inventory-gain events. It establishes a silent baseline for every category, refuses to zero inventory observations from incomplete snapshots, uses retry-stable event identities, preserves events for 30 days, caps displayed reads at 200, coalesces identical material gains observed within ten minutes at presentation time, and orders its one-row pager by the latest observation. Observation runs across signed-in Guardian Nexus pages while the site is open, even when the Fireteam row is hidden. Catalysts are chronological events rather than pinned current-state cards. Weapon cards show explicit community roll-match percentages; armor remains Power-only. Times describe Guardian Nexus snapshots, never exact acquisition.
 
+The current `codex/fireteam-activity-feed` release adds a combined Fireteam activity and short-message feed below member quest tracking. It promotes Exotic Engram gains to an explicit recent-item event and shares only weapon, armor, catalyst-acquired, and Exotic Engram finds; materials and catalyst-completion events stay out. Entries are restricted to opted-in, actively shared members of the viewer's current Bungie party. Messages use a stable current-party channel key, require another opted-in synced member, accept at most 240 normalized characters, allow three sends per ten seconds, expire after seven days, and share the same bounded 60-entry chronology as finds. Shared gear strips private tags, dismissal state, and owner-character IDs while retaining the existing themed item tooltip and weapon rating. Players can minimize or hide the panel locally, restore it, or disable publication/display/messaging through the share payload and Options. The D1 migration is `0017_fireteam_activity_feed.sql`.
+
 Gear now also has a dedicated Vault tab after Loot. It combines only physical vaulted weapons and armor, supports item kind, slot, rarity, weapon type/element, armor class, lock, tag, search, sort, and six-stat base/current range filters, and renders large result sets in bounded 120-item increments. Existing private tags and Bungie-supported lock, pull, and equip actions are reused. Bungie's third-party API exposes no delete/dismantle operation, so the workspace explicitly sends filtered cleanup candidates through the private Junk tag for in-game verification instead of claiming unsupported deletion.
 
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: no active product branch. `codex/recent-loot-rating-live-handoff` records the final delivery state only.
-- Base branch: `main` at merge commit `036d7db42c6f58d706b398d3f322876b12b74e60` (PR #82, Recent Loot and rating hardening).
+- Release branch: `codex/fireteam-activity-feed`. Implementation and the full local audit are complete; consult GitHub for the final PR/merge/deployment state after this handoff commit.
+- Base branch: `main` at merge commit `5469ee738d44ad363513066bc8d0a2adb35d6799` (PR #85, Fireteam social deduplication).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
 - Weapon workspace commit: `c2282b7` (`Add private weapon roll workspace`)
@@ -31,6 +33,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - PR #53 merged and deployed successfully through workflow run `30721416376`.
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
 - Production deployed merge commit `036d7db42c6f58d706b398d3f322876b12b74e60` successfully through Guardian Nexus workflow run `31273219961` on 2026-08-08.
+- Fireteam activity validation on 2026-08-08: archive/source/CSS boundaries, ESLint, every TypeScript target, 193 API tests, 259 web tests, 24 domain tests, tooling/Python tests, API and Web production builds, and performance budgets all pass. Entry output is 365,120 bytes JavaScript (112,518 bytes gzip) and 33,043 bytes CSS.
 
 ## Completed release scope
 
