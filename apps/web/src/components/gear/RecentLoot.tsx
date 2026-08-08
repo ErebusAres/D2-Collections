@@ -1,12 +1,16 @@
 import type { ArmorItem, GearTag, WeaponItem } from "@guardian-nexus/contracts";
 import { BarChart3, Clock3, Columns3, ExternalLink, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
 import { GearTagBadge, GearTagPicker } from "./GearTagPicker";
 import styles from "./RecentLoot.module.css";
 
 export type LootItem = ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & WeaponItem);
+export type RecentLootDisplayLimit = 12 | 24 | 48;
+export interface RecentCatalystObservation { recordHash: string; name: string; icon: string; state: "obtained" | "complete"; percent: number; observedAt: string }
 const SHORTCUT_TAGS: Record<string, GearTag> = { "1": "favorite", "2": "keep", "3": "junk", "4": "archive", "5": "infuse" };
+const DISPLAY_LIMITS: RecentLootDisplayLimit[] = [12, 24, 48];
 
 export function recentLoot(armor: ArmorItem[], weapons: WeaponItem[], kind: "all" | "armor" | "weapon" = "all", limit = 30): LootItem[] {
   return gearLootItems(armor, weapons, kind)
@@ -48,10 +52,35 @@ export function LootHistoryGrid({ title, subtitle, items, onTag, busy = false, e
   return <section className={styles.history}><header><span><strong>{title}</strong><small>{subtitle}</small></span><b>{items.length}</b></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} busy={busy} actions={itemActions?.(item)} />)}</div> : <p>{empty}</p>}</section>;
 }
 
-export function CompactRecentLootBar({ items, onTag, busy = false, onHide, trailing }: { items: LootItem[]; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; onHide: () => void; trailing?: ReactNode }) {
+export function parseRecentLootDisplayLimit(value?: string): RecentLootDisplayLimit {
+  if (value === "12" || value === "48") return Number(value) as 12 | 48;
+  return 24;
+}
+
+export function CompactRecentLootBar({ items, catalysts = [], displayLimit = 24, onDisplayLimitChange, onTag, busy = false, onHide }: { items: LootItem[]; catalysts?: RecentCatalystObservation[]; displayLimit?: RecentLootDisplayLimit; onDisplayLimitChange?: (limit: RecentLootDisplayLimit) => void; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; onHide: () => void }) {
   const active = useRef<LootItem | undefined>(undefined);
   useLootShortcuts(active, onTag);
-  return <section className={styles.compactBar}><header><Sparkles /><span><strong>Recent loot</strong><small>Private · first observed</small></span></header><div>{items.length ? items.slice(0, 5).map((item) => <RecentItemCard compact key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} busy={busy} />) : <p>No newly observed gear.</p>}{trailing}</div><button type="button" onClick={onHide}>Hide</button></section>;
+  const gearEntries = items.map((item) => ({ kind: "gear" as const, observedAt: item.firstSeenAt, item }));
+  const catalystEntries = catalysts.map((catalyst) => ({ kind: "catalyst" as const, observedAt: catalyst.observedAt, catalyst }));
+  const entries = [...gearEntries, ...catalystEntries];
+  const reservedCatalysts = gearEntries.length && catalystEntries.length ? Math.min(catalystEntries.length, Math.max(1, Math.floor(displayLimit / 4))) : catalystEntries.length;
+  const selectedGear = gearEntries.slice(0, displayLimit - reservedCatalysts);
+  const visible = [...selectedGear, ...catalystEntries.slice(0, displayLimit - selectedGear.length)].sort((left, right) => Date.parse(right.observedAt) - Date.parse(left.observedAt));
+  return <section className={styles.compactBar}><header><Sparkles /><span><strong>Recent loot</strong><small>Private · {visible.length} of {entries.length} first observed</small></span><label>Show<select aria-label="Recent loot cards to show" value={displayLimit} onChange={(event) => onDisplayLimitChange?.(Number(event.target.value) as RecentLootDisplayLimit)}>{DISPLAY_LIMITS.map((limit) => <option key={limit} value={limit}>{limit}</option>)}</select></label></header><div>{visible.length ? visible.map((entry) => entry.kind === "gear" ? <RecentItemCard compact key={`gear-${entry.item.instanceId}`} item={entry.item} onActivate={() => { active.current = entry.item; }} onDeactivate={() => { if (active.current?.instanceId === entry.item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(entry.item, tag)} busy={busy} /> : <RecentCatalystCard key={`catalyst-${entry.catalyst.recordHash}`} catalyst={entry.catalyst} />) : <p>No newly observed gear or catalysts.</p>}</div><button type="button" onClick={onHide}>Hide</button></section>;
+}
+
+export function RecentCatalystCard({ catalyst }: { catalyst: RecentCatalystObservation }) {
+  const [open, setOpen] = useState(false);
+  const status = catalyst.state === "complete" ? "Complete" : `${Math.round(catalyst.percent)}%`;
+  return <article className={`${styles.card} ${styles.compactCard} ${styles.catalystCard}`} data-rarity="Exotic" tabIndex={0} onFocus={() => setOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <Link className={styles.tile} to="/collection?view=catalysts" aria-label={`Inspect ${catalyst.name}`} onClick={() => setOpen(true)}>
+      <span className={styles.art}>{catalyst.icon ? <img src={catalyst.icon} alt="" /> : <Sparkles />}</span>
+      <span className={styles.metrics}><b>{status}</b><strong className={styles.catalystMark}>Catalyst</strong></span>
+    </Link>
+    <span className={styles.cardName}>{catalyst.name}</span>
+    <div className={styles.cardActions}><Link to="/collection?view=catalysts">Open</Link></div>
+    {open && <aside className={styles.tooltip} role="tooltip"><header>{catalyst.icon && <img src={catalyst.icon} alt="" />}<span><small>Exotic catalyst</small><strong>{catalyst.name}</strong><em>{catalyst.state === "complete" ? "Masterwork complete" : "Masterwork in progress"}</em></span></header><div className={styles.identity}><b>{status}</b><span>{catalyst.state === "complete" ? "Completed" : "Obtained"}</span></div><nav className={styles.sourceLinks}><Link to="/collection?view=catalysts">Open catalyst details</Link><span><Clock3 /> First observed {new Date(catalyst.observedAt).toLocaleString()}</span></nav><footer>Catalyst state is private to this browser and signed-in Guardian.</footer></aside>}
+  </article>;
 }
 
 export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, compact = false, actions }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; busy: boolean; compact?: boolean; actions?: ReactNode }) {
