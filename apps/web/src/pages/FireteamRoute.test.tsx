@@ -70,7 +70,7 @@ describe("Fireteam refresh cycle", () => {
     expect(orderReads).toBe(2);
   });
 
-  it("shows every active Hub order and dismisses one when Bungie reports it complete", async () => {
+  it("runs the completion step before cleaning up a Hub order Bungie reports complete", async () => {
     let firstOrderComplete = false;
     vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests")
       ? ordersEnvelope(firstOrderComplete)
@@ -84,8 +84,11 @@ describe("Fireteam refresh cycle", () => {
     firstOrderComplete = true;
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(screen.getByText("Active in Destiny · 5")).toBeTruthy());
-    expect(screen.queryByText("Hub order 1")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Hub order 1/ })).toBeNull();
     expect(screen.getByText("Hub order 6")).toBeTruthy();
+    const completion = await screen.findByRole("status");
+    expect(completion.textContent).toContain("Order complete");
+    expect(completion.textContent).toContain("Hub order 1");
   });
 });
 
