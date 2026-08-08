@@ -333,6 +333,29 @@ describe("socialRosterFor", () => {
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(expect.arrayContaining([expect.stringContaining("currentpage=1"), expect.stringContaining("currentpage=2")]));
   });
 
+  it("collapses cross-save platform memberships that share one complete Bungie Name", async () => {
+    const responses = [
+      { friends: [{ lastSeenAsMembershipId: "friend-platform", lastSeenAsBungieMembershipType: 2, bungieGlobalDisplayName: "CrossSave", bungieGlobalDisplayNameCode: 42, onlineStatus: 0, onlineTitle: 0 }] },
+      { results: [{ group: { groupId: "cross-save-clan", name: "Test Clan" } }] },
+      { results: [
+        { isOnline: false, destinyUserInfo: { membershipId: "inactive-platform", membershipType: 2, bungieGlobalDisplayName: "CrossSave", bungieGlobalDisplayNameCode: 42 } },
+        { isOnline: true, destinyUserInfo: { membershipId: "active-platform", membershipType: 3, bungieGlobalDisplayName: "CrossSave", bungieGlobalDisplayNameCode: 42 } }
+      ] }
+    ];
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: responses.shift() }), { status: 200, headers: { "Content-Type": "application/json" } }))));
+
+    const result = await socialRosterFor({ membership_type: 3, membership_id: "cross-save-social-member" } as SessionRow, "access", { BUNGIE_API_KEY: "test" } as Env);
+
+    expect(result.contacts).toEqual([expect.objectContaining({
+      membershipId: "active-platform",
+      membershipType: 3,
+      displayName: "CrossSave#0042",
+      source: "friend-and-clan",
+      clanName: "Test Clan",
+      onlineState: "online"
+    })]);
+  });
+
   it("does not label Bungie's offline-or-unknown friend presence as confirmed offline", async () => {
     const responses = [
       { friends: [{ lastSeenAsMembershipId: "hidden-friend", lastSeenAsBungieMembershipType: 3, bungieGlobalDisplayName: "Hidden", onlineStatus: 0, onlineTitle: 0 }] },
