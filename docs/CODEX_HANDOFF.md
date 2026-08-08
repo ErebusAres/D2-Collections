@@ -14,14 +14,14 @@ Guardian Share Cards have also been retired as a creation surface because they d
 
 Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` listener, mobile quick-action dock, web-app manifest, and service-worker build/cache path are removed. Startup unregisters older Guardian Nexus service workers so previously installed caches do not keep serving stale bundles. Ordinary responsive CSS remains for narrow browser windows, but mobile-specific product work is not active scope.
 
-Gear loot management uses the existing private `gear_item_state` source of truth. Fireteam now consumes `/api/v1/me/recent-items`, a private schema-v1 D1 timeline of observed weapon, armor, catalyst-acquired, catalyst-completed, and stackable inventory-gain events. It establishes a silent material/catalyst baseline, preserves events for 30 days, caps reads at 200, coalesces identical material gains observed within ten minutes into quantity cards, and orders its one-row pager newest-left to oldest-right. Catalysts are chronological events rather than reserved or pinned current-state cards. Weapon event cards retain the source-backed rating display; armor remains Power-only. Times describe Guardian Nexus snapshot observations, never exact acquisition.
+Gear loot management uses the existing private `gear_item_state` source of truth. Fireteam consumes `/api/v1/me/recent-items`, a private schema-v1 D1 timeline of observed weapon, armor, catalyst-acquired, catalyst-completed, and stackable inventory-gain events. It establishes a silent baseline for every category, refuses to zero inventory observations from incomplete snapshots, uses retry-stable event identities, preserves events for 30 days, caps displayed reads at 200, coalesces identical material gains observed within ten minutes at presentation time, and orders its one-row pager by the latest observation. Observation runs across signed-in Guardian Nexus pages while the site is open, even when the Fireteam row is hidden. Catalysts are chronological events rather than pinned current-state cards. Weapon cards show explicit community roll-match percentages; armor remains Power-only. Times describe Guardian Nexus snapshots, never exact acquisition.
 
 Gear now also has a dedicated Vault tab after Loot. It combines only physical vaulted weapons and armor, supports item kind, slot, rarity, weapon type/element, armor class, lock, tag, search, sort, and six-stat base/current range filters, and renders large result sets in bounded 120-item increments. Existing private tags and Bungie-supported lock, pull, and equip actions are reused. Bungie's third-party API exposes no delete/dismantle operation, so the workspace explicitly sends filtered cleanup candidates through the private Junk tag for in-game verification instead of claiming unsupported deletion.
 
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/fireteam-item-timeline`, created from current `main` after PR #80.
+- Current implementation branch: `codex/recent-loot-rating-hardening`, created from `main` at `f31080c` after PR #81.
 - Base branch: `main` at merge commit `36c3c13c24ca0df4a1e88d427f36c503612d62d4` (PR #80, one-row Fireteam loot paging)
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
@@ -121,7 +121,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - `apps/web/src/pages/SupportPage.tsx`
 - `apps/web/src/pages/SupportPage.module.css`
 - `apps/api/src/supportDiagnostics.ts`
-- `apps/web/public/data/weapon-value.v3.json`
+- `apps/web/public/data/weapon-value.v4.json`
 - `apps/web/src/modules/loot/weaponEvaluator.ts`
 - `apps/web/src/modules/loot/weaponEvaluator.test.ts`
 - `apps/api/src/gear.ts`
@@ -244,9 +244,21 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Read-only invariant: `/support` decrypts only an unexpired current access token and passes it into the real `profileFor` loader. It must not call the rotating `accessTokenFor` helper, update/delete `oauth_sessions`, or otherwise mutate Guardian Nexus/Bungie state. An expired token is reported explicitly with `refreshAttempted: false` and a sign-in next step.
 - Production smoke check on 2026-08-08 confirmed `/support` ran all 10 stages successfully for a signed-in account, Copy Diagnostic Report worked, the deployed frontend identified merge `1d3b1ef`, the runtime rating asset exposed schema v2 with 1,220 records, and live Gear rendered power-only armor plus rated/unrated weapon cards. A click/focus race found during this check was corrected immediately so touch/click reliably opens the detail tooltip.
 
+## 2026-08-08 Recent Loot and rating hardening
+
+- Branch: `codex/recent-loot-rating-hardening`, based on live merge `f31080c` / PR #81.
+- Silent first baseline now covers physical weapons and armor as well as catalysts and stackable inventory. Existing vault contents are not emitted as new-account loot.
+- Inventory observations advance to zero only when both Bungie inventory containers and the companion manifest are complete. A partial component or manifest outage therefore cannot turn a recovered material stack into a false gain.
+- New event IDs are deterministic for their source transition and inserts use `INSERT OR IGNORE`, making a retry or concurrent observer safe after an event write. Material deltas remain separate stored observations and coalesce into `×N` only in the read model; ordering uses `lastObservedAt`, so a newly enlarged stack returns to the left.
+- The global signed-in shell observes the timeline every normal live-refresh interval while Guardian Nexus is open, including when the Fireteam row is hidden. This still cannot detect a physical item acquired and dismantled entirely while the site is closed, or reconstruct gross material drops that were spent between Bungie snapshots; UI language says observed timeline rather than every exact pickup.
+- Fireteam distinguishes loading, baseline, warning, and error states; exposes retry, retention, and last-check context; resets to the newest page for a genuinely new leading event; provides compact event cards without empty action strips; constrains edge tooltips; labels Postmaster gear correctly; and supports Escape/toggle inspection.
+- Weapon rating schema v4 preserves DIM-curated trait pairings, uses equal per-source-column weight rather than an undocumented 4× opinion, calls the result a roll match, and retains separate PvE/PvP, exact/type basis, confidence, evidence, source, and honest unavailable states. The hardened DIM block-note parser generated 1,194 exact current-weapon records plus all 17 type fallbacks on 2026-08-08. The browser validates `/data/weapon-value.v4.json` and retries transient failures.
+- Both production deployment and the scheduled manifest refresh now regenerate ratings after the Bungie manifest, preventing new-definition drift. `docs/WEAPON_RATINGS.md`, generator tests, evaluator tests, timeline tests, runtime data, and handoff must move together on future schema changes.
+- Full `pnpm run audit` passed outside the known OneDrive/esbuild sandbox restriction: archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, 186 API tests, 257 web tests, 7 Node tooling tests, 19 Python manifest tests, production API/web builds, and performance budgets of 365,109 bytes entry JavaScript (112,531 gzip) and 33,043 bytes CSS. Publish, merge, workflow monitoring, and live smoke verification remain the next steps for this branch.
+
 ## Next implementation queue
 
-### Completed: Evidence-backed weapon ratings v3
+### Superseded historical milestone: Evidence-backed weapon ratings v3
 
 - Replaced the schema-v2 any-column/pair heuristic with exact DIM Voltron column comparisons using `0.25, 0.25, 1, 1` weights. Bungie-normalized sockets now carry optional rating positions so frames, intrinsics, mods, and other non-wishlist sockets cannot shift the comparison.
 - Added separate PvE/PvP and overall scores, Excellent/Strong/Mixed/Weak/Poor tiers, exact-vs-type basis, high/medium/low confidence, applicable-column coverage, reasons, source, and review date to the existing icon-card/detail UI.

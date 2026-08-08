@@ -34,17 +34,17 @@ describe("RecentItemRow", () => {
 
   it("shows a sourced quality tier, mode scores, confidence, and rating basis", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({
-      schemaVersion: 3, reviewedAt: "2026-08-08", source: { name: "DIM Voltron" }, method: { columnWeights: [.25, .25, 1, 1] },
+      schemaVersion: 4, reviewedAt: "2026-08-08", source: { name: "DIM Voltron" }, method: { columnWeights: [1, 1, 1, 1] },
       coverage: { manifestWeapons: 1, reviewedWeapons: 1, supportedTypes: 1, reviewedTypes: 1 }, types: {},
       items: { "2": {
         itemType: "Auto Rifle",
-        pve: { recommendations: 1, columns: [["10"], ["11"], ["12"], ["13"]] },
-        pvp: { recommendations: 1, columns: [["20"], ["11"], ["22"], ["13"]] }
+        pve: { recommendations: 1, columns: [["10"], ["11"], ["12"], ["13"]], traitPairs: ["12,13"] },
+        pvp: { recommendations: 1, columns: [["20"], ["11"], ["22"], ["13"]], traitPairs: ["22,13"] }
       } }
     }) }));
     const rated = { ...weapon, rollDataState: "complete" as const, perkColumns: ["10", "11", "12", "13"].map((hash, socketIndex) => ({ socketIndex, ratingColumn: socketIndex as 0 | 1 | 2 | 3, active: { hash, name: `Perk ${hash}`, description: "" }, options: [] })) };
     render(<RecentItemRow title="Recently acquired" items={recentLoot([], [rated])} onTag={vi.fn()} />);
-    await waitFor(() => expect(screen.getByText("75%")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Roll 75%")).toBeTruthy());
     expect(screen.getByText("Strong")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
     expect(screen.getByRole("tooltip").textContent).toContain("Exact weapon evidence");
@@ -53,7 +53,7 @@ describe("RecentItemRow", () => {
     expect(screen.getByRole("tooltip").textContent).toContain("PvP50%");
     cleanup();
     render(<MemoryRouter><CompactRecentLootBar items={[{ ...rated, kind: "weapon" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
-    await waitFor(() => expect(screen.getByText("75%")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Roll 75%")).toBeTruthy());
   });
 
   it("keeps up to 24 entries by default while paging a single 12-card row", () => {
@@ -98,14 +98,26 @@ describe("RecentItemRow", () => {
   it("renders a newest-left event timeline and stacks material gains", () => {
     const events: any[] = [
       { id: "older", kind: "catalyst-completed", sourceKey: "catalyst:1", recordHash: "1", name: "Old Catalyst", icon: "", quantity: 1, percent: 100, observedAt: "2026-08-08T11:00:00Z", lastObservedAt: "2026-08-08T11:00:00Z" },
-      { id: "newer", kind: "inventory-gained", sourceKey: "inventory:2", itemHash: "2", name: "Enhancement Core", icon: "/core.png", itemType: "Material", rarity: "Legendary", quantity: 4, observedAt: "2026-08-08T12:00:00Z", lastObservedAt: "2026-08-08T12:04:00Z" }
+      { id: "newer", kind: "inventory-gained", sourceKey: "inventory:2", itemHash: "2", name: "Enhancement Core", icon: "/core.png", itemType: "Material", rarity: "Legendary", quantity: 4, observedAt: "2026-08-08T10:00:00Z", lastObservedAt: "2026-08-08T12:04:00Z" }
     ];
     render(<MemoryRouter><CompactRecentLootBar events={events} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
     const cards = screen.getAllByRole("button", { name: /Inspect/ });
     expect(cards.map((card) => card.getAttribute("aria-label"))).toEqual(["Inspect Enhancement Core", "Inspect Old Catalyst"]);
     expect(screen.getByText("×4")).toBeTruthy();
-    expect(screen.getByLabelText("Completed")).toBeTruthy();
+    expect(screen.getByLabelText("100%")).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Recent loot cards to keep" })).toBeNull();
+  });
+
+  it("distinguishes loading, baseline, and request errors instead of reporting each as empty history", () => {
+    const { rerender } = render(<MemoryRouter><CompactRecentLootBar events={[]} loading onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByText(/Checking your latest Bungie profile snapshot/)).toBeTruthy();
+    const retry = vi.fn();
+    rerender(<MemoryRouter><CompactRecentLootBar events={[]} error={new Error("Bungie profile refresh failed")} onRetry={retry} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByRole("alert").textContent).toContain("Bungie profile refresh failed");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    rerender(<MemoryRouter><CompactRecentLootBar events={[]} firstObservationEstablished onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByText(/baseline established/i)).toBeTruthy();
   });
 
   it("parses only supported Fireteam display limits", () => {

@@ -796,6 +796,7 @@ export interface ArmorItem {
   power: number;
   ownerCharacterId?: string;
   location: GearLocation;
+  inPostmaster?: boolean;
   equipped: boolean;
   locked: boolean;
   masterworked: boolean;
@@ -848,6 +849,7 @@ export interface WeaponItem {
   power: number;
   ownerCharacterId?: string;
   location: GearLocation;
+  inPostmaster?: boolean;
   equipped: boolean;
   locked: boolean;
   masterworked: boolean;

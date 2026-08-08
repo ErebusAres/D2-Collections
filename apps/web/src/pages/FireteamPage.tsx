@@ -65,9 +65,9 @@ export function FireteamPage() {
   const recentItems = useQuery({
     queryKey: ["recent-items", selectedCharacterId],
     queryFn: () => api<RecentItemTimelineData>(`/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled: Boolean(session?.authenticated && selectedCharacterId && showRecentLoot),
+    enabled: Boolean(session?.authenticated && selectedCharacterId),
     staleTime: 30_000,
-    refetchInterval: showRecentLoot && autoRefresh ? 60_000 : false
+    refetchInterval: autoRefresh ? 60_000 : false
   });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["recent-items", selectedCharacterId] }) });
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
@@ -218,7 +218,7 @@ export function FireteamPage() {
         <div><ShieldCheck /><span>Your sharing</span><strong>{data.sharingMode === "persistent" ? "Always on / background refresh" : data.sharingMode === "temporary" ? "Temporary / 15 minutes" : "Private"}</strong></div>
       </section>
       <FireteamReadinessPanel draft={readinessDraft} builds={builds.data?.data.builds || []} sharing={data.sharingEnabled} onChange={updateReadinessDraft} />
-      {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Private to you</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
+      {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Observation continues privately while Guardian Nexus is open</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
       <SocialRoster contacts={data.social?.contacts || []} friendsState={data.social?.friendsState || data.social?.state || "unavailable"} clanState={data.social?.clanState || (data.social?.state === "available" ? "available" : "unavailable")} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
       <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Status may be delayed</strong><p>Party presence and current activity are not guaranteed to be real time.</p></div></section>

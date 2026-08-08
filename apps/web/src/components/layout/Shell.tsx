@@ -1,4 +1,4 @@
-import type { ReportAdminSummaryData, RewardsPassData } from "@guardian-nexus/contracts";
+import type { RecentItemTimelineData, ReportAdminSummaryData, RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -34,6 +34,14 @@ export function Shell() {
     queryFn: () => api<RewardsPassData>(`/api/v1/me/rewards?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
     staleTime: 60_000,
+    refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false,
+    refetchIntervalInBackground: false
+  });
+  useQuery({
+    queryKey: ["recent-items", selectedCharacterId],
+    queryFn: () => api<RecentItemTimelineData>(`/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
+    enabled: Boolean(session?.authenticated && selectedCharacterId),
+    staleTime: 30_000,
     refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });

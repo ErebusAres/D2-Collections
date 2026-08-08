@@ -1,6 +1,6 @@
 import type { WeaponItem } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import database from "../../../public/data/weapon-value.v3.json";
+import database from "../../../public/data/weapon-value.v4.json";
 import { evaluateWeapon, qualityFor, type WeaponRatingDatabase } from "./weaponEvaluator";
 
 const ratings = database as unknown as WeaponRatingDatabase;
@@ -21,9 +21,18 @@ describe("weapon evaluator", () => {
     expect(result.source).toContain("DIM");
   });
 
-  it("weights the two trait columns four times more than barrel and magazine", () => {
+  it("uses equal column weights while preserving the recommended trait pairing", () => {
     const result = evaluateWeapon(weapon("877384", ["900000001", "900000002", "3824105627", "1134488199"]), ratings);
-    expect(result).toMatchObject({ state: "scored", pve: 80, pvp: 40, overall: 60, quality: "mixed" });
+    expect(result).toMatchObject({ state: "scored", pve: 50, pvp: 25, overall: 38, quality: "weak" });
+  });
+
+  it("does not award a perfect score to traits borrowed from different recommended combinations", () => {
+    const synthetic: WeaponRatingDatabase = {
+      schemaVersion: 4, reviewedAt: "2026-08-08", source: { name: "DIM" }, method: { columnWeights: [1, 1, 1, 1] },
+      coverage: { manifestWeapons: 1, reviewedWeapons: 1, supportedTypes: 1, reviewedTypes: 1 }, types: {},
+      items: { "42": { itemType: "Pulse Rifle", pve: { recommendations: 2, columns: [[], [], ["a", "c"], ["b", "d"]], traitPairs: ["a,b", "c,d"] }, pvp: { recommendations: 0, columns: [[], [], [], []], traitPairs: [] } } }
+    };
+    expect(evaluateWeapon(weapon("42", ["a", "d"]), synthetic)).toMatchObject({ state: "scored", pve: 50, overall: 50 });
   });
 
   it("uses API-provided rating positions and ignores non-wishlist sockets", () => {
