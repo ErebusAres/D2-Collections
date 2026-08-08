@@ -40,11 +40,6 @@
 .score { display: grid; place-items: center; min-width: 32px; color: var(--cyan); font: 600 16px "Barlow Condensed"; }
 .score small { color: var(--faint); font: 8px "Barlow"; text-transform: uppercase; }
 .score[data-state="unavailable"], .score[data-state="incomplete"] { color: var(--faint); }
-.actions { display: flex; align-items: center; gap: 4px; }
-.actions button { width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); background: rgba(255,255,255,.025); color: var(--muted); }
-.actions button:hover,.actions button:focus-visible { border-color: var(--cyan); color: var(--cyan); outline: 0; }
-.actions button:disabled { opacity: .45; cursor: wait; }
-.actions svg { width: 13px; height: 13px; }
 
 .history {
   min-height: 540px;
@@ -134,4 +129,63 @@
   .compactBar > div { overflow-x: auto; }
   .tooltip { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; width: auto; }
   .tooltip::before { display: none; }
+}
+
+/* Loot Companion icon-card presentation. These overrides intentionally keep
+   the established Guardian Nexus palette while making new drops scannable. */
+.row > div { gap: 10px; padding: 10px; }
+.card {
+  min-width: 104px;
+  width: 104px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 5px;
+  overflow: visible;
+  background: linear-gradient(155deg, rgba(20,31,40,.98), rgba(5,13,19,.98));
+}
+.card[data-actions="true"] { display: flex; }
+.tile { display: grid; padding: 0; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.art { width: 92px; height: 92px; border: 1px solid rgba(255,255,255,.16); background: #101820; }
+.art > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.metrics { min-height: 25px; display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 2px 4px; background: rgba(3,8,12,.88); }
+.metrics > b { font: 600 14px "Barlow Condensed"; }
+.score { display: block; min-width: 0; color: var(--cyan); font: 600 12px "Barlow Condensed"; }
+.score[data-state="unavailable"], .score[data-state="incomplete"] { color: var(--faint); font-size: 9px; }
+.cardName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; text-align: center; }
+.cardActions { min-height: 29px; display: flex; justify-content: center; gap: 3px; }
+.cardActions > * { min-width: 0; }
+.cardActions button { min-width: 24px; height: 26px; padding: 0 4px; }
+.history > div { grid-template-columns: repeat(auto-fill, minmax(104px, 104px)); align-items: start; gap: 10px; }
+.history .card { min-width: 104px; min-height: 0; }
+.compactCard { min-width: 82px; width: 82px; height: auto; padding: 3px; }
+.compactCard .art { width: 74px; height: 74px; }
+.compactCard .metrics { min-height: 20px; }
+.compactCard .cardName, .compactCard .cardActions { display: none; }
+
+.tooltip { width: min(450px, calc(100vw - 44px)); text-align: left; }
+.identity { display: flex; align-items: center; gap: 10px; margin: 8px -10px 0; padding: 9px 10px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.identity b { color: var(--cyan); font: 600 18px "Barlow Condensed"; }
+.identity span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
+.sourceLinks { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; color: var(--faint); font-size: 9px; }
+.sourceLinks a, .sourceLinks span { display: flex; align-items: center; gap: 4px; }
+.sourceLinks a { color: var(--cyan); text-decoration: none; }
+.sourceLinks svg { width: 11px; height: 11px; }
+.tracker { display: flex; align-items: center; gap: 6px; margin: 3px 0 7px; padding: 6px; border: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+.tracker svg { width: 14px; }.tracker b { margin-left: auto; color: var(--ink); }
+.weaponStats { display: grid; gap: 4px; margin: 6px 0; }
+.weaponStats > span { display: grid; grid-template-columns: 126px 1fr 30px; align-items: center; gap: 7px; }
+.weaponStats small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; }
+.weaponStats i { position: relative; height: 8px; overflow: hidden; background: rgba(255,255,255,.12); }
+.weaponStats i em { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--cyan), #d8e8ec); }
+.weaponStats b { font: 500 10px "Barlow"; text-align: right; }
+.intrinsic { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 7px; margin: 8px 0; padding: 6px; border: 1px solid var(--line); }
+.intrinsic img { width: 32px; height: 32px; }.intrinsic span { display: grid; }.intrinsic b { font-size: 10px; }.intrinsic small { color: var(--faint); font-size: 8px; }
+.value[data-state="scored"] { border-color: rgba(73,207,209,.45); }
+
+@media (max-width: 800px) {
+  .history > div { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+  .history .card { width: 100%; min-width: 92px; }
+  .history .art { width: 100%; height: auto; aspect-ratio: 1; }
 }

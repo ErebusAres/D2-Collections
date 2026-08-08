@@ -42,7 +42,7 @@ import { z } from "zod";
 import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, addXurCollectionStates, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
-import { allowlist, cookie, csrfToken, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
+import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { normalizeGear, type GearStateRow } from "./gear";
 import { matrixGuardianRoster } from "./matrix";
@@ -75,6 +75,7 @@ import {
 } from "./notifications";
 import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
+import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -150,7 +151,7 @@ const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("projects.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("fashion.looks.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("challenges.v1"), value: z.string().max(40_000) }),
-  z.object({ key: z.literal("gear.workspace"), value: z.enum(["armor", "weapons"]) }),
+  z.object({ key: z.literal("gear.workspace"), value: z.enum(["armor", "weapons", "loot", "vault"]) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.literal("planner.duration"), value: z.enum(["30", "60", "120"]) }),
@@ -208,8 +209,9 @@ export default {
 async function route(request: Request, env: Env, context: RequestContext): Promise<Response> {
   const path = context.url.pathname.replace(/\/$/, "") || "/";
   if (path === "/api/v1/health" && request.method === "GET") {
-    return envelope({ service: "guardian-nexus-api", oauth: Boolean(env.BUNGIE_CLIENT_SECRET), database: "guardian-nexus-v1" }, env, context);
+    return envelope({ service: "guardian-nexus-api", version: "0.1.0", commit: (env as any).BUILD_COMMIT || "unknown", deployedAt: (env as any).BUILD_TIMESTAMP || "unknown", oauth: Boolean(env.BUNGIE_CLIENT_SECRET), database: "guardian-nexus-v1" }, env, context);
   }
+  if (path === "/api/v1/support/diagnostics" && request.method === "GET") return supportDiagnostics(request, env, context);
   if (path === "/api/v1/auth/start" && request.method === "GET") return startAuth(request, env, context);
   if (path === "/api/v1/auth/callback" && request.method === "GET") return finishAuth(request, env, context);
   if (path === "/api/v1/session" && request.method === "GET") return readSession(request, env, context);
@@ -291,6 +293,124 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   throw httpError(404, "not_found", "This Guardian Nexus endpoint does not exist.");
 }
 
+async function supportDiagnostics(request: Request, env: Env, context: RequestContext): Promise<Response> {
+  const startedAt = new Date().toISOString();
+  const tests: DiagnosticTest[] = [{ id: "request", name: "Diagnostic request received", status: "pass", durationMs: 0, explanation: "The browser reached the Guardian Nexus Worker and started a private, read-only diagnostic run." }];
+  const sessionCookieReceived = Boolean(parseCookies(request).gn_session);
+  let row: SessionRow | null = null;
+  let databaseReachable = false;
+  let schemaTables: string[] = [];
+  let mappingSummary: Record<string, unknown> = {};
+  const databaseStart = Date.now();
+  try {
+    schemaTables = ((await env.DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('users','oauth_sessions','gear_item_state','d1_migrations') ORDER BY name").all<{ name: string }>()).results || []).map((entry) => entry.name);
+    databaseReachable = true;
+    if (sessionCookieReceived) {
+      const token = parseCookies(request).gn_session!;
+      row = await env.DB.prepare(`SELECT s.session_hash, s.membership_id, u.membership_type, u.display_name, u.bungie_name, s.access_token_cipher, s.refresh_token_cipher, s.access_expires_at, s.refresh_expires_at FROM oauth_sessions s JOIN users u ON u.membership_id = s.membership_id WHERE s.session_hash = ?`).bind(await sha256(token)).first<SessionRow>();
+      if (row) {
+        const counts = await env.DB.prepare("SELECT (SELECT COUNT(*) FROM users WHERE membership_id = ?) AS user_count, (SELECT COUNT(*) FROM oauth_sessions WHERE membership_id = ?) AS session_count").bind(row.membership_id, row.membership_id).first<{ user_count: number; session_count: number }>();
+        mappingSummary = { currentUserMappingCount: Number(counts?.user_count || 0), sessionsForStoredMembership: Number(counts?.session_count || 0), duplicateUserMapping: Number(counts?.user_count || 0) > 1 };
+      }
+    }
+    tests.push({ id: "database", name: "Guardian Nexus data store", status: schemaTables.includes("users") && schemaTables.includes("oauth_sessions") ? "pass" : "warning", durationMs: Date.now() - databaseStart, explanation: "D1 responded and the diagnostic checked only expected schema names and the current session mapping.", details: { reachable: true, requiredTablesPresent: schemaTables.includes("users") && schemaTables.includes("oauth_sessions"), schemaMarker: schemaTables.includes("d1_migrations") ? "d1_migrations-present" : "migration-table-not-exposed", ...mappingSummary } });
+  } catch (error: any) {
+    tests.push(diagnosticFailure("database", "Guardian Nexus data store", databaseStart, error, "The Worker could not read the D1 schema/session relationship."));
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const sessionValid = Boolean(row && row.refresh_expires_at > nowSeconds);
+  tests.push({ id: "session", name: "Guardian Nexus server session", status: sessionValid ? "pass" : "fail", durationMs: 0, explanation: !sessionCookieReceived ? "No Guardian Nexus session cookie reached the Worker." : !row ? "A cookie was received, but no matching server-side session was found." : sessionValid ? "The current server-side session exists and its refresh window is valid." : "The server-side session has expired.", details: { cookieReceived: sessionCookieReceived, foundServerSide: Boolean(row), valid: sessionValid, expiresAt: row ? new Date(row.refresh_expires_at * 1000).toISOString() : undefined, bungieAccountAssociated: Boolean(row?.membership_id), oauthCredentialsAvailable: Boolean(row?.access_token_cipher && row?.refresh_token_cipher), tokenExpired: row ? row.access_expires_at <= nowSeconds : undefined } });
+
+  let accessToken = "";
+  const refreshAttempted = false;
+  if (row && sessionValid) {
+    const tokenStart = Date.now();
+    const tokenExpired = row.access_expires_at <= nowSeconds + 60;
+    if (tokenExpired) tests.push({ id: "oauth", name: "Bungie OAuth token", status: "fail", durationMs: Date.now() - tokenStart, explanation: "The stored access token is expired or near expiry. Read-only diagnostics did not rotate or delete session credentials; signing in again will test the normal refresh/login path safely.", details: { credentialsPresent: true, tokenValid: false, tokenExpired: true, refreshAttempted, refreshSucceeded: undefined, requiredScope: "ReadBasicUserProfile", scopeSufficientForMembershipsAndBasicProfile: "not-tested" } });
+    else {
+      try {
+        accessToken = await decrypt(row.access_token_cipher, env.OAUTH_ENCRYPTION_KEY);
+        tests.push({ id: "oauth", name: "Bungie OAuth token", status: "pass", durationMs: Date.now() - tokenStart, explanation: "The stored OAuth token is within its validity window; no refresh was necessary.", details: { credentialsPresent: true, tokenValid: true, tokenExpired: false, refreshAttempted, refreshSucceeded: undefined, requiredScope: "ReadBasicUserProfile", scopeSufficientForMembershipsAndBasicProfile: true } });
+      } catch (error: any) {
+        tests.push({ ...diagnosticFailure("oauth", "Bungie OAuth token", tokenStart, error, "Guardian Nexus could not decrypt the current OAuth token."), details: { credentialsPresent: true, tokenValid: false, tokenExpired: false, refreshAttempted, refreshSucceeded: undefined } });
+      }
+    }
+  } else {
+    tests.push({ id: "oauth", name: "Bungie OAuth token", status: "not-applicable", durationMs: 0, explanation: "OAuth could not be tested without a valid current Guardian Nexus session." });
+  }
+
+  let memberships: any;
+  const membershipsStart = Date.now();
+  if (accessToken) {
+    try {
+      memberships = await membershipsFor(accessToken, env);
+      const entries = Array.isArray(memberships?.destinyMemberships) ? memberships.destinyMemberships : [];
+      tests.push({ id: "memberships", name: "Bungie memberships", status: entries.length ? "pass" : "warning", durationMs: Date.now() - membershipsStart, httpStatus: 200, explanation: entries.length ? `Bungie authenticated the user and returned ${entries.length} linked Destiny membership${entries.length === 1 ? "" : "s"}.` : "Bungie authenticated the user but returned zero Destiny memberships.", details: { bungieNetUserReturned: Boolean(memberships?.bungieNetUser), bungieGlobalDisplayName: memberships?.bungieNetUser?.uniqueName || memberships?.bungieNetUser?.bungieGlobalDisplayName, primaryMembershipId: memberships?.primaryMembershipId, membershipCount: entries.length, memberships: entries.map((entry: any) => ({ membershipType: Number(entry.membershipType), membershipId: String(entry.membershipId), displayName: String(entry.displayName || ""), bungieGlobalDisplayName: entry.bungieGlobalDisplayName, bungieGlobalDisplayNameCode: entry.bungieGlobalDisplayNameCode, crossSaveOverride: Number(entry.crossSaveOverride || 0), applicableMembershipTypes: entry.applicableMembershipTypes || [], isPublic: entry.isPublic, isPrimary: String(entry.membershipId) === String(memberships?.primaryMembershipId) })) } });
+    } catch (error: any) {
+      tests.push(diagnosticFailure("memberships", "Bungie memberships", membershipsStart, error, "Bungie authentication or membership retrieval failed."));
+    }
+  } else tests.push({ id: "memberships", name: "Bungie memberships", status: "not-applicable", durationMs: 0, explanation: "Memberships could not be tested without a usable OAuth token." });
+
+  const probeStart = Date.now();
+  const probes = memberships && accessToken ? await probeDestinyMemberships(memberships, (membershipType, membershipId) => bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200`, env, accessToken)) : [];
+  if (memberships) tests.push({ id: "profiles", name: "Every linked Destiny profile", status: probes.some((probe) => probe.usable) ? "pass" : probes.some((probe) => probe.profileExists) ? "warning" : "fail", durationMs: Date.now() - probeStart, explanation: probes.some((probe) => probe.usable) ? "At least one linked membership returned a profile with usable characters." : probes.some((probe) => probe.profileExists) ? "A Destiny profile exists, but no usable characters were returned." : "No linked membership returned a usable Destiny 2 profile.", details: { probes } });
+  else tests.push({ id: "profiles", name: "Every linked Destiny profile", status: "not-applicable", durationMs: 0, explanation: "Profile probes require a successful membership response." });
+
+  const best = selectBestMembership(memberships, probes);
+  const stored = probes.find((probe) => probe.membershipId === row?.membership_id);
+  tests.push({ id: "selection", name: "Membership selection", status: best && row && best.membershipId !== row.membership_id && best.usable ? "fail" : best?.usable ? "pass" : "warning", durationMs: 0, explanation: best && row && best.membershipId !== row.membership_id && best.usable ? "The saved Guardian Nexus membership is not the best verified usable Destiny profile." : best?.usable ? "Guardian Nexus's verified selection resolves to a usable Destiny profile." : "Guardian Nexus could not verify a usable membership selection.", details: { storedMembership: row ? { membershipType: row.membership_type, membershipId: row.membership_id } : undefined, verifiedSelection: best ? { membershipType: best.membershipType, membershipId: best.membershipId, characterCount: best.characterCount } : undefined, storedMembershipUsable: stored?.usable } });
+
+  const bootstrapStart = Date.now();
+  let bootstrap: Record<string, unknown> = { stages: [] };
+  if (row && accessToken) {
+    const stages = ["request received", "session resolved", "OAuth token resolved", "memberships loaded", "membership selected"];
+    let activeStage = "profile loaded";
+    try {
+      const { profile } = await profileFor(row, env, "session", true, accessToken); stages.push("profile loaded");
+      activeStage = "characters loaded";
+      const characters = charactersFromProfile(profile); stages.push("characters loaded");
+      activeStage = "application account normalized";
+      const manifest = await loadActivityManifest(env);
+      const guardian = normalizeGuardian({ profile, membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.display_name, bungieName: row.bungie_name, rewardsPass: { rank: 0, progress: { state: "unavailable", source: "bungie-profile-character-progressions" } }, manifest }); stages.push("application account normalized", "bootstrap response created");
+      bootstrap = { stages, selectedMembershipId: row.membership_id, characterCount: characters.length, selectedCharacterId: guardian.selectedCharacterId, succeeded: true };
+      tests.push({ id: "bootstrap", name: "Guardian Nexus account bootstrap", status: characters.length ? "pass" : "warning", durationMs: Date.now() - bootstrapStart, explanation: characters.length ? "The real profile loader and account normalizer completed successfully." : "The real profile loader completed, but the normalized account contains no characters.", details: bootstrap });
+    } catch (error: any) {
+      bootstrap = { stages, failedStage: activeStage, succeeded: false, exception: { name: String(error?.name || "Error"), message: String(error?.message || "Unknown bootstrap failure"), applicationCode: error?.code, stackLocation: safeStackLocation(error) } };
+      tests.push({ ...diagnosticFailure("bootstrap", "Guardian Nexus account bootstrap", bootstrapStart, error, "The normal Guardian Nexus bootstrap path failed at the last completed stage."), details: bootstrap });
+    }
+  } else tests.push({ id: "bootstrap", name: "Guardian Nexus account bootstrap", status: "not-applicable", durationMs: 0, explanation: "The application bootstrap requires a valid current session and OAuth token." });
+
+  const diagnosis = membershipDiagnosis(Boolean(memberships), probes, stored, row?.membership_id);
+  return envelope({
+    reportVersion: 1,
+    timestamp: startedAt,
+    guardianNexus: { build: "0.1.0", commit: (env as any).BUILD_COMMIT || "unknown", deployedAt: (env as any).BUILD_TIMESTAMP || "unknown", backendReachable: true, databaseReachable, schema: "guardian-nexus-v1" },
+    session: { cookieReceived: sessionCookieReceived, found: Boolean(row), valid: sessionValid, oauthPresent: Boolean(row?.access_token_cipher), oauthValid: Boolean(accessToken), refreshAttempted },
+    tests,
+    profileTests: probes,
+    applicationBootstrap: bootstrap,
+    diagnosis
+  }, env, context);
+}
+
+function diagnosticFailure(id: string, name: string, started: number, error: any, explanation: string): DiagnosticTest {
+  return {
+    id, name, status: "fail", durationMs: Date.now() - started, explanation,
+    ...(Number.isFinite(Number(error?.httpStatus || error?.status)) ? { httpStatus: Number(error?.httpStatus || error?.status) } : {}),
+    ...(error?.code ? { applicationCode: String(error.code) } : {}),
+    ...(Number.isFinite(Number(error?.bungieErrorCode)) ? { bungieErrorCode: Number(error.bungieErrorCode) } : {}),
+    ...(error?.bungieErrorStatus ? { bungieErrorStatus: String(error.bungieErrorStatus) } : {}),
+    ...(error?.bungieMessage || error?.message ? { bungieMessage: String(error.bungieMessage || error.message) } : {}),
+    ...(Number(error?.throttleSeconds || error?.retryAfterSeconds) ? { throttleSeconds: Number(error?.throttleSeconds || error?.retryAfterSeconds) } : {})
+  };
+}
+
+function safeStackLocation(error: any): string | undefined {
+  const line = String(error?.stack || "").split("\n").slice(1).find((entry) => /apps\/api\/src|worker/i.test(entry));
+  return line ? line.trim().replace(/[A-Z]:\\[^:)]*/i, "[worker-source]") : undefined;
+}
+
 function corsHeaders(env: Env, origin: string): HeadersInit {
   const allowed = new Set([env.ALLOWED_ORIGIN, env.WEB_ORIGIN].flatMap((value) => (value || "").split(",")).map((value) => value.trim()).filter(Boolean));
   const accepted = allowed.has(origin) ? origin : env.WEB_ORIGIN;
@@ -364,7 +484,8 @@ async function finishAuth(request: Request, env: Env, context: RequestContext): 
   const token = await exchangeCode(code, env);
   if (!token.refresh_token) throw httpError(503, "refresh_token_missing", "The Bungie application must be configured as a confidential OAuth client.");
   const memberships = await membershipsFor(token.access_token, env);
-  const membership = primaryMembership(memberships);
+  const membershipProbes = await probeDestinyMemberships(memberships, (membershipType, membershipId) => bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200`, env, token.access_token));
+  const membership = selectBestMembership(memberships, membershipProbes) || primaryMembership(memberships);
   if (!membership?.membershipId) throw httpError(400, "destiny_membership_missing", "This Bungie account has no Destiny membership.");
   const membershipId = String(membership.membershipId);
   const membershipType = Number(membership.membershipType);

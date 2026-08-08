@@ -1,7 +1,7 @@
 import type { ArmorItem, GearTag, WeaponItem } from "@guardian-nexus/contracts";
-import { Clock3, Columns3, Sparkles } from "lucide-react";
+import { BarChart3, Clock3, Columns3, ExternalLink, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { evaluateWeapon } from "../../modules/loot/weaponEvaluator";
+import { evaluateWeapon, loadWeaponRatings } from "../../modules/loot/weaponEvaluator";
 import { GearTagBadge, GearTagPicker } from "./GearTagPicker";
 import styles from "./RecentLoot.module.css";
 
@@ -56,26 +56,38 @@ export function CompactRecentLootBar({ items, onTag, busy = false, onHide, trail
 
 export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, compact = false, actions }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; busy: boolean; compact?: boolean; actions?: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [, setRatingsLoaded] = useState(false);
+  useEffect(() => {
+    if (item.kind === "weapon") void loadWeaponRatings().then((database) => setRatingsLoaded(Boolean(database)));
+  }, [item.kind]);
   const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
   return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} tabIndex={0} onFocus={() => { onActivate(); setOpen(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onDeactivate(); setOpen(false); } }} onMouseEnter={() => { onActivate(); setOpen(true); }} onMouseLeave={() => { onDeactivate(); setOpen(false); }}>
-    <div className={styles.art}>{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></div><span><b>{item.name}</b><small>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : `${item.rarity} · ${item.slot}`}</small><em><Clock3 />{formatObserved(item.firstSeenAt)}</em></span>
-    {item.kind === "weapon" && <strong className={styles.score} data-state={value?.state}>{value?.state === "scored" ? `${value.overall ?? "—"}` : "?"}<small>{value?.state === "scored" ? "value" : "unrated"}</small></strong>}
-    <GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />
-    {actions && <div className={styles.actions}>{actions}</div>}
+    <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} onClick={() => setOpen((current) => !current)}>
+      <span className={styles.art}>{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
+      <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state}>{value?.state === "scored" ? `${value.overall ?? "—"}%` : "Unrated"}</strong>}</span>
+    </button>
+    <span className={styles.cardName}>{item.name}</span>
+    <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />{actions}</div>
     {open && <ItemTooltip item={item} />}
   </article>;
 }
 
 function ItemTooltip({ item }: { item: LootItem }) {
   const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
-  return <aside className={styles.tooltip} role="tooltip"><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.power || "—"} Power · {item.location}{item.equipped ? " · Equipped" : ""}</em></span></header>
-    <p><Clock3 /> First observed {new Date(item.firstSeenAt).toLocaleString()}. Exact acquisition time and drop source were not returned by Bungie.</p>
-    {item.kind === "weapon" ? <><div className={styles.perks}>{item.perkColumns.map((column) => <span key={column.socketIndex}>{column.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<b>{column.active?.name || "Unknown socket"}</b><small>{column.active?.description || `${column.options.length} selectable options`}</small></span>)}</div><div className={styles.value}><b>{value?.state === "scored" ? `Overall ${value.overall ?? "—"} · PvE ${value.pve ?? "—"} · PvP ${value.pvp ?? "—"}` : "Community value unavailable"}</b><small>{value?.reasons[0]}</small></div></> : <div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal} · Grade {item.grade.letter}</strong></div>}
-    <footer>Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse</footer>
+  return <aside className={styles.tooltip} role="tooltip"><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span></header>
+    <div className={styles.identity}><b>{item.power || "—"} Power</b><span>{item.kind === "weapon" ? item.slot : item.className}</span><span>{item.location}{item.equipped ? " · Equipped" : ""}</span></div>
+    <nav className={styles.sourceLinks}><a href={`https://www.light.gg/db/items/${item.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a><span><Clock3 /> First observed {new Date(item.firstSeenAt).toLocaleString()}</span></nav>
+    {item.kind === "weapon" ? <>
+      {item.trackerValue !== undefined && <p className={styles.tracker}><BarChart3 /> Enemies defeated <b>{item.trackerValue.toLocaleString()}</b></p>}
+      <div className={styles.weaponStats}>{(item.stats || []).map((stat) => <span key={stat.hash}><small>{stat.name}</small>{stat.displayAsNumeric ? <i /> : <i><em style={{ width: `${Math.min(100, Math.max(0, stat.value / Math.max(1, stat.maximumValue) * 100))}%` }} /></i>}<b>{stat.value}</b></span>)}</div>
+      {item.masterwork && <div className={styles.intrinsic}>{item.masterwork.icon && <img src={item.masterwork.icon} alt="" />}<span><b>{item.masterwork.name}</b><small>{item.masterwork.description || "Weapon masterwork"}</small></span></div>}
+      <div className={styles.perks}>{item.perkColumns.map((column) => <span key={column.socketIndex}>{column.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<b>{column.active?.name || "Unknown socket"}</b><small>{column.active?.description || `${column.options.length} selectable options`}</small></span>)}</div>
+      <div className={styles.value} data-state={value?.state}><b>{value?.state === "scored" ? `Overall ${value.overall ?? "—"}% · PvE ${value.pve ?? "—"}% · PvP ${value.pvp ?? "—"}%` : "Community rating unavailable"}</b><small>{value?.reasons[0]}{value?.source ? ` Source: ${value.source}.` : ""}</small></div>
+    </> : <div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal}</strong></div>}
+    <footer>First observed time is Guardian Nexus history, not an exact Bungie drop timestamp. Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse</footer>
   </aside>;
 }
 
-function formatObserved(value: string): string { const time = Date.parse(value); if (!Number.isFinite(time)) return "Time unknown"; const minutes = Math.max(0, Math.round((Date.now() - time) / 60_000)); return minutes < 1 ? "Just now" : minutes < 60 ? `${minutes}m ago` : new Date(time).toLocaleDateString(); }
 function isTyping(target: EventTarget | null): boolean { return target instanceof Element && Boolean(target.closest("input, textarea, select, [contenteditable='true']")); }
 function byNewest(left: LootItem, right: LootItem): number { return Date.parse(right.firstSeenAt) - Date.parse(left.firstSeenAt); }
 function useLootShortcuts(active: React.RefObject<LootItem | undefined>, onTag: (item: LootItem, tag?: GearTag) => void): void {
