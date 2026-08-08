@@ -16,7 +16,11 @@ Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` lis
 
 Gear loot management uses the existing private `gear_item_state` source of truth. Fireteam consumes `/api/v1/me/recent-items`, a private schema-v1 D1 timeline of observed weapon, armor, catalyst-acquired, catalyst-completed, and stackable inventory-gain events. It establishes a silent baseline for every category, refuses to zero inventory observations from incomplete snapshots, uses retry-stable event identities, preserves events for 30 days, caps displayed reads at 200, coalesces identical material gains observed within ten minutes at presentation time, and orders its one-row pager by the latest observation. Observation runs across signed-in Guardian Nexus pages while the site is open, even when the Fireteam row is hidden. Catalysts are chronological events rather than pinned current-state cards. Weapon cards show explicit community roll-match percentages; armor remains Power-only. Times describe Guardian Nexus snapshots, never exact acquisition.
 
-The current `codex/fireteam-activity-feed` release adds a combined Fireteam activity and short-message feed below member quest tracking. It promotes Exotic Engram gains to an explicit recent-item event and shares only weapon, armor, catalyst-acquired, and Exotic Engram finds; materials and catalyst-completion events stay out. Entries are restricted to opted-in, actively shared members of the viewer's current Bungie party. Messages use a stable current-party channel key, require another opted-in synced member, accept at most 240 normalized characters, allow three sends per ten seconds, expire after seven days, and share the same bounded 60-entry chronology as finds. Shared gear strips private tags, dismissal state, and owner-character IDs while retaining the existing themed item tooltip and weapon rating. Players can minimize or hide the panel locally, restore it, or disable publication/display/messaging through the share payload and Options. The D1 migration is `0017_fireteam_activity_feed.sql`.
+The Fireteam activity release adds a combined recent-find and short-message feed. It promotes Exotic Engram gains to an explicit recent-item event and shares only weapon, armor, catalyst-acquired, and Exotic Engram finds; materials and catalyst-completion events stay out. Entries are restricted to enabled, actively shared members of the viewer's current Bungie party. Messages use a stable current-party channel key, require another enabled synced member, accept at most 240 normalized characters, allow three sends per ten seconds, expire after seven days, and share the same bounded 60-entry chronology as finds. Shared gear strips private tags, dismissal state, and owner-character IDs while retaining the existing themed item tooltip and weapon rating. The D1 migration is `0017_fireteam_activity_feed.sql`.
+
+The current `codex/remove-fireteam-readiness` follow-up removes the Fireteam Readiness editor/member summaries and the redundant Fireteam signal/location/sharing strip. The API keeps backward-compatible stored readiness parsing, but the browser no longer fetches Builds for it or writes readiness. Fireteam Activity now defaults enabled for legacy and new shares unless explicitly disabled. Its UI is a fixed bottom-right messenger-style window with minimize, hide/restore, and disable/enable controls. It starts pinned; Pop out makes it draggable and resizable within the viewport, and the account-scoped local preference remembers mode, position, and dimensions. Resize and restored-state clamping keep it recoverable after viewport changes.
+
+The same follow-up simplifies the Fireteam Recent Loot rail: the left cell contains only the title, while timeline scope/count/history controls live in a thin header and snapshot/reconnection notes live in a footer. Xûr's canonical visit schedule is corrected to Bungie's 17:00 UTC reset (Friday arrival through Tuesday weekly reset), which is noon CDT while daylight saving time is active.
 
 Fireteam loot lines use a compact rarity-colored diamond before a small item thumbnail and item name. The diamond contains the Destiny manifest tier number (Exotic 6, Legendary/Superior 5, Rare 4, Common 3, Uncommon/Basic 2, Currency 1, unknown 0) as a dark hollow-style numeral for rapid scanning; item names retain their rarity color and open the same detailed tooltip.
 
@@ -25,7 +29,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: no active product branch. `codex/fireteam-activity-live-handoff` records the final delivery state only.
+- Current implementation branch: `codex/remove-fireteam-readiness` (active follow-up; not yet merged at this checkpoint).
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
@@ -35,8 +39,9 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - PR #53 merged and deployed successfully through workflow run `30721416376`.
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
 - Production deployed merge commit `036d7db42c6f58d706b398d3f322876b12b74e60` successfully through Guardian Nexus workflow run `31273219961` on 2026-08-08.
-- Fireteam activity validation on 2026-08-08: archive/source/CSS boundaries, ESLint, every TypeScript target, 193 API tests, 259 web tests, 24 domain tests, tooling/Python tests, API and Web production builds, and performance budgets all pass. Entry output is 365,120 bytes JavaScript (112,518 bytes gzip) and 33,043 bytes CSS.
+- Previous Fireteam activity validation on 2026-08-08: archive/source/CSS boundaries, ESLint, every TypeScript target, 193 API tests, 259 web tests, 24 domain tests, tooling/Python tests, API and Web production builds, and performance budgets all passed. Entry output was 365,120 bytes JavaScript (112,518 bytes gzip) and 33,043 bytes CSS. The current follow-up's full audit and deployment must replace this checkpoint after completion.
 - PR #86 merged and deployed successfully through production workflow run `31280373982`; additive migration `0017_fireteam_activity_feed.sql`, API, and Web deployment all passed. Signed-in production QA confirmed the opted-out existing-share state, correct placement below member quest tracking and above Social, disabled solo composer, minimize/restore controls, and zero browser console errors.
+- Current follow-up validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, 193 API tests, the complete web suite including floating-window and Recent Loot layout regressions, tooling/Python tests, API and Web production builds, and performance budgets. Output is 365,117 bytes entry JavaScript (112,517 bytes gzip) and 33,043 bytes CSS. Production merge/deploy and signed-in QA remain pending at this checkpoint.
 
 ## Completed release scope
 
@@ -149,11 +154,6 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - `apps/web/src/pages/NextStepsPage.tsx`
 - `apps/web/src/pages/NextStepsPage.module.css`
 - `apps/web/src/pages/NextStepsPage.test.ts`
-- `apps/web/src/components/fireteam/FireteamReadinessPanel.tsx`
-- `apps/web/src/components/fireteam/FireteamReadinessPanel.module.css`
-- `apps/web/src/components/fireteam/FireteamReadinessPanel.test.tsx`
-- `apps/web/src/modules/fireteam/readiness.ts`
-- `apps/web/src/modules/fireteam/readiness.test.ts`
 - `apps/web/src/modules/builds/portableBuild.ts`
 - `apps/web/src/modules/builds/portableBuild.test.ts`
 - `apps/api/src/guardianSnapshots.ts`
@@ -300,12 +300,12 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Added a user-initiated native install action, prioritized OS shortcuts, Apple mobile metadata, and a bumped core cache so installed clients receive the shell update.
 - Install promotion, the mobile dock, manifest metadata, and service-worker caching are removed. Responsive browser layout remains, but no mobile-specific product delivery is currently planned.
 
-#### Completed: Fireteam readiness
+#### Retired: Fireteam readiness
 
-- Readiness drafts remain private until the player enables the scoped share and names an activity; shared data is explicitly labeled player-confirmed.
-- Roles, overall state, prerequisite checks, optional public build title/subclass, and a short note are validated at the API boundary and rendered on Fireteam member cards.
-- Background share refreshes preserve the existing readiness summary when no readiness update is submitted. Disabling readiness explicitly removes it from the payload.
-- Recruitment links to Bungie's official Fireteam Finder rather than recreating matchmaking.
+- The readiness editor and member-card summaries were removed from `/fireteam` because they duplicated preparation information without enough player value.
+- The adjacent Fireteam signal/current-location/sharing status strip was also removed; the page header, sharing controls, and member cards already communicate those states.
+- The Web component, CSS, draft parser, and their tests were deleted. Fireteam no longer fetches Builds solely for readiness or submits readiness changes.
+- API contracts, validation, stored preference compatibility, and existing share-payload preservation remain temporarily intact so older data and rolling clients are not corrupted.
 
 ### P3: Expansion foundations
 

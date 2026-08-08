@@ -144,11 +144,11 @@ describe("Xûr notification state", () => {
       status: "1 storefront offer"
     });
     expect(xurVisitNotification(shipment, now)).toMatchObject({
-      id: "xur-arrived:2026-07-17T19:00:00.000Z",
+      id: "xur-arrived:2026-07-17T17:00:00.000Z",
       type: "xur-arrived",
       title: "Xûr has arrived",
-      expiresAt: "2026-07-21T19:00:00.000Z",
-      metadata: { fanfare: "xur-arrival", departureAt: "2026-07-21T19:00:00.000Z" }
+      expiresAt: "2026-07-21T17:00:00.000Z",
+      metadata: { fanfare: "xur-arrival", departureAt: "2026-07-21T17:00:00.000Z" }
     });
   });
 
@@ -160,11 +160,11 @@ describe("Xûr notification state", () => {
       status: "1 archived offer"
     });
     expect(xurVisitNotification(shipment, now)).toMatchObject({
-      id: "xur-departed:2026-07-21T19:00:00.000Z",
+      id: "xur-departed:2026-07-21T17:00:00.000Z",
       type: "xur-departed",
       title: "Xûr has departed",
-      expiresAt: "2026-07-22T19:00:00.000Z",
-      metadata: { fanfare: "xur-departure", nextArrivalAt: "2026-07-24T19:00:00.000Z" }
+      expiresAt: "2026-07-22T17:00:00.000Z",
+      metadata: { fanfare: "xur-departure", nextArrivalAt: "2026-07-24T17:00:00.000Z" }
     });
   });
 

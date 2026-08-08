@@ -108,6 +108,15 @@ describe("RecentItemRow", () => {
     expect(screen.queryByRole("combobox", { name: "Recent loot cards to keep" })).toBeNull();
   });
 
+  it("keeps the narrow label concise and places timeline context and service notes in dedicated rows", () => {
+    render(<MemoryRouter><CompactRecentLootBar events={[]} retentionDays={30} observedAt="2026-08-08T22:59:41Z" warnings={["Showing saved Guardian data while live services reconnect."]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
+    const titleHeader = screen.getByText("Recent loot").closest("header")!;
+    expect(titleHeader.textContent).toBe("Recent loot");
+    expect(screen.getByText(/Private observed timeline/).closest("header")).not.toBe(titleHeader);
+    expect(screen.getByText(/Checked/).closest("footer")).toBeTruthy();
+    expect(screen.getByText(/Showing saved Guardian data/).closest("footer")).toBeTruthy();
+  });
+
   it("distinguishes loading, baseline, and request errors instead of reporting each as empty history", () => {
     const { rerender } = render(<MemoryRouter><CompactRecentLootBar events={[]} loading onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
     expect(screen.getByText(/Checking your latest Bungie profile snapshot/)).toBeTruthy();

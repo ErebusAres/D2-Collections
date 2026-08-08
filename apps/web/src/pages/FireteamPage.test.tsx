@@ -34,18 +34,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("Fireteam tracked items", () => {
-  it("keeps recent tagged loot interactive between readiness and the tracked-item segment", async () => {
+  it("keeps recent tagged loot interactive before the tracked-item segment", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
       if (String(path).startsWith("/api/v1/me/recent-items")) return recentItemsEnvelope() as never;
       return envelope() as never;
     });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
-    const readiness = (await screen.findByRole("heading", { name: "Fireteam readiness" })).closest("section")!;
     const recent = (await screen.findByText("Recent loot")).closest("section")!;
     const tracked = (await screen.findByText("Shared tracked items")).closest("section")!;
-    expect(readiness.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(recent.compareDocumentPosition(tracked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Fireteam readiness" })).toBeNull();
+    expect(screen.queryByText("Fireteam signal")).toBeNull();
     expect(screen.getByText(/newest to oldest/)).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Recent loot cards to keep" })).toBeNull();
 

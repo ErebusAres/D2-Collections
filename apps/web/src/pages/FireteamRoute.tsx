@@ -40,7 +40,7 @@ function FireteamRefreshCountdown() {
   const storageKey = membershipId && selectedCharacterId ? pinsKey(membershipId, selectedCharacterId) : "";
   const mode = data?.sharingMode;
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
-  const activityFeedEnabled = data?.activityFeed?.enabled === true;
+  const activityFeedEnabled = data?.activityFeed?.enabled !== false;
   const hiddenKeysSignature = hiddenTrackedItemKeys.join(",");
   const guardianRankTracked = preferences["guardianRank.tracked"];
   const journeyTracked = preferences["journey.tracked"];
