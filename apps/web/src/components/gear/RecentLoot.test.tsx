@@ -3,7 +3,7 @@ import type { WeaponItem } from "@guardian-nexus/contracts";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { CompactRecentLootBar, RecentItemRow, observedLootWithin, parseRecentLootDisplayLimit, recentLoot } from "./RecentLoot";
+import { CompactRecentLootBar, RecentItemRow, observedLootWithin, parseRecentLootDisplayLimit, recentLoot, recentLootPageSize } from "./RecentLoot";
 
 const weapon = { instanceId: "1", itemHash: "2", name: "Recent Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-06T12:00:00Z", isNew: true } as WeaponItem;
 
@@ -51,19 +51,28 @@ describe("RecentItemRow", () => {
     expect(screen.getByRole("tooltip").textContent).toContain("Confidencehigh");
     expect(screen.getByRole("tooltip").textContent).toContain("PvE100%");
     expect(screen.getByRole("tooltip").textContent).toContain("PvP50%");
+    cleanup();
+    render(<MemoryRouter><CompactRecentLootBar items={[{ ...rated, kind: "weapon" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText("75%")).toBeTruthy());
   });
 
-  it("shows up to 24 mixed loot cards by default and offers 12, 24, or 48", () => {
+  it("keeps up to 24 entries by default while paging a single 12-card row", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
     const items = Array.from({ length: 30 }, (_, index) => ({ ...weapon, kind: "weapon" as const, instanceId: `loot-${index}`, name: `Recent Rifle ${index}`, firstSeenAt: `2026-08-06T11:${String(59 - index).padStart(2, "0")}:00Z` }));
     const onDisplayLimitChange = vi.fn();
     render(<MemoryRouter><CompactRecentLootBar items={items} catalysts={[]} displayLimit={24} onDisplayLimitChange={onDisplayLimitChange} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
 
-    expect(screen.getAllByRole("button", { name: /Inspect Recent Rifle/ })).toHaveLength(24);
+    expect(screen.getAllByRole("button", { name: /Inspect Recent Rifle/ })).toHaveLength(12);
     expect(screen.getByText((_, element) => element?.tagName === "SMALL" && element.textContent === "Private · 24 of 30 first observed")).toBeTruthy();
-    fireEvent.change(screen.getByRole("combobox", { name: "Recent loot cards to show" }), { target: { value: "48" } });
+    expect(screen.getByText("1 / 2")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next recent loot page" }));
+    expect(screen.getByRole("button", { name: "Inspect Recent Rifle 12" })).toBeTruthy();
+    expect(screen.getByText("2 / 2")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Previous recent loot page" }));
+    expect(screen.getByRole("button", { name: "Inspect Recent Rifle 0" })).toBeTruthy();
+    fireEvent.change(screen.getByRole("combobox", { name: "Recent loot cards to keep" }), { target: { value: "48" } });
     expect(onDisplayLimitChange).toHaveBeenCalledWith(48);
-    expect(Array.from(screen.getByRole("combobox", { name: "Recent loot cards to show" }).querySelectorAll("option")).map((option) => option.textContent)).toEqual(["12", "24", "48"]);
+    expect(Array.from(screen.getByRole("combobox", { name: "Recent loot cards to keep" }).querySelectorAll("option")).map((option) => option.textContent)).toEqual(["12", "24", "48"]);
   });
 
   it("renders catalyst observations as icon cards with progress details", () => {
@@ -77,9 +86,21 @@ describe("RecentItemRow", () => {
     expect(screen.getByRole("tooltip").textContent).toContain("Open catalyst details");
   });
 
+  it("uses a green 100% check without completion wording for finished catalysts", () => {
+    render(<MemoryRouter><CompactRecentLootBar items={[]} catalysts={[{ recordHash: "cat-2", name: "Finished Catalyst", icon: "", state: "complete", percent: 100, observedAt: "2026-08-06T12:00:00Z" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByLabelText("100%")).toBeTruthy();
+    expect(screen.queryByText(/complete/i)).toBeNull();
+    fireEvent.mouseEnter(screen.getByRole("link", { name: "Inspect Finished Catalyst" }).closest("article")!);
+    expect(screen.getByRole("tooltip").textContent).toContain("Masterworked");
+    expect(screen.getByRole("tooltip").textContent).not.toMatch(/complete/i);
+  });
+
   it("parses only supported Fireteam display limits", () => {
     expect(parseRecentLootDisplayLimit("12")).toBe(12);
     expect(parseRecentLootDisplayLimit("48")).toBe(48);
     expect(parseRecentLootDisplayLimit("all")).toBe(24);
+    expect(recentLootPageSize(1_068)).toBe(12);
+    expect(recentLootPageSize(360)).toBe(4);
+    expect(recentLootPageSize(0)).toBe(1);
   });
 });
