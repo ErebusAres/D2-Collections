@@ -17,6 +17,12 @@ describe("RecentItemRow", () => {
     expect(onTag).toHaveBeenCalledWith(expect.objectContaining({ instanceId: "1" }), "keep");
   });
 
+  it("keeps the detail tooltip open when the inspection tile receives focus and a click", () => {
+    render(<RecentItemRow title="Recently acquired" items={recentLoot([], [weapon])} onTag={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
+    expect(screen.getByRole("tooltip").textContent).toContain("Recent Rifle");
+  });
+
   it("keeps reviewed items in rolling history and excludes older observations", () => {
     const now = Date.parse("2026-08-06T12:00:00Z");
     const reviewed = { ...weapon, isNew: false, tag: "keep" as const };

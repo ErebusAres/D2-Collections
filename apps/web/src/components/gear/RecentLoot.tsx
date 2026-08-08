@@ -62,7 +62,7 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
   }, [item.kind]);
   const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
   return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} tabIndex={0} onFocus={() => { onActivate(); setOpen(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onDeactivate(); setOpen(false); } }} onMouseEnter={() => { onActivate(); setOpen(true); }} onMouseLeave={() => { onDeactivate(); setOpen(false); }}>
-    <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} onClick={() => setOpen((current) => !current)}>
+    <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} onClick={() => setOpen(true)}>
       <span className={styles.art}>{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
       <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state}>{value?.state === "scored" ? `${value.overall ?? "—"}%` : "Unrated"}</strong>}</span>
     </button>
