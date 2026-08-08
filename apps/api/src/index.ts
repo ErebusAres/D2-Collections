@@ -152,6 +152,8 @@ const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("fashion.looks.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("challenges.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("gear.workspace"), value: z.enum(["armor", "weapons", "loot", "vault"]) }),
+  z.object({ key: z.literal("fireteam.recentLoot.v1"), value: z.enum(["on", "off"]) }),
+  z.object({ key: z.literal("fireteam.recentLootLimit.v1"), value: z.enum(["12", "24", "48"]) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.literal("planner.duration"), value: z.enum(["30", "60", "120"]) }),

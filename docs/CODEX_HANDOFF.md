@@ -14,15 +14,15 @@ Guardian Share Cards have also been retired as a creation surface because they d
 
 Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` listener, mobile quick-action dock, web-app manifest, and service-worker build/cache path are removed. Startup unregisters older Guardian Nexus service workers so previously installed caches do not keep serving stale bundles. Ordinary responsive CSS remains for narrow browser windows, but mobile-specific product work is not active scope.
 
-Gear loot management uses the existing private `gear_item_state` source of truth. The Loot tab defaults to a rolling seven-day history of first-observed physical weapons and armor, retains reviewed/tagged items in that period, and offers 1/3/7/14/30-day filters. Loot is displayed as compact icon cards, with Power on all gear and schema-v3 DIM-community roll percentages and quality tiers on weapons only. Exact weapon recommendations use actual perk-column weights; weapons without an exact DIM entry can use an explicitly lower-confidence profile for any of the 17 supported weapon types. The Guardian-themed detail surface includes available stats, trackers, masterwork, perks, PvE/PvP scores, basis, confidence, reasons, and provenance while keeping absent evidence unrated. Armor and Weapons retain compact recent rows; Fireteam uses a distinct private glance bar. Shared cards, tooltips, tags, and Shift+1–5 shortcuts remain consistent. Times are labeled first observed, never exact acquisition.
+Gear loot management uses the existing private `gear_item_state` source of truth. The Loot tab defaults to a rolling seven-day history of first-observed physical weapons and armor, retains reviewed/tagged items in that period, and offers 1/3/7/14/30-day filters. Loot is displayed as compact icon cards, with Power on all gear and schema-v3 DIM-community roll percentages and quality tiers on weapons only. Exact weapon recommendations use actual perk-column weights; weapons without an exact DIM entry can use an explicitly lower-confidence profile for any of the 17 supported weapon types. The Guardian-themed detail surface includes available stats, trackers, masterwork, perks, PvE/PvP scores, basis, confidence, reasons, and provenance while keeping absent evidence unrated. Armor and Weapons retain compact recent rows; Fireteam uses a private 12/24/48-card glance grid that defaults to 24 and reserves room for catalyst signals when both gear and catalysts exist. Catalyst signals now use the same icon-card geometry and themed hover/focus details instead of legacy horizontal chips. Shared gear cards, tooltips, tags, and Shift+1–5 shortcuts remain consistent. Times are labeled first observed, never exact acquisition.
 
 Gear now also has a dedicated Vault tab after Loot. It combines only physical vaulted weapons and armor, supports item kind, slot, rarity, weapon type/element, armor class, lock, tag, search, sort, and six-stat base/current range filters, and renders large result sets in bounded 120-item increments. Existing private tags and Bungie-supported lock, pull, and equip actions are reused. Bungie's third-party API exposes no delete/dismantle operation, so the workspace explicitly sends filtered cleanup candidates through the private Junk tag for in-game verification instead of claiming unsupported deletion.
 
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Weapon-rating implementation branch: `codex/weapon-ratings-v3`, created from current `main`.
-- Base branch: `main` at merge commit `baeaf82` (PR #77, Fireteam Recent Loot restoration)
+- Current implementation branch: `codex/fireteam-loot-expansion`, created from current `main` after PR #78.
+- Base branch: `main` at merge commit `2b024c9666894334ad9417e0d442ad95285d47b8` (PR #78, weapon ratings v3)
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
 - Weapon workspace commit: `c2282b7` (`Add private weapon roll workspace`)
@@ -30,7 +30,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - Completed pull request: `https://github.com/ErebusAres/D2-Collections/pull/53`
 - PR #53 merged and deployed successfully through workflow run `30721416376`.
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
-- Production served merge commit `baeaf82` when this follow-up began; use the latest merged PR and deployment workflow rather than this historical base SHA to determine current published state.
+- Production served merge commit `2b024c9666894334ad9417e0d442ad95285d47b8` when this follow-up began; use the latest merged PR and deployment workflow rather than this historical base SHA to determine current published state.
 
 ## Completed release scope
 
@@ -100,6 +100,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 65. Corrected Fireteam Seasonal Hub order completion precedence. An observed incomplete-to-complete transition now enters the shared `CompletionPing` pipeline and displays `Order complete` before the active rail cleans up the completed order; it is no longer treated as an unexplained dismissal.
 66. Restored Fireteam Recent Loot after the icon-card redesign: the compact bar now reserves the cards' full interaction height and keeps its tag control visible, shows the five newest items first observed within seven days even after tagging, refreshes visible gear every 60 seconds when auto-refresh is enabled, and sits directly below Fireteam Readiness and above the tracked-item/member segment.
 67. Replaced the schema-v2 perk-coverage heuristic with an evidence-backed schema-v3 roll evaluator. Exact DIM Voltron records now use normalized column weights of 0.25/0.25/1/1, separate PvE/PvP scores, stable Excellent/Strong/Mixed/Weak/Poor tiers, and explicit high confidence. All 17 current weapon types have lower-confidence fallback profiles for weapons without exact source entries; unseen evidence remains unrated rather than being treated as bad. The tooltip exposes basis, confidence, applicable-column coverage, reasons, source, and review date.
+68. Expanded Fireteam Recent Loot from a fixed five gear cards plus two legacy catalyst chips to a persisted 12/24/48-card mixed grid, defaulting to 24. Gear and catalyst entries remain private, a bounded catalyst reservation prevents either category from disappearing when both are populated, and catalyst observations now use the same themed icon-card and tooltip language as new weapons and armor. The preference API now explicitly accepts both the visibility and display-limit keys.
 
 ## Files in release scope
 
