@@ -78,6 +78,7 @@ import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems } from "./recentItems";
+import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -122,8 +123,10 @@ const shareSchema = z.object({
   siteTrackedBuilds: z.array(fireteamTrackedBuildSchema).max(8).optional(),
   hiddenTrackedItemKeys: z.array(z.string()).max(200).optional(),
   readiness: fireteamReadinessSchema.nullable().optional(),
+  activityFeedEnabled: z.boolean().optional(),
   mode: z.enum(["temporary", "persistent"]).default("temporary")
 });
+const fireteamMessageSchema = z.object({ body: z.string().max(FIRETEAM_MESSAGE_MAX_LENGTH * 2) }).strict();
 const FIRETEAM_COMPLETION_RETENTION_MS = 3 * 60_000;
 
 const probeSchema = z.object({
@@ -156,6 +159,7 @@ const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.workspace"), value: z.enum(["armor", "weapons", "loot", "vault"]) }),
   z.object({ key: z.literal("fireteam.recentLoot.v1"), value: z.enum(["on", "off"]) }),
   z.object({ key: z.literal("fireteam.recentLootLimit.v1"), value: z.enum(["12", "24", "48"]) }),
+  z.object({ key: z.literal("fireteam.activityFeedView.v1"), value: z.enum(["open", "minimized", "hidden"]) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.literal("planner.duration"), value: z.enum(["30", "60", "120"]) }),
@@ -203,6 +207,7 @@ export default {
     const now = new Date().toISOString();
     await env.DB.batch([
       env.DB.prepare("DELETE FROM fireteam_shares WHERE sharing_mode = 'temporary' AND expires_at <= ?").bind(now),
+      env.DB.prepare("DELETE FROM fireteam_messages WHERE created_at < ?").bind(new Date(Date.now() - FIRETEAM_FEED_RETENTION_DAYS * 86_400_000).toISOString()),
       env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
     ]);
     await maintainNotificationStorage(env);
@@ -272,6 +277,8 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/build-advisor" && request.method === "GET") return buildAdvisor(session.row, env, context);
   if (path === "/api/v1/me/build-advisor/equip" && request.method === "POST") { await requireCsrf(request, session.token, env); return equipBuildAdvisor(request, session.row, env, context); }
   if (path === "/api/v1/fireteam" && request.method === "GET") return fireteam(session.row, env, context);
+  if (path === "/api/v1/fireteam/activity" && request.method === "GET") return fireteamActivity(session.row, env, context);
+  if (path === "/api/v1/fireteam/messages" && request.method === "POST") { await requireCsrf(request, session.token, env); return postFireteamMessage(request, session.row, env, context); }
   if (path === "/api/v1/fireteam/share" && request.method === "PUT") {
     await requireCsrf(request, session.token, env);
     return upsertShare(request, session.row, env, context);
@@ -1075,7 +1082,7 @@ async function auditGear(row: SessionRow, env: Env, action: string, itemId: stri
 
 async function upsertShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = shareSchema.parse(await request.json());
-  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds, input.siteTrackedCollectionIds, input.readiness, input.siteTrackedBuilds);
+  const result = await storeShare(row, env, input.characterId, input.sitePinnedQuestIds, input.mode, input.siteTrackedGuardianRankIds, input.hiddenTrackedItemKeys, input.siteTrackedJourneyIds, input.siteTrackedCollectionIds, input.readiness, input.siteTrackedBuilds, input.activityFeedEnabled);
   return envelope({
     sharing: true,
     mode: input.mode,
@@ -1096,7 +1103,8 @@ async function storeShare(
   providedJourneyIds?: string[],
   providedCollectionIds?: string[],
   providedReadiness?: import("@guardian-nexus/contracts").FireteamReadinessSummary | null,
-  providedTrackedBuilds?: import("@guardian-nexus/contracts").FireteamTrackedItem[]
+  providedTrackedBuilds?: import("@guardian-nexus/contracts").FireteamTrackedItem[],
+  providedActivityFeedEnabled?: boolean
 ): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string }> {
   const [{ profile }, manifest, guardianRankManifest, journeyManifest, activityManifest, collectionManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
@@ -1162,7 +1170,10 @@ async function storeShare(
   );
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
   const readiness = providedReadiness === undefined ? sharedReadiness(previousPayload) : providedReadiness || undefined;
-  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness };
+  const activityFeedEnabled = providedActivityFeedEnabled === undefined ? sharedActivityFeedEnabled(previousPayload) : providedActivityFeedEnabled;
+  const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
+  const activityPartyMembershipIds = [...new Set([row.membership_id, ...(transitory.partyMembers || []).map((member: any) => String(member.membershipId || member.destinyMembershipId || "")).filter(Boolean)])];
+  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityPartyMembershipIds };
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
@@ -1290,7 +1301,21 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const ownShare = shares.get(row.membership_id);
   let ownSharePayload: any = null;
   try { ownSharePayload = ownShare?.payload_json ? JSON.parse(ownShare.payload_json) : null; } catch { ownSharePayload = null; }
-  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: fireteamActivity, members, social };
+  const displayNames = new Map(members.map((member) => [member.membershipId, member.inGameName || member.displayName]));
+  const activityFeed = await readFireteamActivityFeed({
+    env,
+    viewerMembershipId: row.membership_id,
+    partyMembershipIds: party.map((member: any) => member.membershipId),
+    enabledMembershipIds: party.filter((member: any) => {
+      const share: any = shares.get(member.membershipId);
+      if (!share) return false;
+      try { return sharedActivityFeedEnabled(JSON.parse(share.payload_json)); } catch { return false; }
+    }).map((member: any) => member.membershipId),
+    displayNames,
+    enabled: Boolean(ownShare) && sharedActivityFeedEnabled(ownSharePayload),
+    now
+  });
+  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: fireteamActivity, members, social, activityFeed };
   return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(social.warning ? [social.warning] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
 }
 
@@ -1319,6 +1344,56 @@ function sharedHiddenTrackedItemKeys(payload: any): string[] {
   return Array.isArray(payload?.hiddenTrackedItemKeys)
     ? [...new Set((payload.hiddenTrackedItemKeys as unknown[]).filter((key): key is string => typeof key === "string" && Boolean(key)))].slice(0, 200)
     : [];
+}
+
+function sharedActivityFeedEnabled(payload: any): boolean {
+  return payload?.activityFeedEnabled === true;
+}
+
+function sharedActivityPartyMembershipIds(payload: any, selfMembershipId: string): string[] {
+  const values = Array.isArray(payload?.activityPartyMembershipIds) ? payload.activityPartyMembershipIds : [];
+  return [...new Set([selfMembershipId, ...values.filter((value: unknown): value is string => typeof value === "string" && Boolean(value))])].slice(0, 12);
+}
+
+async function fireteamActivity(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const now = new Date().toISOString();
+  const ownShare = await env.DB.prepare("SELECT membership_id, display_name, payload_json FROM fireteam_shares WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)").bind(row.membership_id, now).first<any>();
+  let ownPayload: any = null;
+  try { ownPayload = ownShare?.payload_json ? JSON.parse(ownShare.payload_json) : null; } catch { ownPayload = null; }
+  const partyIds = sharedActivityPartyMembershipIds(ownPayload, row.membership_id);
+  const placeholders = partyIds.map(() => "?").join(",");
+  const shares = await env.DB.prepare(`SELECT membership_id, display_name, payload_json FROM fireteam_shares WHERE membership_id IN (${placeholders}) AND (sharing_mode = 'persistent' OR expires_at > ?)`)
+    .bind(...partyIds, now).all<any>();
+  const enabledRows = (shares.results || []).filter((share: any) => { try { return sharedActivityFeedEnabled(JSON.parse(share.payload_json)); } catch { return false; } });
+  const displayNames = new Map(enabledRows.map((share: any) => [String(share.membership_id), String(share.display_name || "Unknown Guardian")]));
+  const feed = await readFireteamActivityFeed({ env, viewerMembershipId: row.membership_id, partyMembershipIds: partyIds, enabledMembershipIds: enabledRows.map((share: any) => String(share.membership_id)), displayNames, enabled: Boolean(ownShare) && sharedActivityFeedEnabled(ownPayload), now });
+  return envelope(feed, env, context);
+}
+
+async function postFireteamMessage(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const parsed = fireteamMessageSchema.parse(await request.json());
+  const body = normalizeFireteamMessage(parsed.body);
+  if (!body) throw httpError(400, "fireteam_message_empty", "Enter a message before sending.");
+  const { profile } = await profileFor(row, env, "fireteam");
+  const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
+  const partyIds = [...new Set([row.membership_id, ...(transitory.partyMembers || []).map((member: any) => String(member.membershipId || member.destinyMembershipId || "")).filter(Boolean)])];
+  if (partyIds.length < 2) throw httpError(409, "fireteam_channel_unavailable", "Join a Fireteam with another synced Guardian before sending messages.");
+  const now = new Date().toISOString();
+  const placeholders = partyIds.map(() => "?").join(",");
+  const active = await env.DB.prepare(`SELECT membership_id, payload_json FROM fireteam_shares WHERE membership_id IN (${placeholders}) AND (sharing_mode = 'persistent' OR expires_at > ?)`)
+    .bind(...partyIds, now).all<any>();
+  const enabledIds = (active.results || []).filter((share: any) => {
+    try { return sharedActivityFeedEnabled(JSON.parse(share.payload_json)); } catch { return false; }
+  }).map((share: any) => String(share.membership_id));
+  if (!enabledIds.includes(row.membership_id) || !enabledIds.some((id) => id !== row.membership_id)) throw httpError(409, "fireteam_channel_unavailable", "Another Fireteam member must be sharing the activity feed before messages can be sent.");
+  const channelKey = await fireteamChannelKey(partyIds);
+  const rateCutoff = new Date(Date.now() - 10_000).toISOString();
+  const recent = await env.DB.prepare("SELECT COUNT(*) AS count FROM fireteam_messages WHERE channel_key = ? AND membership_id = ? AND created_at >= ?").bind(channelKey, row.membership_id, rateCutoff).first<{ count: number }>();
+  if (Number(recent?.count || 0) >= 3) throw httpError(429, "fireteam_message_rate_limited", "Please wait a few seconds before sending another message.", 10);
+  const id = crypto.randomUUID();
+  const displayName = row.bungie_name || row.display_name;
+  await env.DB.prepare("INSERT INTO fireteam_messages (id, channel_key, membership_id, display_name, body, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(id, channelKey, row.membership_id, displayName, body, now).run();
+  return envelope({ type: "message", id, membershipId: row.membership_id, displayName, createdAt: now, body }, env, context);
 }
 
 async function matrix(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

@@ -38,6 +38,14 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
+  const setActivityFeed = useMutation({
+    mutationFn: (enabled: boolean) => {
+      let sitePinnedQuestIds: string[] = [];
+      try { sitePinnedQuestIds = JSON.parse(localStorage.getItem(pinsKey(session?.guardian?.membershipId || "", guardianState.selectedCharacterId)) || "[]") as string[]; } catch { sitePinnedQuestIds = []; }
+      return queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, mode: fireteam.data?.data.sharingMode === "temporary" ? "temporary" : "persistent", activityFeedEnabled: enabled }) });
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
+  });
   const signOut = useMutation({
     mutationFn: () => api("/api/v1/session", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
     onSuccess: () => {
@@ -89,6 +97,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
         {session?.authenticated && <section>
           <h3>Fireteam privacy</h3>
           <Toggle label="Always share with friends" description={fireteam.data?.data.sharingMode === "persistent" ? "Background updates are active until you disable sharing or sign out." : "Keep a timestamped last-known snapshot visible to your current fireteam."} checked={fireteam.data?.data.sharingMode === "persistent"} onChange={(value) => setPersistentSharing.mutate(value)} />
+          <Toggle label="Fireteam activity feed" description="Share recent gear finds and exchange short messages only with synced members of your current Fireteam." checked={Boolean(fireteam.data?.data.activityFeed?.enabled)} disabled={!fireteam.data?.data.sharingEnabled || setActivityFeed.isPending} onChange={(value) => setActivityFeed.mutate(value)} />
         </section>}
         {hasAdminTools && <section className={styles.adminTools}>
           <h3>Admin tools{session?.rolesState === "stale" ? " · Last verified" : ""}</h3>
@@ -122,6 +131,6 @@ function AdminLink({ to, label, icon, onClick }: { to: string; label: string; ic
   return <Link to={to} onClick={onClick}>{icon}<b>{label}</b><ChevronRight size={13} /></Link>;
 }
 
-function Toggle({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (value: boolean) => void }) {
-  return <label className={styles.toggle}><span><b>{label}</b><small>{description}</small></span><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /><i /></label>;
+function Toggle({ label, description, checked, onChange, disabled = false }: { label: string; description: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
+  return <label className={styles.toggle}><span><b>{label}</b><small>{description}</small></span><input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} /><i /></label>;
 }

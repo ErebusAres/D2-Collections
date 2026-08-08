@@ -121,9 +121,10 @@ export function RecentTimelineCard({ event }: { event: RecentItemEvent }) {
   const [open, setOpen] = useState(false);
   const tooltipId = useId();
   const completed = event.kind === "catalyst-completed";
-  const inventory = event.kind === "inventory-gained";
+  const inventory = event.kind === "inventory-gained" || event.kind === "exotic-engram-found";
+  const engram = event.kind === "exotic-engram-found";
   const label = completed ? "100%" : inventory ? `×${event.quantity}` : event.kind === "catalyst-found" ? "Found" : `×${event.quantity}`;
-  const type = event.kind === "catalyst-completed" ? "Catalyst completed" : event.kind === "catalyst-found" ? "Catalyst found" : event.itemType || "Inventory item found";
+  const type = event.kind === "catalyst-completed" ? "Catalyst completed" : event.kind === "catalyst-found" ? "Catalyst found" : engram ? "Exotic Engram found" : event.itemType || "Inventory item found";
   const observationLabel = event.lastObservedAt !== event.observedAt ? `${new Date(event.observedAt).toLocaleString()}–${new Date(event.lastObservedAt).toLocaleString()}` : new Date(event.observedAt).toLocaleString();
   return <article className={`${styles.card} ${styles.compactCard} ${styles.timelineCard} ${inventory ? styles.inventoryCard : styles.catalystCard}`} data-rarity={event.rarity || (inventory ? "Common" : "Exotic")} tabIndex={0} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} onFocus={() => setOpen(true)} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) setOpen(false); }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${event.name}`} aria-expanded={open} aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen(true)}><span className={styles.art}>{event.icon ? <img src={event.icon} alt="" /> : <Sparkles />}</span><span className={styles.metrics}><b className={completed ? styles.catalystDone : undefined}>{completed && <Check aria-label="100%" />}{label}</b><strong className={styles.catalystMark}>{inventory ? "Gained" : "Catalyst"}</strong></span></button>
@@ -145,6 +146,16 @@ export function RecentCatalystCard({ catalyst }: { catalyst: RecentCatalystObser
     <div className={styles.cardActions}><Link to="/collection?view=catalysts">Open</Link></div>
     {open && <aside className={styles.tooltip} role="tooltip"><header>{catalyst.icon && <img src={catalyst.icon} alt="" />}<span><small>Exotic catalyst</small><strong>{catalyst.name}</strong><em>{catalyst.state === "complete" ? "Masterworked" : "Masterwork in progress"}</em></span></header><div className={styles.identity}><b>{status}</b><span>{catalyst.state === "complete" ? "Masterworked" : "Obtained"}</span></div><nav className={styles.sourceLinks}><Link to="/collection?view=catalysts">Open catalyst details</Link><span><Clock3 /> First observed {new Date(catalyst.observedAt).toLocaleString()}</span></nav><footer>Catalyst state is private to this browser and signed-in Guardian.</footer></aside>}
   </article>;
+}
+
+export function TimelineEventTooltip({ event, id }: { event: RecentItemEvent; id?: string }) {
+  const completed = event.kind === "catalyst-completed";
+  const inventory = event.kind === "inventory-gained" || event.kind === "exotic-engram-found";
+  const engram = event.kind === "exotic-engram-found";
+  const label = completed ? "100%" : inventory ? `×${event.quantity}` : event.kind === "catalyst-found" ? "Found" : `×${event.quantity}`;
+  const type = completed ? "Catalyst completed" : event.kind === "catalyst-found" ? "Catalyst found" : engram ? "Exotic Engram found" : event.itemType || "Inventory item found";
+  const observationLabel = event.lastObservedAt !== event.observedAt ? `${new Date(event.observedAt).toLocaleString()}–${new Date(event.lastObservedAt).toLocaleString()}` : new Date(event.observedAt).toLocaleString();
+  return <aside id={id} className={styles.tooltip} role="tooltip"><header>{event.icon && <img src={event.icon} alt="" />}<span><small>{type}</small><strong>{event.name}</strong><em>{event.rarity || (inventory ? "Inventory" : "Exotic")}</em></span></header><div className={styles.identity}><b>{label}</b><span>{type}</span></div>{event.description && <p>{event.description}</p>}<nav className={styles.sourceLinks}>{event.itemHash ? <a href={`https://www.light.gg/db/items/${event.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a> : <Link to="/collection?view=catalysts">Open catalyst details</Link>}<span><Clock3 /> Observed {observationLabel}</span></nav><footer>Guardian Nexus detected this change between Bungie profile snapshots; the exact in-game pickup time may be earlier.</footer></aside>;
 }
 
 export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, compact = false, actions }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; busy: boolean; compact?: boolean; actions?: ReactNode }) {
@@ -175,7 +186,9 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
   </article>;
 }
 
-function ItemTooltip({ item, id }: { item: LootItem; id?: string }) {
+export function ItemTooltip({ item, id }: { item: LootItem; id?: string }) {
+  const [, setRatingsLoaded] = useState(false);
+  useEffect(() => { if (item.kind !== "weapon") return; let cancelled = false; void loadWeaponRatings().then((database) => { if (!cancelled) setRatingsLoaded(Boolean(database)); }); return () => { cancelled = true; }; }, [item.kind]);
   const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
   return <aside id={id} className={styles.tooltip} role="tooltip"><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span></header>
     <div className={styles.identity}><b>{item.power || "—"} Power</b><span>{item.kind === "weapon" ? item.slot : item.className}</span><span>{item.inPostmaster ? "Postmaster" : item.location}{item.equipped ? " · Equipped" : ""}</span></div>

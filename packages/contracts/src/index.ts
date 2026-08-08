@@ -728,6 +728,20 @@ export interface FireteamData {
   activity?: string;
   members: FireteamMember[];
   social?: FireteamSocialData;
+  activityFeed?: FireteamActivityFeed;
+}
+
+export type FireteamActivityFeedEntry =
+  | { type: "loot"; id: string; membershipId: string; displayName: string; createdAt: string; event: RecentItemEvent }
+  | { type: "message"; id: string; membershipId: string; displayName: string; createdAt: string; body: string };
+
+export interface FireteamActivityFeed {
+  enabled: boolean;
+  channelAvailable: boolean;
+  entries: FireteamActivityFeedEntry[];
+  historyLimit: number;
+  retentionDays: number;
+  messageMaxLength: number;
 }
 
 export interface MatrixSnapshot {
@@ -882,7 +896,7 @@ export interface GearData {
   totals: { armor: number; weapons?: number; vault: number; equipped: number; locked: number; grouped: number; newItems: number };
 }
 
-export type RecentItemEventKind = "weapon-found" | "armor-found" | "catalyst-found" | "catalyst-completed" | "inventory-gained";
+export type RecentItemEventKind = "weapon-found" | "armor-found" | "catalyst-found" | "catalyst-completed" | "exotic-engram-found" | "inventory-gained";
 
 export interface RecentItemEvent {
   id: string;
@@ -1107,6 +1121,7 @@ export type UserPreferenceKey =
   | "gear.workspace"
   | "fireteam.recentLoot.v1"
   | "fireteam.recentLootLimit.v1"
+  | "fireteam.activityFeedView.v1"
   | "weapons.filters"
   | "weapons.wishlist"
   | "collection.sort"
