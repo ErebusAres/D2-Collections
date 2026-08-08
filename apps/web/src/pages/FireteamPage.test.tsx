@@ -46,8 +46,8 @@ describe("Fireteam tracked items", () => {
     const tracked = (await screen.findByText("Shared tracked items")).closest("section")!;
     expect(readiness.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(recent.compareDocumentPosition(tracked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect((screen.getByRole("combobox", { name: "Recent loot cards to show" }) as HTMLSelectElement).value).toBe("24");
-    fireEvent.change(screen.getByRole("combobox", { name: "Recent loot cards to show" }), { target: { value: "48" } });
+    expect((screen.getByRole("combobox", { name: "Recent loot cards to keep" }) as HTMLSelectElement).value).toBe("24");
+    fireEvent.change(screen.getByRole("combobox", { name: "Recent loot cards to keep" }), { target: { value: "48" } });
     expect(setPreference).toHaveBeenCalledWith("fireteam.recentLootLimit.v1", "48");
 
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));

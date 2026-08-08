@@ -1,5 +1,5 @@
 import type { ArmorItem, GearTag, WeaponItem } from "@guardian-nexus/contracts";
-import { BarChart3, Clock3, Columns3, ExternalLink, Sparkles } from "lucide-react";
+import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, Columns3, ExternalLink, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
@@ -57,8 +57,15 @@ export function parseRecentLootDisplayLimit(value?: string): RecentLootDisplayLi
   return 24;
 }
 
+export function recentLootPageSize(width: number): number {
+  return Math.max(1, Math.floor(Math.max(0, width) / 89));
+}
+
 export function CompactRecentLootBar({ items, catalysts = [], displayLimit = 24, onDisplayLimitChange, onTag, busy = false, onHide }: { items: LootItem[]; catalysts?: RecentCatalystObservation[]; displayLimit?: RecentLootDisplayLimit; onDisplayLimitChange?: (limit: RecentLootDisplayLimit) => void; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; onHide: () => void }) {
   const active = useRef<LootItem | undefined>(undefined);
+  const viewport = useRef<HTMLDivElement | null>(null);
+  const [pageSize, setPageSize] = useState(12);
+  const [page, setPage] = useState(0);
   useLootShortcuts(active, onTag);
   const gearEntries = items.map((item) => ({ kind: "gear" as const, observedAt: item.firstSeenAt, item }));
   const catalystEntries = catalysts.map((catalyst) => ({ kind: "catalyst" as const, observedAt: catalyst.observedAt, catalyst }));
@@ -66,20 +73,35 @@ export function CompactRecentLootBar({ items, catalysts = [], displayLimit = 24,
   const reservedCatalysts = gearEntries.length && catalystEntries.length ? Math.min(catalystEntries.length, Math.max(1, Math.floor(displayLimit / 4))) : catalystEntries.length;
   const selectedGear = gearEntries.slice(0, displayLimit - reservedCatalysts);
   const visible = [...selectedGear, ...catalystEntries.slice(0, displayLimit - selectedGear.length)].sort((left, right) => Date.parse(right.observedAt) - Date.parse(left.observedAt));
-  return <section className={styles.compactBar}><header><Sparkles /><span><strong>Recent loot</strong><small>Private · {visible.length} of {entries.length} first observed</small></span><label>Show<select aria-label="Recent loot cards to show" value={displayLimit} onChange={(event) => onDisplayLimitChange?.(Number(event.target.value) as RecentLootDisplayLimit)}>{DISPLAY_LIMITS.map((limit) => <option key={limit} value={limit}>{limit}</option>)}</select></label></header><div>{visible.length ? visible.map((entry) => entry.kind === "gear" ? <RecentItemCard compact key={`gear-${entry.item.instanceId}`} item={entry.item} onActivate={() => { active.current = entry.item; }} onDeactivate={() => { if (active.current?.instanceId === entry.item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(entry.item, tag)} busy={busy} /> : <RecentCatalystCard key={`catalyst-${entry.catalyst.recordHash}`} catalyst={entry.catalyst} />) : <p>No newly observed gear or catalysts.</p>}</div><button type="button" onClick={onHide}>Hide</button></section>;
+  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pageEntries = visible.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  useEffect(() => {
+    const update = () => {
+      const width = viewport.current?.clientWidth || 0;
+      if (width > 0) setPageSize(recentLootPageSize(width));
+    };
+    update();
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(update);
+    if (viewport.current) observer?.observe(viewport.current);
+    window.addEventListener("resize", update);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
+  }, []);
+  useEffect(() => setPage((value) => Math.min(value, pageCount - 1)), [pageCount]);
+  return <section className={styles.compactBar}><header><Sparkles /><span><strong>Recent loot</strong><small>Private · {visible.length} of {entries.length} first observed</small></span><label>History<select aria-label="Recent loot cards to keep" value={displayLimit} onChange={(event) => { setPage(0); onDisplayLimitChange?.(Number(event.target.value) as RecentLootDisplayLimit); }}>{DISPLAY_LIMITS.map((limit) => <option key={limit} value={limit}>{limit}</option>)}</select></label></header><div className={styles.carousel}><button type="button" aria-label="Previous recent loot page" onClick={() => setPage((value) => Math.max(0, value - 1))} disabled={currentPage === 0}><ChevronLeft /></button><div className={styles.carouselViewport} ref={viewport}><div className={styles.carouselPage}>{pageEntries.length ? pageEntries.map((entry) => entry.kind === "gear" ? <RecentItemCard compact key={`gear-${entry.item.instanceId}`} item={entry.item} onActivate={() => { active.current = entry.item; }} onDeactivate={() => { if (active.current?.instanceId === entry.item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(entry.item, tag)} busy={busy} /> : <RecentCatalystCard key={`catalyst-${entry.catalyst.recordHash}`} catalyst={entry.catalyst} />) : <p>No newly observed gear or catalysts.</p>}</div></div><span className={styles.pageCount}>{currentPage + 1} / {pageCount}</span><button type="button" aria-label="Next recent loot page" onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} disabled={currentPage >= pageCount - 1}><ChevronRight /></button></div><button type="button" onClick={onHide}>Hide</button></section>;
 }
 
 export function RecentCatalystCard({ catalyst }: { catalyst: RecentCatalystObservation }) {
   const [open, setOpen] = useState(false);
-  const status = catalyst.state === "complete" ? "Complete" : `${Math.round(catalyst.percent)}%`;
+  const status = catalyst.state === "complete" ? "100%" : `${Math.round(catalyst.percent)}%`;
   return <article className={`${styles.card} ${styles.compactCard} ${styles.catalystCard}`} data-rarity="Exotic" tabIndex={0} onFocus={() => setOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
     <Link className={styles.tile} to="/collection?view=catalysts" aria-label={`Inspect ${catalyst.name}`} onClick={() => setOpen(true)}>
       <span className={styles.art}>{catalyst.icon ? <img src={catalyst.icon} alt="" /> : <Sparkles />}</span>
-      <span className={styles.metrics}><b>{status}</b><strong className={styles.catalystMark}>Catalyst</strong></span>
+      <span className={styles.metrics}><b className={catalyst.state === "complete" ? styles.catalystDone : undefined}>{catalyst.state === "complete" && <Check aria-label="100%" />}{status}</b><strong className={styles.catalystMark}>Catalyst</strong></span>
     </Link>
     <span className={styles.cardName}>{catalyst.name}</span>
     <div className={styles.cardActions}><Link to="/collection?view=catalysts">Open</Link></div>
-    {open && <aside className={styles.tooltip} role="tooltip"><header>{catalyst.icon && <img src={catalyst.icon} alt="" />}<span><small>Exotic catalyst</small><strong>{catalyst.name}</strong><em>{catalyst.state === "complete" ? "Masterwork complete" : "Masterwork in progress"}</em></span></header><div className={styles.identity}><b>{status}</b><span>{catalyst.state === "complete" ? "Completed" : "Obtained"}</span></div><nav className={styles.sourceLinks}><Link to="/collection?view=catalysts">Open catalyst details</Link><span><Clock3 /> First observed {new Date(catalyst.observedAt).toLocaleString()}</span></nav><footer>Catalyst state is private to this browser and signed-in Guardian.</footer></aside>}
+    {open && <aside className={styles.tooltip} role="tooltip"><header>{catalyst.icon && <img src={catalyst.icon} alt="" />}<span><small>Exotic catalyst</small><strong>{catalyst.name}</strong><em>{catalyst.state === "complete" ? "Masterworked" : "Masterwork in progress"}</em></span></header><div className={styles.identity}><b>{status}</b><span>{catalyst.state === "complete" ? "Masterworked" : "Obtained"}</span></div><nav className={styles.sourceLinks}><Link to="/collection?view=catalysts">Open catalyst details</Link><span><Clock3 /> First observed {new Date(catalyst.observedAt).toLocaleString()}</span></nav><footer>Catalyst state is private to this browser and signed-in Guardian.</footer></aside>}
   </article>;
 }
 
