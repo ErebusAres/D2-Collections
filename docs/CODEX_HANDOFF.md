@@ -21,8 +21,8 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/recent-loot-rating-hardening`, created from `main` at `f31080c` after PR #81.
-- Base branch: `main` at merge commit `36c3c13c24ca0df4a1e88d427f36c503612d62d4` (PR #80, one-row Fireteam loot paging)
+- Current implementation branch: no active product branch. `codex/recent-loot-rating-live-handoff` records the final delivery state only.
+- Base branch: `main` at merge commit `036d7db42c6f58d706b398d3f322876b12b74e60` (PR #82, Recent Loot and rating hardening).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
 - Weapon workspace commit: `c2282b7` (`Add private weapon roll workspace`)
@@ -30,7 +30,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - Completed pull request: `https://github.com/ErebusAres/D2-Collections/pull/53`
 - PR #53 merged and deployed successfully through workflow run `30721416376`.
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
-- Production served merge commit `2b024c9666894334ad9417e0d442ad95285d47b8` when this follow-up began; use the latest merged PR and deployment workflow rather than this historical base SHA to determine current published state.
+- Production deployed merge commit `036d7db42c6f58d706b398d3f322876b12b74e60` successfully through Guardian Nexus workflow run `31273219961` on 2026-08-08.
 
 ## Completed release scope
 
@@ -246,7 +246,7 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 
 ## 2026-08-08 Recent Loot and rating hardening
 
-- Branch: `codex/recent-loot-rating-hardening`, based on live merge `f31080c` / PR #81.
+- Shipped through PR #82 and merge `036d7db42c6f58d706b398d3f322876b12b74e60`; the production Guardian Nexus workflow run `31273219961` completed successfully.
 - Silent first baseline now covers physical weapons and armor as well as catalysts and stackable inventory. Existing vault contents are not emitted as new-account loot.
 - Inventory observations advance to zero only when both Bungie inventory containers and the companion manifest are complete. A partial component or manifest outage therefore cannot turn a recovered material stack into a false gain.
 - New event IDs are deterministic for their source transition and inserts use `INSERT OR IGNORE`, making a retry or concurrent observer safe after an event write. Material deltas remain separate stored observations and coalesce into `×N` only in the read model; ordering uses `lastObservedAt`, so a newly enlarged stack returns to the left.
@@ -254,7 +254,8 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Fireteam distinguishes loading, baseline, warning, and error states; exposes retry, retention, and last-check context; resets to the newest page for a genuinely new leading event; provides compact event cards without empty action strips; constrains edge tooltips; labels Postmaster gear correctly; and supports Escape/toggle inspection.
 - Weapon rating schema v4 preserves DIM-curated trait pairings, uses equal per-source-column weight rather than an undocumented 4× opinion, calls the result a roll match, and retains separate PvE/PvP, exact/type basis, confidence, evidence, source, and honest unavailable states. The hardened DIM block-note parser generated 1,194 exact current-weapon records plus all 17 type fallbacks on 2026-08-08. The browser validates `/data/weapon-value.v4.json` and retries transient failures.
 - Both production deployment and the scheduled manifest refresh now regenerate ratings after the Bungie manifest, preventing new-definition drift. `docs/WEAPON_RATINGS.md`, generator tests, evaluator tests, timeline tests, runtime data, and handoff must move together on future schema changes.
-- Full `pnpm run audit` passed outside the known OneDrive/esbuild sandbox restriction: archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, 186 API tests, 257 web tests, 7 Node tooling tests, 19 Python manifest tests, production API/web builds, and performance budgets of 365,109 bytes entry JavaScript (112,531 gzip) and 33,043 bytes CSS. Publish, merge, workflow monitoring, and live smoke verification remain the next steps for this branch.
+- Full `pnpm run audit` passed outside the known OneDrive/esbuild sandbox restriction: archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, 186 API tests, 257 web tests, 7 Node tooling tests, 19 Python manifest tests, production API/web builds, and performance budgets of 365,109 bytes entry JavaScript (112,531 gzip) and 33,043 bytes CSS.
+- Live verification after deployment returned HTTP 200 for `/fireteam` and `/data/weapon-value.v4.json`. The production catalog reports schema v4, review date 2026-08-08, 1,194 reviewed weapons out of 2,208 manifest weapons, and all 17 supported type profiles. The legacy v3 URL remains present in Cloudflare's immutable asset history, but current application code requests only v4.
 
 ## Next implementation queue
 
