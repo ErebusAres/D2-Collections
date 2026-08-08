@@ -22,6 +22,8 @@ The `codex/remove-fireteam-readiness` follow-up removes the Fireteam Readiness e
 
 Live QA after PR #89 exposed a legacy-default migration edge: the previous opt-in client had automatically persisted `activityFeedEnabled: false`, making those values indistinguishable from a player click. The narrow `codex/fireteam-activity-default-migration` follow-up adds `activityFeedPreferenceSet` to the internal share payload. Legacy unmarked false values migrate to enabled; the Options/Fireteam Disable action writes the marker and remains durable; background refresh no longer submits or rewrites the preference.
 
+The `codex/fireteam-activity-tooltip-overlay` follow-up renders activity item details through a document-level portal rather than inside the floating window. The overlay uses fixed, viewport-clamped placement beside the triggering item, stays above the site and activity window, repositions on scroll/resize/content-size changes, and retains hover/focus interaction while crossing the portal boundary.
+
 The same follow-up simplifies the Fireteam Recent Loot rail: the left cell contains only the title, while timeline scope/count/history controls live in a thin header and snapshot/reconnection notes live in a footer. Xûr's canonical visit schedule is corrected to Bungie's 17:00 UTC reset (Friday arrival through Tuesday weekly reset), which is noon CDT while daylight saving time is active.
 
 Fireteam loot lines use a compact rarity-colored diamond before a small item thumbnail and item name. The diamond contains the Destiny manifest tier number (Exotic 6, Legendary/Superior 5, Rare 4, Common 3, Uncommon/Basic 2, Currency 1, unknown 0) as a dark hollow-style numeral for rapid scanning; item names retain their rarity color and open the same detailed tooltip.
@@ -31,7 +33,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/fireteam-activity-default-migration` (live-QA follow-up after PR #89).
+- Current implementation branch: `codex/fireteam-activity-tooltip-overlay`.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
