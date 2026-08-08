@@ -1347,7 +1347,7 @@ function sharedHiddenTrackedItemKeys(payload: any): string[] {
 }
 
 function sharedActivityFeedEnabled(payload: any): boolean {
-  return payload?.activityFeedEnabled === true;
+  return payload?.activityFeedEnabled !== false;
 }
 
 function sharedActivityPartyMembershipIds(payload: any, selfMembershipId: string): string[] {

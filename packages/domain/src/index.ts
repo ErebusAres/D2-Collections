@@ -125,7 +125,7 @@ export function partyPresenceLabel(status: number): string {
 }
 
 export function xurSchedule(now = new Date()): { active: boolean; arrival: string; departure: string; target: string } {
-  const friday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 19));
+  const friday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 17));
   friday.setUTCDate(friday.getUTCDate() - ((friday.getUTCDay() - 5 + 7) % 7));
   if (friday.getTime() > now.getTime()) friday.setUTCDate(friday.getUTCDate() - 7);
   const departure = new Date(friday.getTime() + 4 * 24 * 60 * 60_000);

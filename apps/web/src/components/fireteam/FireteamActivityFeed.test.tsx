@@ -2,9 +2,9 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FireteamActivityFeed, lootTier } from "./FireteamActivityFeed";
+import { clampActivityWindowState, FireteamActivityFeed, lootTier, parseActivityWindowState } from "./FireteamActivityFeed";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 const feed: any = {
   enabled: true,
@@ -40,5 +40,35 @@ describe("FireteamActivityFeed", () => {
     render(<FireteamActivityFeed feed={feed} view="hidden" onViewChange={onViewChange} onSend={vi.fn()} sending={false} onDisable={vi.fn()} onEnable={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /Show/i }));
     expect(onViewChange).toHaveBeenCalledWith("open");
+  });
+
+  it("starts pinned, supports a movable pop-out, and remembers its geometry", () => {
+    const props = { feed, view: "open" as const, storageKey: "activity-window-test", onViewChange: vi.fn(), onSend: vi.fn(), sending: false, onDisable: vi.fn(), onEnable: vi.fn() };
+    const rendered = render(<FireteamActivityFeed {...props} />);
+    const panel = screen.getByText("Fireteam activity").closest("section")!;
+    expect(panel.getAttribute("data-window-mode")).toBe("pinned");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pop out Fireteam activity" }));
+    expect(panel.getAttribute("data-window-mode")).toBe("popout");
+    expect(JSON.parse(localStorage.getItem("activity-window-test") || "{}").mode).toBe("popout");
+
+    const header = screen.getByText("Fireteam activity").closest("header")!;
+    fireEvent.pointerDown(header, { button: 0, pointerId: 4, clientX: 700, clientY: 300 });
+    fireEvent.pointerMove(header, { pointerId: 4, clientX: 620, clientY: 240 });
+    fireEvent.pointerUp(header, { pointerId: 4, clientX: 620, clientY: 240 });
+    const saved = JSON.parse(localStorage.getItem("activity-window-test") || "{}");
+    expect(saved.x).toBeGreaterThanOrEqual(18);
+    expect(saved.y).toBeGreaterThanOrEqual(18);
+
+    rendered.unmount();
+    render(<FireteamActivityFeed {...props} />);
+    expect(screen.getByText("Fireteam activity").closest("section")!.getAttribute("data-window-mode")).toBe("popout");
+    fireEvent.click(screen.getByRole("button", { name: "Pin Fireteam activity to bottom right" }));
+    expect(JSON.parse(localStorage.getItem("activity-window-test") || "{}").mode).toBe("pinned");
+  });
+
+  it("rejects corrupt saved state and clamps remembered size and position into the viewport", () => {
+    expect(parseActivityWindowState("not-json", 900, 700).mode).toBe("pinned");
+    expect(clampActivityWindowState({ mode: "popout", x: -500, y: 900, width: 2_000, height: 2_000 }, 900, 700)).toEqual({ mode: "popout", x: 18, y: 18, width: 864, height: 664 });
   });
 });
