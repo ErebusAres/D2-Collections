@@ -18,13 +18,15 @@ Gear loot management uses the existing private `gear_item_state` source of truth
 
 The current `codex/fireteam-activity-feed` release adds a combined Fireteam activity and short-message feed below member quest tracking. It promotes Exotic Engram gains to an explicit recent-item event and shares only weapon, armor, catalyst-acquired, and Exotic Engram finds; materials and catalyst-completion events stay out. Entries are restricted to opted-in, actively shared members of the viewer's current Bungie party. Messages use a stable current-party channel key, require another opted-in synced member, accept at most 240 normalized characters, allow three sends per ten seconds, expire after seven days, and share the same bounded 60-entry chronology as finds. Shared gear strips private tags, dismissal state, and owner-character IDs while retaining the existing themed item tooltip and weapon rating. Players can minimize or hide the panel locally, restore it, or disable publication/display/messaging through the share payload and Options. The D1 migration is `0017_fireteam_activity_feed.sql`.
 
+Fireteam loot lines use a compact rarity-colored diamond before a small item thumbnail and item name. The diamond contains the Destiny manifest tier number (Exotic 6, Legendary/Superior 5, Rare 4, Common 3, Uncommon/Basic 2, Currency 1, unknown 0) as a dark hollow-style numeral for rapid scanning; item names retain their rarity color and open the same detailed tooltip.
+
 Gear now also has a dedicated Vault tab after Loot. It combines only physical vaulted weapons and armor, supports item kind, slot, rarity, weapon type/element, armor class, lock, tag, search, sort, and six-stat base/current range filters, and renders large result sets in bounded 120-item increments. Existing private tags and Bungie-supported lock, pull, and equip actions are reused. Bungie's third-party API exposes no delete/dismantle operation, so the workspace explicitly sends filtered cleanup candidates through the private Junk tag for in-game verification instead of claiming unsupported deletion.
 
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
 - Current implementation branch: no active product branch. `codex/fireteam-activity-live-handoff` records the final delivery state only.
-- Base branch: `main` at merge commit `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86, private Fireteam activity and chat).
+- Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
 - Weapon workspace commit: `c2282b7` (`Add private weapon roll workspace`)

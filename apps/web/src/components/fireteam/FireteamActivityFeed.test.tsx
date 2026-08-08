@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FireteamActivityFeed } from "./FireteamActivityFeed";
+import { FireteamActivityFeed, lootTier } from "./FireteamActivityFeed";
 
 afterEach(cleanup);
 
@@ -23,10 +23,16 @@ describe("FireteamActivityFeed", () => {
     const onSend = vi.fn();
     render(<FireteamActivityFeed feed={feed} view="open" onViewChange={vi.fn()} onSend={onSend} sending={false} onDisable={vi.fn()} onEnable={vi.fn()} />);
     expect(screen.getByText("Exotic Engram").getAttribute("data-rarity")).toBe("Exotic");
+    expect(screen.getByLabelText("Tier 6 Exotic").textContent).toBe("6");
+    expect(screen.getByRole("button", { name: /Exotic Engram/i }).querySelector("img")?.getAttribute("src")).toBe("/engram.png");
     expect(screen.getByText("Ready when you are.")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Message your Fireteam"), { target: { value: "Need ammo" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(onSend).toHaveBeenCalledWith("Need ammo");
+  });
+
+  it("maps Destiny display rarities to their manifest tier numbers", () => {
+    expect(["Exotic", "Legendary", "Rare", "Common", "Uncommon", "Currency", "Unknown"].map(lootTier)).toEqual([6, 5, 4, 3, 2, 1, 0]);
   });
 
   it("offers a restore control after hiding", () => {
