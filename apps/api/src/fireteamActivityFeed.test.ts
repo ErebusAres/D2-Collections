@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { combineFireteamActivityEntries, fireteamChannelKey, normalizeFireteamMessage, sanitizeSharedRecentEvent } from "./fireteamActivityFeed";
+import { combineFireteamActivityEntries, fireteamChannelKey, normalizeFireteamMessage, sanitizeSharedRecentEvent, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
 
 describe("Fireteam activity feed", () => {
   it("uses one stable channel key for the same party regardless of order", async () => {
@@ -19,5 +19,12 @@ describe("Fireteam activity feed", () => {
   it("removes private item state before a gear find is shared", () => {
     const event: any = { id: "loot", kind: "weapon-found", sourceKey: "gear:1", name: "Test", icon: "", quantity: 1, observedAt: "2026-08-08T10:00:00Z", lastObservedAt: "2026-08-08T10:00:00Z", gear: { kind: "weapon", tag: "favorite", dismissedAt: "later", ownerCharacterId: "private", instanceId: "1" } };
     expect(sanitizeSharedRecentEvent(event).gear).toEqual({ kind: "weapon", instanceId: "1" });
+  });
+
+  it("migrates legacy opt-in false values to enabled while preserving an explicit disable", () => {
+    expect(sharedActivityFeedEnabled({})).toBe(true);
+    expect(sharedActivityFeedEnabled({ activityFeedEnabled: false })).toBe(true);
+    expect(sharedActivityFeedEnabled({ activityFeedEnabled: false, activityFeedPreferenceSet: true })).toBe(false);
+    expect(sharedActivityFeedEnabled({ activityFeedEnabled: true, activityFeedPreferenceSet: true })).toBe(true);
   });
 });

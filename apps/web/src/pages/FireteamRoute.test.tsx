@@ -62,6 +62,7 @@ describe("Fireteam refresh cycle", () => {
 
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(vi.mocked(queuedApi).mock.calls[0]?.[1]?.body))).not.toHaveProperty("activityFeedEnabled");
     expect(fireteamReads).toBe(1);
     expect(orderReads).toBe(1);
 

@@ -78,7 +78,7 @@ import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems } from "./recentItems";
-import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
+import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1171,9 +1171,10 @@ async function storeShare(
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
   const readiness = providedReadiness === undefined ? sharedReadiness(previousPayload) : providedReadiness || undefined;
   const activityFeedEnabled = providedActivityFeedEnabled === undefined ? sharedActivityFeedEnabled(previousPayload) : providedActivityFeedEnabled;
+  const activityFeedPreferenceSet = providedActivityFeedEnabled === undefined ? previousPayload?.activityFeedPreferenceSet === true : true;
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
   const activityPartyMembershipIds = [...new Set([row.membership_id, ...(transitory.partyMembers || []).map((member: any) => String(member.membershipId || member.destinyMembershipId || "")).filter(Boolean)])];
-  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityPartyMembershipIds };
+  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds };
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
@@ -1344,10 +1345,6 @@ function sharedHiddenTrackedItemKeys(payload: any): string[] {
   return Array.isArray(payload?.hiddenTrackedItemKeys)
     ? [...new Set((payload.hiddenTrackedItemKeys as unknown[]).filter((key): key is string => typeof key === "string" && Boolean(key)))].slice(0, 200)
     : [];
-}
-
-function sharedActivityFeedEnabled(payload: any): boolean {
-  return payload?.activityFeedEnabled !== false;
 }
 
 function sharedActivityPartyMembershipIds(payload: any, selfMembershipId: string): string[] {

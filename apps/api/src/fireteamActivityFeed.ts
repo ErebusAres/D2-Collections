@@ -8,6 +8,11 @@ export const FIRETEAM_FEED_RETENTION_DAYS = 7;
 export const FIRETEAM_MESSAGE_MAX_LENGTH = 240;
 const SHARED_LOOT_KINDS = ["weapon-found", "armor-found", "catalyst-found", "exotic-engram-found"] as const;
 
+export function sharedActivityFeedEnabled(payload: any): boolean {
+  if (payload?.activityFeedPreferenceSet !== true) return true;
+  return payload?.activityFeedEnabled !== false;
+}
+
 export function normalizeFireteamMessage(value: unknown): string {
   const printable = [...String(value ?? "")].map((character) => {
     const code = character.charCodeAt(0);
