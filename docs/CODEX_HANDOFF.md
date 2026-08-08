@@ -14,15 +14,15 @@ Guardian Share Cards have also been retired as a creation surface because they d
 
 Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` listener, mobile quick-action dock, web-app manifest, and service-worker build/cache path are removed. Startup unregisters older Guardian Nexus service workers so previously installed caches do not keep serving stale bundles. Ordinary responsive CSS remains for narrow browser windows, but mobile-specific product work is not active scope.
 
-Gear loot management uses the existing private `gear_item_state` source of truth. The Loot tab defaults to a rolling seven-day history of first-observed physical weapons and armor, retains reviewed/tagged items in that period, and offers 1/3/7/14/30-day filters. Loot is displayed as compact icon cards, with Power on all gear and schema-v2 DIM-community percentages on weapons only. The Guardian-themed detail surface includes available stats, trackers, masterwork and perks while keeping unknown coverage unrated. Armor and Weapons retain compact recent rows; Fireteam uses a distinct private glance bar. Shared cards, tooltips, tags, and Shift+1–5 shortcuts remain consistent. Times are labeled first observed, never exact acquisition.
+Gear loot management uses the existing private `gear_item_state` source of truth. The Loot tab defaults to a rolling seven-day history of first-observed physical weapons and armor, retains reviewed/tagged items in that period, and offers 1/3/7/14/30-day filters. Loot is displayed as compact icon cards, with Power on all gear and schema-v3 DIM-community roll percentages and quality tiers on weapons only. Exact weapon recommendations use actual perk-column weights; weapons without an exact DIM entry can use an explicitly lower-confidence profile for any of the 17 supported weapon types. The Guardian-themed detail surface includes available stats, trackers, masterwork, perks, PvE/PvP scores, basis, confidence, reasons, and provenance while keeping absent evidence unrated. Armor and Weapons retain compact recent rows; Fireteam uses a distinct private glance bar. Shared cards, tooltips, tags, and Shift+1–5 shortcuts remain consistent. Times are labeled first observed, never exact acquisition.
 
 Gear now also has a dedicated Vault tab after Loot. It combines only physical vaulted weapons and armor, supports item kind, slot, rarity, weapon type/element, armor class, lock, tag, search, sort, and six-stat base/current range filters, and renders large result sets in bounded 120-item increments. Existing private tags and Bungie-supported lock, pull, and equip actions are reused. Bungie's third-party API exposes no delete/dismantle operation, so the workspace explicitly sends filtered cleanup candidates through the private Junk tag for in-game verification instead of claiming unsupported deletion.
 
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Follow-up branch: `agent/build-advisor-catalog-v5` (create from current `main` before publishing)
-- Base branch: `main` at merge commit `1b95714e983c2897ab4e823a6dc7edd1997d0626`
+- Weapon-rating implementation branch: `codex/weapon-ratings-v3`, created from current `main`.
+- Base branch: `main` at merge commit `baeaf82` (PR #77, Fireteam Recent Loot restoration)
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
 - Weapon workspace commit: `c2282b7` (`Add private weapon roll workspace`)
@@ -30,7 +30,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - Completed pull request: `https://github.com/ErebusAres/D2-Collections/pull/53`
 - PR #53 merged and deployed successfully through workflow run `30721416376`.
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
-- Production currently serves merge commit `1b95714`; this v5 catalog correction is not live until its follow-up PR is merged and deployed.
+- Production served merge commit `baeaf82` when this follow-up began; use the latest merged PR and deployment workflow rather than this historical base SHA to determine current published state.
 
 ## Completed release scope
 
@@ -99,6 +99,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 64. Corrected OAuth completion to probe all returned Destiny memberships and prefer a verified usable D2 profile over an unusable primary/first entry. Cross Save and primary membership remain ranking signals rather than unverified assumptions.
 65. Corrected Fireteam Seasonal Hub order completion precedence. An observed incomplete-to-complete transition now enters the shared `CompletionPing` pipeline and displays `Order complete` before the active rail cleans up the completed order; it is no longer treated as an unexplained dismissal.
 66. Restored Fireteam Recent Loot after the icon-card redesign: the compact bar now reserves the cards' full interaction height and keeps its tag control visible, shows the five newest items first observed within seven days even after tagging, refreshes visible gear every 60 seconds when auto-refresh is enabled, and sits directly below Fireteam Readiness and above the tracked-item/member segment.
+67. Replaced the schema-v2 perk-coverage heuristic with an evidence-backed schema-v3 roll evaluator. Exact DIM Voltron records now use normalized column weights of 0.25/0.25/1/1, separate PvE/PvP scores, stable Excellent/Strong/Mixed/Weak/Poor tiers, and explicit high confidence. All 17 current weapon types have lower-confidence fallback profiles for weapons without exact source entries; unseen evidence remains unrated rather than being treated as bad. The tooltip exposes basis, confidence, applicable-column coverage, reasons, source, and review date.
 
 ## Files in release scope
 
@@ -117,7 +118,12 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - `apps/web/src/pages/SupportPage.tsx`
 - `apps/web/src/pages/SupportPage.module.css`
 - `apps/api/src/supportDiagnostics.ts`
-- `apps/web/public/data/weapon-value.v2.json`
+- `apps/web/public/data/weapon-value.v3.json`
+- `apps/web/src/modules/loot/weaponEvaluator.ts`
+- `apps/web/src/modules/loot/weaponEvaluator.test.ts`
+- `apps/api/src/gear.ts`
+- `apps/api/test/gear.test.ts`
+- `packages/contracts/src/index.ts`
 - `tools/sync-weapon-ratings.mjs`
 - `docs/WEAPON_RATINGS.md`
 - `apps/web/src/modules/watchlists/watchlists.ts`
@@ -236,6 +242,14 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Production smoke check on 2026-08-08 confirmed `/support` ran all 10 stages successfully for a signed-in account, Copy Diagnostic Report worked, the deployed frontend identified merge `1d3b1ef`, the runtime rating asset exposed schema v2 with 1,220 records, and live Gear rendered power-only armor plus rated/unrated weapon cards. A click/focus race found during this check was corrected immediately so touch/click reliably opens the detail tooltip.
 
 ## Next implementation queue
+
+### Completed: Evidence-backed weapon ratings v3
+
+- Replaced the schema-v2 any-column/pair heuristic with exact DIM Voltron column comparisons using `0.25, 0.25, 1, 1` weights. Bungie-normalized sockets now carry optional rating positions so frames, intrinsics, mods, and other non-wishlist sockets cannot shift the comparison.
+- Added separate PvE/PvP and overall scores, Excellent/Strong/Mixed/Weak/Poor tiers, exact-vs-type basis, high/medium/low confidence, applicable-column coverage, reasons, source, and review date to the existing icon-card/detail UI.
+- The generated schema-v3 asset contains 1,220 exact weapon records from the current Voltron snapshot and lower-confidence fallback profiles for every one of the Gear manifest's 17 weapon types. Missing comparison evidence remains Unrated and does not become zero.
+- Validation on 2026-08-08: archive/source/CSS boundaries, ESLint, all TypeScript targets, 452 Vitest tests, 7 Node tooling tests, 19 Python manifest tests, API/Web production builds, and performance budgets all pass. Entry output remains 364,883 bytes JavaScript (112,489 bytes gzip) and 33,043 bytes CSS; the rating artifact remains a separately cached runtime file.
+- Refresh procedure and methodological limits are in `docs/WEAPON_RATINGS.md`. Regenerate with `pnpm ratings:sync`; change the schema, generator test, evaluator tests, docs, and runtime artifact together.
 
 ### Completed: Weapon workspace data foundation
 

@@ -124,7 +124,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
 }
 
 function weaponPerkColumns(itemSockets: any[], reusableBySocket: Record<string, any[]>, plugs: Record<string, any>): WeaponPerkColumn[] {
-  return itemSockets.map((socket, socketIndex): WeaponPerkColumn | undefined => {
+  const columns = itemSockets.map((socket, socketIndex): (WeaponPerkColumn & { ratingKind?: "first" | "second" | "trait" }) | undefined => {
     const activeHash = hashOf(socket?.plugHash || socket?.plugItemHash);
     const activeDefinition = activeHash !== "0" ? plugs[activeHash] : undefined;
     const optionHashes = [
@@ -136,8 +136,29 @@ function weaponPerkColumns(itemSockets: any[], reusableBySocket: Record<string, 
     const kind = weaponPlugKind(activeDefinition || definitions[0]?.[1]);
     if (!kind || kind === "origin" || kind === "masterwork") return undefined;
     const options = definitions.map(([, definition]) => perk(definition)).filter((value) => value.name);
-    return { socketIndex, ...(activeDefinition ? { active: perk(activeDefinition) } : {}), options };
-  }).filter((value): value is WeaponPerkColumn => Boolean(value));
+    const ratingKind = weaponRatingKind(activeDefinition || definitions[0]?.[1]);
+    return { socketIndex, ...(ratingKind ? { ratingKind } : {}), ...(activeDefinition ? { active: perk(activeDefinition) } : {}), options };
+  }).filter((value): value is WeaponPerkColumn & { ratingKind?: "first" | "second" | "trait" } => Boolean(value));
+  let traitColumn = 2;
+  return columns.map(({ ratingKind, ...column }) => {
+    if (ratingKind === "first") return { ...column, ratingColumn: 0 };
+    if (ratingKind === "second") return { ...column, ratingColumn: 1 };
+    if (ratingKind === "trait" && traitColumn <= 3) {
+      const ratingColumn = traitColumn as 2 | 3;
+      traitColumn += 1;
+      return { ...column, ratingColumn };
+    }
+    return column;
+  });
+}
+
+function weaponRatingKind(plug: any): "first" | "second" | "trait" | undefined {
+  const type = normalize(plug?.itemTypeDisplayName);
+  if (/origin trait|intrinsic/.test(type)) return undefined;
+  if (/trait/.test(type)) return "trait";
+  if (/barrel|scope|sight|blade|haft/.test(type)) return "first";
+  if (/magazine|battery|guard|grip|stock/.test(type)) return "second";
+  return undefined;
 }
 
 function weaponPlugKind(plug: any): "perk" | "origin" | "masterwork" | undefined {

@@ -9,7 +9,7 @@
     "dev:api": "pnpm --filter @guardian-nexus/api dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test && node --test tools/sync-reward-codes.test.mjs tools/notification-visuals.test.mjs && python -m unittest tools/sync_manifest_test.py",
+    "test": "pnpm -r test && node --test tools/sync-reward-codes.test.mjs tools/sync-weapon-ratings.test.mjs tools/notification-visuals.test.mjs && python -m unittest tools/sync_manifest_test.py",
     "lint": "eslint apps packages tools --max-warnings=0",
     "audit": "pnpm archive:audit && node tools/check-frontend-source-boundaries.mjs && node tools/check-css-module-usage.mjs && pnpm lint && pnpm typecheck && pnpm test && pnpm build && node tools/check-web-performance-budgets.mjs",
     "archive:audit": "node tools/check-no-archive-imports.mjs",

@@ -1,7 +1,7 @@
 import type { ArmorItem, GearTag, WeaponItem } from "@guardian-nexus/contracts";
 import { BarChart3, Clock3, Columns3, ExternalLink, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { evaluateWeapon, loadWeaponRatings } from "../../modules/loot/weaponEvaluator";
+import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
 import { GearTagBadge, GearTagPicker } from "./GearTagPicker";
 import styles from "./RecentLoot.module.css";
 
@@ -64,7 +64,7 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
   return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} tabIndex={0} onFocus={() => { onActivate(); setOpen(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onDeactivate(); setOpen(false); } }} onMouseEnter={() => { onActivate(); setOpen(true); }} onMouseLeave={() => { onDeactivate(); setOpen(false); }}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} onClick={() => setOpen(true)}>
       <span className={styles.art}>{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
-      <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state}>{value?.state === "scored" ? `${value.overall ?? "—"}%` : "Unrated"}</strong>}</span>
+      <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : "Unrated"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>
     <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />{actions}</div>
@@ -82,7 +82,12 @@ function ItemTooltip({ item }: { item: LootItem }) {
       <div className={styles.weaponStats}>{(item.stats || []).map((stat) => <span key={stat.hash}><small>{stat.name}</small>{stat.displayAsNumeric ? <i /> : <i><em style={{ width: `${Math.min(100, Math.max(0, stat.value / Math.max(1, stat.maximumValue) * 100))}%` }} /></i>}<b>{stat.value}</b></span>)}</div>
       {item.masterwork && <div className={styles.intrinsic}>{item.masterwork.icon && <img src={item.masterwork.icon} alt="" />}<span><b>{item.masterwork.name}</b><small>{item.masterwork.description || "Weapon masterwork"}</small></span></div>}
       <div className={styles.perks}>{item.perkColumns.map((column) => <span key={column.socketIndex}>{column.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<b>{column.active?.name || "Unknown socket"}</b><small>{column.active?.description || `${column.options.length} selectable options`}</small></span>)}</div>
-      <div className={styles.value} data-state={value?.state}><b>{value?.state === "scored" ? `Overall ${value.overall ?? "—"}% · PvE ${value.pve ?? "—"}% · PvP ${value.pvp ?? "—"}%` : "Community rating unavailable"}</b><small>{value?.reasons[0]}{value?.source ? ` Source: ${value.source}.` : ""}</small></div>
+      <div className={styles.value} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <>
+        <header><span><b>{qualityLabel(value.quality)} roll</b><small>{value.basis === "weapon" ? "Exact weapon evidence" : `${item.itemType} fallback`}</small></span><strong>{value.overall}%</strong></header>
+        <div className={styles.modeScores}><span><small>PvE</small><b>{value.pve === undefined ? "—" : `${value.pve}%`}</b></span><span><small>PvP</small><b>{value.pvp === undefined ? "—" : `${value.pvp}%`}</b></span><span><small>Confidence</small><b>{value.confidence}</b></span></div>
+        {value.reasons.map((reason) => <p key={reason}>{reason}</p>)}
+        <small>Source: {value.source}. Reviewed {value.reviewedAt}.</small>
+      </> : <><b>Community rating unavailable</b><small>{value?.reasons[0]}</small></>}</div>
     </> : <div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal}</strong></div>}
     <footer>First observed time is Guardian Nexus history, not an exact Bungie drop timestamp. Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse</footer>
   </aside>;

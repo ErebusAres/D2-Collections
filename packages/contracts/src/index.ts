@@ -822,6 +822,8 @@ export type WeaponReviewState = "configured" | "unique" | "duplicate-review" | "
 
 export interface WeaponPerkColumn {
   socketIndex: number;
+  /** DIM wishlist position: barrel/sight, magazine/battery, trait one, or trait two. */
+  ratingColumn?: 0 | 1 | 2 | 3;
   active?: ArmorPerk;
   options: ArmorPerk[];
 }
