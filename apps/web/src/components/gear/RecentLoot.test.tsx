@@ -95,6 +95,19 @@ describe("RecentItemRow", () => {
     expect(screen.getByRole("tooltip").textContent).not.toMatch(/complete/i);
   });
 
+  it("renders a newest-left event timeline and stacks material gains", () => {
+    const events: any[] = [
+      { id: "older", kind: "catalyst-completed", sourceKey: "catalyst:1", recordHash: "1", name: "Old Catalyst", icon: "", quantity: 1, percent: 100, observedAt: "2026-08-08T11:00:00Z", lastObservedAt: "2026-08-08T11:00:00Z" },
+      { id: "newer", kind: "inventory-gained", sourceKey: "inventory:2", itemHash: "2", name: "Enhancement Core", icon: "/core.png", itemType: "Material", rarity: "Legendary", quantity: 4, observedAt: "2026-08-08T12:00:00Z", lastObservedAt: "2026-08-08T12:04:00Z" }
+    ];
+    render(<MemoryRouter><CompactRecentLootBar events={events} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
+    const cards = screen.getAllByRole("button", { name: /Inspect/ });
+    expect(cards.map((card) => card.getAttribute("aria-label"))).toEqual(["Inspect Enhancement Core", "Inspect Old Catalyst"]);
+    expect(screen.getByText("×4")).toBeTruthy();
+    expect(screen.getByLabelText("Completed")).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Recent loot cards to keep" })).toBeNull();
+  });
+
   it("parses only supported Fireteam display limits", () => {
     expect(parseRecentLootDisplayLimit("12")).toBe(12);
     expect(parseRecentLootDisplayLimit("48")).toBe(48);

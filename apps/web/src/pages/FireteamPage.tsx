@@ -1,4 +1,4 @@
-import type { BuildsData, CollectionData, FireteamCompletedTrackedItem, FireteamContact, FireteamData, FireteamMember, FireteamReadinessSummary, FireteamSharingMode, FireteamTrackedItem, GearData, GearTag } from "@guardian-nexus/contracts";
+import type { BuildsData, FireteamCompletedTrackedItem, FireteamContact, FireteamData, FireteamMember, FireteamReadinessSummary, FireteamSharingMode, FireteamTrackedItem, GearTag, RecentItemTimelineData } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpToLine, BookmarkMinus, CheckCircle2, Copy, Crown, EyeOff, GripVertical, Link2, LogIn, MessageSquare, Radio, Repeat2, Share2, ShieldCheck, Timer, UserMinus, Users } from "lucide-react";
@@ -11,7 +11,7 @@ import { FireteamReadinessPanel, SharedReadiness } from "../components/fireteam/
 import { parseReadinessDraft, readinessSummary, type FireteamReadinessDraft } from "../modules/fireteam/readiness";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
-import { CompactRecentLootBar, observedLootWithin, parseRecentLootDisplayLimit, type LootItem } from "../components/gear/RecentLoot";
+import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -61,19 +61,16 @@ export function FireteamPage() {
   const collectionIds = useMemo(() => trackedPreference(preferences["collection.tracked"]), [preferences]);
   const trackedBuilds = useMemo(() => parseTrackedBuilds(preferences["buildAdvisor.trackedBuilds.v1"]), [preferences]);
   const showRecentLoot = preferences["fireteam.recentLoot.v1"] !== "off";
-  const recentLootDisplayLimit = parseRecentLootDisplayLimit(preferences["fireteam.recentLootLimit.v1"]);
   const builds = useQuery({ queryKey: ["builds"], queryFn: () => api<BuildsData>("/api/v1/builds"), staleTime: 5 * 60_000 });
-  const recentGear = useQuery({
-    queryKey: ["gear", selectedCharacterId],
-    queryFn: () => api<GearData>(`/api/v1/me/gear?characterId=${encodeURIComponent(selectedCharacterId)}`),
+  const recentItems = useQuery({
+    queryKey: ["recent-items", selectedCharacterId],
+    queryFn: () => api<RecentItemTimelineData>(`/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId && showRecentLoot),
     staleTime: 30_000,
     refetchInterval: showRecentLoot && autoRefresh ? 60_000 : false
   });
-  const collection = useQuery({ queryKey: ["fireteam-collection", selectedCharacterId], queryFn: () => api<CollectionData>(`/api/v1/me/collection?characterId=${encodeURIComponent(selectedCharacterId)}`), enabled: Boolean(session?.authenticated && selectedCharacterId), staleTime: 60_000 });
-  const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] }) });
+  const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["recent-items", selectedCharacterId] }) });
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
-  const observedCatalysts = useMemo(() => catalystObservations(collection.data?.data, membershipId), [collection.data?.data, membershipId]);
   const readinessPreference = preferences["fireteam.readinessDraft.v1"];
   const [readinessDraft, setReadinessDraft] = useState(() => parseReadinessDraft(readinessPreference));
   useEffect(() => setReadinessDraft(parseReadinessDraft(readinessPreference)), [readinessPreference]);
@@ -221,7 +218,7 @@ export function FireteamPage() {
         <div><ShieldCheck /><span>Your sharing</span><strong>{data.sharingMode === "persistent" ? "Always on / background refresh" : data.sharingMode === "temporary" ? "Temporary / 15 minutes" : "Private"}</strong></div>
       </section>
       <FireteamReadinessPanel draft={readinessDraft} builds={builds.data?.data.builds || []} sharing={data.sharingEnabled} onChange={updateReadinessDraft} />
-      {showRecentLoot ? <CompactRecentLootBar items={observedLootWithin(recentGear.data?.data.items || [], recentGear.data?.data.weapons || [], 7, "all")} catalysts={observedCatalysts} displayLimit={recentLootDisplayLimit} onDisplayLimitChange={(limit) => setPreference("fireteam.recentLootLimit.v1", String(limit))} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account loot hidden</strong><small>Private to you</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show bar</button></section>}
+      {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Private to you</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
       <SocialRoster contacts={data.social?.contacts || []} friendsState={data.social?.friendsState || data.social?.state || "unavailable"} clanState={data.social?.clanState || (data.social?.state === "available" ? "available" : "unavailable")} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
       <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Status may be delayed</strong><p>Party presence and current activity are not guaranteed to be real time.</p></div></section>
@@ -460,19 +457,6 @@ function trackedPreference(value?: string): string[] {
     const parsed = JSON.parse(value || "[]");
     return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 200) : [];
   } catch { return []; }
-}
-
-function catalystObservations(data: CollectionData | undefined, membershipId: string): Array<{ recordHash: string; name: string; icon: string; state: "obtained" | "complete"; percent: number; observedAt: string }> {
-  if (!data || !membershipId) return [];
-  const storageKey = `guardian-nexus:${membershipId}:catalyst-observations-v1`;
-  let observed: Record<string, string> = {};
-  try { observed = JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch { observed = {}; }
-  const now = new Date().toISOString();
-  const catalysts = (data.entries || []).flatMap((entry) => entry.catalysts || []).filter((entry) => entry.state === "obtained" || entry.state === "complete");
-  let changed = false;
-  for (const catalyst of catalysts) if (!observed[catalyst.recordHash]) { observed[catalyst.recordHash] = now; changed = true; }
-  if (changed) try { localStorage.setItem(storageKey, JSON.stringify(observed)); } catch { /* Keep this private observation in memory. */ }
-  return catalysts.map((entry) => ({ recordHash: entry.recordHash, name: entry.name, icon: entry.icon, state: entry.state as "obtained" | "complete", percent: entry.percent, observedAt: observed[entry.recordHash] || now })).sort((left, right) => Date.parse(right.observedAt) - Date.parse(left.observedAt));
 }
 
 function readPinnedIds(storageKey: string): string[] {

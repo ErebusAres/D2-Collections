@@ -36,7 +36,7 @@ afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.us
 describe("Fireteam tracked items", () => {
   it("keeps recent tagged loot interactive between readiness and the tracked-item segment", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
-      if (String(path).startsWith("/api/v1/me/gear")) return gearEnvelope() as never;
+      if (String(path).startsWith("/api/v1/me/recent-items")) return recentItemsEnvelope() as never;
       return envelope() as never;
     });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
@@ -46,9 +46,8 @@ describe("Fireteam tracked items", () => {
     const tracked = (await screen.findByText("Shared tracked items")).closest("section")!;
     expect(readiness.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(recent.compareDocumentPosition(tracked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect((screen.getByRole("combobox", { name: "Recent loot cards to keep" }) as HTMLSelectElement).value).toBe("24");
-    fireEvent.change(screen.getByRole("combobox", { name: "Recent loot cards to keep" }), { target: { value: "48" } });
-    expect(setPreference).toHaveBeenCalledWith("fireteam.recentLootLimit.v1", "48");
+    expect(screen.getByText(/newest to oldest/)).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Recent loot cards to keep" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
     expect((await screen.findByRole("tooltip")).textContent).toContain("Recent Rifle");
@@ -417,16 +416,21 @@ function envelope() {
   return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "fireteam" };
 }
 
-function gearEnvelope() {
+function recentItemsEnvelope() {
+  const weapon = {
+    kind: "weapon" as const,
+    instanceId: "loot-1", itemHash: "2", name: "Recent Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy" as const, damageType: "Arc" as const, rarity: "Legendary", power: 550,
+    location: "vault" as const, equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable" as const,
+    reviewState: "incomplete-data" as const, reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-08T00:00:00.000Z", isNew: false, tag: "favorite" as const
+  };
   return {
     data: {
-      items: [],
-      weapons: [{
-        instanceId: "loot-1", itemHash: "2", name: "Recent Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 550,
-        location: "vault", equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable",
-        reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-08T00:00:00.000Z", isNew: false, tag: "favorite"
-      }]
+      timelineSchemaVersion: 1,
+      events: [{ id: "event-1", kind: "weapon-found", sourceKey: "gear:loot-1", itemHash: "2", instanceId: "loot-1", name: "Recent Rifle", icon: "", quantity: 1, observedAt: weapon.firstSeenAt, lastObservedAt: weapon.firstSeenAt, gear: weapon }],
+      retentionDays: 30,
+      firstObservationEstablished: false,
+      observedAt: "2026-08-08T00:00:00.000Z"
     },
-    freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "gear"
+    freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "recent-items"
   };
 }
