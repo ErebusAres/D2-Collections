@@ -45,7 +45,13 @@ export async function bungieGet(path: string, env: Env, accessToken?: string): P
     const throttle = Number(body.ThrottleSeconds || response.headers.get("Retry-After") || 0);
     const throttled = response.status === 429 || throttle > 0;
     const status = throttled ? 429 : response.ok ? 502 : response.status || 502;
-    throw httpError(status, throttled ? "bungie_throttled" : "bungie_request_failed", body.Message || "Bungie request failed.", throttle || undefined);
+    throw Object.assign(httpError(status, throttled ? "bungie_throttled" : String(body.ErrorStatus || "bungie_request_failed").toLowerCase(), body.Message || "Bungie request failed.", throttle || undefined), {
+      httpStatus: response.status,
+      bungieErrorCode: Number(body.ErrorCode || 0),
+      bungieErrorStatus: String(body.ErrorStatus || ""),
+      bungieMessage: String(body.Message || ""),
+      throttleSeconds: throttle
+    });
   }
   return body.Response;
 }
@@ -453,14 +459,14 @@ export function profileComponentsFor(mode: ProfileMode): string {
     : `100,102,103,104,200,201,202,204,205,300,301,304,305,307${mode === "gear" ? ",310" : ""},800,900,1000,1200`;
 }
 
-export async function profileFor(row: SessionRow, env: Env, mode: ProfileMode = "full", force = false): Promise<{ profile: any; accessToken: string }> {
+export async function profileFor(row: SessionRow, env: Env, mode: ProfileMode = "full", force = false, accessTokenOverride?: string): Promise<{ profile: any; accessToken: string }> {
   const components = profileComponentsFor(mode);
   const cacheKey = `${row.membership_type}:${row.membership_id}:${components}`;
   if (force) profileRequestCache.delete(cacheKey);
   const cached = profileRequestCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached.promise;
   const promise = (async () => {
-    const accessToken = await accessTokenFor(row, env);
+    const accessToken = accessTokenOverride || await accessTokenFor(row, env);
     const profile = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/?components=${components}`, env, accessToken);
     return { profile, accessToken };
   })();

@@ -34,9 +34,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <GuardianProvider>
-          <App />
-        </GuardianProvider>
+        {window.location.pathname.replace(/\/$/, "") === "/support" ? <App /> : <GuardianProvider><App /></GuardianProvider>}
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>

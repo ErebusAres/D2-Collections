@@ -15,6 +15,7 @@
     "archive:audit": "node tools/check-no-archive-imports.mjs",
     "manifest:sync": "python tools/sync-manifest.py",
     "manifest:sync:gear": "python tools/sync-manifest.py --gear-only",
+    "ratings:sync": "node tools/sync-weapon-ratings.mjs",
     "codes:sync": "node tools/sync-reward-codes.mjs",
     "cf:deploy": "pnpm --filter @guardian-nexus/api run deploy && pnpm --filter @guardian-nexus/web run deploy"
   },

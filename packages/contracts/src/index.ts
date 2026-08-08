@@ -826,6 +826,14 @@ export interface WeaponPerkColumn {
   options: ArmorPerk[];
 }
 
+export interface WeaponStat {
+  hash: string;
+  name: string;
+  value: number;
+  maximumValue: number;
+  displayAsNumeric?: boolean;
+}
+
 export interface WeaponItem {
   instanceId: string;
   itemHash: string;
@@ -846,6 +854,8 @@ export interface WeaponItem {
   perkColumns: WeaponPerkColumn[];
   originTraits: ArmorPerk[];
   masterwork?: ArmorPerk;
+  stats?: WeaponStat[];
+  trackerValue?: number;
   rollDataState: WeaponRollDataState;
   reviewState: WeaponReviewState;
   reviewReasons: string[];

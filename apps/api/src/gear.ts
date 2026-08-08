@@ -20,6 +20,19 @@ const ARCHETYPES = new Set([
 const TUNING_CATEGORY = "core.gear_systems.armor_tiering.plugs.tuning.mods";
 const WEAPON_SLOT_HASHES: Record<string, WeaponItem["slot"]> = { "1498876634": "Kinetic", "2465295065": "Energy", "953998645": "Power" };
 const DAMAGE_TYPES: Record<number, WeaponItem["damageType"]> = { 1: "Kinetic", 2: "Arc", 3: "Solar", 4: "Void", 6: "Stasis", 7: "Strand" };
+const WEAPON_STATS: Record<string, { name: string; maximumValue: number; displayAsNumeric?: boolean }> = {
+  "4284893193": { name: "Rounds Per Minute", maximumValue: 1000, displayAsNumeric: true },
+  "4043523819": { name: "Impact", maximumValue: 100 },
+  "1240592695": { name: "Range", maximumValue: 100 },
+  "155624089": { name: "Stability", maximumValue: 100 },
+  "943549884": { name: "Handling", maximumValue: 100 },
+  "4188031367": { name: "Reload Speed", maximumValue: 100 },
+  "3871231066": { name: "Magazine", maximumValue: 100, displayAsNumeric: true },
+  "1345609583": { name: "Aim Assistance", maximumValue: 100 },
+  "3555269338": { name: "Zoom", maximumValue: 100 },
+  "2715839340": { name: "Recoil Direction", maximumValue: 100 },
+  "2714457168": { name: "Airborne Effectiveness", maximumValue: 100 }
+};
 
 export interface GearStateRow { item_instance_id: string; tag?: GearTag; first_seen_at: string; dismissed_at?: string }
 
@@ -31,6 +44,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
   const reusablePlugs = profile?.itemComponents?.reusablePlugs?.data || {};
   const instances = profile?.itemComponents?.instances?.data || {};
   const itemStates = profile?.itemComponents?.state?.data || {};
+  const itemObjectives = profile?.itemComponents?.objectives?.data || {};
   const collected: Array<{ item: any; owner?: string; location: ArmorItem["location"]; equipped: boolean }> = [];
   for (const item of profile?.profileInventory?.data?.items || []) collected.push({ item, location: "vault", equipped: false });
   for (const [owner, container] of Object.entries(profile?.characterInventories?.data || {}) as any) for (const item of container?.items || []) collected.push({ item, owner, location: "inventory", equipped: false });
@@ -57,12 +71,17 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
       const masterwork = activePlugs.find((plug) => weaponPlugKind(plug) === "masterwork");
       const rollDataState: WeaponItem["rollDataState"] = perkColumns.length >= 2 && perkColumns.every((column) => column.active) ? "complete" : activePlugs.length || perkColumns.length ? "partial" : "unavailable";
       const enhanced = activePlugs.some((plug) => /enhanced|enhancement/i.test(`${plug?.displayProperties?.name} ${plug?.plug?.plugCategoryIdentifier}`));
+      const weaponStats = Object.entries(stats[instanceId]?.stats || {}).flatMap(([hash, value]: [string, any]) => {
+        const definition = WEAPON_STATS[hash];
+        return definition ? [{ hash, name: definition.name, value: Number(value?.value || 0), maximumValue: definition.maximumValue, displayAsNumeric: definition.displayAsNumeric }] : [];
+      });
+      const trackerValue = (itemObjectives[instanceId]?.objectives || []).map((objective: any) => Number(objective?.progress || 0)).find((value: number) => value > 0);
       weapons.push({
         instanceId, itemHash, name: String(definition.displayProperties?.name || "Unknown Weapon"), icon: imageUrl(definition.displayProperties?.icon), itemType: String(definition.itemTypeDisplayName || "Weapon"),
         slot: WEAPON_SLOT_HASHES[String(definition.inventory?.bucketTypeHash || "")] || "Unknown", damageType: DAMAGE_TYPES[Number(definition.defaultDamageType)] || "Unknown",
         rarity: String(definition.inventory?.tierTypeName || "Legendary"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
         location: entry.location, equipped: entry.equipped, locked: Boolean(itemState & 1), masterworked: Boolean(itemState & 4), crafted: Boolean(instance.isCrafted), enhanced,
-        perkColumns, originTraits, ...(masterwork ? { masterwork: perk(masterwork) } : {}), rollDataState, reviewState: "unique", reviewReasons: [], duplicateCount: 1, wishlisted: false,
+        perkColumns, originTraits, ...(masterwork ? { masterwork: perk(masterwork) } : {}), stats: weaponStats, ...(trackerValue !== undefined ? { trackerValue } : {}), rollDataState, reviewState: "unique", reviewReasons: [], duplicateCount: 1, wishlisted: false,
         tag: state?.tag, firstSeenAt: state?.first_seen_at || now, dismissedAt: state?.dismissed_at, isNew: !state?.dismissed_at && !state?.tag
       });
       continue;

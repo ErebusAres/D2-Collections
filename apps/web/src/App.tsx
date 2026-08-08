@@ -39,6 +39,7 @@ const NotificationsPage = lazy(() => import("./pages/NotificationsPage").then((m
 const RaidRotationsPage = lazy(() => import("./pages/RaidRotationsPage").then((module) => ({ default: module.RaidRotationsPage })));
 const FashionPage = lazy(() => import("./pages/FashionPage").then((module) => ({ default: module.FashionPage })));
 const ChallengesPage = lazy(() => import("./pages/ChallengesPage").then((module) => ({ default: module.ChallengesPage })));
+const SupportPage = lazy(() => import("./pages/SupportPage").then((module) => ({ default: module.SupportPage })));
 
 function RouteFallback() {
   return <section className={styles.fallback} aria-live="polite"><span><LoaderCircle /> Loading</span></section>;
@@ -49,6 +50,7 @@ function PageRoute({ children }: { children: ReactNode }) { return <Suspense fal
 export function App() {
   return (
     <Routes>
+      <Route path="support" element={<PageRoute><SupportPage /></PageRoute>} />
       <Route element={<Shell />}>
         <Route index element={<Navigate to="/director" replace />} />
         <Route path="director" element={<PageRoute><WhatsHappeningPage /></PageRoute>} />

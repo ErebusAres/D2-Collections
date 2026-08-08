@@ -14,7 +14,7 @@ Guardian Share Cards have also been retired as a creation surface because they d
 
 Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` listener, mobile quick-action dock, web-app manifest, and service-worker build/cache path are removed. Startup unregisters older Guardian Nexus service workers so previously installed caches do not keep serving stale bundles. Ordinary responsive CSS remains for narrow browser windows, but mobile-specific product work is not active scope.
 
-Gear loot management now uses the existing private `gear_item_state` source of truth. The Loot tab defaults to a tall rolling seven-day history of first-observed physical weapons and armor, retains reviewed/tagged items in that period, and offers 1/3/7/14/30-day filters. Armor and Weapons keep compact recent rows; Fireteam uses a distinct single-line private glance bar with up to five gear items and two catalyst signals. Shared cards, tooltips, tags, and Shift+1–5 shortcuts remain consistent, and tooltips escape the Fireteam frame rather than being clipped. Fireteam can hide the bar and records first local observation of catalysts reported obtained/complete by Bungie. Times are labeled first observed, never exact acquisition. Weapon value data is versioned and exact-roll based; missing community coverage is unrated rather than scored down.
+Gear loot management uses the existing private `gear_item_state` source of truth. The Loot tab defaults to a rolling seven-day history of first-observed physical weapons and armor, retains reviewed/tagged items in that period, and offers 1/3/7/14/30-day filters. Loot is displayed as compact icon cards, with Power on all gear and schema-v2 DIM-community percentages on weapons only. The Guardian-themed detail surface includes available stats, trackers, masterwork and perks while keeping unknown coverage unrated. Armor and Weapons retain compact recent rows; Fireteam uses a distinct private glance bar. Shared cards, tooltips, tags, and Shift+1–5 shortcuts remain consistent. Times are labeled first observed, never exact acquisition.
 
 Gear now also has a dedicated Vault tab after Loot. It combines only physical vaulted weapons and armor, supports item kind, slot, rarity, weapon type/element, armor class, lock, tag, search, sort, and six-stat base/current range filters, and renders large result sets in bounded 120-item increments. Existing private tags and Bungie-supported lock, pull, and equip actions are reused. Bungie's third-party API exposes no delete/dismantle operation, so the workspace explicitly sends filtered cleanup candidates through the private Junk tag for in-game verification instead of claiming unsupported deletion.
 
@@ -93,6 +93,10 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 58. Added optional private Fireteam recent-loot visibility plus locally observed catalyst acquisition/completion signals. No inventory is added to Fireteam share payloads.
 59. Added a versioned exact-roll weapon evaluation boundary sourced to DIM community wishlist documentation. It supports separate PvE/PvP/overall values when reviewed records are loaded and returns explicit unrated or incomplete states otherwise.
 60. Added a dedicated combined Vault workspace with vault-only physical gear, broad weapon/armor metadata filters, six-stat base/current ranges, bounded rendering, private tags, and supported lock/pull/equip actions. Dismantling remains explicitly in-game because Bungie's API has no third-party delete operation.
+61. Reworked first-observed Loot into compact icon cards with Power on every item, weapon-only community percentages, keyboard/touch inspection, and a Guardian-themed detail surface containing identity, tracker value when Bungie returns it, weapon stat bars, masterwork, perks, provenance, and explicit unknown states. Armor cards intentionally show no rating.
+62. Replaced the empty weapon-rating placeholder with a generated schema-v2 dataset covering 1,220 current weapon definitions from the default DIM Voltron community wishlist. `pnpm ratings:sync` refreshes it; PvE/PvP weights and the exact formula are documented in `docs/WEAPON_RATINGS.md`.
+63. Added the independent `/support` route and `/api/v1/support/diagnostics` endpoint. The page renders without `GuardianProvider`, probes only the current session, preserves Bungie HTTP/application error fields, tests every linked membership with Profiles/Characters, detects 1601/wrong-platform/stale-mapping/zero-character states, exercises the real profile loader and account normalizer, checks sanitized D1/session/build state, and copies text or JSON only on explicit user action.
+64. Corrected OAuth completion to probe all returned Destiny memberships and prefer a verified usable D2 profile over an unusable primary/first entry. Cross Save and primary membership remain ranking signals rather than unverified assumptions.
 
 ## Files in release scope
 
@@ -108,6 +112,12 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - `apps/web/src/components/gear/VaultWorkspace.test.tsx`
 - `apps/web/src/components/gear/RecentLoot.tsx`
 - `apps/web/src/components/gear/RecentLoot.module.css`
+- `apps/web/src/pages/SupportPage.tsx`
+- `apps/web/src/pages/SupportPage.module.css`
+- `apps/api/src/supportDiagnostics.ts`
+- `apps/web/public/data/weapon-value.v2.json`
+- `tools/sync-weapon-ratings.mjs`
+- `docs/WEAPON_RATINGS.md`
 - `apps/web/src/modules/watchlists/watchlists.ts`
 - `apps/web/src/modules/watchlists/watchlists.test.ts`
 - `apps/web/src/App.tsx`
@@ -211,6 +221,16 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Required invariant: 72 templates total, 24 per class, four per class/subclass pair, one required Exotic armor and one preferred Exotic weapon per template.
 - Full `pnpm run audit` passed on 2026-08-01: archive/source/CSS boundaries, lint, all TypeScript targets, 24 domain tests, 174 API tests, 226 web tests, Node tooling, 19 Python tests, production builds, and budgets of 367,432 bytes entry JavaScript, 113,190 bytes gzip, and 34,124 bytes entry CSS.
 - Keep `.codex-remote-attachments/` excluded, commit and push through the focused review branch, then monitor CI. Merge/deploy only after explicit authorization; after deployment, perform the signed-in 12-build-per-class check described above.
+
+## 2026-08-07 Loot cards and support diagnostics follow-up
+
+- Working branch: `codex/gear-cards-support-diagnostics`, based on `main` at `38e4caa`.
+- Implemented: icon-first Loot cards; Power on armor/weapons; no armor rating; detailed themed tooltip; Bungie weapon stats/tracker normalization; schema-v2 DIM Voltron rating artifact and refresh script; independent `/support` UI; sanitized current-session diagnostics endpoint; all-membership profile probes; ErrorCode 1601 diagnoses; stale/wrong membership detection; normal bootstrap profile/normalizer validation; corrected OAuth membership selection.
+- Source-backed rating artifact: `apps/web/public/data/weapon-value.v2.json`, 1,220 current weapon records generated on 2026-08-07. It loads once as a cacheable runtime asset so the Loot route stays inside its JavaScript performance budget. Refresh with `pnpm ratings:sync`; method and provenance are in `docs/WEAPON_RATINGS.md`.
+- Validation completed: full `pnpm run audit` passed on 2026-08-08, including archive/source/CSS boundaries, lint, every TypeScript target, 24 domain tests, 178 API tests, 242 web tests, Node tooling, 19 Python tests, production API/web builds, and performance budgets. The final entry bundle is 364,877 bytes JavaScript (112,468 bytes gzip) and 33,043 bytes CSS; the Loot chunk is 14,980 bytes rather than bundling the 999,751-byte rating catalog.
+- Local visual QA completed for the independent `/support` route. The Gear route itself requires a reachable authenticated API session to populate real cards; automated card/evaluator coverage passed. Remaining before release: inspect the final diff, commit/push/PR/merge/deploy, then verify production. Keep `.codex-remote-attachments/` untracked and excluded.
+- Production verification should include an unauthenticated `/support` load, an authenticated diagnostics run, Copy Report/Copy JSON, a known valid account, and—when available—the recovered/no-initialized-profile test case. The page never accepts arbitrary membership IDs and must continue returning only current-session data.
+- Read-only invariant: `/support` decrypts only an unexpired current access token and passes it into the real `profileFor` loader. It must not call the rotating `accessTokenFor` helper, update/delete `oauth_sessions`, or otherwise mutate Guardian Nexus/Bungie state. An expired token is reported explicitly with `refreshAttempted: false` and a sign-in next step.
 
 ## Next implementation queue
 
