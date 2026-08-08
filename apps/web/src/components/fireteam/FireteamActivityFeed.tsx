@@ -1,6 +1,7 @@
 import type { FireteamActivityFeed as FireteamActivityFeedData, FireteamActivityFeedEntry } from "@guardian-nexus/contracts";
 import { ChevronDown, ChevronUp, Eye, EyeOff, MessageSquare, Pin, Send, Sparkles, UnfoldHorizontal } from "lucide-react";
-import { useEffect, useId, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { createPortal } from "react-dom";
 import { ItemTooltip, TimelineEventTooltip } from "../gear/RecentLoot";
 import styles from "./FireteamActivityFeed.module.css";
 
@@ -163,16 +164,51 @@ function persistWindowState(storageKey: string | undefined, state: FireteamActiv
 }
 
 function ActivityLine({ entry }: { entry: FireteamActivityFeedEntry }) {
-  const [open, setOpen] = useState(false);
-  const tooltipId = useId();
   if (entry.type === "message") return <div className={styles.line}><strong>{entry.displayName}:</strong><span>{entry.body}</span><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time></div>;
+  return <LootActivityLine entry={entry} />;
+}
+
+function LootActivityLine({ entry }: { entry: Extract<FireteamActivityFeedEntry, { type: "loot" }> }) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ left: 12, top: 12 });
+  const trigger = useRef<HTMLButtonElement>(null);
+  const tooltip = useRef<HTMLSpanElement>(null);
+  const closeTimer = useRef<number | undefined>(undefined);
+  const tooltipId = useId();
   const event = entry.event;
   const rarity = event.rarity || event.gear?.rarity || (event.kind.includes("catalyst") ? "Exotic" : "Common");
   const tier = lootTier(rarity);
-  return <div className={`${styles.line} ${styles.loot}`} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) setOpen(false); }} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} tabIndex={0}>
-    <strong>{entry.displayName}:</strong><button type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen((value) => !value)}><span className={styles.tierBadge} data-rarity={rarity} aria-label={`Tier ${tier} ${rarity}`}><span>{tier}</span></span>{event.icon ? <img className={styles.itemIcon} src={event.icon} alt="" /> : <Sparkles className={styles.itemIcon} />}<b data-rarity={rarity}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
-    {open && <span className={styles.tooltip}>{event.gear ? <ItemTooltip id={tooltipId} item={event.gear} /> : <TimelineEventTooltip id={tooltipId} event={event} />}</span>}
+  const cancelClose = () => { if (closeTimer.current !== undefined) window.clearTimeout(closeTimer.current); closeTimer.current = undefined; };
+  const show = () => { cancelClose(); setOpen(true); };
+  const scheduleClose = () => { cancelClose(); closeTimer.current = window.setTimeout(() => setOpen(false), 120); };
+  useEffect(() => () => cancelClose(), []);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const update = () => {
+      if (!trigger.current || !tooltip.current) return;
+      setPosition(activityTooltipPosition(trigger.current.getBoundingClientRect(), tooltip.current.getBoundingClientRect(), window.innerWidth, window.innerHeight));
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(update);
+    if (tooltip.current) observer?.observe(tooltip.current);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
+  }, [open]);
+  return <div className={`${styles.line} ${styles.loot}`} onMouseEnter={show} onMouseLeave={scheduleClose} onFocus={show} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) scheduleClose(); }} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} tabIndex={0}>
+    <strong>{entry.displayName}:</strong><button ref={trigger} type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => { cancelClose(); setOpen((value) => !value); }}><span className={styles.tierBadge} data-rarity={rarity} aria-label={`Tier ${tier} ${rarity}`}><span>{tier}</span></span>{event.icon ? <img className={styles.itemIcon} src={event.icon} alt="" /> : <Sparkles className={styles.itemIcon} />}<b data-rarity={rarity}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
+    {open && createPortal(<span ref={tooltip} className={styles.tooltip} style={position} onMouseEnter={cancelClose} onMouseLeave={scheduleClose} onFocus={cancelClose} onBlur={scheduleClose}>{event.gear ? <ItemTooltip id={tooltipId} item={event.gear} /> : <TimelineEventTooltip id={tooltipId} event={event} />}</span>, document.body)}
   </div>;
+}
+
+export function activityTooltipPosition(anchor: Pick<DOMRect, "left" | "right" | "top">, overlay: Pick<DOMRect, "width" | "height">, viewportWidth: number, viewportHeight: number): { left: number; top: number } {
+  const gap = 10;
+  const edge = 12;
+  const width = Math.min(overlay.width || 410, Math.max(0, viewportWidth - edge * 2));
+  const height = Math.min(overlay.height || 360, Math.max(0, viewportHeight - edge * 2));
+  const left = anchor.left - width - gap >= edge ? anchor.left - width - gap : Math.min(Math.max(edge, anchor.right + gap), Math.max(edge, viewportWidth - width - edge));
+  const top = Math.min(Math.max(edge, anchor.top - 16), Math.max(edge, viewportHeight - height - edge));
+  return { left: Math.round(left), top: Math.round(top) };
 }
 
 export function lootTier(rarity?: string): number {

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clampActivityWindowState, FireteamActivityFeed, lootTier, parseActivityWindowState } from "./FireteamActivityFeed";
+import { activityTooltipPosition, clampActivityWindowState, FireteamActivityFeed, lootTier, parseActivityWindowState } from "./FireteamActivityFeed";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -29,6 +30,15 @@ describe("FireteamActivityFeed", () => {
     fireEvent.change(screen.getByLabelText("Message your Fireteam"), { target: { value: "Need ammo" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(onSend).toHaveBeenCalledWith("Need ammo");
+  });
+
+  it("portals item details above the activity window instead of clipping them inside it", () => {
+    render(<MemoryRouter><FireteamActivityFeed feed={feed} view="open" onViewChange={vi.fn()} onSend={vi.fn()} sending={false} onDisable={vi.fn()} onEnable={vi.fn()} /></MemoryRouter>);
+    const panel = screen.getByText("Fireteam activity").closest("section")!;
+    fireEvent.click(screen.getByRole("button", { name: /Exotic Engram/i }));
+    const tooltip = screen.getByRole("tooltip");
+    expect(panel.contains(tooltip)).toBe(false);
+    expect(tooltip.parentElement?.parentElement).toBe(document.body);
   });
 
   it("maps Destiny display rarities to their manifest tier numbers", () => {
@@ -70,5 +80,10 @@ describe("FireteamActivityFeed", () => {
   it("rejects corrupt saved state and clamps remembered size and position into the viewport", () => {
     expect(parseActivityWindowState("not-json", 900, 700).mode).toBe("pinned");
     expect(clampActivityWindowState({ mode: "popout", x: -500, y: 900, width: 2_000, height: 2_000 }, 900, 700)).toEqual({ mode: "popout", x: 18, y: 18, width: 864, height: 664 });
+  });
+
+  it("places the activity tooltip beside its trigger while keeping it inside the viewport", () => {
+    expect(activityTooltipPosition({ left: 800, right: 900, top: 650 }, { width: 410, height: 360 }, 1_000, 800)).toEqual({ left: 380, top: 428 });
+    expect(activityTooltipPosition({ left: 20, right: 120, top: 5 }, { width: 410, height: 360 }, 500, 400)).toEqual({ left: 78, top: 12 });
   });
 });
