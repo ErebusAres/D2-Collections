@@ -28,10 +28,10 @@ describe("normalizeGear", () => {
       version: "weapon-test", generatedAt: "now",
       gearItemDefinitions: { "11": { itemType: 3, itemTypeDisplayName: "Auto Rifle", defaultDamageType: 2, inventory: { tierTypeName: "Legendary", bucketTypeHash: "2465295065" }, displayProperties: { name: "Test Rifle", icon: "/rifle.png" } } },
       plugDefinitions: {
-        "21": { hash: 21, displayProperties: { name: "Adaptive Frame" }, plug: { plugCategoryIdentifier: "weapon.intrinsics" } },
-        "22": { hash: 22, displayProperties: { name: "Incandescent" }, plug: { plugCategoryIdentifier: "weapon.traits" } },
-        "23": { hash: 23, displayProperties: { name: "Test Origin" }, plug: { plugCategoryIdentifier: "weapon.origin_traits" } },
-        "24": { hash: 24, displayProperties: { name: "Target Lock" }, plug: { plugCategoryIdentifier: "weapon.traits" } }
+        "21": { hash: 21, itemTypeDisplayName: "Intrinsic", displayProperties: { name: "Adaptive Frame" }, plug: { plugCategoryIdentifier: "weapon.intrinsics" } },
+        "22": { hash: 22, itemTypeDisplayName: "Trait", displayProperties: { name: "Incandescent" }, plug: { plugCategoryIdentifier: "weapon.traits" } },
+        "23": { hash: 23, itemTypeDisplayName: "Origin Trait", displayProperties: { name: "Test Origin" }, plug: { plugCategoryIdentifier: "weapon.origin_traits" } },
+        "24": { hash: 24, itemTypeDisplayName: "Trait", displayProperties: { name: "Target Lock" }, plug: { plugCategoryIdentifier: "weapon.traits" } }
       }, statDefinitions: {}
     };
 
@@ -39,7 +39,7 @@ describe("normalizeGear", () => {
     expect(data.gearSchemaVersion).toBe(2);
     expect(data.weapons).toHaveLength(2);
     expect(data.weapons?.[0]).toMatchObject({ name: "Test Rifle", slot: "Energy", damageType: "Arc", crafted: true, duplicateCount: 2, reviewState: "configured" });
-    expect(data.weapons?.[0]?.perkColumns[1]).toMatchObject({ active: { name: "Incandescent" }, options: expect.arrayContaining([expect.objectContaining({ name: "Target Lock" })]) });
+    expect(data.weapons?.[0]?.perkColumns[1]).toMatchObject({ ratingColumn: 2, active: { name: "Incandescent" }, options: expect.arrayContaining([expect.objectContaining({ name: "Target Lock" })]) });
     expect(data.weapons?.[1]).toMatchObject({ duplicateCount: 2, reviewState: "duplicate-review" });
   });
 

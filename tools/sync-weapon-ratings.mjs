@@ -1,52 +1,122 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
-const sourceUrl = "https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt";
-const inputArg = process.argv.find((value) => value.startsWith("--input="))?.slice(8);
-const inputPath = inputArg || join(tmpdir(), "guardian-nexus-voltron.txt");
-if (!inputArg) {
-  const response = await fetch(sourceUrl, { headers: { "User-Agent": "Guardian-Nexus-rating-sync" } });
-  if (!response.ok) throw new Error(`Wishlist download failed with HTTP ${response.status}.`);
-  await writeFile(inputPath, Buffer.from(await response.arrayBuffer()));
-}
+export const SOURCE_URL = "https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt";
+export const COLUMN_WEIGHTS = [0.25, 0.25, 1, 1];
 
-const manifest = JSON.parse(await readFile(new URL("../apps/web/public/data/gear-manifest.json", import.meta.url), "utf8"));
-const currentWeapons = new Set(Object.values(manifest.gearItemDefinitions || {}).filter((entry) => Number(entry.itemType) === 3).map((entry) => String(entry.hash)));
-const text = await readFile(inputPath, "utf8");
-const items = new Map();
-let context = "";
-for (const raw of text.split(/\r?\n/)) {
-  const line = raw.trim();
-  if (line.startsWith("title:")) context = line;
-  else if (line.startsWith("//notes:")) context = line;
-  else if (line.startsWith("description:")) context = `${context} ${line}`.slice(-12_000);
-  if (!line.startsWith("dimwishlist:item=")) continue;
-  const match = line.match(/^dimwishlist:item=(\d+)&perks=([\d,]+)/);
-  if (!match || !currentWeapons.has(match[1])) continue;
-  const modes = [...new Set([/\bpve\b/i.test(context) ? "pve" : "", /\bpvp\b/i.test(context) ? "pvp" : ""].filter(Boolean))];
-  context = context.slice(-4_000);
-  if (!modes.length) continue;
-  const perks = match[2].split(",").filter(Boolean);
-  if (perks.length < 2) continue;
-  const item = items.get(match[1]) || { pve: bucket(), pvp: bucket() };
-  for (const mode of modes) {
-    item[mode].rolls += 1;
-    perks.forEach((perk) => item[mode].perks.add(perk));
-    item[mode].traitPairs.add(perks.slice(-2).join(","));
+export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toISOString().slice(0, 10)) {
+  const definitions = Object.values(manifest.gearItemDefinitions || {}).filter((entry) => Number(entry.itemType) === 3);
+  const currentWeapons = new Map(definitions.map((entry) => [String(entry.hash), String(entry.itemTypeDisplayName || "Unknown weapon")]));
+  const items = new Map();
+  let context = "";
+
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line.startsWith("title:") || line.startsWith("//notes:")) context = line;
+    else if (line.startsWith("description:")) context = `${context} ${line}`.slice(-12_000);
+    if (!line.startsWith("dimwishlist:item=")) continue;
+    const match = line.match(/^dimwishlist:item=(\d+)&perks=([\d,]+)/);
+    if (!match || !currentWeapons.has(match[1])) continue;
+    const modeContext = context.match(/\|tags:(.*)$/i)?.[1] || context;
+    const modes = [...new Set([/\bpve\b/i.test(modeContext) ? "pve" : "", /\bpvp\b/i.test(modeContext) ? "pvp" : ""].filter(Boolean))];
+    if (!modes.length) continue;
+    const perks = match[2].split(",").filter(Boolean);
+    if (perks.length < 2) continue;
+    const aligned = alignColumns(perks);
+    const item = items.get(match[1]) || { itemType: currentWeapons.get(match[1]), pve: bucket(), pvp: bucket() };
+    for (const mode of modes) {
+      item[mode].recommendations += 1;
+      aligned.forEach((perk, index) => { if (perk) item[mode].columns[index].add(perk); });
+    }
+    items.set(match[1], item);
   }
-  items.set(match[1], item);
+
+  const types = buildTypeProfiles(items);
+  const serializedItems = Object.fromEntries([...items].sort(([a], [b]) => Number(a) - Number(b)).map(([hash, item]) => [hash, {
+    itemType: item.itemType,
+    pve: serializeBucket(item.pve),
+    pvp: serializeBucket(item.pvp)
+  }]));
+  const typeNames = [...new Set(definitions.map((entry) => String(entry.itemTypeDisplayName || "Unknown weapon")))].sort();
+
+  return {
+    schemaVersion: 3,
+    reviewedAt,
+    source: {
+      name: "DIM default community wishlist (Voltron)",
+      url: SOURCE_URL,
+      repository: "https://github.com/48klocs/dim-wish-list-sources",
+      license: "MIT"
+    },
+    method: {
+      columnWeights: COLUMN_WEIGHTS,
+      tiers: { excellent: 90, strong: 75, mixed: 50, weak: 25 },
+      note: "Weapon-specific scores normalize DIM recommendations by actual perk column. Unreviewed weapons use clearly labeled weapon-type evidence, never a fabricated item-specific verdict."
+    },
+    coverage: {
+      manifestWeapons: definitions.length,
+      reviewedWeapons: items.size,
+      supportedTypes: typeNames.length,
+      reviewedTypes: Object.keys(types).length
+    },
+    items: serializedItems,
+    types
+  };
 }
 
-const output = {
-  schemaVersion: 2,
-  reviewedAt: new Date().toISOString().slice(0, 10),
-  source: { name: "DIM default community wishlist (Voltron)", url: sourceUrl, repository: "https://github.com/48klocs/dim-wish-list-sources", license: "MIT" },
-  method: { individualPerkWeight: 50, recommendedTraitPairWeight: 50, note: "PvE and PvP coverage scores combine active perks appearing in curator recommendations with an exact match of the final two trait columns. Unknown means unreviewed, never bad." },
-  items: Object.fromEntries([...items].sort(([a], [b]) => Number(a) - Number(b)).map(([hash, item]) => [hash, { pve: serialize(item.pve), pvp: serialize(item.pvp) }]))
-};
-await writeFile(new URL("../apps/web/public/data/weapon-value.v2.json", import.meta.url), `${JSON.stringify(output)}\n`);
-console.log(`Wrote ${Object.keys(output.items).length} current weapon rating records from ${sourceUrl}.`);
+function alignColumns(perks) {
+  const result = [undefined, undefined, undefined, undefined];
+  const start = Math.max(0, 4 - Math.min(4, perks.length));
+  perks.slice(-4).forEach((perk, index) => { result[start + index] = perk; });
+  return result;
+}
 
-function bucket() { return { rolls: 0, perks: new Set(), traitPairs: new Set() }; }
-function serialize(value) { return { rolls: value.rolls, perks: [...value.perks].sort((a, b) => Number(a) - Number(b)), traitPairs: [...value.traitPairs].sort() }; }
+function bucket() { return { recommendations: 0, columns: [new Set(), new Set(), new Set(), new Set()] }; }
+function serializeBucket(value) { return { recommendations: value.recommendations, columns: value.columns.map((column) => [...column].sort((a, b) => Number(a) - Number(b))) }; }
+
+function buildTypeProfiles(items) {
+  const profiles = new Map();
+  for (const item of items.values()) {
+    const profile = profiles.get(item.itemType) || { pve: typeBucket(), pvp: typeBucket() };
+    for (const mode of ["pve", "pvp"]) {
+      if (!item[mode].recommendations) continue;
+      profile[mode].weapons += 1;
+      item[mode].columns.forEach((column, index) => column.forEach((perk) => profile[mode].columns[index].set(perk, (profile[mode].columns[index].get(perk) || 0) + 1)));
+    }
+    profiles.set(item.itemType, profile);
+  }
+  return Object.fromEntries([...profiles].sort(([a], [b]) => a.localeCompare(b)).map(([name, profile]) => [name, {
+    pve: serializeTypeBucket(profile.pve),
+    pvp: serializeTypeBucket(profile.pvp)
+  }]));
+}
+
+function typeBucket() { return { weapons: 0, columns: [new Map(), new Map(), new Map(), new Map()] }; }
+function serializeTypeBucket(value) {
+  return {
+    weapons: value.weapons,
+    columns: value.columns.map((column) => {
+      const maximum = Math.max(0, ...column.values());
+      return Object.fromEntries([...column].sort(([a], [b]) => Number(a) - Number(b)).map(([perk, count]) => [perk, maximum ? Math.round(count / maximum * 100) : 0]));
+    })
+  };
+}
+
+export async function main() {
+  const inputArg = process.argv.find((value) => value.startsWith("--input="))?.slice(8);
+  const inputPath = inputArg || join(tmpdir(), "guardian-nexus-voltron.txt");
+  if (!inputArg) {
+    const response = await fetch(SOURCE_URL, { headers: { "User-Agent": "Guardian-Nexus-rating-sync" } });
+    if (!response.ok) throw new Error(`Wishlist download failed with HTTP ${response.status}.`);
+    await writeFile(inputPath, Buffer.from(await response.arrayBuffer()));
+  }
+  const manifest = JSON.parse(await readFile(new URL("../apps/web/public/data/gear-manifest.json", import.meta.url), "utf8"));
+  const text = await readFile(inputPath, "utf8");
+  const output = compileWeaponRatings(manifest, text);
+  await writeFile(new URL("../apps/web/public/data/weapon-value.v3.json", import.meta.url), `${JSON.stringify(output)}\n`);
+  console.log(`Wrote ${output.coverage.reviewedWeapons}/${output.coverage.manifestWeapons} weapon records and ${output.coverage.reviewedTypes}/${output.coverage.supportedTypes} type profiles from ${SOURCE_URL}.`);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();
