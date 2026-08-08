@@ -29,6 +29,7 @@ import type {
   PvpData,
   PowerData,
   QuestData,
+  RecentItemTimelineData,
   RewardCodeStatusData,
   RewardsPassData,
   RaidRotationsData,
@@ -76,6 +77,7 @@ import {
 import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
+import { observeRecentItems } from "./recentItems";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -260,6 +262,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     return envelope(await recordDistortionObservation(request, session.row, env), env, context);
   }
   if (path === "/api/v1/me/gear" && request.method === "GET") return gear(session.row, env, context);
+  if (path === "/api/v1/me/recent-items" && request.method === "GET") return recentItems(session.row, env, context);
   if (path === "/api/v1/me/gear/item-state" && request.method === "PUT") { await requireCsrf(request, session.token, env); return updateGearState(request, session.row, env, context); }
   if (path === "/api/v1/me/gear/action" && request.method === "POST") { await requireCsrf(request, session.token, env); return gearAction(request, session.row, env, context); }
   if (path === "/api/v1/me/mailbox" && request.method === "GET") return mailbox(session.row, env, context);
@@ -817,6 +820,32 @@ async function gear(row: SessionRow, env: Env, context: RequestContext): Promise
     await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
   }
   return envelope<GearData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: manifest.version !== "unavailable" ? [] : ["Gear manifest data is unavailable; refresh the deployment manifest before using Gear."] });
+}
+
+async function recentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const [{ profile }, gearManifest, collectionManifest, companionManifest] = await Promise.all([
+    profileFor(row, env, "gear"),
+    loadGearManifest(env),
+    loadManifest(env),
+    loadCompanionManifest(env)
+  ]);
+  const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const states = await gearStates(row.membership_id, env);
+  const now = new Date().toISOString();
+  const gearData = normalizeGear(profile, gearManifest, character.characterId, character.className, states, now);
+  const missing = [...gearData.items, ...(gearData.weapons || [])].filter((item) => !states.has(item.instanceId));
+  for (let offset = 0; offset < missing.length; offset += 80) {
+    await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
+  }
+  const collectionData = normalizeCollection(profile, collectionManifest, character.className);
+  const data = await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now });
+  const warnings = [
+    ...(gearManifest.version === "unavailable" ? ["Gear definitions are unavailable; weapon and armor events may be incomplete."] : []),
+    ...(collectionManifest.version === "unavailable" ? ["Collection definitions are unavailable; catalyst events may be incomplete."] : []),
+    ...(companionManifest.version === "unavailable" ? ["Inventory definitions are unavailable; material events may be incomplete."] : [])
+  ];
+  return envelope<RecentItemTimelineData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
 }
 
 async function mailbox(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

@@ -185,6 +185,9 @@
 .catalystDone { display: flex; align-items: center; gap: 1px; color: #75d99c; }
 .catalystDone svg { width: 11px; height: 11px; stroke-width: 3; }
 .catalystCard .cardActions a { min-width: 52px; height: 26px; display: grid; place-items: center; padding: 0 5px; border: 1px solid rgba(231,200,119,.38); color: var(--gold); font-size: 8px; text-decoration: none; text-transform: uppercase; }
+.inventoryCard { border-color: rgba(73,207,209,.42); background: linear-gradient(155deg,rgba(13,55,61,.68),rgba(5,13,19,.98)); }
+.inventoryCard .art { box-shadow: inset 0 0 0 1px rgba(73,207,209,.2); }
+.inventoryCard .catalystMark { color: var(--cyan); }
 
 .tooltip { width: min(450px, calc(100vw - 44px)); text-align: left; }
 .identity { display: flex; align-items: center; gap: 10px; margin: 8px -10px 0; padding: 9px 10px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }

@@ -1,4 +1,4 @@
-import type { ArmorItem, GearTag, WeaponItem } from "@guardian-nexus/contracts";
+import type { ArmorItem, GearTag, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
 import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, Columns3, ExternalLink, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -9,6 +9,7 @@ import styles from "./RecentLoot.module.css";
 export type LootItem = ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & WeaponItem);
 export type RecentLootDisplayLimit = 12 | 24 | 48;
 export interface RecentCatalystObservation { recordHash: string; name: string; icon: string; state: "obtained" | "complete"; percent: number; observedAt: string }
+type LegacyRecentEntry = { kind: "gear"; observedAt: string; item: LootItem } | { kind: "catalyst"; observedAt: string; catalyst: RecentCatalystObservation };
 const SHORTCUT_TAGS: Record<string, GearTag> = { "1": "favorite", "2": "keep", "3": "junk", "4": "archive", "5": "infuse" };
 const DISPLAY_LIMITS: RecentLootDisplayLimit[] = [12, 24, 48];
 
@@ -61,7 +62,7 @@ export function recentLootPageSize(width: number): number {
   return Math.max(1, Math.floor(Math.max(0, width) / 89));
 }
 
-export function CompactRecentLootBar({ items, catalysts = [], displayLimit = 24, onDisplayLimitChange, onTag, busy = false, onHide }: { items: LootItem[]; catalysts?: RecentCatalystObservation[]; displayLimit?: RecentLootDisplayLimit; onDisplayLimitChange?: (limit: RecentLootDisplayLimit) => void; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; onHide: () => void }) {
+export function CompactRecentLootBar({ events, items = [], catalysts = [], displayLimit = 24, onDisplayLimitChange, onTag, busy = false, onHide }: { events?: RecentItemEvent[]; items?: LootItem[]; catalysts?: RecentCatalystObservation[]; displayLimit?: RecentLootDisplayLimit; onDisplayLimitChange?: (limit: RecentLootDisplayLimit) => void; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; onHide: () => void }) {
   const active = useRef<LootItem | undefined>(undefined);
   const viewport = useRef<HTMLDivElement | null>(null);
   const [pageSize, setPageSize] = useState(12);
@@ -72,10 +73,21 @@ export function CompactRecentLootBar({ items, catalysts = [], displayLimit = 24,
   const entries = [...gearEntries, ...catalystEntries];
   const reservedCatalysts = gearEntries.length && catalystEntries.length ? Math.min(catalystEntries.length, Math.max(1, Math.floor(displayLimit / 4))) : catalystEntries.length;
   const selectedGear = gearEntries.slice(0, displayLimit - reservedCatalysts);
-  const visible = [...selectedGear, ...catalystEntries.slice(0, displayLimit - selectedGear.length)].sort((left, right) => Date.parse(right.observedAt) - Date.parse(left.observedAt));
+  const legacyVisible = [...selectedGear, ...catalystEntries.slice(0, displayLimit - selectedGear.length)].sort((left, right) => Date.parse(right.observedAt) - Date.parse(left.observedAt));
+  const visible = events ? [...events].sort((left, right) => Date.parse(right.observedAt) - Date.parse(left.observedAt)) : legacyVisible;
   const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
-  const pageEntries = visible.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  const pageEntries: unknown[] = visible.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  const renderEntry = (entry: unknown) => {
+    if (events) {
+      const event = entry as RecentItemEvent;
+      return <TimelineEventCard key={event.id} event={event} active={active} onTag={onTag} busy={busy} />;
+    }
+    const legacy = entry as LegacyRecentEntry;
+    return legacy.kind === "gear"
+      ? <RecentItemCard compact key={`gear-${legacy.item.instanceId}`} item={legacy.item} onActivate={() => { active.current = legacy.item; }} onDeactivate={() => { if (active.current?.instanceId === legacy.item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(legacy.item, tag)} busy={busy} />
+      : <RecentCatalystCard key={`catalyst-${legacy.catalyst.recordHash}`} catalyst={legacy.catalyst} />;
+  };
   useEffect(() => {
     const update = () => {
       const width = viewport.current?.clientWidth || 0;
@@ -88,7 +100,26 @@ export function CompactRecentLootBar({ items, catalysts = [], displayLimit = 24,
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
   }, []);
   useEffect(() => setPage((value) => Math.min(value, pageCount - 1)), [pageCount]);
-  return <section className={styles.compactBar}><header><Sparkles /><span><strong>Recent loot</strong><small>Private · {visible.length} of {entries.length} first observed</small></span><label>History<select aria-label="Recent loot cards to keep" value={displayLimit} onChange={(event) => { setPage(0); onDisplayLimitChange?.(Number(event.target.value) as RecentLootDisplayLimit); }}>{DISPLAY_LIMITS.map((limit) => <option key={limit} value={limit}>{limit}</option>)}</select></label></header><div className={styles.carousel}><button type="button" aria-label="Previous recent loot page" onClick={() => setPage((value) => Math.max(0, value - 1))} disabled={currentPage === 0}><ChevronLeft /></button><div className={styles.carouselViewport} ref={viewport}><div className={styles.carouselPage}>{pageEntries.length ? pageEntries.map((entry) => entry.kind === "gear" ? <RecentItemCard compact key={`gear-${entry.item.instanceId}`} item={entry.item} onActivate={() => { active.current = entry.item; }} onDeactivate={() => { if (active.current?.instanceId === entry.item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(entry.item, tag)} busy={busy} /> : <RecentCatalystCard key={`catalyst-${entry.catalyst.recordHash}`} catalyst={entry.catalyst} />) : <p>No newly observed gear or catalysts.</p>}</div></div><span className={styles.pageCount}>{currentPage + 1} / {pageCount}</span><button type="button" aria-label="Next recent loot page" onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} disabled={currentPage >= pageCount - 1}><ChevronRight /></button></div><button type="button" onClick={onHide}>Hide</button></section>;
+  return <section className={styles.compactBar}><header><Sparkles /><span><strong>Recent loot</strong><small>{events ? <>Private timeline · newest to oldest · {visible.length} events</> : <>Private · {visible.length} of {entries.length} first observed</>}</small></span>{!events && <label>History<select aria-label="Recent loot cards to keep" value={displayLimit} onChange={(event) => { setPage(0); onDisplayLimitChange?.(Number(event.target.value) as RecentLootDisplayLimit); }}>{DISPLAY_LIMITS.map((limit) => <option key={limit} value={limit}>{limit}</option>)}</select></label>}</header><div className={styles.carousel}><button type="button" aria-label="Previous recent loot page" onClick={() => setPage((value) => Math.max(0, value - 1))} disabled={currentPage === 0}><ChevronLeft /></button><div className={styles.carouselViewport} ref={viewport}><div className={styles.carouselPage}>{pageEntries.length ? pageEntries.map(renderEntry) : <p>No item events observed yet. This first visit establishes a private baseline.</p>}</div></div><span className={styles.pageCount}>{currentPage + 1} / {pageCount}</span><button type="button" aria-label="Next recent loot page" onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} disabled={currentPage >= pageCount - 1}><ChevronRight /></button></div><button type="button" onClick={onHide}>Hide</button></section>;
+}
+
+function TimelineEventCard({ event, active, onTag, busy }: { event: RecentItemEvent; active: React.RefObject<LootItem | undefined>; onTag: (item: LootItem, tag?: GearTag) => void; busy: boolean }) {
+  if (event.gear) return <RecentItemCard compact item={event.gear} onActivate={() => { active.current = event.gear; }} onDeactivate={() => { if (active.current?.instanceId === event.gear?.instanceId) active.current = undefined; }} onTag={(tag) => onTag(event.gear!, tag)} busy={busy} />;
+  return <RecentTimelineCard event={event} />;
+}
+
+export function RecentTimelineCard({ event }: { event: RecentItemEvent }) {
+  const [open, setOpen] = useState(false);
+  const completed = event.kind === "catalyst-completed";
+  const inventory = event.kind === "inventory-gained";
+  const label = completed ? "100%" : inventory ? `×${event.quantity}` : event.kind === "catalyst-found" ? "Found" : `×${event.quantity}`;
+  const type = event.kind === "catalyst-completed" ? "Catalyst completed" : event.kind === "catalyst-found" ? "Catalyst found" : event.itemType || "Inventory item found";
+  return <article className={`${styles.card} ${styles.compactCard} ${inventory ? styles.inventoryCard : styles.catalystCard}`} data-rarity={event.rarity || (inventory ? "Common" : "Exotic")} tabIndex={0} onFocus={() => setOpen(true)} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) setOpen(false); }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <button className={styles.tile} type="button" aria-label={`Inspect ${event.name}`} onClick={() => setOpen(true)}><span className={styles.art}>{event.icon ? <img src={event.icon} alt="" /> : <Sparkles />}</span><span className={styles.metrics}><b className={completed ? styles.catalystDone : undefined}>{completed && <Check aria-label="Completed" />}{label}</b><strong className={styles.catalystMark}>{inventory ? "Gained" : "Catalyst"}</strong></span></button>
+    <span className={styles.cardName}>{event.name}</span>
+    <div className={styles.cardActions} />
+    {open && <aside className={styles.tooltip} role="tooltip"><header>{event.icon && <img src={event.icon} alt="" />}<span><small>{type}</small><strong>{event.name}</strong><em>{event.rarity || (inventory ? "Inventory" : "Exotic")}</em></span></header><div className={styles.identity}><b>{label}</b><span>{type}</span></div>{event.description && <p>{event.description}</p>}<nav className={styles.sourceLinks}>{event.itemHash ? <a href={`https://www.light.gg/db/items/${event.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a> : <Link to="/collection?view=catalysts">Open catalyst details</Link>}<span><Clock3 /> Observed {new Date(event.observedAt).toLocaleString()}</span></nav><footer>Guardian Nexus detected this change between Bungie profile snapshots; the exact in-game pickup time may be earlier.</footer></aside>}
+  </article>;
 }
 
 export function RecentCatalystCard({ catalyst }: { catalyst: RecentCatalystObservation }) {

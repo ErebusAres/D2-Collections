@@ -880,6 +880,35 @@ export interface GearData {
   totals: { armor: number; weapons?: number; vault: number; equipped: number; locked: number; grouped: number; newItems: number };
 }
 
+export type RecentItemEventKind = "weapon-found" | "armor-found" | "catalyst-found" | "catalyst-completed" | "inventory-gained";
+
+export interface RecentItemEvent {
+  id: string;
+  kind: RecentItemEventKind;
+  sourceKey: string;
+  itemHash?: string;
+  instanceId?: string;
+  recordHash?: string;
+  name: string;
+  description?: string;
+  icon: string;
+  quantity: number;
+  observedAt: string;
+  lastObservedAt: string;
+  itemType?: string;
+  rarity?: string;
+  percent?: number;
+  gear?: ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & WeaponItem);
+}
+
+export interface RecentItemTimelineData {
+  timelineSchemaVersion: 1;
+  events: RecentItemEvent[];
+  retentionDays: number;
+  firstObservationEstablished: boolean;
+  observedAt: string;
+}
+
 export type GearActionRequest =
   | { action: "transfer"; itemInstanceId: string; target: "vault" | "character"; targetCharacterId?: string }
   | { action: "equip"; itemInstanceId: string; characterId: string }
