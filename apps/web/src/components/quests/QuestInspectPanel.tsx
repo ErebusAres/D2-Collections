@@ -2,6 +2,7 @@ import type { QuestObjective, QuestProgress } from "@guardian-nexus/contracts";
 import { CheckCircle2, ChevronRight, CircleHelp, Crosshair, Gift, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { questProgressPresentation } from "../../modules/quests/questProgress";
+import { ObjectiveRequirementText } from "./ObjectiveRequirementText";
 import styles from "../../pages/QuestsPage.module.css";
 
 const TOOLTIP_GAP = 10;
@@ -65,7 +66,7 @@ export function QuestInspectPanel({ quest, position, onClose, onPointerEnter, on
 function InspectObjective({ objective, progressKnown }: { objective: QuestObjective; progressKnown: boolean }) {
   const value = objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : objective.complete ? "Complete" : `${objective.percent}%`;
   return <article className={`${objective.complete ? styles.inspectObjectiveComplete : ""} ${!progressKnown ? styles.inspectObjectiveRequirement : ""}`}>
-    <div><span>{objective.name}</span><strong>{progressKnown ? value : "Tracked in Destiny"}</strong>{objective.complete && <CheckCircle2 />}</div>
+    <div><span><ObjectiveRequirementText value={objective.name} /></span><strong>{progressKnown ? value : "Tracked in Destiny"}</strong>{objective.complete && <CheckCircle2 />}</div>
     {progressKnown && <i><span style={{ width: `${objective.percent}%` }} /></i>}
   </article>;
 }

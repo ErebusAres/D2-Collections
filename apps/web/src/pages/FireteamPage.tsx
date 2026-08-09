@@ -11,6 +11,7 @@ import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
+import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -378,7 +379,7 @@ function TrackedItem({ item, entering = false, completing = false, onUntrack, un
     <div className={styles.sharedQuestDetails}>
       <div className={styles.sharedQuestTitle}><b>{item.name}</b><em>{item.context}</em></div>
       <small>{item.description}</small>
-      {item.objectives.length > 0 && <div className={styles.sharedObjectives}>{item.objectives.map((objective) => <div key={objective.objectiveHash}><span>{objective.name}</span><strong>{objective.complete ? "Complete" : !objective.progressAvailable ? "Unavailable" : objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : `${objective.percent}%`}</strong></div>)}</div>}
+      {item.objectives.length > 0 && <div className={styles.sharedObjectives}>{item.objectives.map((objective) => <div key={objective.objectiveHash}><span><ObjectiveRequirementText value={objective.name} /></span><strong>{objective.complete ? "Complete" : !objective.progressAvailable ? "Unavailable" : objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : `${objective.percent}%`}</strong></div>)}</div>}
       {item.acquisitionGuide && <div className={styles.sharedAcquisitionGuide}><strong>How to get it</strong><p>{item.acquisitionGuide.summary}</p>{item.acquisitionGuide.steps.length > 0 && <ol>{item.acquisitionGuide.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>}{item.acquisitionGuide.prerequisites.length > 0 && <><strong>Prerequisites</strong><ul>{item.acquisitionGuide.prerequisites.map((step, index) => <li key={index}>{step}</li>)}</ul></>}</div>}
       <i className={styles.sharedQuestBar}><span style={{ width: `${progressKnown ? item.percent : 0}%` }} /></i>
     </div>
