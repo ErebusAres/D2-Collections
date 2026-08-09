@@ -2,6 +2,7 @@ import type { FireteamActivityFeed as FireteamActivityFeedData, FireteamActivity
 import { ChevronDown, ChevronUp, Eye, EyeOff, MessageSquare, Pin, Send, Sparkles, UnfoldHorizontal } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
+import { normalizeGearTier } from "../gear/GearTierRail";
 import { ItemTooltip, TimelineEventTooltip } from "../gear/RecentLoot";
 import styles from "./FireteamActivityFeed.module.css";
 
@@ -177,6 +178,8 @@ function LootActivityLine({ entry }: { entry: Extract<FireteamActivityFeedEntry,
   const tooltipId = useId();
   const event = entry.event;
   const rarity = event.rarity || event.gear?.rarity || (event.kind.includes("catalyst") ? "Exotic" : "Common");
+  const gearTier = normalizeGearTier(event.gear?.gearTier);
+  const gearKind = event.gear?.kind === "weapon" ? "Weapon" : event.gear?.kind === "armor" ? "Armor" : undefined;
   const cancelClose = () => { if (closeTimer.current !== undefined) window.clearTimeout(closeTimer.current); closeTimer.current = undefined; };
   const show = () => { cancelClose(); setOpen(true); };
   const scheduleClose = () => { cancelClose(); closeTimer.current = window.setTimeout(() => setOpen(false), 120); };
@@ -195,9 +198,13 @@ function LootActivityLine({ entry }: { entry: Extract<FireteamActivityFeedEntry,
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
   }, [open]);
   return <div className={`${styles.line} ${styles.loot}`} onMouseEnter={show} onMouseLeave={scheduleClose} onFocus={show} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) scheduleClose(); }} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} tabIndex={0}>
-    <strong>{entry.displayName}:</strong><button ref={trigger} type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => { cancelClose(); setOpen((value) => !value); }}>{event.icon ? <img className={styles.itemIcon} src={event.icon} alt="" /> : <Sparkles className={styles.itemIcon} />}<b data-rarity={rarity}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
+    <strong>{entry.displayName}:</strong><button ref={trigger} type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => { cancelClose(); setOpen((value) => !value); }}>{gearKind && gearTier ? <ActivityTierDiamond tier={gearTier} kind={gearKind} /> : null}{event.icon ? <img className={styles.itemIcon} src={event.icon} alt="" /> : <Sparkles className={styles.itemIcon} />}<b data-rarity={rarity}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
     {open && createPortal(<span ref={tooltip} className={styles.tooltip} style={position} onMouseEnter={cancelClose} onMouseLeave={scheduleClose} onFocus={cancelClose} onBlur={scheduleClose}>{event.gear ? <ItemTooltip id={tooltipId} item={event.gear} /> : <TimelineEventTooltip id={tooltipId} event={event} />}</span>, document.body)}
   </div>;
+}
+
+function ActivityTierDiamond({ tier, kind }: { tier: number; kind: "Weapon" | "Armor" }) {
+  return <span className={styles.tierDiamond} data-tier={tier} title={`${kind} tier ${tier}`} aria-label={`${kind} tier ${tier}`}><b aria-hidden="true">{tier}</b></span>;
 }
 
 export function activityTooltipPosition(anchor: Pick<DOMRect, "left" | "right" | "top">, overlay: Pick<DOMRect, "width" | "height">, viewportWidth: number, viewportHeight: number): { left: number; top: number } {

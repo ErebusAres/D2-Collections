@@ -32,6 +32,18 @@ describe("FireteamActivityFeed", () => {
     expect(onSend).toHaveBeenCalledWith("Need ammo");
   });
 
+  it("shows a numbered diamond only for real 1-5 gear tiers", () => {
+    const gearFeed = { ...feed, entries: [
+      { type: "loot", id: "weapon", membershipId: "1", displayName: "ErebusAres#1234", createdAt: "2026-08-08T12:02:00Z", event: { id: "weapon", kind: "weapon-found", sourceKey: "instance:weapon", name: "Tiered Rifle", icon: "/rifle.png", rarity: "Legendary", quantity: 1, observedAt: "2026-08-08T12:02:00Z", lastObservedAt: "2026-08-08T12:02:00Z", gear: { kind: "weapon", gearTier: 4, rarity: "Legendary" } } },
+      ...feed.entries
+    ] };
+    render(<FireteamActivityFeed feed={gearFeed as any} view="open" onViewChange={vi.fn()} onSend={vi.fn()} sending={false} onDisable={vi.fn()} onEnable={vi.fn()} />);
+    const diamond = screen.getByLabelText("Weapon tier 4");
+    expect(diamond.textContent).toBe("4");
+    expect(screen.getByRole("button", { name: /Tiered Rifle/i }).firstElementChild).toBe(diamond);
+    expect(screen.getByRole("button", { name: /Exotic Engram/i }).querySelector('[aria-label*="tier"]')).toBeNull();
+  });
+
   it("portals item details above the activity window instead of clipping them inside it", () => {
     render(<MemoryRouter><FireteamActivityFeed feed={feed} view="open" onViewChange={vi.fn()} onSend={vi.fn()} sending={false} onDisable={vi.fn()} onEnable={vi.fn()} /></MemoryRouter>);
     const panel = screen.getByText("Fireteam activity").closest("section")!;
