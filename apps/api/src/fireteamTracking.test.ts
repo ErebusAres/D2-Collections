@@ -5,7 +5,7 @@ import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedIte
 
 describe("Fireteam tracked items", () => {
   it("requests both pursuit and Guardian Rank profile components when refreshing a share", () => {
-    expect(profileComponentsFor("fireteam-share").split(",")).toEqual(expect.arrayContaining(["102", "204", "301", "310", "900"]));
+    expect(profileComponentsFor("fireteam-share").split(",")).toEqual(expect.arrayContaining(["102", "204", "301", "310", "900", "1000"]));
   });
 
   it("shares every tracked pursuit kind and excludes untracked inventory", () => {
