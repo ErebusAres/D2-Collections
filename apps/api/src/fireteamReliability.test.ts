@@ -23,4 +23,5 @@ describe("Fireteam reliability helpers", () => {
     expect(results).toEqual([2, 4, 6, 8, 10]);
     expect(maximum).toBe(2);
   });
+
 });

@@ -105,18 +105,6 @@ export function FireteamPage() {
   const liveActivityFeed = activityFeed.data?.data && Array.isArray(activityFeed.data.data.entries) ? activityFeed.data.data : data?.activityFeed;
   const socialData = social.data?.data || data?.social;
   const sharingMode = data?.sharingMode;
-  const trackedBuildsSignature = JSON.stringify(trackedBuilds);
-  const syncSignature = shareSignature(selectedCharacterId, pinnedIds, guardianRankIds, journeyIds, collectionIds, hiddenTrackedItemKeys, trackedBuildsSignature);
-  const lastSyncSignature = useRef("");
-  useEffect(() => {
-    if (!result.data?.data.sharingEnabled || !sharingMode || sharingMode === "off") {
-      lastSyncSignature.current = "";
-      return;
-    }
-    if (lastSyncSignature.current === syncSignature || share.isPending || manualRemovingKey) return;
-    lastSyncSignature.current = syncSignature;
-    share.mutate({ mode: sharingMode });
-  }, [result.data?.data.sharingEnabled, share, sharingMode, syncSignature, manualRemovingKey]);
   const self = data?.members.find((member) => member.isSelf);
   const trackedOrderContext = `${membershipId}:${selectedCharacterId}`;
   const previousTrackedOrderKeys = useRef<{ context: string; keys: Set<string> } | undefined>(undefined);
@@ -194,7 +182,6 @@ export function FireteamPage() {
     if (nextCollectionIds !== collectionIds) setPreference("collection.tracked", JSON.stringify(nextCollectionIds));
     if (nextTrackedBuilds !== trackedBuilds) setPreference("buildAdvisor.trackedBuilds.v1", JSON.stringify(nextTrackedBuilds));
 
-    lastSyncSignature.current = shareSignature(selectedCharacterId, nextPinnedIds, nextGuardianRankIds, nextJourneyIds, nextCollectionIds, hiddenKeys);
     setManualRemovingKey(key);
     window.setTimeout(() => {
       share.mutate({
@@ -476,10 +463,6 @@ function readPinnedIds(storageKey: string): string[] {
     const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]");
     return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 40) : [];
   } catch { return []; }
-}
-
-function shareSignature(characterId: string, pinnedIds: string[], guardianRankIds: string[], journeyIds: string[], collectionIds: string[], hiddenKeys: string[], trackedBuilds = ""): string {
-  return `${characterId}|${pinnedIds.join(",")}|${guardianRankIds.join(",")}|${journeyIds.join(",")}|${collectionIds.join(",")}|${hiddenKeys.join(",")}|${trackedBuilds}`;
 }
 
 function SocialRoster({ contacts, friendsState, clanState, warning, copied, onCopy }: { contacts: FireteamContact[]; friendsState: "available" | "reauthorization-required" | "unavailable"; clanState: "available" | "unavailable"; warning?: string; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {

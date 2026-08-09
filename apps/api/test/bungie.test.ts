@@ -16,6 +16,7 @@ describe("profileComponentsFor", () => {
     expect(profileComponentsFor("collection")).toBe("100,102,200,201,800,900");
     expect(profileComponentsFor("quests")).toBe("100,102,200,201,204,301,310");
     expect(profileComponentsFor("fireteam")).toBe("100,200,204,1000");
+    expect(profileComponentsFor("recent-items")).toBe("100,102,200,201,205,300,301,304,305,307,310,800,900");
   });
 
   it("retains item sockets and stats for gear", () => {

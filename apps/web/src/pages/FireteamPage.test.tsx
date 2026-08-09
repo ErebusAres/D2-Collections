@@ -51,8 +51,7 @@ describe("Fireteam tracked items", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
     expect((await screen.findByRole("tooltip")).textContent).toContain("Recent Rifle");
-    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
-    vi.mocked(queuedApi).mockClear();
+    expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Favorite" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Keep" }));
     await waitFor(() => expect(vi.mocked(queuedApi).mock.calls.some(([path]) => path === "/api/v1/me/gear/item-state")).toBe(true));
@@ -60,7 +59,7 @@ describe("Fireteam tracked items", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ itemInstanceId: "loot-1", tag: "keep" });
   });
 
-  it("shows quest-like and Guardian Rank tracking and refreshes the active share with both site lists", async () => {
+  it("shows quest-like and Guardian Rank tracking without rebuilding an unchanged share on mount", async () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
     expect(await screen.findByText("Shared tracked items")).toBeTruthy();
@@ -69,15 +68,7 @@ describe("Fireteam tracked items", () => {
     expect(screen.getByText("Rank service")).toBeTruthy();
     expect(screen.getByText("Guardian Rank · Journey · Progress to rank 8")).toBeTruthy();
 
-    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
-    const [, init] = vi.mocked(queuedApi).mock.calls[0]!;
-    expect(JSON.parse(String(init?.body))).toMatchObject({
-      characterId: "c1",
-      sitePinnedQuestIds: ["quest-instance"],
-      siteTrackedGuardianRankIds: ["rank-record"],
-      siteTrackedBuilds: [expect.objectContaining({ id: "hunter-void-test", kind: "build", percent: 50 })],
-      mode: "temporary"
-    });
+    expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
   });
 
   it("marks confirmed completion events for the objective-complete exit effect", async () => {
@@ -117,7 +108,7 @@ describe("Fireteam tracked items", () => {
     act(() => client.setQueryData(["fireteam", "c1"], updated));
 
     const enteringItem = (await screen.findByText("New rank objective")).closest("[data-tracking-state]");
-    expect(enteringItem?.getAttribute("data-tracking-state")).toBe("entering");
+    await waitFor(() => expect(enteringItem?.getAttribute("data-tracking-state")).toBe("entering"));
     expect(enteringItem?.closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("added");
     const existingItem = screen.getByText("Weekly order").closest("[data-tracking-state]");
     expect(enteringItem).not.toBeNull();
@@ -233,8 +224,7 @@ describe("Fireteam tracked items", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
     await screen.findByText("Weekly order");
-    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
-    vi.mocked(queuedApi).mockClear();
+    expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Untrack Weekly order from Fireteam" }));
 
@@ -255,8 +245,7 @@ describe("Fireteam tracked items", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
     await screen.findByText("Rank service");
-    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
-    vi.mocked(queuedApi).mockClear();
+    expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Untrack Rank service from Fireteam" }));
 
@@ -283,8 +272,7 @@ describe("Fireteam tracked items", () => {
 
     await screen.findByText("ABC Catalyst");
     expect(screen.getByText("23 / 50")).toBeTruthy();
-    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
-    vi.mocked(queuedApi).mockClear();
+    expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Untrack ABC Catalyst from Fireteam" }));
 
@@ -304,8 +292,7 @@ describe("Fireteam tracked items", () => {
 
     await screen.findByText("Test Void Build");
     expect(screen.getByText("Focus the Exotic armor.")).toBeTruthy();
-    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
-    vi.mocked(queuedApi).mockClear();
+    expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Untrack Test Void Build from Fireteam" }));
     expect(setPreference).toHaveBeenCalledWith("buildAdvisor.trackedBuilds.v1", "[]");
     await act(async () => { vi.advanceTimersByTime(1_600); });
@@ -336,8 +323,7 @@ describe("Fireteam tracked items", () => {
   it("persists a reordered self-card list without changing the Fireteam share payload", async () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
     await screen.findByText("Weekly order");
-    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
-    vi.mocked(queuedApi).mockClear();
+    expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
 
     const source = screen.getByRole("button", { name: "Reorder Weekly order" });
     const target = screen.getByText("Rank service").closest("[data-tracking-state]")!;
@@ -352,8 +338,7 @@ describe("Fireteam tracked items", () => {
   it("moves tracked items directly to the top or bottom from controls left of Dismiss", async () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
     await screen.findByText("Weekly order");
-    await waitFor(() => expect(vi.mocked(queuedApi)).toHaveBeenCalled());
-    vi.mocked(queuedApi).mockClear();
+    expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
 
     const toTop = screen.getByRole("button", { name: "Move Weekly order to top" }) as HTMLButtonElement;
     const toBottom = screen.getByRole("button", { name: "Move Weekly order to bottom" }) as HTMLButtonElement;
