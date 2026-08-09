@@ -35,7 +35,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/gear-recent-timeline-rails`.
+- Current implementation branch: `main`; the Gear timeline implementation merged from `codex/gear-recent-timeline-rails` through PR #92.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
@@ -47,7 +47,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - Production deployed merge commit `3409a83bd008f04d46bbac2394bd899853c8241c` successfully through Guardian Nexus workflow run `31284667912` on 2026-08-08 before the current Gear Loot follow-up.
 - Previous Fireteam activity validation on 2026-08-08: archive/source/CSS boundaries, ESLint, every TypeScript target, 193 API tests, 259 web tests, 24 domain tests, tooling/Python tests, API and Web production builds, and performance budgets all passed. Entry output was 365,120 bytes JavaScript (112,518 bytes gzip) and 33,043 bytes CSS. The current follow-up's full audit and deployment must replace this checkpoint after completion.
 - PR #86 merged and deployed successfully through production workflow run `31280373982`; additive migration `0017_fireteam_activity_feed.sql`, API, and Web deployment all passed. Signed-in production QA confirmed the opted-out existing-share state, correct placement below member quest tracking and above Social, disabled solo composer, minimize/restore controls, and zero browser console errors.
-- Current Gear Loot follow-up validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, the complete API and web suites including the new three-rail categorization/paging regressions, tooling/Python tests, API and Web production builds, and performance budgets. Output is 365,120 bytes entry JavaScript (112,531 bytes gzip) and 33,043 bytes CSS. Production merge/deploy and signed-in QA remain pending at this checkpoint.
+- Gear Loot follow-up validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, the complete API and web suites including the new three-rail categorization/paging regressions, tooling/Python tests, API and Web production builds, and performance budgets. Output is 365,120 bytes entry JavaScript (112,531 bytes gzip) and 33,043 bytes CSS. PR #92 merged as `b7db01775b2b5a3fca439d1ce4efad7067828069`; production workflow `31285363245` refreshed manifests/ratings, reran the audit, applied migrations, and deployed the API and web successfully. Signed-in production QA confirmed a 30-day default with 22 real events split into 6 Recent Weapons, 6 Recent Armor, and 10 miscellaneous Recent Loot gains; all three rows expose independent edge arrows/page counts, a Service Revolver opened the complete themed stat tooltip, the generic `Bungie data` card label was absent, and the browser console had zero errors.
 
 ## Completed release scope
 
