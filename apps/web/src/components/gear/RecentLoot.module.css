@@ -56,6 +56,20 @@
 .history .card { min-width: 0; min-height: 62px; }
 .history > p { margin: 0; padding: 55px 20px; text-align: center; color: var(--faint); }
 
+.eventRow {
+  margin-bottom: 10px;
+  border: 1px solid rgba(231, 200, 119, .3);
+  background: linear-gradient(160deg, rgba(20, 29, 35, .9), rgba(5, 13, 19, .72));
+  overflow: visible;
+}
+.eventRow > header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.eventRow > header span { display: grid; }
+.eventRow > header strong { color: var(--gold); font: 600 16px "Barlow Condensed"; text-transform: uppercase; letter-spacing: .05em; }
+.eventRow > header small { color: var(--faint); font-size: 9px; }
+.eventRow > header b { min-width: 34px; color: var(--cyan); font: 600 20px "Barlow Condensed"; text-align: center; }
+.eventRow .carousel { min-height: 153px; }
+.eventRow .carouselPage > p { padding: 18px 4px; }
+
 .compactBar {
   min-height: 149px;
   display: grid;
