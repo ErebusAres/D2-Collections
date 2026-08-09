@@ -56,11 +56,11 @@ export function loadWeaponRatings(): Promise<WeaponRatingDatabase | undefined> {
 }
 
 export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): WeaponValue {
-  if (weapon.rollDataState !== "complete") return { state: "incomplete", reasons: ["Bungie did not return a complete active roll. Unknown is not a negative rating."], reviewedAt: database?.reviewedAt };
   if (!database) return { state: "unavailable", reasons: ["The community rating catalog is still loading or unavailable. This is not a low score."] };
   const active = alignActiveColumns(weapon);
   const activeCount = active.filter(Boolean).length;
-  if (activeCount < 2) return { state: "incomplete", reasons: ["Too few active perk columns were returned to compare this roll safely."], reviewedAt: database.reviewedAt };
+  const partial = weapon.rollDataState !== "complete";
+  if (!activeCount) return { state: "incomplete", reasons: ["Bungie has not returned an identifiable active rating perk yet. The weapon will be re-evaluated automatically after a fuller snapshot."], reviewedAt: database.reviewedAt };
 
   const record = database.items[weapon.itemHash];
   if (record) {
@@ -68,11 +68,13 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
     const pvpResult = scoreWeaponMode(record.pvp, active, database.method.columnWeights);
     return scoredValue(pveResult, pvpResult, {
       basis: "weapon",
-      confidence: "high",
-      reason: `Compared the active perks with DIM recommendations for this exact weapon while preserving curated trait pairings. Each specified perk column has equal weight.`,
+      confidence: partial ? (activeCount >= 3 ? "medium" : "low") : "high",
+      reason: partial
+        ? `Bungie returned only part of the active roll, so this provisional score compares the ${activeCount} known rating column${activeCount === 1 ? "" : "s"} with DIM recommendations for this exact weapon. It will update when more socket data arrives.`
+        : "Compared the active perks with DIM recommendations for this exact weapon while preserving curated trait pairings. Each specified perk column has equal weight.",
       source: database.source.name,
       reviewedAt: database.reviewedAt,
-      totalColumns: activeCount
+      totalColumns: 4
     });
   }
 
@@ -83,20 +85,22 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
   const compared = Math.max(pveResult?.compared || 0, pvpResult?.compared || 0);
   if (!compared) return { state: "unavailable", reasons: [`DIM has ${weapon.itemType} recommendations, but none provide comparable evidence for this roll's active perks. Unknown is not bad.`], source: database.source.name, reviewedAt: database.reviewedAt };
   const reviewedWeapons = Math.max(type.pve.weapons, type.pvp.weapons);
-  const confidence: WeaponRatingConfidence = compared >= 3 && reviewedWeapons >= 20 ? "medium" : "low";
+  const confidence: WeaponRatingConfidence = !partial && compared >= 3 && reviewedWeapons >= 20 ? "medium" : "low";
   return scoredValue(pveResult, pvpResult, {
     basis: "weapon-type",
     confidence,
-    reason: `No exact DIM entry exists, so this is a lower-confidence ${weapon.itemType} comparison based on perk endorsement strength across ${reviewedWeapons} reviewed weapons.`,
+    reason: partial
+      ? `This provisional score uses the visible active perks and lower-confidence ${weapon.itemType} evidence across ${reviewedWeapons} reviewed weapons. It will update when Bungie returns more socket data.`
+      : `No exact DIM entry exists, so this is a lower-confidence ${weapon.itemType} comparison based on perk endorsement strength across ${reviewedWeapons} reviewed weapons.`,
     source: database.source.name,
     reviewedAt: database.reviewedAt,
-    totalColumns: activeCount
+    totalColumns: 4
   });
 }
 
 function alignActiveColumns(weapon: WeaponItem): Array<string | undefined> {
   const mapped = weapon.perkColumns.filter((column) => column.ratingColumn !== undefined && column.active?.hash);
-  if (mapped.length >= 2) {
+  if (mapped.length) {
     const result: Array<string | undefined> = [undefined, undefined, undefined, undefined];
     mapped.forEach((column) => { if (column.ratingColumn !== undefined) result[column.ratingColumn] = column.active?.hash; });
     return result;
@@ -118,7 +122,7 @@ function scoreWeaponMode(bucket: RatingBucket, active: Array<string | undefined>
     ];
     let earned = 0; let possible = 0; let compared = 0; let matched = 0;
     recommended.forEach((perk, index) => {
-      if (!perk) return;
+      if (!perk || !active[index]) return;
       const weight = weights[index] || 1;
       possible += weight; compared += 1;
       if (active[index] === perk) { earned += weight; matched += 1; }
@@ -156,7 +160,7 @@ function scoredValue(pve: ModeScore | undefined, pvp: ModeScore | undefined, met
     basis: meta.basis,
     comparedColumns,
     totalColumns: meta.totalColumns,
-    reasons: [meta.reason, `${comparedColumns}/${meta.totalColumns} active columns had applicable evidence. This is a community roll-match score, not the weapon's overall sandbox meta position.`],
+    reasons: [meta.reason, `${comparedColumns}/${meta.totalColumns} rating columns currently had applicable evidence. This is a community roll-match score, not the weapon's overall sandbox meta position.`],
     source: meta.source,
     reviewedAt: meta.reviewedAt
   };

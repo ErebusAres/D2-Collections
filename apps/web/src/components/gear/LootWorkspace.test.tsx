@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { LootWorkspace } from "./LootWorkspace";
 
-const weaponGear: any = { kind: "weapon", instanceId: "weapon-0", itemHash: "100", name: "Newest Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-08T12:00:00Z", isNew: true };
+const weaponGear: any = { kind: "weapon", instanceId: "weapon-0", itemHash: "100", name: "Newest Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, gearTier: 4, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-08T12:00:00Z", isNew: true };
 const armorGear: any = { kind: "armor", instanceId: "armor-0", itemHash: "200", name: "New Helm", icon: "", slot: "Helmet", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, className: "Warlock", baseStats: {}, currentStats: {}, adjustments: [], baseTotal: 60, currentTotal: 60, grade: { letter: "B" }, gearTier: 3, archetype: undefined, setBonuses: [], firstSeenAt: "2026-08-08T11:00:00Z", isNew: true };
 
 function event(id: string, kind: RecentItemEvent["kind"], name: string, observedAt: string, gear?: any): RecentItemEvent {
@@ -37,9 +37,12 @@ describe("LootWorkspace", () => {
     const armorRow = screen.getByText("Recent Armor").closest("section")!;
     const lootRow = screen.getByText("Recent Loot").closest("section")!;
     expect(within(weaponRow).getAllByRole("button", { name: /Inspect/ }).map((button) => button.getAttribute("aria-label"))).toEqual(["Inspect Newest Rifle", "Inspect Older Rifle"]);
+    expect(within(weaponRow).getAllByLabelText("Weapon tier 4")).toHaveLength(2);
     expect(within(armorRow).getByRole("button", { name: "Inspect New Helm" })).toBeTruthy();
+    expect(within(armorRow).getByLabelText("Armor tier 3")).toBeTruthy();
     expect(within(lootRow).getAllByRole("button", { name: /Inspect/ }).map((button) => button.getAttribute("aria-label"))).toEqual(["Inspect Enhancement Core", "Inspect Exotic Engram", "Inspect Sunshot Catalyst"]);
     expect(within(lootRow).queryByRole("button", { name: /Rifle|Helm/ })).toBeNull();
+    expect(within(lootRow).queryByLabelText(/tier/i)).toBeNull();
   });
 
   it("pages a full weapon row instead of capping its history", () => {

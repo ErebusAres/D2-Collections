@@ -24,7 +24,7 @@ describe("FireteamActivityFeed", () => {
     const onSend = vi.fn();
     render(<FireteamActivityFeed feed={feed} view="open" onViewChange={vi.fn()} onSend={onSend} sending={false} onDisable={vi.fn()} onEnable={vi.fn()} />);
     expect(screen.getByText("Exotic Engram").getAttribute("data-rarity")).toBe("Exotic");
-    expect(screen.getByLabelText("Tier 6 Exotic").textContent).toBe("6");
+    expect(screen.queryByLabelText(/tier/i)).toBeNull();
     expect(screen.getByRole("button", { name: /Exotic Engram/i }).querySelector("img")?.getAttribute("src")).toBe("/engram.png");
     expect(screen.getByText("Ready when you are.")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Message your Fireteam"), { target: { value: "Need ammo" } });

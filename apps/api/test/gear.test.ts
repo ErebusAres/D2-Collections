@@ -18,8 +18,8 @@ describe("normalizeGear", () => {
           "102": { plugs: { "1": [{ plugItemHash: 22 }, { plugItemHash: 24 }] } }
         } },
         instances: { data: {
-          "101": { primaryStat: { value: 500 }, isCrafted: true },
-          "102": { primaryStat: { value: 500 } }
+          "101": { primaryStat: { value: 500 }, isCrafted: true, gearTier: 4 },
+          "102": { primaryStat: { value: 500 }, gearTier: 2 }
         } },
         state: { data: {} }
       }
@@ -38,9 +38,9 @@ describe("normalizeGear", () => {
     const data = normalizeGear(profile, manifest, "character", "Warlock", new Map(), "2026-08-01T00:00:00Z");
     expect(data.gearSchemaVersion).toBe(2);
     expect(data.weapons).toHaveLength(2);
-    expect(data.weapons?.[0]).toMatchObject({ name: "Test Rifle", slot: "Energy", damageType: "Arc", crafted: true, duplicateCount: 2, reviewState: "configured" });
+    expect(data.weapons?.[0]).toMatchObject({ name: "Test Rifle", slot: "Energy", damageType: "Arc", gearTier: 4, crafted: true, duplicateCount: 2, reviewState: "configured" });
     expect(data.weapons?.[0]?.perkColumns[1]).toMatchObject({ ratingColumn: 2, active: { name: "Incandescent" }, options: expect.arrayContaining([expect.objectContaining({ name: "Target Lock" })]) });
-    expect(data.weapons?.[1]).toMatchObject({ duplicateCount: 2, reviewState: "duplicate-review" });
+    expect(data.weapons?.[1]).toMatchObject({ gearTier: 2, duplicateCount: 2, reviewState: "duplicate-review" });
   });
 
   it("uses Bungie manifest imagery and separates base from active adjustments", () => {

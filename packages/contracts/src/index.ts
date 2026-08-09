@@ -867,6 +867,8 @@ export interface WeaponItem {
   equipped: boolean;
   locked: boolean;
   masterworked: boolean;
+  /** Bungie's per-instance gearTier. Zero means unavailable/not applicable. */
+  gearTier: number;
   crafted: boolean;
   enhanced: boolean;
   perkColumns: WeaponPerkColumn[];
