@@ -34,6 +34,15 @@ export function sanitizeSharedRecentEvent(event: RecentItemEvent): RecentItemEve
   return { ...event, gear: gear as RecentItemEvent["gear"] };
 }
 
+export function sharedRecentEventFromRow(row: any): RecentItemEvent {
+  let event = recentItemEventFromRow(row);
+  try {
+    const observation = JSON.parse(String(row.observation_metadata_json || "{}"));
+    if (observation?.gear) event = { ...event, gear: observation.gear };
+  } catch { /* Legacy malformed observation metadata must not hide the saved event. */ }
+  return sanitizeSharedRecentEvent(event);
+}
+
 export function combineFireteamActivityEntries(entries: FireteamActivityFeedEntry[], limit = FIRETEAM_FEED_HISTORY_LIMIT): FireteamActivityFeedEntry[] {
   return [...entries].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt) || right.id.localeCompare(left.id)).slice(0, limit);
 }
@@ -54,14 +63,19 @@ export async function readFireteamActivityFeed(input: {
   const now = input.now || new Date().toISOString();
   const cutoff = new Date(Date.parse(now) - FIRETEAM_FEED_RETENTION_DAYS * 86_400_000).toISOString();
   const placeholders = enabledIds.map(() => "?").join(",");
-  const loot = await input.env.DB.prepare(`SELECT * FROM recent_item_events WHERE membership_id IN (${placeholders}) AND event_kind IN (${SHARED_LOOT_KINDS.map(() => "?").join(",")}) AND last_observed_at >= ? ORDER BY last_observed_at DESC LIMIT ?`)
+  const loot = await input.env.DB.prepare(`SELECT events.*, observations.metadata_json AS observation_metadata_json
+    FROM recent_item_events events
+    LEFT JOIN recent_item_observations observations
+      ON observations.membership_id = events.membership_id AND observations.observation_key = events.source_key
+    WHERE events.membership_id IN (${placeholders}) AND events.event_kind IN (${SHARED_LOOT_KINDS.map(() => "?").join(",")})
+      AND events.last_observed_at >= ? ORDER BY events.last_observed_at DESC LIMIT ?`)
     .bind(...enabledIds, ...SHARED_LOOT_KINDS, cutoff, FIRETEAM_FEED_HISTORY_LIMIT * 2).all<any>();
   const channelKey = await fireteamChannelKey(input.partyMembershipIds);
   const messages = await input.env.DB.prepare("SELECT id, membership_id, display_name, body, created_at FROM fireteam_messages WHERE channel_key = ? AND created_at >= ? ORDER BY created_at DESC LIMIT ?")
     .bind(channelKey, cutoff, FIRETEAM_FEED_HISTORY_LIMIT * 2).all<any>();
   const enabledSet = new Set(enabledIds);
   const lootEntries: FireteamActivityFeedEntry[] = (loot.results || []).map((row: any) => ({
-    type: "loot", id: String(row.id), membershipId: String(row.membership_id), displayName: input.displayNames.get(String(row.membership_id)) || "Unknown Guardian", createdAt: String(row.last_observed_at), event: sanitizeSharedRecentEvent(recentItemEventFromRow(row))
+    type: "loot", id: String(row.id), membershipId: String(row.membership_id), displayName: input.displayNames.get(String(row.membership_id)) || "Unknown Guardian", createdAt: String(row.last_observed_at), event: sharedRecentEventFromRow(row)
   }));
   const messageEntries: FireteamActivityFeedEntry[] = (messages.results || []).filter((row: any) => enabledSet.has(String(row.membership_id))).map((row: any) => ({
     type: "message", id: String(row.id), membershipId: String(row.membership_id), displayName: input.displayNames.get(String(row.membership_id)) || String(row.display_name || "Unknown Guardian"), createdAt: String(row.created_at), body: String(row.body)
