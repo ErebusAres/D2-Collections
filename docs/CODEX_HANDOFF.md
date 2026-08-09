@@ -39,7 +39,7 @@ The current objective-icon release replaces Bungie's bracketed objective markers
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: final QA follow-up after merged PRs #96 and #97. Signed-in production QA confirmed raw markers were removed from the compact Seasonal Hub Orders rail, then found its generic item-image selector overriding compact objective dimensions. `codex/objective-icon-size-fix` raises the shared icon selector specificity so the objective symbols remain compact.
+- Current implementation branch: final QA follow-up after merged PRs #96-#98. Signed-in production QA confirmed raw markers were removed from the compact Seasonal Hub Orders rail, then showed the production CSS minifier defeated a selector-specificity fix. `codex/objective-icon-inline-size` places the three dimension-critical values directly on the shared icon so generic card image rules cannot override them; its regression asserts those values.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)

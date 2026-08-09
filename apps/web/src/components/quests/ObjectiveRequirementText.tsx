@@ -33,7 +33,7 @@ export function objectiveRequirementNodes(value: string): ReactNode[] {
     if (!icon) continue;
     matched = true;
     if (match.index! > cursor) nodes.push(value.slice(cursor, match.index));
-    nodes.push(<img className={styles.icon} key={`${match.index}-${label}`} src={icon} alt={label} title={label} data-local-icon={icon.startsWith("/")} />);
+    nodes.push(<img className={styles.icon} key={`${match.index}-${label}`} src={icon} alt={label} title={label} data-local-icon={icon.startsWith("/")} style={{ width: "1.65em", height: "1.05em", objectFit: "contain" }} />);
     cursor = match.index! + match[0].length;
   }
   if (!matched) return [value];
