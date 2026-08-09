@@ -62,6 +62,36 @@ export function recentLootPageSize(width: number): number {
   return Math.max(1, Math.floor(Math.max(0, width) / 89));
 }
 
+export function RecentEventRow({ title, subtitle, events, onTag, busy = false, empty = "No observed items in this period." }: { title: string; subtitle: string; events: RecentItemEvent[]; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; empty?: string }) {
+  const active = useRef<LootItem | undefined>(undefined);
+  const viewport = useRef<HTMLDivElement | null>(null);
+  const [pageSize, setPageSize] = useState(12);
+  const [page, setPage] = useState(0);
+  useLootShortcuts(active, onTag);
+  const visible = [...events].sort((left, right) => Date.parse(right.lastObservedAt) - Date.parse(left.lastObservedAt));
+  const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pageEntries = visible.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  useEffect(() => {
+    const update = () => {
+      const width = viewport.current?.clientWidth || 0;
+      if (width > 0) setPageSize(recentLootPageSize(width));
+    };
+    update();
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(update);
+    if (viewport.current) observer?.observe(viewport.current);
+    window.addEventListener("resize", update);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
+  }, []);
+  useEffect(() => setPage((value) => Math.min(value, pageCount - 1)), [pageCount]);
+  const newestMarker = visible[0] ? `${visible[0].id}:${visible[0].lastObservedAt}` : "";
+  useEffect(() => setPage(0), [newestMarker]);
+  return <section className={styles.eventRow} data-event-row={title}>
+    <header><span><strong>{title}</strong><small>{subtitle}</small></span><b>{visible.length}</b></header>
+    <div className={styles.carousel}><button type="button" aria-label={`Previous ${title} page`} onClick={() => setPage((value) => Math.max(0, value - 1))} disabled={currentPage === 0}><ChevronLeft /></button><div className={styles.carouselViewport} ref={viewport}><div className={styles.carouselPage}>{pageEntries.length ? pageEntries.map((event) => <TimelineEventCard key={event.id} event={event} active={active} onTag={onTag} busy={busy} />) : <p>{empty}</p>}</div></div><span className={styles.pageCount}>{currentPage + 1} / {pageCount}</span><button type="button" aria-label={`Next ${title} page`} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} disabled={currentPage >= pageCount - 1}><ChevronRight /></button></div>
+  </section>;
+}
+
 export function CompactRecentLootBar({ events, items = [], catalysts = [], displayLimit = 24, onDisplayLimitChange, onTag, busy = false, onHide, loading = false, error, warnings = [], retentionDays, observedAt, firstObservationEstablished = false, onRetry }: { events?: RecentItemEvent[]; items?: LootItem[]; catalysts?: RecentCatalystObservation[]; displayLimit?: RecentLootDisplayLimit; onDisplayLimitChange?: (limit: RecentLootDisplayLimit) => void; onTag: (item: LootItem, tag?: GearTag) => void; busy?: boolean; onHide: () => void; loading?: boolean; error?: Error | null; warnings?: string[]; retentionDays?: number; observedAt?: string; firstObservationEstablished?: boolean; onRetry?: () => void }) {
   const active = useRef<LootItem | undefined>(undefined);
   const viewport = useRef<HTMLDivElement | null>(null);
@@ -189,7 +219,7 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
   return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} tabIndex={0} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} onFocus={() => { onActivate(); setOpen(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onDeactivate(); setOpen(false); } }} onMouseEnter={() => { onActivate(); setOpen(true); }} onMouseLeave={() => { onDeactivate(); setOpen(false); }}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={open} aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen(true)}>
       <span className={styles.art}>{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
-      <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>Roll {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Bungie data" : "No rating"}</strong>}</span>
+      <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>Roll {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll unknown" : "No rating"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>
     <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />{actions}</div>

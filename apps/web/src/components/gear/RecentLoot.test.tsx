@@ -24,6 +24,12 @@ describe("RecentItemRow", () => {
     expect(screen.getByRole("tooltip").textContent).toContain("Recent Rifle");
   });
 
+  it("labels an incomplete physical roll as unknown instead of generic Bungie data", () => {
+    render(<RecentItemRow title="Recently acquired" items={recentLoot([], [{ ...weapon, rollDataState: "partial" }])} onTag={vi.fn()} />);
+    expect(screen.getByText("Roll unknown")).toBeTruthy();
+    expect(screen.queryByText("Bungie data")).toBeNull();
+  });
+
   it("keeps reviewed items in rolling history and excludes older observations", () => {
     const now = Date.parse("2026-08-06T12:00:00Z");
     const reviewed = { ...weapon, isNew: false, tag: "keep" as const };

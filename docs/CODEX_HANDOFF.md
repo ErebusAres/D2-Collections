@@ -16,6 +16,8 @@ Mobile/PWA promotion is paused. The Options installer, `beforeinstallprompt` lis
 
 Gear loot management uses the existing private `gear_item_state` source of truth. Fireteam consumes `/api/v1/me/recent-items`, a private schema-v1 D1 timeline of observed weapon, armor, catalyst-acquired, catalyst-completed, and stackable inventory-gain events. It establishes a silent baseline for every category, refuses to zero inventory observations from incomplete snapshots, uses retry-stable event identities, preserves events for 30 days, caps displayed reads at 200, coalesces identical material gains observed within ten minutes at presentation time, and orders its one-row pager by the latest observation. Observation runs across signed-in Guardian Nexus pages while the site is open, even when the Fireteam row is hidden. Catalysts are chronological events rather than pinned current-state cards. Weapon cards show explicit community roll-match percentages; armor remains Power-only. Times describe Guardian Nexus snapshots, never exact acquisition.
 
+The Gear `Loot` workspace now consumes that durable recent-item timeline rather than rebuilding a gear-only list from current inventory. It presents three independent full-width paged rails: Recent Weapons, Recent Armor, and Recent Loot. Every rail runs newest-left to oldest-right across the selected 1/3/7/14/30-day window; the 30-day retained history is the default. The Loot rail is deliberately limited to catalysts, Exotic Engrams, stackable materials, and other miscellaneous inventory gains. The tab count comes from the same event stream, search spans every category, gear-tag filtering applies only where a physical gear snapshot exists, and incomplete weapon cards say `Roll unknown` instead of the generic `Bungie data` label.
+
 The Fireteam activity release adds a combined recent-find and short-message feed. It promotes Exotic Engram gains to an explicit recent-item event and shares only weapon, armor, catalyst-acquired, and Exotic Engram finds; materials and catalyst-completion events stay out. Entries are restricted to enabled, actively shared members of the viewer's current Bungie party. Messages use a stable current-party channel key, require another enabled synced member, accept at most 240 normalized characters, allow three sends per ten seconds, expire after seven days, and share the same bounded 60-entry chronology as finds. Shared gear strips private tags, dismissal state, and owner-character IDs while retaining the existing themed item tooltip and weapon rating. The D1 migration is `0017_fireteam_activity_feed.sql`.
 
 The `codex/remove-fireteam-readiness` follow-up removes the Fireteam Readiness editor/member summaries and the redundant Fireteam signal/location/sharing strip. The API keeps backward-compatible stored readiness parsing, but the browser no longer fetches Builds for it or writes readiness. Fireteam Activity defaults enabled for legacy and new shares unless explicitly disabled. Its UI is a fixed bottom-right messenger-style window with minimize, hide/restore, and disable/enable controls. It starts pinned; Pop out makes it draggable and resizable within the viewport, and the account-scoped local preference remembers mode, position, and dimensions. Resize and restored-state clamping keep it recoverable after viewport changes.
@@ -33,7 +35,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/fireteam-activity-tooltip-overlay`.
+- Current implementation branch: `codex/gear-recent-timeline-rails`.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
@@ -42,10 +44,10 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - Completed pull request: `https://github.com/ErebusAres/D2-Collections/pull/53`
 - PR #53 merged and deployed successfully through workflow run `30721416376`.
 - The pre-existing untracked `.codex-remote-attachments/` directory is unrelated and must not be staged.
-- Production deployed merge commit `036d7db42c6f58d706b398d3f322876b12b74e60` successfully through Guardian Nexus workflow run `31273219961` on 2026-08-08.
+- Production deployed merge commit `3409a83bd008f04d46bbac2394bd899853c8241c` successfully through Guardian Nexus workflow run `31284667912` on 2026-08-08 before the current Gear Loot follow-up.
 - Previous Fireteam activity validation on 2026-08-08: archive/source/CSS boundaries, ESLint, every TypeScript target, 193 API tests, 259 web tests, 24 domain tests, tooling/Python tests, API and Web production builds, and performance budgets all passed. Entry output was 365,120 bytes JavaScript (112,518 bytes gzip) and 33,043 bytes CSS. The current follow-up's full audit and deployment must replace this checkpoint after completion.
 - PR #86 merged and deployed successfully through production workflow run `31280373982`; additive migration `0017_fireteam_activity_feed.sql`, API, and Web deployment all passed. Signed-in production QA confirmed the opted-out existing-share state, correct placement below member quest tracking and above Social, disabled solo composer, minimize/restore controls, and zero browser console errors.
-- Current follow-up validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, 193 API tests, the complete web suite including floating-window and Recent Loot layout regressions, tooling/Python tests, API and Web production builds, and performance budgets. Output is 365,117 bytes entry JavaScript (112,517 bytes gzip) and 33,043 bytes CSS. Production merge/deploy and signed-in QA remain pending at this checkpoint.
+- Current Gear Loot follow-up validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, the complete API and web suites including the new three-rail categorization/paging regressions, tooling/Python tests, API and Web production builds, and performance budgets. Output is 365,120 bytes entry JavaScript (112,531 bytes gzip) and 33,043 bytes CSS. Production merge/deploy and signed-in QA remain pending at this checkpoint.
 
 ## Completed release scope
 
@@ -118,6 +120,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 68. Expanded Fireteam Recent Loot from a fixed five gear cards plus two legacy catalyst chips to a persisted 12/24/48-card mixed grid, defaulting to 24. Gear and catalyst entries remain private, a bounded catalyst reservation prevents either category from disappearing when both are populated, and catalyst observations now use the same themed icon-card and tooltip language as new weapons and armor. The preference API now explicitly accepts both the visibility and display-limit keys.
 69. Refined Fireteam Recent Loot into a single responsive row with explicit previous/next page arrows and a page counter. The row calculates its page size from available width, retains the larger 12/24/48 history choices, exposes weapon rating percentages/quality instead of suppressing them in compact mode, and replaces finished-catalyst `Complete` text with a green check, 100%, and `Masterworked` language.
 70. Replaced Fireteam's mixed current-state list with a private, versioned item-event timeline. It detects physical weapon/armor instances, catalyst acquisition and completion transitions, and positive stackable-inventory deltas; coalesces rapid identical material gains into `×N`; retains chronological events after items leave current inventory; and pages the full retained timeline newest-left without pinning catalysts. Migration `0016_recent_item_timeline.sql`, API module tests, UI ordering/quantity tests, and the `/api/v1/me/recent-items` contract are the maintenance boundary.
+71. Rebuilt Gear's Loot workspace around `/api/v1/me/recent-items` with separate Recent Weapons, Recent Armor, and miscellaneous Recent Loot rails. Each full-width row pages its complete filtered history newest-left to oldest-right; the miscellaneous rail contains catalysts, engrams, materials, and other inventory gains, while physical gear keeps its themed cards, tooltips, tags, and honest roll-rating state.
 
 ## Files in release scope
 
@@ -133,6 +136,8 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - `apps/web/src/components/gear/VaultWorkspace.test.tsx`
 - `apps/web/src/components/gear/RecentLoot.tsx`
 - `apps/web/src/components/gear/RecentLoot.module.css`
+- `apps/web/src/components/gear/LootWorkspace.tsx`
+- `apps/web/src/components/gear/LootWorkspace.test.tsx`
 - `apps/web/src/pages/SupportPage.tsx`
 - `apps/web/src/pages/SupportPage.module.css`
 - `apps/api/src/supportDiagnostics.ts`
