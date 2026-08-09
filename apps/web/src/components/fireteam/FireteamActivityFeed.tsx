@@ -3,7 +3,6 @@ import { ChevronDown, ChevronUp, Eye, EyeOff, MessageSquare, Pin, Send, Sparkles
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ItemTooltip, TimelineEventTooltip } from "../gear/RecentLoot";
-import { LootTierBadge } from "../gear/LootTierBadge";
 import styles from "./FireteamActivityFeed.module.css";
 
 export type FireteamActivityFeedView = "open" | "minimized" | "hidden";
@@ -196,7 +195,7 @@ function LootActivityLine({ entry }: { entry: Extract<FireteamActivityFeedEntry,
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
   }, [open]);
   return <div className={`${styles.line} ${styles.loot}`} onMouseEnter={show} onMouseLeave={scheduleClose} onFocus={show} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) scheduleClose(); }} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} tabIndex={0}>
-    <strong>{entry.displayName}:</strong><button ref={trigger} type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => { cancelClose(); setOpen((value) => !value); }}><LootTierBadge rarity={rarity} />{event.icon ? <img className={styles.itemIcon} src={event.icon} alt="" /> : <Sparkles className={styles.itemIcon} />}<b data-rarity={rarity}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
+    <strong>{entry.displayName}:</strong><button ref={trigger} type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => { cancelClose(); setOpen((value) => !value); }}>{event.icon ? <img className={styles.itemIcon} src={event.icon} alt="" /> : <Sparkles className={styles.itemIcon} />}<b data-rarity={rarity}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
     {open && createPortal(<span ref={tooltip} className={styles.tooltip} style={position} onMouseEnter={cancelClose} onMouseLeave={scheduleClose} onFocus={cancelClose} onBlur={scheduleClose}>{event.gear ? <ItemTooltip id={tooltipId} item={event.gear} /> : <TimelineEventTooltip id={tooltipId} event={event} />}</span>, document.body)}
   </div>;
 }

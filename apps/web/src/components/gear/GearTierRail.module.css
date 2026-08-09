@@ -1,0 +1,21 @@
+.rail {
+  position: absolute;
+  z-index: 3;
+  left: 3px;
+  bottom: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  pointer-events: none;
+}
+.mark {
+  color: rgba(255, 255, 255, .18);
+  font-size: 12px;
+  line-height: .88;
+  -webkit-text-stroke: 1px rgba(0, 0, 0, .84);
+  paint-order: stroke fill;
+  text-shadow: 0 1px 3px #000, 0 0 4px #000;
+}
+.white .on { color: #f2f4f7; }
+.purple .on { color: #a97cff; }
+.gold .on { color: var(--gold); }

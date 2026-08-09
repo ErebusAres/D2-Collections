@@ -11,7 +11,7 @@ const armor = (instanceId: string, name: string, health: number, rarity = "Legen
 });
 
 const weapon = (instanceId: string, name: string, slot: WeaponItem["slot"], location: WeaponItem["location"] = "vault"): WeaponItem => ({
-  instanceId, itemHash: instanceId, name, icon: "", itemType: "Auto Rifle", slot, damageType: "Arc", rarity: "Legendary", power: 500, location, equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false,
+  instanceId, itemHash: instanceId, name, icon: "", itemType: "Auto Rifle", slot, damageType: "Arc", rarity: "Legendary", power: 500, location, equipped: false, locked: false, masterworked: false, gearTier: 2, crafted: false, enhanced: false,
   perkColumns: [{ socketIndex: 0, active: { hash: "perk", name: "Voltshot", description: "" }, options: [{ hash: "perk", name: "Voltshot", description: "" }] }], originTraits: [], rollDataState: "complete", reviewState: "unique", reviewReasons: ["Only copy"], duplicateCount: 1, wishlisted: false,
   firstSeenAt: "2026-08-05T12:00:00Z", isNew: false
 });

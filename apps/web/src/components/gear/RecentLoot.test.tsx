@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { CompactRecentLootBar, RecentItemRow, observedLootWithin, parseRecentLootDisplayLimit, recentLoot, recentLootPageSize } from "./RecentLoot";
 
-const weapon = { instanceId: "1", itemHash: "2", name: "Recent Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-06T12:00:00Z", isNew: true } as WeaponItem;
+const weapon = { instanceId: "1", itemHash: "2", name: "Recent Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, gearTier: 3, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-06T12:00:00Z", isNew: true } as WeaponItem;
 
 describe("RecentItemRow", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -16,7 +16,7 @@ describe("RecentItemRow", () => {
     fireEvent.mouseEnter(card);
     fireEvent.keyDown(window, { key: "2", shiftKey: true });
     expect(onTag).toHaveBeenCalledWith(expect.objectContaining({ instanceId: "1" }), "keep");
-    expect(screen.getByLabelText("Tier 5 Legendary").textContent).toBe("5");
+    expect(screen.getByLabelText("Weapon tier 3").querySelectorAll("span")).toHaveLength(5);
   });
 
   it("keeps the detail tooltip open when the inspection tile receives focus and a click", () => {
@@ -25,9 +25,18 @@ describe("RecentItemRow", () => {
     expect(screen.getByRole("tooltip").textContent).toContain("Recent Rifle");
   });
 
-  it("labels an incomplete physical roll as unknown instead of generic Bungie data", () => {
+  it("labels a roll with no visible rating perks as pending instead of generic Bungie data", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      schemaVersion: 4, reviewedAt: "2026-08-08", source: { name: "DIM Voltron" }, method: { columnWeights: [1, 1, 1, 1] },
+      coverage: { manifestWeapons: 1, reviewedWeapons: 1, supportedTypes: 1, reviewedTypes: 1 }, types: {},
+      items: { "2": {
+        itemType: "Auto Rifle",
+        pve: { recommendations: 1, columns: [["10"], ["11"], ["12"], ["13"]], traitPairs: ["12,13"] },
+        pvp: { recommendations: 1, columns: [["20"], ["11"], ["22"], ["13"]], traitPairs: ["22,13"] }
+      } }
+    }) }));
     render(<RecentItemRow title="Recently acquired" items={recentLoot([], [{ ...weapon, rollDataState: "partial" }])} onTag={vi.fn()} />);
-    expect(screen.getByText("Roll unknown")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText("Roll pending")).toBeTruthy());
     expect(screen.queryByText("Bungie data")).toBeNull();
   });
 
@@ -59,6 +68,12 @@ describe("RecentItemRow", () => {
     expect(screen.getByRole("tooltip").textContent).toContain("PvE100%");
     expect(screen.getByRole("tooltip").textContent).toContain("PvP50%");
     cleanup();
+    render(<RecentItemRow title="Partially observed" items={recentLoot([], [{ ...rated, rollDataState: "partial" as const }])} onTag={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText("Est. 75%")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
+    expect(screen.getByRole("tooltip").textContent).toContain("Provisional Strong roll match");
+    expect(screen.getByRole("tooltip").textContent).toContain("Confidencemedium");
+    cleanup();
     render(<MemoryRouter><CompactRecentLootBar items={[{ ...rated, kind: "weapon" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText("Roll 75%")).toBeTruthy());
   });
@@ -88,7 +103,7 @@ describe("RecentItemRow", () => {
     const inspect = screen.getByRole("link", { name: "Inspect Sunshot Catalyst" });
     expect(inspect.querySelector("img")?.getAttribute("src")).toBe("/sunshot.jpg");
     expect(screen.getByText("63%")).toBeTruthy();
-    expect(screen.getByLabelText("Tier 6 Exotic").textContent).toBe("6");
+    expect(screen.queryByLabelText(/tier/i)).toBeNull();
     fireEvent.mouseEnter(inspect.closest("article")!);
     expect(screen.getByRole("tooltip").textContent).toContain("Masterwork in progress");
     expect(screen.getByRole("tooltip").textContent).toContain("Open catalyst details");
@@ -111,8 +126,7 @@ describe("RecentItemRow", () => {
     render(<MemoryRouter><CompactRecentLootBar events={events} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
     const cards = screen.getAllByRole("button", { name: /Inspect/ });
     expect(cards.map((card) => card.getAttribute("aria-label"))).toEqual(["Inspect Enhancement Core", "Inspect Old Catalyst"]);
-    expect(screen.getByLabelText("Tier 5 Legendary").textContent).toBe("5");
-    expect(screen.getByLabelText("Tier 6 Exotic").textContent).toBe("6");
+    expect(screen.queryByLabelText(/tier/i)).toBeNull();
     expect(screen.getByText("×4")).toBeTruthy();
     expect(screen.getByLabelText("100%")).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Recent loot cards to keep" })).toBeNull();

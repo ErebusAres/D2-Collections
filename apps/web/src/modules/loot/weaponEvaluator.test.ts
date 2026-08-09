@@ -13,7 +13,21 @@ function weapon(itemHash: string, perks: string[], itemType = "Pulse Rifle"): We
 }
 
 describe("weapon evaluator", () => {
-  it("keeps incomplete Bungie roll data distinct", () => expect(evaluateWeapon({ ...weapon("1", ["10", "11"]), rollDataState: "partial" }, ratings)).toMatchObject({ state: "incomplete" }));
+  it("scores known partial columns provisionally and lowers confidence until Bungie fills the roll", () => {
+    const partial = weapon("877384", ["3824105627", "1134488199"]);
+    partial.rollDataState = "partial";
+    partial.perkColumns[0]!.ratingColumn = 2;
+    partial.perkColumns[1]!.ratingColumn = 3;
+    const result = evaluateWeapon(partial, ratings);
+    expect(result).toMatchObject({ state: "scored", pve: 100, pvp: 50, overall: 75, confidence: "low", basis: "weapon", comparedColumns: 2, totalColumns: 4 });
+    expect(result.reasons.join(" ")).toMatch(/provisional.*update/i);
+  });
+
+  it("keeps a roll pending only when no active rating perk is known", () => {
+    const pending = weapon("877384", []);
+    pending.rollDataState = "unavailable";
+    expect(evaluateWeapon(pending, ratings)).toMatchObject({ state: "incomplete" });
+  });
 
   it("scores an exact DIM-backed roll by its actual weighted columns", () => {
     const result = evaluateWeapon(weapon("877384", ["839105230", "106909392", "3824105627", "1134488199"]), ratings);

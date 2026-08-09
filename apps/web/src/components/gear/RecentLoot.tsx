@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
 import { GearTagBadge, GearTagPicker } from "./GearTagPicker";
-import { LootTierBadge } from "./LootTierBadge";
+import { GearTierRail } from "./GearTierRail";
 import styles from "./RecentLoot.module.css";
 
 export type LootItem = ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & WeaponItem);
@@ -170,7 +170,7 @@ export function RecentTimelineCard({ event }: { event: RecentItemEvent }) {
   const type = event.kind === "catalyst-completed" ? "Catalyst completed" : event.kind === "catalyst-found" ? "Catalyst found" : engram ? "Exotic Engram found" : event.itemType || "Inventory item found";
   const observationLabel = event.lastObservedAt !== event.observedAt ? `${new Date(event.observedAt).toLocaleString()}–${new Date(event.lastObservedAt).toLocaleString()}` : new Date(event.observedAt).toLocaleString();
   return <article className={`${styles.card} ${styles.compactCard} ${styles.timelineCard} ${inventory ? styles.inventoryCard : styles.catalystCard}`} data-rarity={rarity} tabIndex={0} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} onFocus={() => setOpen(true)} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) setOpen(false); }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-    <button className={styles.tile} type="button" aria-label={`Inspect ${event.name}`} aria-expanded={open} aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen(true)}><span className={styles.art}><LootTierBadge rarity={rarity} variant="overlay" />{event.icon ? <img src={event.icon} alt="" /> : <Sparkles />}</span><span className={styles.metrics}><b className={completed ? styles.catalystDone : undefined}>{completed && <Check aria-label="100%" />}{label}</b><strong className={styles.catalystMark}>{inventory ? "Gained" : "Catalyst"}</strong></span></button>
+    <button className={styles.tile} type="button" aria-label={`Inspect ${event.name}`} aria-expanded={open} aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen(true)}><span className={styles.art}>{event.icon ? <img src={event.icon} alt="" /> : <Sparkles />}</span><span className={styles.metrics}><b className={completed ? styles.catalystDone : undefined}>{completed && <Check aria-label="100%" />}{label}</b><strong className={styles.catalystMark}>{inventory ? "Gained" : "Catalyst"}</strong></span></button>
     <span className={styles.cardName}>{event.name}</span>
     <div className={styles.cardActions} />
     {open && <aside id={tooltipId} className={styles.tooltip} role="tooltip"><header>{event.icon && <img src={event.icon} alt="" />}<span><small>{type}</small><strong>{event.name}</strong><em>{event.rarity || (inventory ? "Inventory" : "Exotic")}</em></span></header><div className={styles.identity}><b>{label}</b><span>{type}</span></div>{event.description && <p>{event.description}</p>}<nav className={styles.sourceLinks}>{event.itemHash ? <a href={`https://www.light.gg/db/items/${event.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a> : <Link to="/collection?view=catalysts">Open catalyst details</Link>}<span><Clock3 /> Observed {observationLabel}</span></nav><footer>Guardian Nexus detected this change between Bungie profile snapshots; the exact in-game pickup time may be earlier.</footer></aside>}
@@ -182,7 +182,7 @@ export function RecentCatalystCard({ catalyst }: { catalyst: RecentCatalystObser
   const status = catalyst.state === "complete" ? "100%" : `${Math.round(catalyst.percent)}%`;
   return <article className={`${styles.card} ${styles.compactCard} ${styles.catalystCard}`} data-rarity="Exotic" tabIndex={0} onFocus={() => setOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
     <Link className={styles.tile} to="/collection?view=catalysts" aria-label={`Inspect ${catalyst.name}`} onClick={() => setOpen(true)}>
-      <span className={styles.art}><LootTierBadge rarity="Exotic" variant="overlay" />{catalyst.icon ? <img src={catalyst.icon} alt="" /> : <Sparkles />}</span>
+      <span className={styles.art}>{catalyst.icon ? <img src={catalyst.icon} alt="" /> : <Sparkles />}</span>
       <span className={styles.metrics}><b className={catalyst.state === "complete" ? styles.catalystDone : undefined}>{catalyst.state === "complete" && <Check aria-label="100%" />}{status}</b><strong className={styles.catalystMark}>Catalyst</strong></span>
     </Link>
     <span className={styles.cardName}>{catalyst.name}</span>
@@ -220,8 +220,8 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
   const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
   return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} tabIndex={0} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} onFocus={() => { onActivate(); setOpen(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onDeactivate(); setOpen(false); } }} onMouseEnter={() => { onActivate(); setOpen(true); }} onMouseLeave={() => { onDeactivate(); setOpen(false); }}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={open} aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen(true)}>
-      <span className={styles.art}><LootTierBadge rarity={item.rarity} variant="overlay" />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
-      <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>Roll {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll unknown" : "No rating"}</strong>}</span>
+      <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
+      <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>
     <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />{actions}</div>
@@ -242,11 +242,11 @@ export function ItemTooltip({ item, id }: { item: LootItem; id?: string }) {
       {item.masterwork && <div className={styles.intrinsic}>{item.masterwork.icon && <img src={item.masterwork.icon} alt="" />}<span><b>{item.masterwork.name}</b><small>{item.masterwork.description || "Weapon masterwork"}</small></span></div>}
       <div className={styles.perks}>{item.perkColumns.map((column) => <span key={column.socketIndex}>{column.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<b>{column.active?.name || "Unknown socket"}</b><small>{column.active?.description || `${column.options.length} selectable options`}</small></span>)}</div>
       <div className={styles.value} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <>
-        <header><span><b>{qualityLabel(value.quality)} roll match</b><small>{value.basis === "weapon" ? "Exact weapon evidence" : `${item.itemType} fallback`}</small></span><strong>{value.overall}%</strong></header>
+        <header><span><b>{item.rollDataState === "complete" ? qualityLabel(value.quality) : `Provisional ${qualityLabel(value.quality)}`} roll match</b><small>{value.basis === "weapon" ? "Exact weapon evidence" : `${item.itemType} fallback`}</small></span><strong>{value.overall}%</strong></header>
         <div className={styles.modeScores}><span><small>PvE</small><b>{value.pve === undefined ? "—" : `${value.pve}%`}</b></span><span><small>PvP</small><b>{value.pvp === undefined ? "—" : `${value.pvp}%`}</b></span><span><small>Confidence</small><b>{value.confidence}</b></span></div>
         {value.reasons.map((reason) => <p key={reason}>{reason}</p>)}
         <small>Source: {value.source}. Reviewed {value.reviewedAt}.</small>
-      </> : <><b>{value?.state === "incomplete" ? "Bungie roll data unavailable" : "Community roll rating unavailable"}</b><small>{value?.reasons[0]}</small></>}</div>
+      </> : <><b>{value?.state === "incomplete" ? "Roll rating pending" : "Community roll rating unavailable"}</b><small>{value?.reasons[0]}</small></>}</div>
     </> : <div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal}</strong></div>}
     <footer>First observed time is Guardian Nexus history, not an exact Bungie drop timestamp. Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse</footer>
   </aside>;
