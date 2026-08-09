@@ -34,10 +34,12 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 
 The Vault icon-card footer no longer tries to fit three large action buttons beside the compact tag picker. Each card now has one matching 28px circular item-actions trigger that opens a themed, keyboard-accessible Lock/Unlock, Pull to Guardian, and Equip menu above the card. The menu closes on selection, outside pointer input, or Escape; action colors follow the existing gold/cyan/success palette, and the original Gear API call shapes and confirmation boundary remain intact.
 
+The current `codex/objective-requirement-icons` release replaces Bungie's bracketed objective markers such as `[Auto Rifle]` and `[Headshot]` with the corresponding compact Destiny weapon/combat symbols. One shared renderer covers Fireteam Orders, quest cards, expanded routes, full quest details, and the quest inspection overlay. It inventories every marker present in the deployed pursuit manifest, uses Bungie's existing element art, vendors the CC0 Destiny weapon symbols at pinned source commit `394ed05`, preserves tooltip and screen-reader labels, and leaves unknown future markers as text instead of hiding them.
+
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `main`; compact Vault actions merged from `codex/compact-vault-actions` through PR #94.
+- Current implementation branch: `codex/objective-requirement-icons`; compact objective icons are implemented and the full audit passes, but the PR, merge, deployment, and signed-in production QA are still pending at this checkpoint.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
@@ -51,6 +53,8 @@ The Vault icon-card footer no longer tries to fit three large action buttons bes
 - PR #86 merged and deployed successfully through production workflow run `31280373982`; additive migration `0017_fireteam_activity_feed.sql`, API, and Web deployment all passed. Signed-in production QA confirmed the opted-out existing-share state, correct placement below member quest tracking and above Social, disabled solo composer, minimize/restore controls, and zero browser console errors.
 - Gear Loot follow-up validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, the complete API and web suites including the new three-rail categorization/paging regressions, tooling/Python tests, API and Web production builds, and performance budgets. Output is 365,120 bytes entry JavaScript (112,531 bytes gzip) and 33,043 bytes CSS. PR #92 merged as `b7db01775b2b5a3fca439d1ce4efad7067828069`; production workflow `31285363245` refreshed manifests/ratings, reran the audit, applied migrations, and deployed the API and web successfully. Signed-in production QA confirmed a 30-day default with 22 real events split into 6 Recent Weapons, 6 Recent Armor, and 10 miscellaneous Recent Loot gains; all three rows expose independent edge arrows/page counts, a Service Revolver opened the complete themed stat tooltip, the generic `Bungie data` card label was absent, and the browser console had zero errors.
 - Compact Vault action follow-up validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries across 38 stylesheets, ESLint, every TypeScript target, 24 domain tests, the complete API and 264-test web suites, tooling/Python tests, production builds, and performance budgets. Output is 365,157 bytes entry JavaScript (112,548 bytes gzip) and 33,043 bytes CSS. PR #94 merged as `61e269b6e0c845319a9977caef92086550045f93`; production workflow `31286055350` refreshed manifests/ratings, reran the audit, applied migrations, and deployed the API and web successfully. Signed-in production QA narrowed 1,185 real Vault items to three Apotheosis Veil cards, confirmed each 104px card had one 28×28 circular action trigger beside its tag control, opened the themed Unlock/Pull to Guardian/Equip menu, verified Escape dismissal, and invoked no Bungie inventory mutation. Console entries were limited to external browser-extension connection messages rather than Guardian Nexus application failures.
+
+- Objective requirement icon validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries across 39 stylesheets, ESLint, every TypeScript target, 24 domain tests, 194 API tests, 266 web tests, tooling/Python tests, production builds, and performance budgets. Output is 365,322 bytes entry JavaScript (112,621 bytes gzip) and 33,043 bytes CSS. PR, merge, deployment, and signed-in production QA remain pending at this checkpoint.
 
 ## Completed release scope
 
@@ -125,6 +129,7 @@ The Vault icon-card footer no longer tries to fit three large action buttons bes
 70. Replaced Fireteam's mixed current-state list with a private, versioned item-event timeline. It detects physical weapon/armor instances, catalyst acquisition and completion transitions, and positive stackable-inventory deltas; coalesces rapid identical material gains into `×N`; retains chronological events after items leave current inventory; and pages the full retained timeline newest-left without pinning catalysts. Migration `0016_recent_item_timeline.sql`, API module tests, UI ordering/quantity tests, and the `/api/v1/me/recent-items` contract are the maintenance boundary.
 71. Rebuilt Gear's Loot workspace around `/api/v1/me/recent-items` with separate Recent Weapons, Recent Armor, and miscellaneous Recent Loot rails. Each full-width row pages its complete filtered history newest-left to oldest-right; the miscellaneous rail contains catalysts, engrams, materials, and other inventory gains, while physical gear keeps its themed cards, tooltips, tags, and honest roll-rating state.
 72. Replaced the Vault cards' overflowing inline Lock/Pull/Equip buttons with one compact themed item-actions trigger and a labeled keyboard-accessible flyout, preserving the same supported Bungie operations and equip confirmation.
+73. Replaced Bungie's space-heavy bracket objective markers with compact accessible Destiny icons across Fireteam Orders and every quest progress surface. The renderer covers all markers in the current pursuit manifest, preserves unknown markers as readable text, and vendors the source-pinned CC0 weapon/combat SVGs for reliable production delivery.
 
 ## Files in release scope
 
@@ -140,6 +145,14 @@ The Vault icon-card footer no longer tries to fit three large action buttons bes
 - `apps/web/src/components/gear/VaultWorkspace.test.tsx`
 - `apps/web/src/components/gear/VaultWorkspace.module.css`
 - `apps/web/src/components/gear/RecentLoot.tsx`
+- `apps/web/src/components/quests/ObjectiveRequirementText.tsx`
+- `apps/web/src/components/quests/ObjectiveRequirementText.module.css`
+- `apps/web/src/components/quests/ObjectiveRequirementText.test.tsx`
+- `apps/web/src/components/quests/QuestInspectPanel.tsx`
+- `apps/web/public/icons/destiny/objectives/`
+- `apps/web/src/pages/FireteamPage.tsx`
+- `apps/web/src/pages/QuestsPage.tsx`
+- `apps/web/src/pages/QuestDetailPage.tsx`
 - `apps/web/src/components/gear/RecentLoot.module.css`
 - `apps/web/src/components/gear/LootWorkspace.tsx`
 - `apps/web/src/components/gear/LootWorkspace.test.tsx`
