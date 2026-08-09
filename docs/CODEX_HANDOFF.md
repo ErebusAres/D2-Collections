@@ -32,10 +32,12 @@ Fireteam loot lines use a compact rarity-colored diamond before a small item thu
 
 Gear now also has a dedicated Vault tab after Loot. It combines only physical vaulted weapons and armor, supports item kind, slot, rarity, weapon type/element, armor class, lock, tag, search, sort, and six-stat base/current range filters, and renders large result sets in bounded 120-item increments. Existing private tags and Bungie-supported lock, pull, and equip actions are reused. Bungie's third-party API exposes no delete/dismantle operation, so the workspace explicitly sends filtered cleanup candidates through the private Junk tag for in-game verification instead of claiming unsupported deletion.
 
+The Vault icon-card footer no longer tries to fit three large action buttons beside the compact tag picker. Each card now has one matching 28px circular item-actions trigger that opens a themed, keyboard-accessible Lock/Unlock, Pull to Guardian, and Equip menu above the card. The menu closes on selection, outside pointer input, or Escape; action colors follow the existing gold/cyan/success palette, and the original Gear API call shapes and confirmation boundary remain intact.
+
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `main`; the Gear timeline implementation merged from `codex/gear-recent-timeline-rails` through PR #92.
+- Current implementation branch: `codex/compact-vault-actions` from `main`.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
@@ -48,6 +50,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - Previous Fireteam activity validation on 2026-08-08: archive/source/CSS boundaries, ESLint, every TypeScript target, 193 API tests, 259 web tests, 24 domain tests, tooling/Python tests, API and Web production builds, and performance budgets all passed. Entry output was 365,120 bytes JavaScript (112,518 bytes gzip) and 33,043 bytes CSS. The current follow-up's full audit and deployment must replace this checkpoint after completion.
 - PR #86 merged and deployed successfully through production workflow run `31280373982`; additive migration `0017_fireteam_activity_feed.sql`, API, and Web deployment all passed. Signed-in production QA confirmed the opted-out existing-share state, correct placement below member quest tracking and above Social, disabled solo composer, minimize/restore controls, and zero browser console errors.
 - Gear Loot follow-up validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries, ESLint, every TypeScript target, 24 domain tests, the complete API and web suites including the new three-rail categorization/paging regressions, tooling/Python tests, API and Web production builds, and performance budgets. Output is 365,120 bytes entry JavaScript (112,531 bytes gzip) and 33,043 bytes CSS. PR #92 merged as `b7db01775b2b5a3fca439d1ce4efad7067828069`; production workflow `31285363245` refreshed manifests/ratings, reran the audit, applied migrations, and deployed the API and web successfully. Signed-in production QA confirmed a 30-day default with 22 real events split into 6 Recent Weapons, 6 Recent Armor, and 10 miscellaneous Recent Loot gains; all three rows expose independent edge arrows/page counts, a Service Revolver opened the complete themed stat tooltip, the generic `Bungie data` card label was absent, and the browser console had zero errors.
+- Compact Vault action follow-up validation on 2026-08-08: full `pnpm run audit` passes archive/source/CSS boundaries across 38 stylesheets, ESLint, every TypeScript target, 24 domain tests, the complete API and 264-test web suites, tooling/Python tests, production builds, and performance budgets. Output is 365,157 bytes entry JavaScript (112,548 bytes gzip) and 33,043 bytes CSS. Merge, production deployment, and signed-in Vault QA remain pending at this checkpoint.
 
 ## Completed release scope
 
@@ -121,6 +124,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 69. Refined Fireteam Recent Loot into a single responsive row with explicit previous/next page arrows and a page counter. The row calculates its page size from available width, retains the larger 12/24/48 history choices, exposes weapon rating percentages/quality instead of suppressing them in compact mode, and replaces finished-catalyst `Complete` text with a green check, 100%, and `Masterworked` language.
 70. Replaced Fireteam's mixed current-state list with a private, versioned item-event timeline. It detects physical weapon/armor instances, catalyst acquisition and completion transitions, and positive stackable-inventory deltas; coalesces rapid identical material gains into `×N`; retains chronological events after items leave current inventory; and pages the full retained timeline newest-left without pinning catalysts. Migration `0016_recent_item_timeline.sql`, API module tests, UI ordering/quantity tests, and the `/api/v1/me/recent-items` contract are the maintenance boundary.
 71. Rebuilt Gear's Loot workspace around `/api/v1/me/recent-items` with separate Recent Weapons, Recent Armor, and miscellaneous Recent Loot rails. Each full-width row pages its complete filtered history newest-left to oldest-right; the miscellaneous rail contains catalysts, engrams, materials, and other inventory gains, while physical gear keeps its themed cards, tooltips, tags, and honest roll-rating state.
+72. Replaced the Vault cards' overflowing inline Lock/Pull/Equip buttons with one compact themed item-actions trigger and a labeled keyboard-accessible flyout, preserving the same supported Bungie operations and equip confirmation.
 
 ## Files in release scope
 
@@ -134,6 +138,7 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 - `apps/web/src/components/gear/WeaponWorkspace.test.tsx`
 - `apps/web/src/components/gear/VaultWorkspace.tsx`
 - `apps/web/src/components/gear/VaultWorkspace.test.tsx`
+- `apps/web/src/components/gear/VaultWorkspace.module.css`
 - `apps/web/src/components/gear/RecentLoot.tsx`
 - `apps/web/src/components/gear/RecentLoot.module.css`
 - `apps/web/src/components/gear/LootWorkspace.tsx`

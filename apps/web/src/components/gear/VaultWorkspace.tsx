@@ -1,10 +1,11 @@
 import type { ArmorStatKey, GearActionRequest, GearData, GearTag } from "@guardian-nexus/contracts";
 import { ARMOR_STAT_KEYS } from "@guardian-nexus/domain";
-import { ArrowDownToLine, Info, Lock, LockOpen, RotateCcw, Search, Shield } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowDownToLine, Info, Lock, LockOpen, MoreHorizontal, RotateCcw, Search, Shield } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GearTagFilter } from "./GearTagPicker";
 import { gearLootItems, LootHistoryGrid, type LootItem } from "./RecentLoot";
 import styles from "../../pages/Pages.module.css";
+import vaultStyles from "./VaultWorkspace.module.css";
 
 type VaultKind = "all" | "weapon" | "armor";
 type VaultStatSource = "base" | "current";
@@ -104,13 +105,31 @@ export function VaultWorkspace({ data, selectedCharacterId, onTag, onAction, bus
 
     <section className={styles.vaultSafety}><Info /><div><strong>Dismantling is not available to third-party Destiny apps</strong><p>Bungie exposes transfer, equip, and lock actions, but not delete or dismantle. Use these filters and the private Junk tag to build a cleanup list, then verify and dismantle those items in-game.</p></div></section>
 
-    <LootHistoryGrid title="Vault contents" subtitle={visible.length < filtered.length ? `Showing ${visible.length} of ${filtered.length} matching items · hover or focus for full details` : "Only physical weapons and armor currently reported in your Vault · hover or focus for full details"} items={visible} onTag={onTag} busy={busy} empty="No Vault items match these filters. Reset the filters or sync gear after changing your inventory in Destiny." itemActions={(item) => <>
-      <button type="button" disabled={busy} title={item.locked ? `Unlock ${item.name}` : `Lock ${item.name}`} aria-label={item.locked ? `Unlock ${item.name}` : `Lock ${item.name}`} onClick={() => onAction({ action: "setLock", itemInstanceId: item.instanceId, locked: !item.locked, characterId: selectedCharacterId })}>{item.locked ? <Lock /> : <LockOpen />}</button>
-      <button type="button" disabled={busy} title={`Pull ${item.name} to selected Guardian`} aria-label={`Pull ${item.name} to selected Guardian`} onClick={() => onAction({ action: "transfer", itemInstanceId: item.instanceId, target: "character", targetCharacterId: selectedCharacterId })}><ArrowDownToLine /></button>
-      <button type="button" disabled={busy} title={`Equip ${item.name} on selected Guardian`} aria-label={`Equip ${item.name} on selected Guardian`} onClick={() => onAction({ action: "equip", itemInstanceId: item.instanceId, characterId: selectedCharacterId }, `Equip ${item.name} on the Selected Guardian? Bungie will transfer it from the Vault first.`)}><Shield /></button>
-    </>} />
+    <LootHistoryGrid title="Vault contents" subtitle={visible.length < filtered.length ? `Showing ${visible.length} of ${filtered.length} matching items · hover or focus for full details` : "Only physical weapons and armor currently reported in your Vault · hover or focus for full details"} items={visible} onTag={onTag} busy={busy} empty="No Vault items match these filters. Reset the filters or sync gear after changing your inventory in Destiny." itemActions={(item) => <VaultItemActions item={item} selectedCharacterId={selectedCharacterId} onAction={onAction} busy={busy} />} />
     {visible.length < filtered.length && <button type="button" className={styles.vaultShowMore} onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>Show {Math.min(PAGE_SIZE, filtered.length - visible.length)} more items</button>}
   </>;
+}
+
+function VaultItemActions({ item, selectedCharacterId, onAction, busy }: { item: LootItem; selectedCharacterId: string; onAction: (input: GearActionRequest, confirm?: string) => void; busy: boolean }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    window.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { window.removeEventListener("pointerdown", closeOutside); window.removeEventListener("keydown", closeOnEscape); };
+  }, [open]);
+  const act = (input: GearActionRequest, confirm?: string) => { setOpen(false); if (confirm) onAction(input, confirm); else onAction(input); };
+  return <div className={vaultStyles.itemActions} ref={root}>
+    <button type="button" className={vaultStyles.actionTrigger} disabled={busy} title={`Actions for ${item.name}`} aria-label={`Actions for ${item.name}`} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}><MoreHorizontal /></button>
+    {open && <div className={vaultStyles.actionMenu} role="menu" aria-label={`Actions for ${item.name}`}>
+      <button type="button" role="menuitem" className={item.locked ? vaultStyles.unlockAction : vaultStyles.lockAction} disabled={busy} onClick={() => act({ action: "setLock", itemInstanceId: item.instanceId, locked: !item.locked, characterId: selectedCharacterId })}>{item.locked ? <LockOpen /> : <Lock />}<span>{item.locked ? "Unlock" : "Lock"}</span></button>
+      <button type="button" role="menuitem" className={vaultStyles.pullAction} disabled={busy} onClick={() => act({ action: "transfer", itemInstanceId: item.instanceId, target: "character", targetCharacterId: selectedCharacterId })}><ArrowDownToLine /><span>Pull to Guardian</span></button>
+      <button type="button" role="menuitem" className={vaultStyles.equipAction} disabled={busy} onClick={() => act({ action: "equip", itemInstanceId: item.instanceId, characterId: selectedCharacterId }, `Equip ${item.name} on the Selected Guardian? Bungie will transfer it from the Vault first.`)}><Shield /><span>Equip</span></button>
+    </div>}
+  </div>;
 }
 
 function emptyStatRanges(): StatRanges {

@@ -64,8 +64,14 @@ describe("VaultWorkspace", () => {
 
   it("offers supported Vault actions but does not claim it can dismantle", () => {
     const onAction = renderVault();
-    fireEvent.click(screen.getByRole("button", { name: "Pull Vault Rifle to selected Guardian" }));
+    expect(screen.queryByRole("menuitem", { name: /Pull to Guardian/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Vault Rifle" }));
+    expect(screen.getByRole("menu", { name: "Actions for Vault Rifle" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Lock" })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: "Equip" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Pull to Guardian" }));
     expect(onAction).toHaveBeenCalledWith({ action: "transfer", itemInstanceId: "weapon-energy", target: "character", targetCharacterId: "character" });
+    expect(screen.queryByRole("menu", { name: "Actions for Vault Rifle" })).toBeNull();
     expect(screen.getByText("Dismantling is not available to third-party Destiny apps")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /dismantle|delete/i })).toBeNull();
   });
