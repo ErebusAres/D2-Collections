@@ -25,13 +25,19 @@ export function guardianSessionCacheState(refreshedAt?: string, now = Date.now()
   return "expired";
 }
 
-export function preservePartyWhenTransitoryIsMissing(
+export function resolvePartyObservation(
   observed: SavedPartyMember[],
   previous: SavedPartyMember[],
-  transitoryAvailable: boolean
-): SavedPartyMember[] {
-  if (transitoryAvailable || observed.length > 1 || previous.length <= 1) return observed;
-  return previous.slice(0, 12);
+  transitoryAvailable: boolean,
+  consecutiveSoloObservations = 0
+): { members: SavedPartyMember[]; consecutiveSoloObservations: number } {
+  if (!transitoryAvailable) return { members: previous.length ? previous.slice(0, 12) : observed, consecutiveSoloObservations };
+  if (observed.length > 1) return { members: observed, consecutiveSoloObservations: 0 };
+  if (previous.length <= 1) return { members: observed, consecutiveSoloObservations: 0 };
+  const nextSoloObservations = Math.max(0, consecutiveSoloObservations) + 1;
+  return nextSoloObservations < 3
+    ? { members: previous.slice(0, 12), consecutiveSoloObservations: nextSoloObservations }
+    : { members: observed, consecutiveSoloObservations: 0 };
 }
 
 export async function mapWithConcurrency<T, R>(values: T[], concurrency: number, mapper: (value: T, index: number) => Promise<R>): Promise<R[]> {
