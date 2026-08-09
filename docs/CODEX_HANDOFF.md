@@ -24,6 +24,8 @@ PR #111 passed workflow `31298274231`, squash-merged as `a0125f3b0fdce9e01177cfe
 
 The `codex/fireteam-activity-tier-diamond` follow-up restores the compact numbered diamond requested for gear finds in Fireteam Activity. It reads only the shared weapon or armor snapshot's real Bungie `gearTier`, normalizes it through the same 1-5 contract used by Gear, and renders the tier number before the existing small item icon. Tiers 1-2 use the light treatment, 3-4 purple, and 5 gold. Catalysts, Exotic Engrams, messages, materials, missing tiers, zero, and out-of-range values remain marker-free. The regression suite asserts both the Tier 4 weapon diamond and the Exotic Engram exclusion. The complete audit passes with 24 domain, 201 API, 272 Web, and 21 manifest tests plus all typechecks, builds, source-boundary checks, and performance budgets at 367,440 bytes JavaScript (113,293 gzip) and 33,043 bytes CSS.
 
+PR #113 passed workflow `31299143255`, squash-merged as `c63af2c1f2f8da95ebd727b5f7c00587484698c5`, and deployed successfully through production workflow `31299224457`. Live Activity inspection showed the renderer was present but the retained legacy feed rows lacked their embedded gear snapshot, so no numbered diamonds appeared there even though the same items had tiers in Recent Loot. Follow-up branch `codex/fireteam-activity-tier-rehydrate` keeps Activity D1-only and bounded while changing its existing event query to left-join the matching current observation. The current weapon/armor snapshot replaces missing or older embedded gear data, private tag/owner/dismissal fields are stripped afterward, and the UI can therefore render the same real tier without a Bungie request or an additional D1 round trip. Its complete audit passes with 24 domain, 202 API, 272 Web, and 21 manifest tests, all typechecks/builds, and performance budgets at 367,440 bytes JavaScript (113,285 gzip) and 33,043 bytes CSS.
+
 ### Fireteam Worker reliability hardening
 
 Signed-in production reproduction on 2026-08-08 returned Cloudflare error 1102 for 6/6 `/api/v1/fireteam` requests. The responses identified a Worker resource-limit failure rather than a D1 synchronization problem. The former core route combined the 1.13 MB activity manifest, an unbounded active-share scan, public member profile resolution, Fireteam Activity, and Bungie friends/clan roster work in one request.
@@ -79,7 +81,7 @@ The current objective-icon release replaces Bungie's bracketed objective markers
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/fireteam-activity-tier-diamond`, based on production merge `acb94bb`; the Fireteam reliability work and its evidence handoff are live, while the restored Activity gear-tier diamond is pending release.
+- Current implementation branch: `codex/fireteam-activity-tier-rehydrate`, based on production merge `c63af2c`; the numbered Activity diamond renderer is live, while legacy D1 event rehydration is pending release.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
