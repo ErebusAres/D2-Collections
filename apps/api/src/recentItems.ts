@@ -27,6 +27,39 @@ const RETENTION_DAYS = 30;
 const MAX_EVENTS = 200;
 const RAW_EVENT_SCAN_LIMIT = MAX_EVENTS * 5;
 
+export async function readRecentItems(membershipId: string, env: Env, now = new Date().toISOString()): Promise<RecentItemTimelineData> {
+  const [observationSummary, rows] = await Promise.all([
+    env.DB.prepare("SELECT COUNT(*) AS observation_count, MAX(updated_at) AS observed_at FROM recent_item_observations WHERE membership_id = ?")
+      .bind(membershipId).first<{ observation_count: number; observed_at: string | null }>(),
+    env.DB.prepare("SELECT * FROM recent_item_events WHERE membership_id = ? ORDER BY last_observed_at DESC, id DESC LIMIT ?")
+      .bind(membershipId, RAW_EVENT_SCAN_LIMIT).all<any>()
+  ]);
+  const events = coalesceTimelineEvents((rows.results || []).map(recentItemEventFromRow)).slice(0, MAX_EVENTS);
+  const instanceIds = [...new Set(events.flatMap((event) => event.instanceId ? [event.instanceId] : []))];
+  const currentGear = new Map<string, GearLoot>();
+  for (let offset = 0; offset < instanceIds.length; offset += 80) {
+    const batch = instanceIds.slice(offset, offset + 80);
+    if (!batch.length) continue;
+    const placeholders = batch.map(() => "?").join(",");
+    const observations = await env.DB.prepare(`SELECT observation_key, metadata_json FROM recent_item_observations WHERE membership_id = ? AND observation_key IN (${placeholders})`)
+      .bind(membershipId, ...batch.map((instanceId) => `gear:${instanceId}`)).all<{ observation_key: string; metadata_json: string }>();
+    for (const observation of observations.results || []) {
+      try {
+        const metadata = JSON.parse(observation.metadata_json || "{}");
+        const instanceId = String(metadata?.instanceId || metadata?.gear?.instanceId || observation.observation_key.replace(/^gear:/, ""));
+        if (instanceId && metadata?.gear) currentGear.set(instanceId, metadata.gear);
+      } catch { /* A malformed observation must not hide the rest of the saved timeline. */ }
+    }
+  }
+  return {
+    timelineSchemaVersion: 1,
+    events: events.map((event) => event.instanceId && currentGear.has(event.instanceId) ? { ...event, gear: currentGear.get(event.instanceId) } : event),
+    retentionDays: RETENTION_DAYS,
+    firstObservationEstablished: Number(observationSummary?.observation_count || 0) > 0,
+    observedAt: observationSummary?.observed_at || now
+  };
+}
+
 export async function observeRecentItems(input: {
   membershipId: string;
   profile: any;

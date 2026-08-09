@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition } from "./recentItems";
+import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition, readRecentItems } from "./recentItems";
 
 describe("recent item timeline transitions", () => {
   const now = "2026-08-08T12:00:00.000Z";
@@ -94,5 +94,25 @@ describe("recent item timeline transitions", () => {
     const prior: any = { quantity: 10, observed_at: "2026-08-08T11:00:00.000Z", updated_at: "2026-08-08T11:59:00.000Z" };
     expect(await eventId("member", event, observation, prior)).toBe(await eventId("member", event, observation, prior));
     expect(await eventId("member", event, observation, prior)).not.toBe(await eventId("member", event, observation, { ...prior, updated_at: "2026-08-08T12:30:00.000Z" }));
+  });
+
+  it("reads the saved timeline and current gear metadata using bounded D1 queries only", async () => {
+    const queries: string[] = [];
+    const env: any = { DB: { prepare: (sql: string) => ({ bind: (..._values: unknown[]) => ({
+      first: async () => {
+        queries.push(sql);
+        return { observation_count: 4, observed_at: now };
+      },
+      all: async () => {
+        queries.push(sql);
+        if (sql.includes("recent_item_events")) return { results: [{ id: "event", membership_id: "member", event_kind: "weapon-found", source_key: "gear:instance", item_hash: "10", instance_id: "instance", record_hash: null, name: "Saved Rifle", description: "", icon: "", quantity: 1, metadata_json: JSON.stringify({ id: "event", kind: "weapon-found", sourceKey: "gear:instance", name: "Saved Rifle", icon: "", quantity: 1, observedAt: now, lastObservedAt: now }), observed_at: now, last_observed_at: now }] };
+        return { results: [{ observation_key: "gear:instance", metadata_json: JSON.stringify({ instanceId: "instance", gear: { kind: "weapon", instanceId: "instance", itemHash: "10", name: "Saved Rifle", icon: "", rarity: "Legendary", power: 550, slot: "Kinetic", damageType: "Kinetic", itemType: "Auto Rifle", location: "vault", equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false, perkColumns: [], originTraits: [], stats: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: now, isNew: true } }) }] };
+      }
+    }) }) } };
+
+    const data = await readRecentItems("member", env, now);
+    expect(data).toMatchObject({ observedAt: now, firstObservationEstablished: true, events: [{ name: "Saved Rifle", gear: { kind: "weapon", power: 550 } }] });
+    expect(queries).toHaveLength(3);
+    expect(queries.every((query) => /recent_item_(?:observations|events)/.test(query))).toBe(true);
   });
 });
