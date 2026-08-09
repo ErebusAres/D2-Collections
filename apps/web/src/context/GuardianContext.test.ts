@@ -1,6 +1,7 @@
 import type { ApiEnvelope, SessionData } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { safeSessionForCache } from "./GuardianContext";
+import { safeSessionForCache, shouldRetrySession } from "./GuardianContext";
+import { ApiRequestError } from "../services/api/client";
 
 describe("safe Guardian session cache", () => {
   it("retains server-verified role flags while marking them stale", () => {
@@ -22,5 +23,10 @@ describe("safe Guardian session cache", () => {
     expect(cached.data.rolesState).toBe("stale");
     expect(cached.data.csrfToken).toBeUndefined();
     expect(cached.freshness.state).toBe("stale");
+  });
+
+  it("does not retry a Worker resource-limit response during account bootstrap", () => {
+    expect(shouldRetrySession(0, new ApiRequestError(500, { code: "worker_resource_limit" }))).toBe(false);
+    expect(shouldRetrySession(0, new ApiRequestError(503, { code: "temporary_failure" }))).toBe(true);
   });
 });

@@ -1,10 +1,20 @@
 # Guardian Nexus Codex handoff
 
-Last updated: 2026-08-08
+Last updated: 2026-08-09
 
 This file is the operational handoff for Chris Codex or another maintainer continuing the current Guardian Nexus roadmap implementation. Keep it current when scope, validation, or publish state changes.
 
 ## Current objective
+
+### 2026-08-09 recurrence: durable account bootstrap and party preservation
+
+Signed-in production testing reproduced the user's report as two related symptoms: the Fireteam page initially rendered only `ErebusAres#0634` from saved data, while the global connection control remained in its saved-data/over-capacity state. The next bounded presence refresh recovered the current three-member party, proving that the D1 core read was healthy but a refresh had temporarily collapsed the saved party. The cause is deterministic: `storeShare` intentionally uses the `fireteam-share` Bungie component set without component 1000, but treated the omitted transitory component as an observed solo party and rewrote `activityPartyMembers` to self-only. `refreshFireteamPresence` had the same collapse behavior whenever Bungie omitted the requested transitory component.
+
+Branch `codex/fireteam-session-cache` preserves the last verified at-most-12 party whenever transitory data was not returned; a real returned empty party remains authoritative and can still transition the user to solo. The regression helper explicitly distinguishes “component absent” from “component present with no teammates.” This prevents explicit and scheduled tracked-progress refreshes from erasing valid member cards.
+
+The remaining global Worker risk was outside `/api/v1/fireteam`: the always-on `/api/v1/session` and `/api/v1/me/rewards` requests still parsed Bungie account data and reward manifests on their response paths. Migration `0020_guardian_session_cache.sql` adds durable account and per-character Rewards Pass snapshots. Both routes now return fresh or stale D1 data immediately, remove live presence claims from stale account data, and refresh through `waitUntil`. A two-minute D1 lease prevents concurrent tabs and 60-second refreshes from starting duplicate Bungie work; failed refreshes release or age out the lease while the last snapshot remains usable for 24 hours and beyond as explicitly stale data. Existing persistent Fireteam shares seed a safe minimal account snapshot during migration rollout, so established users do not need one successful expensive bootstrap before the route can respond. The session profile no longer requests unrelated transitory component 1000, and the web session query does not retry Cloudflare 1102 responses.
+
+Support diagnostics now expose account-cache age/state, refresh-in-progress state, and the last refresh failure alongside the existing Fireteam presence and Social cache details. The complete `pnpm run audit` passes archive/source/CSS boundaries across 40 stylesheets, ESLint, every TypeScript target, 24 domain tests, 201 API tests, 271 Web tests, tooling tests, 21 manifest Python tests, production API/Web builds, and performance budgets at 367,440 bytes JavaScript (113,264 gzip) and 33,043 bytes CSS. PR/merge/deploy, repeated signed-in production acceptance, and final workflow evidence remain pending at this checkpoint.
 
 ### Fireteam Worker reliability hardening
 
@@ -61,7 +71,7 @@ The current objective-icon release replaces Bungie's bracketed objective markers
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/fireteam-worker-reliability-live`, a documentation-only production-evidence checkpoint. The implementation is live on `main`.
+- Current implementation branch: `codex/fireteam-session-cache`, based on current production `main`; the 2026-08-09 recurrence fix is not live until its PR merges and the production workflow succeeds.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)

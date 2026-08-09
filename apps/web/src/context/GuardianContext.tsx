@@ -78,7 +78,7 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     initialDataUpdatedAt: 0,
     staleTime: 0,
     placeholderData: (previous) => previous,
-    retry: (failureCount, error) => (!(error instanceof ApiRequestError) || error.status === 408 || error.status === 429 || error.status >= 500) && failureCount < 3,
+    retry: shouldRetrySession,
     retryDelay: (attempt, error) => error instanceof ApiRequestError && error.retryAfterSeconds
       ? Math.min(error.retryAfterSeconds * 1_000, 30_000)
       : Math.min(1_000 * 2 ** attempt, 5_000)
@@ -202,6 +202,11 @@ export function useGuardian(): GuardianContextValue {
   const value = useContext(GuardianContext);
   if (!value) throw new Error("useGuardian must be used inside GuardianProvider.");
   return value;
+}
+
+export function shouldRetrySession(failureCount: number, error: unknown): boolean {
+  return failureCount < 3 && (!(error instanceof ApiRequestError)
+    || (error.code !== "worker_resource_limit" && (error.status === 408 || error.status === 429 || error.status >= 500)));
 }
 
 export function pinsKey(membershipId: string, characterId: string): string {

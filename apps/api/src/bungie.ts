@@ -430,7 +430,7 @@ export type ProfileMode = "full" | "session" | "collection" | "quests" | "journe
 
 export function profileComponentsFor(mode: ProfileMode): string {
   return mode === "session"
-    ? "100,200,201,202,204,1000"
+    ? "100,200,201,202,204"
     : mode === "collection"
       ? "100,102,200,201,800,900"
       : mode === "quests"

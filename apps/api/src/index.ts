@@ -12,6 +12,7 @@ import type {
   FireteamSharingMode,
   FireteamCompletedTrackedItem,
   FireteamTrackedItem,
+  GuardianSummary,
   GearActionRequest,
   GearActionResult,
   GearData,
@@ -80,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamSocialCacheState } from "./fireteamReliability";
+import { fireteamSocialCacheState, guardianSessionCacheState, preservePartyWhenTransitoryIsMissing } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -339,8 +340,10 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
     const compactManifest = await loadActivityNames(env);
     const socialCache = row ? await env.DB.prepare("SELECT refreshed_at, expires_at, last_error FROM fireteam_social_cache WHERE membership_id = ?").bind(row.membership_id).first<any>() : null;
     const presenceCache = row ? await env.DB.prepare("SELECT presence_refreshed_at, presence_error FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<any>() : null;
+    const accountCache = row ? await env.DB.prepare("SELECT refreshed_at, refresh_started_at, last_error FROM guardian_session_cache WHERE membership_id = ?").bind(row.membership_id).first<any>() : null;
     const socialCacheAgeSeconds = socialCache?.refreshed_at ? Math.max(0, Math.round((Date.now() - Date.parse(socialCache.refreshed_at)) / 1_000)) : undefined;
     const presenceCacheAgeSeconds = presenceCache?.presence_refreshed_at ? Math.max(0, Math.round((Date.now() - Date.parse(presenceCache.presence_refreshed_at)) / 1_000)) : undefined;
+    const accountCacheAgeSeconds = accountCache?.refreshed_at ? Math.max(0, Math.round((Date.now() - Date.parse(accountCache.refreshed_at)) / 1_000)) : undefined;
     tests.push({
       id: "fireteam-reliability",
       name: "Fireteam reliability",
@@ -355,6 +358,10 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
         presenceCacheState: !row ? "not-applicable" : !presenceCache ? "missing" : presenceCacheAgeSeconds! <= 120 ? "fresh" : "stale",
         presenceCacheAgeSeconds,
         lastPresenceRefreshFailed: Boolean(presenceCache?.presence_error),
+        accountCacheState: !row ? "not-applicable" : accountCache ? guardianSessionCacheState(accountCache.refreshed_at) : "missing",
+        accountCacheAgeSeconds,
+        accountRefreshInProgress: Boolean(accountCache?.refresh_started_at),
+        lastAccountRefreshFailed: Boolean(accountCache?.last_error),
         socialCacheState: !row ? "not-applicable" : !socialCache ? "missing" : socialCacheAgeSeconds! <= 600 ? "fresh" : socialCacheAgeSeconds! <= 86_400 ? "stale-usable" : "expired",
         socialCacheAgeSeconds,
         lastSocialRefreshFailed: Boolean(socialCache?.last_error),
@@ -576,34 +583,158 @@ async function readSession(request: Request, env: Env, context: RequestContext):
   const visitorCookie = await recordAudienceVisitor(request, env, context);
   const session = await sessionFromRequest(request, env);
   if (!session) return withSetCookie(envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false }, rolesState: "verified" }, env, context), visitorCookie);
-  const { profile, accessToken } = await profileFor(session.row, env, "session");
-  const [manifest, pvpManifest] = await Promise.all([loadActivityNames(env), loadRewardsManifest(env)]);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
-  const selectedId = selectedCharacter(charactersFromProfile(profile), requestedCharacterId)?.characterId;
-  const guardian = normalizeGuardian({
-    profile,
-    membershipId: session.row.membership_id,
-    membershipType: session.row.membership_type,
-    displayName: session.row.display_name,
-    bungieName: session.row.bungie_name,
-    requestedCharacterId,
-    rewardsPass: await seasonPassProgress(profile, accessToken, env, requestedCharacterId),
-    crucibleRank: normalizePvpProgressions(profile, pvpManifest, selectedId).find((entry) => entry.kind === "crucible"),
-    manifest
-  });
-  await rememberAudienceGuardian(env, guardian);
+  const cached = await env.DB.prepare("SELECT guardian_json, refreshed_at, expires_at, last_error FROM guardian_session_cache WHERE membership_id = ?")
+    .bind(session.row.membership_id).first<any>();
+  let cachedGuardian: GuardianSummary | undefined;
+  try { cachedGuardian = cached?.guardian_json ? JSON.parse(cached.guardian_json) : undefined; } catch { cachedGuardian = undefined; }
+  const cacheState = cachedGuardian ? guardianSessionCacheState(cached.refreshed_at) : "missing";
+  if (cachedGuardian) {
+    if (cacheState !== "fresh") context.waitUntil?.(refreshGuardianSessionCacheWithLease(session.row, env));
+    const selectedGuardian = guardianForRequestedCharacter(cachedGuardian, requestedCharacterId);
+    const guardian = cacheState === "fresh" ? selectedGuardian : guardianWithoutLivePresence(selectedGuardian);
+    return withSetCookie(envelope<SessionData>({
+      authenticated: true,
+      guardian,
+      csrfToken: await csrfToken(session.token, env),
+      roles: sessionRoles(session.row, env),
+      rolesState: "verified"
+    }, env, context, {
+      sourceMintedAt: cached.refreshed_at,
+      state: cacheState === "fresh" ? "fresh" : "stale",
+      warnings: cacheState === "fresh" ? [] : ["Account details are refreshing; showing the last saved Guardian snapshot.", ...(cached.last_error ? [String(cached.last_error)] : [])]
+    }), visitorCookie);
+  }
+  const savedFallback = await guardianFromFireteamShare(session.row, env);
+  if (savedFallback) {
+    await env.DB.prepare("INSERT OR IGNORE INTO guardian_session_cache (membership_id, guardian_json, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, ?, ?, NULL, NULL)")
+      .bind(session.row.membership_id, JSON.stringify(savedFallback.guardian), savedFallback.observedAt, new Date(Date.now() + 24 * 60 * 60_000).toISOString()).run();
+    context.waitUntil?.(refreshGuardianSessionCacheWithLease(session.row, env));
+    return withSetCookie(envelope<SessionData>({
+      authenticated: true,
+      guardian: guardianWithoutLivePresence(guardianForRequestedCharacter(savedFallback.guardian, requestedCharacterId)),
+      csrfToken: await csrfToken(session.token, env),
+      roles: sessionRoles(session.row, env),
+      rolesState: "verified"
+    }, env, context, { sourceMintedAt: savedFallback.observedAt, state: "stale", warnings: ["Account details are refreshing; showing the saved Fireteam Guardian snapshot."] }), visitorCookie);
+  }
+  const refreshed = await refreshGuardianSessionCache(session.row, env);
   return withSetCookie(envelope<SessionData>({
     authenticated: true,
-    guardian,
+    guardian: refreshed.guardian,
     csrfToken: await csrfToken(session.token, env),
-    roles: {
-      dev: allowlist(env.DEV_MEMBERSHIP_IDS).has(session.row.membership_id),
-      matrixWriter: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id),
-      buildEditor: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(session.row.membership_id),
-      reportAdmin: isReportAdmin(session.row.membership_id, env)
-    },
+    roles: sessionRoles(session.row, env),
     rolesState: "verified"
-  }, env, context, { sourceMintedAt: profile?.responseMintedTimestamp }), visitorCookie);
+  }, env, context, { sourceMintedAt: refreshed.sourceMintedAt || refreshed.refreshedAt }), visitorCookie);
+}
+
+function sessionRoles(row: SessionRow, env: Env): SessionData["roles"] {
+  return {
+    dev: allowlist(env.DEV_MEMBERSHIP_IDS).has(row.membership_id),
+    matrixWriter: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(row.membership_id),
+    buildEditor: allowlist(env.MATRIX_MEMBERSHIP_IDS).has(row.membership_id),
+    reportAdmin: isReportAdmin(row.membership_id, env)
+  };
+}
+
+function guardianWithoutLivePresence(guardian: GuardianSummary): GuardianSummary {
+  return {
+    ...guardian,
+    currentActivity: undefined,
+    isInGame: false,
+    characters: guardian.characters.map((character) => ({ ...character, minutesPlayedThisSession: 0 }))
+  };
+}
+
+function guardianForRequestedCharacter(guardian: GuardianSummary, requestedCharacterId?: string): GuardianSummary {
+  const selected = requestedCharacterId ? guardian.characters.find((character) => character.characterId === requestedCharacterId) : undefined;
+  if (!selected) return guardian;
+  return {
+    ...guardian,
+    selectedCharacterId: selected.characterId,
+    stats: { ...guardian.stats, power: selected.power },
+    isInGame: Boolean(selected.minutesPlayedThisSession && guardian.currentActivity)
+  };
+}
+
+async function guardianFromFireteamShare(row: SessionRow, env: Env): Promise<{ guardian: GuardianSummary; observedAt: string } | undefined> {
+  const share = await env.DB.prepare("SELECT payload_json, updated_at FROM fireteam_shares WHERE membership_id = ?")
+    .bind(row.membership_id).first<{ payload_json: string; updated_at: string }>();
+  if (!share?.payload_json) return undefined;
+  try {
+    const payload = JSON.parse(share.payload_json);
+    const character = payload?.character;
+    if (!character?.characterId) return undefined;
+    return {
+      guardian: {
+        membershipId: row.membership_id,
+        membershipType: row.membership_type,
+        displayName: row.display_name,
+        bungieName: row.bungie_name,
+        selectedCharacterId: String(character.characterId),
+        characters: [{
+          characterId: String(character.characterId),
+          className: character.className || "Unknown",
+          raceName: String(character.raceName || "Unknown"),
+          emblemPath: String(character.emblemPath || ""),
+          emblemBackgroundPath: String(character.emblemBackgroundPath || ""),
+          power: Math.max(0, Number(character.power || 0)),
+          dateLastPlayed: String(character.dateLastPlayed || share.updated_at),
+          minutesPlayedThisSession: 0
+        }],
+        stats: {
+          power: Math.max(0, Number(character.power || 0)),
+          guardianRank: 0,
+          rewardsPassRank: 0,
+          rewardsPassProgress: { state: "unavailable", source: "bungie-profile-character-progressions", reason: "Live account details are refreshing." },
+          mailboxCount: 0
+        },
+        isInGame: false
+      },
+      observedAt: share.updated_at
+    };
+  } catch { return undefined; }
+}
+
+async function refreshGuardianSessionCache(row: SessionRow, env: Env): Promise<{ guardian: GuardianSummary; refreshedAt: string; sourceMintedAt?: string }> {
+  try {
+    const { profile, accessToken } = await profileFor(row, env, "session");
+    const [manifest, pvpManifest] = await Promise.all([loadActivityNames(env), loadRewardsManifest(env)]);
+    const selectedId = selectedCharacter(charactersFromProfile(profile))?.characterId;
+    const guardian = normalizeGuardian({
+      profile,
+      membershipId: row.membership_id,
+      membershipType: row.membership_type,
+      displayName: row.display_name,
+      bungieName: row.bungie_name,
+      rewardsPass: await seasonPassProgress(profile, accessToken, env),
+      crucibleRank: normalizePvpProgressions(profile, pvpManifest, selectedId).find((entry) => entry.kind === "crucible"),
+      manifest
+    });
+    await rememberAudienceGuardian(env, guardian);
+    const refreshedAt = new Date().toISOString();
+    await env.DB.prepare("INSERT INTO guardian_session_cache (membership_id, guardian_json, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, ?, ?, NULL, NULL) ON CONFLICT(membership_id) DO UPDATE SET guardian_json = excluded.guardian_json, refreshed_at = excluded.refreshed_at, expires_at = excluded.expires_at, refresh_started_at = NULL, last_error = NULL")
+      .bind(row.membership_id, JSON.stringify(guardian), refreshedAt, new Date(Date.now() + 24 * 60 * 60_000).toISOString()).run();
+    return { guardian, refreshedAt, sourceMintedAt: profile?.responseMintedTimestamp };
+  } catch (error: any) {
+    await env.DB.prepare("UPDATE guardian_session_cache SET last_error = ? WHERE membership_id = ?")
+      .bind(String(error?.code || error?.message || "Account refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
+    throw error;
+  }
+}
+
+async function refreshGuardianSessionCacheWithLease(row: SessionRow, env: Env): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const staleLease = new Date(Date.now() - 2 * 60_000).toISOString();
+  const claim = await env.DB.prepare("UPDATE guardian_session_cache SET refresh_started_at = ? WHERE membership_id = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
+    .bind(startedAt, row.membership_id, staleLease).run().catch(() => undefined);
+  if (!claim || Number(claim.meta?.changes || 0) < 1) return;
+  try {
+    await refreshGuardianSessionCache(row, env);
+  } catch {
+    await env.DB.prepare("UPDATE guardian_session_cache SET refresh_started_at = NULL WHERE membership_id = ?")
+      .bind(row.membership_id).run().catch(() => undefined);
+  }
 }
 
 function withSetCookie(response: Response, value?: string): Response {
@@ -787,14 +918,90 @@ async function activityHistory(row: SessionRow, env: Env, context: RequestContex
 }
 
 async function rewards(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile, accessToken } = await profileFor(row, env, "session");
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
-  const character = selectedCharacter(charactersFromProfile(profile), requestedCharacterId);
-  const snapshot = await seasonPassProgress(profile, accessToken, env, character?.characterId);
-  const manifest = await loadRewardsManifest(env);
-  const data = normalizeRewardsPass({ profile, manifest, rank: snapshot.rank, progress: snapshot.progress, characterId: character?.characterId });
-  const warnings = [snapshot.progress.state !== "available" ? snapshot.progress.reason : undefined, data.rewardDataReason].filter((value): value is string => Boolean(value));
-  return envelope<RewardsPassData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings });
+  const sessionCache = await env.DB.prepare("SELECT guardian_json, refreshed_at FROM guardian_session_cache WHERE membership_id = ?").bind(row.membership_id).first<any>();
+  let sessionGuardian: GuardianSummary | undefined;
+  try { sessionGuardian = sessionCache?.guardian_json ? JSON.parse(sessionCache.guardian_json) : undefined; } catch { sessionGuardian = undefined; }
+  const characterId = requestedCharacterId && sessionGuardian?.characters.some((character) => character.characterId === requestedCharacterId)
+    ? requestedCharacterId
+    : sessionGuardian?.selectedCharacterId || requestedCharacterId || "account";
+  const cached = await env.DB.prepare("SELECT rewards_json, refreshed_at, refresh_started_at, last_error FROM guardian_rewards_cache WHERE membership_id = ? AND character_id = ?")
+    .bind(row.membership_id, characterId).first<any>();
+  let cachedData: RewardsPassData | undefined;
+  try { cachedData = cached?.rewards_json ? JSON.parse(cached.rewards_json) : undefined; } catch { cachedData = undefined; }
+  const cacheState = cachedData ? guardianSessionCacheState(cached.refreshed_at) : "missing";
+  if (cachedData) {
+    if (cacheState !== "fresh") context.waitUntil?.(refreshRewardsCacheWithLease(row, env, characterId));
+    return envelope<RewardsPassData>(cachedData, env, context, {
+      sourceMintedAt: cached.refreshed_at,
+      state: cacheState === "fresh" ? "fresh" : "stale",
+      warnings: cacheState === "fresh" ? [] : ["Rewards Pass details are refreshing; showing the last saved snapshot.", ...(cached.last_error ? [String(cached.last_error)] : [])]
+    });
+  }
+  if (sessionGuardian) {
+    const fallback = rewardsFromGuardianSnapshot(sessionGuardian);
+    await env.DB.prepare("INSERT OR IGNORE INTO guardian_rewards_cache (membership_id, character_id, rewards_json, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, ?, ?, ?, NULL, NULL)")
+      .bind(row.membership_id, characterId, JSON.stringify(fallback), sessionCache.refreshed_at, new Date(Date.now() + 24 * 60 * 60_000).toISOString()).run();
+    context.waitUntil?.(refreshRewardsCacheWithLease(row, env, characterId));
+    return envelope<RewardsPassData>(fallback, env, context, { sourceMintedAt: sessionCache.refreshed_at, state: "stale", warnings: ["Rewards Pass details are refreshing; showing the saved rank and progress."] });
+  }
+  const refreshed = await refreshRewardsCache(row, env, characterId);
+  return envelope<RewardsPassData>(refreshed.data, env, context, { sourceMintedAt: refreshed.sourceMintedAt, warnings: refreshed.warnings });
+}
+
+function rewardsFromGuardianSnapshot(guardian: GuardianSummary): RewardsPassData {
+  const progress = guardian.stats.rewardsPassProgress;
+  return {
+    passHash: progress.passHash || "",
+    name: "Current Rewards Pass",
+    description: "",
+    icon: "",
+    backgroundImage: "",
+    manifestVersion: "saved-account-snapshot",
+    rank: guardian.stats.rewardsPassRank,
+    progress,
+    rewards: [],
+    rewardDataState: "unavailable",
+    rewardDataReason: "Reward track details are refreshing in the background.",
+    sources: {
+      rankAndXp: "Destiny2.GetProfile characterProgressions (component 202)",
+      rewards: "DestinySeasonPassDefinition and DestinyProgressionDefinition manifest data",
+      claimingSupported: false
+    }
+  };
+}
+
+async function refreshRewardsCache(row: SessionRow, env: Env, characterId: string): Promise<{ data: RewardsPassData; sourceMintedAt?: string; warnings: string[] }> {
+  try {
+    const { profile, accessToken } = await profileFor(row, env, "session");
+    const character = selectedCharacter(charactersFromProfile(profile), characterId === "account" ? undefined : characterId);
+    const snapshot = await seasonPassProgress(profile, accessToken, env, character?.characterId);
+    const manifest = await loadRewardsManifest(env);
+    const data = normalizeRewardsPass({ profile, manifest, rank: snapshot.rank, progress: snapshot.progress, characterId: character?.characterId });
+    const warnings = [snapshot.progress.state !== "available" ? snapshot.progress.reason : undefined, data.rewardDataReason].filter((value): value is string => Boolean(value));
+    const refreshedAt = new Date().toISOString();
+    await env.DB.prepare("INSERT INTO guardian_rewards_cache (membership_id, character_id, rewards_json, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT(membership_id, character_id) DO UPDATE SET rewards_json = excluded.rewards_json, refreshed_at = excluded.refreshed_at, expires_at = excluded.expires_at, refresh_started_at = NULL, last_error = NULL")
+      .bind(row.membership_id, characterId, JSON.stringify(data), refreshedAt, new Date(Date.now() + 24 * 60 * 60_000).toISOString()).run();
+    return { data, sourceMintedAt: profile?.responseMintedTimestamp, warnings };
+  } catch (error: any) {
+    await env.DB.prepare("UPDATE guardian_rewards_cache SET last_error = ? WHERE membership_id = ? AND character_id = ?")
+      .bind(String(error?.code || error?.message || "Rewards refresh failed.").slice(0, 240), row.membership_id, characterId).run().catch(() => undefined);
+    throw error;
+  }
+}
+
+async function refreshRewardsCacheWithLease(row: SessionRow, env: Env, characterId: string): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const staleLease = new Date(Date.now() - 2 * 60_000).toISOString();
+  const claim = await env.DB.prepare("UPDATE guardian_rewards_cache SET refresh_started_at = ? WHERE membership_id = ? AND character_id = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
+    .bind(startedAt, row.membership_id, characterId, staleLease).run().catch(() => undefined);
+  if (!claim || Number(claim.meta?.changes || 0) < 1) return;
+  try {
+    await refreshRewardsCache(row, env, characterId);
+  } catch {
+    await env.DB.prepare("UPDATE guardian_rewards_cache SET refresh_started_at = NULL WHERE membership_id = ? AND character_id = ?")
+      .bind(row.membership_id, characterId).run().catch(() => undefined);
+  }
 }
 
 async function rewardCodeStatus(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -1217,8 +1424,13 @@ async function storeShare(
   const readiness = providedReadiness === undefined ? sharedReadiness(previousPayload) : providedReadiness || undefined;
   const activityFeedEnabled = providedActivityFeedEnabled === undefined ? sharedActivityFeedEnabled(previousPayload) : providedActivityFeedEnabled;
   const activityFeedPreferenceSet = providedActivityFeedEnabled === undefined ? previousPayload?.activityFeedPreferenceSet === true : true;
-  const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
-  const activityPartyMembers = savedPartyMembers(transitory, row);
+  const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
+  const previousPartyMembers = Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : [];
+  const activityPartyMembers = preservePartyWhenTransitoryIsMissing(
+    savedPartyMembers(transitory || {}, row),
+    previousPartyMembers,
+    Boolean(transitory)
+  );
   const activityPartyMembershipIds = activityPartyMembers.map((member) => member.membershipId);
   const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers };
   await env.DB.prepare(`
@@ -1289,8 +1501,13 @@ async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void>
     if (!share?.payload_json) return;
     let payload: any;
     try { payload = JSON.parse(share.payload_json); } catch { return; }
-    const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
-    const activityPartyMembers = savedPartyMembers(transitory, row);
+    const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
+    const previousPartyMembers = Array.isArray(payload?.activityPartyMembers) ? payload.activityPartyMembers : [];
+    const activityPartyMembers = preservePartyWhenTransitoryIsMissing(
+      savedPartyMembers(transitory || {}, row),
+      previousPartyMembers,
+      Boolean(transitory)
+    );
     const characters = charactersFromProfile(profile);
     const character = characters.find((entry) => entry.minutesPlayedThisSession > 0)
       || selectedCharacter(characters, payload?.character?.characterId)
