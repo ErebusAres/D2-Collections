@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, preservePartyWhenTransitoryIsMissing } from "./fireteamReliability";
+import { fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, resolvePartyObservation } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -18,11 +18,14 @@ describe("Fireteam reliability helpers", () => {
     expect(guardianSessionCacheState("2026-08-08T05:00:00.000Z", now)).toBe("expired");
   });
 
-  it("does not collapse a saved Fireteam when a route omitted transitory data", () => {
+  it("requires three consecutive solo observations before collapsing a saved Fireteam", () => {
     const self = { membershipId: "1", displayName: "Self", status: 1, observedInParty: false };
     const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
-    expect(preservePartyWhenTransitoryIsMissing([self], [self, teammate], false)).toEqual([self, teammate]);
-    expect(preservePartyWhenTransitoryIsMissing([self], [self, teammate], true)).toEqual([self]);
+    expect(resolvePartyObservation([self], [self, teammate], false, 1)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 1 });
+    expect(resolvePartyObservation([self], [self, teammate], true, 0)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 1 });
+    expect(resolvePartyObservation([self], [self, teammate], true, 1)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 2 });
+    expect(resolvePartyObservation([self], [self, teammate], true, 2)).toEqual({ members: [self], consecutiveSoloObservations: 0 });
+    expect(resolvePartyObservation([self, teammate], [self], true, 2)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 0 });
   });
 
   it("preserves member results while bounding public lookup concurrency", async () => {

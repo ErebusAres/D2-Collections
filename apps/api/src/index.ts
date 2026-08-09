@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamSocialCacheState, guardianSessionCacheState, preservePartyWhenTransitoryIsMissing } from "./fireteamReliability";
+import { fireteamSocialCacheState, guardianSessionCacheState, resolvePartyObservation } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1426,13 +1426,15 @@ async function storeShare(
   const activityFeedPreferenceSet = providedActivityFeedEnabled === undefined ? previousPayload?.activityFeedPreferenceSet === true : true;
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
   const previousPartyMembers = Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : [];
-  const activityPartyMembers = preservePartyWhenTransitoryIsMissing(
+  const partyObservation = resolvePartyObservation(
     savedPartyMembers(transitory || {}, row),
     previousPartyMembers,
-    Boolean(transitory)
+    Boolean(transitory),
+    Number(previousPayload?.activityPartySoloObservationCount || 0)
   );
+  const activityPartyMembers = partyObservation.members;
   const activityPartyMembershipIds = activityPartyMembers.map((member) => member.membershipId);
-  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers };
+  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error, presence_refreshed_at, presence_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL)
@@ -1503,11 +1505,13 @@ async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void>
     try { payload = JSON.parse(share.payload_json); } catch { return; }
     const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
     const previousPartyMembers = Array.isArray(payload?.activityPartyMembers) ? payload.activityPartyMembers : [];
-    const activityPartyMembers = preservePartyWhenTransitoryIsMissing(
+    const partyObservation = resolvePartyObservation(
       savedPartyMembers(transitory || {}, row),
       previousPartyMembers,
-      Boolean(transitory)
+      Boolean(transitory),
+      Number(payload?.activityPartySoloObservationCount || 0)
     );
+    const activityPartyMembers = partyObservation.members;
     const characters = charactersFromProfile(profile);
     const character = characters.find((entry) => entry.minutesPlayedThisSession > 0)
       || selectedCharacter(characters, payload?.character?.characterId)
@@ -1517,7 +1521,7 @@ async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void>
     const activity = guardianLocation(profile, manifest, character?.characterId, onlineState) || payload?.activity;
     const updatedAt = new Date().toISOString();
     await env.DB.prepare("UPDATE fireteam_shares SET payload_json = ?, presence_refreshed_at = ?, presence_error = NULL WHERE membership_id = ?")
-      .bind(JSON.stringify({ ...payload, character, activity, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId) }), updatedAt, row.membership_id).run();
+      .bind(JSON.stringify({ ...payload, character, activity, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations }), updatedAt, row.membership_id).run();
   } catch (error: any) {
     await env.DB.prepare("UPDATE fireteam_shares SET presence_error = ? WHERE membership_id = ?")
       .bind(String(error?.code || error?.message || "Presence refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
