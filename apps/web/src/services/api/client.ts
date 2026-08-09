@@ -35,6 +35,7 @@ interface PendingMutation {
 }
 
 interface QueueOptions { persist?: boolean }
+const RELIABILITY_DIAGNOSTIC_KEY = "guardian-nexus:last-worker-resource-limit";
 
 let connectionSnapshot: ConnectionSnapshot = { queued: 0, retrying: false, ...(typeof navigator !== "undefined" && !navigator.onLine ? { lastError: "Device is offline" } : {}) };
 const connectionListeners = new Set<() => void>();
@@ -43,6 +44,7 @@ let flushTimer: number | undefined;
 let flushing = false;
 const inFlightReads = new Map<string, Promise<ApiEnvelope<unknown>>>();
 const savedReadPaths = new Map<string, string>();
+const routeCircuitBreakers = new Map<string, number>();
 let mutationAuthHeaders: (() => HeadersInit) | undefined;
 let hydratedMutationScope = "";
 let activeMembershipId = "";
@@ -89,16 +91,23 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     const ageSeconds = Math.max(0, Math.round((Date.now() - Date.parse(cached.savedAt)) / 1_000));
     savedReadPaths.set(path, cached.savedAt);
-    updateSavedDataConnection({ lastError: messageOf(error) });
+    const savedEnvelope = ageSavedFireteamPresence(path, cached.envelope, ageSeconds);
+    updateSavedDataConnection({ lastError: sectionFailureMessage(path, error) });
+    const savedWarning = isIndependentFireteamSection(path)
+      ? `${sectionFailureMessage(path, error)} Showing saved data from ${new Date(cached.savedAt).toLocaleString()}.`
+      : `Showing saved Guardian data from ${new Date(cached.savedAt).toLocaleString()} while live services reconnect.`;
     return {
-      ...cached.envelope,
-      freshness: { ...cached.envelope.freshness, state: offline ? "offline" : "stale", ageSeconds },
-      warnings: [...cached.envelope.warnings.filter((warning) => !warning.startsWith("Showing saved Guardian data")), `Showing saved Guardian data from ${new Date(cached.savedAt).toLocaleString()} while live services reconnect.`]
+      ...savedEnvelope,
+      freshness: { ...savedEnvelope.freshness, state: offline ? "offline" : "stale", ageSeconds },
+      warnings: [...savedEnvelope.warnings.filter((warning) => !warning.startsWith("Showing saved Guardian data")), savedWarning]
     };
   }
 }
 
 async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
+  const route = path.split("?", 1)[0] || path;
+  const blockedUntil = routeCircuitBreakers.get(route) || 0;
+  if (blockedUntil > Date.now()) throw new ApiRequestError(503, { code: "worker_resource_limit", message: sectionFailureMessage(path) });
   let response: Response;
   try {
     response = await fetch(path, {
@@ -113,11 +122,18 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
   const raw = await response.text();
   let body: any = {};
   try { body = raw ? JSON.parse(raw) : {}; } catch {
-    if (!response.ok && /1102|exceeded resource limits/i.test(raw)) body = { code: "worker_resource_limit", message: "Guardian services are temporarily over capacity." };
+    if (!response.ok && /1102|exceeded resource limits/i.test(raw)) {
+      const rayId = response.headers.get("cf-ray")?.split("-")[0] || raw.match(/Cloudflare Ray ID:\s*<strong[^>]*>([^<]+)/i)?.[1]?.trim();
+      body = { code: "worker_resource_limit", message: sectionFailureMessage(path), requestId: rayId };
+    }
   }
   if (!response.ok) {
     const error = new ApiRequestError(response.status, body);
-    if (isTransient(error)) updateConnection({ lastError: error.message });
+    if (error.code === "worker_resource_limit") {
+      routeCircuitBreakers.set(route, Date.now() + 60_000 + Math.round(Math.random() * 10_000));
+      rememberWorkerResourceLimit(route, error.requestId);
+    }
+    if (isTransient(error) && error.code !== "worker_resource_limit") updateConnection({ lastError: error.message });
     throw error;
   }
   if (!pendingMutations.length && !savedReadPaths.size) updateConnection({ lastError: undefined });
@@ -155,6 +171,41 @@ function isTransient(error: unknown): boolean {
 }
 
 function messageOf(error: unknown): string { return error instanceof Error ? error.message : "Connection interrupted"; }
+
+function sectionFailureMessage(path: string, error?: unknown): string {
+  const pathname = path.split("?", 1)[0] || path;
+  const delayed = (!error || (error instanceof ApiRequestError && error.code === "worker_resource_limit")) ? " delayed" : " unavailable";
+  if (pathname === "/api/v1/fireteam") return `Fireteam live presence${delayed}—showing saved data.`;
+  if (pathname === "/api/v1/fireteam/social") return `Fireteam Social${delayed}—showing saved data.`;
+  if (pathname === "/api/v1/fireteam/activity") return `Fireteam Activity${delayed}—showing saved data.`;
+  if (pathname === "/api/v1/me/recent-items") return `Recent items${delayed}—showing saved data.`;
+  return error ? messageOf(error) : "Guardian services are temporarily over capacity.";
+}
+
+function isIndependentFireteamSection(path: string): boolean {
+  const pathname = path.split("?", 1)[0] || path;
+  return pathname === "/api/v1/fireteam" || pathname === "/api/v1/fireteam/social" || pathname === "/api/v1/fireteam/activity" || pathname === "/api/v1/me/recent-items";
+}
+
+function rememberWorkerResourceLimit(route: string, rayId?: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  try { sessionStorage.setItem(RELIABILITY_DIAGNOSTIC_KEY, JSON.stringify({ category: "worker_resource_limit", route, occurredAt: new Date().toISOString(), rayId })); } catch { /* Diagnostics are best-effort only. */ }
+}
+
+export function getClientReliabilityDiagnostics(): Record<string, unknown> | undefined {
+  if (typeof sessionStorage === "undefined") return undefined;
+  try {
+    const value = JSON.parse(sessionStorage.getItem(RELIABILITY_DIAGNOSTIC_KEY) || "null");
+    return value && typeof value === "object" ? value : undefined;
+  } catch { return undefined; }
+}
+
+function ageSavedFireteamPresence<T>(path: string, envelope: ApiEnvelope<T>, ageSeconds: number): ApiEnvelope<T> {
+  if ((path.split("?", 1)[0] || path) !== "/api/v1/fireteam" || ageSeconds <= 120) return envelope;
+  const data = envelope.data as any;
+  if (!data || !Array.isArray(data.members)) return envelope;
+  return { ...envelope, data: { ...data, members: data.members.map((member: any) => ({ ...member, onlineState: "unknown", presenceLabel: "Presence unknown", activity: undefined, activitySource: "unavailable" })) } };
+}
 
 function updateConnection(value: Partial<ConnectionSnapshot>): void {
   connectionSnapshot = { ...connectionSnapshot, ...value };

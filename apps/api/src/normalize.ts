@@ -1,6 +1,7 @@
 import type {
   CharacterSummary,
   CollectionData,
+  ActivityNameManifest,
   CompactManifest,
   GuardianSummary,
   QuestData,
@@ -52,7 +53,9 @@ export function guardianOnlineState(
   return "unknown";
 }
 
-export function activityName(profile: any, manifest: CompactManifest, characterId?: string): string | undefined {
+type ActivityLookup = CompactManifest | ActivityNameManifest;
+
+export function activityName(profile: any, manifest: ActivityLookup, characterId?: string): string | undefined {
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
   const characterActivities = profile?.characterActivities?.data || {};
   const preferred = characterId ? characterActivities[characterId] : undefined;
@@ -65,8 +68,8 @@ export function activityName(profile: any, manifest: CompactManifest, characterI
     ...components.map((activity: any) => activity?.currentPlaylistActivityHash)
   ].map(String).filter((hash) => hash && hash !== "0");
   for (const hash of [...new Set(hashes)]) {
-    const definition = manifest.activityDefinitions[hash] as any;
-    const name = String(definition?.displayProperties?.name || definition?.originalDisplayProperties?.name || "").trim();
+    const definition = "activityDefinitions" in manifest ? manifest.activityDefinitions[hash] as any : undefined;
+    const name = String(("names" in manifest ? manifest.names[hash] : undefined) || definition?.displayProperties?.name || definition?.originalDisplayProperties?.name || "").trim();
     if (name) return name;
   }
   return undefined;
@@ -74,7 +77,7 @@ export function activityName(profile: any, manifest: CompactManifest, characterI
 
 export function guardianLocation(
   profile: any,
-  manifest: CompactManifest,
+  manifest: ActivityLookup,
   characterId: string | undefined,
   onlineState: "online" | "offline" | "unknown"
 ): string | undefined {
@@ -97,7 +100,7 @@ export function normalizeGuardian(args: {
   requestedCharacterId?: string;
   rewardsPass: { rank: number; progress: RewardsPassProgress };
   crucibleRank?: PvpProgression;
-  manifest: CompactManifest;
+  manifest: ActivityLookup;
 }): GuardianSummary {
   const characters = charactersFromProfile(args.profile);
   const selected = selectedCharacter(characters, args.requestedCharacterId);

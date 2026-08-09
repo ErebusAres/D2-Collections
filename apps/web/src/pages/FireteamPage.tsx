@@ -1,4 +1,4 @@
-import type { FireteamCompletedTrackedItem, FireteamContact, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem, GearTag, RecentItemTimelineData } from "@guardian-nexus/contracts";
+import type { FireteamCompletedTrackedItem, FireteamContact, FireteamData, FireteamMember, FireteamSharingMode, FireteamSocialData, FireteamTrackedItem, GearTag, RecentItemTimelineData } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpToLine, BookmarkMinus, CheckCircle2, Copy, Crown, EyeOff, GripVertical, Link2, LogIn, MessageSquare, Repeat2, Share2, Timer, UserMinus, Users } from "lucide-react";
@@ -71,9 +71,16 @@ export function FireteamPage() {
   const activityFeed = useQuery({
     queryKey: ["fireteam-activity", selectedCharacterId],
     queryFn: () => api<NonNullable<FireteamData["activityFeed"]>>("/api/v1/fireteam/activity"),
-    enabled: Boolean(session?.authenticated && data?.sharingEnabled),
+    enabled: Boolean(session?.authenticated),
     refetchInterval: 10_000,
     refetchIntervalInBackground: false
+  });
+  const social = useQuery({
+    queryKey: ["fireteam-social"],
+    queryFn: () => api<FireteamSocialData>("/api/v1/fireteam/social"),
+    enabled: Boolean(session?.authenticated),
+    staleTime: 10 * 60_000,
+    refetchInterval: false
   });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["recent-items", selectedCharacterId] }) });
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
@@ -96,6 +103,7 @@ export function FireteamPage() {
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["fireteam"] }); void queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] }); }
   });
   const liveActivityFeed = activityFeed.data?.data && Array.isArray(activityFeed.data.data.entries) ? activityFeed.data.data : data?.activityFeed;
+  const socialData = social.data?.data || data?.social;
   const sharingMode = data?.sharingMode;
   const trackedBuildsSignature = JSON.stringify(trackedBuilds);
   const syncSignature = shareSignature(selectedCharacterId, pinnedIds, guardianRankIds, journeyIds, collectionIds, hiddenTrackedItemKeys, trackedBuildsSignature);
@@ -215,13 +223,14 @@ export function FireteamPage() {
       </>}
     </>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
+    {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Observation continues privately while Guardian Nexus is open</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
     {data && <>
-      {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Observation continues privately while Guardian Nexus is open</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
-      {liveActivityFeed && <FireteamActivityFeed feed={liveActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : undefined} onDisable={() => data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
-      <SocialRoster contacts={data.social?.contacts || []} friendsState={data.social?.friendsState || data.social?.state || "unavailable"} clanState={data.social?.clanState || (data.social?.state === "available" ? "available" : "unavailable")} warning={data.social?.warning} copied={copied} onCopy={copyCommand} />
       <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Status may be delayed</strong><p>Party presence and current activity are not guaranteed to be real time.</p></div></section>
     </>}
+    {activityFeed.isError && !liveActivityFeed && <section className={styles.fireteamLootControl}><div><strong>Fireteam Activity is temporarily unavailable</strong><small>{activityFeed.error instanceof Error ? activityFeed.error.message : "This section can be retried independently."}</small></div><button onClick={() => void activityFeed.refetch()}>Retry Activity</button></section>}
+    {liveActivityFeed && <FireteamActivityFeed feed={liveActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
+    <SocialRoster contacts={socialData?.contacts || []} friendsState={socialData?.friendsState || socialData?.state || "unavailable"} clanState={socialData?.clanState || (socialData?.state === "available" ? "available" : "unavailable")} warning={socialData?.warning || social.data?.warnings[0] || (social.error instanceof Error ? social.error.message : undefined)} copied={copied} onCopy={copyCommand} />
   </AuthGate>;
 }
 

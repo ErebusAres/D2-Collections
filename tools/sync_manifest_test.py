@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import unittest
 from pathlib import Path
 
@@ -13,6 +14,35 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_deployed_activity_names_match_full_artifact_and_size_budget(self) -> None:
+        full = json.loads(SYNC_MANIFEST.ACTIVITY_OUTPUT.read_text(encoding="utf-8"))
+        compact = json.loads(SYNC_MANIFEST.ACTIVITY_NAMES_OUTPUT.read_text(encoding="utf-8"))
+        expected = {
+            key: str((value.get("displayProperties") or {}).get("name") or "").strip()
+            for key, value in (full.get("activityDefinitions") or {}).items()
+            if str((value.get("displayProperties") or {}).get("name") or "").strip()
+        }
+
+        self.assertEqual(compact["version"], full["version"])
+        self.assertEqual(compact["generatedAt"], full["generatedAt"])
+        self.assertEqual(compact["names"], expected)
+        self.assertLess(SYNC_MANIFEST.ACTIVITY_NAMES_OUTPUT.stat().st_size, 200_000)
+
+    def test_activity_name_artifact_keeps_only_named_hashes(self) -> None:
+        activities = {
+            "1": {"displayProperties": {"name": "The Tower", "description": "Social space"}},
+            "2": {"displayProperties": {"name": ""}},
+            "3": {},
+        }
+        names = {
+            key: str((value.get("displayProperties") or {}).get("name") or "").strip()
+            for key, value in activities.items()
+            if str((value.get("displayProperties") or {}).get("name") or "").strip()
+        }
+
+        self.assertEqual(names, {"1": "The Tower"})
+        self.assertLess(len(json.dumps({"version": "v1", "generatedAt": "now", "names": names})), 200_000)
+
     def test_gear_manifest_keeps_weapon_identity_and_bucket_fields(self) -> None:
         value = SYNC_MANIFEST.minimal_gear_item({
             "hash": 10,

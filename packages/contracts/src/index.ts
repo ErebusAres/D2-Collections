@@ -2028,6 +2028,12 @@ export interface CompactManifest {
   statDefinitions?: Record<string, Record<string, unknown>>;
 }
 
+export interface ActivityNameManifest {
+  version: string;
+  generatedAt: string;
+  names: Record<string, string>;
+}
+
 export interface GearManifest {
   version: string;
   generatedAt: string;

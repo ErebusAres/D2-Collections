@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -387,11 +387,11 @@ describe("manifest overlays", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe("https://example.test/data/companion-manifest-00.json");
   });
 
-  it("combines the compact pursuit and activity artifacts without loading the full collection manifest", async () => {
+  it("combines the compact pursuit and activity-name artifacts without loading a full activity manifest", async () => {
     const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
       const url = String(input);
-      const value = url.endsWith("activity-manifest.json")
-        ? { version: "overlay-test", generatedAt: "now", items: [], itemDefinitions: {}, objectiveDefinitions: {}, activityDefinitions: { activity: { displayProperties: { name: "Activity" } } }, recordDefinitions: {} }
+      const value = url.endsWith("activity-names.json")
+        ? { version: "overlay-test", generatedAt: "now", names: { activity: "Activity" } }
         : { version: "overlay-test", generatedAt: "now", items: [], itemDefinitions: { bounty: { itemTypeDisplayName: "Bounty" } }, objectiveDefinitions: { objective: { completionValue: 10 } } };
       return Promise.resolve(new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } }));
     });
@@ -402,5 +402,17 @@ describe("manifest overlays", () => {
     expect(result.itemDefinitions).toMatchObject({ bounty: { itemTypeDisplayName: "Bounty" } });
     expect(result.activityDefinitions).toHaveProperty("activity");
     expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("https://example.test/data/manifest.json");
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("https://example.test/data/activity-manifest.json");
+  });
+});
+
+describe("publicProfileFor", () => {
+  it("uses the preserved membership type without probing other platforms", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("not found", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await publicProfileFor(`unknown-${Date.now()}`, 3, { BUNGIE_API_KEY: "test" } as Env, "access");
+    expect(result.profile).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/Destiny2/3/Profile/");
   });
 });

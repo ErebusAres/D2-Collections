@@ -28,4 +28,5 @@ export interface RequestContext {
   requestId: string;
   url: URL;
   origin: string;
+  waitUntil?: (promise: Promise<unknown>) => void;
 }

@@ -24,10 +24,13 @@ const queryClient = new QueryClient({
 });
 
 function shouldRetryQuery(attempt: number, error: unknown): boolean {
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? (error as { code?: unknown }).code
+    : undefined;
   const status = typeof error === "object" && error !== null && "status" in error
     ? (error as { status?: unknown }).status
     : undefined;
-  return status !== 401 && attempt < 2;
+  return status !== 401 && code !== "worker_resource_limit" && attempt < 2;
 }
 
 createRoot(document.getElementById("root")!).render(

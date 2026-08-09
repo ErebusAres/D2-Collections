@@ -50,7 +50,9 @@ export function offlineCachePolicy(path: string): CachePolicy | undefined {
     return { scope: "public", maxAgeMs: 30 * 24 * 60 * 60_000 };
   }
   if (pathname.includes("/working-draft") || pathname.startsWith("/api/v1/dev/") || pathname === "/api/v1/session" || pathname.startsWith("/api/v1/auth/")) return undefined;
-  if (pathname === "/api/v1/fireteam") return { scope: "guardian", maxAgeMs: 15 * 60_000 };
+  if (pathname === "/api/v1/fireteam") return { scope: "guardian", maxAgeMs: 24 * 60 * 60_000 };
+  if (pathname === "/api/v1/fireteam/social") return { scope: "guardian", maxAgeMs: 24 * 60 * 60_000 };
+  if (pathname === "/api/v1/fireteam/activity") return { scope: "guardian", maxAgeMs: 24 * 60 * 60_000 };
   if (pathname === "/api/v1/me/quests") return { scope: "guardian", maxAgeMs: 24 * 60 * 60_000 };
   if (pathname === "/api/v1/matrix") return { scope: "guardian", maxAgeMs: 7 * 24 * 60 * 60_000 };
   if (pathname.startsWith("/api/v1/me/")) return { scope: "guardian", maxAgeMs: 7 * 24 * 60 * 60_000 };

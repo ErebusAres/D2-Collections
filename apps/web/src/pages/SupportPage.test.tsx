@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SupportPage } from "./SupportPage";
 
-vi.mock("../services/api/client", () => ({ api: vi.fn(async () => ({ data: {
+vi.mock("../services/api/client", () => ({ getClientReliabilityDiagnostics: vi.fn(() => undefined), api: vi.fn(async () => ({ data: {
   reportVersion: 1,
   timestamp: "2026-08-07T00:00:00Z",
   guardianNexus: { build: "0.1.0", commit: "abc" },

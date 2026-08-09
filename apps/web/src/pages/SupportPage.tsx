@@ -1,6 +1,6 @@
 import { Activity, CheckCircle2, Clipboard, Copy, Play, ShieldAlert, TriangleAlert, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api } from "../services/api/client";
+import { api, getClientReliabilityDiagnostics } from "../services/api/client";
 import styles from "./SupportPage.module.css";
 
 type Status = "pass" | "warning" | "fail" | "not-applicable";
@@ -67,7 +67,8 @@ function browserDiagnostics(): Record<string, unknown> {
     sessionStorageAvailable: storage("sessionStorage"),
     serviceWorkerActive: Boolean(navigator.serviceWorker?.controller),
     cacheStorageAvailable: "caches" in window,
-    frontendCacheVersion: "network-only-no-service-worker"
+    frontendCacheVersion: "network-only-no-service-worker",
+    lastFireteamRouteError: getClientReliabilityDiagnostics()
   };
 }
 
