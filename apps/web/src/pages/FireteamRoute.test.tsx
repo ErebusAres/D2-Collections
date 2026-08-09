@@ -57,6 +57,8 @@ describe("Fireteam refresh cycle", () => {
     expect(await screen.findByText("Active in Destiny · 6")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Seasonal Hub Orders" }).getAttribute("href")).toBe("/journey/season");
     expect(screen.getByRole("link", { name: /Hub order 1/ }).getAttribute("href")).toBe("/quests/order-1");
+    expect(screen.getByRole("img", { name: "Trace Rifle" }).getAttribute("title")).toBe("Trace Rifle");
+    expect(screen.queryByText("[Trace Rifle]", { exact: false })).toBeNull();
     await waitFor(() => expect(fireteamReads).toBe(1));
     expect(orderReads).toBe(1);
 
@@ -152,7 +154,7 @@ function ordersEnvelope(firstOrderComplete = false) {
       rewards: [],
       objectives: [{
         objectiveHash: `objective-${index + 1}`,
-        name: `Activities ${index + 1}`,
+        name: index === 0 ? "[Trace Rifle] Rapidly defeated" : `Activities ${index + 1}`,
         progress: complete ? 5 : 2,
         completionValue: 5,
         complete,

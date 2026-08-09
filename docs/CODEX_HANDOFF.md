@@ -34,12 +34,12 @@ Gear now also has a dedicated Vault tab after Loot. It combines only physical va
 
 The Vault icon-card footer no longer tries to fit three large action buttons beside the compact tag picker. Each card now has one matching 28px circular item-actions trigger that opens a themed, keyboard-accessible Lock/Unlock, Pull to Guardian, and Equip menu above the card. The menu closes on selection, outside pointer input, or Escape; action colors follow the existing gold/cyan/success palette, and the original Gear API call shapes and confirmation boundary remain intact.
 
-The current `codex/objective-requirement-icons` release replaces Bungie's bracketed objective markers such as `[Auto Rifle]` and `[Headshot]` with the corresponding compact Destiny weapon/combat symbols. One shared renderer covers Fireteam Orders, quest cards, expanded routes, full quest details, and the quest inspection overlay. It inventories every marker present in the deployed pursuit manifest, uses Bungie's existing element art, vendors the CC0 Destiny weapon symbols at pinned source commit `394ed05`, preserves tooltip and screen-reader labels, and leaves unknown future markers as text instead of hiding them.
+The current objective-icon release replaces Bungie's bracketed objective markers such as `[Auto Rifle]` and `[Headshot]` with the corresponding compact Destiny weapon/combat symbols. One shared renderer covers the compact Seasonal Hub Orders rail, Fireteam shared tracked items, quest cards, expanded routes, full quest details, and the quest inspection overlay. It inventories every marker present in the deployed pursuit manifest, uses Bungie's existing element art, vendors the CC0 Destiny weapon symbols at pinned source commit `394ed05`, preserves tooltip and screen-reader labels, and leaves unknown future markers as text instead of hiding them.
 
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/objective-requirement-icons`; compact objective icons are implemented and the full audit passes, but the PR, merge, deployment, and signed-in production QA are still pending at this checkpoint.
+- Current implementation branch: follow-up from merged PR #96; signed-in production QA caught the separate compact Seasonal Hub Orders rail still rendering raw markers, and that narrow route/test fix is in progress.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
