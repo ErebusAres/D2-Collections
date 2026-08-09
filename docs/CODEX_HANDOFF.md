@@ -6,7 +6,7 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
-### Fireteam Worker reliability hardening release candidate
+### Fireteam Worker reliability hardening
 
 Signed-in production reproduction on 2026-08-08 returned Cloudflare error 1102 for 6/6 `/api/v1/fireteam` requests. The responses identified a Worker resource-limit failure rather than a D1 synchronization problem. The former core route combined the 1.13 MB activity manifest, an unbounded active-share scan, public member profile resolution, Fireteam Activity, and Bungie friends/clan roster work in one request.
 
@@ -18,7 +18,9 @@ Manifest generation now writes `activity-names.json` atomically with the other s
 
 The web client recognizes raw Cloudflare 1102 pages as `worker_resource_limit`, retains the Ray ID in account-local Support diagnostics, skips React Query retries, and opens a route-specific 60-second circuit breaker with up to 10 seconds of jitter. Cached Fireteam presence older than two minutes is changed to `unknown` with activity removed. Saved-section warnings name only the delayed section rather than declaring the whole site over capacity. `/support` reports compact-manifest state/version, D1 reachability, Social cache age/state and last-refresh failure, request ID, inbound Ray ID, and the last browser-observed route/Ray ID without exposing account identifiers.
 
-Release-candidate validation passes the complete `pnpm run audit`: archive/source/CSS boundaries across 40 stylesheets, ESLint, every TypeScript target, 24 domain tests, 198 API tests, 270 web tests, 21 manifest Python tests plus tooling tests, production API/Web builds, and performance budgets. Output is 367,384 bytes entry JavaScript (113,236 bytes gzip) and 33,043 bytes CSS. Production migration/deploy, 25-request signed-in acceptance, browser stale-section checks, Worker timing/log review, and the 15-minute monitoring window remain to be recorded after merge.
+Release validation passes the complete `pnpm run audit`: archive/source/CSS boundaries across 40 stylesheets, ESLint, every TypeScript target, 24 domain tests, 198 API tests, 270 web tests, 21 manifest Python tests plus tooling tests, production API/Web builds, and performance budgets. Output is 367,384 bytes entry JavaScript (113,236 bytes gzip) and 33,043 bytes CSS.
+
+PR #105 passed workflow `31292958884`, merged as `d687e08f17759604bb9287bdef2978f566f1106b`, and deployed successfully through production workflow `31293058853`. The production workflow refreshed Bungie manifests and weapon ratings, reran the audit, applied migration `0018_fireteam_social_cache.sql`, and deployed the API and web. Signed-in `/support` showed the exact frontend commit, passed 11/11 stages, measured D1 at 51 ms, compact Fireteam reliability diagnostics at 17 ms, linked-profile probes at 1,326 ms, and full bootstrap at 1,860 ms. Signed-in browser acceptance completed 25/25 Fireteam core loads with resolved member cards and zero 1102/resource-limit or circuit-breaker states; warm page loads were generally 0.97-1.40 seconds, with a 2.22-second first load and one 3.00-second outlier. Final QA showed three current member cards plus the independent 38-event Recent Loot, Fireteam Activity, and 57-member Social sections. A 15-minute post-deploy window and production tail observed no Worker exception or route-failure stream; normal page auto-refresh remained healthy. The only browser console error was an unrelated browser-extension connection message. Forced two-minute presence aging is covered by the web client regression because production QA did not mutate the signed-in browser's private IndexedDB cache. Cloudflare's tail stream did not expose billed CPU values, so exact numerical CPU headroom remains an observability limitation; the zero-1102 acceptance and route timing are the current production evidence.
 
 The original roadmap and catalog corrections are live on `main`. Build Advisor template set v7 has 72 reviewed foundations: 24 per class and exactly four core-Exotic paths for every subclass. It groups visible recommendations by subclass and generates up to 24 additional account-specific variants when a different physical owned weapon strongly matches a reviewed template's bounded role. Generated variants never infer unsupported subclass setups or ownership. Build checklist tracking remains privacy-scoped to Fireteam.
 
@@ -53,7 +55,7 @@ The current objective-icon release replaces Bungie's bracketed objective markers
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/fireteam-worker-reliability`, validated locally and pending production publication.
+- Current implementation branch: `codex/fireteam-worker-reliability-live`, a documentation-only production-evidence checkpoint. The implementation is live on `main`.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
