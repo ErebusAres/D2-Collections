@@ -8,6 +8,7 @@ import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import { CompletionPing, useCompletionPings } from "../components/common/CompletionPing";
+import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
 import { completionTransition, isQuestComplete } from "../modules/tracking/completionTracking";
 import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
@@ -188,7 +189,7 @@ function SeasonalHubOrder({ order }: { order: QuestProgress }) {
     <div>{order.icon ? <img src={order.icon} alt="" /> : <Timer />}</div>
     <span>
       <strong>{order.name}</strong>
-      <small>{activeObjective?.name || order.currentStep || order.itemType || "Seasonal Hub order"}</small>
+      <small><ObjectiveRequirementText value={activeObjective?.name || order.currentStep || order.itemType || "Seasonal Hub order"} /></small>
       <i><b style={{ width: `${order.percent}%` }} /></i>
     </span>
     <em>{order.percent}%</em>
