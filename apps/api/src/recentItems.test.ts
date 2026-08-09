@@ -51,6 +51,14 @@ describe("recent item timeline transitions", () => {
     expect(inventoryObservations(profile, manifest)).toEqual([expect.objectContaining({ key: "inventory:1", quantity: 5, metadata: expect.objectContaining({ name: "Enhancement Core" }) })]);
   });
 
+  it("preserves an unresolved manifest tier as unknown instead of inventing Common", () => {
+    const manifest: any = { itemDefinitions: {
+      "1": { itemType: 8, itemTypeDisplayName: "Material", displayProperties: { name: "Mystery Material", icon: "/mystery.png" } }
+    } };
+    const profile = { profileInventory: { data: { items: [{ itemHash: 1, quantity: 2 }] } }, characterInventories: { data: {} } };
+    expect(inventoryObservations(profile, manifest)[0]?.metadata).toMatchObject({ rarity: "Unknown" });
+  });
+
   it("requires complete inventory containers and definitions before accepting a zero baseline", () => {
     const manifest: any = { version: "current", itemDefinitions: {} };
     const profile = { profileInventory: { data: { items: [] } }, characterInventories: { data: { guardian: { items: [] } } } };

@@ -16,6 +16,7 @@ describe("RecentItemRow", () => {
     fireEvent.mouseEnter(card);
     fireEvent.keyDown(window, { key: "2", shiftKey: true });
     expect(onTag).toHaveBeenCalledWith(expect.objectContaining({ instanceId: "1" }), "keep");
+    expect(screen.getByLabelText("Tier 5 Legendary").textContent).toBe("5");
   });
 
   it("keeps the detail tooltip open when the inspection tile receives focus and a click", () => {
@@ -87,6 +88,7 @@ describe("RecentItemRow", () => {
     const inspect = screen.getByRole("link", { name: "Inspect Sunshot Catalyst" });
     expect(inspect.querySelector("img")?.getAttribute("src")).toBe("/sunshot.jpg");
     expect(screen.getByText("63%")).toBeTruthy();
+    expect(screen.getByLabelText("Tier 6 Exotic").textContent).toBe("6");
     fireEvent.mouseEnter(inspect.closest("article")!);
     expect(screen.getByRole("tooltip").textContent).toContain("Masterwork in progress");
     expect(screen.getByRole("tooltip").textContent).toContain("Open catalyst details");
@@ -109,6 +111,8 @@ describe("RecentItemRow", () => {
     render(<MemoryRouter><CompactRecentLootBar events={events} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
     const cards = screen.getAllByRole("button", { name: /Inspect/ });
     expect(cards.map((card) => card.getAttribute("aria-label"))).toEqual(["Inspect Enhancement Core", "Inspect Old Catalyst"]);
+    expect(screen.getByLabelText("Tier 5 Legendary").textContent).toBe("5");
+    expect(screen.getByLabelText("Tier 6 Exotic").textContent).toBe("6");
     expect(screen.getByText("×4")).toBeTruthy();
     expect(screen.getByLabelText("100%")).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Recent loot cards to keep" })).toBeNull();

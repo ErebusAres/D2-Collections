@@ -133,7 +133,7 @@ export function inventoryObservations(profile: any, manifest: CompanionManifest)
     if (!name) return [];
     return [{ key: `inventory:${itemHash}`, kind: "inventory" as const, state: "owned", quantity, metadata: {
       itemHash, name, description: String(definition?.displayProperties?.description || ""), icon: imageUrl(definition?.displayProperties?.icon),
-      itemType: String(definition?.itemTypeDisplayName || "Inventory item"), rarity: String(definition?.inventory?.tierTypeName || "Common"),
+      itemType: String(definition?.itemTypeDisplayName || "Inventory item"), rarity: String(definition?.inventory?.tierTypeName || "Unknown"),
       exoticEngram: isExoticEngramDefinition(definition)
     } }];
   });

@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { activityTooltipPosition, clampActivityWindowState, FireteamActivityFeed, lootTier, parseActivityWindowState } from "./FireteamActivityFeed";
+import { activityTooltipPosition, clampActivityWindowState, FireteamActivityFeed, parseActivityWindowState } from "./FireteamActivityFeed";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -39,10 +39,6 @@ describe("FireteamActivityFeed", () => {
     const tooltip = screen.getByRole("tooltip");
     expect(panel.contains(tooltip)).toBe(false);
     expect(tooltip.parentElement?.parentElement).toBe(document.body);
-  });
-
-  it("maps Destiny display rarities to their manifest tier numbers", () => {
-    expect(["Exotic", "Legendary", "Rare", "Common", "Uncommon", "Currency", "Unknown"].map(lootTier)).toEqual([6, 5, 4, 3, 2, 1, 0]);
   });
 
   it("offers a restore control after hiding", () => {

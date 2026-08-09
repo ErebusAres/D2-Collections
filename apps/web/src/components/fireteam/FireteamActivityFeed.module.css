@@ -117,15 +117,6 @@
 .loot > button { min-height: 0; display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: inherit; }
 .itemIcon { width: 18px !important; height: 18px !important; flex: 0 0 18px; border: 1px solid rgba(255,255,255,.2); object-fit: cover; }
 
-.tierBadge { width: 20px; height: 20px; flex: 0 0 20px; display: grid !important; place-items: center; transform: rotate(45deg); border: 1px solid rgba(255,255,255,.5); background: #7e858d; box-shadow: 0 0 8px rgba(126,133,141,.3); }
-.tierBadge > span { display: block !important; transform: rotate(-45deg); color: #12101c; font: 900 .8rem/1 "Barlow Condensed", sans-serif; text-shadow: 0 0 1px rgba(255,255,255,.22); }
-.tierBadge[data-rarity="Exotic"] { background: #d2a84d; box-shadow: 0 0 9px rgba(210,168,77,.42); }
-.tierBadge[data-rarity="Legendary"],
-.tierBadge[data-rarity="Superior"] { background: #76539a; box-shadow: 0 0 9px rgba(118,83,154,.42); }
-.tierBadge[data-rarity="Rare"] { background: #477ca8; }
-.tierBadge[data-rarity="Uncommon"],
-.tierBadge[data-rarity="Basic"] { background: #3d825c; }
-.tierBadge[data-rarity="Common"] { background: #8b9299; }
 .loot b[data-rarity="Exotic"] { color: #e6bd67; }
 .loot b[data-rarity="Legendary"] { color: #c59cec; }
 .loot b[data-rarity="Rare"] { color: #75aee8; }

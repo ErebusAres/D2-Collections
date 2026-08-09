@@ -80,7 +80,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
       weapons.push({
         instanceId, itemHash, name: String(definition.displayProperties?.name || "Unknown Weapon"), icon: imageUrl(definition.displayProperties?.icon), itemType: String(definition.itemTypeDisplayName || "Weapon"),
         slot: WEAPON_SLOT_HASHES[String(definition.inventory?.bucketTypeHash || "")] || "Unknown", damageType: DAMAGE_TYPES[Number(definition.defaultDamageType)] || "Unknown",
-        rarity: String(definition.inventory?.tierTypeName || "Legendary"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
+        rarity: String(definition.inventory?.tierTypeName || "Unknown"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
         location: entry.location, ...(entry.inPostmaster ? { inPostmaster: true } : {}), equipped: entry.equipped, locked: Boolean(itemState & 1), masterworked: Boolean(itemState & 4), crafted: Boolean(instance.isCrafted), enhanced,
         perkColumns, originTraits, ...(masterwork ? { masterwork: perk(masterwork) } : {}), stats: weaponStats, ...(trackerValue !== undefined ? { trackerValue } : {}), rollDataState, reviewState: "unique", reviewReasons: [], duplicateCount: 1, wishlisted: false,
         tag: state?.tag, firstSeenAt: state?.first_seen_at || now, dismissedAt: state?.dismissed_at, isNew: !state?.dismissed_at && !state?.tag
@@ -101,7 +101,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
     const baseTotal = total(baseStats); const currentTotal = total(currentStats);
     items.push({
       instanceId, itemHash, name: String(definition.displayProperties?.name || "Unknown Armor"), icon: imageUrl(ornamentDef?.displayProperties?.icon || definition.displayProperties?.icon), className: CLASS_NAMES[Number(definition.classType)] || "Unknown",
-      slot: String(definition.itemTypeDisplayName || "Armor"), rarity: String(definition.inventory?.tierTypeName || "Legendary"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
+      slot: String(definition.itemTypeDisplayName || "Armor"), rarity: String(definition.inventory?.tierTypeName || "Unknown"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
       location: entry.location, ...(entry.inPostmaster ? { inPostmaster: true } : {}), equipped: entry.equipped, locked: Boolean(Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0) & 1), masterworked: Boolean(Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0) & 4), gearTier: Number(instance.gearTier || 0),
       archetype: archetypeDef ? perk(archetypeDef) : undefined, tuning: tuningDef ? { ...perk(tuningDef), stats: statsFromInvestment(tuningDef.investmentStats || []) } : undefined, tunedStat,
       setBonuses: setDefs.map((plug) => ({ ...perk(plug), pieces: pieceCount(plug), active: true })), perks: activePlugs.filter((plug) => plug !== archetypeDef && plug !== tuningDef && !setDefs.includes(plug)).map(perk).filter((value) => value.name),
