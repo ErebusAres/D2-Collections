@@ -20,6 +20,7 @@ WEB_ROOT = "https://www.bungie.net"
 OUTPUT = Path(__file__).resolve().parents[1] / "apps" / "web" / "public" / "data" / "manifest.json"
 GEAR_OUTPUT = OUTPUT.with_name("gear-manifest.json")
 ACTIVITY_OUTPUT = OUTPUT.with_name("activity-manifest.json")
+ACTIVITY_NAMES_OUTPUT = OUTPUT.with_name("activity-names.json")
 FEATURE_OUTPUT = OUTPUT.with_name("collection-features.json")
 PURSUIT_OUTPUT = OUTPUT.with_name("pursuit-manifest.json")
 REWARDS_OUTPUT = OUTPUT.with_name("rewards-manifest.json")
@@ -1460,9 +1461,19 @@ def main() -> None:
         },
         "recordDefinitions": {},
     }
+    activity_names = {
+        "version": version,
+        "generatedAt": compact["generatedAt"],
+        "names": {
+            key: str((value.get("displayProperties") or {}).get("name") or "").strip()
+            for key, value in activities.items()
+            if str((value.get("displayProperties") or {}).get("name") or "").strip()
+        },
+    }
     OUTPUT.write_text(json.dumps(compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     GEAR_OUTPUT.write_text(json.dumps(gear_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     ACTIVITY_OUTPUT.write_text(json.dumps(activity_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    ACTIVITY_NAMES_OUTPUT.write_text(json.dumps(activity_names, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     FEATURE_OUTPUT.write_text(json.dumps(feature_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     PURSUIT_OUTPUT.write_text(json.dumps(pursuit_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     REWARDS_OUTPUT.write_text(json.dumps(rewards_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

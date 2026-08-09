@@ -8,6 +8,7 @@ import type {
   DevProbeResult,
   FireteamData,
   FireteamMember,
+  FireteamSocialData,
   FireteamSharingMode,
   FireteamCompletedTrackedItem,
   FireteamTrackedItem,
@@ -40,7 +41,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, destinyDisplayName, emblemPathFor, exchangeCode, loadActivityManifest, loadActivityNames, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, publicProfileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { activityName, addXurCollectionStates, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -79,6 +80,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
+import { fireteamSocialCacheState, mapWithConcurrency } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -173,11 +175,12 @@ const preferenceSchema = z.discriminatedUnion("key", [
 const rewardCodePreferenceSchema = z.object({ code: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{3}(?:-[A-Z0-9]{3}){2}$/), redeemed: z.boolean() }).strict();
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, executionContext?: ExecutionContext): Promise<Response> {
     const context: RequestContext = {
       requestId: crypto.randomUUID(),
       url: new URL(request.url),
-      origin: request.headers.get("Origin") || ""
+      origin: request.headers.get("Origin") || "",
+      ...(executionContext ? { waitUntil: (promise: Promise<unknown>) => executionContext.waitUntil(promise) } : {})
     };
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(env, context.origin) });
     try {
@@ -277,6 +280,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/build-advisor" && request.method === "GET") return buildAdvisor(session.row, env, context);
   if (path === "/api/v1/me/build-advisor/equip" && request.method === "POST") { await requireCsrf(request, session.token, env); return equipBuildAdvisor(request, session.row, env, context); }
   if (path === "/api/v1/fireteam" && request.method === "GET") return fireteam(session.row, env, context);
+  if (path === "/api/v1/fireteam/social" && request.method === "GET") return fireteamSocial(session.row, env, context);
   if (path === "/api/v1/fireteam/activity" && request.method === "GET") return fireteamActivity(session.row, env, context);
   if (path === "/api/v1/fireteam/messages" && request.method === "POST") { await requireCsrf(request, session.token, env); return postFireteamMessage(request, session.row, env, context); }
   if (path === "/api/v1/fireteam/share" && request.method === "PUT") {
@@ -328,6 +332,33 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
     tests.push({ id: "database", name: "Guardian Nexus data store", status: schemaTables.includes("users") && schemaTables.includes("oauth_sessions") ? "pass" : "warning", durationMs: Date.now() - databaseStart, explanation: "D1 responded and the diagnostic checked only expected schema names and the current session mapping.", details: { reachable: true, requiredTablesPresent: schemaTables.includes("users") && schemaTables.includes("oauth_sessions"), schemaMarker: schemaTables.includes("d1_migrations") ? "d1_migrations-present" : "migration-table-not-exposed", ...mappingSummary } });
   } catch (error: any) {
     tests.push(diagnosticFailure("database", "Guardian Nexus data store", databaseStart, error, "The Worker could not read the D1 schema/session relationship."));
+  }
+
+  const fireteamReliabilityStart = Date.now();
+  try {
+    const compactManifest = await loadActivityNames(env);
+    const socialCache = row ? await env.DB.prepare("SELECT refreshed_at, expires_at, last_error FROM fireteam_social_cache WHERE membership_id = ?").bind(row.membership_id).first<any>() : null;
+    const socialCacheAgeSeconds = socialCache?.refreshed_at ? Math.max(0, Math.round((Date.now() - Date.parse(socialCache.refreshed_at)) / 1_000)) : undefined;
+    tests.push({
+      id: "fireteam-reliability",
+      name: "Fireteam reliability",
+      status: compactManifest.version !== "unavailable" && databaseReachable ? "pass" : "warning",
+      durationMs: Date.now() - fireteamReliabilityStart,
+      explanation: compactManifest.version !== "unavailable" ? "The compact activity lookup and independent saved-section infrastructure are available." : "The compact activity lookup is unavailable; Fireteam locations may be unnamed until the next manifest deployment.",
+      details: {
+        compactManifestAvailable: compactManifest.version !== "unavailable",
+        compactManifestVersion: compactManifest.version,
+        compactManifestGeneratedAt: compactManifest.generatedAt,
+        d1Reachable: databaseReachable,
+        socialCacheState: !row ? "not-applicable" : !socialCache ? "missing" : socialCacheAgeSeconds! <= 600 ? "fresh" : socialCacheAgeSeconds! <= 86_400 ? "stale-usable" : "expired",
+        socialCacheAgeSeconds,
+        lastSocialRefreshFailed: Boolean(socialCache?.last_error),
+        requestId: context.requestId,
+        cloudflareRayId: request.headers.get("cf-ray") || undefined
+      }
+    });
+  } catch (error: any) {
+    tests.push(diagnosticFailure("fireteam-reliability", "Fireteam reliability", fireteamReliabilityStart, error, "The compact manifest or Fireteam cache diagnostic could not be read."));
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -383,7 +414,7 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
       activeStage = "characters loaded";
       const characters = charactersFromProfile(profile); stages.push("characters loaded");
       activeStage = "application account normalized";
-      const manifest = await loadActivityManifest(env);
+      const manifest = await loadActivityNames(env);
       const guardian = normalizeGuardian({ profile, membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.display_name, bungieName: row.bungie_name, rewardsPass: { rank: 0, progress: { state: "unavailable", source: "bungie-profile-character-progressions" } }, manifest }); stages.push("application account normalized", "bootstrap response created");
       bootstrap = { stages, selectedMembershipId: row.membership_id, characterCount: characters.length, selectedCharacterId: guardian.selectedCharacterId, succeeded: true };
       tests.push({ id: "bootstrap", name: "Guardian Nexus account bootstrap", status: characters.length ? "pass" : "warning", durationMs: Date.now() - bootstrapStart, explanation: characters.length ? "The real profile loader and account normalizer completed successfully." : "The real profile loader completed, but the normalized account contains no characters.", details: bootstrap });
@@ -541,7 +572,7 @@ async function readSession(request: Request, env: Env, context: RequestContext):
   const session = await sessionFromRequest(request, env);
   if (!session) return withSetCookie(envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false }, rolesState: "verified" }, env, context), visitorCookie);
   const { profile, accessToken } = await profileFor(session.row, env, "session");
-  const [manifest, pvpManifest] = await Promise.all([loadActivityManifest(env), loadRewardsManifest(env)]);
+  const [manifest, pvpManifest] = await Promise.all([loadActivityNames(env), loadRewardsManifest(env)]);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
   const selectedId = selectedCharacter(charactersFromProfile(profile), requestedCharacterId)?.characterId;
   const guardian = normalizeGuardian({
@@ -591,7 +622,7 @@ async function deleteSession(request: Request, env: Env, context: RequestContext
 
 async function overview(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { profile, accessToken } = await profileFor(row, env);
-  const [manifest, pvpManifest] = await Promise.all([loadActivityManifest(env), loadRewardsManifest(env)]);
+  const [manifest, pvpManifest] = await Promise.all([loadActivityNames(env), loadRewardsManifest(env)]);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
   const selectedId = selectedCharacter(charactersFromProfile(profile), requestedCharacterId)?.characterId;
   const guardian = normalizeGuardian({
@@ -1220,26 +1251,35 @@ async function refreshPersistentShares(env: Env): Promise<void> {
 }
 
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile, accessToken } = await profileFor(row, env, "fireteam");
-  const manifest = await loadActivityManifest(env);
+  const started = performance.now();
+  let profileMs = 0;
+  let activityLookupMs = 0;
+  const [{ profile, accessToken }, manifest] = await Promise.all([
+    (async () => { const phase = performance.now(); const value = await profileFor(row, env, "fireteam"); profileMs = performance.now() - phase; return value; })(),
+    (async () => { const phase = performance.now(); const value = await loadActivityNames(env); activityLookupMs = performance.now() - phase; return value; })()
+  ]);
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {};
   const now = new Date().toISOString();
-  const { results = [] } = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error FROM fireteam_shares WHERE sharing_mode = 'persistent' OR expires_at > ?").bind(now).all<any>();
-  const shares = new Map(results.map((result: any) => [String(result.membership_id), result]));
   const party = (transitory.partyMembers || []).map((member: any) => ({
     membershipId: String(member.membershipId || member.destinyMembershipId || ""),
+    membershipType: Number(member.membershipType || member.destinyMembershipType || 0) || undefined,
     displayName: String(member.displayName || member.bungieGlobalDisplayName || "").trim(),
     emblemHash: String(member.emblemHash || ""),
     status: Number(member.status || 0),
     observedInParty: true
-  })).filter((member: any) => member.membershipId);
-  if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, displayName: row.bungie_name || row.display_name, emblemHash: "", status: 1, observedInParty: false });
+  })).filter((member: any) => member.membershipId).slice(0, 12);
+  if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.bungie_name || row.display_name, emblemHash: "", status: 1, observedInParty: false });
+  const partyIds = party.map((member: any) => member.membershipId);
+  const shareStarted = performance.now();
+  const placeholders = partyIds.map(() => "?").join(",");
+  const { results = [] } = await env.DB.prepare(`SELECT s.membership_id, s.display_name, s.updated_at, s.expires_at, s.payload_json, s.sharing_mode, s.last_error, u.membership_type FROM fireteam_shares s LEFT JOIN users u ON u.membership_id = s.membership_id WHERE s.membership_id IN (${placeholders}) AND (s.sharing_mode = 'persistent' OR s.expires_at > ?)`)
+    .bind(...partyIds, now).all<any>();
+  const shareMs = performance.now() - shareStarted;
+  const shares = new Map(results.map((result: any) => [String(result.membership_id), result]));
   const ownCharacter = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   const activeOwnCharacter = charactersFromProfile(profile).find((character) => character.minutesPlayedThisSession > 0) || ownCharacter;
   const ownOnlineState = guardianOnlineState(activeOwnCharacter, activityName(profile, manifest, activeOwnCharacter?.characterId), true, party.some((member: any) => member.membershipId === row.membership_id && member.observedInParty));
   const fireteamActivity = guardianLocation(profile, manifest, activeOwnCharacter?.characterId, ownOnlineState);
-  const social = await socialRosterFor(row, accessToken, env);
-  const socialByMembership = new Map((social.contacts || []).map((contact) => [contact.membershipId, contact]));
   const trackedItemCounts = new Map<string, number>();
   for (const member of party) {
     const share: any = shares.get(member.membershipId);
@@ -1249,16 +1289,18 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       trackedItemCounts.set(key, (trackedItemCounts.get(key) || 0) + 1);
     }
   }
-  const members: FireteamMember[] = await Promise.all(party.map(async (member: any) => {
+  const membersStarted = performance.now();
+  const members: FireteamMember[] = await mapWithConcurrency(party, 3, async (member: any) => {
     const share: any = shares.get(member.membershipId);
     let payload: any = null;
     try { payload = share ? JSON.parse(share.payload_json) : null; } catch { payload = null; }
     const memberQuests = payload?.quests || [];
     const memberTrackedItems = sharedTrackedItems(payload);
     const isSelf = member.membershipId === row.membership_id;
-    const socialContact = socialByMembership.get(member.membershipId);
-    const publicProfile = !isSelf
-      ? (await publicProfileFor(member.membershipId, socialContact?.membershipType || row.membership_type, env, accessToken)).profile
+    const shareAgeMs = share?.updated_at ? Date.now() - Date.parse(share.updated_at) : Number.POSITIVE_INFINITY;
+    const freshSynchronizedShare = Boolean(share) && shareAgeMs <= 2 * 60_000;
+    const publicProfile = !isSelf && !freshSynchronizedShare
+      ? (await publicProfileFor(member.membershipId, member.membershipType || Number(share?.membership_type || 0) || row.membership_type, env, accessToken)).profile
       : undefined;
     const publicCharacters = publicProfile ? charactersFromProfile(publicProfile) : [];
     const publicCharacter = publicCharacters.find((entry) => entry.minutesPlayedThisSession > 0) || publicCharacters[0];
@@ -1298,26 +1340,55 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
         ageSeconds: share ? Math.max(0, Math.round((Date.now() - Date.parse(share.updated_at)) / 1000)) : 0
       }
     };
-  }));
+  });
+  const membersMs = performance.now() - membersStarted;
   const ownShare = shares.get(row.membership_id);
   let ownSharePayload: any = null;
   try { ownSharePayload = ownShare?.payload_json ? JSON.parse(ownShare.payload_json) : null; } catch { ownSharePayload = null; }
-  const displayNames = new Map(members.map((member) => [member.membershipId, member.inGameName || member.displayName]));
-  const activityFeed = await readFireteamActivityFeed({
-    env,
-    viewerMembershipId: row.membership_id,
-    partyMembershipIds: party.map((member: any) => member.membershipId),
-    enabledMembershipIds: party.filter((member: any) => {
-      const share: any = shares.get(member.membershipId);
-      if (!share) return false;
-      try { return sharedActivityFeedEnabled(JSON.parse(share.payload_json)); } catch { return false; }
-    }).map((member: any) => member.membershipId),
-    displayNames,
-    enabled: Boolean(ownShare) && sharedActivityFeedEnabled(ownSharePayload),
-    now
-  });
-  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: fireteamActivity, members, social, activityFeed };
-  return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(social.warning ? [social.warning] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
+  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: fireteamActivity, members };
+  console.log(JSON.stringify({ event: "fireteam_core_timing", profileMs: Math.round(profileMs), activityLookupMs: Math.round(activityLookupMs), d1SharesMs: Math.round(shareMs), publicMembersMs: Math.round(membersMs), feedMs: 0, socialMs: 0, totalMs: Math.round(performance.now() - started), partySize: party.length, synchronizedShares: shares.size }));
+  return envelope(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
+}
+
+async function refreshFireteamSocial(row: SessionRow, env: Env): Promise<FireteamSocialData> {
+  const refreshedAt = new Date();
+  try {
+    const accessToken = await accessTokenFor(row, env);
+    const data = await socialRosterFor(row, accessToken, env);
+    await env.DB.prepare("INSERT INTO fireteam_social_cache (membership_id, payload_json, refreshed_at, expires_at, last_error) VALUES (?, ?, ?, ?, NULL) ON CONFLICT(membership_id) DO UPDATE SET payload_json = excluded.payload_json, refreshed_at = excluded.refreshed_at, expires_at = excluded.expires_at, last_error = NULL")
+      .bind(row.membership_id, JSON.stringify(data), refreshedAt.toISOString(), new Date(refreshedAt.getTime() + 10 * 60_000).toISOString()).run();
+    return data;
+  } catch (error: any) {
+    await env.DB.prepare("UPDATE fireteam_social_cache SET last_error = ? WHERE membership_id = ?")
+      .bind(String(error?.code || error?.message || "Social refresh failed.").slice(0, 240), row.membership_id).run();
+    throw error;
+  }
+}
+
+async function fireteamSocial(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const started = performance.now();
+  const cached = await env.DB.prepare("SELECT payload_json, refreshed_at, expires_at, last_error FROM fireteam_social_cache WHERE membership_id = ?").bind(row.membership_id).first<any>();
+  let cachedData: FireteamSocialData | undefined;
+  try { cachedData = cached?.payload_json ? JSON.parse(cached.payload_json) : undefined; } catch { cachedData = undefined; }
+  const cacheState = cachedData ? fireteamSocialCacheState(cached?.refreshed_at) : "missing";
+  if (cachedData && cacheState === "fresh") {
+    console.log(JSON.stringify({ event: "fireteam_social_timing", socialMs: Math.round(performance.now() - started), totalMs: Math.round(performance.now() - started), cacheState: "fresh" }));
+    return envelope(cachedData, env, context, { sourceMintedAt: cached.refreshed_at });
+  }
+  if (cachedData && cacheState === "stale") {
+    context.waitUntil?.(refreshFireteamSocial(row, env).then(() => undefined).catch(() => undefined));
+    console.log(JSON.stringify({ event: "fireteam_social_timing", socialMs: Math.round(performance.now() - started), totalMs: Math.round(performance.now() - started), cacheState: "stale" }));
+    return envelope(cachedData, env, context, { sourceMintedAt: cached.refreshed_at, warnings: ["Social roster refresh is delayed; showing saved data.", ...(cached.last_error ? [String(cached.last_error)] : [])] });
+  }
+  try {
+    const data = await refreshFireteamSocial(row, env);
+    console.log(JSON.stringify({ event: "fireteam_social_timing", socialMs: Math.round(performance.now() - started), totalMs: Math.round(performance.now() - started), cacheState: "miss-refreshed" }));
+    return envelope(data, env, context);
+  } catch {
+    console.log(JSON.stringify({ event: "fireteam_social_timing", socialMs: Math.round(performance.now() - started), totalMs: Math.round(performance.now() - started), cacheState: "miss-failed" }));
+    const unavailable: FireteamSocialData = { state: "unavailable", friendsState: "unavailable", clanState: "unavailable", contacts: [], warning: "Bungie friends and clan presence are temporarily unavailable." };
+    return envelope(unavailable, env, context, { warnings: [unavailable.warning!] });
+  }
 }
 
 function sharedTrackedItems(payload: any): FireteamTrackedItem[] {
@@ -1353,6 +1424,7 @@ function sharedActivityPartyMembershipIds(payload: any, selfMembershipId: string
 }
 
 async function fireteamActivity(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const started = performance.now();
   const now = new Date().toISOString();
   const ownShare = await env.DB.prepare("SELECT membership_id, display_name, payload_json FROM fireteam_shares WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)").bind(row.membership_id, now).first<any>();
   let ownPayload: any = null;
@@ -1364,6 +1436,7 @@ async function fireteamActivity(row: SessionRow, env: Env, context: RequestConte
   const enabledRows = (shares.results || []).filter((share: any) => { try { return sharedActivityFeedEnabled(JSON.parse(share.payload_json)); } catch { return false; } });
   const displayNames = new Map(enabledRows.map((share: any) => [String(share.membership_id), String(share.display_name || "Unknown Guardian")]));
   const feed = await readFireteamActivityFeed({ env, viewerMembershipId: row.membership_id, partyMembershipIds: partyIds, enabledMembershipIds: enabledRows.map((share: any) => String(share.membership_id)), displayNames, enabled: Boolean(ownShare) && sharedActivityFeedEnabled(ownPayload), now });
+  console.log(JSON.stringify({ event: "fireteam_activity_timing", feedMs: Math.round(performance.now() - started), totalMs: Math.round(performance.now() - started), partySize: partyIds.length, cacheState: "d1" }));
   return envelope(feed, env, context);
 }
 

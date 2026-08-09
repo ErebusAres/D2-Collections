@@ -45,6 +45,19 @@ describe("API client", () => {
     await expect(api("/api/v1/session")).rejects.toMatchObject({ status: 500, code: "worker_resource_limit", message: "Guardian services are temporarily over capacity." });
   });
 
+  it("retains a Fireteam 1102 Ray ID and opens a per-route circuit breaker", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("error code: 1102 Worker exceeded resource limits", { status: 500, headers: { "cf-ray": "abc123-ORD" } }));
+    await expect(api("/api/v1/fireteam?characterId=c1")).rejects.toMatchObject({ code: "worker_resource_limit", message: "Fireteam live presence delayed—showing saved data.", requestId: "abc123" });
+    await expect(api("/api/v1/fireteam?characterId=c2")).rejects.toMatchObject({ code: "worker_resource_limit" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    offlineCache.readApiResponse.mockResolvedValue({
+      savedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
+      envelope: { data: { members: [{ membershipId: "1", onlineState: "online", presenceLabel: "Online", activity: "The Tower", activitySource: "public" }] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved" }
+    });
+    const saved = await api<any>("/api/v1/fireteam?characterId=c3");
+    expect(saved.data.members[0]).toMatchObject({ onlineState: "unknown", presenceLabel: "Presence unknown", activitySource: "unavailable" });
+  });
+
   it("returns a timestamped saved response when a live read is temporarily unavailable", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
     offlineCache.readApiResponse.mockResolvedValue({

@@ -1,4 +1,4 @@
-import type { CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, GuardianRankManifest, JourneyProgressManifest, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
+import type { ActivityNameManifest, CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, GuardianRankManifest, JourneyProgressManifest, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 import { imageUrl } from "@guardian-nexus/domain";
@@ -8,6 +8,7 @@ const TOKEN_URL = `${API_ROOT}/App/OAuth/Token/`;
 let manifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let gearManifestCache: { value: GearManifest; expiresAt: number } | null = null;
 let activityManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
+let activityNameManifestCache: { value: ActivityNameManifest; expiresAt: number } | null = null;
 let questManifestCache: { value: CompactManifest; expiresAt: number } | null = null;
 let rewardsManifestCache: { value: RewardsManifest; expiresAt: number } | null = null;
 let guardianRankManifestCache: { value: GuardianRankManifest; expiresAt: number } | null = null;
@@ -100,11 +101,7 @@ export async function publicProfileFor(
   if (cached && cached.expiresAt > Date.now()) return cached;
   const types = [...new Set([
     publicMembershipTypeCache.get(membershipId),
-    preferredMembershipType,
-    3,
-    2,
-    1,
-    6
+    preferredMembershipType
   ].filter((value): value is number => Number.isInteger(value) && Number(value) > 0))];
   for (const membershipType of types) {
     try {
@@ -569,6 +566,21 @@ export async function loadActivityManifest(env: Env): Promise<CompactManifest> {
   }
 }
 
+export async function loadActivityNames(env: Env): Promise<ActivityNameManifest> {
+  if (activityNameManifestCache && activityNameManifestCache.expiresAt > Date.now()) return activityNameManifestCache.value;
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "activity-names.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Activity name manifest request returned ${response.status}.`);
+    const value = await response.json() as ActivityNameManifest;
+    if (!value?.version || !value.names || typeof value.names !== "object") throw new Error("Activity name manifest artifact is invalid.");
+    activityNameManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    return { version: "unavailable", generatedAt: new Date().toISOString(), names: {} };
+  }
+}
+
 export async function loadManifest(env: Env): Promise<CompactManifest> {
   if (manifestCache && manifestCache.expiresAt > Date.now()) return manifestCache.value;
   try {
@@ -600,7 +612,7 @@ export async function loadQuestManifest(env: Env): Promise<CompactManifest> {
   if (questManifestCache && questManifestCache.expiresAt > Date.now()) return questManifestCache.value;
   try {
     const [activity, response] = await Promise.all([
-      loadActivityManifest(env),
+      loadActivityNames(env),
       fetch(env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "pursuit-manifest.json"), { cf: { cacheTtl: 300, cacheEverything: true } })
     ]);
     if (!response.ok) throw new Error(`Pursuit manifest returned ${response.status}.`);
@@ -612,7 +624,7 @@ export async function loadQuestManifest(env: Env): Promise<CompactManifest> {
       items: overlay.items || [],
       itemDefinitions: overlay.itemDefinitions || {},
       objectiveDefinitions: overlay.objectiveDefinitions || {},
-      activityDefinitions: activity.activityDefinitions || {},
+      activityDefinitions: Object.fromEntries(Object.entries(activity.names).map(([hash, name]) => [hash, { displayProperties: { name } }])),
       recordDefinitions: {}
     };
     questManifestCache = { value, expiresAt: Date.now() + 300_000 };

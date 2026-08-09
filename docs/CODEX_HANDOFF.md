@@ -6,6 +6,20 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
+### Fireteam Worker reliability hardening release candidate
+
+Signed-in production reproduction on 2026-08-08 returned Cloudflare error 1102 for 6/6 `/api/v1/fireteam` requests. The responses identified a Worker resource-limit failure rather than a D1 synchronization problem. The former core route combined the 1.13 MB activity manifest, an unbounded active-share scan, public member profile resolution, Fireteam Activity, and Bungie friends/clan roster work in one request.
+
+Branch `codex/fireteam-worker-reliability` makes the core response intentionally narrow: it loads the compact activity-name lookup, queries Fireteam shares only for the current party's at-most-12 membership IDs, trusts synchronized shares for two minutes, preserves known membership types for a single-platform public lookup, limits stale-member lookups to three concurrent requests, and omits Social and Activity data. Member lookup gaps retain saved member data instead of failing the party. Structured logs report only numeric phase durations, party size, share count, and cache state; they contain no names, IDs, tokens, or payload contents.
+
+`GET /api/v1/fireteam/social` now owns the existing `FireteamSocialData` contract. Migration `0018_fireteam_social_cache.sql` adds account-scoped normalized D1 roster caching: 10 minutes fresh, up to 24 hours stale-usable with a `waitUntil` refresh, and a bounded isolated refresh on a miss. `/api/v1/fireteam/activity` remains D1-only. Recent Items, core member cards, Activity, and Social use distinct account-scoped browser cache keys and render independently, so a failed core route no longer removes the other Fireteam sections.
+
+Manifest generation now writes `activity-names.json` atomically with the other static artifacts. The checked artifact is 138,690 bytes, retains every non-empty activity name from `activity-manifest.json`, and matches its version and generation timestamp. `/session`, `/overview`, `/fireteam`, Support bootstrap, and pursuit normalization use this lookup; Journey/PvP/history keep the rich manifest where required.
+
+The web client recognizes raw Cloudflare 1102 pages as `worker_resource_limit`, retains the Ray ID in account-local Support diagnostics, skips React Query retries, and opens a route-specific 60-second circuit breaker with up to 10 seconds of jitter. Cached Fireteam presence older than two minutes is changed to `unknown` with activity removed. Saved-section warnings name only the delayed section rather than declaring the whole site over capacity. `/support` reports compact-manifest state/version, D1 reachability, Social cache age/state and last-refresh failure, request ID, inbound Ray ID, and the last browser-observed route/Ray ID without exposing account identifiers.
+
+Release-candidate validation passes the complete `pnpm run audit`: archive/source/CSS boundaries across 40 stylesheets, ESLint, every TypeScript target, 24 domain tests, 198 API tests, 270 web tests, 21 manifest Python tests plus tooling tests, production API/Web builds, and performance budgets. Output is 367,384 bytes entry JavaScript (113,236 bytes gzip) and 33,043 bytes CSS. Production migration/deploy, 25-request signed-in acceptance, browser stale-section checks, Worker timing/log review, and the 15-minute monitoring window remain to be recorded after merge.
+
 The original roadmap and catalog corrections are live on `main`. Build Advisor template set v7 has 72 reviewed foundations: 24 per class and exactly four core-Exotic paths for every subclass. It groups visible recommendations by subclass and generates up to 24 additional account-specific variants when a different physical owned weapon strongly matches a reviewed template's bounded role. Generated variants never infer unsupported subclass setups or ownership. Build checklist tracking remains privacy-scoped to Fireteam.
 
 The Alerts & Watches page has been removed from navigation, routing, mobile shortcuts, and the PWA shortcut list pending a later product rethink. Existing private watchlist preference parsing remains for backward compatibility with Build Advisor and Weapon Rolls data. Loadouts now includes a separately labeled live Equipped area, honest partial/unavailable states, collapsible cards with icon previews, and a header-docked horizontal jump frame. Saved-loadout markers reuse Bungie's returned icon and color assets, retain the in-game slot number, and expose viewport-aware name/class/element tooltips.
@@ -39,7 +53,7 @@ The current objective-icon release replaces Bungie's bracketed objective markers
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/real-gear-tiers-live-handoff`, a documentation-only checkpoint after the complete PR #103 correction. The implementation is live on `main`.
+- Current implementation branch: `codex/fireteam-worker-reliability`, validated locally and pending production publication.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
