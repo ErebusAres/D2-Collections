@@ -18,6 +18,8 @@ Support diagnostics now expose account-cache age/state, refresh-in-progress stat
 
 PR #109 passed workflow `31297541444`, squash-merged as `da1d1052ae8a931d051e409e9709d3a43c5d2ae5`, and deployed successfully through production workflow `31297609585`, including migration `0020_guardian_session_cache.sql`. The first signed-in production load immediately confirmed the global connection state was healthy and Recent Loot, Activity, and Social all rendered without 1102. It also exposed one narrower remaining case: Bungie returned a present-but-empty transitory party, which the first release considered authoritative and reduced the stored party to self. Follow-up branch `codex/fireteam-party-grace` requires three consecutive successful solo observations before clearing a previously verified multi-member party. Missing transitory data never increments the counter, and any observed teammate resets it. This intentionally allows stale member cards with unknown presence for a few minutes instead of letting one flaky Bungie response erase the party. The complete repository audit passes for this follow-up with 24 domain, 201 API, 271 Web, and 21 manifest tests plus all typechecks, builds, source-boundary checks, and performance budgets; its PR/merge/deploy and production member-card recovery remain pending.
 
+PR #110 passed workflow `31297973909`, squash-merged as `f5b08f0c859d675df4a8fe7dd27e673db0514bf0`, and deployed successfully through production workflow `31298056632`. Signed-in production remained connected and all independent Fireteam sections rendered, but a forced refresh could not reconstruct the already-overwritten party. The recovery trace found that `storeShare` and scheduled presence refreshes read component 1000 while the `fireteam-share` Bungie profile request did not request it. Follow-up branch `codex/fireteam-party-recovery` adds only component 1000 to that write/refresh profile mode and asserts it in the API suite; the lightweight Fireteam read endpoint is unchanged.
+
 ### Fireteam Worker reliability hardening
 
 Signed-in production reproduction on 2026-08-08 returned Cloudflare error 1102 for 6/6 `/api/v1/fireteam` requests. The responses identified a Worker resource-limit failure rather than a D1 synchronization problem. The former core route combined the 1.13 MB activity manifest, an unbounded active-share scan, public member profile resolution, Fireteam Activity, and Bungie friends/clan roster work in one request.
@@ -73,7 +75,7 @@ The current objective-icon release replaces Bungie's bracketed objective markers
 ## Current repository state
 
 - Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/fireteam-party-grace`, based on production merge `da1d1052`; the account-cache fix is live, while the consecutive solo-observation guard is pending release.
+- Current implementation branch: `codex/fireteam-party-recovery`, based on production merge `f5b08f0`; account caching and the consecutive solo-observation guard are live, while transitory-party reacquisition is pending release.
 - Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)

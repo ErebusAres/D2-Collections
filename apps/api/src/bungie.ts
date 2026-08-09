@@ -438,7 +438,7 @@ export function profileComponentsFor(mode: ProfileMode): string {
       : mode === "journey"
         ? "100,200,202,204,900"
         : mode === "fireteam-share"
-          ? "100,102,200,201,202,204,301,310,800,900"
+          ? "100,102,200,201,202,204,301,310,800,900,1000"
         : mode === "fireteam"
           ? "100,200,204,1000"
         : mode === "recent-items"
