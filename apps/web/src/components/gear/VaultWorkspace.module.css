@@ -1,0 +1,55 @@
+.itemActions { position: relative; z-index: 7; }
+.itemActions > .actionTrigger {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+}
+.itemActions > .actionTrigger svg { width: 15px; height: 15px; }
+.itemActions > .actionTrigger:hover,.itemActions > .actionTrigger:focus-visible,.itemActions > .actionTrigger[aria-expanded="true"] {
+  outline: 1px solid color-mix(in srgb,var(--cyan) 55%,transparent);
+  background: color-mix(in srgb,var(--cyan) 16%,transparent);
+  color: var(--cyan);
+}
+.itemActions > .actionTrigger:disabled { opacity: .45; cursor: wait; }
+.actionMenu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 75;
+  width: 170px;
+  display: grid;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid rgba(155,231,226,.4);
+  background: #08141b;
+  box-shadow: 0 14px 32px rgba(0,0,0,.62);
+}
+.actionMenu button {
+  min-height: 31px;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  background: rgba(255,255,255,.025);
+  color: var(--muted);
+  font-size: 10px;
+  text-align: left;
+  text-transform: uppercase;
+}
+.actionMenu button:hover,.actionMenu button:focus-visible { border-color: var(--action-color,var(--cyan)); background: color-mix(in srgb,var(--action-color,var(--cyan)) 12%,#0d1b23); color: var(--ink); outline: 0; }
+.actionMenu button:disabled { opacity: .45; cursor: wait; }
+.actionMenu svg { width: 14px; height: 14px; color: var(--action-color,var(--cyan)); }
+.lockAction { --action-color: var(--gold); }
+.unlockAction { --action-color: #8ab7c7; }
+.pullAction { --action-color: var(--cyan); }
+.equipAction { --action-color: var(--success); }
+
+@media(max-width:620px){.actionMenu{right:-4px;width:160px}}
