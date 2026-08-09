@@ -1,4 +1,4 @@
-.icon.icon {
+.icon {
   display: inline-block;
   width: 1.65em;
   height: 1.05em;
@@ -8,5 +8,5 @@
   filter: drop-shadow(0 0 4px rgba(159, 243, 255, .18));
 }
 
-.icon.icon[data-local-icon="true"] { filter: invert(1) drop-shadow(0 0 4px rgba(159, 243, 255, .18)); }
-.icon.icon:first-child { margin-left: 0; }
+.icon[data-local-icon="true"] { filter: invert(1) drop-shadow(0 0 4px rgba(159, 243, 255, .18)); }
+.icon:first-child { margin-left: 0; }
