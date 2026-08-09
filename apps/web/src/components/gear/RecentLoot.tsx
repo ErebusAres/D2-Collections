@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
 import { GearTagBadge, GearTagPicker } from "./GearTagPicker";
+import { LootTierBadge } from "./LootTierBadge";
 import styles from "./RecentLoot.module.css";
 
 export type LootItem = ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & WeaponItem);
@@ -164,11 +165,12 @@ export function RecentTimelineCard({ event }: { event: RecentItemEvent }) {
   const completed = event.kind === "catalyst-completed";
   const inventory = event.kind === "inventory-gained" || event.kind === "exotic-engram-found";
   const engram = event.kind === "exotic-engram-found";
+  const rarity = event.rarity || (inventory ? "Unknown" : "Exotic");
   const label = completed ? "100%" : inventory ? `×${event.quantity}` : event.kind === "catalyst-found" ? "Found" : `×${event.quantity}`;
   const type = event.kind === "catalyst-completed" ? "Catalyst completed" : event.kind === "catalyst-found" ? "Catalyst found" : engram ? "Exotic Engram found" : event.itemType || "Inventory item found";
   const observationLabel = event.lastObservedAt !== event.observedAt ? `${new Date(event.observedAt).toLocaleString()}–${new Date(event.lastObservedAt).toLocaleString()}` : new Date(event.observedAt).toLocaleString();
-  return <article className={`${styles.card} ${styles.compactCard} ${styles.timelineCard} ${inventory ? styles.inventoryCard : styles.catalystCard}`} data-rarity={event.rarity || (inventory ? "Common" : "Exotic")} tabIndex={0} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} onFocus={() => setOpen(true)} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) setOpen(false); }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-    <button className={styles.tile} type="button" aria-label={`Inspect ${event.name}`} aria-expanded={open} aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen(true)}><span className={styles.art}>{event.icon ? <img src={event.icon} alt="" /> : <Sparkles />}</span><span className={styles.metrics}><b className={completed ? styles.catalystDone : undefined}>{completed && <Check aria-label="100%" />}{label}</b><strong className={styles.catalystMark}>{inventory ? "Gained" : "Catalyst"}</strong></span></button>
+  return <article className={`${styles.card} ${styles.compactCard} ${styles.timelineCard} ${inventory ? styles.inventoryCard : styles.catalystCard}`} data-rarity={rarity} tabIndex={0} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} onFocus={() => setOpen(true)} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) setOpen(false); }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <button className={styles.tile} type="button" aria-label={`Inspect ${event.name}`} aria-expanded={open} aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen(true)}><span className={styles.art}><LootTierBadge rarity={rarity} variant="overlay" />{event.icon ? <img src={event.icon} alt="" /> : <Sparkles />}</span><span className={styles.metrics}><b className={completed ? styles.catalystDone : undefined}>{completed && <Check aria-label="100%" />}{label}</b><strong className={styles.catalystMark}>{inventory ? "Gained" : "Catalyst"}</strong></span></button>
     <span className={styles.cardName}>{event.name}</span>
     <div className={styles.cardActions} />
     {open && <aside id={tooltipId} className={styles.tooltip} role="tooltip"><header>{event.icon && <img src={event.icon} alt="" />}<span><small>{type}</small><strong>{event.name}</strong><em>{event.rarity || (inventory ? "Inventory" : "Exotic")}</em></span></header><div className={styles.identity}><b>{label}</b><span>{type}</span></div>{event.description && <p>{event.description}</p>}<nav className={styles.sourceLinks}>{event.itemHash ? <a href={`https://www.light.gg/db/items/${event.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a> : <Link to="/collection?view=catalysts">Open catalyst details</Link>}<span><Clock3 /> Observed {observationLabel}</span></nav><footer>Guardian Nexus detected this change between Bungie profile snapshots; the exact in-game pickup time may be earlier.</footer></aside>}
@@ -180,7 +182,7 @@ export function RecentCatalystCard({ catalyst }: { catalyst: RecentCatalystObser
   const status = catalyst.state === "complete" ? "100%" : `${Math.round(catalyst.percent)}%`;
   return <article className={`${styles.card} ${styles.compactCard} ${styles.catalystCard}`} data-rarity="Exotic" tabIndex={0} onFocus={() => setOpen(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
     <Link className={styles.tile} to="/collection?view=catalysts" aria-label={`Inspect ${catalyst.name}`} onClick={() => setOpen(true)}>
-      <span className={styles.art}>{catalyst.icon ? <img src={catalyst.icon} alt="" /> : <Sparkles />}</span>
+      <span className={styles.art}><LootTierBadge rarity="Exotic" variant="overlay" />{catalyst.icon ? <img src={catalyst.icon} alt="" /> : <Sparkles />}</span>
       <span className={styles.metrics}><b className={catalyst.state === "complete" ? styles.catalystDone : undefined}>{catalyst.state === "complete" && <Check aria-label="100%" />}{status}</b><strong className={styles.catalystMark}>Catalyst</strong></span>
     </Link>
     <span className={styles.cardName}>{catalyst.name}</span>
@@ -218,7 +220,7 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
   const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
   return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} tabIndex={0} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} onFocus={() => { onActivate(); setOpen(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onDeactivate(); setOpen(false); } }} onMouseEnter={() => { onActivate(); setOpen(true); }} onMouseLeave={() => { onDeactivate(); setOpen(false); }}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={open} aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen(true)}>
-      <span className={styles.art}>{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
+      <span className={styles.art}><LootTierBadge rarity={item.rarity} variant="overlay" />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
       <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>Roll {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll unknown" : "No rating"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>

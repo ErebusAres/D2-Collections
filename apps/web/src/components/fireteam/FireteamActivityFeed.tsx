@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Eye, EyeOff, MessageSquare, Pin, Send, Sparkles
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ItemTooltip, TimelineEventTooltip } from "../gear/RecentLoot";
+import { LootTierBadge } from "../gear/LootTierBadge";
 import styles from "./FireteamActivityFeed.module.css";
 
 export type FireteamActivityFeedView = "open" | "minimized" | "hidden";
@@ -177,7 +178,6 @@ function LootActivityLine({ entry }: { entry: Extract<FireteamActivityFeedEntry,
   const tooltipId = useId();
   const event = entry.event;
   const rarity = event.rarity || event.gear?.rarity || (event.kind.includes("catalyst") ? "Exotic" : "Common");
-  const tier = lootTier(rarity);
   const cancelClose = () => { if (closeTimer.current !== undefined) window.clearTimeout(closeTimer.current); closeTimer.current = undefined; };
   const show = () => { cancelClose(); setOpen(true); };
   const scheduleClose = () => { cancelClose(); closeTimer.current = window.setTimeout(() => setOpen(false), 120); };
@@ -196,7 +196,7 @@ function LootActivityLine({ entry }: { entry: Extract<FireteamActivityFeedEntry,
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); window.removeEventListener("scroll", update, true); };
   }, [open]);
   return <div className={`${styles.line} ${styles.loot}`} onMouseEnter={show} onMouseLeave={scheduleClose} onFocus={show} onBlur={(focus) => { if (!focus.currentTarget.contains(focus.relatedTarget)) scheduleClose(); }} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} tabIndex={0}>
-    <strong>{entry.displayName}:</strong><button ref={trigger} type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => { cancelClose(); setOpen((value) => !value); }}><span className={styles.tierBadge} data-rarity={rarity} aria-label={`Tier ${tier} ${rarity}`}><span>{tier}</span></span>{event.icon ? <img className={styles.itemIcon} src={event.icon} alt="" /> : <Sparkles className={styles.itemIcon} />}<b data-rarity={rarity}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
+    <strong>{entry.displayName}:</strong><button ref={trigger} type="button" aria-describedby={open ? tooltipId : undefined} onClick={() => { cancelClose(); setOpen((value) => !value); }}><LootTierBadge rarity={rarity} />{event.icon ? <img className={styles.itemIcon} src={event.icon} alt="" /> : <Sparkles className={styles.itemIcon} />}<b data-rarity={rarity}>{event.name}</b><span>{event.quantity > 1 ? `×${event.quantity} found.` : "found."}</span></button><time dateTime={entry.createdAt}>{shortTime(entry.createdAt)}</time>
     {open && createPortal(<span ref={tooltip} className={styles.tooltip} style={position} onMouseEnter={cancelClose} onMouseLeave={scheduleClose} onFocus={cancelClose} onBlur={scheduleClose}>{event.gear ? <ItemTooltip id={tooltipId} item={event.gear} /> : <TimelineEventTooltip id={tooltipId} event={event} />}</span>, document.body)}
   </div>;
 }
@@ -209,17 +209,6 @@ export function activityTooltipPosition(anchor: Pick<DOMRect, "left" | "right" |
   const left = anchor.left - width - gap >= edge ? anchor.left - width - gap : Math.min(Math.max(edge, anchor.right + gap), Math.max(edge, viewportWidth - width - edge));
   const top = Math.min(Math.max(edge, anchor.top - 16), Math.max(edge, viewportHeight - height - edge));
   return { left: Math.round(left), top: Math.round(top) };
-}
-
-export function lootTier(rarity?: string): number {
-  const key = String(rarity || "").trim().toLowerCase();
-  if (key === "exotic") return 6;
-  if (key === "legendary" || key === "superior") return 5;
-  if (key === "rare") return 4;
-  if (key === "common") return 3;
-  if (key === "uncommon" || key === "basic") return 2;
-  if (key === "currency") return 1;
-  return 0;
 }
 
 function shortTime(value: string): string {
