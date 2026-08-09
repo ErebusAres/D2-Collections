@@ -115,6 +115,10 @@
 .line > span { overflow-wrap: anywhere; }
 .line time { margin-left: auto; color: var(--muted); font-size: .65rem; white-space: nowrap; }
 .loot > button { min-height: 0; display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: transparent; color: inherit; }
+.tierDiamond { width:17px; height:17px; flex:0 0 17px; display:grid; place-items:center; margin:0 2px; transform:rotate(45deg); border:1px solid rgba(246,248,250,.9); background:#e8ebee; box-shadow:0 0 0 1px rgba(5,8,14,.82),0 0 7px rgba(220,226,235,.22); }
+.tierDiamond b { transform:rotate(-45deg); color:#10131b; font:800 10px/1 var(--font-display); text-shadow:none; }
+.tierDiamond[data-tier="3"],.tierDiamond[data-tier="4"] { border-color:#d9c0ff; background:#a97cff; box-shadow:0 0 0 1px rgba(8,5,14,.86),0 0 8px rgba(169,124,255,.34); }
+.tierDiamond[data-tier="5"] { border-color:#fff0b8; background:var(--gold); box-shadow:0 0 0 1px rgba(12,8,2,.88),0 0 9px rgba(230,189,103,.42); }
 .itemIcon { width: 18px !important; height: 18px !important; flex: 0 0 18px; border: 1px solid rgba(255,255,255,.2); object-fit: cover; }
 
 .loot b[data-rarity="Exotic"] { color: #e6bd67; }
