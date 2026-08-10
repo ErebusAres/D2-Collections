@@ -111,20 +111,23 @@ function FireteamRefreshCountdown() {
       // temporary shares need a browser renewal to extend their 15-minute lease.
       if (shouldRenewTemporaryShare && !shareRefreshRunning.current) {
         shareRefreshRunning.current = true;
-        void queuedApi("/api/v1/fireteam/share", {
-          method: "PUT",
-          headers: mutationHeaders(session?.csrfToken),
-          body: JSON.stringify({
-            characterId: selectedCharacterId,
-            sitePinnedQuestIds: readStringArray(storageKey, 40),
-            siteTrackedGuardianRankIds: readPreferenceArray(guardianRankTracked),
-            siteTrackedJourneyIds: readPreferenceArray(journeyTracked),
-            siteTrackedCollectionIds: readPreferenceArray(collectionTracked),
-            siteTrackedBuilds: parseTrackedBuilds(buildTracked),
-            hiddenTrackedItemKeys,
-            mode: mode as FireteamSharingMode
-          })
-        }, { priority: 100 }).then(() => queryClient.refetchQueries({ queryKey: fireteamQueryKey(selectedCharacterId), exact: true, type: "active" })).catch(() => undefined).finally(() => { shareRefreshRunning.current = false; });
+        try {
+          await queuedApi("/api/v1/fireteam/share", {
+            method: "PUT",
+            headers: mutationHeaders(session?.csrfToken),
+            body: JSON.stringify({
+              characterId: selectedCharacterId,
+              sitePinnedQuestIds: readStringArray(storageKey, 40),
+              siteTrackedGuardianRankIds: readPreferenceArray(guardianRankTracked),
+              siteTrackedJourneyIds: readPreferenceArray(journeyTracked),
+              siteTrackedCollectionIds: readPreferenceArray(collectionTracked),
+              siteTrackedBuilds: parseTrackedBuilds(buildTracked),
+              hiddenTrackedItemKeys,
+              mode: mode as FireteamSharingMode
+            })
+          }, { priority: 100 });
+        } catch { /* The core read below still returns the last safe snapshot. */ }
+        finally { shareRefreshRunning.current = false; }
       }
       // Lower-priority sections remain independent: a failure retains their
       // last successful query data and the next scheduled cycle still runs.

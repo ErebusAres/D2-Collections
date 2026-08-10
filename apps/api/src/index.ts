@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, partyObservationForProgressRefresh, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, partyObservationForProgressRefresh, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1610,7 +1610,10 @@ async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void>
     const partyObservation = resolveViewerPartyObservation(observedPartyMembers, previousPartyMembers, Boolean(transitory), Number(payload?.activityPartySoloObservationCount || 0), row.membership_id, directlyOffline);
     const activityPartyMembers = partyObservation.members;
     const rawActivity = activityName(profile, manifest, character?.characterId);
-    const onlineState = guardianOnlineState(character, rawActivity, true, !directlyOffline && activityPartyMembers.some((member) => member.membershipId === row.membership_id && member.observedInParty));
+    // Do not let the transitory party claim prove its own freshness. Bungie can
+    // retain that party after logout; viewer online state must come from the
+    // independently loaded character session before teammate cards are trusted.
+    const onlineState = guardianOnlineState(character, rawActivity, true, false);
     const activity = onlineState === "online" ? guardianLocation(profile, manifest, character?.characterId, onlineState) || payload?.activity : undefined;
     const updatedAt = new Date().toISOString();
     // Do not let a slower presence read overwrite a newer quest/share payload.
@@ -1655,7 +1658,9 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   }
   const viewerPresenceAt = ownShare?.presence_refreshed_at || ownShare?.updated_at;
   const viewerPresenceFresh = Boolean(viewerPresenceAt) && Date.now() - Date.parse(viewerPresenceAt) <= 2 * 60_000;
-  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceFresh);
+  const viewerPresenceUsable = fireteamPresenceUsable(viewerPresenceAt);
+  const viewerSessionLive = ownSharePayload?.onlineState === "online";
+  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceUsable && viewerSessionLive);
   const members: FireteamMember[] = visibleParty.map((member: any) => {
     const share: any = shares.get(member.membershipId);
     let payload: any = null;
@@ -1665,8 +1670,8 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     const isSelf = member.membershipId === row.membership_id;
     const character = payload?.character;
     const presenceAt = share?.presence_refreshed_at || share?.updated_at;
-    const memberPresenceFresh = Boolean(presenceAt) && Date.now() - Date.parse(presenceAt) <= 2 * 60_000;
-    const onlineState: FireteamMember["onlineState"] = !viewerPresenceFresh || !memberPresenceFresh
+    const memberPresenceUsable = fireteamPresenceUsable(presenceAt);
+    const onlineState: FireteamMember["onlineState"] = !viewerPresenceUsable || !memberPresenceUsable
       ? "unknown"
       : isSelf && payload?.onlineState === "offline"
         ? "offline"
@@ -1678,7 +1683,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       displayName: inGameName,
       inGameName,
       emblemPath: character?.emblemPath || "",
-      presenceLabel: viewerPresenceFresh ? partyPresenceLabel(member.status) : "Presence unknown",
+      presenceLabel: viewerPresenceUsable ? partyPresenceLabel(member.status) : "Presence unknown",
       onlineState,
       character,
       activity,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -45,6 +45,12 @@ describe("Fireteam reliability helpers", () => {
     expect(fireteamPresenceRefreshDue(undefined, now)).toBe(true);
     expect(fireteamPresenceRefreshDue("2026-08-09T11:59:01.000Z", now)).toBe(false);
     expect(fireteamPresenceRefreshDue("2026-08-09T11:59:00.000Z", now)).toBe(true);
+  });
+
+  it("keeps the last presence snapshot usable across the five-minute page interval", () => {
+    const now = Date.parse("2026-08-09T12:00:00.000Z");
+    expect(fireteamPresenceUsable("2026-08-09T11:55:00.000Z", now)).toBe(true);
+    expect(fireteamPresenceUsable("2026-08-09T11:49:59.000Z", now)).toBe(false);
   });
 
   it("collapses a stale Bungie party immediately when the viewer is directly offline", () => {

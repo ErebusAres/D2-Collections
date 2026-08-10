@@ -39,6 +39,7 @@ interface CachePolicy {
 
 let guardianScope = "";
 let databasePromise: Promise<IDBDatabase> | undefined;
+const responseWriteQueues = new Map<string, Promise<void>>();
 
 export function setOfflineCacheMembership(membershipId?: string): void {
   guardianScope = membershipId ? `guardian:${membershipId}` : "";
@@ -72,7 +73,11 @@ export async function storeApiResponse<T>(path: string, envelope: ApiEnvelope<T>
     expiresAt: new Date(Date.now() + identity.maxAgeMs).toISOString(),
     envelope: envelope as ApiEnvelope<unknown>
   };
-  await put(RESPONSE_STORE, record);
+  const previous = responseWriteQueues.get(identity.key) || Promise.resolve();
+  const write = previous.catch(() => undefined).then(() => put(RESPONSE_STORE, record));
+  responseWriteQueues.set(identity.key, write);
+  try { await write; }
+  finally { if (responseWriteQueues.get(identity.key) === write) responseWriteQueues.delete(identity.key); }
 }
 
 export async function readApiResponse<T>(path: string): Promise<CachedApiResponse<T> | undefined> {

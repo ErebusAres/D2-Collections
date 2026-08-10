@@ -66,6 +66,12 @@ export function fireteamPresenceRefreshDue(refreshedAt?: string, now = Date.now(
   return now - Date.parse(refreshedAt) >= intervalMs;
 }
 
+export function fireteamPresenceUsable(refreshedAt?: string, now = Date.now(), maxAgeMs = 10 * 60_000): boolean {
+  if (!refreshedAt) return false;
+  const observedAt = Date.parse(refreshedAt);
+  return Number.isFinite(observedAt) && now - observedAt <= maxAgeMs;
+}
+
 export function offlineViewerParty(observed: SavedPartyMember[], previous: SavedPartyMember[], selfMembershipId: string): SavedPartyMember[] {
   const self = observed.find((member) => member.membershipId === selfMembershipId)
     || previous.find((member) => member.membershipId === selfMembershipId);

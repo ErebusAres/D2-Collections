@@ -66,14 +66,14 @@ export function FireteamPage() {
     refetchInterval: false
   });
   const activityFeed = useQuery({
-    queryKey: ["fireteam-activity", selectedCharacterId],
+    queryKey: ["fireteam-activity", session?.guardian?.membershipId, selectedCharacterId],
     queryFn: () => api<NonNullable<FireteamData["activityFeed"]>>("/api/v1/fireteam/activity"),
     enabled: Boolean(session?.authenticated),
     refetchInterval: 10_000,
     refetchIntervalInBackground: false
   });
   const social = useQuery({
-    queryKey: ["fireteam-social"],
+    queryKey: ["fireteam-social", session?.guardian?.membershipId],
     queryFn: () => api<FireteamSocialData>("/api/v1/fireteam/social"),
     enabled: Boolean(session?.authenticated),
     staleTime: 10 * 60_000,

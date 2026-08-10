@@ -28,7 +28,7 @@ export function Shell() {
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);
   const connection = useSyncExternalStore(subscribeConnection, getConnectionSnapshot, getConnectionSnapshot);
   const guardian = session?.guardian;
-  const character = guardian?.characters.find((entry) => entry.characterId === guardian.selectedCharacterId) || guardian?.characters[0];
+  const character = guardian?.characters.find((entry) => entry.characterId === selectedCharacterId) || guardian?.characters[0];
   const rewards = useQuery({
     queryKey: ["rewards", selectedCharacterId],
     queryFn: () => api<RewardsPassData>(`/api/v1/me/rewards?characterId=${encodeURIComponent(selectedCharacterId)}`),
