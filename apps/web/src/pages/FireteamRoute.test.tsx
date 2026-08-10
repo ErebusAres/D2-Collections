@@ -62,7 +62,7 @@ describe("Fireteam refresh cycle", () => {
     await waitFor(() => expect(fireteamReads).toBe(1));
     expect(orderReads).toBe(1);
 
-    await act(async () => { vi.advanceTimersByTime(60_000); });
+    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
     await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
     expect(JSON.parse(String(vi.mocked(queuedApi).mock.calls[0]?.[1]?.body))).not.toHaveProperty("activityFeedEnabled");
     await waitFor(() => expect(fireteamReads).toBe(2));
@@ -82,7 +82,7 @@ describe("Fireteam refresh cycle", () => {
     expect(screen.getByText("Hub order 6")).toBeTruthy();
 
     firstOrderComplete = true;
-    await act(async () => { vi.advanceTimersByTime(60_000); });
+    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
     await waitFor(() => expect(screen.getByText("Active in Destiny · 5")).toBeTruthy());
     expect(screen.queryByRole("link", { name: /Hub order 1/ })).toBeNull();
     expect(screen.getByText("Hub order 6")).toBeTruthy();

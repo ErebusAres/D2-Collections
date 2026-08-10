@@ -116,7 +116,8 @@ export function completedTrackedItemEvents(
   candidates: FireteamTrackedItem[],
   retained: FireteamCompletedTrackedItem[],
   completedAt: string,
-  retainAfterMs: number
+  retainAfterMs: number,
+  inferredCompletedKeys: ReadonlySet<string> = new Set()
 ): FireteamCompletedTrackedItem[] {
   const previousKeys = new Set(previous.map(trackedItemKey));
   const cutoff = Date.parse(completedAt) - retainAfterMs;
@@ -132,7 +133,19 @@ export function completedTrackedItemEvents(
     const event = { ...item, percent: 100, completedAt };
     events.set(key, event);
   }
+  for (const item of previous) {
+    const key = trackedItemKey(item);
+    if (events.has(key) || !inferredCompletedKeys.has(key)) continue;
+    events.set(key, { ...item, percent: 100, completedAt });
+  }
   return [...events.values()];
+}
+
+export function missingTrackedQuestCompletionKeys(previous: FireteamTrackedItem[], currentQuests: QuestProgress[]): Set<string> {
+  const currentKeys = new Set(currentQuests.map((quest) => `${quest.category || "quest"}:${quest.instanceId}`));
+  return new Set(previous
+    .filter((item) => item.kind === "quest" && !currentKeys.has(trackedItemKey(item)))
+    .map(trackedItemKey));
 }
 
 export function trackedItemKey(item: Pick<FireteamTrackedItem, "kind" | "id">): string {

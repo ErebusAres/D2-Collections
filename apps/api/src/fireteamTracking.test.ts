@@ -1,7 +1,7 @@
 import type { CollectionData, GuardianRankData, QuestProgress } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import { profileComponentsFor } from "./bungie";
-import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, missingTrackedQuestCompletionKeys, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 
 describe("Fireteam tracked items", () => {
   it("requests both pursuit and Guardian Rank profile components when refreshing a share", () => {
@@ -146,6 +146,25 @@ describe("Fireteam tracked items", () => {
 
     const retained = completedTrackedItemEvents(previous, candidates, events, "2026-07-22T12:02:00.000Z", 180_000);
     expect(retained).toEqual(events);
+  });
+
+  it("treats a tracked quest removed from inventory as complete but preserves manual untracking as dismissal", () => {
+    const previous = trackedItemsFromQuests([
+      quest({ instanceId: "finished", inGameTracked: true }),
+      quest({ instanceId: "untracked", inGameTracked: true }),
+      quest({ instanceId: "expired-bounty", category: "bounty", inGameTracked: true })
+    ]);
+    const currentQuests = [
+      quest({ instanceId: "untracked", inGameTracked: false }),
+      quest({ instanceId: "next", inGameTracked: true })
+    ];
+    const inferred = missingTrackedQuestCompletionKeys(previous, currentQuests);
+    const events = completedTrackedItemEvents(previous, [], [], "2026-07-22T12:01:00.000Z", 180_000, inferred);
+
+    expect([...inferred]).toEqual(["quest:finished"]);
+    expect(events).toMatchObject([{ kind: "quest", id: "finished", percent: 100 }]);
+    expect(events.some((event) => event.id === "untracked" || event.id === "expired-bounty")).toBe(false);
+    expect(trackedItemsFromQuests(currentQuests).map((item) => item.id)).toEqual(["next"]);
   });
 });
 

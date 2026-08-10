@@ -62,7 +62,7 @@ import { normalizePower, powerItemHashes } from "./power";
 import { normalizeActivityHistory } from "./activityHistory";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
-import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, trackedItemKey, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, missingTrackedQuestCompletionKeys, trackedItemKey, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 import { buildAdvisorRecommendationItems, normalizeBuildAdvisorData } from "./buildAdvisor";
 import { buildAdvisorTemplatesFromPublishedBuilds } from "./buildAdvisorPublished";
 import { BUILD_ADVISOR_TEMPLATES } from "./buildAdvisorTemplates";
@@ -1418,7 +1418,8 @@ async function storeShare(
     completedCandidates,
     sharedRecentlyCompletedItems(previousPayload),
     updatedAt,
-    FIRETEAM_COMPLETION_RETENTION_MS
+    FIRETEAM_COMPLETION_RETENTION_MS,
+    missingTrackedQuestCompletionKeys(previousTrackedItems, allQuests.quests)
   );
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
   const readiness = providedReadiness === undefined ? sharedReadiness(previousPayload) : providedReadiness || undefined;

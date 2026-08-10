@@ -5,7 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useEffect, useRef, type RefObject } from "react";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
 import { clearGuardianOfflineData } from "../../services/api/offlineCache";
-import { LIVE_REFRESH_INTERVAL_SECONDS } from "../../services/liveRefresh";
+import { LIVE_REFRESH_INTERVAL_MINUTES } from "../../services/liveRefresh";
 import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import { trapFocusWithin } from "../common/focusTrap";
 import styles from "./OptionsPanel.module.css";
@@ -90,7 +90,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
         </section>
         <section>
           <h3>Experience</h3>
-          <Toggle label="Auto-refresh live data" description={`Refresh visible live pages every ${LIVE_REFRESH_INTERVAL_SECONDS} seconds.`} checked={guardianState.autoRefresh} onChange={guardianState.setAutoRefresh} />
+          <Toggle label="Auto-refresh live data" description={`Refresh visible live pages every ${LIVE_REFRESH_INTERVAL_MINUTES} minutes.`} checked={guardianState.autoRefresh} onChange={guardianState.setAutoRefresh} />
           <Toggle label="Reduce motion" description="Disable non-essential interface movement." checked={guardianState.reducedMotion} onChange={guardianState.setReducedMotion} />
           <Toggle label="High contrast" description="Increase text, border, focus, and status contrast." checked={Boolean(guardianState.highContrast)} onChange={guardianState.setHighContrast || (() => undefined)} />
         </section>
