@@ -10,6 +10,7 @@ import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
 const setPreference = vi.fn();
+const guardianSettings = vi.hoisted(() => ({ autoRefresh: false }));
 const trackedBuild = { id: "hunter-void-test", definitionHash: "hunter-void-test", kind: "build" as const, name: "Test Void Build", description: "Tracked build", icon: "", context: "Build Advisor · void", trackedInDestiny: false as const, trackedInGuardianNexus: true as const, objectives: [{ objectiveHash: "armor", name: "Required armor", progress: 0, completionValue: 1 as const, percent: 0, complete: false, progressAvailable: true }], percent: 50, updatedAt: "2026-08-02T00:00:00.000Z", acquisitionGuide: { summary: "Missing: Required armor", steps: ["Focus the Exotic armor."], prerequisites: [] } };
 
 vi.mock("../context/GuardianContext", () => ({
@@ -17,7 +18,7 @@ vi.mock("../context/GuardianContext", () => ({
   useGuardian: () => ({
     session: { authenticated: true, csrfToken: "csrf", guardian: { membershipId: "member-1" } },
     selectedCharacterId: "c1",
-    autoRefresh: false,
+    autoRefresh: guardianSettings.autoRefresh,
     preferences: { "guardianRank.tracked": JSON.stringify(["rank-record"]), "collection.tracked": JSON.stringify(["catalyst:catalyst-record"]), "buildAdvisor.trackedBuilds.v1": JSON.stringify([trackedBuild]) },
     setPreference
   })
@@ -26,6 +27,7 @@ vi.mock("../services/api/client", () => ({ api: vi.fn(), queuedApi: vi.fn(), mut
 vi.mock("../services/completionAudio", () => ({ playCompletionChime: vi.fn(), primeCompletionAudio: vi.fn() }));
 
 beforeEach(() => {
+  guardianSettings.autoRefresh = false;
   localStorage.setItem("pins:member-1:c1", JSON.stringify(["quest-instance"]));
   vi.mocked(api).mockResolvedValue(envelope());
   vi.mocked(queuedApi).mockResolvedValue({ data: { sharing: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "share" });
@@ -34,6 +36,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("Fireteam tracked items", () => {
+  it("polls primary Fireteam presence every 60 seconds when auto-refresh is enabled", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    guardianSettings.autoRefresh = true;
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    await screen.findByText("Shared tracked items");
+    const primaryCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v1/fireteam?characterId=")).length;
+    expect(primaryCalls()).toBe(1);
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    await waitFor(() => expect(primaryCalls()).toBeGreaterThanOrEqual(2));
+  });
+
   it("keeps recent tagged loot interactive before the tracked-item segment", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
       if (String(path).startsWith("/api/v1/me/recent-items")) return recentItemsEnvelope() as never;

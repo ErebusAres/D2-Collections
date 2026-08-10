@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, resolvePartyObservation } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, resolvePartyObservation } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -22,10 +22,17 @@ describe("Fireteam reliability helpers", () => {
     const self = { membershipId: "1", displayName: "Self", status: 1, observedInParty: false };
     const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
     expect(resolvePartyObservation([self], [self, teammate], false, 1)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 1 });
-    expect(resolvePartyObservation([self], [self, teammate], true, 0)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 1 });
-    expect(resolvePartyObservation([self], [self, teammate], true, 1)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 2 });
+    expect(resolvePartyObservation([self], [self, teammate], true, 0)).toEqual({ members: [self, { ...teammate, observedInParty: false }], consecutiveSoloObservations: 1 });
+    expect(resolvePartyObservation([self], [self, teammate], true, 1)).toEqual({ members: [self, { ...teammate, observedInParty: false }], consecutiveSoloObservations: 2 });
     expect(resolvePartyObservation([self], [self, teammate], true, 2)).toEqual({ members: [self], consecutiveSoloObservations: 0 });
     expect(resolvePartyObservation([self, teammate], [self], true, 2)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 0 });
+  });
+
+  it("refreshes Fireteam presence on the live-page cadence", () => {
+    const now = Date.parse("2026-08-09T12:00:00.000Z");
+    expect(fireteamPresenceRefreshDue(undefined, now)).toBe(true);
+    expect(fireteamPresenceRefreshDue("2026-08-09T11:59:01.000Z", now)).toBe(false);
+    expect(fireteamPresenceRefreshDue("2026-08-09T11:59:00.000Z", now)).toBe(true);
   });
 
   it("preserves member results while bounding public lookup concurrency", async () => {

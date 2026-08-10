@@ -12,6 +12,7 @@ import styles from "./Pages.module.css";
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
+import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -33,7 +34,7 @@ export function FireteamPage() {
     queryKey: ["fireteam", selectedCharacterId],
     queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated),
-    refetchInterval: false,
+    refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
   useEffect(() => {

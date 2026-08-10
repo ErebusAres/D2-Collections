@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamSocialCacheState, guardianSessionCacheState, resolvePartyObservation } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, resolvePartyObservation } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1601,9 +1601,10 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       }
     };
   });
-  if (!viewerPresenceFresh && ownShare) context.waitUntil?.(refreshFireteamPresence(row, env).catch(() => undefined));
+  const presenceRefreshDue = Boolean(ownShare) && fireteamPresenceRefreshDue(viewerPresenceAt);
+  if (presenceRefreshDue) context.waitUntil?.(refreshFireteamPresence(row, env).catch(() => undefined));
   const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: viewerPresenceFresh ? ownSharePayload?.activity : undefined, members };
-  console.log(JSON.stringify({ event: "fireteam_core_timing", profileMs: 0, activityLookupMs: 0, d1SharesMs: Math.round(shareMs), publicMembersMs: 0, feedMs: 0, socialMs: 0, totalMs: Math.round(performance.now() - started), partySize: party.length, synchronizedShares: shares.size, cacheState: viewerPresenceFresh ? "fresh" : ownShare ? "stale-refreshing" : "missing" }));
+  console.log(JSON.stringify({ event: "fireteam_core_timing", profileMs: 0, activityLookupMs: 0, d1SharesMs: Math.round(shareMs), publicMembersMs: 0, feedMs: 0, socialMs: 0, totalMs: Math.round(performance.now() - started), partySize: party.length, synchronizedShares: shares.size, cacheState: viewerPresenceFresh ? presenceRefreshDue ? "fresh-refreshing" : "fresh" : ownShare ? "stale-refreshing" : "missing" }));
   return envelope(data, env, context, { observedAt: viewerPresenceAt || now, state: viewerPresenceFresh ? "fresh" : "stale", warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(!viewerPresenceFresh && ownShare ? ["Live Fireteam presence is refreshing; saved member data remains available."] : []), ...(ownShare?.presence_error ? [String(ownShare.presence_error)] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
 }
 

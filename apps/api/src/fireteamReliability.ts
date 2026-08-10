@@ -36,8 +36,19 @@ export function resolvePartyObservation(
   if (previous.length <= 1) return { members: observed, consecutiveSoloObservations: 0 };
   const nextSoloObservations = Math.max(0, consecutiveSoloObservations) + 1;
   return nextSoloObservations < 3
-    ? { members: previous.slice(0, 12), consecutiveSoloObservations: nextSoloObservations }
+    ? {
+      members: previous.slice(0, 12).map((member) => ({
+        ...member,
+        observedInParty: observed.some((candidate) => candidate.membershipId === member.membershipId && candidate.observedInParty)
+      })),
+      consecutiveSoloObservations: nextSoloObservations
+    }
     : { members: observed, consecutiveSoloObservations: 0 };
+}
+
+export function fireteamPresenceRefreshDue(refreshedAt?: string, now = Date.now(), intervalMs = 60_000): boolean {
+  if (!refreshedAt || !Number.isFinite(Date.parse(refreshedAt))) return true;
+  return now - Date.parse(refreshedAt) >= intervalMs;
 }
 
 export async function mapWithConcurrency<T, R>(values: T[], concurrency: number, mapper: (value: T, index: number) => Promise<R>): Promise<R[]> {
