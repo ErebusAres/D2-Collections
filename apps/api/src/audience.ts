@@ -24,7 +24,7 @@ export async function recordAudienceVisitor(request: Request, env: Env, context:
 export async function readAudienceMetrics(env: Env): Promise<AudienceMetrics> {
   const [visitors, logins] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS total, MIN(created_at) AS tracking_since FROM audience_visitors").first<{ total: number; tracking_since: string | null }>(),
-    env.DB.prepare("SELECT COUNT(*) AS total FROM users").first<{ total: number }>()
+    env.DB.prepare("SELECT COUNT(*) AS total FROM users WHERE audience_removed_at IS NULL").first<{ total: number }>()
   ]);
   return {
     uniqueVisitors: Number(visitors?.total || 0),
@@ -116,7 +116,7 @@ export async function readAudienceDetails(env: Env): Promise<AudienceDetailData>
     env.DB.prepare(`SELECT membership_id, membership_type, display_name, bungie_name, created_at, updated_at,
       last_profile_at, last_character_class, last_power, last_guardian_rank, last_rewards_pass_rank, last_emblem_path
       , (SELECT COUNT(*) FROM oauth_sessions WHERE oauth_sessions.membership_id = users.membership_id) AS active_sessions
-      FROM users ORDER BY updated_at DESC`).all<any>(),
+      FROM users WHERE audience_removed_at IS NULL ORDER BY updated_at DESC`).all<any>(),
     env.DB.prepare("SELECT substr(visitor_hash, 1, 12) AS visitor_id, created_at FROM audience_visitors ORDER BY created_at DESC LIMIT 500").all<any>()
   ]);
   return {

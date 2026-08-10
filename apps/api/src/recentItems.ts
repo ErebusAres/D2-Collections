@@ -28,9 +28,10 @@ const MAX_EVENTS = 200;
 const RAW_EVENT_SCAN_LIMIT = MAX_EVENTS * 5;
 
 export async function readRecentItems(membershipId: string, env: Env, now = new Date().toISOString()): Promise<RecentItemTimelineData> {
-  const [observationSummary, rows] = await Promise.all([
+  const [observationSummary, refreshState, rows] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS observation_count, MAX(updated_at) AS observed_at FROM recent_item_observations WHERE membership_id = ?")
       .bind(membershipId).first<{ observation_count: number; observed_at: string | null }>(),
+    env.DB.prepare("SELECT refreshed_at FROM recent_item_refresh_state WHERE membership_id = ?").bind(membershipId).first<{ refreshed_at: string }>(),
     env.DB.prepare("SELECT * FROM recent_item_events WHERE membership_id = ? ORDER BY last_observed_at DESC, id DESC LIMIT ?")
       .bind(membershipId, RAW_EVENT_SCAN_LIMIT).all<any>()
   ]);
@@ -56,7 +57,7 @@ export async function readRecentItems(membershipId: string, env: Env, now = new 
     events: events.map((event) => event.instanceId && currentGear.has(event.instanceId) ? { ...event, gear: currentGear.get(event.instanceId) } : event),
     retentionDays: RETENTION_DAYS,
     firstObservationEstablished: Number(observationSummary?.observation_count || 0) > 0,
-    observedAt: observationSummary?.observed_at || now
+    observedAt: refreshState?.refreshed_at || observationSummary?.observed_at || now
   };
 }
 
@@ -106,8 +107,9 @@ export async function observeRecentItems(input: {
     }
   }
 
-  for (let offset = 0; offset < observations.length; offset += 80) {
-    await input.env.DB.batch(observations.slice(offset, offset + 80).map((observation) => input.env.DB.prepare(`INSERT INTO recent_item_observations
+  const changedObservations = observations.filter((observation) => observationChanged(observation, previous.get(observation.key)));
+  for (let offset = 0; offset < changedObservations.length; offset += 80) {
+    await input.env.DB.batch(changedObservations.slice(offset, offset + 80).map((observation) => input.env.DB.prepare(`INSERT INTO recent_item_observations
       (membership_id, observation_key, observation_kind, state_value, quantity, metadata_json, observed_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(membership_id, observation_key) DO UPDATE SET observation_kind = excluded.observation_kind, state_value = excluded.state_value,
@@ -130,6 +132,14 @@ export async function observeRecentItems(input: {
     firstObservationEstablished: firstAccountObservation,
     observedAt: now
   };
+}
+
+export function observationChanged(observation: Pick<Observation, "kind" | "state" | "quantity" | "metadata">, prior?: Pick<ObservationRow, "observation_kind" | "state_value" | "quantity" | "metadata_json">): boolean {
+  if (!prior) return true;
+  return prior.observation_kind !== observation.kind
+    || prior.state_value !== observation.state
+    || Number(prior.quantity) !== observation.quantity
+    || prior.metadata_json !== JSON.stringify(observation.metadata);
 }
 
 function gearObservation(item: GearLoot): Observation {

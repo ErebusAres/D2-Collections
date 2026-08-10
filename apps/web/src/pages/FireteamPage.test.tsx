@@ -36,7 +36,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("Fireteam tracked items", () => {
-  it("polls primary Fireteam presence every 5 minutes when auto-refresh is enabled", async () => {
+  it("leaves five-minute refresh scheduling to the route coordinator", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     guardianSettings.autoRefresh = true;
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
@@ -45,7 +45,7 @@ describe("Fireteam tracked items", () => {
     const primaryCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v1/fireteam?characterId=")).length;
     expect(primaryCalls()).toBe(1);
     await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
-    await waitFor(() => expect(primaryCalls()).toBeGreaterThanOrEqual(2));
+    expect(primaryCalls()).toBe(1);
   });
 
   it("keeps recent tagged loot interactive before the tracked-item segment", async () => {

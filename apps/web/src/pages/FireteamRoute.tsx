@@ -108,6 +108,9 @@ function FireteamRefreshCountdown() {
     refreshRunning.current = true;
     setRefreshing(true);
     try {
+      // One pursuit snapshot supplies both priority 1 (quests) and priority 2
+      // (Seasonal Hub orders). Do not duplicate the Bungie request.
+      await queryClient.refetchQueries({ queryKey: ["quests", selectedCharacterId, ""], exact: true, type: "active" });
       if (canShareTrackedProgress && !shareRefreshRunning.current) {
         shareRefreshRunning.current = true;
         void queuedApi("/api/v1/fireteam/share", {
@@ -123,12 +126,12 @@ function FireteamRefreshCountdown() {
             hiddenTrackedItemKeys,
             mode: mode as FireteamSharingMode
           })
-        }).catch(() => undefined).finally(() => { shareRefreshRunning.current = false; });
+        }, { priority: 100 }).then(() => queryClient.refetchQueries({ queryKey: ["fireteam", selectedCharacterId], exact: true, type: "active" })).catch(() => undefined).finally(() => { shareRefreshRunning.current = false; });
       }
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ["fireteam", selectedCharacterId], exact: true, type: "active" }),
-        queryClient.refetchQueries({ queryKey: ["quests", selectedCharacterId, ""], exact: true, type: "active" })
-      ]);
+      // Lower-priority sections remain independent: a failure retains their
+      // last successful query data and the next scheduled cycle still runs.
+      await queryClient.refetchQueries({ queryKey: ["fireteam", selectedCharacterId], exact: true, type: "active" });
+      await queryClient.refetchQueries({ queryKey: ["recent-items", selectedCharacterId], exact: true, type: "active" });
     } finally {
       refreshRunning.current = false;
       setRefreshing(false);

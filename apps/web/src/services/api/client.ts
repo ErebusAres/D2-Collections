@@ -31,16 +31,19 @@ interface PendingMutation {
   resolve: (value: ApiEnvelope<unknown>) => void;
   reject: (reason: unknown) => void;
   attempts: number;
+  priority: number;
+  retryAt: number;
   persisted?: PersistedMutation;
 }
 
-interface QueueOptions { persist?: boolean }
+interface QueueOptions { persist?: boolean; priority?: number }
 const RELIABILITY_DIAGNOSTIC_KEY = "guardian-nexus:last-worker-resource-limit";
 
 let connectionSnapshot: ConnectionSnapshot = { queued: 0, retrying: false, ...(typeof navigator !== "undefined" && !navigator.onLine ? { lastError: "Device is offline" } : {}) };
 const connectionListeners = new Set<() => void>();
 const pendingMutations: PendingMutation[] = [];
 let flushTimer: number | undefined;
+let flushTimerAt = 0;
 let flushing = false;
 const inFlightReads = new Map<string, Promise<ApiEnvelope<unknown>>>();
 const savedReadPaths = new Map<string, string>();
@@ -111,7 +114,8 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
 async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
   const route = path.split("?", 1)[0] || path;
   const blockedUntil = routeCircuitBreakers.get(route) || 0;
-  if (blockedUntil > Date.now()) throw new ApiRequestError(503, { code: "worker_resource_limit", message: sectionFailureMessage(path) });
+  if (blockedUntil > Date.now()) throw new ApiRequestError(503, { code: "worker_resource_limit", message: sectionFailureMessage(path), retryAfterSeconds: Math.max(1, Math.ceil((blockedUntil - Date.now()) / 1_000)) });
+  if (blockedUntil) routeCircuitBreakers.delete(route);
   let response: Response;
   try {
     response = await fetch(path, {
@@ -141,6 +145,7 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
     throw error;
   }
   if (!pendingMutations.length && !savedReadPaths.size) updateConnection({ lastError: undefined });
+  routeCircuitBreakers.delete(route);
   return body as ApiEnvelope<T>;
 }
 
@@ -156,7 +161,7 @@ export async function queuedApi<T>(path: string, init: RequestInit, options: Que
       throw error;
     }
     return new Promise<ApiEnvelope<T>>((resolve, reject) => {
-      pendingMutations.push({ path, init, resolve: resolve as (value: ApiEnvelope<unknown>) => void, reject, attempts: 0, persisted });
+      pendingMutations.push({ path, init, resolve: resolve as (value: ApiEnvelope<unknown>) => void, reject, attempts: 0, priority: options.priority || 0, retryAt: Date.now() + 2_000, persisted });
       updateConnection({ queued: pendingMutations.length, lastError: messageOf(error) });
       scheduleFlush(2_000);
     });
@@ -217,8 +222,16 @@ function updateConnection(value: Partial<ConnectionSnapshot>): void {
 }
 
 function scheduleFlush(delay: number): void {
-  if (typeof window === "undefined" || flushTimer !== undefined) return;
-  flushTimer = window.setTimeout(() => { flushTimer = undefined; void flushPending(); }, delay);
+  if (typeof window === "undefined") return;
+  const dueAt = Date.now() + delay;
+  if (flushTimer !== undefined && flushTimerAt <= dueAt) return;
+  if (flushTimer !== undefined) window.clearTimeout(flushTimer);
+  flushTimerAt = dueAt;
+  flushTimer = window.setTimeout(() => {
+    flushTimer = undefined;
+    flushTimerAt = 0;
+    void flushPending();
+  }, delay);
 }
 
 async function flushPending(): Promise<void> {
@@ -226,31 +239,36 @@ async function flushPending(): Promise<void> {
   flushing = true;
   updateConnection({ retrying: true });
   while (pendingMutations.length) {
-    const pending = pendingMutations[0];
-    if (!pending) break;
+    const now = Date.now();
+    const eligible = pendingMutations.map((pending, index) => ({ pending, index })).filter(({ pending }) => pending.retryAt <= now).sort((left, right) => right.pending.priority - left.pending.priority || left.index - right.index)[0];
+    if (!eligible) {
+      scheduleFlush(Math.max(250, Math.min(...pendingMutations.map((pending) => pending.retryAt - now))));
+      break;
+    }
+    const { pending, index } = eligible;
     try {
       const init = pending.persisted ? replayInit(pending.persisted) : pending.init;
       const result = await api<unknown>(pending.path, init);
-      pendingMutations.shift();
+      pendingMutations.splice(index, 1);
       if (pending.persisted) await removeMutation(pending.persisted.id).catch(() => undefined);
       pending.resolve(result);
       updateConnection({ queued: pendingMutations.length, lastError: undefined });
     } catch (error) {
       if (!isTransient(error)) {
-        pendingMutations.shift();
+        pendingMutations.splice(index, 1);
         if (pending.persisted) await removeMutation(pending.persisted.id).catch(() => undefined);
         pending.reject(error);
         updateConnection({ queued: pendingMutations.length, lastError: messageOf(error) });
         continue;
       }
       pending.attempts += 1;
+      pending.retryAt = Date.now() + Math.min(60_000, 2_000 * 2 ** Math.min(5, pending.attempts));
       if (pending.persisted) {
         pending.persisted.attempts = pending.attempts;
         await updateMutation(pending.persisted).catch(() => undefined);
       }
       updateConnection({ lastError: messageOf(error) });
-      scheduleFlush(Math.min(60_000, 2_000 * 2 ** Math.min(5, pending.attempts)));
-      break;
+      continue;
     }
   }
   flushing = false;
@@ -289,6 +307,8 @@ async function hydratePersistedMutations(): Promise<void> {
     resolve: () => undefined,
     reject: () => undefined,
     attempts: entry.attempts,
+    priority: 0,
+    retryAt: Date.now(),
     persisted: entry
   }));
   updateConnection({ queued: pendingMutations.length });

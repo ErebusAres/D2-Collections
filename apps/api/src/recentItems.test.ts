@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition, readRecentItems } from "./recentItems";
+import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition, observationChanged, readRecentItems } from "./recentItems";
 
 describe("recent item timeline transitions", () => {
   const now = "2026-08-08T12:00:00.000Z";
+
+  it("rewrites only observations whose relevant values changed", () => {
+    const observation = { kind: "inventory" as const, state: "owned", quantity: 10, metadata: { itemHash: "1", name: "Core" } };
+    const prior = { observation_kind: "inventory" as const, state_value: "owned", quantity: 10, metadata_json: JSON.stringify(observation.metadata) };
+    expect(observationChanged(observation, prior)).toBe(false);
+    expect(observationChanged({ ...observation, quantity: 11 }, prior)).toBe(true);
+    expect(observationChanged({ ...observation, metadata: { ...observation.metadata, name: "Enhancement Core" } }, prior)).toBe(true);
+  });
 
   it("silently establishes catalyst and inventory baselines", () => {
     expect(eventForTransition({ key: "inventory:1", kind: "inventory", state: "owned", quantity: 40, metadata: { itemHash: "1", name: "Enhancement Core" } }, undefined, true, now)).toBeUndefined();
@@ -101,6 +109,7 @@ describe("recent item timeline transitions", () => {
     const env: any = { DB: { prepare: (sql: string) => ({ bind: (..._values: unknown[]) => ({
       first: async () => {
         queries.push(sql);
+        if (sql.includes("recent_item_refresh_state")) return { refreshed_at: now };
         return { observation_count: 4, observed_at: now };
       },
       all: async () => {
@@ -112,7 +121,7 @@ describe("recent item timeline transitions", () => {
 
     const data = await readRecentItems("member", env, now);
     expect(data).toMatchObject({ observedAt: now, firstObservationEstablished: true, events: [{ name: "Saved Rifle", gear: { kind: "weapon", power: 550 } }] });
-    expect(queries).toHaveLength(3);
-    expect(queries.every((query) => /recent_item_(?:observations|events)/.test(query))).toBe(true);
+    expect(queries).toHaveLength(4);
+    expect(queries.every((query) => /recent_item_(?:observations|events|refresh_state)/.test(query))).toBe(true);
   });
 });

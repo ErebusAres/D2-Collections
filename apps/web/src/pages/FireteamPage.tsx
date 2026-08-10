@@ -12,7 +12,6 @@ import styles from "./Pages.module.css";
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
-import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -28,13 +27,13 @@ interface ShareVariables {
 
 const TRACKED_ITEM_EXIT_MS = 1_600;
 export function FireteamPage() {
-  const { session, selectedCharacterId, autoRefresh, preferences, setPreference } = useGuardian();
+  const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
   const queryClient = useQueryClient();
   const result = useQuery({
     queryKey: ["fireteam", selectedCharacterId],
     queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated),
-    refetchInterval: autoRefresh ? LIVE_REFRESH_INTERVAL_MS : false,
+    refetchInterval: false,
     refetchIntervalInBackground: false
   });
   useEffect(() => {
@@ -67,7 +66,7 @@ export function FireteamPage() {
     queryFn: () => api<RecentItemTimelineData>(`/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
     staleTime: 30_000,
-    refetchInterval: autoRefresh ? 60_000 : false
+    refetchInterval: false
   });
   const activityFeed = useQuery({
     queryKey: ["fireteam-activity", selectedCharacterId],

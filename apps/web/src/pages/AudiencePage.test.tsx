@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { AudienceDetailData } from "@guardian-nexus/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../services/api/client";
 import { AudiencePage } from "./AudiencePage";
@@ -14,7 +14,7 @@ vi.mock("../context/GuardianContext", () => ({ useGuardian: () => ({
 }) }));
 vi.mock("../services/api/client", () => ({ api: vi.fn(), mutationHeaders: vi.fn(() => ({ "X-CSRF-Token": "csrf" })) }));
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("Audience administrator sessions", () => {
   it("requires confirmation and invalidates every session for the selected Guardian", async () => {
@@ -30,6 +30,23 @@ describe("Audience administrator sessions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm force sign out" }));
 
     await waitFor(() => expect(vi.mocked(api)).toHaveBeenCalledWith("/api/v1/audience/sessions", expect.objectContaining({
+      method: "DELETE",
+      body: JSON.stringify({ membershipId: "2000000000000000002" })
+    })));
+  });
+
+  it("requires confirmation before removing a failed account from the audience", async () => {
+    vi.mocked(api).mockImplementation(async (path, init) => {
+      if (path === "/api/v1/audience/account") return { data: { membershipId: "2000000000000000002", removed: true, invalidatedSessions: 2 }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "remove" } as never;
+      return { data: audience(), freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: String(init?.method || "get") } as never;
+    });
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AudiencePage /></QueryClientProvider>);
+
+    await screen.findAllByRole("button", { name: "Remove account" });
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove account" }).find((button) => !button.hasAttribute("disabled"))!);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm remove account" }));
+
+    await waitFor(() => expect(vi.mocked(api)).toHaveBeenCalledWith("/api/v1/audience/account", expect.objectContaining({
       method: "DELETE",
       body: JSON.stringify({ membershipId: "2000000000000000002" })
     })));

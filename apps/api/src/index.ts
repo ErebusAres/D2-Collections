@@ -310,6 +310,17 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     const result = await env.DB.prepare("DELETE FROM oauth_sessions WHERE membership_id = ?").bind(membershipId).run();
     return envelope({ membershipId, invalidatedSessions: Math.max(0, Number(result.meta?.changes || 0)) }, env, context);
   }
+  if (path === "/api/v1/audience/account" && request.method === "DELETE") {
+    await requireCsrf(request, session.token, env);
+    if (!canViewAudienceMetrics(session.row.membership_id, env.DEV_MEMBERSHIP_IDS)) throw httpError(403, "audience_forbidden", "Audience account controls are restricted to approved site maintainers.");
+    const { membershipId } = audienceForceSignOutSchema.parse(await request.json());
+    if (membershipId === session.row.membership_id) throw httpError(400, "audience_self_remove_forbidden", "You cannot remove your own account from Audience.");
+    const target = await env.DB.prepare("SELECT membership_id FROM users WHERE membership_id = ? AND audience_removed_at IS NULL").bind(membershipId).first<{ membership_id: string }>();
+    if (!target) throw httpError(404, "audience_guardian_missing", "That Guardian is no longer present in Audience.");
+    const invalidated = await env.DB.prepare("DELETE FROM oauth_sessions WHERE membership_id = ?").bind(membershipId).run();
+    await env.DB.prepare("UPDATE users SET audience_removed_at = ? WHERE membership_id = ?").bind(new Date().toISOString(), membershipId).run();
+    return envelope({ membershipId, removed: true, invalidatedSessions: Math.max(0, Number(invalidated.meta?.changes || 0)) }, env, context);
+  }
   if (path === "/api/v1/matrix/sync" && request.method === "POST") {
     await requireCsrf(request, session.token, env);
     return syncMatrix(session.row, env, context);
@@ -585,7 +596,7 @@ async function finishAuth(request: Request, env: Env, context: RequestContext): 
     env.DB.prepare(`
       INSERT INTO users (membership_id, membership_type, display_name, bungie_name, updated_at)
       VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(membership_id) DO UPDATE SET membership_type = excluded.membership_type, display_name = excluded.display_name, bungie_name = excluded.bungie_name, updated_at = excluded.updated_at
+      ON CONFLICT(membership_id) DO UPDATE SET membership_type = excluded.membership_type, display_name = excluded.display_name, bungie_name = excluded.bungie_name, updated_at = excluded.updated_at, audience_removed_at = NULL
     `).bind(membershipId, membershipType, displayName, bungieName, new Date().toISOString()),
     env.DB.prepare(`
       INSERT INTO oauth_sessions (session_hash, membership_id, access_token_cipher, refresh_token_cipher, access_expires_at, refresh_expires_at, updated_at)
@@ -1108,7 +1119,7 @@ async function recentItems(row: SessionRow, env: Env, context: RequestContext): 
   const data = await readRecentItems(row.membership_id, env);
   const observationAgeMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
   if (!Number.isFinite(observationAgeMs) || observationAgeMs >= 45_000) {
-    context.waitUntil?.(refreshRecentItemObservations(row, env, context.url.searchParams.get("characterId") || undefined).catch((error: any) => {
+    context.waitUntil?.(refreshRecentItemObservationsWithLease(row, env, context.url.searchParams.get("characterId") || undefined).catch((error: any) => {
       console.log(JSON.stringify({ event: "recent_items_observation_failed", category: String(error?.code || error?.name || "unknown").slice(0, 80) }));
     }));
   }
@@ -1117,6 +1128,24 @@ async function recentItems(row: SessionRow, env: Env, context: RequestContext): 
     state: observationAgeMs > 2 * 60_000 ? "stale" : "fresh",
     warnings: observationAgeMs > 2 * 60_000 ? ["Recent item observation is refreshing in the background; the saved timeline remains available."] : []
   });
+}
+
+async function refreshRecentItemObservationsWithLease(row: SessionRow, env: Env, characterId?: string): Promise<void> {
+  const startedAt = new Date().toISOString();
+  await env.DB.prepare("INSERT OR IGNORE INTO recent_item_refresh_state (membership_id, refreshed_at, refresh_started_at, last_error) VALUES (?, ?, NULL, NULL)")
+    .bind(row.membership_id, new Date(0).toISOString()).run();
+  const claim = await env.DB.prepare("UPDATE recent_item_refresh_state SET refresh_started_at = ? WHERE membership_id = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
+    .bind(startedAt, row.membership_id, new Date(Date.now() - 2 * 60_000).toISOString()).run();
+  if (Number(claim.meta?.changes || 0) < 1) return;
+  try {
+    await refreshRecentItemObservations(row, env, characterId);
+    await env.DB.prepare("UPDATE recent_item_refresh_state SET refreshed_at = ?, refresh_started_at = NULL, last_error = NULL WHERE membership_id = ?")
+      .bind(new Date().toISOString(), row.membership_id).run();
+  } catch (error: any) {
+    await env.DB.prepare("UPDATE recent_item_refresh_state SET refresh_started_at = NULL, last_error = ? WHERE membership_id = ?")
+      .bind(String(error?.code || error?.message || "Recent Items refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
+    throw error;
+  }
 }
 
 async function refreshRecentItemObservations(row: SessionRow, env: Env, characterId?: string): Promise<void> {
