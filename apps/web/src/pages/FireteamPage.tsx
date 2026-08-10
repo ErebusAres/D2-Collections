@@ -9,6 +9,8 @@ import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { playCompletionChime, primeCompletionAudio } from "../services/completionAudio";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
+
+const BUNGIE_PRESENCE_DISCLAIMER = "Bungie marks party and current-activity data as non-authoritative and potentially stale.";
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
@@ -199,7 +201,7 @@ export function FireteamPage() {
 
   return <AuthGate>
     <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="Shared progress refreshes every 5 minutes while auto-refresh is enabled." actions={<>
-      <Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />
+      <Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
       {data && !data.sharingEnabled && <>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "temporary" })} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "persistent" })} disabled={share.isPending}><Repeat2 size={15} />Always share</button>
@@ -213,11 +215,11 @@ export function FireteamPage() {
     {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Observation continues privately while Guardian Nexus is open</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
     {data && <>
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
-      <section className={styles.transitoryNotice}><AlertTriangle /><div><strong>Status may be delayed</strong><p>Party presence and current activity are not guaranteed to be real time.</p></div></section>
     </>}
     {activityFeed.isError && !liveActivityFeed && <section className={styles.fireteamLootControl}><div><strong>Fireteam Activity is temporarily unavailable</strong><small>{activityFeed.error instanceof Error ? activityFeed.error.message : "This section can be retried independently."}</small></div><button onClick={() => void activityFeed.refetch()}>Retry Activity</button></section>}
     {liveActivityFeed && <FireteamActivityFeed feed={liveActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
     <SocialRoster contacts={socialData?.contacts || []} friendsState={socialData?.friendsState || socialData?.state || "unavailable"} clanState={socialData?.clanState || (socialData?.state === "available" ? "available" : "unavailable")} warning={socialData?.warning || social.data?.warnings[0] || (social.error instanceof Error ? social.error.message : undefined)} copied={copied} onCopy={copyCommand} />
+    {data && <footer className={styles.fireteamDataNote}><AlertTriangle /><span>{BUNGIE_PRESENCE_DISCLAIMER}</span></footer>}
   </AuthGate>;
 }
 

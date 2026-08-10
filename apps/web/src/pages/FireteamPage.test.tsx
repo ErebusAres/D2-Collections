@@ -36,6 +36,22 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("Fireteam tracked items", () => {
+  it("keeps the update time beside sharing controls and moves the Bungie disclaimer to the page footer", async () => {
+    const response = envelope();
+    response.warnings = ["Bungie marks party and current-activity data as non-authoritative and potentially stale."];
+    vi.mocked(api).mockImplementation(async (path) => String(path).startsWith("/api/v1/fireteam?") ? response : envelope());
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    const updated = await screen.findByText(/Updated/i);
+    const stopSharing = screen.getByRole("button", { name: "Stop sharing" });
+    expect(updated.compareDocumentPosition(stopSharing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const disclaimer = screen.getByText("Bungie marks party and current-activity data as non-authoritative and potentially stale.");
+    const socialRoster = screen.getByRole("heading", { name: "Friends & clan" });
+    expect(socialRoster.compareDocumentPosition(disclaimer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByText(/Bungie marks party/)).toHaveLength(1);
+  });
+
   it("leaves five-minute refresh scheduling to the route coordinator", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     guardianSettings.autoRefresh = true;
