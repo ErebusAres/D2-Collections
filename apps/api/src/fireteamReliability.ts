@@ -51,6 +51,12 @@ export function fireteamPresenceRefreshDue(refreshedAt?: string, now = Date.now(
   return now - Date.parse(refreshedAt) >= intervalMs;
 }
 
+export function offlineViewerParty(observed: SavedPartyMember[], previous: SavedPartyMember[], selfMembershipId: string): SavedPartyMember[] {
+  const self = observed.find((member) => member.membershipId === selfMembershipId)
+    || previous.find((member) => member.membershipId === selfMembershipId);
+  return self ? [{ ...self, observedInParty: false, status: 0 }] : [];
+}
+
 export async function mapWithConcurrency<T, R>(values: T[], concurrency: number, mapper: (value: T, index: number) => Promise<R>): Promise<R[]> {
   const output = new Array<R>(values.length);
   let nextIndex = 0;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, resolvePartyObservation } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, resolvePartyObservation } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -33,6 +33,12 @@ describe("Fireteam reliability helpers", () => {
     expect(fireteamPresenceRefreshDue(undefined, now)).toBe(true);
     expect(fireteamPresenceRefreshDue("2026-08-09T11:59:01.000Z", now)).toBe(false);
     expect(fireteamPresenceRefreshDue("2026-08-09T11:59:00.000Z", now)).toBe(true);
+  });
+
+  it("collapses a stale Bungie party immediately when the viewer is directly offline", () => {
+    const self = { membershipId: "1", displayName: "Self", status: 9, observedInParty: true };
+    const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
+    expect(offlineViewerParty([self, teammate], [self, teammate], "1")).toEqual([{ ...self, status: 0, observedInParty: false }]);
   });
 
   it("preserves member results while bounding public lookup concurrency", async () => {
