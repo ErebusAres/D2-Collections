@@ -1584,8 +1584,10 @@ async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void>
     const onlineState = guardianOnlineState(character, rawActivity, true, !directlyOffline && activityPartyMembers.some((member) => member.membershipId === row.membership_id && member.observedInParty));
     const activity = onlineState === "online" ? guardianLocation(profile, manifest, character?.characterId, onlineState) || payload?.activity : undefined;
     const updatedAt = new Date().toISOString();
-    await env.DB.prepare("UPDATE fireteam_shares SET payload_json = ?, presence_refreshed_at = ?, presence_error = NULL WHERE membership_id = ?")
-      .bind(JSON.stringify({ ...payload, character, activity, onlineState, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations }), updatedAt, row.membership_id).run();
+    // Do not let a slower presence read overwrite a newer quest/share payload.
+    // A later request retries presence against the new payload if this CAS misses.
+    await env.DB.prepare("UPDATE fireteam_shares SET payload_json = ?, presence_refreshed_at = ?, presence_error = NULL WHERE membership_id = ? AND payload_json = ?")
+      .bind(JSON.stringify({ ...payload, character, activity, onlineState, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations }), updatedAt, row.membership_id, share.payload_json).run();
   } catch (error: any) {
     await env.DB.prepare("UPDATE fireteam_shares SET presence_error = ? WHERE membership_id = ?")
       .bind(String(error?.code || error?.message || "Presence refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
@@ -1603,7 +1605,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const storedParty = Array.isArray(ownSharePayload?.activityPartyMembers) ? ownSharePayload.activityPartyMembers : [];
   const party = sharedActivityPartyMembershipIds(ownSharePayload, row.membership_id).map((membershipId) => {
     const saved = storedParty.find((member: any) => String(member?.membershipId || "") === membershipId);
-    return { membershipId, membershipType: Number(saved?.membershipType || 0) || undefined, displayName: String(saved?.displayName || "").trim(), status: Number(saved?.status || 0), observedInParty: membershipId !== row.membership_id || Boolean(saved?.observedInParty) };
+    return { membershipId, membershipType: Number(saved?.membershipType || 0) || undefined, displayName: String(saved?.displayName || "").trim(), status: Number(saved?.status || 0), observedInParty: Boolean(saved?.observedInParty) };
   }).slice(0, 12);
   if (!party.some((member: any) => member.membershipId === row.membership_id)) party.unshift({ membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.bungie_name || row.display_name, status: 1, observedInParty: false });
   const partyIds = party.map((member: any) => member.membershipId);

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { GearData, WeaponItem } from "@guardian-nexus/contracts";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WeaponWorkspace } from "./WeaponWorkspace";
 
 const weapon = (instanceId: string, perk: string): WeaponItem => ({
@@ -19,6 +19,13 @@ const data: GearData = {
 };
 
 describe("WeaponWorkspace", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({
+      schemaVersion: 4, reviewedAt: "2026-08-10", source: { name: "DIM" }, method: { columnWeights: [1, 1, 1, 1] },
+      coverage: { manifestWeapons: 1, reviewedWeapons: 1, supportedTypes: 1, reviewedTypes: 1 }, types: {},
+      items: { "10": { itemType: "Auto Rifle", pve: { recommendations: 2, columns: [[], [], [], ["Incandescent", "Target Lock"]], traitPairs: [",Incandescent", ",Target Lock"] }, pvp: { recommendations: 0, columns: [[], [], [], []], traitPairs: [] } } }
+    }) }));
+  });
   afterEach(cleanup);
 
   it("shows physical rolls and opens a perk-column duplicate comparison", () => {
@@ -36,5 +43,12 @@ describe("WeaponWorkspace", () => {
     render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={setPreference} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
     fireEvent.click(screen.getAllByTitle("Add weapon to wishlist")[0]!);
     expect(setPreference).toHaveBeenCalledWith("weapons.wishlist", JSON.stringify(["10"]));
+  });
+
+  it("shows the shared sourced rating on every weapon card", async () => {
+    render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={vi.fn()} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
+    await waitFor(() => expect(screen.getAllByText("Roll 100%")).toHaveLength(2));
+    expect(screen.getAllByText(/Excellent · exact weapon · high confidence/)).toHaveLength(2);
+    expect(vi.mocked(fetch).mock.calls.length).toBeLessThanOrEqual(1);
   });
 });

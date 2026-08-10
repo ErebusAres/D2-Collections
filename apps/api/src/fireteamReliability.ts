@@ -70,8 +70,8 @@ export function resolveViewerPartyObservation(
     : resolvePartyObservation(observed, previous, transitoryAvailable, consecutiveSoloObservations);
 }
 
-export function visiblePartyMembers<T extends { membershipId: string }>(members: T[], selfMembershipId: string, presenceFresh: boolean): T[] {
-  return presenceFresh ? members : members.filter((member) => member.membershipId === selfMembershipId);
+export function visiblePartyMembers<T extends { membershipId: string; observedInParty?: boolean }>(members: T[], selfMembershipId: string, presenceFresh: boolean): T[] {
+  return members.filter((member) => member.membershipId === selfMembershipId || presenceFresh && member.observedInParty !== false);
 }
 
 export async function mapWithConcurrency<T, R>(values: T[], concurrency: number, mapper: (value: T, index: number) => Promise<R>): Promise<R[]> {

@@ -8,7 +8,10 @@ export const COLUMN_WEIGHTS = [1, 1, 1, 1];
 
 export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toISOString().slice(0, 10)) {
   const definitions = Object.values(manifest.gearItemDefinitions || {}).filter((entry) => Number(entry.itemType) === 3);
-  const currentWeapons = new Map(definitions.map((entry) => [String(entry.hash), String(entry.itemTypeDisplayName || "Unknown weapon")]));
+  const currentWeapons = new Map(definitions.map((entry) => [String(entry.hash), {
+    itemType: String(entry.itemTypeDisplayName || "Unknown weapon"),
+    name: String(entry.displayProperties?.name || "").trim()
+  }]));
   const items = new Map();
   let context = "";
 
@@ -24,7 +27,7 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
     const perks = match[2].split(",").filter(Boolean);
     if (perks.length < 2) continue;
     const aligned = alignColumns(perks);
-    const item = items.get(match[1]) || { itemType: currentWeapons.get(match[1]), pve: bucket(), pvp: bucket() };
+    const item = items.get(match[1]) || { itemType: currentWeapons.get(match[1]).itemType, pve: bucket(), pvp: bucket() };
     for (const mode of modes) {
       item[mode].recommendations += 1;
       if (aligned[2] || aligned[3]) item[mode].traitPairs.add(`${aligned[2] || ""},${aligned[3] || ""}`);
@@ -34,6 +37,7 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
   }
 
   const types = buildTypeProfiles(items);
+  const families = buildFamilyProfiles(items, currentWeapons);
   const serializedItems = Object.fromEntries([...items].sort(([a], [b]) => Number(a) - Number(b)).map(([hash, item]) => [hash, {
     itemType: item.itemType,
     pve: serializeBucket(item.pve),
@@ -53,7 +57,7 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
     method: {
       columnWeights: COLUMN_WEIGHTS,
       tiers: { excellent: 90, strong: 75, mixed: 50, weak: 25 },
-      note: "Exact scores preserve DIM-recommended trait pairings and compare all specified perk columns with equal weight. Unreviewed weapons use clearly labeled weapon-type evidence, never a fabricated item-specific verdict."
+      note: "Exact scores preserve DIM-recommended trait pairings and compare all specified perk columns with equal weight. Unreviewed reissues first use clearly labeled same-name weapon-family evidence, then broader weapon-type evidence; neither is presented as an item-specific review."
     },
     coverage: {
       manifestWeapons: definitions.length,
@@ -62,6 +66,7 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
       reviewedTypes: Object.keys(types).length
     },
     items: serializedItems,
+    families,
     types
   };
 }
@@ -77,15 +82,44 @@ function bucket() { return { recommendations: 0, columns: [new Set(), new Set(),
 function serializeBucket(value) { return { recommendations: value.recommendations, columns: value.columns.map((column) => [...column].sort((a, b) => Number(a) - Number(b))), traitPairs: [...value.traitPairs].sort() }; }
 
 function buildTypeProfiles(items) {
+  return buildProfiles(items, (hash, item) => item.itemType);
+}
+
+function buildFamilyProfiles(items, currentWeapons) {
+  const manifestCounts = new Map();
+  const reviewedCounts = new Map();
+  for (const weapon of currentWeapons.values()) {
+    const key = familyProfileKey(weapon.itemType, weapon.name);
+    if (key) manifestCounts.set(key, (manifestCounts.get(key) || 0) + 1);
+  }
+  for (const [hash, item] of items) {
+    const key = familyProfileKey(item.itemType, currentWeapons.get(hash)?.name || "");
+    if (key) reviewedCounts.set(key, (reviewedCounts.get(key) || 0) + 1);
+  }
+  const useful = new Set([...manifestCounts].filter(([key, count]) => count > (reviewedCounts.get(key) || 0)).map(([key]) => key));
+  return buildProfiles(items, (hash, item) => {
+    const key = familyProfileKey(item.itemType, currentWeapons.get(hash)?.name || "");
+    return useful.has(key) ? key : "";
+  });
+}
+
+function familyProfileKey(itemType, name) {
+  const normalizedName = name.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+  return normalizedName ? `${itemType}::${normalizedName}` : "";
+}
+
+function buildProfiles(items, profileKey) {
   const profiles = new Map();
-  for (const item of items.values()) {
-    const profile = profiles.get(item.itemType) || { pve: typeBucket(), pvp: typeBucket() };
+  for (const [hash, item] of items) {
+    const key = profileKey(hash, item);
+    if (!key) continue;
+    const profile = profiles.get(key) || { pve: typeBucket(), pvp: typeBucket() };
     for (const mode of ["pve", "pvp"]) {
       if (!item[mode].recommendations) continue;
       profile[mode].weapons += 1;
       item[mode].columns.forEach((column, index) => column.forEach((perk) => profile[mode].columns[index].set(perk, (profile[mode].columns[index].get(perk) || 0) + 1)));
     }
-    profiles.set(item.itemType, profile);
+    profiles.set(key, profile);
   }
   return Object.fromEntries([...profiles].sort(([a], [b]) => a.localeCompare(b)).map(([name, profile]) => [name, {
     pve: serializeTypeBucket(profile.pve),

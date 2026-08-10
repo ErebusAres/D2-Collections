@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { GearTagBadge, GearTagFilter, GearTagPicker } from "./GearTagPicker";
 import { GearTierRail } from "./GearTierRail";
 import { parseWatchlist } from "../../modules/watchlists/watchlists";
+import { evaluateWeapon, loadWeaponRatings, qualityLabel, type WeaponRatingDatabase } from "../../modules/loot/weaponEvaluator";
 import styles from "../../pages/Pages.module.css";
 import { RecentItemRow, recentLoot } from "./RecentLoot";
 
@@ -24,7 +25,20 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
   const [tag, setTag] = useState<"all" | "none" | GearTag>("all");
   const [review, setReview] = useState("all");
   const [compareHash, setCompareHash] = useState("");
+  const [ratings, setRatings] = useState<WeaponRatingDatabase>();
+  const [ratingAttempt, setRatingAttempt] = useState(0);
   const wishlist = useMemo(() => stringSet(preferences["weapons.wishlist"]), [preferences]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let retry: number | undefined;
+    void loadWeaponRatings().then((database) => {
+      if (cancelled) return;
+      setRatings(database);
+      if (!database) retry = window.setTimeout(() => setRatingAttempt((value) => value + 1), 15_000);
+    });
+    return () => { cancelled = true; if (retry !== undefined) window.clearTimeout(retry); };
+  }, [ratingAttempt]);
 
   useEffect(() => {
     try {
@@ -75,16 +89,21 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
       <select value={review} onChange={(event) => { setReview(event.target.value); saveFilters({ review: event.target.value }); }}><option value="all">All review states</option><option value="wishlisted">Wishlisted</option><option value="configured">Configured</option><option value="unique">Unique copy</option><option value="duplicate-review">Duplicate review</option><option value="incomplete-data">Incomplete data</option></select>
     </section>
     <RecentItemRow title="Recently acquired weapons" items={recentLoot([], data.weapons || [], "weapon", 20)} onTag={(item, value) => item.kind === "weapon" && onTag(item, value || "")} busy={busy} />
-    <section className={styles.weaponGrid}>{weapons.map((weapon) => <WeaponCard key={weapon.instanceId} weapon={{ ...weapon, wishlisted: wishlist.has(weapon.itemHash) }} selectedCharacterId={selectedCharacterId} onWishlist={() => toggleWishlist(weapon.itemHash)} onCompare={() => setCompareHash(weapon.itemHash)} onTag={(value) => onTag(weapon, value)} onAction={onAction} busy={busy} />)}</section>
+    <section className={styles.weaponGrid}>{weapons.map((weapon) => <WeaponCard key={weapon.instanceId} weapon={{ ...weapon, wishlisted: wishlist.has(weapon.itemHash) }} ratings={ratings} selectedCharacterId={selectedCharacterId} onWishlist={() => toggleWishlist(weapon.itemHash)} onCompare={() => setCompareHash(weapon.itemHash)} onTag={(value) => onTag(weapon, value)} onAction={onAction} busy={busy} />)}</section>
     {!weapons.length && <section className={styles.xurEmpty}><Shield /><h2>No matching weapons</h2><p>Change the filters or sync after the versioned weapon manifest has been refreshed.</p></section>}
     {comparison.length > 1 && <WeaponComparison items={comparison.map((weapon) => ({ ...weapon, wishlisted: wishlist.has(weapon.itemHash) }))} onClose={() => setCompareHash("")} />}
   </>;
 }
 
-function WeaponCard({ weapon, selectedCharacterId, onWishlist, onCompare, onTag, onAction, busy }: { weapon: WeaponItem; selectedCharacterId: string; onWishlist: () => void; onCompare: () => void; onTag: (tag: "" | GearTag) => void; onAction: Props["onAction"]; busy: boolean }) {
+function WeaponCard({ weapon, ratings, selectedCharacterId, onWishlist, onCompare, onTag, onAction, busy }: { weapon: WeaponItem; ratings?: WeaponRatingDatabase; selectedCharacterId: string; onWishlist: () => void; onCompare: () => void; onTag: (tag: "" | GearTag) => void; onAction: Props["onAction"]; busy: boolean }) {
+  const value = evaluateWeapon(weapon, ratings);
   return <article tabIndex={0} data-gear-instance={weapon.instanceId} onMouseEnter={activateGearShortcut} onMouseLeave={deactivateGearShortcut} onFocus={activateGearShortcut} onBlur={deactivateGearShortcut} className={`${styles.weaponCard} ${weapon.rarity === "Exotic" ? styles.exoticArmor : ""} ${weapon.masterworked ? styles.masterworkedArmor : ""}`} data-review={weapon.reviewState}>
     <header><div className={styles.weaponArt}><GearTierRail tier={weapon.gearTier} kind="Weapon" />{weapon.icon && <img src={weapon.icon} alt="" />}<GearTagBadge tag={weapon.tag} /><b>{weapon.power || ""}</b></div><div><span>{weapon.damageType} · {weapon.itemType}</span><h2>{weapon.name}</h2><p>{weapon.location}{weapon.equipped ? " · Equipped" : ""}</p></div><button className={weapon.wishlisted ? styles.weaponWishlisted : ""} onClick={onWishlist} title={weapon.wishlisted ? "Remove weapon from wishlist" : "Add weapon to wishlist"}><Star /></button></header>
     <div className={styles.weaponSignals}>{weapon.crafted && <span><Hammer /> Crafted</span>}{weapon.enhanced && <span><Sparkles /> Enhanced</span>}{weapon.originTraits.map((trait) => <span key={trait.hash} title={trait.description}>{trait.icon && <img src={trait.icon} alt="" />}{trait.name}</span>)}</div>
+    <div className={styles.weaponRating} data-state={value.state} data-quality={value.quality} title={value.reasons.join(" ")}>
+      <span><b>{value.state === "scored" ? `${weapon.rollDataState === "complete" ? "Roll" : "Est."} ${value.overall}%` : value.state === "incomplete" ? "Roll pending" : "Rating unavailable"}</b><small>{value.state === "scored" ? `${qualityLabel(value.quality)} · ${value.basis === "weapon" ? "exact weapon" : value.basis === "weapon-family" ? "same-weapon evidence" : `${weapon.itemType} evidence`} · ${value.confidence} confidence` : value.reasons[0]}</small></span>
+      {value.state === "scored" && <span className={styles.weaponModeRatings}><small>PvE <b>{value.pve === undefined ? "—" : `${value.pve}%`}</b></small><small>PvP <b>{value.pvp === undefined ? "—" : `${value.pvp}%`}</b></small></span>}
+    </div>
     <div className={styles.weaponPerks}>{weapon.perkColumns.map((column) => <div key={column.socketIndex}>{column.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<span><b>{column.active?.name || "Socket data unavailable"}</b><small>{column.options.length > 1 ? `${column.options.length} selectable options` : "Active perk"}</small></span></div>)}</div>
     <div className={styles.weaponReview}><CheckCircle2 /><span><b>{reviewLabel(weapon.reviewState)}</b><small>{weapon.reviewReasons[0]}</small></span>{weapon.duplicateCount > 1 && <button onClick={onCompare}>Compare {weapon.duplicateCount}</button>}</div>
     <footer><GearTagPicker value={weapon.tag} onChange={(value) => onTag(value || "")} disabled={busy} compact /><span className={styles.footerSpacer} /><button title={weapon.locked ? "Unlock" : "Lock"} onClick={() => onAction({ action: "setLock", itemInstanceId: weapon.instanceId, locked: !weapon.locked, characterId: weapon.ownerCharacterId || selectedCharacterId })}>{weapon.locked ? <Lock /> : <LockOpen />}</button>{weapon.location === "vault" ? <button title="Pull to Selected Guardian" onClick={() => onAction({ action: "transfer", itemInstanceId: weapon.instanceId, target: "character", targetCharacterId: selectedCharacterId })}><ArrowDownToLine /></button> : <button disabled={weapon.equipped} title={weapon.equipped ? "Equip another weapon before vaulting this one" : "Move to vault"} onClick={() => onAction({ action: "transfer", itemInstanceId: weapon.instanceId, target: "vault" })}><ArrowUpFromLine /></button>}<button title="Equip on Selected Guardian" onClick={() => onAction({ action: "equip", itemInstanceId: weapon.instanceId, characterId: selectedCharacterId }, `Equip ${weapon.name} on the Selected Guardian? This may move it between characters first.`)}><Shield /></button></footer>

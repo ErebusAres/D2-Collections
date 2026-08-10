@@ -10,7 +10,10 @@ export function useFireteamQuery(characterId: string, enabled: boolean) {
     queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(characterId)}`),
     enabled: Boolean(enabled && characterId),
     staleTime: 30_000,
-    refetchInterval: false,
+    // A stale response has already queued one Worker-side Bungie refresh. Poll
+    // only until that refreshed snapshot is readable, then return control to
+    // the route's single five-minute coordinator.
+    refetchInterval: (query) => query.state.data?.freshness.state === "stale" ? 15_000 : false,
     refetchIntervalInBackground: false
   });
 }

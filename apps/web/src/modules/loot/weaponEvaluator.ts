@@ -3,7 +3,7 @@ import type { WeaponItem } from "@guardian-nexus/contracts";
 export type WeaponScoreState = "scored" | "unavailable" | "incomplete";
 export type WeaponQuality = "excellent" | "strong" | "mixed" | "weak" | "poor";
 export type WeaponRatingConfidence = "high" | "medium" | "low";
-export type WeaponRatingBasis = "weapon" | "weapon-type";
+export type WeaponRatingBasis = "weapon" | "weapon-family" | "weapon-type";
 
 export interface WeaponValue {
   state: WeaponScoreState;
@@ -31,6 +31,7 @@ export interface WeaponRatingDatabase {
   method: { columnWeights: number[] };
   coverage: { manifestWeapons: number; reviewedWeapons: number; supportedTypes: number; reviewedTypes: number };
   items: Record<string, RatingRecord>;
+  families?: Record<string, TypeRecord>;
   types: Record<string, TypeRecord>;
 }
 
@@ -78,6 +79,26 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
     });
   }
 
+  const family = database.families?.[familyKey(weapon)];
+  if (family) {
+    const pveResult = scoreTypeMode(family.pve, active, database.method.columnWeights);
+    const pvpResult = scoreTypeMode(family.pvp, active, database.method.columnWeights);
+    const compared = Math.max(pveResult?.compared || 0, pvpResult?.compared || 0);
+    if (compared) {
+      const reviewedWeapons = Math.max(family.pve.weapons, family.pvp.weapons);
+      return scoredValue(pveResult, pvpResult, {
+        basis: "weapon-family",
+        confidence: !partial && compared >= 3 && reviewedWeapons >= 2 ? "medium" : "low",
+        reason: partial
+          ? `This provisional score uses the visible active perks and recommendations for ${reviewedWeapons} reviewed version${reviewedWeapons === 1 ? "" : "s"} of ${weapon.name}. It will update when Bungie returns more socket data.`
+          : `No exact DIM entry exists for this item hash, so this score uses recommendations for ${reviewedWeapons} reviewed version${reviewedWeapons === 1 ? "" : "s"} of the same named weapon before considering broader ${weapon.itemType} evidence.`,
+        source: database.source.name,
+        reviewedAt: database.reviewedAt,
+        totalColumns: 4
+      });
+    }
+  }
+
   const type = database.types[weapon.itemType];
   if (!type) return { state: "unavailable", reasons: [`No trustworthy item-specific or ${weapon.itemType || "weapon-type"} comparison evidence is available yet. This is not a low score.`], source: database.source.name, reviewedAt: database.reviewedAt };
   const pveResult = scoreTypeMode(type.pve, active, database.method.columnWeights);
@@ -107,6 +128,10 @@ function alignActiveColumns(weapon: WeaponItem): Array<string | undefined> {
   }
   const hashes = weapon.perkColumns.map((column) => column.active?.hash).filter((hash): hash is string => Boolean(hash)).slice(-4);
   return [...Array(Math.max(0, 4 - hashes.length)).fill(undefined), ...hashes];
+}
+
+function familyKey(weapon: WeaponItem): string {
+  return `${weapon.itemType}::${(weapon.name || "").trim().toLocaleLowerCase().replace(/\s+/g, " ")}`;
 }
 
 function scoreWeaponMode(bucket: RatingBucket, active: Array<string | undefined>, weights: number[]): ModeScore | undefined {

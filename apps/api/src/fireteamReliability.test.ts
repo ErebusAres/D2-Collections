@@ -55,9 +55,14 @@ describe("Fireteam reliability helpers", () => {
   });
 
   it("does not present retained teammates as a current party when viewer presence is stale", () => {
-    const members = [{ membershipId: "1" }, { membershipId: "2" }];
+    const members = [{ membershipId: "1", observedInParty: false }, { membershipId: "2", observedInParty: true }];
     expect(visiblePartyMembers(members, "1", true)).toEqual(members);
-    expect(visiblePartyMembers(members, "1", false)).toEqual([{ membershipId: "1" }]);
+    expect(visiblePartyMembers(members, "1", false)).toEqual([{ membershipId: "1", observedInParty: false }]);
+  });
+
+  it("keeps an internally retained transient member out of the current-party response", () => {
+    const members = [{ membershipId: "1", observedInParty: false }, { membershipId: "2", observedInParty: false }];
+    expect(visiblePartyMembers(members, "1", true)).toEqual([{ membershipId: "1", observedInParty: false }]);
   });
 
   it("preserves member results while bounding public lookup concurrency", async () => {

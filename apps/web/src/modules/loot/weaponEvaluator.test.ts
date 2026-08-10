@@ -67,6 +67,17 @@ describe("weapon evaluator", () => {
     expect(result.confidence).not.toBe("high");
   });
 
+  it("prefers reviewed versions of the same named weapon before broad type evidence", () => {
+    const synthetic: WeaponRatingDatabase = {
+      schemaVersion: 4, reviewedAt: "2026-08-10", source: { name: "DIM" }, method: { columnWeights: [1, 1, 1, 1] },
+      coverage: { manifestWeapons: 2, reviewedWeapons: 1, supportedTypes: 1, reviewedTypes: 1 }, items: {}, types: {},
+      families: { "Pulse Rifle::reissued rifle": { pve: { weapons: 1, columns: [{}, {}, { a: 100 }, { b: 100 }] }, pvp: { weapons: 0, columns: [{}, {}, {}, {}] } } }
+    };
+    const reissue = weapon("new-hash", ["a", "b"]);
+    reissue.name = "Reissued Rifle";
+    expect(evaluateWeapon(reissue, synthetic)).toMatchObject({ state: "scored", overall: 100, basis: "weapon-family", confidence: "low" });
+  });
+
   it("does not turn absent evidence into a bad score", () => {
     const result = evaluateWeapon(weapon("999999999", ["900000001", "900000002", "900000003", "900000004"], "Unknown weapon"), ratings);
     expect(result.state).toBe("unavailable");
