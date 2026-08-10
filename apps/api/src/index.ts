@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, offlineViewerParty, resolvePartyObservation, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1432,7 +1432,8 @@ async function storeShare(
   try { previousPayload = previousShare?.payload_json ? JSON.parse(previousShare.payload_json) : null; } catch { previousPayload = null; }
   const previousTrackedItems = sharedTrackedItems(previousPayload);
   const previousTrackedKeys = new Set(previousTrackedItems.map(trackedItemKey));
-  const character = selectedCharacter(charactersFromProfile(profile), characterId);
+  const profileCharacters = charactersFromProfile(profile);
+  const character = selectedCharacter(profileCharacters, characterId);
   if (!character || character.characterId !== characterId) throw httpError(400, "character_invalid", "The selected character does not belong to this Guardian.");
   const allQuests = normalizeQuests(profile, manifest, character.characterId, new Set(sitePinnedQuestIds));
   const allowedIds = new Set(allQuests.quests.map((quest) => quest.instanceId));
@@ -1488,15 +1489,19 @@ async function storeShare(
   const activityFeedPreferenceSet = providedActivityFeedEnabled === undefined ? previousPayload?.activityFeedPreferenceSet === true : true;
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
   const previousPartyMembers = Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : [];
-  const partyObservation = resolvePartyObservation(
-    savedPartyMembers(transitory || {}, row),
+  const observedPartyMembers = savedPartyMembers(transitory || {}, row);
+  const directlyOffline = profileCharacters.every((entry) => Number(entry.minutesPlayedThisSession || 0) <= 0);
+  const partyObservation = resolveViewerPartyObservation(
+    observedPartyMembers,
     previousPartyMembers,
     Boolean(transitory),
-    Number(previousPayload?.activityPartySoloObservationCount || 0)
+    Number(previousPayload?.activityPartySoloObservationCount || 0),
+    row.membership_id,
+    directlyOffline
   );
   const activityPartyMembers = partyObservation.members;
   const activityPartyMembershipIds = activityPartyMembers.map((member) => member.membershipId);
-  const payload = { character, activity: allQuests.currentActivity, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
+  const payload = { character, activity: directlyOffline ? undefined : allQuests.currentActivity, onlineState: directlyOffline ? "offline" : undefined, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error, presence_refreshed_at, presence_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL)
@@ -1573,9 +1578,7 @@ async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void>
     const directlyOffline = Boolean(character) && Number(character?.minutesPlayedThisSession || 0) <= 0;
     const observedPartyMembers = savedPartyMembers(transitory || {}, row);
     const previousPartyMembers = Array.isArray(payload?.activityPartyMembers) ? payload.activityPartyMembers : [];
-    const partyObservation = directlyOffline
-      ? { members: offlineViewerParty(observedPartyMembers, previousPartyMembers, row.membership_id), consecutiveSoloObservations: 0 }
-      : resolvePartyObservation(observedPartyMembers, previousPartyMembers, Boolean(transitory), Number(payload?.activityPartySoloObservationCount || 0));
+    const partyObservation = resolveViewerPartyObservation(observedPartyMembers, previousPartyMembers, Boolean(transitory), Number(payload?.activityPartySoloObservationCount || 0), row.membership_id, directlyOffline);
     const activityPartyMembers = partyObservation.members;
     const rawActivity = activityName(profile, manifest, character?.characterId);
     const onlineState = guardianOnlineState(character, rawActivity, true, !directlyOffline && activityPartyMembers.some((member) => member.membershipId === row.membership_id && member.observedInParty));

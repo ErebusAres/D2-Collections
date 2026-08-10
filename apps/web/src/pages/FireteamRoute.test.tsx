@@ -45,7 +45,7 @@ describe("Fireteam refresh cycle", () => {
         return ordersEnvelope();
       }
       fireteamReads += 1;
-      return envelope();
+      return envelope("temporary");
     });
     vi.mocked(queuedApi).mockImplementation(async () => {
       await writeFinished;
@@ -90,12 +90,22 @@ describe("Fireteam refresh cycle", () => {
     expect(completion.textContent).toContain("Order complete");
     expect(completion.textContent).toContain("Hub order 1");
   });
+
+  it("does not duplicate the Worker cron's persistent share rebuild", async () => {
+    vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests") ? ordersEnvelope() : envelope("persistent"));
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
+    expect(await screen.findByText(/Fireteam refresh in/)).toBeTruthy();
+
+    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
+    await waitFor(() => expect(vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v1/me/quests")).length).toBe(2));
+    expect(queuedApi).not.toHaveBeenCalled();
+  });
 });
 
-function envelope() {
+function envelope(sharingMode: "temporary" | "persistent" = "persistent") {
   const data: FireteamData = {
     sharingEnabled: true,
-    sharingMode: "persistent",
+    sharingMode,
     hiddenTrackedItemKeys: [],
     members: [{
       membershipId: "member-1",
@@ -108,7 +118,7 @@ function envelope() {
       isLeader: false,
       syncState: "synced",
       sharing: true,
-      sharingMode: "persistent",
+      sharingMode,
       trackedItems: [{
         id: "order-1",
         definitionHash: "order-hash",

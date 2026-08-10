@@ -1,6 +1,6 @@
-import type { FireteamData, ReportAdminSummaryData } from "@guardian-nexus/contracts";
+import type { ReportAdminSummaryData } from "@guardian-nexus/contracts";
 import { Bug, ChevronRight, ClipboardList, Eye, GitCompareArrows, LogOut, RefreshCcw, Trash2, Wrench, X } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "react-router-dom";
 import { useEffect, useRef, type RefObject } from "react";
 import { api, mutationHeaders, queuedApi } from "../../services/api/client";
@@ -10,6 +10,7 @@ import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import { trapFocusWithin } from "../common/focusTrap";
 import styles from "./OptionsPanel.module.css";
 import { parseTrackedBuilds } from "../../modules/buildAdvisor/buildTracking";
+import { useFireteamQuery } from "../../modules/fireteam/useFireteamQuery";
 
 export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: { open: boolean; onClose: () => void; returnFocusRef?: RefObject<HTMLButtonElement | null>; reportSummary?: ReportAdminSummaryData }) {
   const guardianState = useGuardian();
@@ -18,12 +19,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
   const location = useLocation();
   const queryClient = useQueryClient();
   const session = guardianState.session;
-  const fireteam = useQuery({
-    queryKey: ["fireteam", guardianState.selectedCharacterId],
-    queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(guardianState.selectedCharacterId)}`),
-    enabled: Boolean(open && session?.authenticated && guardianState.selectedCharacterId),
-    staleTime: 30_000
-  });
+  const fireteam = useFireteamQuery(guardianState.selectedCharacterId, Boolean(open && session?.authenticated));
   const setPersistentSharing = useMutation({
     mutationFn: (enabled: boolean) => {
       if (!enabled) return queuedApi("/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) });

@@ -14,6 +14,7 @@ const BUNGIE_PRESENCE_DISCLAIMER = "Bungie marks party and current-activity data
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
+import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -31,13 +32,7 @@ const TRACKED_ITEM_EXIT_MS = 1_600;
 export function FireteamPage() {
   const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
   const queryClient = useQueryClient();
-  const result = useQuery({
-    queryKey: ["fireteam", selectedCharacterId],
-    queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled: Boolean(session?.authenticated),
-    refetchInterval: false,
-    refetchIntervalInBackground: false
-  });
+  const result = useFireteamQuery(selectedCharacterId, Boolean(session?.authenticated));
   useEffect(() => {
     const prime = () => {
       primeCompletionAudio();
@@ -102,7 +97,7 @@ export function FireteamPage() {
   });
   const sendMessage = useMutation({
     mutationFn: (body: string) => queuedApi("/api/v1/fireteam/messages", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ body }) }),
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["fireteam"] }); void queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] }); }
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
   });
   const liveActivityFeed = activityFeed.data?.data && Array.isArray(activityFeed.data.data.entries) ? activityFeed.data.data : data?.activityFeed;
   const socialData = social.data?.data || data?.social;

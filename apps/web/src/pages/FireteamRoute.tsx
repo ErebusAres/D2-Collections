@@ -1,4 +1,4 @@
-import type { FireteamData, FireteamSharingMode, QuestData, QuestProgress } from "@guardian-nexus/contracts";
+import type { FireteamSharingMode, QuestData, QuestProgress } from "@guardian-nexus/contracts";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Timer } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import { CompletionPing, useCompletionPings } from "../components/common/CompletionPing";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
 import { completionTransition, isQuestComplete } from "../modules/tracking/completionTracking";
+import { fireteamQueryKey, useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
 import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
@@ -23,12 +24,7 @@ export function FireteamRoute() {
 function FireteamRefreshCountdown() {
   const { session, selectedCharacterId, autoRefresh, preferences } = useGuardian();
   const queryClient = useQueryClient();
-  const result = useQuery({
-    queryKey: ["fireteam", selectedCharacterId],
-    queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled: Boolean(session?.authenticated && selectedCharacterId),
-    refetchInterval: false
-  });
+  const result = useFireteamQuery(selectedCharacterId, Boolean(session?.authenticated));
   const orders = useQuery({
     queryKey: ["quests", selectedCharacterId, ""],
     queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=`),
@@ -57,7 +53,7 @@ function FireteamRefreshCountdown() {
   const { notice: completionNotice, announce: announceCompletion, dismiss: dismissCompletion, clear: clearCompletions } = useCompletionPings();
   const timerRail = useRef<HTMLElement | null>(null);
   const canRefreshFireteam = Boolean(session?.authenticated && selectedCharacterId);
-  const canShareTrackedProgress = Boolean(data?.sharingEnabled && mode && mode !== "off");
+  const shouldRenewTemporaryShare = Boolean(data?.sharingEnabled && mode === "temporary");
   const activeSeasonalOrders = useMemo(
     () => (orders.data?.data.quests || []).filter((quest) => quest.category === "order" && !questComplete(quest)),
     [orders.data?.data.quests]
@@ -111,7 +107,9 @@ function FireteamRefreshCountdown() {
       // One pursuit snapshot supplies both priority 1 (quests) and priority 2
       // (Seasonal Hub orders). Do not duplicate the Bungie request.
       await queryClient.refetchQueries({ queryKey: ["quests", selectedCharacterId, ""], exact: true, type: "active" });
-      if (canShareTrackedProgress && !shareRefreshRunning.current) {
+      // Persistent shares are rebuilt by the five-minute Worker cron. Only
+      // temporary shares need a browser renewal to extend their 15-minute lease.
+      if (shouldRenewTemporaryShare && !shareRefreshRunning.current) {
         shareRefreshRunning.current = true;
         void queuedApi("/api/v1/fireteam/share", {
           method: "PUT",
@@ -126,17 +124,17 @@ function FireteamRefreshCountdown() {
             hiddenTrackedItemKeys,
             mode: mode as FireteamSharingMode
           })
-        }, { priority: 100 }).then(() => queryClient.refetchQueries({ queryKey: ["fireteam", selectedCharacterId], exact: true, type: "active" })).catch(() => undefined).finally(() => { shareRefreshRunning.current = false; });
+        }, { priority: 100 }).then(() => queryClient.refetchQueries({ queryKey: fireteamQueryKey(selectedCharacterId), exact: true, type: "active" })).catch(() => undefined).finally(() => { shareRefreshRunning.current = false; });
       }
       // Lower-priority sections remain independent: a failure retains their
       // last successful query data and the next scheduled cycle still runs.
-      await queryClient.refetchQueries({ queryKey: ["fireteam", selectedCharacterId], exact: true, type: "active" });
+      await queryClient.refetchQueries({ queryKey: fireteamQueryKey(selectedCharacterId), exact: true, type: "active" });
       await queryClient.refetchQueries({ queryKey: ["recent-items", selectedCharacterId], exact: true, type: "active" });
     } finally {
       refreshRunning.current = false;
       setRefreshing(false);
     }
-  }, [buildTracked, canShareTrackedProgress, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, storageKey]);
+  }, [buildTracked, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, shouldRenewTemporaryShare, storageKey]);
 
   useEffect(() => {
     if (!autoRefresh || !canRefreshFireteam) {

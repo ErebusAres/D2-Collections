@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, resolvePartyObservation, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, resolvePartyObservation, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -39,6 +39,19 @@ describe("Fireteam reliability helpers", () => {
     const self = { membershipId: "1", displayName: "Self", status: 9, observedInParty: true };
     const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
     expect(offlineViewerParty([self, teammate], [self, teammate], "1")).toEqual([{ ...self, status: 0, observedInParty: false }]);
+    expect(resolveViewerPartyObservation([self, teammate], [self, teammate], true, 0, "1", true)).toEqual({
+      members: [{ ...self, status: 0, observedInParty: false }],
+      consecutiveSoloObservations: 0
+    });
+  });
+
+  it("applies the offline override during a tracked-progress share refresh", () => {
+    const self = { membershipId: "1", displayName: "Self", status: 9, observedInParty: true };
+    const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
+    expect(resolveViewerPartyObservation([self, teammate], [self, teammate], true, 2, "1", true)).toEqual({
+      members: [{ ...self, status: 0, observedInParty: false }],
+      consecutiveSoloObservations: 0
+    });
   });
 
   it("does not present retained teammates as a current party when viewer presence is stale", () => {

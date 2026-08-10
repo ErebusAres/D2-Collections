@@ -1,10 +1,16 @@
 # Guardian Nexus Codex handoff
 
-Last updated: 2026-08-09
+Last updated: 2026-08-10
 
 This file is the operational handoff for Chris Codex or another maintainer continuing the current Guardian Nexus roadmap implementation. Keep it current when scope, validation, or publish state changes.
 
 ## Current objective
+
+### 2026-08-10 stale-member recurrence and duplicate refresh removal
+
+The persistent Fireteam page could continue showing a saved teammate after everyone left Destiny. The five-minute browser share rebuild updated `presence_refreshed_at` before the narrow presence refresher could run, but `storeShare` did not apply the existing directly-offline party collapse. The same full persistent share was also rebuilt by the five-minute Worker cron, duplicating Bungie profile and manifest work once per open browser tab. Both share and presence paths now use one tested viewer-party resolver; an account with no character session minutes collapses immediately to self, clears retained activity, and stores the viewer offline. Persistent share rebuilding is cron-owned, while temporary 15-minute shares still renew from the browser.
+
+The three Fireteam query declarations in the route, page, and Options panel now reuse one query hook and a 30-second stale window. React Query retains its single cache entry and avoids remount fetches across those observers. Posting a Fireteam Activity message invalidates only Activity instead of also reloading core member presence. The five-minute page coordinator continues to refresh pursuit/order status, bounded core Fireteam presence, and Recent Items independently.
 
 ### 2026-08-09 recurrence: durable account bootstrap and party preservation
 

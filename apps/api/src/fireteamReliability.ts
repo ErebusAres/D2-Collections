@@ -57,6 +57,19 @@ export function offlineViewerParty(observed: SavedPartyMember[], previous: Saved
   return self ? [{ ...self, observedInParty: false, status: 0 }] : [];
 }
 
+export function resolveViewerPartyObservation(
+  observed: SavedPartyMember[],
+  previous: SavedPartyMember[],
+  transitoryAvailable: boolean,
+  consecutiveSoloObservations: number,
+  selfMembershipId: string,
+  viewerDirectlyOffline: boolean
+): { members: SavedPartyMember[]; consecutiveSoloObservations: number } {
+  return viewerDirectlyOffline
+    ? { members: offlineViewerParty(observed, previous, selfMembershipId), consecutiveSoloObservations: 0 }
+    : resolvePartyObservation(observed, previous, transitoryAvailable, consecutiveSoloObservations);
+}
+
 export function visiblePartyMembers<T extends { membershipId: string }>(members: T[], selfMembershipId: string, presenceFresh: boolean): T[] {
   return presenceFresh ? members : members.filter((member) => member.membershipId === selfMembershipId);
 }
