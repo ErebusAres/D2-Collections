@@ -98,7 +98,7 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
     const ageSeconds = Math.max(0, Math.round((Date.now() - Date.parse(cached.savedAt)) / 1_000));
     savedReadPaths.set(path, cached.savedAt);
     savedReadFailures.set(path, Date.now());
-    const savedEnvelope = ageSavedFireteamPresence(path, cached.envelope, ageSeconds);
+    const savedEnvelope = sanitizeSavedFireteamPresence(path, cached.envelope);
     updateSavedDataConnection({ lastError: sectionFailureMessage(path, error) });
     const savedWarning = isIndependentFireteamSection(path)
       ? `${sectionFailureMessage(path, error)} Showing saved data from ${new Date(cached.savedAt).toLocaleString()}.`
@@ -209,11 +209,12 @@ export function getClientReliabilityDiagnostics(): Record<string, unknown> | und
   } catch { return undefined; }
 }
 
-function ageSavedFireteamPresence<T>(path: string, envelope: ApiEnvelope<T>, ageSeconds: number): ApiEnvelope<T> {
-  if ((path.split("?", 1)[0] || path) !== "/api/v1/fireteam" || ageSeconds <= 120) return envelope;
+function sanitizeSavedFireteamPresence<T>(path: string, envelope: ApiEnvelope<T>): ApiEnvelope<T> {
+  if ((path.split("?", 1)[0] || path) !== "/api/v1/fireteam") return envelope;
   const data = envelope.data as any;
   if (!data || !Array.isArray(data.members)) return envelope;
-  return { ...envelope, data: { ...data, members: data.members.map((member: any) => ({ ...member, onlineState: "unknown", presenceLabel: "Presence unknown", activity: undefined, activitySource: "unavailable" })) } };
+  const self = data.members.filter((member: any) => member?.isSelf === true || activeMembershipId && String(member?.membershipId || "") === activeMembershipId);
+  return { ...envelope, data: { ...data, activity: undefined, members: self.map((member: any) => ({ ...member, onlineState: "unknown", presenceLabel: "Presence unknown", activity: undefined, activitySource: "unavailable" })) } };
 }
 
 function updateConnection(value: Partial<ConnectionSnapshot>): void {

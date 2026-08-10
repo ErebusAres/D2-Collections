@@ -58,9 +58,10 @@ describe("API client", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     offlineCache.readApiResponse.mockResolvedValue({
       savedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
-      envelope: { data: { members: [{ membershipId: "1", onlineState: "online", presenceLabel: "Online", activity: "The Tower", activitySource: "public" }] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved" }
+      envelope: { data: { members: [{ membershipId: "1", isSelf: true, onlineState: "online", presenceLabel: "Online", activity: "The Tower", activitySource: "public" }, { membershipId: "2", isSelf: false, onlineState: "online", presenceLabel: "Online", activity: "The Tower", activitySource: "public" }] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved" }
     });
     const saved = await api<any>("/api/v1/fireteam?characterId=c3");
+    expect(saved.data.members).toHaveLength(1);
     expect(saved.data.members[0]).toMatchObject({ onlineState: "unknown", presenceLabel: "Presence unknown", activitySource: "unavailable" });
   });
 

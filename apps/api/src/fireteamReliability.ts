@@ -9,6 +9,11 @@ export interface SavedPartyMember {
   observedInParty: boolean;
 }
 
+export interface PartyObservation {
+  members: SavedPartyMember[];
+  consecutiveSoloObservations: number;
+}
+
 export function fireteamSocialCacheState(refreshedAt?: string, now = Date.now()): FireteamSocialCacheState {
   if (!refreshedAt || !Number.isFinite(Date.parse(refreshedAt))) return "missing";
   const ageMs = Math.max(0, now - Date.parse(refreshedAt));
@@ -30,7 +35,7 @@ export function resolvePartyObservation(
   previous: SavedPartyMember[],
   transitoryAvailable: boolean,
   consecutiveSoloObservations = 0
-): { members: SavedPartyMember[]; consecutiveSoloObservations: number } {
+): PartyObservation {
   if (!transitoryAvailable) return { members: previous.length ? previous.slice(0, 12) : observed, consecutiveSoloObservations };
   if (observed.length > 1) return { members: observed, consecutiveSoloObservations: 0 };
   if (previous.length <= 1) return { members: observed, consecutiveSoloObservations: 0 };
@@ -44,6 +49,16 @@ export function resolvePartyObservation(
       consecutiveSoloObservations: nextSoloObservations
     }
     : { members: observed, consecutiveSoloObservations: 0 };
+}
+
+export function partyObservationForProgressRefresh(
+  previous: SavedPartyMember[] | undefined,
+  previousConsecutiveSoloObservations: number,
+  initial: PartyObservation
+): PartyObservation {
+  return previous === undefined
+    ? initial
+    : { members: previous.slice(0, 12), consecutiveSoloObservations: Math.max(0, previousConsecutiveSoloObservations) };
 }
 
 export function fireteamPresenceRefreshDue(refreshedAt?: string, now = Date.now(), intervalMs = 60_000): boolean {
@@ -64,7 +79,7 @@ export function resolveViewerPartyObservation(
   consecutiveSoloObservations: number,
   selfMembershipId: string,
   viewerDirectlyOffline: boolean
-): { members: SavedPartyMember[]; consecutiveSoloObservations: number } {
+): PartyObservation {
   return viewerDirectlyOffline
     ? { members: offlineViewerParty(observed, previous, selfMembershipId), consecutiveSoloObservations: 0 }
     : resolvePartyObservation(observed, previous, transitoryAvailable, consecutiveSoloObservations);

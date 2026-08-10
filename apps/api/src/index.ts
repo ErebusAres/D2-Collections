@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, partyObservationForProgressRefresh, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1488,24 +1488,53 @@ async function storeShare(
   const activityFeedEnabled = providedActivityFeedEnabled === undefined ? sharedActivityFeedEnabled(previousPayload) : providedActivityFeedEnabled;
   const activityFeedPreferenceSet = providedActivityFeedEnabled === undefined ? previousPayload?.activityFeedPreferenceSet === true : true;
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
-  const previousPartyMembers = Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : [];
+  const previousPartyMembers = Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : undefined;
   const observedPartyMembers = savedPartyMembers(transitory || {}, row);
   const directlyOffline = profileCharacters.every((entry) => Number(entry.minutesPlayedThisSession || 0) <= 0);
-  const partyObservation = resolveViewerPartyObservation(
+  const initialPartyObservation = resolveViewerPartyObservation(
     observedPartyMembers,
-    previousPartyMembers,
+    previousPartyMembers || [],
     Boolean(transitory),
     Number(previousPayload?.activityPartySoloObservationCount || 0),
     row.membership_id,
     directlyOffline
   );
+  // Quest/order progress refreshes and presence refreshes use different Bungie
+  // component sets. Once a presence snapshot exists, only the narrow presence
+  // refresher may replace party membership, location, or online state.
+  const partyObservation = partyObservationForProgressRefresh(previousPartyMembers, Number(previousPayload?.activityPartySoloObservationCount || 0), initialPartyObservation);
   const activityPartyMembers = partyObservation.members;
   const activityPartyMembershipIds = activityPartyMembers.map((member) => member.membershipId);
-  const payload = { character, activity: directlyOffline ? undefined : allQuests.currentActivity, onlineState: directlyOffline ? "offline" : undefined, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
+  const activity = previousPartyMembers === undefined ? directlyOffline ? undefined : allQuests.currentActivity : previousPayload?.activity;
+  const onlineState = previousPartyMembers === undefined ? directlyOffline ? "offline" : undefined : previousPayload?.onlineState;
+  const payload = { character, activity, onlineState, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
+  // The upsert atomically copies presence-owned fields from the current D1 row.
+  // This closes the race where a slower progress request read an old party and
+  // finished after the narrow presence writer had already stored a newer one.
   await env.DB.prepare(`
     INSERT INTO fireteam_shares (membership_id, display_name, character_id, updated_at, expires_at, payload_json, sharing_mode, site_pinned_quest_ids_json, last_error, presence_refreshed_at, presence_error)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL)
-    ON CONFLICT(membership_id) DO UPDATE SET display_name = excluded.display_name, character_id = excluded.character_id, updated_at = excluded.updated_at, expires_at = excluded.expires_at, payload_json = excluded.payload_json, sharing_mode = excluded.sharing_mode, site_pinned_quest_ids_json = excluded.site_pinned_quest_ids_json, last_error = NULL, presence_refreshed_at = excluded.presence_refreshed_at, presence_error = NULL
+    ON CONFLICT(membership_id) DO UPDATE SET
+      display_name = excluded.display_name,
+      character_id = excluded.character_id,
+      updated_at = excluded.updated_at,
+      expires_at = excluded.expires_at,
+      payload_json = CASE
+        WHEN json_type(fireteam_shares.payload_json, '$.activityPartyMembers') = 'array' THEN json_set(
+          excluded.payload_json,
+          '$.activity', json_extract(fireteam_shares.payload_json, '$.activity'),
+          '$.onlineState', json_extract(fireteam_shares.payload_json, '$.onlineState'),
+          '$.activityPartyMembershipIds', json_extract(fireteam_shares.payload_json, '$.activityPartyMembershipIds'),
+          '$.activityPartyMembers', json_extract(fireteam_shares.payload_json, '$.activityPartyMembers'),
+          '$.activityPartySoloObservationCount', json_extract(fireteam_shares.payload_json, '$.activityPartySoloObservationCount')
+        )
+        ELSE excluded.payload_json
+      END,
+      sharing_mode = excluded.sharing_mode,
+      site_pinned_quest_ids_json = excluded.site_pinned_quest_ids_json,
+      last_error = NULL,
+      presence_refreshed_at = fireteam_shares.presence_refreshed_at,
+      presence_error = fireteam_shares.presence_error
   `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload), mode, JSON.stringify(sitePinnedQuestIds), updatedAt).run();
   return { expiresAt, sharedQuestCount: compactSharedQuests.length, sharedTrackedItemCount: trackedItems.length, sourceMintedAt: profile?.responseMintedTimestamp };
 }

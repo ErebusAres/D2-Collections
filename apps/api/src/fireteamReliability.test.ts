@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, resolvePartyObservation, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -26,6 +26,18 @@ describe("Fireteam reliability helpers", () => {
     expect(resolvePartyObservation([self], [self, teammate], true, 1)).toEqual({ members: [self, { ...teammate, observedInParty: false }], consecutiveSoloObservations: 2 });
     expect(resolvePartyObservation([self], [self, teammate], true, 2)).toEqual({ members: [self], consecutiveSoloObservations: 0 });
     expect(resolvePartyObservation([self, teammate], [self], true, 2)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 0 });
+  });
+
+  it("keeps progress refreshes from replacing an established presence snapshot", () => {
+    const self = { membershipId: "1", displayName: "Self", status: 1, observedInParty: false };
+    const staleTeammate = { membershipId: "2", displayName: "Stale", status: 1, observedInParty: true };
+    const currentTeammate = { membershipId: "3", displayName: "Current", status: 1, observedInParty: true };
+    expect(partyObservationForProgressRefresh([self, currentTeammate], 1, { members: [self, staleTeammate], consecutiveSoloObservations: 0 })).toEqual({
+      members: [self, currentTeammate], consecutiveSoloObservations: 1
+    });
+    expect(partyObservationForProgressRefresh(undefined, 0, { members: [self, currentTeammate], consecutiveSoloObservations: 0 })).toEqual({
+      members: [self, currentTeammate], consecutiveSoloObservations: 0
+    });
   });
 
   it("refreshes Fireteam presence on the live-page cadence", () => {

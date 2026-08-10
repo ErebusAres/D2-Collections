@@ -6,6 +6,10 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
+### 2026-08-10 single Fireteam presence authority
+
+The remaining member-card flip-flop had two deterministic resurrection paths. Full quest/order share refreshes and narrow presence refreshes both replaced the same party fields using different Bungie component sets, so their completion order could alternate the saved party. Progress refreshes now preserve an established presence snapshot, and their D1 upsert atomically carries forward the newest stored party/location/online fields so an older in-flight request cannot overwrite them. Only the narrow presence refresher advances those fields. Separately, a transient Worker failure can no longer restore cached teammate cards from IndexedDB; Fireteam fallback retains only the viewer's own card with presence and activity claims removed. The normal page coordinator remains five minutes, with the existing short stale-response poll used only to collect an already-queued background presence refresh.
+
 ### 2026-08-10 stale-member recurrence and duplicate refresh removal
 
 The persistent Fireteam page could continue showing a saved teammate after everyone left Destiny. The five-minute browser share rebuild updated `presence_refreshed_at` before the narrow presence refresher could run, but `storeShare` did not apply the existing directly-offline party collapse. The same full persistent share was also rebuilt by the five-minute Worker cron, duplicating Bungie profile and manifest work once per open browser tab. Both share and presence paths now use one tested viewer-party resolver; an account with no character session minutes collapses immediately to self, clears retained activity, and stores the viewer offline. Persistent share rebuilding is cron-owned, while temporary 15-minute shares still renew from the browser.
