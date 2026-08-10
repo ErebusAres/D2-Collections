@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership } from "./supportDiagnostics";
+import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership } from "./supportDiagnostics";
 
 describe("support diagnostics membership selection", () => {
   it("prefers a verified usable profile over a broken primary membership", async () => {
@@ -19,5 +19,26 @@ describe("support diagnostics membership selection", () => {
     const memberships = { destinyMemberships: [{ membershipType: 3, membershipId: "new", displayName: "Recovered" }] };
     const probes = await probeDestinyMemberships(memberships, async () => { throw Object.assign(new Error("Missing"), { bungieErrorCode: 1601, bungieErrorStatus: "DestinyAccountNotFound" }); });
     expect(membershipDiagnosis(true, probes).code).toBe("DESTINY_PROFILE_NOT_INITIALIZED");
+  });
+
+  it("does not claim authentication failed when an unexpired refresh session was not tested", () => {
+    expect(oauthRefreshRequiredDiagnosis()).toMatchObject({
+      code: "OAUTH_REFRESH_REQUIRED",
+      summary: expect.stringContaining("did not test")
+    });
+  });
+
+  it("removes account and character identifiers from copied membership probes", async () => {
+    const [probe] = await probeDestinyMemberships(
+      { primaryMembershipId: "private-membership", destinyMemberships: [{ membershipType: 3, membershipId: "private-membership", displayName: "Private Guardian" }] },
+      async () => ({ profile: { data: {} }, characters: { data: { "private-character": {} } } })
+    );
+    const sanitized = sanitizedMembershipProbe(probe!);
+
+    expect(sanitized).not.toHaveProperty("membershipId");
+    expect(sanitized).not.toHaveProperty("displayName");
+    expect(sanitized).not.toHaveProperty("characterIds");
+    expect(JSON.stringify(sanitized)).not.toMatch(/private-membership|Private Guardian|private-character/);
+    expect(sanitized).toMatchObject({ membershipType: 3, characterCount: 1, usable: true });
   });
 });

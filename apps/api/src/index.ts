@@ -78,7 +78,7 @@ import {
 } from "./notifications";
 import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
-import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
+import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
 import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, offlineViewerParty, resolvePartyObservation, visiblePartyMembers } from "./fireteamReliability";
@@ -378,11 +378,15 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
   tests.push({ id: "session", name: "Guardian Nexus server session", status: sessionValid ? "pass" : "fail", durationMs: 0, explanation: !sessionCookieReceived ? "No Guardian Nexus session cookie reached the Worker." : !row ? "A cookie was received, but no matching server-side session was found." : sessionValid ? "The current server-side session exists and its refresh window is valid." : "The server-side session has expired.", details: { cookieReceived: sessionCookieReceived, foundServerSide: Boolean(row), valid: sessionValid, expiresAt: row ? new Date(row.refresh_expires_at * 1000).toISOString() : undefined, bungieAccountAssociated: Boolean(row?.membership_id), oauthCredentialsAvailable: Boolean(row?.access_token_cipher && row?.refresh_token_cipher), tokenExpired: row ? row.access_expires_at <= nowSeconds : undefined } });
 
   let accessToken = "";
+  let accessTokenNeedsRefresh = false;
   const refreshAttempted = false;
   if (row && sessionValid) {
     const tokenStart = Date.now();
     const tokenExpired = row.access_expires_at <= nowSeconds + 60;
-    if (tokenExpired) tests.push({ id: "oauth", name: "Bungie OAuth token", status: "fail", durationMs: Date.now() - tokenStart, explanation: "The stored access token is expired or near expiry. Read-only diagnostics did not rotate or delete session credentials; signing in again will test the normal refresh/login path safely.", details: { credentialsPresent: true, tokenValid: false, tokenExpired: true, refreshAttempted, refreshSucceeded: undefined, requiredScope: "ReadBasicUserProfile", scopeSufficientForMembershipsAndBasicProfile: "not-tested" } });
+    if (tokenExpired) {
+      accessTokenNeedsRefresh = true;
+      tests.push({ id: "oauth", name: "Bungie OAuth token", status: "warning", durationMs: Date.now() - tokenStart, explanation: "The short-lived access token expired. An unexpired refresh session is stored, but read-only diagnostics intentionally did not rotate credentials or test the refresh token.", details: { credentialsPresent: true, tokenValid: false, tokenExpired: true, refreshSessionValid: true, refreshAttempted, refreshSucceeded: undefined, requiredScope: "ReadBasicUserProfile", scopeSufficientForMembershipsAndBasicProfile: "not-tested" } });
+    }
     else {
       try {
         accessToken = await decrypt(row.access_token_cipher, env.OAUTH_ENCRYPTION_KEY);
@@ -401,7 +405,7 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
     try {
       memberships = await membershipsFor(accessToken, env);
       const entries = Array.isArray(memberships?.destinyMemberships) ? memberships.destinyMemberships : [];
-      tests.push({ id: "memberships", name: "Bungie memberships", status: entries.length ? "pass" : "warning", durationMs: Date.now() - membershipsStart, httpStatus: 200, explanation: entries.length ? `Bungie authenticated the user and returned ${entries.length} linked Destiny membership${entries.length === 1 ? "" : "s"}.` : "Bungie authenticated the user but returned zero Destiny memberships.", details: { bungieNetUserReturned: Boolean(memberships?.bungieNetUser), bungieGlobalDisplayName: memberships?.bungieNetUser?.uniqueName || memberships?.bungieNetUser?.bungieGlobalDisplayName, primaryMembershipId: memberships?.primaryMembershipId, membershipCount: entries.length, memberships: entries.map((entry: any) => ({ membershipType: Number(entry.membershipType), membershipId: String(entry.membershipId), displayName: String(entry.displayName || ""), bungieGlobalDisplayName: entry.bungieGlobalDisplayName, bungieGlobalDisplayNameCode: entry.bungieGlobalDisplayNameCode, crossSaveOverride: Number(entry.crossSaveOverride || 0), applicableMembershipTypes: entry.applicableMembershipTypes || [], isPublic: entry.isPublic, isPrimary: String(entry.membershipId) === String(memberships?.primaryMembershipId) })) } });
+      tests.push({ id: "memberships", name: "Bungie memberships", status: entries.length ? "pass" : "warning", durationMs: Date.now() - membershipsStart, httpStatus: 200, explanation: entries.length ? `Bungie authenticated the user and returned ${entries.length} linked Destiny membership${entries.length === 1 ? "" : "s"}.` : "Bungie authenticated the user but returned zero Destiny memberships.", details: { bungieNetUserReturned: Boolean(memberships?.bungieNetUser), membershipCount: entries.length, memberships: entries.map((entry: any) => ({ membershipType: Number(entry.membershipType), crossSaveOverride: Number(entry.crossSaveOverride || 0), applicableMembershipTypes: entry.applicableMembershipTypes || [], isPublic: entry.isPublic, isPrimary: String(entry.membershipId) === String(memberships?.primaryMembershipId) })) } });
     } catch (error: any) {
       tests.push(diagnosticFailure("memberships", "Bungie memberships", membershipsStart, error, "Bungie authentication or membership retrieval failed."));
     }
@@ -409,12 +413,12 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
 
   const probeStart = Date.now();
   const probes = memberships && accessToken ? await probeDestinyMemberships(memberships, (membershipType, membershipId) => bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200`, env, accessToken)) : [];
-  if (memberships) tests.push({ id: "profiles", name: "Every linked Destiny profile", status: probes.some((probe) => probe.usable) ? "pass" : probes.some((probe) => probe.profileExists) ? "warning" : "fail", durationMs: Date.now() - probeStart, explanation: probes.some((probe) => probe.usable) ? "At least one linked membership returned a profile with usable characters." : probes.some((probe) => probe.profileExists) ? "A Destiny profile exists, but no usable characters were returned." : "No linked membership returned a usable Destiny 2 profile.", details: { probes } });
+  if (memberships) tests.push({ id: "profiles", name: "Every linked Destiny profile", status: probes.some((probe) => probe.usable) ? "pass" : probes.some((probe) => probe.profileExists) ? "warning" : "fail", durationMs: Date.now() - probeStart, explanation: probes.some((probe) => probe.usable) ? "At least one linked membership returned a profile with usable characters." : probes.some((probe) => probe.profileExists) ? "A Destiny profile exists, but no usable characters were returned." : "No linked membership returned a usable Destiny 2 profile.", details: { probes: probes.map(sanitizedMembershipProbe) } });
   else tests.push({ id: "profiles", name: "Every linked Destiny profile", status: "not-applicable", durationMs: 0, explanation: "Profile probes require a successful membership response." });
 
   const best = selectBestMembership(memberships, probes);
   const stored = probes.find((probe) => probe.membershipId === row?.membership_id);
-  tests.push({ id: "selection", name: "Membership selection", status: best && row && best.membershipId !== row.membership_id && best.usable ? "fail" : best?.usable ? "pass" : "warning", durationMs: 0, explanation: best && row && best.membershipId !== row.membership_id && best.usable ? "The saved Guardian Nexus membership is not the best verified usable Destiny profile." : best?.usable ? "Guardian Nexus's verified selection resolves to a usable Destiny profile." : "Guardian Nexus could not verify a usable membership selection.", details: { storedMembership: row ? { membershipType: row.membership_type, membershipId: row.membership_id } : undefined, verifiedSelection: best ? { membershipType: best.membershipType, membershipId: best.membershipId, characterCount: best.characterCount } : undefined, storedMembershipUsable: stored?.usable } });
+  tests.push({ id: "selection", name: "Membership selection", status: best && row && best.membershipId !== row.membership_id && best.usable ? "fail" : best?.usable ? "pass" : "warning", durationMs: 0, explanation: best && row && best.membershipId !== row.membership_id && best.usable ? "The saved Guardian Nexus membership is not the best verified usable Destiny profile." : best?.usable ? "Guardian Nexus's verified selection resolves to a usable Destiny profile." : "Guardian Nexus could not verify a usable membership selection.", details: { storedMembership: row ? { present: true, membershipType: row.membership_type } : undefined, verifiedSelection: best ? { membershipType: best.membershipType, characterCount: best.characterCount } : undefined, storedMembershipUsable: stored?.usable } });
 
   const bootstrapStart = Date.now();
   let bootstrap: Record<string, unknown> = { stages: [] };
@@ -428,7 +432,7 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
       activeStage = "application account normalized";
       const manifest = await loadActivityNames(env);
       const guardian = normalizeGuardian({ profile, membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.display_name, bungieName: row.bungie_name, rewardsPass: { rank: 0, progress: { state: "unavailable", source: "bungie-profile-character-progressions" } }, manifest }); stages.push("application account normalized", "bootstrap response created");
-      bootstrap = { stages, selectedMembershipId: row.membership_id, characterCount: characters.length, selectedCharacterId: guardian.selectedCharacterId, succeeded: true };
+      bootstrap = { stages, membershipSelected: true, characterCount: characters.length, characterSelected: Boolean(guardian.selectedCharacterId), succeeded: true };
       tests.push({ id: "bootstrap", name: "Guardian Nexus account bootstrap", status: characters.length ? "pass" : "warning", durationMs: Date.now() - bootstrapStart, explanation: characters.length ? "The real profile loader and account normalizer completed successfully." : "The real profile loader completed, but the normalized account contains no characters.", details: bootstrap });
     } catch (error: any) {
       bootstrap = { stages, failedStage: activeStage, succeeded: false, exception: { name: String(error?.name || "Error"), message: String(error?.message || "Unknown bootstrap failure"), applicationCode: error?.code, stackLocation: safeStackLocation(error) } };
@@ -436,14 +440,14 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
     }
   } else tests.push({ id: "bootstrap", name: "Guardian Nexus account bootstrap", status: "not-applicable", durationMs: 0, explanation: "The application bootstrap requires a valid current session and OAuth token." });
 
-  const diagnosis = membershipDiagnosis(Boolean(memberships), probes, stored, row?.membership_id);
+  const diagnosis = accessTokenNeedsRefresh ? oauthRefreshRequiredDiagnosis() : membershipDiagnosis(Boolean(memberships), probes, stored, row?.membership_id);
   return envelope({
-    reportVersion: 1,
+    reportVersion: 2,
     timestamp: startedAt,
     guardianNexus: { build: "0.1.0", commit: (env as any).BUILD_COMMIT || "unknown", deployedAt: (env as any).BUILD_TIMESTAMP || "unknown", backendReachable: true, databaseReachable, schema: "guardian-nexus-v1" },
     session: { cookieReceived: sessionCookieReceived, found: Boolean(row), valid: sessionValid, oauthPresent: Boolean(row?.access_token_cipher), oauthValid: Boolean(accessToken), refreshAttempted },
     tests,
-    profileTests: probes,
+    profileTests: probes.map(sanitizedMembershipProbe),
     applicationBootstrap: bootstrap,
     diagnosis
   }, env, context);

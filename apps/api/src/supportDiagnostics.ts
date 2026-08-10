@@ -37,6 +37,21 @@ export interface DiagnosticTest {
   throttleSeconds?: number;
 }
 
+export function sanitizedMembershipProbe(probe: MembershipProbe): Omit<MembershipProbe, "membershipId" | "displayName" | "characterIds"> {
+  return Object.fromEntries(Object.entries(probe).filter(([key]) => !["membershipId", "displayName", "characterIds"].includes(key))) as Omit<MembershipProbe, "membershipId" | "displayName" | "characterIds">;
+}
+
+export function oauthRefreshRequiredDiagnosis(): { code: string; summary: string; nextSteps: string[] } {
+  return {
+    code: "OAUTH_REFRESH_REQUIRED",
+    summary: "The Bungie access token expired, but Guardian Nexus still has an unexpired refresh session. Read-only diagnostics did not test whether that refresh succeeds.",
+    nextSteps: [
+      "Return to Guardian Nexus and reload once so the normal application can refresh Bungie authorization.",
+      "If the application still cannot load the account, sign out, reconnect Bungie authorization, and run diagnostics again."
+    ]
+  };
+}
+
 export async function probeDestinyMemberships(memberships: any, getProfile: (membershipType: number, membershipId: string) => Promise<any>): Promise<MembershipProbe[]> {
   const entries = Array.isArray(memberships?.destinyMemberships) ? memberships.destinyMemberships : [];
   return Promise.all(entries.map(async (entry: any) => {
@@ -96,7 +111,7 @@ export function membershipDiagnosis(membershipsSucceeded: boolean, probes: Membe
   const usable = probes.filter((probe) => probe.usable);
   const everyNotFound = probes.every((probe) => probe.bungieErrorCode === 1601 || probe.bungieErrorStatus === "DestinyAccountNotFound");
   if (everyNotFound) return { code: "DESTINY_PROFILE_NOT_INITIALIZED", summary: "Bungie recognizes linked platform memberships, but none currently expose a usable Destiny 2 profile (DestinyAccountNotFound / 1601).", nextSteps: ["Launch Destiny 2 on the intended linked platform and create or load a character.", "If the account was recovered recently, confirm platform and Cross Save links on Bungie.net, then allow Bungie time to reconcile them."] };
-  if (usable.length && selected && !selected.usable) return { code: "WRONG_DESTINY_MEMBERSHIP", summary: `Guardian Nexus selected membership ${selected.membershipId}, but another linked membership contains a usable Destiny 2 profile.`, nextSteps: ["Reconnect Guardian Nexus so the corrected membership selection can be saved.", "Confirm the intended Cross Save active account on Bungie.net."] };
+  if (usable.length && selected && !selected.usable) return { code: "WRONG_DESTINY_MEMBERSHIP", summary: "Guardian Nexus selected a linked membership without a usable Destiny 2 profile, but another linked membership is usable.", nextSteps: ["Reconnect Guardian Nexus so the corrected membership selection can be saved.", "Confirm the intended Cross Save active account on Bungie.net."] };
   if (usable.length && storedMembershipId && !usable.some((probe) => probe.membershipId === storedMembershipId)) return { code: "STALE_MEMBERSHIP_MAPPING", summary: "The saved Guardian Nexus membership no longer matches Bungie's current usable Destiny profile, possibly following account recovery or a Cross Save change.", nextSteps: ["Sign out of Guardian Nexus and reconnect Bungie authorization to refresh the stored membership mapping."] };
   if (probes.some((probe) => probe.profileExists && probe.characterCount === 0)) return { code: "PROFILE_WITHOUT_CHARACTERS", summary: "Bungie returned a Destiny 2 profile, but it currently has no usable characters.", nextSteps: ["Launch Destiny 2 and finish creating or restoring a character, then run diagnostics again."] };
   if (usable.length) return { code: "BUNGIE_PROFILE_VALID", summary: "Bungie authentication, Destiny profile retrieval, and character loading succeeded. Any remaining failure is later in Guardian Nexus's bootstrap pipeline.", nextSteps: ["Review the application bootstrap stages below for the first failure."] };
