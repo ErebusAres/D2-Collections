@@ -24,7 +24,8 @@ export function FireteamRoute() {
 function FireteamRefreshCountdown() {
   const { session, selectedCharacterId, autoRefresh, preferences } = useGuardian();
   const queryClient = useQueryClient();
-  const result = useFireteamQuery(selectedCharacterId, Boolean(session?.authenticated));
+  const membershipId = session?.guardian?.membershipId || "";
+  const result = useFireteamQuery(membershipId, selectedCharacterId, Boolean(session?.authenticated));
   const orders = useQuery({
     queryKey: ["quests", selectedCharacterId, ""],
     queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=`),
@@ -33,7 +34,6 @@ function FireteamRefreshCountdown() {
     refetchIntervalInBackground: false
   });
   const data = result.data?.data;
-  const membershipId = session?.guardian?.membershipId || "";
   const storageKey = membershipId && selectedCharacterId ? pinsKey(membershipId, selectedCharacterId) : "";
   const mode = data?.sharingMode;
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
@@ -111,33 +111,30 @@ function FireteamRefreshCountdown() {
       // temporary shares need a browser renewal to extend their 15-minute lease.
       if (shouldRenewTemporaryShare && !shareRefreshRunning.current) {
         shareRefreshRunning.current = true;
-        try {
-          await queuedApi("/api/v1/fireteam/share", {
-            method: "PUT",
-            headers: mutationHeaders(session?.csrfToken),
-            body: JSON.stringify({
-              characterId: selectedCharacterId,
-              sitePinnedQuestIds: readStringArray(storageKey, 40),
-              siteTrackedGuardianRankIds: readPreferenceArray(guardianRankTracked),
-              siteTrackedJourneyIds: readPreferenceArray(journeyTracked),
-              siteTrackedCollectionIds: readPreferenceArray(collectionTracked),
-              siteTrackedBuilds: parseTrackedBuilds(buildTracked),
-              hiddenTrackedItemKeys,
-              mode: mode as FireteamSharingMode
-            })
-          }, { priority: 100 });
-        } catch { /* The core read below still returns the last safe snapshot. */ }
-        finally { shareRefreshRunning.current = false; }
+        void queuedApi("/api/v1/fireteam/share", {
+          method: "PUT",
+          headers: mutationHeaders(session?.csrfToken),
+          body: JSON.stringify({
+            characterId: selectedCharacterId,
+            sitePinnedQuestIds: readStringArray(storageKey, 40),
+            siteTrackedGuardianRankIds: readPreferenceArray(guardianRankTracked),
+            siteTrackedJourneyIds: readPreferenceArray(journeyTracked),
+            siteTrackedCollectionIds: readPreferenceArray(collectionTracked),
+            siteTrackedBuilds: parseTrackedBuilds(buildTracked),
+            hiddenTrackedItemKeys,
+            mode: mode as FireteamSharingMode
+          })
+        }, { priority: 100 }).catch(() => undefined).finally(() => { shareRefreshRunning.current = false; });
       }
       // Lower-priority sections remain independent: a failure retains their
       // last successful query data and the next scheduled cycle still runs.
-      await queryClient.refetchQueries({ queryKey: fireteamQueryKey(selectedCharacterId), exact: true, type: "active" });
+      await queryClient.refetchQueries({ queryKey: fireteamQueryKey(membershipId, selectedCharacterId), exact: true, type: "active" });
       await queryClient.refetchQueries({ queryKey: ["recent-items", selectedCharacterId], exact: true, type: "active" });
     } finally {
       refreshRunning.current = false;
       setRefreshing(false);
     }
-  }, [buildTracked, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, mode, queryClient, selectedCharacterId, session?.csrfToken, shouldRenewTemporaryShare, storageKey]);
+  }, [buildTracked, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, membershipId, mode, queryClient, selectedCharacterId, session?.csrfToken, shouldRenewTemporaryShare, storageKey]);
 
   useEffect(() => {
     if (!autoRefresh || !canRefreshFireteam) {

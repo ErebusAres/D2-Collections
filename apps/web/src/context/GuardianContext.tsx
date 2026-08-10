@@ -1,6 +1,6 @@
 import type { ApiEnvelope, SessionData, UpdateUserPreferenceRequest, UserPreferenceKey, UserPreferencesData } from "@guardian-nexus/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, ApiRequestError, configureOfflineApi, mutationHeaders, queuedApi } from "../services/api/client";
 import { HEADER_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
@@ -85,6 +85,7 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
   });
   const session = sessionQuery.data?.data;
   const membershipId = session?.guardian?.membershipId;
+  const previousMembershipId = useRef<string | undefined>(undefined);
   configureOfflineApi(membershipId, () => mutationHeaders(session?.csrfToken));
   const preferencesQuery = useQuery({
     queryKey: ["preferences", membershipId],
@@ -96,6 +97,13 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
   const preferenceMutation = useMutation({
     mutationFn: (input: UpdateUserPreferenceRequest) => queuedApi<UserPreferencesData>("/api/v1/me/preferences", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true })
   });
+
+  useEffect(() => {
+    const previous = previousMembershipId.current;
+    previousMembershipId.current = membershipId;
+    if (previous === undefined || previous === membershipId) return;
+    queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "session" });
+  }, [membershipId, queryClient]);
 
   useEffect(() => {
     if (!sessionQuery.data || sessionQuery.isPlaceholderData) return;

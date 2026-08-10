@@ -362,7 +362,7 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
   try {
     const compactManifest = await loadActivityNames(env);
     const socialCache = row ? await env.DB.prepare("SELECT refreshed_at, expires_at, last_error FROM fireteam_social_cache WHERE membership_id = ?").bind(row.membership_id).first<any>() : null;
-    const presenceCache = row ? await env.DB.prepare("SELECT presence_refreshed_at, presence_error FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<any>() : null;
+    const presenceCache = row ? await env.DB.prepare("SELECT presence_refreshed_at, presence_refresh_started_at, presence_error FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<any>() : null;
     const accountCache = row ? await env.DB.prepare("SELECT refreshed_at, refresh_started_at, last_error FROM guardian_session_cache WHERE membership_id = ?").bind(row.membership_id).first<any>() : null;
     const socialCacheAgeSeconds = socialCache?.refreshed_at ? Math.max(0, Math.round((Date.now() - Date.parse(socialCache.refreshed_at)) / 1_000)) : undefined;
     const presenceCacheAgeSeconds = presenceCache?.presence_refreshed_at ? Math.max(0, Math.round((Date.now() - Date.parse(presenceCache.presence_refreshed_at)) / 1_000)) : undefined;
@@ -380,6 +380,7 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
         d1Reachable: databaseReachable,
         presenceCacheState: !row ? "not-applicable" : !presenceCache ? "missing" : presenceCacheAgeSeconds! <= 120 ? "fresh" : "stale",
         presenceCacheAgeSeconds,
+        presenceRefreshInProgress: Boolean(presenceCache?.presence_refresh_started_at),
         lastPresenceRefreshFailed: Boolean(presenceCache?.presence_error),
         accountCacheState: !row ? "not-applicable" : accountCache ? guardianSessionCacheState(accountCache.refreshed_at) : "missing",
         accountCacheAgeSeconds,
@@ -1627,6 +1628,19 @@ async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void>
   }
 }
 
+async function refreshFireteamPresenceWithLease(row: SessionRow, env: Env): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const staleLease = new Date(Date.now() - 2 * 60_000).toISOString();
+  const claim = await env.DB.prepare("UPDATE fireteam_shares SET presence_refresh_started_at = ? WHERE membership_id = ? AND (presence_refresh_started_at IS NULL OR presence_refresh_started_at < ?)")
+    .bind(startedAt, row.membership_id, staleLease).run().catch(() => undefined);
+  if (!claim || Number(claim.meta?.changes || 0) < 1) return;
+  try { await refreshFireteamPresence(row, env); }
+  finally {
+    await env.DB.prepare("UPDATE fireteam_shares SET presence_refresh_started_at = NULL WHERE membership_id = ? AND presence_refresh_started_at = ?")
+      .bind(row.membership_id, startedAt).run().catch(() => undefined);
+  }
+}
+
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const started = performance.now();
   const now = new Date().toISOString();
@@ -1707,7 +1721,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     };
   });
   const presenceRefreshDue = Boolean(ownShare) && fireteamPresenceRefreshDue(viewerPresenceAt);
-  if (presenceRefreshDue) context.waitUntil?.(refreshFireteamPresence(row, env).catch(() => undefined));
+  if (presenceRefreshDue) context.waitUntil?.(refreshFireteamPresenceWithLease(row, env).catch(() => undefined));
   const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: viewerPresenceFresh ? ownSharePayload?.activity : undefined, members };
   console.log(JSON.stringify({ event: "fireteam_core_timing", profileMs: 0, activityLookupMs: 0, d1SharesMs: Math.round(shareMs), publicMembersMs: 0, feedMs: 0, socialMs: 0, totalMs: Math.round(performance.now() - started), partySize: party.length, synchronizedShares: shares.size, cacheState: viewerPresenceFresh ? presenceRefreshDue ? "fresh-refreshing" : "fresh" : ownShare ? "stale-refreshing" : "missing" }));
   return envelope(data, env, context, { observedAt: viewerPresenceAt || now, state: viewerPresenceFresh ? "fresh" : "stale", warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(!viewerPresenceFresh && ownShare ? ["Live Fireteam presence is refreshing; saved member data remains available."] : []), ...(ownShare?.presence_error ? [String(ownShare.presence_error)] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });

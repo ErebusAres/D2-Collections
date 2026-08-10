@@ -32,7 +32,7 @@ const TRACKED_ITEM_EXIT_MS = 1_600;
 export function FireteamPage() {
   const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
   const queryClient = useQueryClient();
-  const result = useFireteamQuery(selectedCharacterId, Boolean(session?.authenticated));
+  const result = useFireteamQuery(session?.guardian?.membershipId || "", selectedCharacterId, Boolean(session?.authenticated));
   useEffect(() => {
     const prime = () => {
       primeCompletionAudio();

@@ -135,7 +135,7 @@ describe("Fireteam tracked items", () => {
       definitionHash: "new-record",
       name: "New rank objective"
     });
-    act(() => client.setQueryData(["fireteam", "c1"], updated));
+    act(() => client.setQueryData(["fireteam", "member-1", "c1"], updated));
 
     const enteringItem = (await screen.findByText("New rank objective")).closest("[data-tracking-state]");
     await waitFor(() => expect(enteringItem?.getAttribute("data-tracking-state")).toBe("entering"));
@@ -157,7 +157,7 @@ describe("Fireteam tracked items", () => {
     await screen.findByText("Weekly order");
     const updated = envelope();
     updated.data.members[0]!.trackedItems = updated.data.members[0]!.trackedItems.slice(1);
-    act(() => client.setQueryData(["fireteam", "c1"], updated));
+    act(() => client.setQueryData(["fireteam", "member-1", "c1"], updated));
 
     await waitFor(() => expect(screen.getByText("Weekly order").closest("[data-tracking-state]")?.getAttribute("data-tracking-state")).toBe("removing"));
     const removingItem = screen.getByText("Weekly order").closest("[data-tracking-state]");
@@ -175,7 +175,7 @@ describe("Fireteam tracked items", () => {
     await screen.findByText("Weekly order");
     const missing = envelope();
     missing.data.members[0]!.trackedItems = missing.data.members[0]!.trackedItems.slice(1);
-    act(() => client.setQueryData(["fireteam", "c1"], missing));
+    act(() => client.setQueryData(["fireteam", "member-1", "c1"], missing));
     await waitFor(() => expect(screen.getByText("Weekly order").closest("[data-tracking-state]")?.getAttribute("data-tracking-state")).toBe("removing"));
 
     const completed = envelope();
@@ -187,7 +187,7 @@ describe("Fireteam tracked items", () => {
       objectives: completedItem.objectives.map((objective) => ({ ...objective, progress: objective.completionValue, percent: 100, complete: true })),
       completedAt: "2026-07-22T12:01:00.000Z"
     }];
-    act(() => client.setQueryData(["fireteam", "c1"], completed));
+    act(() => client.setQueryData(["fireteam", "member-1", "c1"], completed));
 
     await waitFor(() => {
       const items = screen.getAllByText("Weekly order");
@@ -216,7 +216,7 @@ describe("Fireteam tracked items", () => {
       objectives: completedItem.objectives.map((objective) => ({ ...objective, progress: objective.completionValue, percent: 100, complete: true })),
       completedAt: "2026-07-22T12:02:00.000Z"
     }];
-    act(() => client.setQueryData(["fireteam", "c1"], completed));
+    act(() => client.setQueryData(["fireteam", "member-1", "c1"], completed));
 
     await waitFor(() => {
       const item = screen.getByText("Weekly order").closest("[data-tracking-state]");
