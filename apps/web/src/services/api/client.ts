@@ -44,7 +44,9 @@ let flushTimer: number | undefined;
 let flushing = false;
 const inFlightReads = new Map<string, Promise<ApiEnvelope<unknown>>>();
 const savedReadPaths = new Map<string, string>();
+const savedReadFailures = new Map<string, number>();
 const routeCircuitBreakers = new Map<string, number>();
+const SAVED_READ_WARNING_TTL_MS = 2 * 60_000;
 let mutationAuthHeaders: (() => HeadersInit) | undefined;
 let hydratedMutationScope = "";
 let activeMembershipId = "";
@@ -56,6 +58,7 @@ export function configureOfflineApi(membershipId: string | undefined, authHeader
     abandoned.forEach((pending) => pending.reject(new Error("The selected Guardian changed before this request could be retried.")));
     updateConnection({ queued: 0, retrying: false });
     savedReadPaths.clear();
+    savedReadFailures.clear();
   }
   activeMembershipId = nextMembershipId;
   setOfflineCacheMembership(membershipId);
@@ -80,7 +83,7 @@ export function api<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelop
 async function performReadRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
   try {
     const envelope = await performRequest<T>(path, init);
-    savedReadPaths.delete(path);
+    clearSavedReadRoute(path);
     updateSavedDataConnection({ lastSyncAt: new Date().toISOString() });
     void storeApiResponse(path, envelope).catch(() => undefined);
     return envelope;
@@ -91,6 +94,7 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     const ageSeconds = Math.max(0, Math.round((Date.now() - Date.parse(cached.savedAt)) / 1_000));
     savedReadPaths.set(path, cached.savedAt);
+    savedReadFailures.set(path, Date.now());
     const savedEnvelope = ageSavedFireteamPresence(path, cached.envelope, ageSeconds);
     updateSavedDataConnection({ lastError: sectionFailureMessage(path, error) });
     const savedWarning = isIndependentFireteamSection(path)
@@ -254,8 +258,26 @@ async function flushPending(): Promise<void> {
 }
 
 function updateSavedDataConnection(value: Partial<ConnectionSnapshot>): void {
+  for (const [path, failedAt] of savedReadFailures) {
+    if (savedReadFailureIsCurrent(failedAt)) continue;
+    savedReadFailures.delete(path);
+    savedReadPaths.delete(path);
+  }
   const savedAt = [...savedReadPaths.values()].sort()[0];
   updateConnection({ ...value, usingSavedData: savedReadPaths.size > 0, lastSavedAt: savedAt, ...(!savedReadPaths.size ? { lastError: undefined } : {}) });
+}
+
+function clearSavedReadRoute(path: string): void {
+  const route = path.split("?", 1)[0] || path;
+  for (const savedPath of savedReadPaths.keys()) {
+    if ((savedPath.split("?", 1)[0] || savedPath) !== route) continue;
+    savedReadPaths.delete(savedPath);
+    savedReadFailures.delete(savedPath);
+  }
+}
+
+export function savedReadFailureIsCurrent(failedAt: number, now = Date.now()): boolean {
+  return Number.isFinite(failedAt) && now - failedAt <= SAVED_READ_WARNING_TTL_MS;
 }
 
 async function hydratePersistedMutations(): Promise<void> {

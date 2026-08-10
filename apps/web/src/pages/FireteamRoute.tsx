@@ -51,6 +51,7 @@ function FireteamRefreshCountdown() {
   const [refreshing, setRefreshing] = useState(false);
   const [timerPinned, setTimerPinned] = useState(false);
   const refreshRunning = useRef(false);
+  const shareRefreshRunning = useRef(false);
   const completionState = useRef<Map<string, boolean> | null>(null);
   const completionContext = useRef("");
   const { notice: completionNotice, announce: announceCompletion, dismiss: dismissCompletion, clear: clearCompletions } = useCompletionPings();
@@ -107,8 +108,9 @@ function FireteamRefreshCountdown() {
     refreshRunning.current = true;
     setRefreshing(true);
     try {
-      if (canShareTrackedProgress) {
-        await queuedApi("/api/v1/fireteam/share", {
+      if (canShareTrackedProgress && !shareRefreshRunning.current) {
+        shareRefreshRunning.current = true;
+        void queuedApi("/api/v1/fireteam/share", {
           method: "PUT",
           headers: mutationHeaders(session?.csrfToken),
           body: JSON.stringify({
@@ -121,7 +123,7 @@ function FireteamRefreshCountdown() {
             hiddenTrackedItemKeys,
             mode: mode as FireteamSharingMode
           })
-        });
+        }).catch(() => undefined).finally(() => { shareRefreshRunning.current = false; });
       }
       await Promise.all([
         queryClient.refetchQueries({ queryKey: ["fireteam", selectedCharacterId], exact: true, type: "active" }),

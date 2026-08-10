@@ -57,6 +57,10 @@ export function offlineViewerParty(observed: SavedPartyMember[], previous: Saved
   return self ? [{ ...self, observedInParty: false, status: 0 }] : [];
 }
 
+export function visiblePartyMembers<T extends { membershipId: string }>(members: T[], selfMembershipId: string, presenceFresh: boolean): T[] {
+  return presenceFresh ? members : members.filter((member) => member.membershipId === selfMembershipId);
+}
+
 export async function mapWithConcurrency<T, R>(values: T[], concurrency: number, mapper: (value: T, index: number) => Promise<R>): Promise<R[]> {
   const output = new Array<R>(values.length);
   let nextIndex = 0;

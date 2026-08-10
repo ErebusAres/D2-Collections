@@ -12,7 +12,7 @@ const offlineCache = vi.hoisted(() => ({
 
 vi.mock("./offlineCache", () => offlineCache);
 
-import { api, ApiRequestError, queuedApi } from "./client";
+import { api, ApiRequestError, queuedApi, savedReadFailureIsCurrent } from "./client";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -27,6 +27,12 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("API client", () => {
+  it("expires abandoned saved-data warning entries after two minutes", () => {
+    const failedAt = Date.parse("2026-08-10T12:00:00.000Z");
+    expect(savedReadFailureIsCurrent(failedAt, failedAt + 120_000)).toBe(true);
+    expect(savedReadFailureIsCurrent(failedAt, failedAt + 120_001)).toBe(false);
+  });
+
   it("uses credentialed requests and returns envelopes", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: { ok: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "r" }), { status: 200 }));
     const result = await api<{ ok: boolean }>("/api/v1/health");

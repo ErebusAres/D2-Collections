@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, probeDestinyMemberships, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, offlineViewerParty, resolvePartyObservation } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, offlineViewerParty, resolvePartyObservation, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1559,7 +1559,8 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   }
   const viewerPresenceAt = ownShare?.presence_refreshed_at || ownShare?.updated_at;
   const viewerPresenceFresh = Boolean(viewerPresenceAt) && Date.now() - Date.parse(viewerPresenceAt) <= 2 * 60_000;
-  const members: FireteamMember[] = party.map((member: any) => {
+  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceFresh);
+  const members: FireteamMember[] = visibleParty.map((member: any) => {
     const share: any = shares.get(member.membershipId);
     let payload: any = null;
     try { payload = share ? JSON.parse(share.payload_json) : null; } catch { payload = null; }

@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe("Fireteam refresh cycle", () => {
-  it("finishes writing tracked progress before it reads the refreshed Fireteam snapshot", async () => {
+  it("keeps live reads refreshing while a tracked-progress write is queued", async () => {
     let fireteamReads = 0;
     let orderReads = 0;
     let finishWrite!: () => void;
@@ -65,12 +65,9 @@ describe("Fireteam refresh cycle", () => {
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
     expect(JSON.parse(String(vi.mocked(queuedApi).mock.calls[0]?.[1]?.body))).not.toHaveProperty("activityFeedEnabled");
-    expect(fireteamReads).toBe(1);
-    expect(orderReads).toBe(1);
-
-    finishWrite();
     await waitFor(() => expect(fireteamReads).toBe(2));
     expect(orderReads).toBe(2);
+    finishWrite();
   });
 
   it("runs the completion step before cleaning up a Hub order Bungie reports complete", async () => {

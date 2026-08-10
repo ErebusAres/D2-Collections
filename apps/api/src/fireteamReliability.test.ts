@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, resolvePartyObservation } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, resolvePartyObservation, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -39,6 +39,12 @@ describe("Fireteam reliability helpers", () => {
     const self = { membershipId: "1", displayName: "Self", status: 9, observedInParty: true };
     const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
     expect(offlineViewerParty([self, teammate], [self, teammate], "1")).toEqual([{ ...self, status: 0, observedInParty: false }]);
+  });
+
+  it("does not present retained teammates as a current party when viewer presence is stale", () => {
+    const members = [{ membershipId: "1" }, { membershipId: "2" }];
+    expect(visiblePartyMembers(members, "1", true)).toEqual(members);
+    expect(visiblePartyMembers(members, "1", false)).toEqual([{ membershipId: "1" }]);
   });
 
   it("preserves member results while bounding public lookup concurrency", async () => {
