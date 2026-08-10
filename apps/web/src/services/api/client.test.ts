@@ -79,6 +79,32 @@ describe("API client", () => {
     expect(result.warnings.join(" ")).toContain("Showing saved Guardian data");
   });
 
+  it("keeps the newest in-memory response when a later read temporarily fails", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { members: ["current"] }, freshness: { state: "fresh", observedAt: "2026-08-10T16:00:00.000Z" }, warnings: [], requestId: "live" }), { status: 200 }))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    offlineCache.readApiResponse.mockResolvedValue({
+      savedAt: "2026-08-10T15:00:00.000Z",
+      envelope: { data: { members: ["old-disk"] }, freshness: { state: "fresh", observedAt: "2026-08-10T15:00:00.000Z" }, warnings: [], requestId: "disk" }
+    });
+
+    await expect(api<{ members: string[] }>("/api/v1/me/memory-race")).resolves.toMatchObject({ data: { members: ["current"] } });
+    const fallback = await api<{ members: string[] }>("/api/v1/me/memory-race");
+    expect(fallback.data.members).toEqual(["current"]);
+    expect(["stale", "offline"]).toContain(fallback.freshness.state);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
+  });
+
+  it("rejects a successful response older than the last accepted snapshot", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { value: "new" }, freshness: { state: "fresh", observedAt: "2026-08-10T16:00:00.000Z" }, warnings: [], requestId: "new" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { value: "old" }, freshness: { state: "fresh", observedAt: "2026-08-10T15:00:00.000Z" }, warnings: [], requestId: "old" }), { status: 200 }));
+
+    await expect(api<{ value: string }>("/api/v1/me/out-of-order")).resolves.toMatchObject({ data: { value: "new" } });
+    await expect(api<{ value: string }>("/api/v1/me/out-of-order")).resolves.toMatchObject({ data: { value: "new" }, requestId: "new" });
+  });
+
   it("does not expose saved private data after an explicit authorization failure", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ code: "not_authenticated", message: "Sign in again" }), { status: 401 }));
     offlineCache.readApiResponse.mockResolvedValue({ savedAt: "2026-07-21T20:00:00.000Z", envelope: { data: { private: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved" } });

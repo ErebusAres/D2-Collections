@@ -46,6 +46,7 @@ let flushTimer: number | undefined;
 let flushTimerAt = 0;
 let flushing = false;
 const inFlightReads = new Map<string, Promise<ApiEnvelope<unknown>>>();
+const lastSuccessfulReads = new Map<string, { envelope: ApiEnvelope<unknown>; savedAt: string }>();
 const savedReadPaths = new Map<string, string>();
 const savedReadFailures = new Map<string, number>();
 const routeCircuitBreakers = new Map<string, number>();
@@ -56,12 +57,15 @@ let activeMembershipId = "";
 
 export function configureOfflineApi(membershipId: string | undefined, authHeaders: () => HeadersInit): void {
   const nextMembershipId = membershipId || "";
-  if (activeMembershipId && activeMembershipId !== nextMembershipId) {
-    const abandoned = pendingMutations.splice(0);
-    abandoned.forEach((pending) => pending.reject(new Error("The selected Guardian changed before this request could be retried.")));
-    updateConnection({ queued: 0, retrying: false });
+  if (activeMembershipId !== nextMembershipId) {
+    if (activeMembershipId) {
+      const abandoned = pendingMutations.splice(0);
+      abandoned.forEach((pending) => pending.reject(new Error("The selected Guardian changed before this request could be retried.")));
+      updateConnection({ queued: 0, retrying: false });
+    }
     savedReadPaths.clear();
     savedReadFailures.clear();
+    lastSuccessfulReads.clear();
   }
   activeMembershipId = nextMembershipId;
   setOfflineCacheMembership(membershipId);
@@ -85,20 +89,30 @@ export function api<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelop
 
 async function performReadRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
   try {
-    const envelope = await performRequest<T>(path, init);
+    const incoming = await performRequest<T>(path, init);
+    const previous = lastSuccessfulReads.get(path);
+    const previousObservedAt = previous?.envelope.freshness.observedAt ? Date.parse(previous.envelope.freshness.observedAt) : Number.NaN;
+    const incomingObservedAt = incoming.freshness.observedAt ? Date.parse(incoming.freshness.observedAt) : Number.NaN;
+    const envelope = previous && Number.isFinite(previousObservedAt) && Number.isFinite(incomingObservedAt) && incomingObservedAt < previousObservedAt
+      ? previous.envelope as ApiEnvelope<T>
+      : incoming;
+    const acceptedAt = new Date().toISOString();
+    lastSuccessfulReads.set(path, { envelope: envelope as ApiEnvelope<unknown>, savedAt: acceptedAt });
     clearSavedReadRoute(path);
-    updateSavedDataConnection({ lastSyncAt: new Date().toISOString() });
+    updateSavedDataConnection({ lastSyncAt: acceptedAt });
     void storeApiResponse(path, envelope).catch(() => undefined);
     return envelope;
   } catch (error) {
     if (!isTransient(error)) throw error;
-    const cached = await readApiResponse<T>(path).catch(() => undefined);
+    const inMemory = lastSuccessfulReads.get(path);
+    const cached = inMemory as { envelope: ApiEnvelope<T>; savedAt: string } | undefined
+      || await readApiResponse<T>(path).catch(() => undefined);
     if (!cached) throw error;
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     const ageSeconds = Math.max(0, Math.round((Date.now() - Date.parse(cached.savedAt)) / 1_000));
     savedReadPaths.set(path, cached.savedAt);
     savedReadFailures.set(path, Date.now());
-    const savedEnvelope = sanitizeSavedFireteamPresence(path, cached.envelope);
+    const savedEnvelope = inMemory ? cached.envelope : sanitizeSavedFireteamPresence(path, cached.envelope);
     updateSavedDataConnection({ lastError: sectionFailureMessage(path, error) });
     const savedWarning = isIndependentFireteamSection(path)
       ? `${sectionFailureMessage(path, error)} Showing saved data from ${new Date(cached.savedAt).toLocaleString()}.`
