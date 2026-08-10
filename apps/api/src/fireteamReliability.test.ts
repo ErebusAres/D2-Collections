@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -53,6 +53,67 @@ describe("Fireteam reliability helpers", () => {
     expect(fireteamPresenceUsable("2026-08-09T11:49:59.000Z", now)).toBe(false);
   });
 
+  it("does not treat a stale non-zero session total as online presence", () => {
+    const first = observeGuardianSession(
+      [{ characterId: "c1", minutesPlayedThisSession: 47 }],
+      undefined,
+      "2026-08-10T12:00:00.000Z"
+    );
+    expect(first.onlineState).toBe("unknown");
+    expect(sessionPresenceConfirmed(first.evidence, "2026-08-10T12:00:00.000Z", Date.parse("2026-08-10T12:00:30.000Z"))).toBe(false);
+
+    const frozen = observeGuardianSession(
+      [{ characterId: "c1", minutesPlayedThisSession: 47 }],
+      first.evidence,
+      "2026-08-10T12:01:00.000Z"
+    );
+    expect(frozen.onlineState).toBe("unknown");
+  });
+
+  it("confirms a moving session briefly, then fails closed when the total freezes", () => {
+    const baseline = observeGuardianSession(
+      [{ characterId: "c1", minutesPlayedThisSession: 47 }],
+      undefined,
+      "2026-08-10T12:00:00.000Z"
+    );
+    const advanced = observeGuardianSession(
+      [{ characterId: "c1", minutesPlayedThisSession: 48 }],
+      baseline.evidence,
+      "2026-08-10T12:01:00.000Z"
+    );
+    expect(advanced.onlineState).toBe("online");
+    expect(advanced.activeCharacterId).toBe("c1");
+    expect(sessionPresenceConfirmed(advanced.evidence, "2026-08-10T12:01:00.000Z", Date.parse("2026-08-10T12:02:00.000Z"))).toBe(true);
+
+    const grace = observeGuardianSession(
+      [{ characterId: "c1", minutesPlayedThisSession: 48 }],
+      advanced.evidence,
+      "2026-08-10T12:03:00.000Z"
+    );
+    expect(grace.onlineState).toBe("online");
+    const expired = observeGuardianSession(
+      [{ characterId: "c1", minutesPlayedThisSession: 48 }],
+      grace.evidence,
+      "2026-08-10T12:03:01.000Z"
+    );
+    expect(expired.onlineState).toBe("unknown");
+  });
+
+  it("marks an ordered all-zero session snapshot offline", () => {
+    const observation = observeGuardianSession(
+      [{ characterId: "c1", minutesPlayedThisSession: 0 }],
+      undefined,
+      "2026-08-10T12:00:00.000Z"
+    );
+    expect(observation.onlineState).toBe("offline");
+  });
+
+  it("uses Bungie's source time and rejects an implausible future timestamp", () => {
+    const now = Date.parse("2026-08-10T12:00:00.000Z");
+    expect(sourceObservationTimestamp("2026-08-10T11:59:30.000Z", now)).toBe("2026-08-10T11:59:30.000Z");
+    expect(sourceObservationTimestamp("2026-08-10T12:02:00.000Z", now)).toBe("2026-08-10T12:00:00.000Z");
+  });
+
   it("collapses a stale Bungie party immediately when the viewer is directly offline", () => {
     const self = { membershipId: "1", displayName: "Self", status: 9, observedInParty: true };
     const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
@@ -87,6 +148,27 @@ describe("Fireteam reliability helpers", () => {
     const members = [{ membershipId: "1", observedInParty: true }, { membershipId: "2", observedInParty: true }];
     expect(visiblePartyMembers(members, "1", true, (membershipId) => membershipId !== "2"))
       .toEqual([{ membershipId: "1", observedInParty: true }]);
+  });
+
+  it("does not let reciprocal stale party snapshots corroborate each other", () => {
+    const now = Date.parse("2026-08-10T12:02:00.000Z");
+    const staleTeammate = {
+      onlineState: "online",
+      activityPartyMembers: [{ membershipId: "1", observedInParty: true }]
+    };
+    expect(sessionPresenceConfirmed(undefined, "2026-08-10T12:01:00.000Z", now)).toBe(false);
+    expect(syncedTeammatePresenceConfirmed(staleTeammate, "1", "2026-08-10T12:01:00.000Z", now)).toBe(false);
+
+    const independentlyLiveTeammate = {
+      ...staleTeammate,
+      sessionPresenceEvidence: {
+        sourceObservedAt: "2026-08-10T12:01:00.000Z",
+        lastAdvancedAt: "2026-08-10T12:01:00.000Z",
+        minutesByCharacter: { c2: 18 }
+      }
+    };
+    expect(syncedTeammatePresenceConfirmed(independentlyLiveTeammate, "1", "2026-08-10T12:01:00.000Z", now)).toBe(true);
+    expect(syncedTeammatePresenceConfirmed({ ...independentlyLiveTeammate, activityPartyMembers: [] }, "1", "2026-08-10T12:01:00.000Z", now)).toBe(false);
   });
 
   it("preserves member results while bounding public lookup concurrency", async () => {

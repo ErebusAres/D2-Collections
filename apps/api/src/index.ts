@@ -44,7 +44,7 @@ import type {
 import { z } from "zod";
 import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
-import { activityName, addXurCollectionStates, charactersFromProfile, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
+import { addXurCollectionStates, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { normalizeGear, type GearStateRow } from "./gear";
@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, partyObservationForProgressRefresh, resolveViewerPartyObservation, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1469,6 +1469,7 @@ async function storeShare(
   );
   const trackedItems = visibility.items;
   const updatedAt = new Date().toISOString();
+  const sourceObservedAt = sourceObservationTimestamp(profile?.responseMintedTimestamp, Date.parse(updatedAt));
   const completedCandidates = mergeTrackedItems(
     trackedItemsFromQuests(allQuests.quests, true, previousTrackedKeys),
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
@@ -1491,7 +1492,8 @@ async function storeShare(
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
   const previousPartyMembers = Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : undefined;
   const observedPartyMembers = savedPartyMembers(transitory || {}, row);
-  const directlyOffline = profileCharacters.every((entry) => Number(entry.minutesPlayedThisSession || 0) <= 0);
+  const sessionObservation = observeGuardianSession(profileCharacters, previousPayload?.sessionPresenceEvidence, sourceObservedAt);
+  const directlyOffline = sessionObservation.onlineState === "offline";
   const initialPartyObservation = resolveViewerPartyObservation(
     observedPartyMembers,
     previousPartyMembers || [],
@@ -1506,9 +1508,10 @@ async function storeShare(
   const partyObservation = partyObservationForProgressRefresh(previousPartyMembers, Number(previousPayload?.activityPartySoloObservationCount || 0), initialPartyObservation);
   const activityPartyMembers = partyObservation.members;
   const activityPartyMembershipIds = activityPartyMembers.map((member) => member.membershipId);
-  const activity = previousPartyMembers === undefined ? directlyOffline ? undefined : allQuests.currentActivity : previousPayload?.activity;
-  const onlineState = previousPartyMembers === undefined ? directlyOffline ? "offline" : undefined : previousPayload?.onlineState;
-  const payload = { character, activity, onlineState, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
+  const activity = previousPartyMembers === undefined && sessionObservation.onlineState === "online" ? allQuests.currentActivity : previousPayload?.activity;
+  const onlineState = previousPartyMembers === undefined ? sessionObservation.onlineState : previousPayload?.onlineState;
+  const sessionPresenceEvidence = previousPartyMembers === undefined ? sessionObservation.evidence : previousPayload?.sessionPresenceEvidence;
+  const payload = { character, activity, onlineState, sessionPresenceEvidence, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
   // The upsert atomically copies presence-owned fields from the current D1 row.
   // This closes the race where a slower progress request read an old party and
   // finished after the narrow presence writer had already stored a newer one.
@@ -1525,6 +1528,7 @@ async function storeShare(
           excluded.payload_json,
           '$.activity', json_extract(fireteam_shares.payload_json, '$.activity'),
           '$.onlineState', json_extract(fireteam_shares.payload_json, '$.onlineState'),
+          '$.sessionPresenceEvidence', json_extract(fireteam_shares.payload_json, '$.sessionPresenceEvidence'),
           '$.activityPartyMembershipIds', json_extract(fireteam_shares.payload_json, '$.activityPartyMembershipIds'),
           '$.activityPartyMembers', json_extract(fireteam_shares.payload_json, '$.activityPartyMembers'),
           '$.activityPartySoloObservationCount', json_extract(fireteam_shares.payload_json, '$.activityPartySoloObservationCount')
@@ -1536,7 +1540,7 @@ async function storeShare(
       last_error = NULL,
       presence_refreshed_at = fireteam_shares.presence_refreshed_at,
       presence_error = fireteam_shares.presence_error
-  `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload), mode, JSON.stringify(sitePinnedQuestIds), updatedAt).run();
+  `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload), mode, JSON.stringify(sitePinnedQuestIds), sourceObservedAt).run();
   return { expiresAt, sharedQuestCount: compactSharedQuests.length, sharedTrackedItemCount: trackedItems.length, sourceMintedAt: profile?.responseMintedTimestamp, profile };
 }
 
@@ -1610,31 +1614,32 @@ async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void>
 }
 
 async function updateFireteamPresenceFromProfile(row: SessionRow, env: Env, profile: any, manifest: Awaited<ReturnType<typeof loadActivityNames>>): Promise<void> {
-    const share = await env.DB.prepare("SELECT payload_json FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<{ payload_json: string }>();
+    const share = await env.DB.prepare("SELECT payload_json, presence_refreshed_at FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<{ payload_json: string; presence_refreshed_at?: string }>();
     if (!share?.payload_json) return;
     let payload: any;
     try { payload = JSON.parse(share.payload_json); } catch { return; }
     const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
     const characters = charactersFromProfile(profile);
-    const character = characters.find((entry) => entry.minutesPlayedThisSession > 0)
+    const sourceObservedAt = sourceObservationTimestamp(profile?.responseMintedTimestamp);
+    if (share.presence_refreshed_at && Date.parse(sourceObservedAt) <= Date.parse(share.presence_refreshed_at)) return;
+    const sessionObservation = observeGuardianSession(characters, payload?.sessionPresenceEvidence, sourceObservedAt);
+    const character = characters.find((entry) => entry.characterId === sessionObservation.activeCharacterId)
       || selectedCharacter(characters, payload?.character?.characterId)
       || payload?.character;
-    const directlyOffline = Boolean(character) && Number(character?.minutesPlayedThisSession || 0) <= 0;
+    const directlyOffline = sessionObservation.onlineState === "offline";
     const observedPartyMembers = savedPartyMembers(transitory || {}, row);
     const previousPartyMembers = Array.isArray(payload?.activityPartyMembers) ? payload.activityPartyMembers : [];
     const partyObservation = resolveViewerPartyObservation(observedPartyMembers, previousPartyMembers, Boolean(transitory), Number(payload?.activityPartySoloObservationCount || 0), row.membership_id, directlyOffline);
     const activityPartyMembers = partyObservation.members;
-    const rawActivity = activityName(profile, manifest, character?.characterId);
-    // Do not let the transitory party claim prove its own freshness. Bungie can
-    // retain that party after logout; viewer online state must come from the
-    // independently loaded character session before teammate cards are trusted.
-    const onlineState = guardianOnlineState(character, rawActivity, true, false);
+    // A frozen non-zero session total and a transitory party can both survive
+    // logout. Neither may claim current presence; only movement across ordered
+    // source snapshots establishes the live session used below.
+    const onlineState = sessionObservation.onlineState;
     const activity = onlineState === "online" ? guardianLocation(profile, manifest, character?.characterId, onlineState) || payload?.activity : undefined;
-    const updatedAt = new Date().toISOString();
     // Do not let a slower presence read overwrite a newer quest/share payload.
     // A later request retries presence against the new payload if this CAS misses.
     await env.DB.prepare("UPDATE fireteam_shares SET payload_json = ?, presence_refreshed_at = ?, presence_error = NULL WHERE membership_id = ? AND payload_json = ?")
-      .bind(JSON.stringify({ ...payload, character, activity, onlineState, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations }), updatedAt, row.membership_id, share.payload_json).run();
+      .bind(JSON.stringify({ ...payload, character, activity, onlineState, sessionPresenceEvidence: sessionObservation.evidence, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations }), sourceObservedAt, row.membership_id, share.payload_json).run();
 }
 
 async function refreshFireteamPresenceWithLease(row: SessionRow, env: Env): Promise<void> {
@@ -1689,7 +1694,8 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const viewerPresenceAt = ownShare?.presence_refreshed_at || ownShare?.updated_at;
   const viewerPresenceFresh = Boolean(viewerPresenceAt) && Date.now() - Date.parse(viewerPresenceAt) <= 2 * 60_000;
   const viewerPresenceUsable = fireteamPresenceUsable(viewerPresenceAt);
-  const viewerSessionLive = ownSharePayload?.onlineState === "online";
+  const viewerSessionLive = ownSharePayload?.onlineState === "online"
+    && sessionPresenceConfirmed(ownSharePayload?.sessionPresenceEvidence, viewerPresenceAt);
   const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceUsable && viewerSessionLive, (membershipId) => {
     const teammateShare: any = shares.get(membershipId);
     // Unsynced Guardians have no independent Guardian Nexus snapshot, so the
@@ -1698,7 +1704,8 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     let teammatePayload: any = null;
     try { teammatePayload = JSON.parse(teammateShare.payload_json); } catch { return false; }
     const teammatePresenceAt = teammateShare.presence_refreshed_at || teammateShare.updated_at;
-    return fireteamPresenceUsable(teammatePresenceAt) && teammatePayload?.onlineState === "online";
+    return fireteamPresenceUsable(teammatePresenceAt)
+      && syncedTeammatePresenceConfirmed(teammatePayload, row.membership_id, teammatePresenceAt);
   });
   const members: FireteamMember[] = visibleParty.map((member: any) => {
     const share: any = shares.get(member.membershipId);
@@ -1710,11 +1717,11 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     const character = payload?.character;
     const presenceAt = share?.presence_refreshed_at || share?.updated_at;
     const memberPresenceUsable = fireteamPresenceUsable(presenceAt);
-    const onlineState: FireteamMember["onlineState"] = !viewerPresenceUsable || !memberPresenceUsable
-      ? "unknown"
-      : isSelf && payload?.onlineState === "offline"
-        ? "offline"
-        : member.observedInParty || (isSelf && payload?.onlineState === "online") ? "online" : "unknown";
+    const onlineState: FireteamMember["onlineState"] = isSelf
+      ? viewerSessionLive
+        ? "online"
+        : viewerPresenceUsable && payload?.onlineState === "offline" ? "offline" : "unknown"
+      : member.observedInParty && (!share || memberPresenceUsable) ? "online" : "unknown";
     const activity = onlineState === "online" ? payload?.activity || "Online · location unavailable" : undefined;
     const inGameName = member.displayName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
     return {
@@ -1722,7 +1729,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       displayName: inGameName,
       inGameName,
       emblemPath: character?.emblemPath || "",
-      presenceLabel: viewerPresenceUsable ? partyPresenceLabel(member.status) : "Presence unknown",
+      presenceLabel: viewerSessionLive ? partyPresenceLabel(member.status) : "Presence unknown",
       onlineState,
       character,
       activity,

@@ -14,6 +14,127 @@ export interface PartyObservation {
   consecutiveSoloObservations: number;
 }
 
+export type GuardianPresenceState = "online" | "offline" | "unknown";
+
+export interface GuardianSessionEvidence {
+  sourceObservedAt: string;
+  minutesByCharacter: Record<string, number>;
+  lastAdvancedAt?: string;
+  activeCharacterId?: string;
+}
+
+export interface GuardianSessionObservation {
+  evidence: GuardianSessionEvidence;
+  onlineState: GuardianPresenceState;
+  activeCharacterId?: string;
+}
+
+const SESSION_ADVANCE_GRACE_MS = 2 * 60_000;
+const SESSION_CONFIRMATION_MAX_AGE_MS = 3 * 60_000;
+
+export function sourceObservationTimestamp(sourceObservedAt: unknown, now = Date.now()): string {
+  const parsed = typeof sourceObservedAt === "string" ? Date.parse(sourceObservedAt) : Number.NaN;
+  return Number.isFinite(parsed) && parsed <= now + 60_000
+    ? new Date(parsed).toISOString()
+    : new Date(now).toISOString();
+}
+
+/**
+ * Character session totals are not a presence flag: Bungie can retain a
+ * non-zero total after sign-out. Only movement between ordered source
+ * snapshots proves a live session. A short grace covers snapshots taken on
+ * opposite sides of the minute counter without turning a frozen total into
+ * durable online presence.
+ */
+export function observeGuardianSession(
+  characters: Array<{ characterId: string; minutesPlayedThisSession?: number }>,
+  previous: GuardianSessionEvidence | undefined,
+  sourceObservedAt: string,
+  advanceGraceMs = SESSION_ADVANCE_GRACE_MS
+): GuardianSessionObservation {
+  const minutesByCharacter: Record<string, number> = {};
+  for (const character of characters) {
+    const characterId = String(character.characterId || "");
+    if (!characterId) continue;
+    minutesByCharacter[characterId] = Math.max(0, Number(character.minutesPlayedThisSession || 0));
+  }
+
+  const sourceMs = Date.parse(sourceObservedAt);
+  const previousSourceMs = Date.parse(previous?.sourceObservedAt || "");
+  const ordered = Number.isFinite(sourceMs) && (!previous || Number.isFinite(previousSourceMs) && sourceMs > previousSourceMs);
+  let activeCharacterId: string | undefined;
+  let largestAdvance = 0;
+  if (previous && ordered) {
+    for (const [characterId, minutes] of Object.entries(minutesByCharacter)) {
+      const advance = minutes - Number(previous.minutesByCharacter?.[characterId] || 0);
+      if (advance > largestAdvance) {
+        largestAdvance = advance;
+        activeCharacterId = characterId;
+      }
+    }
+  }
+
+  const advanced = largestAdvance > 0;
+  const lastAdvancedAt = advanced ? sourceObservedAt : previous?.lastAdvancedAt;
+  const lastAdvancedMs = Date.parse(lastAdvancedAt || "");
+  const withinAdvanceGrace = ordered
+    && Number.isFinite(lastAdvancedMs)
+    && sourceMs >= lastAdvancedMs
+    && sourceMs - lastAdvancedMs <= advanceGraceMs;
+  const hasCharacters = Object.keys(minutesByCharacter).length > 0;
+  const allZero = hasCharacters && Object.values(minutesByCharacter).every((minutes) => minutes <= 0);
+  const onlineState: GuardianPresenceState = allZero
+    ? "offline"
+    : advanced || withinAdvanceGrace
+      ? "online"
+      : "unknown";
+
+  const nextEvidence: GuardianSessionEvidence = ordered || !previous
+    ? {
+      sourceObservedAt,
+      minutesByCharacter,
+      ...(lastAdvancedAt ? { lastAdvancedAt } : {}),
+      ...(activeCharacterId || previous?.activeCharacterId ? { activeCharacterId: activeCharacterId || previous?.activeCharacterId } : {})
+    }
+    : previous;
+  return { evidence: nextEvidence, onlineState, activeCharacterId: activeCharacterId || nextEvidence.activeCharacterId };
+}
+
+export function sessionPresenceConfirmed(
+  evidence: GuardianSessionEvidence | undefined,
+  presenceRefreshedAt: string | undefined,
+  now = Date.now(),
+  maxAgeMs = SESSION_CONFIRMATION_MAX_AGE_MS
+): boolean {
+  const sourceMs = Date.parse(evidence?.sourceObservedAt || "");
+  const refreshedMs = Date.parse(presenceRefreshedAt || "");
+  const advancedMs = Date.parse(evidence?.lastAdvancedAt || "");
+  return Number.isFinite(sourceMs)
+    && Number.isFinite(refreshedMs)
+    && Number.isFinite(advancedMs)
+    && Math.abs(sourceMs - refreshedMs) <= 1_000
+    && now >= sourceMs
+    && now - sourceMs <= maxAgeMs
+    && now >= advancedMs
+    && now - advancedMs <= maxAgeMs;
+}
+
+export function reciprocalPartyObserved(payload: any, viewerMembershipId: string): boolean {
+  const party = Array.isArray(payload?.activityPartyMembers) ? payload.activityPartyMembers : [];
+  return party.some((member: any) => String(member?.membershipId || "") === viewerMembershipId && member?.observedInParty === true);
+}
+
+export function syncedTeammatePresenceConfirmed(
+  payload: any,
+  viewerMembershipId: string,
+  presenceRefreshedAt: string | undefined,
+  now = Date.now()
+): boolean {
+  return payload?.onlineState === "online"
+    && sessionPresenceConfirmed(payload?.sessionPresenceEvidence, presenceRefreshedAt, now)
+    && reciprocalPartyObserved(payload, viewerMembershipId);
+}
+
 export function fireteamSocialCacheState(refreshedAt?: string, now = Date.now()): FireteamSocialCacheState {
   if (!refreshedAt || !Number.isFinite(Date.parse(refreshedAt))) return "missing";
   const ageMs = Math.max(0, now - Date.parse(refreshedAt));

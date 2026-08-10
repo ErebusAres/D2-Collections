@@ -51,6 +51,37 @@ describe("API client", () => {
     await expect(api("/api/v1/session")).rejects.toMatchObject({ status: 500, code: "worker_resource_limit", message: "Guardian services are temporarily over capacity." });
   });
 
+  it("does not resurrect teammate cards from an in-memory Fireteam fallback", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: {
+          activity: "The Tower",
+          members: [
+            { membershipId: "1", isSelf: true, onlineState: "online", presenceLabel: "Fireteam leader", activity: "The Tower", activitySource: "shared" },
+            { membershipId: "2", isSelf: false, onlineState: "online", presenceLabel: "Fireteam member", activity: "The Tower", activitySource: "shared" }
+          ]
+        },
+        freshness: { state: "fresh", observedAt: "2026-08-10T16:00:00.000Z" },
+        warnings: [],
+        requestId: "live-fireteam"
+      }), { status: 200 }))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    await api("/api/v1/fireteam?characterId=memory-fallback");
+    const fallback = await api<any>("/api/v1/fireteam?characterId=memory-fallback");
+
+    expect(fallback.data.activity).toBeUndefined();
+    expect(fallback.data.members).toHaveLength(1);
+    expect(fallback.data.members[0]).toMatchObject({
+      membershipId: "1",
+      onlineState: "unknown",
+      presenceLabel: "Presence unknown",
+      activitySource: "unavailable"
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
+  });
+
   it("retains a Fireteam 1102 Ray ID and opens a per-route circuit breaker", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("error code: 1102 Worker exceeded resource limits", { status: 500, headers: { "cf-ray": "abc123-ORD" } }));
     await expect(api("/api/v1/fireteam?characterId=c1")).rejects.toMatchObject({ code: "worker_resource_limit", message: "Fireteam live presence delayed—showing saved data.", requestId: "abc123" });

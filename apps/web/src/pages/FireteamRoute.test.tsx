@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe("Fireteam refresh cycle", () => {
-  it("keeps live reads refreshing while a tracked-progress write is queued", async () => {
+  it("refreshes presence independently while a tracked-progress write is queued", async () => {
     let fireteamReads = 0;
     let orderReads = 0;
     let finishWrite!: () => void;
@@ -62,10 +62,15 @@ describe("Fireteam refresh cycle", () => {
     await waitFor(() => expect(fireteamReads).toBe(1));
     expect(orderReads).toBe(1);
 
-    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    await waitFor(() => expect(fireteamReads).toBe(2));
+    expect(orderReads).toBe(1);
+    expect(queuedApi).not.toHaveBeenCalled();
+
+    await act(async () => { vi.advanceTimersByTime(4 * 60_000); });
     await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
     expect(JSON.parse(String(vi.mocked(queuedApi).mock.calls[0]?.[1]?.body))).not.toHaveProperty("activityFeedEnabled");
-    await waitFor(() => expect(fireteamReads).toBe(2));
+    await waitFor(() => expect(fireteamReads).toBeGreaterThanOrEqual(3));
     expect(orderReads).toBe(2);
     finishWrite();
   });

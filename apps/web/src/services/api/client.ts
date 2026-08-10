@@ -112,7 +112,9 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
     const ageSeconds = Math.max(0, Math.round((Date.now() - Date.parse(cached.savedAt)) / 1_000));
     savedReadPaths.set(path, cached.savedAt);
     savedReadFailures.set(path, Date.now());
-    const savedEnvelope = inMemory ? cached.envelope : sanitizeSavedFireteamPresence(path, cached.envelope);
+    // A saved Fireteam response is never live presence, regardless of whether
+    // it came from IndexedDB or the newer in-memory cache.
+    const savedEnvelope = sanitizeSavedFireteamPresence(path, cached.envelope);
     updateSavedDataConnection({ lastError: sectionFailureMessage(path, error) });
     const savedWarning = isIndependentFireteamSection(path)
       ? `${sectionFailureMessage(path, error)} Showing saved data from ${new Date(cached.savedAt).toLocaleString()}.`

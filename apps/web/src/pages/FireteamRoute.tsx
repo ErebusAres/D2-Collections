@@ -25,7 +25,7 @@ function FireteamRefreshCountdown() {
   const { session, selectedCharacterId, autoRefresh, preferences } = useGuardian();
   const queryClient = useQueryClient();
   const membershipId = session?.guardian?.membershipId || "";
-  const result = useFireteamQuery(membershipId, selectedCharacterId, Boolean(session?.authenticated));
+  const result = useFireteamQuery(membershipId, selectedCharacterId, Boolean(session?.authenticated), autoRefresh);
   const orders = useQuery({
     queryKey: ["quests", selectedCharacterId, ""],
     queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=`),
