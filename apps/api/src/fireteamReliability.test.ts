@@ -83,6 +83,12 @@ describe("Fireteam reliability helpers", () => {
     expect(visiblePartyMembers(members, "1", true)).toEqual([{ membershipId: "1", observedInParty: false }]);
   });
 
+  it("does not let a viewer's retained party resurrect a synced offline teammate", () => {
+    const members = [{ membershipId: "1", observedInParty: true }, { membershipId: "2", observedInParty: true }];
+    expect(visiblePartyMembers(members, "1", true, (membershipId) => membershipId !== "2"))
+      .toEqual([{ membershipId: "1", observedInParty: true }]);
+  });
+
   it("preserves member results while bounding public lookup concurrency", async () => {
     let active = 0;
     let maximum = 0;

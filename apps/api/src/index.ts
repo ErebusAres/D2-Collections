@@ -1419,7 +1419,7 @@ async function storeShare(
   providedReadiness?: import("@guardian-nexus/contracts").FireteamReadinessSummary | null,
   providedTrackedBuilds?: import("@guardian-nexus/contracts").FireteamTrackedItem[],
   providedActivityFeedEnabled?: boolean
-): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string }> {
+): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string; profile: any }> {
   const [{ profile }, manifest, guardianRankManifest, journeyManifest, activityManifest, collectionManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
     loadQuestManifest(env),
@@ -1537,7 +1537,7 @@ async function storeShare(
       presence_refreshed_at = fireteam_shares.presence_refreshed_at,
       presence_error = fireteam_shares.presence_error
   `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload), mode, JSON.stringify(sitePinnedQuestIds), updatedAt).run();
-  return { expiresAt, sharedQuestCount: compactSharedQuests.length, sharedTrackedItemCount: trackedItems.length, sourceMintedAt: profile?.responseMintedTimestamp };
+  return { expiresAt, sharedQuestCount: compactSharedQuests.length, sharedTrackedItemCount: trackedItems.length, sourceMintedAt: profile?.responseMintedTimestamp, profile };
 }
 
 async function guardianRankTrackedIds(membershipId: string, env: Env): Promise<Set<string>> {
@@ -1568,10 +1568,15 @@ async function refreshPersistentShares(env: Env): Promise<void> {
     }
     let pinnedIds: string[] = [];
     try { pinnedIds = z.array(z.string()).max(40).parse(JSON.parse(String(share.site_pinned_quest_ids_json || "[]"))); } catch { pinnedIds = []; }
+    const presenceLease = await claimFireteamPresenceRefresh(row.membership_id, env);
+    if (!presenceLease) continue;
     try {
-      await storeShare(row, env, String(share.character_id), pinnedIds, "persistent");
+      const result = await storeShare(row, env, String(share.character_id), pinnedIds, "persistent");
+      await updateFireteamPresenceFromProfile(row, env, result.profile, await loadActivityNames(env));
     } catch (error: any) {
       await env.DB.prepare("UPDATE fireteam_shares SET last_error = ? WHERE membership_id = ?").bind(String(error?.message || "Background refresh failed.").slice(0, 240), String(share.membership_id)).run();
+    } finally {
+      await releaseFireteamPresenceRefresh(row.membership_id, presenceLease, env);
     }
   }
 }
@@ -1592,11 +1597,20 @@ function savedPartyMembers(transitory: any, row: SessionRow): Array<{ membership
 
 async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void> {
   try {
-    const [{ profile }, manifest, share] = await Promise.all([
+    const [{ profile }, manifest] = await Promise.all([
       profileFor(row, env, "fireteam"),
-      loadActivityNames(env),
-      env.DB.prepare("SELECT payload_json FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<{ payload_json: string }>()
+      loadActivityNames(env)
     ]);
+    await updateFireteamPresenceFromProfile(row, env, profile, manifest);
+  } catch (error: any) {
+    await env.DB.prepare("UPDATE fireteam_shares SET presence_error = ? WHERE membership_id = ?")
+      .bind(String(error?.code || error?.message || "Presence refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
+    throw error;
+  }
+}
+
+async function updateFireteamPresenceFromProfile(row: SessionRow, env: Env, profile: any, manifest: Awaited<ReturnType<typeof loadActivityNames>>): Promise<void> {
+    const share = await env.DB.prepare("SELECT payload_json FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<{ payload_json: string }>();
     if (!share?.payload_json) return;
     let payload: any;
     try { payload = JSON.parse(share.payload_json); } catch { return; }
@@ -1621,24 +1635,26 @@ async function refreshFireteamPresence(row: SessionRow, env: Env): Promise<void>
     // A later request retries presence against the new payload if this CAS misses.
     await env.DB.prepare("UPDATE fireteam_shares SET payload_json = ?, presence_refreshed_at = ?, presence_error = NULL WHERE membership_id = ? AND payload_json = ?")
       .bind(JSON.stringify({ ...payload, character, activity, onlineState, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations }), updatedAt, row.membership_id, share.payload_json).run();
-  } catch (error: any) {
-    await env.DB.prepare("UPDATE fireteam_shares SET presence_error = ? WHERE membership_id = ?")
-      .bind(String(error?.code || error?.message || "Presence refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
-    throw error;
-  }
 }
 
 async function refreshFireteamPresenceWithLease(row: SessionRow, env: Env): Promise<void> {
+  const startedAt = await claimFireteamPresenceRefresh(row.membership_id, env);
+  if (!startedAt) return;
+  try { await refreshFireteamPresence(row, env); }
+  finally { await releaseFireteamPresenceRefresh(row.membership_id, startedAt, env); }
+}
+
+async function claimFireteamPresenceRefresh(membershipId: string, env: Env): Promise<string | undefined> {
   const startedAt = new Date().toISOString();
   const staleLease = new Date(Date.now() - 2 * 60_000).toISOString();
   const claim = await env.DB.prepare("UPDATE fireteam_shares SET presence_refresh_started_at = ? WHERE membership_id = ? AND (presence_refresh_started_at IS NULL OR presence_refresh_started_at < ?)")
-    .bind(startedAt, row.membership_id, staleLease).run().catch(() => undefined);
-  if (!claim || Number(claim.meta?.changes || 0) < 1) return;
-  try { await refreshFireteamPresence(row, env); }
-  finally {
-    await env.DB.prepare("UPDATE fireteam_shares SET presence_refresh_started_at = NULL WHERE membership_id = ? AND presence_refresh_started_at = ?")
-      .bind(row.membership_id, startedAt).run().catch(() => undefined);
-  }
+    .bind(startedAt, membershipId, staleLease).run().catch(() => undefined);
+  return claim && Number(claim.meta?.changes || 0) >= 1 ? startedAt : undefined;
+}
+
+async function releaseFireteamPresenceRefresh(membershipId: string, startedAt: string, env: Env): Promise<void> {
+  await env.DB.prepare("UPDATE fireteam_shares SET presence_refresh_started_at = NULL WHERE membership_id = ? AND presence_refresh_started_at = ?")
+    .bind(membershipId, startedAt).run().catch(() => undefined);
 }
 
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -1674,7 +1690,16 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const viewerPresenceFresh = Boolean(viewerPresenceAt) && Date.now() - Date.parse(viewerPresenceAt) <= 2 * 60_000;
   const viewerPresenceUsable = fireteamPresenceUsable(viewerPresenceAt);
   const viewerSessionLive = ownSharePayload?.onlineState === "online";
-  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceUsable && viewerSessionLive);
+  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceUsable && viewerSessionLive, (membershipId) => {
+    const teammateShare: any = shares.get(membershipId);
+    // Unsynced Guardians have no independent Guardian Nexus snapshot, so the
+    // viewer's direct party observation remains their only available signal.
+    if (!teammateShare) return true;
+    let teammatePayload: any = null;
+    try { teammatePayload = JSON.parse(teammateShare.payload_json); } catch { return false; }
+    const teammatePresenceAt = teammateShare.presence_refreshed_at || teammateShare.updated_at;
+    return fireteamPresenceUsable(teammatePresenceAt) && teammatePayload?.onlineState === "online";
+  });
   const members: FireteamMember[] = visibleParty.map((member: any) => {
     const share: any = shares.get(member.membershipId);
     let payload: any = null;
