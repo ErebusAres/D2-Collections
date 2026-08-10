@@ -115,6 +115,7 @@ export async function readAudienceDetails(env: Env): Promise<AudienceDetailData>
     readAudienceMetrics(env),
     env.DB.prepare(`SELECT membership_id, membership_type, display_name, bungie_name, created_at, updated_at,
       last_profile_at, last_character_class, last_power, last_guardian_rank, last_rewards_pass_rank, last_emblem_path
+      , (SELECT COUNT(*) FROM oauth_sessions WHERE oauth_sessions.membership_id = users.membership_id) AS active_sessions
       FROM users ORDER BY updated_at DESC`).all<any>(),
     env.DB.prepare("SELECT substr(visitor_hash, 1, 12) AS visitor_id, created_at FROM audience_visitors ORDER BY created_at DESC LIMIT 500").all<any>()
   ]);
@@ -124,7 +125,8 @@ export async function readAudienceDetails(env: Env): Promise<AudienceDetailData>
       membershipId: String(row.membership_id), membershipType: Number(row.membership_type), displayName: String(row.display_name), bungieName: String(row.bungie_name || ""),
       firstLoginAt: String(row.created_at), lastLoginAt: String(row.updated_at), lastProfileAt: row.last_profile_at || undefined,
       characterClass: row.last_character_class || undefined, power: row.last_power == null ? undefined : Number(row.last_power), guardianRank: row.last_guardian_rank == null ? undefined : Number(row.last_guardian_rank),
-      rewardsPassRank: row.last_rewards_pass_rank == null ? undefined : Number(row.last_rewards_pass_rank), emblemPath: row.last_emblem_path || undefined
+      rewardsPassRank: row.last_rewards_pass_rank == null ? undefined : Number(row.last_rewards_pass_rank), emblemPath: row.last_emblem_path || undefined,
+      activeSessions: Math.max(0, Number(row.active_sessions || 0))
     })),
     visitors: (visitors.results || []).map((row: any) => ({ visitorId: String(row.visitor_id), firstSeenAt: String(row.created_at) }))
   };

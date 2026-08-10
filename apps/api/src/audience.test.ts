@@ -1,6 +1,6 @@
 import type { GuardianSummary } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { rankUpNotifications } from "./audience";
+import { canViewAudienceMetrics, rankUpNotifications } from "./audience";
 
 const guardian = {
   membershipId: "membership",
@@ -55,5 +55,12 @@ describe("rank-up account notifications", () => {
       { last_guardian_rank: 8, last_rewards_pass_rank: 105 },
       guardian
     )).toEqual([]);
+  });
+});
+
+describe("Audience administrator access", () => {
+  it("requires an explicitly allowlisted membership", () => {
+    expect(canViewAudienceMetrics("admin", "admin,other")).toBe(true);
+    expect(canViewAudienceMetrics("guardian", "admin,other")).toBe(false);
   });
 });

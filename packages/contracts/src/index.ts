@@ -1396,6 +1396,7 @@ export interface AudienceLoginRow {
   guardianRank?: number;
   rewardsPassRank?: number;
   emblemPath?: string;
+  activeSessions: number;
 }
 
 export interface AudienceVisitorRow {

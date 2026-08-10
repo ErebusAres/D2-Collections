@@ -94,6 +94,7 @@ const fireteamReadinessSchema = z.object({
   source: z.literal("player-confirmed"),
   updatedAt: z.string().datetime()
 });
+const audienceForceSignOutSchema = z.object({ membershipId: z.string().regex(/^\d{10,30}$/) });
 const fireteamTrackedBuildSchema = z.object({
   id: z.string().trim().min(1).max(100),
   definitionHash: z.string().trim().min(1).max(100),
@@ -298,6 +299,16 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/audience" && request.method === "GET") {
     if (!canViewAudienceMetrics(session.row.membership_id, env.DEV_MEMBERSHIP_IDS)) throw httpError(403, "audience_forbidden", "Audience details are restricted to approved site maintainers.");
     return envelope<AudienceDetailData>(await readAudienceDetails(env), env, context);
+  }
+  if (path === "/api/v1/audience/sessions" && request.method === "DELETE") {
+    await requireCsrf(request, session.token, env);
+    if (!canViewAudienceMetrics(session.row.membership_id, env.DEV_MEMBERSHIP_IDS)) throw httpError(403, "audience_forbidden", "Audience session controls are restricted to approved site maintainers.");
+    const { membershipId } = audienceForceSignOutSchema.parse(await request.json());
+    if (membershipId === session.row.membership_id) throw httpError(400, "audience_self_signout_forbidden", "Use the normal sign-out control for your own account.");
+    const target = await env.DB.prepare("SELECT membership_id FROM users WHERE membership_id = ?").bind(membershipId).first<{ membership_id: string }>();
+    if (!target) throw httpError(404, "audience_guardian_missing", "That Guardian is no longer present in Audience.");
+    const result = await env.DB.prepare("DELETE FROM oauth_sessions WHERE membership_id = ?").bind(membershipId).run();
+    return envelope({ membershipId, invalidatedSessions: Math.max(0, Number(result.meta?.changes || 0)) }, env, context);
   }
   if (path === "/api/v1/matrix/sync" && request.method === "POST") {
     await requireCsrf(request, session.token, env);
