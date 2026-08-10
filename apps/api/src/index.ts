@@ -225,6 +225,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     return envelope({ service: "guardian-nexus-api", version: "0.1.0", commit: (env as any).BUILD_COMMIT || "unknown", deployedAt: (env as any).BUILD_TIMESTAMP || "unknown", oauth: Boolean(env.BUNGIE_CLIENT_SECRET), database: "guardian-nexus-v1" }, env, context);
   }
   if (path === "/api/v1/support/diagnostics" && request.method === "GET") return supportDiagnostics(request, env, context);
+  if (path === "/api/v1/support/session-reset" && request.method === "POST") return resetSupportSession(request, env, context);
   if (path === "/api/v1/auth/start" && request.method === "GET") return startAuth(request, env, context);
   if (path === "/api/v1/auth/callback" && request.method === "GET") return finishAuth(request, env, context);
   if (path === "/api/v1/session" && request.method === "GET") return readSession(request, env, context);
@@ -453,6 +454,22 @@ async function supportDiagnostics(request: Request, env: Env, context: RequestCo
   }, env, context);
 }
 
+async function resetSupportSession(request: Request, env: Env, context: RequestContext): Promise<Response> {
+  const origin = request.headers.get("Origin") || "";
+  const allowedOrigins = new Set([env.ALLOWED_ORIGIN, env.WEB_ORIGIN].flatMap((value) => (value || "").split(",")).map((value) => value.trim()).filter(Boolean));
+  if (!allowedOrigins.has(origin) || request.headers.get("X-Guardian-Nexus-Support-Action") !== "reset-current-sign-in") {
+    throw httpError(403, "support_reset_invalid", "The support sign-in reset could not be verified.");
+  }
+  const token = parseCookies(request).gn_session;
+  if (token) {
+    const row = await env.DB.prepare("SELECT membership_id FROM oauth_sessions WHERE session_hash = ?").bind(await sha256(token)).first<{ membership_id: string }>();
+    if (row?.membership_id) await env.DB.prepare("DELETE FROM oauth_sessions WHERE membership_id = ?").bind(row.membership_id).run();
+  }
+  return json({ data: { reset: true }, freshness: { state: "fresh", observedAt: new Date().toISOString() }, warnings: [], requestId: context.requestId }, 200, env, context.origin, undefined, {
+    "Set-Cookie": cookie("gn_session", "", { maxAge: 0, secure: secureCookies(context) })
+  });
+}
+
 function diagnosticFailure(id: string, name: string, started: number, error: any, explanation: string): DiagnosticTest {
   return {
     id, name, status: "fail", durationMs: Date.now() - started, explanation,
@@ -476,7 +493,7 @@ function corsHeaders(env: Env, origin: string): HeadersInit {
   return {
     "Access-Control-Allow-Origin": accepted,
     "Access-Control-Allow-Credentials": "true",
-    "Access-Control-Allow-Headers": "Content-Type,X-CSRF-Token",
+    "Access-Control-Allow-Headers": "Content-Type,X-CSRF-Token,X-Guardian-Nexus-Support-Action",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     Vary: "Origin"
   };

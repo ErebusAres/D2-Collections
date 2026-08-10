@@ -23,4 +23,12 @@ describe("SupportPage", () => {
     expect(screen.getByText("Bungie memberships")).toBeTruthy();
     expect(screen.getByText(/12 ms/)).toBeTruthy();
   });
+
+  it("requires explicit confirmation before clearing a broken sign-in", () => {
+    render(<SupportPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Cannot sign out?" }));
+    expect(screen.getByText("Clear Guardian Nexus sign-in on every browser?")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Confirm clear & reconnect" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeTruthy();
+  });
 });

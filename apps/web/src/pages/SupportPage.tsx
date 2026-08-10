@@ -1,4 +1,4 @@
-import { Activity, CheckCircle2, Clipboard, Copy, Play, ShieldAlert, TriangleAlert, XCircle } from "lucide-react";
+import { Activity, CheckCircle2, Clipboard, Copy, LogOut, Play, ShieldAlert, TriangleAlert, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { api, getClientReliabilityDiagnostics } from "../services/api/client";
 import styles from "./SupportPage.module.css";
@@ -12,6 +12,9 @@ export function SupportPage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<"text" | "json">();
+  const [resetArmed, setResetArmed] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
   const browser = useMemo(browserDiagnostics, []);
   const run = async () => {
     setRunning(true); setError(""); setCopied(undefined);
@@ -34,9 +37,22 @@ export function SupportPage() {
     await navigator.clipboard.writeText(kind === "json" ? JSON.stringify(report, null, 2) : textReport(report));
     setCopied(kind);
   };
+  const resetSignIn = async () => {
+    if (!resetArmed) { setResetArmed(true); return; }
+    setResetting(true); setResetError("");
+    try {
+      await api<{ reset: boolean }>("/api/v1/support/session-reset", { method: "POST", headers: { "X-Guardian-Nexus-Support-Action": "reset-current-sign-in" } });
+      window.location.href = "/api/v1/auth/start?returnTo=%2Fsupport";
+    } catch (value) {
+      setResetError(value instanceof Error ? value.message : "Guardian Nexus could not clear this sign-in.");
+      setResetting(false); setResetArmed(false);
+    }
+  };
   return <main className={styles.page}>
     <header className={styles.hero}><div><span><ShieldAlert /> Guardian Nexus support</span><h1>Account & Login Diagnostics</h1><p>This private tool follows the same session, Bungie membership, profile, character, and account-normalization chain used by Guardian Nexus. It does not move gear, change settings, or upload the report.</p></div><a href="/">Return to Guardian Nexus</a></header>
-    <section className={styles.runPanel}><div><Activity /><span><b>Find the exact failed stage</b><small>Only the current browser session is inspected. Credentials, cookies, API keys, and authorization headers are never included.</small></span></div><button onClick={() => void run()} disabled={running}><Play />{running ? "Running diagnostics…" : "Run Diagnostics"}</button></section>
+    <section className={styles.runPanel}><div><Activity /><span><b>Find the exact failed stage</b><small>Only the current browser session is inspected. Credentials, cookies, API keys, and authorization headers are never included.</small></span></div><div className={styles.runActions}><button onClick={() => void run()} disabled={running || resetting}><Play />{running ? "Running diagnostics…" : "Run Diagnostics"}</button><button className={styles.resetAction} onClick={() => void resetSignIn()} disabled={running || resetting}><LogOut />{resetting ? "Clearing sign-in…" : resetArmed ? "Confirm clear & reconnect" : "Cannot sign out?"}</button></div></section>
+    {resetArmed && !resetting && <section className={styles.resetWarning}><TriangleAlert /><div><b>Clear Guardian Nexus sign-in on every browser?</b><p>This removes all Guardian Nexus login sessions for this account, clears this browser cookie, and starts Bungie authorization again. It does not alter the Destiny or Bungie account.</p></div><button onClick={() => setResetArmed(false)}>Cancel</button></section>}
+    {resetError && <section className={styles.fatal}><XCircle /><div><b>Guardian Nexus could not clear this sign-in</b><p>{resetError}</p></div></section>}
     {error && <section className={styles.fatal}><XCircle /><div><b>Guardian Nexus Worker could not complete diagnostics</b><p>{error}</p></div></section>}
     {report && <>
       <section className={styles.diagnosis} data-code={report.diagnosis.code}><small>Likely cause · {report.diagnosis.code}</small><h2>{report.diagnosis.summary}</h2><ol>{report.diagnosis.nextSteps.map((step) => <li key={step}>{step}</li>)}</ol><div><button onClick={() => void copy("text")}><Clipboard />{copied === "text" ? "Report copied" : "Copy Diagnostic Report"}</button><button onClick={() => void copy("json")}><Copy />{copied === "json" ? "JSON copied" : "Copy JSON"}</button></div></section>
