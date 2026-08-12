@@ -333,7 +333,7 @@ function RecommendationDetail({
     ["Melee", build.subclassConfig.melee],
     ["Grenade", build.subclassConfig.grenade]
   ];
-  return <aside className={styles.detail}>
+  return <aside className={styles.detail} aria-label="Selected build details" tabIndex={0}>
     <header>
       <span>{recommendation.source.label}</span>
       <h2>{recommendation.name}</h2>

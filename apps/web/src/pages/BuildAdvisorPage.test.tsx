@@ -131,6 +131,14 @@ describe("Build Advisor page", () => {
     expect(screen.getByRole("region", { name: "Build recommendation scores" }).textContent).toContain("Overall match91");
   });
 
+  it("exposes the selected build as a keyboard-scrollable detail panel", async () => {
+    vi.mocked(api).mockResolvedValue(envelope(advisorData("Scrollable Build")));
+    renderPage();
+    const detail = await screen.findByRole("complementary", { name: "Selected build details" });
+    expect(detail.tabIndex).toBe(0);
+    expect(detail.textContent).toContain("Scrollable Build");
+  });
+
   it("tracks the complete recommendation checklist for Fireteam sharing", async () => {
     vi.mocked(api).mockResolvedValue(envelope(advisorData("Tracked Build")));
     renderPage();

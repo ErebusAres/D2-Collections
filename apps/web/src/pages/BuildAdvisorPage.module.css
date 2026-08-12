@@ -231,10 +231,23 @@
 
 .detail {
   position: sticky;
-  top: 12px;
+  top: calc(var(--shell-header-height, 130px) + 12px);
+  max-height: calc(100vh - var(--shell-header-height, 130px) - 24px);
+  max-height: calc(100dvh - var(--shell-header-height, 130px) - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-color: rgba(105, 223, 243, .58) rgba(3, 10, 15, .7);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
   border: 1px solid rgba(103, 183, 204, .3);
   background: linear-gradient(145deg, rgba(8, 25, 35, .98), rgba(4, 12, 18, .98));
   box-shadow: 0 18px 60px rgba(0, 0, 0, .34);
+}
+
+.detail:focus-visible {
+  outline: 1px solid rgba(105, 223, 243, .72);
+  outline-offset: 3px;
 }
 
 .detail > header { padding: 20px; border-bottom: 1px solid var(--line); background: radial-gradient(circle at 85% 10%, rgba(60, 218, 247, .13), transparent 45%); }
@@ -570,7 +583,13 @@
 
 @media (max-width: 1060px) {
   .workspace { grid-template-columns: 1fr; }
-  .detail { position: static; }
+  .detail {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    scrollbar-gutter: auto;
+  }
   .cardGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
