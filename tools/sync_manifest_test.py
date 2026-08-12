@@ -14,6 +14,21 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_build_advisor_manifest_keeps_abilities_mods_and_collection_items_only(self) -> None:
+        inventory = {
+            "1": item_definition(name="Bleak Watcher", item_type="Stasis Aspect", plug="warlock.stasis.totems", trait_id="item.plug.aspect"),
+            "2": item_definition(name="Ashes to Assets", item_type="Helmet Armor Mod", plug="enhancements.v2_head"),
+            "3": item_definition(name="Grenadier Armorer", item_type="Economic Ghost Mod", plug="enhancements.ghosts_economic"),
+            "4": {"displayProperties": {"name": "Legendary Rifle"}, "itemType": 3, "itemTypeDisplayName": "Auto Rifle"},
+        }
+        collection_items = [{"itemHash": "4", "name": "Example Exotic"}]
+
+        artifact = SYNC_MANIFEST.build_advisor_manifest(inventory, collection_items, {}, {}, "test", "now")
+
+        self.assertEqual(set(artifact["itemDefinitions"]), {"1", "2", "3"})
+        self.assertEqual(artifact["collectionItems"], collection_items)
+        self.assertNotIn("4", artifact["itemDefinitions"])
+
     def test_deployed_activity_names_match_full_artifact_and_size_budget(self) -> None:
         full = json.loads(SYNC_MANIFEST.ACTIVITY_OUTPUT.read_text(encoding="utf-8"))
         compact = json.loads(SYNC_MANIFEST.ACTIVITY_NAMES_OUTPUT.read_text(encoding="utf-8"))

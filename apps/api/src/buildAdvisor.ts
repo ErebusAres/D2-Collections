@@ -49,6 +49,7 @@ import {
 const CLASS_BY_TYPE: Record<number, GuardianClass> = { 0: "Titan", 1: "Hunter", 2: "Warlock", 3: "Unknown" };
 const BUILD_CLASS: Record<GuardianClass, BuildGuardianClass | undefined> = { Hunter: "hunter", Titan: "titan", Warlock: "warlock", Unknown: undefined };
 const DAMAGE_BY_TYPE: Record<number, string> = { 1: "Kinetic", 2: "Arc", 3: "Solar", 4: "Void", 6: "Stasis", 7: "Strand" };
+const SLOT_BY_BUCKET_HASH: Record<string, string> = { "1498876634": "Kinetic Weapons", "2465295065": "Energy Weapons", "953998645": "Power Weapons" };
 const PRIMARY_STAT_POWER_FLOOR = 20;
 const STALE_AFTER_MS = 3 * 60_000;
 const ARMOR_SLOTS = ["helmet", "arms", "chest", "legs", "classItem"] as const;
@@ -96,6 +97,7 @@ interface ScoredTemplate {
   recommendation: BuildAdvisorRecommendation;
   template: BuildAdvisorTemplate;
   equippedMatchCount: number;
+  armorSelection: ReturnType<typeof selectArmorLoadout>;
 }
 
 export function normalizeBuildAdvisorInventory(
@@ -177,7 +179,7 @@ export function normalizeBuildAdvisorInventory(
       icon,
       itemType: String(definition.itemTypeDisplayName || compact?.itemType || (Number(definition.itemType) === 2 ? "Armor" : "Weapon")),
       rarity: String(definition.inventory?.tierTypeName || "Unknown"),
-      slot: String(definition.equipmentSlot || compact?.slot || ""),
+      slot: String(definition.equipmentSlot || compact?.slot || SLOT_BY_BUCKET_HASH[String(definition.inventory?.bucketTypeHash || "")] || definition.itemTypeDisplayName || ""),
       ...(damageType ? { damageType } : {}),
       ...(className ? { className } : {}),
       location: row.location,
@@ -225,7 +227,6 @@ export function normalizeBuildAdvisorInventory(
   if (companionManifest.version === "unavailable") warnings.push("Item definitions are unavailable, so physical inventory cannot be evaluated.");
   if (!profile?.itemComponents?.instances?.data) warnings.push("Bungie did not return item instance data; item Power may be incomplete.");
   if (!profile?.itemComponents?.sockets?.data) warnings.push("Bungie did not return item socket data; legendary roll quality is unknown.");
-  if (!profile?.itemComponents?.perks?.data) warnings.push("Bungie did not return item perk state data; active intrinsic effects may be incomplete.");
   if (!profile?.itemComponents?.reusablePlugs?.data) warnings.push("Selectable perk data is unavailable for some weapon instances.");
   if (!profile?.profileCollectibles?.data && !profile?.characterCollectibles?.data) warnings.push("Collections data is unavailable; collection-only exotics cannot be verified.");
   if (gearManifest?.version === "unavailable") warnings.push("Armor stat definitions are unavailable; armor pieces can be selected, but their stat fit cannot be evaluated.");
@@ -256,9 +257,9 @@ export function buildAdvisorRecommendations(
     .filter(({ validation }) => validation.state === "unverified" || validation.issues.length === 0)
     .map(({ template, validation }) => scoreTemplate(template, inventory, character, validation))
     .sort((left, right) => right.recommendation.score - left.recommendation.score || left.recommendation.name.localeCompare(right.recommendation.name));
-  const adaptive = adaptiveTemplates(curated).map((template) => {
+  const adaptive = adaptiveTemplates(curated).map(({ template, armorSelection }) => {
     const validation = validateTemplateSubclass(template, inventory);
-    return scoreTemplate(template, inventory, character, validation);
+    return scoreTemplate(template, inventory, character, validation, armorSelection);
   }).filter(({ recommendation, template }) => template.weapons.some((requirement) =>
     requirement.preferredNames?.some((name) => recommendation.weapons.some((weapon) => weapon.requirementId === requirement.id && weapon.item && sameName(weapon.item.name, name)))
   ));
@@ -303,10 +304,10 @@ export function buildAdvisorRecommendations(
   };
 }
 
-function adaptiveTemplates(scored: ScoredTemplate[]): BuildAdvisorTemplate[] {
-  const generated: BuildAdvisorTemplate[] = [];
+function adaptiveTemplates(scored: ScoredTemplate[]): Array<{ template: BuildAdvisorTemplate; armorSelection: ScoredTemplate["armorSelection"] }> {
+  const generated: Array<{ template: BuildAdvisorTemplate; armorSelection: ScoredTemplate["armorSelection"] }> = [];
   const seen = new Set<string>();
-  for (const { recommendation, template } of scored) {
+  for (const { recommendation, template, armorSelection } of scored) {
     if (template.source?.kind === "published-build" || recommendation.readinessScore < 35) continue;
     const candidates = (recommendation.alternatives || [])
       .filter((alternative) => alternative.kind === "weapon" && !alternative.item?.exotic && alternative.item && alternative.score >= 60)
@@ -322,17 +323,20 @@ function adaptiveTemplates(scored: ScoredTemplate[]): BuildAdvisorTemplate[] {
     for (const alternative of candidates) {
       const item = alternative.item!;
       generated.push({
-        ...template,
-        id: `${template.id}-adaptive-${alternative.requirementId}-${item.itemHash}`,
-        name: `${template.name} · ${item.name}`,
-        summary: `Account-generated ${template.subclass} variant using the owned ${item.name} as a verified match for ${alternative.requirementId}. ${template.summary}`,
-        sourceNotes: `Generated from the reviewed ${template.name} chassis and a physical owned weapon that matched its bounded role and trait requirements.`,
-        source: { kind: "curated-template", label: "Account-generated owned-gear variant" },
-        weapons: template.weapons.map((requirement) => requirement.id === alternative.requirementId
-          ? { ...requirement, preferredNames: [item.name] }
-          : { ...requirement }),
-        style: `Owned-gear variant centered on ${item.name}; ${template.role}.`,
-        upgrades: [`Improve or enhance the owned ${item.name} roll`, ...template.upgrades]
+        armorSelection,
+        template: {
+          ...template,
+          id: `${template.id}-adaptive-${alternative.requirementId}-${item.itemHash}`,
+          name: `${template.name} · ${item.name}`,
+          summary: `Account-generated ${template.subclass} variant using the owned ${item.name} as a verified match for ${alternative.requirementId}. ${template.summary}`,
+          sourceNotes: `Generated from the reviewed ${template.name} chassis and a physical owned weapon that matched its bounded role and trait requirements.`,
+          source: { kind: "curated-template", label: "Account-generated owned-gear variant" },
+          weapons: template.weapons.map((requirement) => requirement.id === alternative.requirementId
+            ? { ...requirement, preferredNames: [item.name] }
+            : { ...requirement }),
+          style: `Owned-gear variant centered on ${item.name}; ${template.role}.`,
+          upgrades: [`Improve or enhance the owned ${item.name} roll`, ...template.upgrades]
+        }
       });
       if (generated.length >= 24) return generated;
     }
@@ -379,7 +383,8 @@ function scoreTemplate(
   template: BuildAdvisorTemplate,
   inventory: NormalizedBuildAdvisorInventory,
   character: CharacterSummary,
-  validation: ReturnType<typeof validateTemplateSubclass>
+  validation: ReturnType<typeof validateTemplateSubclass>,
+  reusedArmorSelection?: ReturnType<typeof selectArmorLoadout>
 ): ScoredTemplate {
   const matchingArmor = inventory.items
     .filter((item) => item.exotic && isArmor(item) && sameName(item.name, template.requiredExoticArmor))
@@ -407,7 +412,7 @@ function scoreTemplate(
     }
     return evaluation;
   });
-  const armorSelection = selectArmorLoadout(template, coreArmor, inventory.items, character);
+  const armorSelection = reusedArmorSelection || selectArmorLoadout(template, coreArmor, inventory.items, character);
   const armor = armorSelection.evaluations;
   const ghostFocus = ghostFocusForTemplate(template, inventory);
   const missingItems = [
@@ -523,7 +528,7 @@ function scoreTemplate(
     build
   };
   const equippedMatchCount = armor.filter((entry) => entry.item?.equipped).length + weapons.filter((weapon) => weapon.item?.equipped).length;
-  return { recommendation, template, equippedMatchCount };
+  return { recommendation, template, equippedMatchCount, armorSelection };
 }
 
 function templateViabilityScore(template: BuildAdvisorTemplate): number {
@@ -1276,8 +1281,8 @@ function optimizeArmorCombinations(
   template: BuildAdvisorTemplate,
   candidatesBySlot: Record<(typeof ARMOR_SLOTS)[number], BuildAdvisorOwnedItem[]>
 ): BuildAdvisorArmorOptimization {
-  type SearchState = { items: BuildAdvisorOwnedItem[]; rawScore: number };
-  let states: SearchState[] = [{ items: [], rawScore: 0 }];
+  type SearchState = { items: BuildAdvisorOwnedItem[]; rawScore: number; searchScore: number };
+  let states: SearchState[] = [{ items: [], rawScore: 0, searchScore: 0 }];
   let candidatesEvaluated = 0;
   for (const slot of ARMOR_SLOTS) {
     const candidates = candidatesBySlot[slot];
@@ -1287,11 +1292,13 @@ function optimizeArmorCombinations(
       for (const item of candidates) {
         candidatesEvaluated += 1;
         if (state.items.some((entry) => entry.instanceId === item.instanceId)) continue;
-        expanded.push({ items: [...state.items, item], rawScore: state.rawScore + armorCandidateScore(item, template) });
+        const next = { items: [...state.items, item], rawScore: state.rawScore + armorCandidateScore(item, template), searchScore: 0 };
+        next.searchScore = armorSearchScore(next, template);
+        expanded.push(next);
       }
     }
     states = expanded
-      .sort((left, right) => armorSearchScore(right, template) - armorSearchScore(left, template)
+      .sort((left, right) => right.searchScore - left.searchScore
         || armorCombinationId(left.items).localeCompare(armorCombinationId(right.items)))
       .slice(0, 500);
   }

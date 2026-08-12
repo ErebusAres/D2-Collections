@@ -184,7 +184,7 @@ function fullyOwnedHunterProfile(): any {
 
 describe("Build Advisor inventory and scoring", () => {
   it("requests every Bungie component needed by the advisor", () => {
-    expect(profileComponentsFor("build-advisor")).toBe("100,102,104,200,201,204,205,206,300,301,302,304,305,306,307,308,309,310,800");
+    expect(profileComponentsFor("build-advisor")).toBe("100,102,200,201,205,206,300,304,305,307,310,800");
   });
 
   it("normalizes equipment, character inventory, and Vault into one physical set", () => {
@@ -423,17 +423,20 @@ describe("Build Advisor inventory and scoring", () => {
       plugs: { armor: [], special: [hashes.vorpal], "heavy-best": [hashes.bait], "heavy-fallback": [hashes.vorpal], "adaptive-heavy": [hashes.bait], graviton: [] }
     });
     const normalized = normalizeBuildAdvisorInventory(inventory, companion, collection, [hunter]);
-    const recommendation = buildAdvisorRecommendations(normalized, hunter).recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon")!;
+    const recommendations = buildAdvisorRecommendations(normalized, hunter).recommendations;
+    const recommendation = recommendations.find((entry) => entry.templateId === "hunter-void-gyrfalcon")!;
     expect(recommendation.alternatives).toContainEqual(expect.objectContaining({
       requirementId: "damage-heavy",
       name: "Deterministic Heavy",
       item: expect.objectContaining({ instanceId: "heavy-fallback" })
     }));
-    expect(buildAdvisorRecommendations(normalized, hunter).recommendations).toContainEqual(expect.objectContaining({
+    expect(recommendations).toContainEqual(expect.objectContaining({
       name: expect.stringContaining("Adaptive Rocket"),
       source: expect.objectContaining({ label: "Account-generated owned-gear variant" }),
       weapons: expect.arrayContaining([expect.objectContaining({ item: expect.objectContaining({ name: "Adaptive Rocket" }) })])
     }));
+    const adaptive = recommendations.find((entry) => entry.name.includes("Adaptive Rocket"))!;
+    expect(adaptive.armorOptimization).toBe(recommendation.armorOptimization);
   });
 
   it("scores a wrong legendary roll below perfect", () => {

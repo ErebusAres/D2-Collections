@@ -42,7 +42,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { addXurCollectionStates, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -1223,18 +1223,16 @@ async function buildAdvisorSnapshot(row: SessionRow, env: Env, characterId: stri
   const published = publishedBuildsForAdvisor(env)
     .then((builds) => ({ builds, warning: undefined }))
     .catch(() => ({ builds: [], warning: "Published builds could not be checked during this refresh." }));
-  const [{ profile, accessToken }, companionManifest, collectionManifest, gearManifest, publishedResult] = await Promise.all([
+  const [{ profile, accessToken }, manifests, publishedResult] = await Promise.all([
     profileFor(row, env, "build-advisor", force),
-    loadCompanionManifest(env),
-    loadManifest(env),
-    loadGearManifest(env),
+    loadBuildAdvisorManifests(env),
     published
   ]);
   const characters = charactersFromProfile(profile);
   const character = selectedCharacter(characters, characterId);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const templates = [...BUILD_ADVISOR_TEMPLATES, ...buildAdvisorTemplatesFromPublishedBuilds(publishedResult.builds)];
-  const data = normalizeBuildAdvisorData(profile, companionManifest, collectionManifest, characters, character, Date.now(), gearManifest, templates);
+  const data = normalizeBuildAdvisorData(profile, manifests.companionManifest, manifests.collectionManifest, characters, character, Date.now(), manifests.gearManifest, templates);
   if (publishedResult.warning) data.analysis.warnings.push(publishedResult.warning);
   return { profile, accessToken, characters, character, data };
 }

@@ -1,4 +1,4 @@
-import type { ActivityNameManifest, CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, GuardianRankManifest, JourneyProgressManifest, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
+import type { ActivityNameManifest, CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, GuardianRankManifest, JourneyProgressManifest, ManifestItem, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 import { imageUrl } from "@guardian-nexus/domain";
@@ -15,6 +15,7 @@ let guardianRankManifestCache: { value: GuardianRankManifest; expiresAt: number 
 let journeyProgressManifestCache: { value: JourneyProgressManifest; expiresAt: number } | null = null;
 let rewardCodeManifestCache: { value: RewardCodeManifest; expiresAt: number } | null = null;
 let companionManifestCache: { value: CompanionManifest; expiresAt: number } | null = null;
+let buildAdvisorManifestCache: { value: BuildAdvisorManifests; expiresAt: number } | null = null;
 const companionDefinitionCache = new Map<string, { value: Record<string, unknown>; expiresAt: number }>();
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicProfileCache = new Map<string, { profile?: any; membershipType?: number; expiresAt: number }>();
@@ -32,6 +33,19 @@ const XUR_ARMOR_STATS: Record<string, { name: string; icon: string }> = {
   "1943323491": { name: "Class", icon: "https://www.bungie.net/common/destiny2_content/icons/7eb845acb5b3a4a9b7e0b2f05f5c43f1.png" },
   "2996146975": { name: "Weapons", icon: "https://www.bungie.net/common/destiny2_content/icons/bc69675acdae9e6b9a68a02fb4d62e07.png" }
 };
+
+interface BuildAdvisorManifestArtifact {
+  version: string;
+  generatedAt: string;
+  itemDefinitions: Record<string, Record<string, unknown>>;
+  collectionItems: ManifestItem[];
+}
+
+export interface BuildAdvisorManifests {
+  companionManifest: CompanionManifest;
+  collectionManifest: CompactManifest;
+  gearManifest: GearManifest;
+}
 
 export async function bungieGet(path: string, env: Env, accessToken?: string): Promise<any> {
   if (!env.BUNGIE_API_KEY) throw httpError(503, "bungie_api_unconfigured", "Bungie API access is not configured.");
@@ -448,7 +462,7 @@ export function profileComponentsFor(mode: ProfileMode): string {
         : mode === "loadouts"
           ? "100,102,200,201,205,206,305"
         : mode === "build-advisor"
-          ? "100,102,104,200,201,204,205,206,300,301,302,304,305,306,307,308,309,310,800"
+          ? "100,102,200,201,205,206,300,304,305,307,310,800"
         : mode === "collectibles"
           ? "100,200,800"
           : mode === "guardian-rank"
@@ -502,6 +516,49 @@ export async function loadCompanionManifest(env: Env): Promise<CompanionManifest
       loadoutIconDefinitions: {},
       loadoutColorDefinitions: {}
     };
+  }
+}
+
+export async function loadBuildAdvisorManifests(env: Env): Promise<BuildAdvisorManifests> {
+  if (buildAdvisorManifestCache && buildAdvisorManifestCache.expiresAt > Date.now()) return buildAdvisorManifestCache.value;
+  try {
+    const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "build-advisor-manifest.json");
+    const [response, gearManifest] = await Promise.all([
+      fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } }),
+      loadGearManifest(env)
+    ]);
+    if (!response.ok) throw new Error(`Build Advisor manifest request returned ${response.status}.`);
+    const artifact = await response.json() as BuildAdvisorManifestArtifact;
+    if (!artifact?.version || !artifact.itemDefinitions || !Array.isArray(artifact.collectionItems)) throw new Error("Build Advisor manifest artifact is invalid.");
+    if (artifact.version !== gearManifest.version) throw new Error("Build Advisor and Gear manifest versions do not match.");
+    const companionManifest: CompanionManifest = {
+      version: artifact.version,
+      generatedAt: artifact.generatedAt,
+      itemDefinitions: Object.assign({}, artifact.itemDefinitions, gearManifest.gearItemDefinitions, gearManifest.plugDefinitions),
+      bucketDefinitions: {},
+      loadoutNameDefinitions: {},
+      loadoutIconDefinitions: {},
+      loadoutColorDefinitions: {}
+    };
+    const collectionManifest: CompactManifest = {
+      version: artifact.version,
+      generatedAt: artifact.generatedAt,
+      items: artifact.collectionItems,
+      itemDefinitions: {},
+      objectiveDefinitions: {},
+      activityDefinitions: {},
+      recordDefinitions: {}
+    };
+    const value = { companionManifest, collectionManifest, gearManifest };
+    buildAdvisorManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    return value;
+  } catch {
+    const [companionManifest, collectionManifest, gearManifest] = await Promise.all([
+      loadCompanionManifest(env),
+      loadManifest(env),
+      loadGearManifest(env)
+    ]);
+    return { companionManifest, collectionManifest, gearManifest };
   }
 }
 

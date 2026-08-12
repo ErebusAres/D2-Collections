@@ -95,9 +95,8 @@ function BuildAdvisor() {
       return api<BuildAdvisorData>(`/api/v1/me/build-advisor?characterId=${encodeURIComponent(selectedCharacterId)}${force ? "&refresh=1" : ""}`);
     },
     enabled: Boolean(session?.authenticated && selectedCharacterId),
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: "always"
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false
   });
   const equipBuild = useMutation({
     mutationFn: (recommendation: BuildAdvisorRecommendation) => api<EquipBuildAdvisorResult>("/api/v1/me/build-advisor/equip", {

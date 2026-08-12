@@ -29,6 +29,7 @@ JOURNEY_PROGRESS_OUTPUT = OUTPUT.with_name("journey-progress-manifest.json")
 COMPANION_OUTPUT = OUTPUT.with_name("companion-manifest.json")
 REWARD_CODE_OUTPUT = OUTPUT.with_name("reward-code-manifest.json")
 BUILD_CATALOG_OUTPUT = OUTPUT.with_name("build-catalog.json")
+BUILD_ADVISOR_OUTPUT = OUTPUT.with_name("build-advisor-manifest.json")
 REWARD_CODE_CATALOG = OUTPUT.parents[2] / "src" / "modules" / "reward-codes" / "rewardCodesCatalog.json"
 COMPANION_CHUNK_COUNT = 24
 QUEST_BUCKET_HASH = "1345459588"
@@ -405,6 +406,31 @@ def minimal_companion_item(definition: dict, damage_types: dict[str, dict], buck
         "equipmentSlot": (buckets.get(bucket_hash, {}).get("displayProperties") or {}).get("name", ""),
         "damageType": (damage_types.get(damage_hash, {}).get("displayProperties") or {}).get("name", ""),
         **({"plug": {"plugCategoryIdentifier": plug.get("plugCategoryIdentifier", "")}} if plug else {}),
+    }
+
+
+def is_build_advisor_definition(definition: dict) -> bool:
+    """Keep only the non-gear definitions the runtime advisor actually resolves."""
+    kind = build_catalog_kind(definition)
+    if kind in {"super", "classAbility", "movement", "melee", "grenade", "transcendence", "aspect", "fragment", "armorMod"}:
+        return True
+    item_type = str(definition.get("itemTypeDisplayName", "")).casefold()
+    return "ghost mod" in item_type
+
+
+def build_advisor_manifest(inventory: dict[str, dict], collection_items: list[dict], damage_types: dict[str, dict], buckets: dict[str, dict], version: str, generated_at: str) -> dict:
+    definitions = {
+        key: minimal_companion_item(value, damage_types, buckets)
+        for key, value in inventory.items()
+        if not value.get("redacted")
+        and (value.get("displayProperties") or {}).get("name")
+        and is_build_advisor_definition(value)
+    }
+    return {
+        "version": version,
+        "generatedAt": generated_at,
+        "itemDefinitions": definitions,
+        "collectionItems": collection_items,
     }
 
 
@@ -1377,6 +1403,7 @@ def main() -> None:
         "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
         "statDefinitions": {key: {"hash": key, "displayProperties": display(value)} for key, value in stat_definitions.items() if key in {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}},
     }
+    advisor_compact = build_advisor_manifest(inventory, compact["items"], damage_types, buckets, version, compact["generatedAt"])
     reward_progression_hashes = {
         str(value.get(field) or "")
         for value in season_passes.values()
@@ -1472,6 +1499,7 @@ def main() -> None:
     }
     OUTPUT.write_text(json.dumps(compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     GEAR_OUTPUT.write_text(json.dumps(gear_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    BUILD_ADVISOR_OUTPUT.write_text(json.dumps(advisor_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     ACTIVITY_OUTPUT.write_text(json.dumps(activity_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     ACTIVITY_NAMES_OUTPUT.write_text(json.dumps(activity_names, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     FEATURE_OUTPUT.write_text(json.dumps(feature_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")

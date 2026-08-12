@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -372,6 +372,39 @@ describe("socialRosterFor", () => {
 });
 
 describe("manifest overlays", () => {
+  it("loads the bounded Build Advisor artifact without the full companion or collection manifests", async () => {
+    const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      const value = url.endsWith("build-advisor-manifest.json")
+        ? {
+            version: "advisor-test",
+            generatedAt: "now",
+            itemDefinitions: { ability: { displayProperties: { name: "Bleak Watcher" }, plug: { plugCategoryIdentifier: "warlock.stasis.totems" } } },
+            collectionItems: [{ itemHash: "exotic", name: "Example Exotic" }]
+          }
+        : {
+            version: "advisor-test",
+            generatedAt: "now",
+            gearItemDefinitions: { gear: { displayProperties: { name: "Example Gear" }, itemType: 2 } },
+            plugDefinitions: { perk: { displayProperties: { name: "Example Perk" } } },
+            statDefinitions: {}
+          };
+      return Promise.resolve(new Response(JSON.stringify(value), { status: 200, headers: { "Content-Type": "application/json" } }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadBuildAdvisorManifests({ GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env);
+
+    expect(result.companionManifest.itemDefinitions).toMatchObject({ ability: {}, gear: {}, perk: {} });
+    expect(result.collectionManifest.items).toEqual([expect.objectContaining({ itemHash: "exotic" })]);
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(expect.arrayContaining([
+      "https://example.test/data/build-advisor-manifest.json",
+      "https://example.test/data/gear-manifest.json"
+    ]));
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toContain("https://example.test/data/manifest.json");
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("companion-manifest"))).toBe(false);
+  });
+
   it("reassembles companion item definitions from deployment chunks", async () => {
     const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
       const url = String(input);
