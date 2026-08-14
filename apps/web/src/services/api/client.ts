@@ -103,7 +103,7 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
     void storeApiResponse(path, envelope).catch(() => undefined);
     return envelope;
   } catch (error) {
-    if (!isTransient(error)) throw error;
+    if (!isTransient(error) || isLiveFireteamStatePath(path)) throw error;
     const inMemory = lastSuccessfulReads.get(path);
     const cached = inMemory as { envelope: ApiEnvelope<T>; savedAt: string } | undefined
       || await readApiResponse<T>(path).catch(() => undefined);
@@ -207,9 +207,14 @@ function sectionFailureMessage(path: string, error?: unknown): string {
   return error ? messageOf(error) : "Guardian services are temporarily over capacity.";
 }
 
+function isLiveFireteamStatePath(path: string): boolean {
+  const pathname = path.split("?", 1)[0] || path;
+  return pathname === "/api/v1/fireteam" || pathname === "/api/v1/fireteam/social" || pathname === "/api/v1/fireteam/activity";
+}
+
 function isIndependentFireteamSection(path: string): boolean {
   const pathname = path.split("?", 1)[0] || path;
-  return pathname === "/api/v1/fireteam" || pathname === "/api/v1/fireteam/social" || pathname === "/api/v1/fireteam/activity" || pathname === "/api/v1/me/recent-items";
+  return isLiveFireteamStatePath(path) || pathname === "/api/v1/me/recent-items";
 }
 
 function rememberWorkerResourceLimit(route: string, rayId?: string): void {

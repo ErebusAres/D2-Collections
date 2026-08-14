@@ -51,15 +51,15 @@ describe("API client", () => {
     await expect(api("/api/v1/session")).rejects.toMatchObject({ status: 500, code: "worker_resource_limit", message: "Guardian services are temporarily over capacity." });
   });
 
-  it("does not resurrect teammate cards from an in-memory Fireteam fallback", async () => {
+  it("never resurrects an older in-memory Fireteam payload when the live read fails", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify({
         data: {
-          activity: "The Tower",
           members: [
-            { membershipId: "1", isSelf: true, onlineState: "online", presenceLabel: "Fireteam leader", activity: "The Tower", activitySource: "shared" },
-            { membershipId: "2", isSelf: false, onlineState: "online", presenceLabel: "Fireteam member", activity: "The Tower", activitySource: "shared" }
-          ]
+            { membershipId: "1", isSelf: true },
+            { membershipId: "2", isSelf: false },
+          ],
+          trackedItems: ["old-shared-item"]
         },
         freshness: { state: "fresh", observedAt: "2026-08-10T16:00:00.000Z" },
         warnings: [],
@@ -68,16 +68,8 @@ describe("API client", () => {
       .mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
     await api("/api/v1/fireteam?characterId=memory-fallback");
-    const fallback = await api<any>("/api/v1/fireteam?characterId=memory-fallback");
+    await expect(api("/api/v1/fireteam?characterId=memory-fallback")).rejects.toThrow("Failed to fetch");
 
-    expect(fallback.data.activity).toBeUndefined();
-    expect(fallback.data.members).toHaveLength(1);
-    expect(fallback.data.members[0]).toMatchObject({
-      membershipId: "1",
-      onlineState: "unknown",
-      presenceLabel: "Presence unknown",
-      activitySource: "unavailable"
-    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
   });
@@ -89,11 +81,10 @@ describe("API client", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     offlineCache.readApiResponse.mockResolvedValue({
       savedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
-      envelope: { data: { members: [{ membershipId: "1", isSelf: true, onlineState: "online", presenceLabel: "Online", activity: "The Tower", activitySource: "public" }, { membershipId: "2", isSelf: false, onlineState: "online", presenceLabel: "Online", activity: "The Tower", activitySource: "public" }] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved" }
+      envelope: { data: { members: [{ membershipId: "2", isSelf: false }], trackedItems: ["stale"] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved" }
     });
-    const saved = await api<any>("/api/v1/fireteam?characterId=c3");
-    expect(saved.data.members).toHaveLength(1);
-    expect(saved.data.members[0]).toMatchObject({ onlineState: "unknown", presenceLabel: "Presence unknown", activitySource: "unavailable" });
+    await expect(api<any>("/api/v1/fireteam?characterId=c3")).rejects.toMatchObject({ code: "worker_resource_limit" });
+    expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
   });
 
   it("returns a timestamped saved response when a live read is temporarily unavailable", async () => {

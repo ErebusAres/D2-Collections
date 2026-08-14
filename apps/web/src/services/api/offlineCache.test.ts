@@ -5,9 +5,10 @@ describe("offline cache policy", () => {
   it("allows normalized Guardian surfaces while rejecting sensitive session and diagnostic routes", () => {
     expect(offlineCachePolicy("/api/v1/me/collection?characterId=c1")?.scope).toBe("guardian");
     expect(offlineCachePolicy("/api/v1/me/quests?characterId=c1")?.maxAgeMs).toBe(24 * 60 * 60_000);
-    expect(offlineCachePolicy("/api/v1/fireteam")?.maxAgeMs).toBe(24 * 60 * 60_000);
-    expect(offlineCachePolicy("/api/v1/fireteam/social")?.scope).toBe("guardian");
-    expect(offlineCachePolicy("/api/v1/fireteam/activity")?.scope).toBe("guardian");
+    expect(offlineCachePolicy("/api/v1/fireteam")).toBeUndefined();
+    expect(offlineCachePolicy("/api/v1/fireteam?characterId=c1")).toBeUndefined();
+    expect(offlineCachePolicy("/api/v1/fireteam/social")).toBeUndefined();
+    expect(offlineCachePolicy("/api/v1/fireteam/activity")).toBeUndefined();
     expect(offlineCachePolicy("/api/v1/session")).toBeUndefined();
     expect(offlineCachePolicy("/api/v1/dev/probe")).toBeUndefined();
     expect(offlineCachePolicy("/api/v1/builds/123/working-draft")).toBeUndefined();
