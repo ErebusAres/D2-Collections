@@ -70,7 +70,7 @@ describe("Fireteam reliability helpers", () => {
     expect(frozen.onlineState).toBe("unknown");
   });
 
-  it("confirms a moving session briefly, then fails closed when the total freezes", () => {
+  it("keeps a moving session stable through repeated Bungie snapshots, then fails closed", () => {
     const baseline = observeGuardianSession(
       [{ characterId: "c1", minutesPlayedThisSession: 47 }],
       undefined,
@@ -88,15 +88,17 @@ describe("Fireteam reliability helpers", () => {
     const grace = observeGuardianSession(
       [{ characterId: "c1", minutesPlayedThisSession: 48 }],
       advanced.evidence,
-      "2026-08-10T12:03:00.000Z"
+      "2026-08-10T12:11:00.000Z"
     );
     expect(grace.onlineState).toBe("online");
+    expect(sessionPresenceConfirmed(grace.evidence, "2026-08-10T12:11:00.000Z", Date.parse("2026-08-10T12:11:00.000Z"))).toBe(true);
     const expired = observeGuardianSession(
       [{ characterId: "c1", minutesPlayedThisSession: 48 }],
       grace.evidence,
-      "2026-08-10T12:03:01.000Z"
+      "2026-08-10T12:11:01.000Z"
     );
     expect(expired.onlineState).toBe("unknown");
+    expect(sessionPresenceConfirmed(expired.evidence, "2026-08-10T12:11:01.000Z", Date.parse("2026-08-10T12:11:01.000Z"))).toBe(false);
   });
 
   it("marks an ordered all-zero session snapshot offline", () => {

@@ -29,8 +29,12 @@ export interface GuardianSessionObservation {
   activeCharacterId?: string;
 }
 
-const SESSION_ADVANCE_GRACE_MS = 2 * 60_000;
-const SESSION_CONFIRMATION_MAX_AGE_MS = 3 * 60_000;
+// Bungie's profile response can repeat the same source snapshot for several
+// presence refreshes. Keep the activity proof aligned with the existing
+// ten-minute party-snapshot usability window so repeated snapshots cannot
+// alternate the same Fireteam between visible and hidden.
+const SESSION_ADVANCE_GRACE_MS = 10 * 60_000;
+const SESSION_CONFIRMATION_MAX_AGE_MS = 10 * 60_000;
 
 export function sourceObservationTimestamp(sourceObservedAt: unknown, now = Date.now()): string {
   const parsed = typeof sourceObservedAt === "string" ? Date.parse(sourceObservedAt) : Number.NaN;
