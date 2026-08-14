@@ -1,6 +1,14 @@
 import type { CollectionData, FireteamCompletedTrackedItem, FireteamTrackedItem, GuardianRankData, GuardianRankTier, QuestProgress } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 
+const DESTINY_UNTRACK_CONFIRMATIONS = 2;
+
+export interface ReconciledTrackedQuests {
+  items: FireteamTrackedItem[];
+  untrackedObservationCounts: Record<string, number>;
+  confirmedMissingKeys: Set<string>;
+}
+
 export function trackedItemsFromQuests(quests: QuestProgress[], includeCompleted = false, previouslyTracked = new Set<string>()): FireteamTrackedItem[] {
   return quests.filter((quest) => (quest.inGameTracked || quest.sitePinned || previouslyTracked.has(`quest:${quest.instanceId}`) || previouslyTracked.has(`bounty:${quest.instanceId}`) || previouslyTracked.has(`order:${quest.instanceId}`)) && (includeCompleted || !questComplete(quest))).map((quest) => ({
     id: quest.instanceId,
@@ -16,6 +24,56 @@ export function trackedItemsFromQuests(quests: QuestProgress[], includeCompleted
     percent: boundedPercent(quest.percent),
     updatedAt: quest.updatedAt
   }));
+}
+
+/**
+ * Bungie's pursuit state can briefly omit the tracked bit (or the pursuit)
+ * from an otherwise successful profile response. Require two consecutive
+ * negative observations before removing a Destiny-tracked pursuit so a single
+ * partial snapshot cannot erase it from the shared Fireteam payload.
+ */
+export function reconcileDestinyTrackedQuests(
+  currentQuests: QuestProgress[],
+  previousItems: FireteamTrackedItem[],
+  previousCounts: Record<string, number> = {}
+): ReconciledTrackedQuests {
+  const previous = new Map(previousItems
+    .filter((item) => item.kind === "quest" || item.kind === "bounty" || item.kind === "order")
+    .map((item) => [trackedItemKey(item), item]));
+  const currentKeys = new Set<string>();
+  const items: FireteamTrackedItem[] = [];
+  const untrackedObservationCounts: Record<string, number> = {};
+  const confirmedMissingKeys = new Set<string>();
+
+  for (const quest of currentQuests) {
+    const key = `${quest.category || "quest"}:${quest.instanceId}`;
+    currentKeys.add(key);
+    const prior = previous.get(key);
+    if (quest.inGameTracked || quest.sitePinned) {
+      items.push(...trackedItemsFromQuests([quest]));
+      continue;
+    }
+    if (!prior?.trackedInDestiny) continue;
+    const count = Math.max(0, Number(previousCounts[key] || 0)) + 1;
+    if (count < DESTINY_UNTRACK_CONFIRMATIONS) {
+      const retained = trackedItemsFromQuests([quest], false, new Set([key]))[0];
+      if (retained) items.push({ ...retained, trackedInDestiny: true });
+      untrackedObservationCounts[key] = count;
+    }
+  }
+
+  for (const [key, prior] of previous) {
+    if (currentKeys.has(key) || !prior.trackedInDestiny) continue;
+    const count = Math.max(0, Number(previousCounts[key] || 0)) + 1;
+    if (count < DESTINY_UNTRACK_CONFIRMATIONS) {
+      items.push(prior);
+      untrackedObservationCounts[key] = count;
+    } else if (prior.kind === "quest") {
+      confirmedMissingKeys.add(key);
+    }
+  }
+
+  return { items, untrackedObservationCounts, confirmedMissingKeys };
 }
 
 export function trackedItemsFromGuardianRanks(data: GuardianRankData, siteTracked: ReadonlySet<string>, updatedAt: string, includeCompleted = false, previouslyTracked = new Set<string>()): FireteamTrackedItem[] {

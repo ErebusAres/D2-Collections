@@ -1,7 +1,7 @@
 import type { CollectionData, GuardianRankData, QuestProgress } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import { profileComponentsFor } from "./bungie";
-import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, missingTrackedQuestCompletionKeys, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, missingTrackedQuestCompletionKeys, reconcileDestinyTrackedQuests, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 
 describe("Fireteam tracked items", () => {
   it("requests both pursuit and Guardian Rank profile components when refreshing a share", () => {
@@ -22,6 +22,35 @@ describe("Fireteam tracked items", () => {
       ["order", "order"]
     ]);
     expect(items[0]).toMatchObject({ trackedInGuardianNexus: true, trackedInDestiny: false, objectives: [{ progressAvailable: true }] });
+  });
+
+  it("does not lose a Destiny-tracked quest after one partial profile snapshot", () => {
+    const previous = trackedItemsFromQuests([quest({ instanceId: "tracked", inGameTracked: true, percent: 20 })]);
+    const first = reconcileDestinyTrackedQuests(
+      [quest({ instanceId: "tracked", inGameTracked: false, percent: 30 })],
+      previous
+    );
+    expect(first.items).toMatchObject([{ id: "tracked", trackedInDestiny: true, percent: 30 }]);
+    expect(first.untrackedObservationCounts).toEqual({ "quest:tracked": 1 });
+
+    const second = reconcileDestinyTrackedQuests(
+      [quest({ instanceId: "tracked", inGameTracked: false, percent: 30 })],
+      first.items,
+      first.untrackedObservationCounts
+    );
+    expect(second.items).toEqual([]);
+    expect(second.untrackedObservationCounts).toEqual({});
+  });
+
+  it("requires two missing snapshots before inferring a tracked quest completed", () => {
+    const previous = trackedItemsFromQuests([quest({ instanceId: "finished", inGameTracked: true })]);
+    const first = reconcileDestinyTrackedQuests([], previous);
+    expect(first.items.map((item) => item.id)).toEqual(["finished"]);
+    expect(first.confirmedMissingKeys.size).toBe(0);
+
+    const second = reconcileDestinyTrackedQuests([], first.items, first.untrackedObservationCounts);
+    expect(second.items).toEqual([]);
+    expect([...second.confirmedMissingKeys]).toEqual(["quest:finished"]);
   });
 
   it("stops sharing completed pursuits even when Destiny or the site still marks them tracked", () => {

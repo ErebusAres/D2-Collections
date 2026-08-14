@@ -62,7 +62,7 @@ import { normalizePower, powerItemHashes } from "./power";
 import { normalizeActivityHistory } from "./activityHistory";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
-import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, missingTrackedQuestCompletionKeys, trackedItemKey, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
+import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, reconcileDestinyTrackedQuests, trackedItemKey, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 import { buildAdvisorRecommendationItems, normalizeBuildAdvisorData } from "./buildAdvisor";
 import { buildAdvisorTemplatesFromPublishedBuilds } from "./buildAdvisorPublished";
 import { BUILD_ADVISOR_TEMPLATES } from "./buildAdvisorTemplates";
@@ -1435,11 +1435,14 @@ async function storeShare(
   const character = selectedCharacter(profileCharacters, characterId);
   if (!character || character.characterId !== characterId) throw httpError(400, "character_invalid", "The selected character does not belong to this Guardian.");
   const allQuests = normalizeQuests(profile, manifest, character.characterId, new Set(sitePinnedQuestIds));
-  const allowedIds = new Set(allQuests.quests.map((quest) => quest.instanceId));
-  const questsToShare = allQuests.quests.filter((quest) => quest.inGameTracked || (quest.sitePinned && allowedIds.has(quest.instanceId)));
-  const activeTrackedQuests = trackedItemsFromQuests(questsToShare);
+  const questTracking = reconcileDestinyTrackedQuests(
+    allQuests.quests,
+    previousTrackedItems,
+    previousPayload?.questUntrackedObservationCounts || {}
+  );
+  const activeTrackedQuests = questTracking.items;
   const activeQuestIds = new Set(activeTrackedQuests.map((item) => item.id));
-  const compactSharedQuests = questsToShare.filter((quest) => activeQuestIds.has(quest.instanceId)).map((quest) => ({ ...quest, steps: undefined }));
+  const compactSharedQuests = allQuests.quests.filter((quest) => activeQuestIds.has(quest.instanceId)).map((quest) => ({ ...quest, steps: undefined }));
   const siteTrackedGuardianRanks = providedGuardianRankIds === undefined
     ? await guardianRankTrackedIds(row.membership_id, env)
     : new Set(providedGuardianRankIds);
@@ -1481,7 +1484,7 @@ async function storeShare(
     sharedRecentlyCompletedItems(previousPayload),
     updatedAt,
     FIRETEAM_COMPLETION_RETENTION_MS,
-    missingTrackedQuestCompletionKeys(previousTrackedItems, allQuests.quests)
+    questTracking.confirmedMissingKeys
   );
   const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
   const readiness = providedReadiness === undefined ? sharedReadiness(previousPayload) : providedReadiness || undefined;
@@ -1509,7 +1512,7 @@ async function storeShare(
   const activity = previousPartyMembers === undefined && sessionObservation.onlineState === "online" ? allQuests.currentActivity : previousPayload?.activity;
   const onlineState = previousPartyMembers === undefined ? sessionObservation.onlineState : previousPayload?.onlineState;
   const sessionPresenceEvidence = previousPartyMembers === undefined ? sessionObservation.evidence : previousPayload?.sessionPresenceEvidence;
-  const payload = { character, activity, onlineState, sessionPresenceEvidence, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
+  const payload = { character, activity, onlineState, sessionPresenceEvidence, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, questUntrackedObservationCounts: questTracking.untrackedObservationCounts, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
   // The upsert atomically copies presence-owned fields from the current D1 row.
   // This closes the race where a slower progress request read an old party and
   // finished after the narrow presence writer had already stored a newer one.
