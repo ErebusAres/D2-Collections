@@ -148,14 +148,15 @@ describe("Fireteam tracked items", () => {
       .toMatchObject([{ kind: "catalyst", id: "catalyst-record", percent: 100, objectives: [{ progress: 50, complete: true, percent: 100 }] }]);
   });
 
-  it("hides requested Fireteam items and drops exclusions after the source is no longer tracked", () => {
+  it("never lets a persisted dismissal hide an item tracked in Destiny", () => {
     const items = trackedItemsFromQuests([
       quest({ instanceId: "shown", sitePinned: true }),
-      quest({ instanceId: "hidden", inGameTracked: true })
+      quest({ instanceId: "destiny-tracked", inGameTracked: true }),
+      quest({ instanceId: "hidden", sitePinned: true })
     ]);
 
-    expect(applyTrackedItemVisibility(items, ["quest:hidden", "quest:stale", "quest:hidden"])).toEqual({
-      items: [expect.objectContaining({ id: "shown" })],
+    expect(applyTrackedItemVisibility(items, ["quest:destiny-tracked", "quest:hidden", "quest:stale", "quest:hidden"])).toEqual({
+      items: [expect.objectContaining({ id: "shown" }), expect.objectContaining({ id: "destiny-tracked" })],
       hiddenKeys: ["quest:hidden"]
     });
   });

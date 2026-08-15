@@ -393,12 +393,17 @@ export function questInventoryItems(profile: any, characterId: string): any[] {
     : [];
   const characterHashes = new Set(characterItems.map((item: any) => String(item?.itemHash || "")).filter(Boolean));
   const profileItems = Array.isArray(profile?.profileInventory?.data?.items) ? profile.profileInventory.data.items : [];
-  const seenProfileHashes = new Set<string>();
-  const accountOnly = profileItems.filter((item: any) => {
+  const accountItems = new Map<string, any>();
+  for (const item of profileItems) {
     const hash = String(item?.itemHash || "");
-    if (!hash || characterHashes.has(hash) || seenProfileHashes.has(hash)) return false;
-    seenProfileHashes.add(hash);
-    return true;
-  });
-  return [...characterItems, ...accountOnly];
+    if (!hash || characterHashes.has(hash)) continue;
+    const existing = accountItems.get(hash);
+    // Account inventory can contain duplicate definitions. Preserve the live
+    // tracked instance instead of allowing an arbitrary untracked duplicate
+    // returned first by Bungie to mask it.
+    if (!existing || (!(Number(existing.state || 0) & 2) && (Number(item.state || 0) & 2))) {
+      accountItems.set(hash, item);
+    }
+  }
+  return [...characterItems, ...accountItems.values()];
 }

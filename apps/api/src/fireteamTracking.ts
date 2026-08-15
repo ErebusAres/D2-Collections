@@ -163,8 +163,11 @@ export function mergeTrackedItems(...groups: FireteamTrackedItem[][]): FireteamT
 }
 
 export function applyTrackedItemVisibility(items: FireteamTrackedItem[], requestedHiddenKeys: Iterable<string>): { items: FireteamTrackedItem[]; hiddenKeys: string[] } {
-  const activeKeys = new Set(items.map(trackedItemKey));
-  const hiddenKeys = [...new Set(requestedHiddenKeys)].filter((key) => activeKeys.has(key)).slice(0, 200);
+  // A Fireteam dismissal must never override the live in-game tracking state.
+  // Otherwise a quest dismissed once remains invisible even though Destiny is
+  // still explicitly reporting it as tracked.
+  const hideableKeys = new Set(items.filter((item) => !item.trackedInDestiny).map(trackedItemKey));
+  const hiddenKeys = [...new Set(requestedHiddenKeys)].filter((key) => hideableKeys.has(key)).slice(0, 200);
   const hidden = new Set(hiddenKeys);
   return { items: items.filter((item) => !hidden.has(trackedItemKey(item))), hiddenKeys };
 }
