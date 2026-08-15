@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
+import { directlyObservedPartyLive, fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -139,6 +139,13 @@ describe("Fireteam reliability helpers", () => {
     const members = [{ membershipId: "1", observedInParty: false }, { membershipId: "2", observedInParty: true }];
     expect(visiblePartyMembers(members, "1", true)).toEqual(members);
     expect(visiblePartyMembers(members, "1", false)).toEqual([{ membershipId: "1", observedInParty: false }]);
+  });
+
+  it("accepts a fresh directly observed teammate without waiting for the session-minute counter", () => {
+    const members = [{ membershipId: "1", observedInParty: true }, { membershipId: "2", observedInParty: true }];
+    expect(directlyObservedPartyLive(members, "1", true)).toBe(true);
+    expect(directlyObservedPartyLive(members, "1", false)).toBe(false);
+    expect(directlyObservedPartyLive([{ membershipId: "1", observedInParty: true }], "1", true)).toBe(false);
   });
 
   it("keeps an internally retained transient member out of the current-party response", () => {

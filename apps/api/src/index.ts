@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, visiblePartyMembers } from "./fireteamReliability";
+import { directlyObservedPartyLive, fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1697,11 +1697,16 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const viewerPresenceUsable = fireteamPresenceUsable(viewerPresenceAt);
   const viewerSessionLive = ownSharePayload?.onlineState === "online"
     && sessionPresenceConfirmed(ownSharePayload?.sessionPresenceEvidence, viewerPresenceAt);
+  // Bungie's current transitory roster is itself direct presence evidence.
+  // Do not hide a teammate while waiting for the coarser per-character session
+  // minute counter to advance.
+  const viewerPresenceConfirmed = viewerSessionLive
+    || directlyObservedPartyLive(party, row.membership_id, viewerPresenceUsable);
   // Once the viewer's own fresh session proves that this is a current party
   // observation, that direct Bungie roster is authoritative for membership.
   // A synced teammate's independent snapshot enriches their card; it must not
   // veto a member the viewer is actively observing in the party.
-  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceUsable && viewerSessionLive);
+  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceConfirmed);
   const members: FireteamMember[] = visibleParty.map((member: any) => {
     const share: any = shares.get(member.membershipId);
     let payload: any = null;
@@ -1713,7 +1718,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     const presenceAt = share?.presence_refreshed_at || share?.updated_at;
     const memberPresenceUsable = fireteamPresenceUsable(presenceAt);
     const onlineState: FireteamMember["onlineState"] = isSelf
-      ? viewerSessionLive
+      ? viewerPresenceConfirmed
         ? "online"
         : viewerPresenceUsable && payload?.onlineState === "offline" ? "offline" : "unknown"
       : member.observedInParty && (!share || memberPresenceUsable) ? "online" : "unknown";
@@ -1724,7 +1729,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       displayName: inGameName,
       inGameName,
       emblemPath: character?.emblemPath || "",
-      presenceLabel: viewerSessionLive ? partyPresenceLabel(member.status) : "Presence unknown",
+      presenceLabel: viewerPresenceConfirmed ? partyPresenceLabel(member.status) : "Presence unknown",
       onlineState,
       character,
       activity,

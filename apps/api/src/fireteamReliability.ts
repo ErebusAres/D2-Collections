@@ -226,6 +226,14 @@ export function visiblePartyMembers<T extends { membershipId: string; observedIn
     || presenceFresh && member.observedInParty !== false && teammatePresenceUsable(member.membershipId));
 }
 
+export function directlyObservedPartyLive<T extends { membershipId: string; observedInParty?: boolean }>(
+  members: T[],
+  selfMembershipId: string,
+  presenceUsable: boolean
+): boolean {
+  return presenceUsable && members.some((member) => member.membershipId !== selfMembershipId && member.observedInParty === true);
+}
+
 export async function mapWithConcurrency<T, R>(values: T[], concurrency: number, mapper: (value: T, index: number) => Promise<R>): Promise<R[]> {
   const output = new Array<R>(values.length);
   let nextIndex = 0;
