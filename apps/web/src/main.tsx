@@ -24,9 +24,6 @@ const queryClient = new QueryClient({
 });
 
 function shouldRetryQuery(attempt: number, error: unknown): boolean {
-  const code = typeof error === "object" && error !== null && "code" in error
-    ? (error as { code?: unknown }).code
-    : undefined;
   const status = typeof error === "object" && error !== null && "status" in error
     ? (error as { status?: unknown }).status
     : undefined;
