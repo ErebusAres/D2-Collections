@@ -25,8 +25,8 @@ describe("safe Guardian session cache", () => {
     expect(cached.freshness.state).toBe("stale");
   });
 
-  it("does not retry a Worker resource-limit response during account bootstrap", () => {
-    expect(shouldRetrySession(0, new ApiRequestError(500, { code: "worker_resource_limit" }))).toBe(false);
+  it("retries Worker resource-limit responses during account bootstrap", () => {
+    expect(shouldRetrySession(0, new ApiRequestError(500, { code: "worker_resource_limit" }))).toBe(true);
     expect(shouldRetrySession(0, new ApiRequestError(503, { code: "temporary_failure" }))).toBe(true);
   });
 });

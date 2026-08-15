@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { directlyObservedPartyLive, fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -47,10 +47,10 @@ describe("Fireteam reliability helpers", () => {
     expect(fireteamPresenceRefreshDue("2026-08-09T11:59:00.000Z", now)).toBe(true);
   });
 
-  it("keeps the last presence snapshot usable across the five-minute page interval", () => {
+  it("expires party presence after two missed one-minute refreshes", () => {
     const now = Date.parse("2026-08-09T12:00:00.000Z");
-    expect(fireteamPresenceUsable("2026-08-09T11:55:00.000Z", now)).toBe(true);
-    expect(fireteamPresenceUsable("2026-08-09T11:49:59.000Z", now)).toBe(false);
+    expect(fireteamPresenceUsable("2026-08-09T11:58:00.000Z", now)).toBe(true);
+    expect(fireteamPresenceUsable("2026-08-09T11:57:59.000Z", now)).toBe(false);
   });
 
   it("does not treat a stale non-zero session total as online presence", () => {
@@ -88,17 +88,17 @@ describe("Fireteam reliability helpers", () => {
     const grace = observeGuardianSession(
       [{ characterId: "c1", minutesPlayedThisSession: 48 }],
       advanced.evidence,
-      "2026-08-10T12:11:00.000Z"
+      "2026-08-10T12:03:00.000Z"
     );
     expect(grace.onlineState).toBe("online");
-    expect(sessionPresenceConfirmed(grace.evidence, "2026-08-10T12:11:00.000Z", Date.parse("2026-08-10T12:11:00.000Z"))).toBe(true);
+    expect(sessionPresenceConfirmed(grace.evidence, "2026-08-10T12:03:00.000Z", Date.parse("2026-08-10T12:03:00.000Z"))).toBe(true);
     const expired = observeGuardianSession(
       [{ characterId: "c1", minutesPlayedThisSession: 48 }],
       grace.evidence,
-      "2026-08-10T12:11:01.000Z"
+      "2026-08-10T12:03:01.000Z"
     );
     expect(expired.onlineState).toBe("unknown");
-    expect(sessionPresenceConfirmed(expired.evidence, "2026-08-10T12:11:01.000Z", Date.parse("2026-08-10T12:11:01.000Z"))).toBe(false);
+    expect(sessionPresenceConfirmed(expired.evidence, "2026-08-10T12:03:01.000Z", Date.parse("2026-08-10T12:03:01.000Z"))).toBe(false);
   });
 
   it("marks an ordered all-zero session snapshot offline", () => {
@@ -141,11 +141,25 @@ describe("Fireteam reliability helpers", () => {
     expect(visiblePartyMembers(members, "1", false)).toEqual([{ membershipId: "1", observedInParty: false }]);
   });
 
-  it("accepts a fresh directly observed teammate without waiting for the session-minute counter", () => {
-    const members = [{ membershipId: "1", observedInParty: true }, { membershipId: "2", observedInParty: true }];
-    expect(directlyObservedPartyLive(members, "1", true)).toBe(true);
-    expect(directlyObservedPartyLive(members, "1", false)).toBe(false);
-    expect(directlyObservedPartyLive([{ membershipId: "1", observedInParty: true }], "1", true)).toBe(false);
+  it("confirms a current session from Bungie's character clock without waiting for a counter transition", () => {
+    const observation = observeGuardianSession(
+      [{ characterId: "c1", dateLastPlayed: "2026-08-15T12:00:00.000Z", minutesPlayedThisSession: 4 }],
+      undefined,
+      "2026-08-15T12:04:30.000Z"
+    );
+    expect(observation.onlineState).toBe("online");
+    expect(observation.activeCharacterId).toBe("c1");
+    expect(observation.evidence.lastAdvancedAt).toBe("2026-08-15T12:04:30.000Z");
+  });
+
+  it("does not let a retained non-authoritative party roster prove that a stopped session is live", () => {
+    const observation = observeGuardianSession(
+      [{ characterId: "c1", dateLastPlayed: "2026-08-15T12:00:00.000Z", minutesPlayedThisSession: 4 }],
+      { sourceObservedAt: "2026-08-15T12:04:00.000Z", minutesByCharacter: { c1: 4 }, lastAdvancedAt: "2026-08-15T12:04:00.000Z" },
+      "2026-08-15T12:08:00.000Z"
+    );
+    expect(observation.onlineState).toBe("unknown");
+    expect(sessionPresenceConfirmed(observation.evidence, "2026-08-15T12:08:00.000Z", Date.parse("2026-08-15T12:15:01.000Z"))).toBe(false);
   });
 
   it("keeps an internally retained transient member out of the current-party response", () => {

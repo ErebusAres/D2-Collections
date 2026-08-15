@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { directlyObservedPartyLive, fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1666,8 +1666,16 @@ async function releaseFireteamPresenceRefresh(membershipId: string, startedAt: s
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const started = performance.now();
   const now = new Date().toISOString();
-  const ownShare = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error, presence_refreshed_at, presence_error FROM fireteam_shares WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)")
+  let ownShare = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error, presence_refreshed_at, presence_error FROM fireteam_shares WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)")
     .bind(row.membership_id, now).first<any>();
+  // When presence is due, refresh before constructing the response. The old
+  // flow returned stale membership first and only refreshed in waitUntil,
+  // making every visible result one polling cycle behind reality.
+  if (ownShare && fireteamPresenceRefreshDue(ownShare.presence_refreshed_at || ownShare.updated_at)) {
+    await refreshFireteamPresenceWithLease(row, env).catch(() => undefined);
+    ownShare = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error, presence_refreshed_at, presence_error FROM fireteam_shares WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)")
+      .bind(row.membership_id, now).first<any>();
+  }
   let ownSharePayload: any = null;
   try { ownSharePayload = ownShare?.payload_json ? JSON.parse(ownShare.payload_json) : null; } catch { ownSharePayload = null; }
   const storedParty = Array.isArray(ownSharePayload?.activityPartyMembers) ? ownSharePayload.activityPartyMembers : [];
@@ -1697,16 +1705,11 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const viewerPresenceUsable = fireteamPresenceUsable(viewerPresenceAt);
   const viewerSessionLive = ownSharePayload?.onlineState === "online"
     && sessionPresenceConfirmed(ownSharePayload?.sessionPresenceEvidence, viewerPresenceAt);
-  // Bungie's current transitory roster is itself direct presence evidence.
-  // Do not hide a teammate while waiting for the coarser per-character session
-  // minute counter to advance.
-  const viewerPresenceConfirmed = viewerSessionLive
-    || directlyObservedPartyLive(party, row.membership_id, viewerPresenceUsable);
   // Once the viewer's own fresh session proves that this is a current party
   // observation, that direct Bungie roster is authoritative for membership.
   // A synced teammate's independent snapshot enriches their card; it must not
   // veto a member the viewer is actively observing in the party.
-  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceConfirmed);
+  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceUsable && viewerSessionLive);
   const members: FireteamMember[] = visibleParty.map((member: any) => {
     const share: any = shares.get(member.membershipId);
     let payload: any = null;
@@ -1718,7 +1721,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     const presenceAt = share?.presence_refreshed_at || share?.updated_at;
     const memberPresenceUsable = fireteamPresenceUsable(presenceAt);
     const onlineState: FireteamMember["onlineState"] = isSelf
-      ? viewerPresenceConfirmed
+      ? viewerSessionLive
         ? "online"
         : viewerPresenceUsable && payload?.onlineState === "offline" ? "offline" : "unknown"
       : member.observedInParty && (!share || memberPresenceUsable) ? "online" : "unknown";
@@ -1729,7 +1732,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       displayName: inGameName,
       inGameName,
       emblemPath: character?.emblemPath || "",
-      presenceLabel: viewerPresenceConfirmed ? partyPresenceLabel(member.status) : "Presence unknown",
+      presenceLabel: viewerSessionLive ? partyPresenceLabel(member.status) : "Presence unknown",
       onlineState,
       character,
       activity,

@@ -214,7 +214,7 @@ export function useGuardian(): GuardianContextValue {
 
 export function shouldRetrySession(failureCount: number, error: unknown): boolean {
   return failureCount < 3 && (!(error instanceof ApiRequestError)
-    || (error.code !== "worker_resource_limit" && (error.status === 408 || error.status === 429 || error.status >= 500)));
+    || error.status === 408 || error.status === 429 || error.status >= 500);
 }
 
 export function pinsKey(membershipId: string, characterId: string): string {
