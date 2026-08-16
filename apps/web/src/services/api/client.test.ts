@@ -12,7 +12,7 @@ const offlineCache = vi.hoisted(() => ({
 
 vi.mock("./offlineCache", () => offlineCache);
 
-import { api, ApiRequestError, queuedApi, savedReadFailureIsCurrent } from "./client";
+import { api, ApiRequestError, describeApiError, queuedApi, savedReadFailureIsCurrent } from "./client";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -44,6 +44,16 @@ describe("API client", () => {
   it("turns API error envelopes into typed errors", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ code: "nope", message: "Denied", requestId: "r" }), { status: 403 }));
     await expect(api("/api/v1/private")).rejects.toMatchObject({ status: 403, code: "nope", message: "Denied" } satisfies Partial<ApiRequestError>);
+  });
+
+  it("formats a searchable error code and backend request reference for the UI", () => {
+    const error = new ApiRequestError(503, { code: "server_error", message: "Guardian services failed.", requestId: "request-123" });
+    expect(describeApiError(error)).toBe("Guardian services failed. Error code: server_error · Reference: request-123");
+  });
+
+  it("assigns client-side references to network failures", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(api("/api/v1/network-failure")).rejects.toMatchObject({ status: 0, code: "network_error", requestId: expect.stringMatching(/^client-/) });
   });
 
   it("turns Cloudflare 1102 pages into a retryable service error", async () => {

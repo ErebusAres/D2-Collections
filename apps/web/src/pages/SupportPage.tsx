@@ -1,6 +1,6 @@
 import { Activity, CheckCircle2, Clipboard, Copy, LogOut, Play, ShieldAlert, TriangleAlert, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api, getClientReliabilityDiagnostics } from "../services/api/client";
+import { api, describeApiError, getClientReliabilityDiagnostics, getLastApiErrorDiagnostics } from "../services/api/client";
 import styles from "./SupportPage.module.css";
 
 type Status = "pass" | "warning" | "fail" | "not-applicable";
@@ -29,7 +29,7 @@ export function SupportPage() {
       ];
       setReport({ ...response.data, tests: [...response.data.tests, ...clientTests], browser: { ...browser, backendLatencyMs: Math.round(performance.now() - started), frontendParsedResponse: true, frontendBackendVersionMismatch: frontendCommit !== "unknown" && backendCommit !== "unknown" && frontendCommit !== backendCommit } });
     } catch (value) {
-      setError(value instanceof Error ? value.message : "Diagnostics could not reach the Guardian Nexus Worker.");
+      setError(describeApiError(value));
     } finally { setRunning(false); }
   };
   const copy = async (kind: "text" | "json") => {
@@ -84,7 +84,8 @@ function browserDiagnostics(): Record<string, unknown> {
     serviceWorkerActive: Boolean(navigator.serviceWorker?.controller),
     cacheStorageAvailable: "caches" in window,
     frontendCacheVersion: "network-only-no-service-worker",
-    lastFireteamRouteError: getClientReliabilityDiagnostics()
+    lastFireteamRouteError: getClientReliabilityDiagnostics(),
+    lastApiError: getLastApiErrorDiagnostics()
   };
 }
 

@@ -12,7 +12,7 @@ export class ApiRequestError extends Error {
     this.status = status;
     this.code = body.code || "request_failed";
     this.retryAfterSeconds = body.retryAfterSeconds;
-    this.requestId = body.requestId;
+    this.requestId = body.requestId || clientRequestId();
   }
 }
 
@@ -38,6 +38,7 @@ interface PendingMutation {
 
 interface QueueOptions { persist?: boolean; priority?: number }
 const RELIABILITY_DIAGNOSTIC_KEY = "guardian-nexus:last-worker-resource-limit";
+const LAST_API_ERROR_DIAGNOSTIC_KEY = "guardian-nexus:last-api-error";
 
 let connectionSnapshot: ConnectionSnapshot = { queued: 0, retrying: false, ...(typeof navigator !== "undefined" && !navigator.onLine ? { lastError: "Device is offline" } : {}) };
 const connectionListeners = new Set<() => void>();
@@ -140,8 +141,10 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
       headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), ...init.headers }
     });
   } catch (error) {
-    updateConnection({ lastError: messageOf(error) });
-    throw error;
+    const requestError = new ApiRequestError(0, { code: "network_error", message: messageOf(error), requestId: clientRequestId() });
+    rememberApiFailure(route, requestError);
+    updateConnection({ lastError: describeApiError(requestError) });
+    throw requestError;
   }
   const raw = await response.text();
   let body: any = {};
@@ -153,11 +156,12 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
   }
   if (!response.ok) {
     const error = new ApiRequestError(response.status, body);
+    rememberApiFailure(route, error);
     if (error.code === "worker_resource_limit") {
       routeCircuitBreakers.set(route, Date.now() + 60_000 + Math.round(Math.random() * 10_000));
       rememberWorkerResourceLimit(route, error.requestId);
     }
-    if (isTransient(error) && error.code !== "worker_resource_limit") updateConnection({ lastError: error.message });
+    if (isTransient(error) && error.code !== "worker_resource_limit") updateConnection({ lastError: describeApiError(error) });
     throw error;
   }
   if (!pendingMutations.length && !savedReadPaths.size) updateConnection({ lastError: undefined });
@@ -178,7 +182,7 @@ export async function queuedApi<T>(path: string, init: RequestInit, options: Que
     }
     return new Promise<ApiEnvelope<T>>((resolve, reject) => {
       pendingMutations.push({ path, init, resolve: resolve as (value: ApiEnvelope<unknown>) => void, reject, attempts: 0, priority: options.priority || 0, retryAt: Date.now() + 2_000, persisted });
-      updateConnection({ queued: pendingMutations.length, lastError: messageOf(error) });
+      updateConnection({ queued: pendingMutations.length, lastError: describeApiError(error) });
       scheduleFlush(2_000);
     });
   }
@@ -192,7 +196,7 @@ export function subscribeConnection(listener: () => void): () => void {
 export function getConnectionSnapshot(): ConnectionSnapshot { return connectionSnapshot; }
 
 function isTransient(error: unknown): boolean {
-  return !(error instanceof ApiRequestError) || error.status === 408 || error.status === 425 || error.status === 429 || error.status >= 500;
+  return !(error instanceof ApiRequestError) || error.status === 0 || error.status === 408 || error.status === 425 || error.status === 429 || error.status >= 500;
 }
 
 function messageOf(error: unknown): string { return error instanceof Error ? error.message : "Connection interrupted"; }
@@ -222,10 +226,41 @@ function rememberWorkerResourceLimit(route: string, rayId?: string): void {
   try { sessionStorage.setItem(RELIABILITY_DIAGNOSTIC_KEY, JSON.stringify({ category: "worker_resource_limit", route, occurredAt: new Date().toISOString(), rayId })); } catch { /* Diagnostics are best-effort only. */ }
 }
 
+function rememberApiFailure(route: string, error: ApiRequestError): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(LAST_API_ERROR_DIAGNOSTIC_KEY, JSON.stringify({
+      code: error.code,
+      status: error.status || undefined,
+      route,
+      occurredAt: new Date().toISOString(),
+      requestId: error.requestId
+    }));
+  } catch { /* Diagnostics are best-effort only. */ }
+}
+
+function clientRequestId(): string {
+  return `client-${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
+}
+
+export function describeApiError(error: unknown): string {
+  if (!(error instanceof ApiRequestError)) return messageOf(error);
+  const reference = error.requestId ? ` · Reference: ${error.requestId}` : "";
+  return `${error.message} Error code: ${error.code}${reference}`;
+}
+
 export function getClientReliabilityDiagnostics(): Record<string, unknown> | undefined {
   if (typeof sessionStorage === "undefined") return undefined;
   try {
     const value = JSON.parse(sessionStorage.getItem(RELIABILITY_DIAGNOSTIC_KEY) || "null");
+    return value && typeof value === "object" ? value : undefined;
+  } catch { return undefined; }
+}
+
+export function getLastApiErrorDiagnostics(): Record<string, unknown> | undefined {
+  if (typeof sessionStorage === "undefined") return undefined;
+  try {
+    const value = JSON.parse(sessionStorage.getItem(LAST_API_ERROR_DIAGNOSTIC_KEY) || "null");
     return value && typeof value === "object" ? value : undefined;
   } catch { return undefined; }
 }
