@@ -100,6 +100,14 @@ export function FireteamPage() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
   });
   const liveActivityFeed = activityFeed.data?.data && Array.isArray(activityFeed.data.data.entries) ? activityFeed.data.data : data?.activityFeed;
+  const visibleActivityFeed = liveActivityFeed || {
+    enabled: Boolean(data?.sharingEnabled),
+    channelAvailable: false,
+    entries: [],
+    historyLimit: 60,
+    retentionDays: 7,
+    messageMaxLength: 240
+  };
   const socialData = social.data?.data || data?.social;
   const sharingMode = data?.sharingMode;
   const self = data?.members.find((member) => member.isSelf);
@@ -211,8 +219,7 @@ export function FireteamPage() {
     {data && <>
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
     </>}
-    {activityFeed.isError && !liveActivityFeed && <section className={styles.fireteamLootControl}><div><strong>Fireteam Activity is temporarily unavailable</strong><small>{activityFeed.error instanceof Error ? activityFeed.error.message : "This section can be retried independently."}</small></div><button onClick={() => void activityFeed.refetch()}>Retry Activity</button></section>}
-    {liveActivityFeed && <FireteamActivityFeed feed={liveActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
+    {session?.authenticated && <FireteamActivityFeed feed={visibleActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : activityFeed.error instanceof Error ? activityFeed.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
     <SocialRoster contacts={socialData?.contacts || []} friendsState={socialData?.friendsState || socialData?.state || "unavailable"} clanState={socialData?.clanState || (socialData?.state === "available" ? "available" : "unavailable")} warning={socialData?.warning || social.data?.warnings[0] || (social.error instanceof Error ? social.error.message : undefined)} copied={copied} onCopy={copyCommand} />
     {data && <footer className={styles.fireteamDataNote}><AlertTriangle /><span>{BUNGIE_PRESENCE_DISCLAIMER}</span></footer>}
   </AuthGate>;

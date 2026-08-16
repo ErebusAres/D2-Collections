@@ -32,6 +32,13 @@ describe("FireteamActivityFeed", () => {
     expect(onSend).toHaveBeenCalledWith("Need ammo");
   });
 
+  it("keeps the newest activity at the top and older entries below it", () => {
+    render(<FireteamActivityFeed feed={feed} view="open" onViewChange={vi.fn()} onSend={vi.fn()} sending={false} onDisable={vi.fn()} onEnable={vi.fn()} />);
+    const history = screen.getByText("Ready when you are.").closest("div")?.parentElement;
+    expect(history?.children[0]?.textContent).toContain("Ready when you are.");
+    expect(history?.children[1]?.textContent).toContain("Exotic Engram");
+  });
+
   it("shows a numbered diamond only for real 1-5 gear tiers", () => {
     const gearFeed = { ...feed, entries: [
       { type: "loot", id: "weapon", membershipId: "1", displayName: "ErebusAres#1234", createdAt: "2026-08-08T12:02:00Z", event: { id: "weapon", kind: "weapon-found", sourceKey: "instance:weapon", name: "Tiered Rifle", icon: "/rifle.png", rarity: "Legendary", quantity: 1, observedAt: "2026-08-08T12:02:00Z", lastObservedAt: "2026-08-08T12:02:00Z", gear: { kind: "weapon", gearTier: 4, rarity: "Legendary" } } },

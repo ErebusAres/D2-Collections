@@ -37,14 +37,12 @@ export function FireteamActivityFeed({ feed, view, storageKey, onViewChange, onS
   const [body, setBody] = useState("");
   const [windowState, setWindowState] = useState(() => readWindowState(storageKey));
   const [dragging, setDragging] = useState(false);
-  const history = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
   const drag = useRef<{ pointerId: number; startX: number; startY: number; x: number; y: number } | null>(null);
   const latestWindowState = useRef(windowState);
-  const entries = [...feed.entries].reverse();
+  const entries = [...feed.entries].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt) || right.id.localeCompare(left.id));
 
   useEffect(() => { latestWindowState.current = windowState; }, [windowState]);
-  useEffect(() => { if (view === "open" && history.current) history.current.scrollTop = history.current.scrollHeight; }, [feed.entries.length, view]);
   useEffect(() => {
     const onResize = () => setWindowState((current) => {
       const next = clampActivityWindowState(current, window.innerWidth, window.innerHeight);
@@ -116,7 +114,7 @@ export function FireteamActivityFeed({ feed, view, storageKey, onViewChange, onS
       </nav>
     </header>
     {view === "open" && <>
-      <div ref={history} className={styles.history} aria-live="polite">{!feed.enabled
+      <div className={styles.history} aria-live="polite">{!feed.enabled
         ? <p>Enable the activity feed to share recent gear finds and exchange short messages with synced members of your current Fireteam.</p>
         : entries.length ? entries.map((entry) => <ActivityLine key={`${entry.type}:${entry.id}`} entry={entry} />)
           : <p>{feed.channelAvailable ? "No recent Fireteam activity yet." : "When another current Fireteam member enables sharing, recent gear and messages will appear here."}</p>}</div>
