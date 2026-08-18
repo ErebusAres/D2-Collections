@@ -34,6 +34,22 @@ afterEach(() => {
 });
 
 describe("Fireteam refresh cycle", () => {
+  it("keeps the visible refresh deadline across a page reload", async () => {
+    vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests") ? ordersEnvelope() : envelope("persistent"));
+    const firstClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const first = render(<MemoryRouter><QueryClientProvider client={firstClient}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
+    expect(await screen.findByText("Fireteam refresh in 5:00")).toBeTruthy();
+
+    await act(async () => { vi.advanceTimersByTime(2 * 60_000); });
+    expect(screen.getByText("Fireteam refresh in 3:00")).toBeTruthy();
+    first.unmount();
+
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
+    expect(await screen.findByText("Fireteam refresh in 3:00")).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(3 * 60_000); });
+    await waitFor(() => expect(screen.getByText(/Fireteam refresh in 5:00|Refreshing Fireteam data/)).toBeTruthy());
+  });
+
   it("refreshes presence independently while a tracked-progress write is queued", async () => {
     let fireteamReads = 0;
     let orderReads = 0;

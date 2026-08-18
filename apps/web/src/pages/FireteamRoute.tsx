@@ -14,6 +14,8 @@ import { fireteamQueryKey, useFireteamQuery } from "../modules/fireteam/useFiret
 import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
+const FIRETEAM_REFRESH_DEADLINE_PREFIX = "guardian-nexus:fireteam-refresh-deadline:";
+
 export function FireteamRoute() {
   return <div className={styles.fireteamRoute}>
     <FireteamRefreshCountdown />
@@ -53,6 +55,7 @@ function FireteamRefreshCountdown() {
   const { notice: completionNotice, announce: announceCompletion, dismiss: dismissCompletion, clear: clearCompletions } = useCompletionPings();
   const timerRail = useRef<HTMLElement | null>(null);
   const canRefreshFireteam = Boolean(session?.authenticated && selectedCharacterId);
+  const refreshDeadlineKey = membershipId && selectedCharacterId ? `${FIRETEAM_REFRESH_DEADLINE_PREFIX}${membershipId}:${selectedCharacterId}` : "";
   const shouldRenewTemporaryShare = Boolean(data?.sharingEnabled && mode === "temporary");
   const activeSeasonalOrders = useMemo(
     () => (orders.data?.data.quests || []).filter((quest) => quest.category === "order" && !questComplete(quest)),
@@ -141,21 +144,34 @@ function FireteamRefreshCountdown() {
       setNextRefreshAt(null);
       return;
     }
-    let cancelled = false;
     let timer = 0;
-    const schedule = (delay: number) => {
-      setNextRefreshAt(Date.now() + delay);
+    const schedule = (deadline: number) => {
+      if (refreshDeadlineKey) {
+        try { localStorage.setItem(refreshDeadlineKey, String(deadline)); } catch { /* The in-memory deadline still works. */ }
+      }
+      setNextRefreshAt(deadline);
+      const delay = Math.max(0, deadline - Date.now());
       timer = window.setTimeout(async () => {
+        const nextDeadline = Date.now() + LIVE_REFRESH_INTERVAL_MS;
+        schedule(nextDeadline);
         try { await refreshFireteamProgress(); } catch { /* The page already surfaces service warnings. */ }
-        if (!cancelled) schedule(LIVE_REFRESH_INTERVAL_MS);
       }, delay);
     };
-    schedule(LIVE_REFRESH_INTERVAL_MS);
-    return () => {
-      cancelled = true;
+    const storedDeadline = readRefreshDeadline(refreshDeadlineKey);
+    schedule(storedDeadline || Date.now() + LIVE_REFRESH_INTERVAL_MS);
+    const syncDeadline = (event: StorageEvent) => {
+      if (event.key !== refreshDeadlineKey || !event.newValue) return;
+      const deadline = Number(event.newValue);
+      if (!Number.isFinite(deadline) || deadline <= Date.now()) return;
       window.clearTimeout(timer);
+      schedule(deadline);
     };
-  }, [autoRefresh, canRefreshFireteam, refreshFireteamProgress]);
+    window.addEventListener("storage", syncDeadline);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("storage", syncDeadline);
+    };
+  }, [autoRefresh, canRefreshFireteam, refreshDeadlineKey, refreshFireteamProgress]);
 
   const label = useMemo(() => {
     if (!autoRefresh) return "Fireteam refresh off";
@@ -216,4 +232,13 @@ function readStringArray(storageKey: string, limit: number): string[] {
     const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]");
     return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, limit) : [];
   } catch { return []; }
+}
+
+function readRefreshDeadline(storageKey: string): number | undefined {
+  if (!storageKey) return undefined;
+  try {
+    const value = Number(localStorage.getItem(storageKey) || 0);
+    if (!Number.isFinite(value) || value <= 0) return undefined;
+    return Math.min(value, Date.now() + LIVE_REFRESH_INTERVAL_MS);
+  } catch { return undefined; }
 }
