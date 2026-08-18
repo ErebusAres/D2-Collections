@@ -1,7 +1,7 @@
-import type { FireteamCompletedTrackedItem, FireteamContact, FireteamData, FireteamMember, FireteamSharingMode, FireteamSocialData, FireteamTrackedItem, GearTag, RecentItemTimelineData } from "@guardian-nexus/contracts";
+import type { FireteamCompletedTrackedItem, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem, GearTag, RecentItemTimelineData } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpToLine, BookmarkMinus, CheckCircle2, Copy, Crown, EyeOff, GripVertical, Link2, LogIn, MessageSquare, Repeat2, Share2, Timer, UserMinus, Users } from "lucide-react";
+import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpToLine, BookmarkMinus, CheckCircle2, Crown, EyeOff, GripVertical, Link2, MessageSquare, Repeat2, Share2, Timer, UserMinus, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
@@ -72,13 +72,6 @@ export function FireteamPage() {
     refetchInterval: 10_000,
     refetchIntervalInBackground: false
   });
-  const social = useQuery({
-    queryKey: ["fireteam-social", session?.guardian?.membershipId],
-    queryFn: () => api<FireteamSocialData>("/api/v1/fireteam/social"),
-    enabled: Boolean(session?.authenticated),
-    staleTime: 10 * 60_000,
-    refetchInterval: false
-  });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["recent-items", selectedCharacterId] }) });
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
   const preferenceTrackedItemOrder = useMemo(() => trackedPreference(preferences["fireteam.trackedOrder"]), [preferences]);
@@ -108,7 +101,6 @@ export function FireteamPage() {
     retentionDays: 7,
     messageMaxLength: 240
   };
-  const socialData = social.data?.data || data?.social;
   const sharingMode = data?.sharingMode;
   const self = data?.members.find((member) => member.isSelf);
   const trackedOrderContext = `${membershipId}:${selectedCharacterId}`;
@@ -220,7 +212,6 @@ export function FireteamPage() {
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
     </>}
     {session?.authenticated && <FireteamActivityFeed feed={visibleActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : activityFeed.error instanceof Error ? activityFeed.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
-    <SocialRoster contacts={socialData?.contacts || []} friendsState={socialData?.friendsState || socialData?.state || "unavailable"} clanState={socialData?.clanState || (socialData?.state === "available" ? "available" : "unavailable")} warning={socialData?.warning || social.data?.warnings[0] || (social.error instanceof Error ? social.error.message : undefined)} copied={copied} onCopy={copyCommand} />
     {data && <footer className={styles.fireteamDataNote}><AlertTriangle /><span>{BUNGIE_PRESENCE_DISCLAIMER}</span></footer>}
   </AuthGate>;
 }
@@ -469,44 +460,9 @@ function readPinnedIds(storageKey: string): string[] {
   } catch { return []; }
 }
 
-function SocialRoster({ contacts, friendsState, clanState, warning, copied, onCopy }: { contacts: FireteamContact[]; friendsState: "available" | "reauthorization-required" | "unavailable"; clanState: "available" | "unavailable"; warning?: string; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {
-  const friends = contacts.filter((contact) => contact.source === "friend" || contact.source === "friend-and-clan");
-  const clan = contacts.filter((contact) => contact.source === "clan" || contact.source === "friend-and-clan");
-  return <section className={styles.socialRoster}>
-    <header><div><Users /><span>Social roster</span><h2>Friends & clan</h2></div></header>
-    <SocialGroup title="Bungie Friends" count={friends.length}>
-      {friendsState === "reauthorization-required" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Reconnect for Bungie friends</strong><p>{warning || "Bungie did not authorize access to the signed-in account's friend list."}</p></div><a href="/api/v1/auth/start?returnTo=%2Ffireteam">Reconnect Bungie</a></div>
-        : friendsState === "unavailable" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Bungie friends unavailable</strong><p>The friend-list request failed; clan members can still appear below.</p></div></div>
-        : friends.length ? <div className={styles.socialGrid}>{friends.map((contact) => <SocialContact key={`friend-${contact.membershipId}-${contact.displayName}`} contact={contact} copied={copied} onCopy={onCopy} />)}</div>
-        : <div className={styles.socialUnavailable}><Users /><div><strong>No Bungie friends returned</strong></div></div>}
-    </SocialGroup>
-    <SocialGroup title="Clan Members" count={clan.length}>
-      {clanState === "unavailable" ? <div className={styles.socialUnavailable}><AlertTriangle /><div><strong>Clan roster unavailable</strong></div></div>
-        : clan.length ? <div className={styles.socialGrid}>{clan.map((contact) => <SocialContact key={`clan-${contact.membershipId}-${contact.displayName}`} contact={contact} copied={copied} onCopy={onCopy} />)}</div>
-        : <div className={styles.socialUnavailable}><Users /><div><strong>No clan members returned</strong><p>The signed-in Destiny membership may not currently belong to a clan.</p></div></div>}
-    </SocialGroup>
-  </section>;
-}
-
-function SocialGroup({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
-  return <section className={styles.socialGroup}><header><h3>{title}</h3><span>{count}</span></header>{children}</section>;
-}
-
-function SocialContact({ contact, copied, onCopy }: { contact: FireteamContact; copied: string; onCopy: (label: string, command: string) => Promise<void> }) {
-  const id = contact.membershipId || contact.displayName;
-  const online = contact.onlineState === "online";
-  const canJoin = canJoinContact(contact);
-  const joinTitle = contact.onlineState === "unknown" ? "Bungie did not provide a confirmed online state" : !canJoin ? "This Guardian is currently offline" : contact.inDestiny2 ? "Copies /join for Destiny 2 text chat" : "Copies /join; Bungie shows this Guardian online but does not identify their current title";
-  return <article className={styles.socialContact}><i className={online ? styles.socialOnline : ""} /><div><span>{contact.source === "friend-and-clan" ? "Friend · Clan" : contact.source}{contact.clanName ? ` · ${contact.clanName}` : ""}</span><strong>{contact.displayName}</strong><small>{online ? contact.inDestiny2 ? "Online in Destiny 2" : "Online · title unavailable" : contact.onlineState === "offline" ? "Offline" : "Offline or presence hidden"}</small></div><div><button disabled={!canJoin} onClick={() => void onCopy(`join-${id}`, `/join ${contact.displayName}`)} title={joinTitle}><LogIn size={13} />{copied === `join-${id}` ? "Copied" : "Join Fireteam"}</button><button disabled={!online} onClick={() => void onCopy(`friend-whisper-${id}`, `/whisper ${contact.displayName} `)} title="Copies /whisper for Destiny 2 text chat"><MessageSquare size={13} />{copied === `friend-whisper-${id}` ? "Copied" : "Whisper"}</button><button onClick={() => void onCopy(`name-${id}`, contact.displayName)} title="Copy Bungie Name"><Copy size={13} /></button></div></article>;
-}
-
 function presenceLocation(member: Pick<FireteamMember, "onlineState" | "activity"> | undefined, fallback?: string): string {
   if (member?.onlineState === "offline") return "Offline";
   if (member?.activity) return member.activity;
   if (fallback) return fallback;
   return member?.onlineState === "online" ? "Online · location unavailable" : "Presence unavailable";
-}
-
-export function canJoinContact(contact: Pick<FireteamContact, "onlineState">): boolean {
-  return contact.onlineState === "online";
 }

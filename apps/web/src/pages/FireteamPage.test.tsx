@@ -46,10 +46,10 @@ describe("Fireteam tracked items", () => {
     const stopSharing = screen.getByRole("button", { name: "Stop sharing" });
     expect(updated.compareDocumentPosition(stopSharing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
-    const disclaimer = screen.getByText("Bungie marks party and current-activity data as non-authoritative and potentially stale.");
-    const socialRoster = screen.getByRole("heading", { name: "Friends & clan" });
-    expect(socialRoster.compareDocumentPosition(disclaimer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    screen.getByText("Bungie marks party and current-activity data as non-authoritative and potentially stale.");
+    expect(screen.queryByRole("heading", { name: "Friends & clan" })).toBeNull();
     expect(screen.getAllByText(/Bungie marks party/)).toHaveLength(1);
+    expect(vi.mocked(api).mock.calls.some(([path]) => path === "/api/v1/fireteam/social")).toBe(false);
   });
 
   it("leaves five-minute refresh scheduling to the route coordinator", async () => {
@@ -428,7 +428,7 @@ function envelope() {
     }],
     social: { state: "available", friendsState: "available", clanState: "available", contacts: [] }
   };
-  return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "fireteam" };
+  return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [] as string[], requestId: "fireteam" };
 }
 
 function recentItemsEnvelope() {
