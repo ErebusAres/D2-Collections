@@ -20,6 +20,21 @@ export interface WeaponValue {
   reviewedAt?: string;
 }
 
+export interface WeaponTraitValue {
+  state: "scored" | "unavailable";
+  pve?: number;
+  pvp?: number;
+  overall?: number;
+  recommended: boolean;
+  basis?: WeaponRatingBasis;
+  confidence?: WeaponRatingConfidence;
+  pvePairings?: number;
+  pvpPairings?: number;
+  reasons: string[];
+  source?: string;
+  reviewedAt?: string;
+}
+
 interface RatingBucket { recommendations: number; columns: string[][]; traitPairs: string[] }
 interface RatingRecord { itemType: string; pve: RatingBucket; pvp: RatingBucket }
 interface TypeBucket { weapons: number; columns: Array<Record<string, number>> }
@@ -119,6 +134,60 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
   });
 }
 
+/**
+ * Rates one selectable trait independently of the currently active roll.
+ * Only the two weapon trait columns are accepted; barrels, magazines, mods,
+ * origin traits, and masterworks deliberately remain outside this evaluator.
+ */
+export function evaluateWeaponTrait(weapon: WeaponItem, ratingColumn: 2 | 3, perkHash: string, database = loadedDatabase): WeaponTraitValue {
+  if (!database) return { state: "unavailable", recommended: false, reasons: ["The community rating catalog is still loading or unavailable. This is not a negative rating."] };
+
+  const record = database.items[weapon.itemHash];
+  if (record) {
+    const pve = scoreExactTrait(record.pve, ratingColumn, perkHash);
+    const pvp = scoreExactTrait(record.pvp, ratingColumn, perkHash);
+    return scoredTraitValue(pve, pvp, {
+      basis: "weapon",
+      confidence: "high",
+      reason: "Compared this selectable trait with DIM curator recommendations for this exact weapon.",
+      source: database.source.name,
+      reviewedAt: database.reviewedAt
+    });
+  }
+
+  const family = database.families?.[familyKey(weapon)];
+  if (family) {
+    const pve = scoreEvidenceTrait(family.pve, ratingColumn, perkHash);
+    const pvp = scoreEvidenceTrait(family.pvp, ratingColumn, perkHash);
+    if (pve || pvp) return scoredTraitValue(pve, pvp, {
+      basis: "weapon-family",
+      confidence: "low",
+      reason: "No exact DIM entry exists for this item hash, so this percentage uses curator evidence from reviewed versions of the same named weapon.",
+      source: database.source.name,
+      reviewedAt: database.reviewedAt
+    });
+  }
+
+  const type = database.types[weapon.itemType];
+  const pve = scoreEvidenceTrait(type?.pve, ratingColumn, perkHash);
+  const pvp = scoreEvidenceTrait(type?.pvp, ratingColumn, perkHash);
+  if (pve || pvp) return scoredTraitValue(pve, pvp, {
+    basis: "weapon-type",
+    confidence: "low",
+    reason: `No item-specific DIM recommendation exists, so this is lower-confidence ${weapon.itemType || "weapon-type"} curator evidence.`,
+    source: database.source.name,
+    reviewedAt: database.reviewedAt
+  });
+
+  return {
+    state: "unavailable",
+    recommended: false,
+    reasons: ["No trustworthy curator evidence is available for this selectable trait. Unrated does not mean bad."],
+    source: database.source.name,
+    reviewedAt: database.reviewedAt
+  };
+}
+
 function alignActiveColumns(weapon: WeaponItem): Array<string | undefined> {
   const mapped = weapon.perkColumns.filter((column) => column.ratingColumn !== undefined && column.active?.hash);
   if (mapped.length) {
@@ -168,6 +237,52 @@ function scoreTypeMode(bucket: TypeBucket, active: Array<string | undefined>, we
     if (evidence >= 50) matched += 1;
   });
   return possible ? { score: Math.round(earned / possible * 100), compared, matched } : undefined;
+}
+
+interface TraitModeScore { score: number; pairings?: number }
+
+function scoreExactTrait(bucket: RatingBucket, ratingColumn: 2 | 3, perkHash: string): TraitModeScore | undefined {
+  if (!bucket?.recommendations || !bucket.columns[ratingColumn]?.length) return undefined;
+  const recommended = bucket.columns[ratingColumn]!.includes(perkHash);
+  const traitPosition = ratingColumn - 2;
+  const pairings = recommended
+    ? (bucket.traitPairs || []).filter((pair) => pair.split(",")[traitPosition] === perkHash).length
+    : 0;
+  return { score: recommended ? 100 : 0, pairings };
+}
+
+function scoreEvidenceTrait(bucket: TypeBucket | undefined, ratingColumn: 2 | 3, perkHash: string): TraitModeScore | undefined {
+  if (!bucket?.weapons) return undefined;
+  const score = bucket.columns[ratingColumn]?.[perkHash];
+  return score === undefined ? undefined : { score };
+}
+
+function scoredTraitValue(
+  pve: TraitModeScore | undefined,
+  pvp: TraitModeScore | undefined,
+  meta: { basis: WeaponRatingBasis; confidence: WeaponRatingConfidence; reason: string; source: string; reviewedAt: string }
+): WeaponTraitValue {
+  const known = [pve?.score, pvp?.score].filter((value): value is number => value !== undefined);
+  if (!known.length) return {
+    state: "unavailable",
+    recommended: false,
+    reasons: ["No applicable PvE or PvP curator evidence is available for this selectable trait. Unrated does not mean bad."],
+    source: meta.source,
+    reviewedAt: meta.reviewedAt
+  };
+  const overall = Math.round(known.reduce((sum, value) => sum + value, 0) / known.length);
+  return {
+    state: "scored",
+    ...(pve ? { pve: pve.score, pvePairings: pve.pairings } : {}),
+    ...(pvp ? { pvp: pvp.score, pvpPairings: pvp.pairings } : {}),
+    overall,
+    recommended: pve?.score === 100 || pvp?.score === 100,
+    basis: meta.basis,
+    confidence: meta.confidence,
+    reasons: [meta.reason],
+    source: meta.source,
+    reviewedAt: meta.reviewedAt
+  };
 }
 
 function scoredValue(pve: ModeScore | undefined, pvp: ModeScore | undefined, meta: { basis: WeaponRatingBasis; confidence: WeaponRatingConfidence; reason: string; source: string; reviewedAt: string; totalColumns: number }): WeaponValue {

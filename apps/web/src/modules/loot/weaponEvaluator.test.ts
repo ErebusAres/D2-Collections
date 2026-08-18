@@ -1,7 +1,7 @@
 import type { WeaponItem } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import database from "../../../public/data/weapon-value.v4.json";
-import { evaluateWeapon, qualityFor, type WeaponRatingDatabase } from "./weaponEvaluator";
+import { evaluateWeapon, evaluateWeaponTrait, qualityFor, type WeaponRatingDatabase } from "./weaponEvaluator";
 
 const ratings = database as unknown as WeaponRatingDatabase;
 
@@ -86,5 +86,23 @@ describe("weapon evaluator", () => {
 
   it("maps stable score thresholds to player-facing quality tiers", () => {
     expect([100, 89, 74, 49, 24].map(qualityFor)).toEqual(["excellent", "strong", "mixed", "weak", "poor"]);
+  });
+
+  it("rates every selectable trait against exact DIM recommendations, not only the active trait", () => {
+    const candidate = weapon("877384", ["900000003", "900000004"]);
+    candidate.perkColumns[0]!.ratingColumn = 2;
+    candidate.perkColumns[1]!.ratingColumn = 3;
+
+    expect(evaluateWeaponTrait(candidate, 2, "3824105627", ratings)).toMatchObject({
+      state: "scored", pve: 100, pvp: 0, overall: 50, recommended: true, basis: "weapon", confidence: "high", pvePairings: 2
+    });
+    expect(evaluateWeaponTrait(candidate, 2, "900000003", ratings)).toMatchObject({
+      state: "scored", pve: 0, pvp: 0, overall: 0, recommended: false, basis: "weapon"
+    });
+  });
+
+  it("keeps absent broad trait evidence unrated instead of calling it bad", () => {
+    const candidate = weapon("999999999", ["900000003", "900000004"]);
+    expect(evaluateWeaponTrait(candidate, 2, "not-in-catalog", ratings)).toMatchObject({ state: "unavailable", recommended: false });
   });
 });
