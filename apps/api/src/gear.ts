@@ -37,6 +37,41 @@ const WEAPON_STATS: Record<string, { name: string; maximumValue: number; display
 
 export interface GearStateRow { item_instance_id: string; tag?: GearTag; first_seen_at: string; dismissed_at?: string }
 
+export interface GearActionItem {
+  instanceId: string;
+  itemHash: string;
+  ownerCharacterId?: string;
+  location: ArmorItem["location"];
+  equipped: boolean;
+  locked: boolean;
+}
+
+export function gearActionItemsFromProfile(profile: any): Map<string, GearActionItem> {
+  const state = profile?.itemComponents?.state?.data || {};
+  const rows: Array<{ item: any; ownerCharacterId?: string; location: ArmorItem["location"]; equipped: boolean }> = [];
+  for (const item of profile?.profileInventory?.data?.items || []) rows.push({ item, location: "vault", equipped: false });
+  for (const [ownerCharacterId, container] of Object.entries(profile?.characterInventories?.data || {}) as any) {
+    for (const item of container?.items || []) rows.push({ item, ownerCharacterId, location: "inventory", equipped: false });
+  }
+  for (const [ownerCharacterId, container] of Object.entries(profile?.characterEquipment?.data || {}) as any) {
+    for (const item of container?.items || []) rows.push({ item, ownerCharacterId, location: "equipped", equipped: true });
+  }
+  const items = new Map<string, GearActionItem>();
+  for (const row of rows) {
+    const instanceId = String(row.item?.itemInstanceId || "");
+    if (!instanceId || items.has(instanceId)) continue;
+    items.set(instanceId, {
+      instanceId,
+      itemHash: String(Number(row.item?.itemHash || 0) >>> 0),
+      ownerCharacterId: row.ownerCharacterId,
+      location: row.location,
+      equipped: row.equipped,
+      locked: Boolean(Number(state[instanceId]?.state ?? row.item?.state ?? 0) & 1)
+    });
+  }
+  return items;
+}
+
 export function normalizeGear(profile: any, manifest: GearManifest, selectedCharacterId: string, selectedClass: GuardianClass, states: Map<string, GearStateRow>, now: string): GearData {
   const definitions = manifest.gearItemDefinitions;
   const plugs = manifest.plugDefinitions;

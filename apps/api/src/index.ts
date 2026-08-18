@@ -47,7 +47,7 @@ import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { addXurCollectionStates, applyQuestPins, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
-import { normalizeGear, type GearStateRow } from "./gear";
+import { gearActionItemsFromProfile, normalizeGear, type GearStateRow } from "./gear";
 import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
 import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
@@ -210,15 +210,15 @@ export default {
     }
   },
 
-  async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
+  async scheduled(controller: ScheduledController, env: Env): Promise<void> {
     const now = new Date().toISOString();
     await env.DB.batch([
       env.DB.prepare("DELETE FROM fireteam_shares WHERE sharing_mode = 'temporary' AND expires_at <= ?").bind(now),
       env.DB.prepare("DELETE FROM fireteam_messages WHERE created_at < ?").bind(new Date(Date.now() - FIRETEAM_FEED_RETENTION_DAYS * 86_400_000).toISOString()),
       env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
     ]);
-    await maintainNotificationStorage(env);
-    await refreshPersistentShares(env);
+    if (Math.floor(controller.scheduledTime / 60_000) % 5 === 0) await maintainNotificationStorage(env);
+    await refreshNextPersistentShare(env);
   }
 };
 
@@ -1371,21 +1371,20 @@ async function equipLoadout(request: Request, row: SessionRow, env: Env, context
 
 async function updateGearState(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = gearStateSchema.parse(await request.json());
-  const { profile, accessToken } = await profileFor(row, env, "gear");
-  const manifest = await loadGearManifest(env);
+  const { profile, accessToken } = await profileFor(row, env, "gear-action");
   const character = selectedCharacter(charactersFromProfile(profile));
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const states = await gearStates(row.membership_id, env);
-  const gear = normalizeGear(profile, manifest, character.characterId, character.className, states, new Date().toISOString());
-  const item = [...gear.items, ...(gear.weapons || [])].find((entry) => entry.instanceId === input.itemInstanceId);
+  const item = gearActionItemsFromProfile(profile).get(input.itemInstanceId);
   if (!item) {
     await removeRecentGearItem(row.membership_id, input.itemInstanceId, env);
     return envelope({ itemInstanceId: input.itemInstanceId, removedFromRecentItems: true }, env, context, { warnings: ["This item is no longer owned, so its stale Recent Loot entry was removed."] });
   }
   const now = new Date().toISOString();
+  const savedState = states.get(item.instanceId);
   await env.DB.prepare(`INSERT INTO gear_item_state (membership_id, item_instance_id, tag, first_seen_at, dismissed_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(membership_id, item_instance_id) DO UPDATE SET tag = excluded.tag, dismissed_at = excluded.dismissed_at, updated_at = excluded.updated_at`)
-    .bind(row.membership_id, item.instanceId, input.tag ?? item.tag ?? null, item.firstSeenAt || now, input.dismissed ? now : item.dismissedAt || null, now).run();
+    .bind(row.membership_id, item.instanceId, input.tag ?? savedState?.tag ?? null, savedState?.first_seen_at || now, input.dismissed ? now : savedState?.dismissed_at || null, now).run();
   let warning: string | undefined;
   if ((input.tag === "favorite" || input.tag === "keep") && !item.locked) {
     try { await bungiePost("/Destiny2/Actions/Items/SetLockState/", { state: true, itemId: item.instanceId, characterId: item.ownerCharacterId || character.characterId, membershipType: row.membership_type }, env, accessToken); }
@@ -1397,14 +1396,11 @@ async function updateGearState(request: Request, row: SessionRow, env: Env, cont
 async function gearAction(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = gearActionSchema.parse(await request.json()) as GearActionRequest;
   const started = performance.now();
-  const { profile, accessToken } = await profileFor(row, env, "gear");
-  const manifest = await loadGearManifest(env);
+  const { profile, accessToken } = await profileFor(row, env, "gear-action");
   const characters = charactersFromProfile(profile);
   const selected = selectedCharacter(characters, "characterId" in input ? input.characterId : "targetCharacterId" in input ? input.targetCharacterId : undefined) || characters[0];
   if (!selected) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const gear = normalizeGear(profile, manifest, selected.characterId, selected.className, await gearStates(row.membership_id, env), new Date().toISOString());
-  const items = [...gear.items, ...(gear.weapons || [])];
-  const byId = new Map(items.map((item) => [item.instanceId, item]));
+  const byId = gearActionItemsFromProfile(profile);
   const requested = input.action === "groupPull" ? input.itemInstanceIds : [input.itemInstanceId];
   const result: GearActionResult = { action: input.action, succeeded: [], skipped: [], failed: [] };
   for (const instanceId of requested) {
@@ -1633,9 +1629,11 @@ async function trackedPreferenceIds(membershipId: string, env: Env, key: string)
   } catch { return new Set(); }
 }
 
-async function refreshPersistentShares(env: Env): Promise<void> {
-  const { results = [] } = await env.DB.prepare("SELECT membership_id, character_id, site_pinned_quest_ids_json FROM fireteam_shares WHERE sharing_mode = 'persistent'").all<any>();
+async function refreshNextPersistentShare(env: Env): Promise<void> {
+  const { results = [] } = await env.DB.prepare("SELECT membership_id, character_id, site_pinned_quest_ids_json FROM fireteam_shares WHERE sharing_mode = 'persistent' ORDER BY COALESCE(background_refresh_attempted_at, updated_at) ASC LIMIT 1").all<any>();
   for (const share of results) {
+    await env.DB.prepare("UPDATE fireteam_shares SET background_refresh_attempted_at = ? WHERE membership_id = ?")
+      .bind(new Date().toISOString(), String(share.membership_id)).run();
     const row = await env.DB.prepare(`
       SELECT s.session_hash, s.membership_id, u.membership_type, u.display_name, u.bungie_name,
         s.access_token_cipher, s.refresh_token_cipher, s.access_expires_at, s.refresh_expires_at
