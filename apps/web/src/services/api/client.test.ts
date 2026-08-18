@@ -24,7 +24,7 @@ beforeEach(() => {
   offlineCache.updateMutation.mockResolvedValue(undefined);
 });
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("API client", () => {
   it("expires abandoned saved-data warning entries after two minutes", () => {
@@ -218,5 +218,25 @@ describe("API client", () => {
     await expect(api<{ triumphs: string[] }>("/api/v1/me/journey?characterId=c2")).resolves.toMatchObject({ data: { triumphs: ["new"] } });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a failed Journey attempt from being retried by immediate reloads", async () => {
+    vi.useFakeTimers();
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) || null,
+      setItem: (key: string, value: string) => values.set(key, value)
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { triumphs: ["new"] }, freshness: { state: "fresh", observedAt: "new" }, warnings: [], requestId: "journey-after-wait" }), { status: 200 }));
+
+    await expect(api("/api/v1/me/journey?characterId=reload-guard")).rejects.toMatchObject({ code: "network_error" });
+    const retry = api<{ triumphs: string[] }>("/api/v1/me/journey?characterId=reload-guard");
+    await vi.advanceTimersByTimeAsync(4 * 60_000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await expect(retry).resolves.toMatchObject({ data: { triumphs: ["new"] } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

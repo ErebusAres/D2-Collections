@@ -137,6 +137,90 @@ export function trackedItemsFromJourney(data: JourneyProgressData, trackedIds: S
   return [...recordItems, ...weeklyItems];
 }
 
+export function trackedJourneyItemsFromProfile(
+  profile: any,
+  manifest: JourneyProgressManifest,
+  activities: CompactManifest | undefined,
+  characterId: string,
+  trackedIds: Set<string>,
+  updatedAt: string,
+  includeCompleted = false,
+  previouslyTracked = new Set<string>()
+): FireteamTrackedItem[] {
+  const previousRecordIds = [...previouslyTracked].flatMap((key) => /^(?:title|triumph|seasonal):(.+)$/.exec(key)?.[1] || []);
+  const recordIds = [...new Set([...trackedIds, ...previousRecordIds])].filter((id) => Boolean(manifest.records[id]));
+  const profileRecords = profile?.profileRecords?.data || {};
+  const accountRows = profileRecords.records || {};
+  const characterRows = profile?.characterRecords?.data?.[characterId]?.records || {};
+  const destinyTracked = new Set([
+    String(profileRecords.trackedRecordHash || ""),
+    String(profile?.characterRecords?.data?.[characterId]?.trackedRecordHash || "")
+  ].filter(Boolean));
+  const recordItems = recordIds.flatMap((id) => {
+    const definition = manifest.records[id]!;
+    const live = definition.scope === 1 ? characterRows[id] || accountRows[id] : accountRows[id] || characterRows[id];
+    if (live && (number(live.state) & 16)) return [];
+    const record = recordFor(definition, live, manifest, destinyTracked);
+    const kind = record.title ? "title" as const : /seasonal challenge/i.test(record.type) ? "seasonal" as const : "triumph" as const;
+    if (!trackedIds.has(id) && !previouslyTracked.has(`${kind}:${id}`)) return [];
+    if (!includeCompleted && record.complete) return [];
+    return [{
+      id,
+      definitionHash: id,
+      kind,
+      name: kind === "title" ? record.title! : record.name,
+      description: record.description,
+      icon: record.icon,
+      context: kind === "title" ? "Title & Seal" : kind === "seasonal" ? "Seasonal Challenge" : record.category,
+      trackedInDestiny: record.tracked,
+      trackedInGuardianNexus: trackedIds.has(id),
+      objectives: record.objectives.map((objective) => ({ ...objective, progressAvailable: true })),
+      percent: record.percent,
+      updatedAt
+    }];
+  });
+
+  const previousWeeklyIds = [...previouslyTracked].flatMap((key) => /^weekly:(.+)$/.exec(key)?.[1] || []);
+  const weeklyIds = new Set([...trackedIds, ...previousWeeklyIds].filter((id) => id.includes(":")));
+  if (!weeklyIds.size) return recordItems;
+  const activityRows = profile?.characterActivities?.data?.[characterId]?.availableActivities || [];
+  const weeklyRows = activityRows.flatMap((activity: any) => (activity?.challenges || []).flatMap((challenge: any, index: number) => {
+    const activityHash = String(activity?.activityHash || "");
+    const objectiveHash = String(challenge?.objectiveHash || "");
+    const id = `${activityHash}:${objectiveHash || index}`;
+    if (!weeklyIds.has(id)) return [];
+    const definition = activities?.activityDefinitions?.[activityHash] as any;
+    const objectiveDefinition = activities?.objectiveDefinitions?.[objectiveHash] as any;
+    return [{
+      id,
+      activityHash,
+      name: String(definition?.displayProperties?.name || "Weekly activity"),
+      description: String(definition?.displayProperties?.description || ""),
+      icon: imageUrl(definition?.displayProperties?.icon || ""),
+      objective: objectiveFor(objectiveHash, objectiveDefinition, challenge)
+    } satisfies JourneyWeeklyChallenge];
+  }));
+  const weeklyItems = dedupeWeeklyChallenges(weeklyRows).flatMap((challenge) => {
+    if (!trackedIds.has(challenge.id) && !previouslyTracked.has(`weekly:${challenge.id}`)) return [];
+    if (!includeCompleted && challenge.objective.complete) return [];
+    return [{
+      id: challenge.id,
+      definitionHash: challenge.objective.objectiveHash,
+      kind: "weekly" as const,
+      name: challenge.name,
+      description: challenge.description,
+      icon: challenge.icon,
+      context: "Weekly Challenge",
+      trackedInDestiny: false,
+      trackedInGuardianNexus: trackedIds.has(challenge.id),
+      objectives: [{ ...challenge.objective, progressAvailable: true }],
+      percent: challenge.objective.percent,
+      updatedAt
+    }];
+  });
+  return [...recordItems, ...weeklyItems];
+}
+
 function recordFor(definition: JourneyProgressManifest["records"][string], live: any, manifest: JourneyProgressManifest, tracked: Set<string>): JourneyRecord {
   const completeByState = Boolean(number(live?.state) & 1);
   const liveObjectives = new Map((live?.objectives || []).map((objective: any) => [String(objective?.objectiveHash || ""), objective]));

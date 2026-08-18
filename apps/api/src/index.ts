@@ -57,7 +57,7 @@ import { buildsRoute, publishedBuildsForAdvisor } from "./builds";
 import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
 import { ironBannerHistoryResponse, normalizePvpData, normalizePvpProgressions } from "./pvp";
 import { normalizeGuardianRanks } from "./guardianRank";
-import { normalizeJourneyProgress, trackedItemsFromJourney } from "./journeyProgress";
+import { normalizeJourneyProgress, trackedJourneyItemsFromProfile } from "./journeyProgress";
 import { normalizePower, powerItemHashes } from "./power";
 import { normalizeActivityHistory } from "./activityHistory";
 import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
@@ -1487,12 +1487,10 @@ async function storeShare(
   providedTrackedBuilds?: import("@guardian-nexus/contracts").FireteamTrackedItem[],
   providedActivityFeedEnabled?: boolean
 ): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string; profile: any }> {
-  const [{ profile }, manifest, guardianRankManifest, journeyManifest, activityManifest, collectionManifest, previousShare] = await Promise.all([
+  const [{ profile }, manifest, guardianRankManifest, collectionManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
     loadQuestManifest(env),
     loadGuardianRankManifest(env),
-    loadJourneyProgressManifest(env),
-    loadActivityManifest(env),
     loadManifest(env),
     env.DB.prepare("SELECT payload_json FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<{ payload_json: string }>()
   ]);
@@ -1519,7 +1517,16 @@ async function storeShare(
   const journeyTrackedIds = providedJourneyIds === undefined
     ? await trackedPreferenceIds(row.membership_id, env, "journey.tracked")
     : new Set(providedJourneyIds);
-  const journey = normalizeJourneyProgress(profile, journeyManifest, activityManifest, character.characterId);
+  const previousJourneyKeys = new Set([...previousTrackedKeys].filter((key) => /^(?:title|triumph|seasonal|weekly):/.test(key)));
+  const needsJourneyManifest = journeyTrackedIds.size > 0 || previousJourneyKeys.size > 0;
+  const needsActivityManifest = [...journeyTrackedIds, ...previousJourneyKeys].some((value) => (value.startsWith("weekly:") ? value.slice(7) : value).includes(":"));
+  const [journeyManifest, activityManifest] = await Promise.all([
+    needsJourneyManifest ? loadJourneyProgressManifest(env) : Promise.resolve(undefined),
+    needsActivityManifest ? loadActivityManifest(env) : Promise.resolve(undefined)
+  ]);
+  const journeyItems = journeyManifest
+    ? trackedJourneyItemsFromProfile(profile, journeyManifest, activityManifest, character.characterId, journeyTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString(), true, previousJourneyKeys)
+    : [];
   const collectionTrackedIds = providedCollectionIds === undefined
     ? await trackedPreferenceIds(row.membership_id, env, "collection.tracked")
     : new Set(providedCollectionIds);
@@ -1529,7 +1536,7 @@ async function storeShare(
   const assembledTrackedItems = mergeTrackedItems(
     activeTrackedQuests,
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || new Date().toISOString()),
-    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString()),
+    journeyItems.filter((item) => item.percent < 100),
     trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString()),
     activeTrackedBuilds
   );
@@ -1543,7 +1550,7 @@ async function storeShare(
   const completedCandidates = mergeTrackedItems(
     trackedItemsFromQuests(allQuests.quests, true, previousTrackedKeys),
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
-    trackedItemsFromJourney(journey, journeyTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
+    journeyItems,
     trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
     trackedBuilds.filter((item) => item.percent >= 100)
   );

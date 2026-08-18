@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest, JourneyProgressManifest } from "@guardian-nexus/contracts";
-import { normalizeJourneyProgress, trackedItemsFromJourney } from "./journeyProgress";
+import { normalizeJourneyProgress, trackedItemsFromJourney, trackedJourneyItemsFromProfile } from "./journeyProgress";
 
 describe("Journey progress", () => {
   it("normalizes record, weekly, and artifact progress for tracking", () => {
@@ -114,5 +114,11 @@ describe("Journey progress", () => {
     const candidates = trackedItemsFromJourney(data, new Set(), "2026-07-28T12:01:00.000Z", true, new Set(["title:10"]));
 
     expect(candidates).toMatchObject([{ id: "10", kind: "title", percent: 100, trackedInGuardianNexus: false }]);
+
+    const focused = trackedJourneyItemsFromProfile(profile, manifest, activities, "char", new Set(["10", "40:50"]), "2026-07-28T12:00:00.000Z");
+    expect(focused.map((item) => ({ id: item.id, kind: item.kind, percent: item.percent }))).toEqual([
+      { id: "10", kind: "title", percent: 70 },
+      { id: "40:50", kind: "weekly", percent: 66 }
+    ]);
   });
 });

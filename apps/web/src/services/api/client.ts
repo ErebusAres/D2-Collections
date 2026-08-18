@@ -50,6 +50,7 @@ interface PendingMutation {
 interface QueueOptions { persist?: boolean; priority?: number }
 const RELIABILITY_DIAGNOSTIC_KEY = "guardian-nexus:last-worker-resource-limit";
 const LAST_API_ERROR_DIAGNOSTIC_KEY = "guardian-nexus:last-api-error";
+const RELOAD_READ_ATTEMPT_PREFIX = "guardian-nexus:read-attempt:";
 
 let connectionSnapshot: ConnectionSnapshot = { queued: 0, retrying: false, ...(typeof navigator !== "undefined" && !navigator.onLine ? { lastError: "Device is offline" } : {}) };
 const connectionListeners = new Set<() => void>();
@@ -108,6 +109,7 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
   if (reloadCooldownMs) {
     const cooldownResponse = await readReloadCooldownResponse<T>(path, reloadCooldownMs);
     if (cooldownResponse) return cooldownResponse;
+    await waitForReloadReadTurn(path, reloadCooldownMs);
   }
   try {
     const incoming = await performRequest<T>(path, init);
@@ -156,6 +158,16 @@ async function readReloadCooldownResponse<T>(path: string, cooldownMs: number): 
   if (!Number.isFinite(savedAt) || Date.now() - savedAt >= cooldownMs) return undefined;
   lastSuccessfulReads.set(path, cached as { envelope: ApiEnvelope<unknown>; savedAt: string });
   return cached.envelope;
+}
+
+async function waitForReloadReadTurn(path: string, cooldownMs: number): Promise<void> {
+  if (typeof localStorage === "undefined") return;
+  const key = `${RELOAD_READ_ATTEMPT_PREFIX}${activeMembershipId || "anonymous"}:${encodeURIComponent(path)}`;
+  let attemptedAt = 0;
+  try { attemptedAt = Number(localStorage.getItem(key) || 0); } catch { return; }
+  const remaining = attemptedAt > 0 ? attemptedAt + cooldownMs - Date.now() : 0;
+  if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining));
+  try { localStorage.setItem(key, String(Date.now())); } catch { /* Reload protection is best-effort in restricted browsers. */ }
 }
 
 async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
