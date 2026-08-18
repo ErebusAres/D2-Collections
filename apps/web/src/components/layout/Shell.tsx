@@ -35,24 +35,21 @@ export function Shell() {
     queryFn: () => api<RewardsPassData>(`/api/v1/me/rewards?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
     staleTime: 60_000,
-    refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false,
-    refetchIntervalInBackground: false
+    refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false
   });
   useQuery({
     queryKey: ["recent-items", selectedCharacterId],
     queryFn: () => api<RecentItemTimelineData>(`/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
     staleTime: 30_000,
-    refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false,
-    refetchIntervalInBackground: false
+    refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false
   });
   const reportSummary = useQuery({
     queryKey: ["reports", "admin", "summary"],
     queryFn: () => api<ReportAdminSummaryData>("/api/v1/admin/reports/summary"),
     enabled: Boolean(session?.authenticated && session.roles.reportAdmin),
     staleTime: 30_000,
-    refetchInterval: HEADER_REFRESH_INTERVAL_MS,
-    refetchIntervalInBackground: false
+    refetchInterval: HEADER_REFRESH_INTERVAL_MS
   });
   const unresolvedTicketCount = reportSummary.data?.data.unresolvedCount ?? 0;
   const claimableReward = hasClaimableReward(rewards.data?.data.rewards);

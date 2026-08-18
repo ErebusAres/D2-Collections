@@ -73,7 +73,6 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     queryKey: ["session", selectedCharacterId],
     queryFn: () => api<SessionData>(`/api/v1/session${selectedCharacterId ? `?characterId=${encodeURIComponent(selectedCharacterId)}` : ""}`),
     refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false,
-    refetchIntervalInBackground: false,
     initialData: readCachedSession,
     initialDataUpdatedAt: 0,
     staleTime: 0,

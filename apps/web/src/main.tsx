@@ -18,8 +18,7 @@ if ("serviceWorker" in navigator) {
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { staleTime: 45_000, retry: shouldRetryQuery, retryDelay: queryRetryDelay, refetchOnWindowFocus: true },
-    mutations: { retry: false }
+    queries: { staleTime: 45_000, retry: shouldRetryQuery, retryDelay: queryRetryDelay }
   }
 });
 

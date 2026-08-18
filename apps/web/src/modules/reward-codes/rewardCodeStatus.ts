@@ -24,8 +24,6 @@ export function useRewardCodeStatus(membershipId: string | undefined, authentica
     enabled: Boolean(authenticated && membershipId),
     staleTime: 5 * 60_000,
     refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: true,
     retry: 1
   });
   const statuses = query.data?.data.statuses || [];

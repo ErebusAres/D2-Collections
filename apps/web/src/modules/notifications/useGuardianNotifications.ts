@@ -52,8 +52,6 @@ export function useGuardianNotifications(history = false): GuardianNotifications
     queryFn: () => api<NotificationFeedData>(`/api/v1/notifications?${history ? "history=true&limit=100" : "limit=40"}`),
     staleTime: 60_000,
     refetchInterval: autoRefresh ? 60_000 : false,
-    refetchIntervalInBackground: false,
-    refetchOnWindowFocus: true,
     retry: 1
   });
   const stateMutation = useMutation({

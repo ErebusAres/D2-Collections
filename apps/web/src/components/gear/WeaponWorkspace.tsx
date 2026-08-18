@@ -1,5 +1,5 @@
 import type { ArmorPerk, GearActionRequest, GearData, GearTag, UserPreferenceKey, WeaponItem, WeaponPerkColumn } from "@guardian-nexus/contracts";
-import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, Columns3, Hammer, Lock, LockOpen, Search, Shield, Sparkles, Star, ThumbsUp, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, Columns3, Hammer, Lock, LockOpen, Search, Shield, Sparkles, Star, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { GearTagBadge, GearTagFilter, GearTagPicker } from "./GearTagPicker";
 import { GearTierRail } from "./GearTierRail";
@@ -122,13 +122,20 @@ function WeaponTraitColumns({ weapon, ratings }: { weapon: WeaponItem; ratings?:
         const active = perk.hash === column.active?.hash;
         const recommendedModes = [rating.pve === 100 ? "PvE" : "", rating.pvp === 100 ? "PvP" : ""].filter(Boolean).join(" and ");
         return <div key={perk.hash} className={styles.weaponTraitOption} data-active={active} data-recommended={rating.recommended} title={traitRatingTitle(perk, rating, active)}>
-          <span className={styles.weaponTraitIcon}>{perk.icon ? <img src={perk.icon} alt="" /> : <Columns3 />}{rating.recommended && <ThumbsUp aria-label={`DIM recommends ${perk.name} for ${recommendedModes}`} />}</span>
+          <span className={styles.weaponTraitIcon}>{perk.icon ? <img src={perk.icon} alt="" /> : <Columns3 />}{rating.recommended && <RecommendationThumb label={`DIM recommends ${perk.name} for ${recommendedModes}`} />}</span>
           <span><b>{perk.name}</b><small>{traitRatingLabel(rating)}</small></span>
           {active && <em>Selected</em>}
         </div>;
       })}</div>
     </section>;
   })}</div>;
+}
+
+function RecommendationThumb({ label }: { label: string }) {
+  return <svg role="img" aria-label={label} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 10v12" />
+    <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+  </svg>;
 }
 
 function uniqueTraitOptions(column: WeaponPerkColumn): ArmorPerk[] {
