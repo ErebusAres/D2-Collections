@@ -169,4 +169,29 @@ describe("API client", () => {
     release(new Response(JSON.stringify({ data: { ok: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "r" }), { status: 200 }));
     await expect(Promise.all([first, second])).resolves.toEqual([expect.objectContaining({ data: { ok: true } }), expect.objectContaining({ data: { ok: true } })]);
   });
+
+  it("reuses a recent persisted activity feed after a document reload", async () => {
+    const saved = {
+      savedAt: new Date(Date.now() - 10_000).toISOString(),
+      envelope: { data: { events: ["saved"] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved-feed" }
+    };
+    offlineCache.readApiResponse.mockResolvedValue(saved);
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(api<{ events: string[] }>("/api/v1/fireteam/activity")).resolves.toEqual(saved.envelope);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the activity feed after its persisted cooldown expires", async () => {
+    offlineCache.readApiResponse.mockResolvedValue({
+      savedAt: new Date(Date.now() - 60_001).toISOString(),
+      envelope: { data: { events: ["old"] }, freshness: { state: "fresh", observedAt: "old" }, warnings: [], requestId: "old-feed" }
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: { events: ["new"] }, freshness: { state: "fresh", observedAt: "new" }, warnings: [], requestId: "new-feed" }), { status: 200 }));
+
+    await expect(api<{ events: string[] }>("/api/v1/fireteam/activity?test=expired")).resolves.toMatchObject({ data: { events: ["new"] } });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

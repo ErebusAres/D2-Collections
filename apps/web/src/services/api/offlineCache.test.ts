@@ -8,7 +8,7 @@ describe("offline cache policy", () => {
     expect(offlineCachePolicy("/api/v1/fireteam")).toBeUndefined();
     expect(offlineCachePolicy("/api/v1/fireteam?characterId=c1")).toBeUndefined();
     expect(offlineCachePolicy("/api/v1/fireteam/social")).toBeUndefined();
-    expect(offlineCachePolicy("/api/v1/fireteam/activity")).toBeUndefined();
+    expect(offlineCachePolicy("/api/v1/fireteam/activity")).toEqual({ scope: "guardian", maxAgeMs: 5 * 60_000 });
     expect(offlineCachePolicy("/api/v1/session")).toBeUndefined();
     expect(offlineCachePolicy("/api/v1/dev/probe")).toBeUndefined();
     expect(offlineCachePolicy("/api/v1/builds/123/working-draft")).toBeUndefined();

@@ -63,6 +63,7 @@ const savedReadPaths = new Map<string, string>();
 const savedReadFailures = new Map<string, number>();
 const routeCircuitBreakers = new Map<string, number>();
 const SAVED_READ_WARNING_TTL_MS = 2 * 60_000;
+const FIRETEAM_ACTIVITY_RELOAD_COOLDOWN_MS = 60_000;
 let mutationAuthHeaders: (() => HeadersInit) | undefined;
 let hydratedMutationScope = "";
 let activeMembershipId = "";
@@ -100,6 +101,10 @@ export function api<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelop
 }
 
 async function performReadRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
+  if ((path.split("?", 1)[0] || path) === "/api/v1/fireteam/activity") {
+    const cooldownResponse = await readReloadCooldownResponse<T>(path);
+    if (cooldownResponse) return cooldownResponse;
+  }
   try {
     const incoming = await performRequest<T>(path, init);
     const previous = lastSuccessfulReads.get(path);
@@ -137,6 +142,16 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
       warnings: [...savedEnvelope.warnings.filter((warning) => !warning.startsWith("Showing saved Guardian data")), savedWarning]
     };
   }
+}
+
+async function readReloadCooldownResponse<T>(path: string): Promise<ApiEnvelope<T> | undefined> {
+  const cached = lastSuccessfulReads.get(path) as { envelope: ApiEnvelope<T>; savedAt: string } | undefined
+    || await readApiResponse<T>(path).catch(() => undefined);
+  if (!cached) return undefined;
+  const savedAt = Date.parse(cached.savedAt);
+  if (!Number.isFinite(savedAt) || Date.now() - savedAt >= FIRETEAM_ACTIVITY_RELOAD_COOLDOWN_MS) return undefined;
+  lastSuccessfulReads.set(path, cached as { envelope: ApiEnvelope<unknown>; savedAt: string });
+  return cached.envelope;
 }
 
 async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {

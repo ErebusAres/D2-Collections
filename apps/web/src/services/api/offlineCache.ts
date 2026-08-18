@@ -51,9 +51,10 @@ export function offlineCachePolicy(path: string): CachePolicy | undefined {
     return { scope: "public", maxAgeMs: 30 * 24 * 60 * 60_000 };
   }
   if (pathname.includes("/working-draft") || pathname.startsWith("/api/v1/dev/") || pathname === "/api/v1/session" || pathname.startsWith("/api/v1/auth/")) return undefined;
-  // Live Fireteam membership, sharing, and activity are never safe offline
-  // snapshots. React Query retains the last accepted result during a transient
-  // refetch failure without allowing an older persisted payload to replace it.
+  // Fireteam activity is a non-authoritative event feed and may be retained
+  // briefly so a document reload can honor its polling cooldown. Live Fireteam
+  // membership and sharing are never restored from an offline snapshot.
+  if (pathname === "/api/v1/fireteam/activity") return { scope: "guardian", maxAgeMs: 5 * 60_000 };
   if (pathname === "/api/v1/me/quests") return { scope: "guardian", maxAgeMs: 24 * 60 * 60_000 };
   if (pathname === "/api/v1/matrix") return { scope: "guardian", maxAgeMs: 7 * 24 * 60 * 60_000 };
   if (pathname.startsWith("/api/v1/me/")) return { scope: "guardian", maxAgeMs: 7 * 24 * 60 * 60_000 };
