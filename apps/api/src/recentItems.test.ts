@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition, observationChanged, readRecentItems } from "./recentItems";
+import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition, missingGearObservationKeys, observationChanged, readRecentItems } from "./recentItems";
 
 describe("recent item timeline transitions", () => {
   const now = "2026-08-08T12:00:00.000Z";
@@ -21,6 +21,16 @@ describe("recent item timeline transitions", () => {
     const gear: any = { key: "gear:existing", kind: "gear", state: "weapon", quantity: 1, metadata: { itemHash: "10", instanceId: "existing", name: "Existing Rifle", gear: { firstSeenAt: now } } };
     expect(eventForTransition(gear, undefined, true, now)).toBeUndefined();
     expect(eventForTransition(gear, undefined, false, now)).toMatchObject({ kind: "weapon-found", instanceId: "existing" });
+  });
+
+  it("prunes deleted physical gear without removing catalyst or material history", () => {
+    const previous = [
+      { observation_key: "gear:owned", observation_kind: "gear" as const },
+      { observation_key: "gear:deleted", observation_kind: "gear" as const },
+      { observation_key: "catalyst:2", observation_kind: "catalyst" as const },
+      { observation_key: "inventory:3", observation_kind: "inventory" as const }
+    ];
+    expect(missingGearObservationKeys(previous, new Set(["gear:owned"]))).toEqual(["gear:deleted"]);
   });
 
   it("emits only the positive material delta so rapid observations can stack", () => {

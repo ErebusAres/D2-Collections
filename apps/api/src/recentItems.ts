@@ -87,6 +87,14 @@ export async function observeRecentItems(input: {
   const previous = new Map((previousResult.results || []).map((row) => [row.observation_key, row]));
   const firstAccountObservation = previous.size === 0;
   const currentKeys = new Set(observations.map((observation) => observation.key));
+  const missingGearKeys = missingGearObservationKeys(previous.values(), currentKeys);
+  for (let offset = 0; offset < missingGearKeys.length; offset += 40) {
+    await input.env.DB.batch(missingGearKeys.slice(offset, offset + 40).flatMap((key) => [
+      input.env.DB.prepare("DELETE FROM recent_item_events WHERE membership_id = ? AND source_key = ?").bind(input.membershipId, key),
+      input.env.DB.prepare("DELETE FROM recent_item_observations WHERE membership_id = ? AND observation_key = ?").bind(input.membershipId, key)
+    ]));
+  }
+  missingGearKeys.forEach((key) => previous.delete(key));
   for (const prior of previous.values()) {
     if (!inventoryAvailable || prior.observation_kind !== "inventory" || currentKeys.has(prior.observation_key)) continue;
     let metadata: Record<string, unknown> = {};
@@ -132,6 +140,20 @@ export async function observeRecentItems(input: {
     firstObservationEstablished: firstAccountObservation,
     observedAt: now
   };
+}
+
+export function missingGearObservationKeys(previous: Iterable<Pick<ObservationRow, "observation_key" | "observation_kind">>, currentKeys: ReadonlySet<string>): string[] {
+  return [...previous]
+    .filter((row) => row.observation_kind === "gear" && !currentKeys.has(row.observation_key))
+    .map((row) => row.observation_key);
+}
+
+export async function removeRecentGearItem(membershipId: string, instanceId: string, env: Env): Promise<void> {
+  const sourceKey = `gear:${instanceId}`;
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM recent_item_events WHERE membership_id = ? AND source_key = ?").bind(membershipId, sourceKey),
+    env.DB.prepare("DELETE FROM recent_item_observations WHERE membership_id = ? AND observation_key = ?").bind(membershipId, sourceKey)
+  ]);
 }
 
 export function observationChanged(observation: Pick<Observation, "kind" | "state" | "quantity" | "metadata">, prior?: Pick<ObservationRow, "observation_kind" | "state_value" | "quantity" | "metadata_json">): boolean {
