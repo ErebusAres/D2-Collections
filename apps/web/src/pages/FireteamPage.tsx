@@ -15,6 +15,7 @@ import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLo
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
 import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
+import { FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -57,6 +58,7 @@ export function FireteamPage() {
   const journeyIds = useMemo(() => trackedPreference(preferences["journey.tracked"]), [preferences]);
   const collectionIds = useMemo(() => trackedPreference(preferences["collection.tracked"]), [preferences]);
   const trackedBuilds = useMemo(() => parseTrackedBuilds(preferences["buildAdvisor.trackedBuilds.v1"]), [preferences]);
+  const activityFeedView = parseActivityFeedView(preferences["fireteam.activityFeedView.v1"]);
   const showRecentLoot = preferences["fireteam.recentLoot.v1"] !== "off";
   const recentItems = useQuery({
     queryKey: ["recent-items", selectedCharacterId],
@@ -68,8 +70,9 @@ export function FireteamPage() {
   const activityFeed = useQuery({
     queryKey: ["fireteam-activity", session?.guardian?.membershipId, selectedCharacterId],
     queryFn: () => api<NonNullable<FireteamData["activityFeed"]>>("/api/v1/fireteam/activity"),
-    enabled: Boolean(session?.authenticated),
-    refetchInterval: 10_000,
+    enabled: Boolean(session?.authenticated && activityFeedView !== "hidden"),
+    staleTime: FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS,
+    refetchInterval: FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS,
     refetchIntervalInBackground: false
   });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["recent-items", selectedCharacterId] }) });
@@ -78,7 +81,6 @@ export function FireteamPage() {
   const [trackedItemOrder, setTrackedItemOrder] = useState(preferenceTrackedItemOrder);
   useEffect(() => setTrackedItemOrder(preferenceTrackedItemOrder), [preferences["fireteam.trackedOrder"]]);
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
-  const activityFeedView = parseActivityFeedView(preferences["fireteam.activityFeedView.v1"]);
   const [manualRemovingKey, setManualRemovingKey] = useState("");
   const share = useMutation({
     mutationFn: ({ mode, sitePinnedQuestIds = pinnedIds, siteTrackedGuardianRankIds = guardianRankIds, siteTrackedJourneyIds = journeyIds, siteTrackedCollectionIds = collectionIds, siteTrackedBuilds = trackedBuilds, hiddenTrackedItemKeys: hiddenKeys = hiddenTrackedItemKeys, activityFeedEnabled }: ShareVariables) => queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedJourneyIds, siteTrackedCollectionIds, siteTrackedBuilds, hiddenTrackedItemKeys: hiddenKeys, ...(activityFeedEnabled === undefined ? {} : { activityFeedEnabled }), mode }) }),

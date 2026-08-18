@@ -64,6 +64,19 @@ describe("Fireteam tracked items", () => {
     expect(primaryCalls()).toBe(1);
   });
 
+  it("does not hammer the activity feed every ten seconds", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    await screen.findByText("Shared tracked items");
+    const activityCalls = () => vi.mocked(api).mock.calls.filter(([path]) => path === "/api/v1/fireteam/activity").length;
+    expect(activityCalls()).toBe(1);
+    await act(async () => { vi.advanceTimersByTime(10_000); });
+    expect(activityCalls()).toBe(1);
+    await act(async () => { vi.advanceTimersByTime(50_000); });
+    await waitFor(() => expect(activityCalls()).toBe(2));
+  });
+
   it("keeps recent tagged loot interactive before the tracked-item segment", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
       if (String(path).startsWith("/api/v1/me/recent-items")) return recentItemsEnvelope() as never;
