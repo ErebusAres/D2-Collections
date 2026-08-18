@@ -45,6 +45,7 @@ export interface WeaponRatingDatabase {
   source: { name: string };
   method: { columnWeights: number[] };
   coverage: { manifestWeapons: number; reviewedWeapons: number; supportedTypes: number; reviewedTypes: number };
+  perkAliases?: Record<string, string>;
   items: Record<string, RatingRecord>;
   families?: Record<string, TypeRecord>;
   types: Record<string, TypeRecord>;
@@ -73,21 +74,21 @@ export function loadWeaponRatings(): Promise<WeaponRatingDatabase | undefined> {
 
 export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): WeaponValue {
   if (!database) return { state: "unavailable", reasons: ["The community rating catalog is still loading or unavailable. This is not a low score."] };
-  const active = alignActiveColumns(weapon);
-  const activeCount = active.filter(Boolean).length;
+  const selectable = alignSelectableColumns(weapon);
+  const selectableCount = selectable.filter((column) => column.length).length;
   const partial = weapon.rollDataState !== "complete";
-  if (!activeCount) return { state: "incomplete", reasons: ["Bungie has not returned an identifiable active rating perk yet. The weapon will be re-evaluated automatically after a fuller snapshot."], reviewedAt: database.reviewedAt };
+  if (!selectableCount) return { state: "incomplete", reasons: ["Bungie has not returned an identifiable selectable rating perk yet. The weapon will be re-evaluated automatically after a fuller snapshot."], reviewedAt: database.reviewedAt };
 
   const record = database.items[weapon.itemHash];
   if (record) {
-    const pveResult = scoreWeaponMode(record.pve, active, database.method.columnWeights);
-    const pvpResult = scoreWeaponMode(record.pvp, active, database.method.columnWeights);
+    const pveResult = scoreWeaponMode(record.pve, selectable, database.method.columnWeights, database.perkAliases);
+    const pvpResult = scoreWeaponMode(record.pvp, selectable, database.method.columnWeights, database.perkAliases);
     return scoredValue(pveResult, pvpResult, {
       basis: "weapon",
-      confidence: partial ? (activeCount >= 3 ? "medium" : "low") : "high",
+      confidence: partial || selectableCount < 4 ? (selectableCount >= 3 ? "medium" : "low") : "high",
       reason: partial
-        ? `Bungie returned only part of the active roll, so this provisional score compares the ${activeCount} known rating column${activeCount === 1 ? "" : "s"} with DIM recommendations for this exact weapon. It will update when more socket data arrives.`
-        : "Compared the active perks with DIM recommendations for this exact weapon while preserving curated trait pairings. Each specified perk column has equal weight.",
+        ? `Bungie returned only part of the roll, so this provisional score compares all selectable options in the ${selectableCount} known rating column${selectableCount === 1 ? "" : "s"} with DIM recommendations for this exact weapon. It will update when more socket data arrives.`
+        : "Compared every selectable option in the four DIM wishlist perk columns for this exact weapon while preserving curated trait pairings. Base and enhanced versions of a trait are treated as equivalent.",
       source: database.source.name,
       reviewedAt: database.reviewedAt,
       totalColumns: 4
@@ -96,8 +97,8 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
 
   const family = database.families?.[familyKey(weapon)];
   if (family) {
-    const pveResult = scoreTypeMode(family.pve, active, database.method.columnWeights);
-    const pvpResult = scoreTypeMode(family.pvp, active, database.method.columnWeights);
+    const pveResult = scoreTypeMode(family.pve, selectable, database.method.columnWeights, database.perkAliases);
+    const pvpResult = scoreTypeMode(family.pvp, selectable, database.method.columnWeights, database.perkAliases);
     const compared = Math.max(pveResult?.compared || 0, pvpResult?.compared || 0);
     if (compared) {
       const reviewedWeapons = Math.max(family.pve.weapons, family.pvp.weapons);
@@ -105,7 +106,7 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
         basis: "weapon-family",
         confidence: !partial && compared >= 3 && reviewedWeapons >= 2 ? "medium" : "low",
         reason: partial
-          ? `This provisional score uses the visible active perks and recommendations for ${reviewedWeapons} reviewed version${reviewedWeapons === 1 ? "" : "s"} of ${weapon.name}. It will update when Bungie returns more socket data.`
+          ? `This provisional score uses the visible selectable perks and recommendations for ${reviewedWeapons} reviewed version${reviewedWeapons === 1 ? "" : "s"} of ${weapon.name}. It will update when Bungie returns more socket data.`
           : `No exact DIM entry exists for this item hash, so this score uses recommendations for ${reviewedWeapons} reviewed version${reviewedWeapons === 1 ? "" : "s"} of the same named weapon before considering broader ${weapon.itemType} evidence.`,
         source: database.source.name,
         reviewedAt: database.reviewedAt,
@@ -116,17 +117,17 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
 
   const type = database.types[weapon.itemType];
   if (!type) return { state: "unavailable", reasons: [`No trustworthy item-specific or ${weapon.itemType || "weapon-type"} comparison evidence is available yet. This is not a low score.`], source: database.source.name, reviewedAt: database.reviewedAt };
-  const pveResult = scoreTypeMode(type.pve, active, database.method.columnWeights);
-  const pvpResult = scoreTypeMode(type.pvp, active, database.method.columnWeights);
+  const pveResult = scoreTypeMode(type.pve, selectable, database.method.columnWeights, database.perkAliases);
+  const pvpResult = scoreTypeMode(type.pvp, selectable, database.method.columnWeights, database.perkAliases);
   const compared = Math.max(pveResult?.compared || 0, pvpResult?.compared || 0);
-  if (!compared) return { state: "unavailable", reasons: [`DIM has ${weapon.itemType} recommendations, but none provide comparable evidence for this roll's active perks. Unknown is not bad.`], source: database.source.name, reviewedAt: database.reviewedAt };
+  if (!compared) return { state: "unavailable", reasons: [`DIM has ${weapon.itemType} recommendations, but none provide comparable evidence for this roll's selectable perks. Unknown is not bad.`], source: database.source.name, reviewedAt: database.reviewedAt };
   const reviewedWeapons = Math.max(type.pve.weapons, type.pvp.weapons);
   const confidence: WeaponRatingConfidence = !partial && compared >= 3 && reviewedWeapons >= 20 ? "medium" : "low";
   return scoredValue(pveResult, pvpResult, {
     basis: "weapon-type",
     confidence,
     reason: partial
-      ? `This provisional score uses the visible active perks and lower-confidence ${weapon.itemType} evidence across ${reviewedWeapons} reviewed weapons. It will update when Bungie returns more socket data.`
+      ? `This provisional score uses the visible selectable perks and lower-confidence ${weapon.itemType} evidence across ${reviewedWeapons} reviewed weapons. It will update when Bungie returns more socket data.`
       : `No exact DIM entry exists, so this is a lower-confidence ${weapon.itemType} comparison based on perk endorsement strength across ${reviewedWeapons} reviewed weapons.`,
     source: database.source.name,
     reviewedAt: database.reviewedAt,
@@ -135,21 +136,21 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
 }
 
 /**
- * Rates one selectable trait independently of the currently active roll.
- * Only the two weapon trait columns are accepted; barrels, magazines, mods,
- * origin traits, and masterworks deliberately remain outside this evaluator.
+ * Rates one selectable perk independently of the currently selected option.
+ * The four DIM wishlist columns are accepted; mods, origin traits, and
+ * masterworks deliberately remain outside this evaluator.
  */
-export function evaluateWeaponTrait(weapon: WeaponItem, ratingColumn: 2 | 3, perkHash: string, database = loadedDatabase): WeaponTraitValue {
+export function evaluateWeaponPerk(weapon: WeaponItem, ratingColumn: 0 | 1 | 2 | 3, perkHash: string, database = loadedDatabase): WeaponTraitValue {
   if (!database) return { state: "unavailable", recommended: false, reasons: ["The community rating catalog is still loading or unavailable. This is not a negative rating."] };
 
   const record = database.items[weapon.itemHash];
   if (record) {
-    const pve = scoreExactTrait(record.pve, ratingColumn, perkHash);
-    const pvp = scoreExactTrait(record.pvp, ratingColumn, perkHash);
+    const pve = scoreExactPerk(record.pve, ratingColumn, perkHash, database.perkAliases);
+    const pvp = scoreExactPerk(record.pvp, ratingColumn, perkHash, database.perkAliases);
     return scoredTraitValue(pve, pvp, {
       basis: "weapon",
       confidence: "high",
-      reason: "Compared this selectable trait with DIM curator recommendations for this exact weapon.",
+      reason: "Compared this selectable perk with DIM curator recommendations for this exact weapon. Base and enhanced versions are treated as equivalent.",
       source: database.source.name,
       reviewedAt: database.reviewedAt
     });
@@ -157,8 +158,8 @@ export function evaluateWeaponTrait(weapon: WeaponItem, ratingColumn: 2 | 3, per
 
   const family = database.families?.[familyKey(weapon)];
   if (family) {
-    const pve = scoreEvidenceTrait(family.pve, ratingColumn, perkHash);
-    const pvp = scoreEvidenceTrait(family.pvp, ratingColumn, perkHash);
+    const pve = scoreEvidencePerk(family.pve, ratingColumn, perkHash, database.perkAliases);
+    const pvp = scoreEvidencePerk(family.pvp, ratingColumn, perkHash, database.perkAliases);
     if (pve || pvp) return scoredTraitValue(pve, pvp, {
       basis: "weapon-family",
       confidence: "low",
@@ -169,8 +170,8 @@ export function evaluateWeaponTrait(weapon: WeaponItem, ratingColumn: 2 | 3, per
   }
 
   const type = database.types[weapon.itemType];
-  const pve = scoreEvidenceTrait(type?.pve, ratingColumn, perkHash);
-  const pvp = scoreEvidenceTrait(type?.pvp, ratingColumn, perkHash);
+  const pve = scoreEvidencePerk(type?.pve, ratingColumn, perkHash, database.perkAliases);
+  const pvp = scoreEvidencePerk(type?.pvp, ratingColumn, perkHash, database.perkAliases);
   if (pve || pvp) return scoredTraitValue(pve, pvp, {
     basis: "weapon-type",
     confidence: "low",
@@ -182,56 +183,59 @@ export function evaluateWeaponTrait(weapon: WeaponItem, ratingColumn: 2 | 3, per
   return {
     state: "unavailable",
     recommended: false,
-    reasons: ["No trustworthy curator evidence is available for this selectable trait. Unrated does not mean bad."],
+    reasons: ["No trustworthy curator evidence is available for this selectable perk. Unrated does not mean bad."],
     source: database.source.name,
     reviewedAt: database.reviewedAt
   };
 }
 
-function alignActiveColumns(weapon: WeaponItem): Array<string | undefined> {
-  const mapped = weapon.perkColumns.filter((column) => column.ratingColumn !== undefined && column.active?.hash);
+function alignSelectableColumns(weapon: WeaponItem): string[][] {
+  const mapped = weapon.perkColumns.filter((column) => column.ratingColumn !== undefined);
   if (mapped.length) {
-    const result: Array<string | undefined> = [undefined, undefined, undefined, undefined];
-    mapped.forEach((column) => { if (column.ratingColumn !== undefined) result[column.ratingColumn] = column.active?.hash; });
+    const result: string[][] = [[], [], [], []];
+    mapped.forEach((column) => {
+      if (column.ratingColumn === undefined) return;
+      result[column.ratingColumn] = uniqueHashes(column.active ? [column.active.hash, ...column.options.map((option) => option.hash)] : column.options.map((option) => option.hash));
+    });
     return result;
   }
-  const hashes = weapon.perkColumns.map((column) => column.active?.hash).filter((hash): hash is string => Boolean(hash)).slice(-4);
-  return [...Array(Math.max(0, 4 - hashes.length)).fill(undefined), ...hashes];
+  const columns = weapon.perkColumns.map((column) => uniqueHashes(column.active ? [column.active.hash, ...column.options.map((option) => option.hash)] : column.options.map((option) => option.hash))).filter((column) => column.length).slice(-4);
+  return [...Array.from({ length: Math.max(0, 4 - columns.length) }, () => [] as string[]), ...columns];
 }
 
 function familyKey(weapon: WeaponItem): string {
   return `${weapon.itemType}::${(weapon.name || "").trim().toLocaleLowerCase().replace(/\s+/g, " ")}`;
 }
 
-function scoreWeaponMode(bucket: RatingBucket, active: Array<string | undefined>, weights: number[]): ModeScore | undefined {
+function scoreWeaponMode(bucket: RatingBucket, selectable: string[][], weights: number[], aliases?: Record<string, string>): ModeScore | undefined {
   if (!bucket?.recommendations) return undefined;
   const traitPairs = bucket.traitPairs?.length ? bucket.traitPairs : [","];
   const candidates = traitPairs.flatMap((encodedPair) => {
     const traits = encodedPair.split(",");
-    const recommended: Array<string | undefined> = [
-      active[0] && bucket.columns[0]?.includes(active[0]) ? active[0] : bucket.columns[0]?.[0],
-      active[1] && bucket.columns[1]?.includes(active[1]) ? active[1] : bucket.columns[1]?.[0],
-      traits[0] || undefined,
-      traits[1] || undefined
+    const recommended: Array<string[] | undefined> = [
+      bucket.columns[0],
+      bucket.columns[1],
+      traits[0] ? [traits[0]] : undefined,
+      traits[1] ? [traits[1]] : undefined
     ];
     let earned = 0; let possible = 0; let compared = 0; let matched = 0;
-    recommended.forEach((perk, index) => {
-      if (!perk || !active[index]) return;
+    recommended.forEach((perks, index) => {
+      if (!perks?.length || !selectable[index]?.length) return;
       const weight = weights[index] || 1;
       possible += weight; compared += 1;
-      if (active[index] === perk) { earned += weight; matched += 1; }
+      if (perks.some((perk) => selectable[index]!.some((candidate) => hashesEquivalent(candidate, perk, aliases)))) { earned += weight; matched += 1; }
     });
     return possible ? [{ score: Math.round(earned / possible * 100), compared, matched }] : [];
   });
   return candidates.sort((left, right) => right.score - left.score || right.matched - left.matched || right.compared - left.compared)[0];
 }
 
-function scoreTypeMode(bucket: TypeBucket, active: Array<string | undefined>, weights: number[]): ModeScore | undefined {
+function scoreTypeMode(bucket: TypeBucket, selectable: string[][], weights: number[], aliases?: Record<string, string>): ModeScore | undefined {
   if (!bucket?.weapons) return undefined;
   let earned = 0; let possible = 0; let compared = 0; let matched = 0;
-  active.forEach((perk, index) => {
-    const evidence = perk ? bucket.columns[index]?.[perk] : undefined;
-    if (evidence === undefined) return;
+  selectable.forEach((perks, index) => {
+    const evidence = Math.max(-1, ...perks.map((perk) => evidenceFor(bucket.columns[index], perk, aliases) ?? -1));
+    if (evidence < 0) return;
     const weight = weights[index] || 1;
     possible += weight; earned += weight * evidence / 100; compared += 1;
     if (evidence >= 50) matched += 1;
@@ -241,20 +245,37 @@ function scoreTypeMode(bucket: TypeBucket, active: Array<string | undefined>, we
 
 interface TraitModeScore { score: number; pairings?: number }
 
-function scoreExactTrait(bucket: RatingBucket, ratingColumn: 2 | 3, perkHash: string): TraitModeScore | undefined {
+function scoreExactPerk(bucket: RatingBucket, ratingColumn: 0 | 1 | 2 | 3, perkHash: string, aliases?: Record<string, string>): TraitModeScore | undefined {
   if (!bucket?.recommendations || !bucket.columns[ratingColumn]?.length) return undefined;
-  const recommended = bucket.columns[ratingColumn]!.includes(perkHash);
-  const traitPosition = ratingColumn - 2;
-  const pairings = recommended
-    ? (bucket.traitPairs || []).filter((pair) => pair.split(",")[traitPosition] === perkHash).length
+  const recommended = bucket.columns[ratingColumn]!.some((candidate) => hashesEquivalent(candidate, perkHash, aliases));
+  const traitPosition = ratingColumn >= 2 ? ratingColumn - 2 : undefined;
+  const pairings = recommended && traitPosition !== undefined
+    ? (bucket.traitPairs || []).filter((pair) => hashesEquivalent(pair.split(",")[traitPosition] || "", perkHash, aliases)).length
     : 0;
   return { score: recommended ? 100 : 0, pairings };
 }
 
-function scoreEvidenceTrait(bucket: TypeBucket | undefined, ratingColumn: 2 | 3, perkHash: string): TraitModeScore | undefined {
+function scoreEvidencePerk(bucket: TypeBucket | undefined, ratingColumn: 0 | 1 | 2 | 3, perkHash: string, aliases?: Record<string, string>): TraitModeScore | undefined {
   if (!bucket?.weapons) return undefined;
-  const score = bucket.columns[ratingColumn]?.[perkHash];
+  const score = evidenceFor(bucket.columns[ratingColumn], perkHash, aliases);
   return score === undefined ? undefined : { score };
+}
+
+function uniqueHashes(hashes: Array<string | undefined>): string[] {
+  return [...new Set(hashes.filter((hash): hash is string => Boolean(hash)))];
+}
+
+function canonicalHash(hash: string, aliases?: Record<string, string>): string {
+  return aliases?.[hash] || hash;
+}
+
+function hashesEquivalent(left: string, right: string, aliases?: Record<string, string>): boolean {
+  return canonicalHash(left, aliases) === canonicalHash(right, aliases);
+}
+
+function evidenceFor(column: Record<string, number> | undefined, perkHash: string, aliases?: Record<string, string>): number | undefined {
+  if (!column) return undefined;
+  return column[perkHash] ?? column[canonicalHash(perkHash, aliases)];
 }
 
 function scoredTraitValue(
@@ -266,7 +287,7 @@ function scoredTraitValue(
   if (!known.length) return {
     state: "unavailable",
     recommended: false,
-    reasons: ["No applicable PvE or PvP curator evidence is available for this selectable trait. Unrated does not mean bad."],
+    reasons: ["No applicable PvE or PvP curator evidence is available for this selectable perk. Unrated does not mean bad."],
     source: meta.source,
     reviewedAt: meta.reviewedAt
   };

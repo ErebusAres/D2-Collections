@@ -20,8 +20,8 @@ dimwishlist:item=300&perks=1,2,3,4
 dimwishlist:item=100&perks=9,9,9,9
 `;
 
-test("compiles column-aware item records and type fallbacks", () => {
-  const result = compileWeaponRatings(manifest, source, "2026-08-08");
+test("compiles column-aware item records, DIM perk aliases, and type fallbacks", () => {
+  const result = compileWeaponRatings(manifest, source, "2026-08-08", { "3": 33 });
   assert.deepEqual(result.coverage, { manifestWeapons: 3, reviewedWeapons: 2, supportedTypes: 1, reviewedTypes: 1 });
   assert.deepEqual(result.items["100"].pve.columns, [["1"], ["2"], ["3"], ["4"]]);
   assert.deepEqual(result.items["100"].pve.traitPairs, ["3,4"]);
@@ -32,5 +32,6 @@ test("compiles column-aware item records and type fallbacks", () => {
   assert.equal(result.families["Test Rifle::alpha"].pve.weapons, 1);
   assert.deepEqual(result.families["Test Rifle::alpha"].pve.columns[3], { "4": 100 });
   assert.equal(result.items["300"], undefined);
+  assert.deepEqual(result.perkAliases, { "33": "3" });
   assert.equal(result.schemaVersion, 4);
 });

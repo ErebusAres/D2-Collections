@@ -4,9 +4,10 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const SOURCE_URL = "https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt";
+export const ENHANCED_PERKS_URL = "https://raw.githubusercontent.com/DestinyItemManager/DIM/master/src/data/d2/trait-to-enhanced-trait.json";
 export const COLUMN_WEIGHTS = [1, 1, 1, 1];
 
-export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toISOString().slice(0, 10)) {
+export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toISOString().slice(0, 10), enhancedPerks = {}) {
   const definitions = Object.values(manifest.gearItemDefinitions || {}).filter((entry) => Number(entry.itemType) === 3);
   const currentWeapons = new Map(definitions.map((entry) => [String(entry.hash), {
     itemType: String(entry.itemTypeDisplayName || "Unknown weapon"),
@@ -52,12 +53,14 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
       name: "DIM default community wishlist (Voltron)",
       url: SOURCE_URL,
       repository: "https://github.com/48klocs/dim-wish-list-sources",
-      license: "MIT"
+      license: "MIT",
+      matchingLogic: "DIM selectable-socket matching with base/enhanced trait equivalence",
+      matchingLogicUrl: ENHANCED_PERKS_URL
     },
     method: {
       columnWeights: COLUMN_WEIGHTS,
       tiers: { excellent: 90, strong: 75, mixed: 50, weak: 25 },
-      note: "Exact scores preserve DIM-recommended trait pairings and compare all specified perk columns with equal weight. Unreviewed reissues first use clearly labeled same-name weapon-family evidence, then broader weapon-type evidence; neither is presented as an item-specific review."
+      note: "Exact scores preserve DIM-recommended trait pairings and compare every selectable option in the four wishlist perk columns with equal weight. Base and enhanced trait hashes are equivalent, matching DIM. Unreviewed reissues first use clearly labeled same-name weapon-family evidence, then broader weapon-type evidence; neither is presented as an item-specific review."
     },
     coverage: {
       manifestWeapons: definitions.length,
@@ -65,6 +68,7 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
       supportedTypes: typeNames.length,
       reviewedTypes: Object.keys(types).length
     },
+    perkAliases: Object.fromEntries(Object.entries(enhancedPerks).map(([base, enhanced]) => [String(enhanced), String(base)]).sort(([a], [b]) => Number(a) - Number(b))),
     items: serializedItems,
     families,
     types
@@ -141,6 +145,9 @@ function serializeTypeBucket(value) {
 export async function main() {
   const inputArg = process.argv.find((value) => value.startsWith("--input="))?.slice(8);
   const inputPath = inputArg || join(tmpdir(), "guardian-nexus-voltron.txt");
+  const enhancedResponse = await fetch(ENHANCED_PERKS_URL, { headers: { "User-Agent": "Guardian-Nexus-rating-sync" } });
+  if (!enhancedResponse.ok) throw new Error(`DIM enhanced-perk mapping download failed with HTTP ${enhancedResponse.status}.`);
+  const enhancedPerks = await enhancedResponse.json();
   if (!inputArg) {
     const response = await fetch(SOURCE_URL, { headers: { "User-Agent": "Guardian-Nexus-rating-sync" } });
     if (!response.ok) throw new Error(`Wishlist download failed with HTTP ${response.status}.`);
@@ -148,7 +155,7 @@ export async function main() {
   }
   const manifest = JSON.parse(await readFile(new URL("../apps/web/public/data/gear-manifest.json", import.meta.url), "utf8"));
   const text = await readFile(inputPath, "utf8");
-  const output = compileWeaponRatings(manifest, text);
+  const output = compileWeaponRatings(manifest, text, new Date().toISOString().slice(0, 10), enhancedPerks);
   await writeFile(new URL("../apps/web/public/data/weapon-value.v4.json", import.meta.url), `${JSON.stringify(output)}\n`);
   console.log(`Wrote ${output.coverage.reviewedWeapons}/${output.coverage.manifestWeapons} weapon records and ${output.coverage.reviewedTypes}/${output.coverage.supportedTypes} type profiles from ${SOURCE_URL}.`);
 }

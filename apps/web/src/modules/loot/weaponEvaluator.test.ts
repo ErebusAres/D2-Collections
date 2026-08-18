@@ -1,7 +1,7 @@
 import type { WeaponItem } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import database from "../../../public/data/weapon-value.v4.json";
-import { evaluateWeapon, evaluateWeaponTrait, qualityFor, type WeaponRatingDatabase } from "./weaponEvaluator";
+import { evaluateWeapon, evaluateWeaponPerk, qualityFor, type WeaponRatingDatabase } from "./weaponEvaluator";
 
 const ratings = database as unknown as WeaponRatingDatabase;
 
@@ -33,6 +33,15 @@ describe("weapon evaluator", () => {
     const result = evaluateWeapon(weapon("877384", ["839105230", "106909392", "3824105627", "1134488199"]), ratings);
     expect(result).toMatchObject({ state: "scored", pve: 100, pvp: 50, overall: 75, quality: "strong", confidence: "high", basis: "weapon" });
     expect(result.source).toContain("DIM");
+  });
+
+  it("scores every selectable option instead of only the currently selected plugs", () => {
+    const candidate = weapon("877384", ["bad-barrel", "bad-mag", "bad-trait-a", "bad-trait-b"]);
+    const recommended = ["839105230", "106909392", "3824105627", "1134488199"];
+    candidate.perkColumns.forEach((column, index) => {
+      column.options = [{ hash: recommended[index]!, name: recommended[index]!, description: "" }];
+    });
+    expect(evaluateWeapon(candidate, ratings)).toMatchObject({ state: "scored", pve: 100, overall: 75, confidence: "high", basis: "weapon" });
   });
 
   it("uses equal column weights while preserving the recommended trait pairing", () => {
@@ -93,16 +102,42 @@ describe("weapon evaluator", () => {
     candidate.perkColumns[0]!.ratingColumn = 2;
     candidate.perkColumns[1]!.ratingColumn = 3;
 
-    expect(evaluateWeaponTrait(candidate, 2, "3824105627", ratings)).toMatchObject({
+    expect(evaluateWeaponPerk(candidate, 2, "3824105627", ratings)).toMatchObject({
       state: "scored", pve: 100, pvp: 0, overall: 50, recommended: true, basis: "weapon", confidence: "high", pvePairings: 2
     });
-    expect(evaluateWeaponTrait(candidate, 2, "900000003", ratings)).toMatchObject({
+    expect(evaluateWeaponPerk(candidate, 2, "900000003", ratings)).toMatchObject({
       state: "scored", pve: 0, pvp: 0, overall: 0, recommended: false, basis: "weapon"
     });
   });
 
+  it("rates barrel and magazine columns and matches enhanced traits using DIM aliases", () => {
+    const synthetic: WeaponRatingDatabase = {
+      schemaVersion: 4, reviewedAt: "2026-08-18", source: { name: "DIM" }, method: { columnWeights: [1, 1, 1, 1] },
+      coverage: { manifestWeapons: 1, reviewedWeapons: 1, supportedTypes: 1, reviewedTypes: 1 }, types: {}, perkAliases: { enhanced: "base" },
+      items: { "42": { itemType: "Sword", pve: { recommendations: 1, columns: [["blade"], ["guard"], ["base"], ["damage"]], traitPairs: ["base,damage"] }, pvp: { recommendations: 0, columns: [[], [], [], []], traitPairs: [] } } }
+    };
+    const candidate = weapon("42", ["blade", "guard", "enhanced", "damage"], "Sword");
+    expect(evaluateWeapon(candidate, synthetic)).toMatchObject({ state: "scored", pve: 100, overall: 100, confidence: "high" });
+    expect(evaluateWeaponPerk(candidate, 0, "blade", synthetic)).toMatchObject({ state: "scored", pve: 100, recommended: true });
+    expect(evaluateWeaponPerk(candidate, 2, "enhanced", synthetic)).toMatchObject({ state: "scored", pve: 100, recommended: true });
+  });
+
+  it("recognizes DIM-recommended options on both Aurora Dawn item hashes", () => {
+    const aurora = weapon("2111625436", ["unpicked-blade", "unpicked-guard", "unpicked-trait-a", "unpicked-trait-b"], "Sword");
+    aurora.name = "Aurora Dawn";
+    ["938542991", "269888150", "4132187021", "3913600130"].forEach((hash, index) => {
+      aurora.perkColumns[index]!.options = [{ hash, name: hash, description: "" }];
+    });
+    expect(evaluateWeapon(aurora, ratings)).toMatchObject({ state: "scored", pve: 100, overall: 100, basis: "weapon", confidence: "high" });
+    expect(evaluateWeaponPerk(aurora, 0, "938542991", ratings)).toMatchObject({ state: "scored", pve: 100, recommended: true, basis: "weapon" });
+
+    const currentDrop = { ...aurora, itemHash: "1479562935", perkColumns: aurora.perkColumns.map((column) => ({ ...column, options: [...column.options] })) };
+    expect(evaluateWeapon(currentDrop, ratings)).toMatchObject({ state: "scored", pve: 100, overall: 100, basis: "weapon-family", confidence: "low" });
+    expect(evaluateWeaponPerk(currentDrop, 0, "938542991", ratings)).toMatchObject({ state: "scored", pve: 100, recommended: true, basis: "weapon-family" });
+  });
+
   it("keeps absent broad trait evidence unrated instead of calling it bad", () => {
     const candidate = weapon("999999999", ["900000003", "900000004"]);
-    expect(evaluateWeaponTrait(candidate, 2, "not-in-catalog", ratings)).toMatchObject({ state: "unavailable", recommended: false });
+    expect(evaluateWeaponPerk(candidate, 2, "not-in-catalog", ratings)).toMatchObject({ state: "unavailable", recommended: false });
   });
 });
