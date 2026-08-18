@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../services/api/client";
@@ -11,6 +11,7 @@ let devRole = false;
 let reportAdminRole = false;
 let editorRole = false;
 const setHighContrast = vi.fn();
+const connectionMock = vi.hoisted(() => ({ snapshot: { queued: 0, retrying: false, activeFailure: undefined as undefined | { code: string; message: string; route: string; occurredAt: string; requestId: string; status: number } } }));
 
 vi.mock("../../context/GuardianContext", () => ({
   useGuardian: () => ({
@@ -39,10 +40,10 @@ vi.mock("../../context/GuardianContext", () => ({
 }));
 
 vi.mock("../../services/api/client", () => {
-  const connectionSnapshot = { queued: 0, retrying: false };
   return {
     api: vi.fn().mockResolvedValue({ data: { rewards: [] }, freshness: { state: "fresh", observedAt: "2026-07-16T00:00:00Z" }, warnings: [], requestId: "test" }),
-    getConnectionSnapshot: () => connectionSnapshot,
+    connectionFailureReport: vi.fn(() => "copyable incident"),
+    getConnectionSnapshot: () => connectionMock.snapshot,
     subscribeConnection: () => () => undefined
   };
 });
@@ -55,6 +56,7 @@ afterEach(() => {
   devRole = false;
   reportAdminRole = false;
   editorRole = false;
+  connectionMock.snapshot.activeFailure = undefined;
   cleanup();
   vi.clearAllMocks();
 });
@@ -198,6 +200,19 @@ describe("Shell guardian identity", () => {
     const button = await screen.findByRole("button", { name: "Scroll to top" });
     fireEvent.click(button);
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+  });
+
+  it("pins a detailed copyable service incident to the window", async () => {
+    connectionMock.snapshot.activeFailure = { code: "worker_resource_limit", message: "Guardian services are temporarily over capacity.", route: "/api/v1/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", requestId: "ray-123", status: 500 };
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    renderShell(<div>Page</div>);
+
+    const banner = screen.getByRole("alert", { name: "Guardian services incident" });
+    expect(within(banner).getByText("worker_resource_limit")).toBeTruthy();
+    expect(within(banner).getByText("ray-123")).toBeTruthy();
+    fireEvent.click(within(banner).getByRole("button", { name: "Copy incident details" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("copyable incident"));
   });
 });
 

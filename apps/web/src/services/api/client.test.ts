@@ -12,7 +12,7 @@ const offlineCache = vi.hoisted(() => ({
 
 vi.mock("./offlineCache", () => offlineCache);
 
-import { api, ApiRequestError, describeApiError, queuedApi, savedReadFailureIsCurrent } from "./client";
+import { api, ApiRequestError, connectionFailureReport, describeApiError, queuedApi, savedReadFailureIsCurrent } from "./client";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -49,6 +49,10 @@ describe("API client", () => {
   it("formats a searchable error code and backend request reference for the UI", () => {
     const error = new ApiRequestError(503, { code: "server_error", message: "Guardian services failed.", requestId: "request-123" });
     expect(describeApiError(error)).toBe("Guardian services failed. Error code: server_error · Reference: request-123");
+  });
+
+  it("builds a copyable incident report with the narrowing details", () => {
+    expect(connectionFailureReport({ code: "worker_resource_limit", message: "Over capacity", route: "/api/v1/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", status: 500, requestId: "ray-123", retryAfterSeconds: 60 })).toContain("Error code: worker_resource_limit\nHTTP status: 500\nReference: ray-123\nRetry after: 60s");
   });
 
   it("assigns client-side references to network failures", async () => {

@@ -47,6 +47,8 @@
 .main { width: min(1680px, calc(100% - 72px)); margin: 0 auto; padding: 38px 0 70px; min-height: calc(100vh - 165px); }
 .footer { min-height: 36px; display: flex; flex-wrap: wrap; gap: 8px 30px; align-items: center; padding: 8px clamp(22px, 2vw, 38px); border-top: 1px solid var(--line); color: var(--faint); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }.footer span:first-child { color: var(--muted); }
 .scrollTop { position: fixed; z-index: 35; right: clamp(18px, 2vw, 34px); bottom: 28px; width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(155,231,226,.55); background: rgba(7,16,23,.94); color: var(--cyan-bright); box-shadow: 0 10px 28px rgba(0,0,0,.42), inset 0 0 16px rgba(155,231,226,.06); backdrop-filter: blur(12px); transition: transform 140ms ease, background 140ms ease, box-shadow 140ms ease; }
+.shell:has(.serviceIncident) .scrollTop{bottom:148px}
+.serviceIncident{position:fixed;z-index:70;left:50%;bottom:max(14px,env(safe-area-inset-bottom));width:min(1180px,calc(100% - 32px));transform:translateX(-50%);display:grid;grid-template-columns:auto minmax(260px,1fr) minmax(420px,1.4fr) auto;align-items:center;gap:16px;padding:14px 16px;border:1px solid rgba(255,190,75,.76);border-left:4px solid #ffb33f;background:linear-gradient(100deg,rgba(40,24,8,.98),rgba(13,18,23,.98));color:var(--ink);box-shadow:0 12px 40px rgba(0,0,0,.72),0 0 24px rgba(255,168,45,.16);backdrop-filter:blur(18px)}.serviceIncident>svg{width:25px;height:25px;color:#ffc35c;filter:drop-shadow(0 0 7px rgba(255,179,63,.55))}.incidentSummary{display:grid;gap:2px}.incidentSummary strong{font:600 18px "Barlow Condensed";letter-spacing:.04em;text-transform:uppercase;color:#ffd487}.incidentSummary span{font-size:13px;color:var(--ink)}.incidentSummary small{font-size:12px;color:var(--muted)}.serviceIncident dl{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0}.serviceIncident dl>div{min-width:0;padding-left:8px;border-left:1px solid rgba(255,190,75,.22)}.serviceIncident dt{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#dcae62}.serviceIncident dd{margin:3px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 11px ui-monospace,SFMono-Regular,Consolas,monospace;color:#fff0cf}.serviceIncident button{display:flex;align-items:center;gap:7px;min-height:38px;padding:0 13px;border:1px solid rgba(255,190,75,.55);background:rgba(255,179,63,.1);color:#ffd487;white-space:nowrap;text-transform:uppercase;font-size:11px;letter-spacing:.08em}.serviceIncident button:hover,.serviceIncident button:focus-visible{background:rgba(255,179,63,.2);border-color:#ffc35c;outline:1px solid #ffc35c;outline-offset:2px}.serviceIncident button svg{width:15px}
 .scrollTop:hover, .scrollTop:focus-visible { transform: translateY(-2px); background: rgba(155,231,226,.13); box-shadow: 0 12px 30px rgba(0,0,0,.48), 0 0 13px rgba(155,231,226,.18); outline: 1px solid var(--cyan); outline-offset: 2px; }
 .scrollTop svg { width: 18px; }
 
@@ -92,6 +94,7 @@
   .tabs { overflow-x: auto; justify-content: flex-start; padding-inline: 14px; scrollbar-width:none; }
   .tab, .activeTab { min-width: 112px; flex: 0 0 112px; }
   .main { width: calc(100% - 28px); padding-top: 26px; }
+  .serviceIncident{grid-template-columns:auto 1fr auto}.serviceIncident dl{grid-column:2/4;grid-template-columns:repeat(5,minmax(80px,1fr));overflow-x:auto}.shell:has(.serviceIncident) .main{padding-bottom:190px}
 }
 
 @media (max-width: 650px) {.brand, .guardianIdentity img, .connectionStatus,.guardianIdentity:not(:has(img)){ display: none; }
@@ -111,4 +114,5 @@
   .tabs { padding-left:max(14px,env(safe-area-inset-left)); padding-right:max(14px,env(safe-area-inset-right)); }
   .main { padding-bottom:70px; }
   .footer { padding-inline:max(14px,env(safe-area-inset-left)) max(14px,env(safe-area-inset-right)); }
+  .serviceIncident{width:calc(100% - 20px);grid-template-columns:auto 1fr;padding:12px;gap:10px}.serviceIncident dl{grid-column:1/3;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.serviceIncident button{grid-column:1/3;justify-content:center}.shell:has(.serviceIncident) .main{padding-bottom:290px}
 }

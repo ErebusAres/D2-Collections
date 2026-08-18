@@ -16,10 +16,21 @@ export class ApiRequestError extends Error {
   }
 }
 
+export interface ConnectionFailure {
+  code: string;
+  message: string;
+  route: string;
+  occurredAt: string;
+  requestId?: string;
+  status?: number;
+  retryAfterSeconds?: number;
+}
+
 interface ConnectionSnapshot {
   queued: number;
   retrying: boolean;
   lastError?: string;
+  activeFailure?: ConnectionFailure;
   usingSavedData?: boolean;
   lastSavedAt?: string;
   lastSyncAt?: string;
@@ -131,7 +142,11 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
 async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
   const route = path.split("?", 1)[0] || path;
   const blockedUntil = routeCircuitBreakers.get(route) || 0;
-  if (blockedUntil > Date.now()) throw new ApiRequestError(503, { code: "worker_resource_limit", message: sectionFailureMessage(path), retryAfterSeconds: Math.max(1, Math.ceil((blockedUntil - Date.now()) / 1_000)) });
+  if (blockedUntil > Date.now()) {
+    const error = new ApiRequestError(503, { code: "worker_resource_limit", message: sectionFailureMessage(path), retryAfterSeconds: Math.max(1, Math.ceil((blockedUntil - Date.now()) / 1_000)) });
+    activateFailure(route, error);
+    throw error;
+  }
   if (blockedUntil) routeCircuitBreakers.delete(route);
   let response: Response;
   try {
@@ -142,8 +157,7 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
     });
   } catch (error) {
     const requestError = new ApiRequestError(0, { code: "network_error", message: messageOf(error), requestId: clientRequestId() });
-    rememberApiFailure(route, requestError);
-    updateConnection({ lastError: describeApiError(requestError) });
+    activateFailure(route, requestError);
     throw requestError;
   }
   const raw = await response.text();
@@ -156,14 +170,14 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
   }
   if (!response.ok) {
     const error = new ApiRequestError(response.status, body);
-    rememberApiFailure(route, error);
+    activateFailure(route, error);
     if (error.code === "worker_resource_limit") {
       routeCircuitBreakers.set(route, Date.now() + 60_000 + Math.round(Math.random() * 10_000));
       rememberWorkerResourceLimit(route, error.requestId);
     }
-    if (isTransient(error) && error.code !== "worker_resource_limit") updateConnection({ lastError: describeApiError(error) });
     throw error;
   }
+  if (connectionSnapshot.activeFailure?.route === route) updateConnection({ activeFailure: undefined });
   if (!pendingMutations.length && !savedReadPaths.size) updateConnection({ lastError: undefined });
   routeCircuitBreakers.delete(route);
   return body as ApiEnvelope<T>;
@@ -237,6 +251,33 @@ function rememberApiFailure(route: string, error: ApiRequestError): void {
       requestId: error.requestId
     }));
   } catch { /* Diagnostics are best-effort only. */ }
+}
+
+function activateFailure(route: string, error: ApiRequestError): void {
+  const activeFailure: ConnectionFailure = {
+    code: error.code,
+    message: error.message,
+    route,
+    occurredAt: new Date().toISOString(),
+    requestId: error.requestId,
+    status: error.status || undefined,
+    retryAfterSeconds: error.retryAfterSeconds
+  };
+  rememberApiFailure(route, error);
+  updateConnection({ activeFailure, lastError: describeApiError(error) });
+}
+
+export function connectionFailureReport(failure: ConnectionFailure): string {
+  return [
+    "Guardian Nexus service incident",
+    `Time: ${failure.occurredAt}`,
+    `Route: ${failure.route}`,
+    `Message: ${failure.message}`,
+    `Error code: ${failure.code}`,
+    failure.status ? `HTTP status: ${failure.status}` : "HTTP status: no response",
+    failure.requestId ? `Reference: ${failure.requestId}` : undefined,
+    failure.retryAfterSeconds ? `Retry after: ${failure.retryAfterSeconds}s` : undefined
+  ].filter(Boolean).join("\n");
 }
 
 function clientRequestId(): string {
