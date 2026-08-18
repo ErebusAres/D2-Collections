@@ -44,7 +44,7 @@ import type {
 import { z } from "zod";
 import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
-import { addXurCollectionStates, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
+import { addXurCollectionStates, applyQuestPins, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { normalizeGear, type GearStateRow } from "./gear";
@@ -132,6 +132,8 @@ const shareSchema = z.object({
 });
 const fireteamMessageSchema = z.object({ body: z.string().max(FIRETEAM_MESSAGE_MAX_LENGTH * 2) }).strict();
 const FIRETEAM_COMPLETION_RETENTION_MS = 3 * 60_000;
+const QUEST_CACHE_TTL_MS = 5 * 60_000;
+const QUEST_REFRESH_LEASE_MS = 2 * 60_000;
 
 const probeSchema = z.object({
   probe: z.enum(["memberships", "profile", "character", "item", "collectible", "public-milestones", "manifest"]),
@@ -864,12 +866,76 @@ function uniqueXurCharacters(characters: ReturnType<typeof charactersFromProfile
 }
 
 async function quests(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile } = await profileFor(row, env, "quests");
-  const manifest = await loadQuestManifest(env);
-  const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
-  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const pinned = new Set((context.url.searchParams.get("pinned") || "").split(",").filter(Boolean));
-  return envelope<QuestData>(normalizeQuests(profile, manifest, character.characterId, pinned), env, context, { sourceMintedAt: profile?.responseMintedTimestamp });
+  const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
+  const cached = requestedCharacterId
+    ? await readQuestCache(row.membership_id, requestedCharacterId, env)
+    : undefined;
+  if (cached) {
+    const fresh = Date.parse(cached.expiresAt) > Date.now();
+    if (!fresh) context.waitUntil?.(refreshQuestCacheWithLease(row, requestedCharacterId!, env));
+    return envelope<QuestData>(applyQuestPins(cached.data, pinned), env, context, {
+      sourceMintedAt: cached.sourceMintedAt || cached.refreshedAt,
+      state: fresh ? undefined : "stale",
+      warnings: fresh ? [] : ["Quest progress is refreshing; showing the last saved snapshot.", ...(cached.lastError ? [cached.lastError] : [])]
+    });
+  }
+  const refreshed = await refreshQuestCache(row, requestedCharacterId, env);
+  return envelope<QuestData>(applyQuestPins(refreshed.data, pinned), env, context, { sourceMintedAt: refreshed.sourceMintedAt || refreshed.refreshedAt });
+}
+
+interface StoredQuestCache {
+  data: QuestData;
+  sourceMintedAt?: string;
+  refreshedAt: string;
+  expiresAt: string;
+  lastError?: string;
+}
+
+async function readQuestCache(membershipId: string, characterId: string, env: Env): Promise<StoredQuestCache | undefined> {
+  const row = await env.DB.prepare("SELECT quests_json, source_minted_at, refreshed_at, expires_at, last_error FROM guardian_quest_cache WHERE membership_id = ? AND character_id = ?")
+    .bind(membershipId, characterId).first<any>();
+  if (!row?.quests_json) return undefined;
+  try {
+    return {
+      data: JSON.parse(row.quests_json) as QuestData,
+      sourceMintedAt: row.source_minted_at || undefined,
+      refreshedAt: row.refreshed_at,
+      expiresAt: row.expires_at,
+      lastError: row.last_error || undefined
+    };
+  } catch { return undefined; }
+}
+
+async function refreshQuestCache(row: SessionRow, requestedCharacterId: string | undefined, env: Env): Promise<StoredQuestCache> {
+  try {
+    const [{ profile }, manifest] = await Promise.all([profileFor(row, env, "quests"), loadQuestManifest(env)]);
+    const character = selectedCharacter(charactersFromProfile(profile), requestedCharacterId);
+    if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+    const data = normalizeQuests(profile, manifest, character.characterId, new Set());
+    const refreshedAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + QUEST_CACHE_TTL_MS).toISOString();
+    const sourceMintedAt = profile?.responseMintedTimestamp || refreshedAt;
+    await env.DB.prepare("INSERT INTO guardian_quest_cache (membership_id, character_id, quests_json, source_minted_at, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT(membership_id, character_id) DO UPDATE SET quests_json = excluded.quests_json, source_minted_at = excluded.source_minted_at, refreshed_at = excluded.refreshed_at, expires_at = excluded.expires_at, refresh_started_at = NULL, last_error = NULL")
+      .bind(row.membership_id, character.characterId, JSON.stringify(data), sourceMintedAt, refreshedAt, expiresAt).run();
+    return { data, sourceMintedAt, refreshedAt, expiresAt };
+  } catch (error: any) {
+    if (requestedCharacterId) {
+      await env.DB.prepare("UPDATE guardian_quest_cache SET refresh_started_at = NULL, last_error = ? WHERE membership_id = ? AND character_id = ?")
+        .bind(String(error?.code || error?.message || "Quest refresh failed.").slice(0, 240), row.membership_id, requestedCharacterId).run().catch(() => undefined);
+    }
+    throw error;
+  }
+}
+
+async function refreshQuestCacheWithLease(row: SessionRow, characterId: string, env: Env): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const staleLease = new Date(Date.now() - QUEST_REFRESH_LEASE_MS).toISOString();
+  const claim = await env.DB.prepare("UPDATE guardian_quest_cache SET refresh_started_at = ? WHERE membership_id = ? AND character_id = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
+    .bind(startedAt, row.membership_id, characterId, staleLease).run().catch(() => undefined);
+  if (!claim || Number(claim.meta?.changes || 0) < 1) return;
+  try { await refreshQuestCache(row, characterId, env); }
+  catch { /* The saved snapshot remains available and records the refresh error. */ }
 }
 
 async function guardianRank(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

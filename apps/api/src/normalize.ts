@@ -387,6 +387,11 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
   return { quests, recommendations: recommendQuests(quests, { pinnedIds, currentActivity }), currentActivity };
 }
 
+export function applyQuestPins(data: QuestData, pinnedIds: Set<string>): QuestData {
+  const quests = data.quests.map((quest) => ({ ...quest, sitePinned: pinnedIds.has(quest.instanceId) }));
+  return { ...data, quests, recommendations: recommendQuests(quests, { pinnedIds, currentActivity: data.currentActivity }) };
+}
+
 export function questInventoryItems(profile: any, characterId: string): any[] {
   const characterItems = Array.isArray(profile?.characterInventories?.data?.[characterId]?.items)
     ? profile.characterInventories.data[characterId].items
