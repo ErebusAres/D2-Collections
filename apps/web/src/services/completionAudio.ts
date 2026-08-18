@@ -1,4 +1,5 @@
 const COMPLETION_SOUND = "/audio/destiny-completion.mp3";
+const COMPLETION_VOLUME = 0.48;
 let completionAudio: HTMLAudioElement | undefined;
 let lastPlayedAt = 0;
 
@@ -9,7 +10,7 @@ export function primeCompletionAudio(): void {
   void audio.play().then(() => {
     audio.pause();
     audio.currentTime = 0;
-    audio.volume = 0.82;
+    audio.volume = COMPLETION_VOLUME;
   }).catch(() => undefined);
 }
 
@@ -21,7 +22,7 @@ export function playCompletionChime(): void {
   lastPlayedAt = playedAt;
   audio.pause();
   audio.currentTime = 0;
-  audio.volume = 0.82;
+  audio.volume = COMPLETION_VOLUME;
   void audio.play().catch(() => undefined);
 }
 
