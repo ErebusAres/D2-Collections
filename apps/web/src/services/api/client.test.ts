@@ -194,4 +194,29 @@ describe("API client", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("reuses Journey progress across reloads for its five-minute refresh window", async () => {
+    const saved = {
+      savedAt: new Date(Date.now() - 4 * 60_000).toISOString(),
+      envelope: { data: { triumphs: ["saved"] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved-journey" }
+    };
+    offlineCache.readApiResponse.mockResolvedValue(saved);
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(api<{ triumphs: string[] }>("/api/v1/me/journey?characterId=c1")).resolves.toEqual(saved.envelope);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes Journey progress once its five-minute window expires", async () => {
+    offlineCache.readApiResponse.mockResolvedValue({
+      savedAt: new Date(Date.now() - 5 * 60_000 - 1).toISOString(),
+      envelope: { data: { triumphs: ["old"] }, freshness: { state: "fresh", observedAt: "old" }, warnings: [], requestId: "old-journey" }
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: { triumphs: ["new"] }, freshness: { state: "fresh", observedAt: "new" }, warnings: [], requestId: "new-journey" }), { status: 200 }));
+
+    await expect(api<{ triumphs: string[] }>("/api/v1/me/journey?characterId=c2")).resolves.toMatchObject({ data: { triumphs: ["new"] } });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });

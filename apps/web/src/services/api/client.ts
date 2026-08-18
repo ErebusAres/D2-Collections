@@ -63,7 +63,10 @@ const savedReadPaths = new Map<string, string>();
 const savedReadFailures = new Map<string, number>();
 const routeCircuitBreakers = new Map<string, number>();
 const SAVED_READ_WARNING_TTL_MS = 2 * 60_000;
-const FIRETEAM_ACTIVITY_RELOAD_COOLDOWN_MS = 60_000;
+const RELOAD_PERSISTED_READ_COOLDOWNS_MS: Readonly<Record<string, number>> = {
+  "/api/v1/fireteam/activity": 60_000,
+  "/api/v1/me/journey": 5 * 60_000
+};
 let mutationAuthHeaders: (() => HeadersInit) | undefined;
 let hydratedMutationScope = "";
 let activeMembershipId = "";
@@ -101,8 +104,9 @@ export function api<T>(path: string, init: RequestInit = {}): Promise<ApiEnvelop
 }
 
 async function performReadRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
-  if ((path.split("?", 1)[0] || path) === "/api/v1/fireteam/activity") {
-    const cooldownResponse = await readReloadCooldownResponse<T>(path);
+  const reloadCooldownMs = RELOAD_PERSISTED_READ_COOLDOWNS_MS[path.split("?", 1)[0] || path];
+  if (reloadCooldownMs) {
+    const cooldownResponse = await readReloadCooldownResponse<T>(path, reloadCooldownMs);
     if (cooldownResponse) return cooldownResponse;
   }
   try {
@@ -144,12 +148,12 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
   }
 }
 
-async function readReloadCooldownResponse<T>(path: string): Promise<ApiEnvelope<T> | undefined> {
+async function readReloadCooldownResponse<T>(path: string, cooldownMs: number): Promise<ApiEnvelope<T> | undefined> {
   const cached = lastSuccessfulReads.get(path) as { envelope: ApiEnvelope<T>; savedAt: string } | undefined
     || await readApiResponse<T>(path).catch(() => undefined);
   if (!cached) return undefined;
   const savedAt = Date.parse(cached.savedAt);
-  if (!Number.isFinite(savedAt) || Date.now() - savedAt >= FIRETEAM_ACTIVITY_RELOAD_COOLDOWN_MS) return undefined;
+  if (!Number.isFinite(savedAt) || Date.now() - savedAt >= cooldownMs) return undefined;
   lastSuccessfulReads.set(path, cached as { envelope: ApiEnvelope<unknown>; savedAt: string });
   return cached.envelope;
 }
