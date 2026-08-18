@@ -22,7 +22,8 @@ export function trackedItemsFromQuests(quests: QuestProgress[], includeCompleted
     trackedInGuardianNexus: quest.sitePinned,
     objectives: quest.objectives.map((objective) => ({ ...objective, progressAvailable: true })),
     percent: boundedPercent(quest.percent),
-    updatedAt: quest.updatedAt
+    updatedAt: quest.updatedAt,
+    questGuide: quest.guide
   }));
 }
 

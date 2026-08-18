@@ -95,6 +95,7 @@ describe("Fireteam tracked items", () => {
     expect(await screen.findByText("Shared tracked items")).toBeTruthy();
     expect(screen.getByText("Weekly order")).toBeTruthy();
     expect(screen.getByText("Order · Vanguard")).toBeTruthy();
+    expect(screen.getByText("Current-step guide")).toBeTruthy();
     expect(screen.getByText("Rank service")).toBeTruthy();
     expect(screen.getByText("Guardian Rank · Journey · Progress to rank 8")).toBeTruthy();
 
@@ -415,7 +416,8 @@ function envelope() {
       trackedItems: [
         {
           id: "quest-instance", definitionHash: "quest-hash", kind: "order", name: "Weekly order", description: "Complete activities.", icon: "", context: "Order · Vanguard",
-          trackedInDestiny: false, trackedInGuardianNexus: true, objectives: [{ objectiveHash: "q", name: "Activities", progress: 2, completionValue: 5, percent: 40, complete: false, progressAvailable: true }], percent: 40, updatedAt: "now"
+          trackedInDestiny: false, trackedInGuardianNexus: true, objectives: [{ objectiveHash: "q", name: "Activities", progress: 2, completionValue: 5, percent: 40, complete: false, progressAvailable: true }], percent: 40, updatedAt: "now",
+          questGuide: { coverage: "objective-specific", summary: "Complete eligible activities efficiently.", steps: ["Launch the shortest eligible activity."], tips: ["Remain through the results screen."], warnings: [], secrets: [] }
         },
         {
           id: "rank-record", definitionHash: "rank-record", kind: "guardian-rank", name: "Rank service", description: "Earn commendations.", icon: "", context: "Guardian Rank · Journey · Progress to rank 8",

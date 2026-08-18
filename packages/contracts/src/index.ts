@@ -447,6 +447,17 @@ export interface QuestObjective {
   percent: number;
 }
 
+export interface QuestStepGuide {
+  coverage: "curated" | "objective-specific";
+  summary: string;
+  steps: string[];
+  tips: string[];
+  warnings: string[];
+  secrets: string[];
+  verifiedAt?: string;
+  sources?: GuideSource[];
+}
+
 export interface QuestStepProgress {
   itemHash: string;
   stepNumber: number;
@@ -456,6 +467,7 @@ export interface QuestStepProgress {
   objectives: QuestObjective[];
   percent: number;
   progressKnown: boolean;
+  guide?: QuestStepGuide;
 }
 
 export interface QuestReward {
@@ -488,6 +500,7 @@ export interface QuestProgress {
   rewards: QuestReward[];
   objectives: QuestObjective[];
   steps?: QuestStepProgress[];
+  guide?: QuestStepGuide;
   percent: number;
   updatedAt: string;
   category?: "quest" | "bounty" | "order";
@@ -612,6 +625,7 @@ export interface FireteamTrackedItem {
     steps: string[];
     prerequisites: string[];
   };
+  questGuide?: QuestStepGuide;
 }
 
 export interface FireteamCompletedTrackedItem extends FireteamTrackedItem {

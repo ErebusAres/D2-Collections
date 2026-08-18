@@ -14,6 +14,7 @@ import type {
   XurOffer
 } from "@guardian-nexus/contracts";
 import { className, imageUrl, mergeCollection, objectivePercent, questPercent, questStepPosition, recommendQuests } from "@guardian-nexus/domain";
+import { questStepGuide } from "./questStepGuide";
 
 const raceNames: Record<number, string> = { 0: "Human", 1: "Awoken", 2: "Exo" };
 export const QUEST_BUCKET_HASH = "1345459588";
@@ -281,14 +282,19 @@ function objectiveRows(component: any, manifest: CompactManifest): QuestObjectiv
   });
 }
 
-function questSteps(definition: any, currentHash: string, currentObjectives: QuestObjective[], manifest: CompactManifest): QuestStepProgress[] {
+function questSteps(definition: any, currentHash: string, currentObjectives: QuestObjective[], manifest: CompactManifest, questName: string, activityName?: string): QuestStepProgress[] {
   const itemList = Array.isArray(definition?.setData?.itemList) ? [...definition.setData.itemList] : [];
   const ordered = itemList.sort((a: any, b: any) => Number(a?.trackingValue || 0) - Number(b?.trackingValue || 0));
   const currentIndex = ordered.findIndex((entry: any) => String(entry?.itemHash || "") === currentHash);
-  if (currentIndex < 0) return [{
-    itemHash: currentHash, stepNumber: 1, name: stepRequirement(definition, 1), description: stepDescription(definition), status: "current",
-    objectives: currentObjectives, percent: questPercent({ objectives: currentObjectives }), progressKnown: currentObjectives.length > 0
-  }];
+  if (currentIndex < 0) {
+    const name = stepRequirement(definition, 1);
+    const description = stepDescription(definition);
+    return [{
+      itemHash: currentHash, stepNumber: 1, name, description, status: "current",
+      objectives: currentObjectives, percent: questPercent({ objectives: currentObjectives }), progressKnown: currentObjectives.length > 0,
+      guide: questStepGuide({ questName, stepName: name, description, activityName, objectives: currentObjectives })
+    }];
+  }
   return ordered.map((entry: any, index: number) => {
     const itemHash = String(entry?.itemHash || "");
     const stepDefinition = definitionFor(manifest, itemHash);
@@ -296,9 +302,12 @@ function questSteps(definition: any, currentHash: string, currentObjectives: Que
     const liveObjectives = status === "current" ? currentObjectives : [];
     const objectives = liveObjectives.length ? liveObjectives : staticStepObjectives(stepDefinition, manifest, status);
     const percent = status === "completed" ? 100 : status === "future" ? 0 : questPercent({ objectives });
+    const name = stepRequirement(stepDefinition, index + 1);
+    const description = stepDescription(stepDefinition);
     return {
-      itemHash, stepNumber: index + 1, name: stepRequirement(stepDefinition, index + 1), description: stepDescription(stepDefinition), status,
-      objectives, percent, progressKnown: status !== "current" || liveObjectives.length > 0
+      itemHash, stepNumber: index + 1, name, description, status,
+      objectives, percent, progressKnown: status !== "current" || liveObjectives.length > 0,
+      guide: questStepGuide({ questName, stepName: name, description, activityName, objectives })
     };
   });
 }
@@ -342,13 +351,14 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
       manifest
     );
     const stepPosition = questStepPosition(definition, hash);
-    const steps = questSteps(definition, hash, objectives, manifest);
     const activityHash = String(definition?.traitHashes?.[0] || definition?.activityHash || "");
     const activity = (manifest.activityDefinitions[activityHash] as any)?.displayProperties?.name || definition?.sourceData?.sourceName;
+    const questName = definition?.displayProperties?.name || "Unknown quest";
+    const steps = questSteps(definition, hash, objectives, manifest, questName, activity);
     const result: QuestProgress = {
       instanceId,
       itemHash: hash,
-      name: definition?.displayProperties?.name || "Unknown quest",
+      name: questName,
       description: definition?.displayProperties?.description || "Bungie did not return a description for this quest.",
       flavorText: definition?.flavorText || undefined,
       itemType: definition?.itemTypeDisplayName || definition?.itemTypeAndTierDisplayName || undefined,
@@ -376,6 +386,7 @@ export function normalizeQuests(profile: any, manifest: CompactManifest, charact
       }).filter((reward: any) => Boolean(reward.itemHash)),
       objectives,
       steps,
+      guide: steps.find((step) => step.status === "current")?.guide,
       percent: 0,
       expiresAt: item.expirationDate || undefined,
       updatedAt,
