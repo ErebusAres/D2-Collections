@@ -42,7 +42,7 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifest, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifestForHashes, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, socialRosterFor, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { addXurCollectionStates, applyQuestPins, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -134,6 +134,8 @@ const fireteamMessageSchema = z.object({ body: z.string().max(FIRETEAM_MESSAGE_M
 const FIRETEAM_COMPLETION_RETENTION_MS = 3 * 60_000;
 const QUEST_CACHE_TTL_MS = 5 * 60_000;
 const QUEST_REFRESH_LEASE_MS = 2 * 60_000;
+const BUILD_ADVISOR_CACHE_TTL_MS = 5 * 60_000;
+const BUILD_ADVISOR_REFRESH_LEASE_MS = 2 * 60_000;
 
 const probeSchema = z.object({
   probe: z.enum(["memberships", "profile", "character", "item", "collectible", "public-milestones", "manifest"]),
@@ -1216,12 +1218,12 @@ async function refreshRecentItemObservationsWithLease(row: SessionRow, env: Env,
 }
 
 async function refreshRecentItemObservations(row: SessionRow, env: Env, characterId?: string): Promise<void> {
-  const [{ profile }, gearManifest, collectionManifest, companionManifest] = await Promise.all([
+  const [{ profile }, gearManifest, collectionManifest] = await Promise.all([
     profileFor(row, env, "recent-items"),
     loadGearManifest(env),
-    loadManifest(env),
-    loadCompanionManifest(env)
+    loadManifest(env)
   ]);
+  const companionManifest = await loadCompanionManifestForHashes(env, uninstancedInventoryItemHashes(profile));
   const character = selectedCharacter(charactersFromProfile(profile), characterId);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const states = await gearStates(row.membership_id, env);
@@ -1235,9 +1237,60 @@ async function refreshRecentItemObservations(row: SessionRow, env: Env, characte
   await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now });
 }
 
+function uninstancedInventoryItemHashes(profile: any): string[] {
+  const hashes = new Set<string>();
+  const collect = (container: any) => {
+    for (const item of container?.items || []) {
+      if (item?.itemInstanceId) continue;
+      const hash = String(Number(item?.itemHash) >>> 0);
+      if (hash && hash !== "0" && Number(item?.quantity || 0) > 0) hashes.add(hash);
+    }
+  };
+  collect(profile?.profileInventory?.data);
+  Object.values(profile?.characterInventories?.data || {}).forEach(collect);
+  return [...hashes];
+}
+
+function loadoutDefinitionHashes(profile: any, characterId: string): string[] {
+  const hashes = new Set<string>();
+  const itemHashByInstance = new Map<string, string>();
+  const collectInstances = (container: any) => {
+    for (const item of container?.items || []) {
+      const instanceId = String(item?.itemInstanceId || "");
+      const itemHash = String(Number(item?.itemHash) >>> 0);
+      if (instanceId && itemHash && itemHash !== "0") itemHashByInstance.set(instanceId, itemHash);
+    }
+  };
+  collectInstances(profile?.profileInventory?.data);
+  Object.values(profile?.characterInventories?.data || {}).forEach(collectInstances);
+  Object.values(profile?.characterEquipment?.data || {}).forEach(collectInstances);
+  const collectSavedItem = (item: any) => {
+    const instanceId = String(item?.itemInstanceId || "");
+    const itemHash = itemHashByInstance.get(instanceId);
+    if (itemHash) hashes.add(itemHash);
+    for (const value of item?.plugItemHashes || []) {
+      const plugHash = String(Number(value) >>> 0);
+      if (plugHash && plugHash !== "0") hashes.add(plugHash);
+    }
+  };
+  for (const loadout of profile?.characterLoadouts?.data?.[characterId]?.loadouts || []) {
+    for (const item of loadout?.items || []) collectSavedItem(item);
+  }
+  for (const item of profile?.characterEquipment?.data?.[characterId]?.items || []) {
+    collectSavedItem(item);
+    const instanceId = String(item?.itemInstanceId || "");
+    for (const socket of profile?.itemComponents?.sockets?.data?.[instanceId]?.sockets || []) {
+      const plugHash = String(Number(socket?.plugHash) >>> 0);
+      if (plugHash && plugHash !== "0") hashes.add(plugHash);
+    }
+  }
+  return [...hashes];
+}
+
 async function mailbox(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { profile } = await profileFor(row, env, "mailbox");
-  const manifest = await loadCompanionManifest(env);
+  const characters = charactersFromProfile(profile);
+  const manifest = await loadCompanionManifestForHashes(env, characters.flatMap((character) => postmasterItemsForCharacter(profile, character.characterId).map((item: any) => String(item?.itemHash || ""))));
   return envelope<MailboxData>(normalizeMailbox(profile, manifest), env, context, {
     sourceMintedAt: profile?.responseMintedTimestamp,
     warnings: manifest.version === "unavailable" ? ["Mailbox item definitions are unavailable. Item identities and capacity may be incomplete."] : []
@@ -1266,9 +1319,9 @@ async function pullMailboxItem(request: Request, row: SessionRow, env: Env, cont
 
 async function loadouts(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const { profile } = await profileFor(row, env, "loadouts");
-  const manifest = await loadCompanionManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const manifest = await loadCompanionManifestForHashes(env, loadoutDefinitionHashes(profile, character.characterId));
   return envelope<LoadoutsData>(normalizeLoadouts(profile, manifest, character), env, context, {
     sourceMintedAt: profile?.responseMintedTimestamp,
     warnings: manifest.version === "unavailable" ? ["Loadout item definitions are unavailable. Saved item and socket details may be incomplete."] : []
@@ -1277,12 +1330,95 @@ async function loadouts(row: SessionRow, env: Env, context: RequestContext): Pro
 
 async function buildAdvisor(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const force = context.url.searchParams.get("refresh") === "1";
-  const { profile, data } = await buildAdvisorSnapshot(row, env, context.url.searchParams.get("characterId") || undefined, force);
-  return envelope<BuildAdvisorData>(data, env, context, {
-    sourceMintedAt: profile?.responseMintedTimestamp,
-    warnings: data.analysis.warnings,
-    state: data.state === "current" ? "fresh" : data.state === "may-be-stale" ? "stale" : "unavailable"
-  });
+  const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
+  const cached = requestedCharacterId ? await readBuildAdvisorCache(row.membership_id, requestedCharacterId, env) : undefined;
+  if (cached && !force) {
+    const fresh = Date.parse(cached.expiresAt) > Date.now();
+    if (!fresh) context.waitUntil?.(refreshBuildAdvisorCacheWithLease(row, requestedCharacterId!, env));
+    const warning = fresh ? undefined : "Build Advisor is refreshing; showing the last saved inventory analysis.";
+    const data = fresh ? cached.data : staleBuildAdvisorData(cached.data, warning!);
+    return envelope<BuildAdvisorData>(data, env, context, {
+      sourceMintedAt: cached.sourceMintedAt || cached.refreshedAt,
+      warnings: [...data.analysis.warnings, ...(cached.lastError ? [cached.lastError] : [])],
+      state: fresh ? data.state === "current" ? "fresh" : data.state === "may-be-stale" ? "stale" : "unavailable" : "stale"
+    });
+  }
+  try {
+    const refreshed = await refreshBuildAdvisorCache(row, requestedCharacterId, env, force);
+    return envelope<BuildAdvisorData>(refreshed.data, env, context, {
+      sourceMintedAt: refreshed.sourceMintedAt || refreshed.refreshedAt,
+      warnings: refreshed.data.analysis.warnings,
+      state: refreshed.data.state === "current" ? "fresh" : refreshed.data.state === "may-be-stale" ? "stale" : "unavailable"
+    });
+  } catch (error) {
+    if (!cached) throw error;
+    const warning = "Build Advisor refresh failed; showing the last saved inventory analysis.";
+    const data = staleBuildAdvisorData(cached.data, warning);
+    return envelope<BuildAdvisorData>(data, env, context, {
+      sourceMintedAt: cached.sourceMintedAt || cached.refreshedAt,
+      warnings: data.analysis.warnings,
+      state: "stale"
+    });
+  }
+}
+
+interface StoredBuildAdvisorCache {
+  data: BuildAdvisorData;
+  sourceMintedAt?: string;
+  refreshedAt: string;
+  expiresAt: string;
+  lastError?: string;
+}
+
+async function readBuildAdvisorCache(membershipId: string, characterId: string, env: Env): Promise<StoredBuildAdvisorCache | undefined> {
+  const row = await env.DB.prepare("SELECT advisor_json, source_minted_at, refreshed_at, expires_at, last_error FROM guardian_build_advisor_cache WHERE membership_id = ? AND character_id = ?")
+    .bind(membershipId, characterId).first<any>();
+  if (!row?.advisor_json) return undefined;
+  try {
+    return {
+      data: JSON.parse(row.advisor_json) as BuildAdvisorData,
+      sourceMintedAt: row.source_minted_at || undefined,
+      refreshedAt: row.refreshed_at,
+      expiresAt: row.expires_at,
+      lastError: row.last_error || undefined
+    };
+  } catch { return undefined; }
+}
+
+async function refreshBuildAdvisorCache(row: SessionRow, characterId: string | undefined, env: Env, force = false): Promise<StoredBuildAdvisorCache> {
+  try {
+    const { profile, character, data } = await buildAdvisorSnapshot(row, env, characterId, force);
+    const refreshedAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + BUILD_ADVISOR_CACHE_TTL_MS).toISOString();
+    const sourceMintedAt = profile?.responseMintedTimestamp || refreshedAt;
+    await env.DB.prepare("INSERT INTO guardian_build_advisor_cache (membership_id, character_id, advisor_json, source_minted_at, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT(membership_id, character_id) DO UPDATE SET advisor_json = excluded.advisor_json, source_minted_at = excluded.source_minted_at, refreshed_at = excluded.refreshed_at, expires_at = excluded.expires_at, refresh_started_at = NULL, last_error = NULL")
+      .bind(row.membership_id, character.characterId, JSON.stringify(data), sourceMintedAt, refreshedAt, expiresAt).run();
+    return { data, sourceMintedAt, refreshedAt, expiresAt };
+  } catch (error: any) {
+    if (characterId) {
+      await env.DB.prepare("UPDATE guardian_build_advisor_cache SET refresh_started_at = NULL, last_error = ? WHERE membership_id = ? AND character_id = ?")
+        .bind(String(error?.code || error?.message || "Build Advisor refresh failed.").slice(0, 240), row.membership_id, characterId).run().catch(() => undefined);
+    }
+    throw error;
+  }
+}
+
+async function refreshBuildAdvisorCacheWithLease(row: SessionRow, characterId: string, env: Env): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const staleLease = new Date(Date.now() - BUILD_ADVISOR_REFRESH_LEASE_MS).toISOString();
+  const claim = await env.DB.prepare("UPDATE guardian_build_advisor_cache SET refresh_started_at = ? WHERE membership_id = ? AND character_id = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
+    .bind(startedAt, row.membership_id, characterId, staleLease).run().catch(() => undefined);
+  if (!claim || Number(claim.meta?.changes || 0) < 1) return;
+  try { await refreshBuildAdvisorCache(row, characterId, env); }
+  catch { /* The last saved advisor remains available and records the refresh error. */ }
+}
+
+function staleBuildAdvisorData(data: BuildAdvisorData, warning: string): BuildAdvisorData {
+  return {
+    ...data,
+    state: "may-be-stale",
+    analysis: { ...data.analysis, warnings: [...new Set([warning, ...data.analysis.warnings])] }
+  };
 }
 
 async function buildAdvisorSnapshot(row: SessionRow, env: Env, characterId: string | undefined, force: boolean) {
@@ -1613,7 +1749,7 @@ async function storeShare(
       last_error = NULL,
       presence_refreshed_at = fireteam_shares.presence_refreshed_at,
       presence_error = fireteam_shares.presence_error
-  `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload), mode, JSON.stringify(sitePinnedQuestIds), sourceObservedAt).run();
+  `).bind(row.membership_id, row.display_name, character.characterId, updatedAt, expiresAt, JSON.stringify(payload), mode, JSON.stringify(sitePinnedQuestIds), updatedAt).run();
   return { expiresAt, sharedQuestCount: compactSharedQuests.length, sharedTrackedItemCount: trackedItems.length, sourceMintedAt: profile?.responseMintedTimestamp, profile };
 }
 
@@ -1695,8 +1831,8 @@ async function updateFireteamPresenceFromProfile(row: SessionRow, env: Env, prof
     try { payload = JSON.parse(share.payload_json); } catch { return; }
     const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
     const characters = charactersFromProfile(profile);
-    const sourceObservedAt = sourceObservationTimestamp(profile?.responseMintedTimestamp);
-    if (share.presence_refreshed_at && Date.parse(sourceObservedAt) <= Date.parse(share.presence_refreshed_at)) return;
+    const refreshedAt = new Date().toISOString();
+    const sourceObservedAt = sourceObservationTimestamp(profile?.responseMintedTimestamp, Date.parse(refreshedAt));
     const sessionObservation = observeGuardianSession(characters, payload?.sessionPresenceEvidence, sourceObservedAt);
     const character = characters.find((entry) => entry.characterId === sessionObservation.activeCharacterId)
       || selectedCharacter(characters, payload?.character?.characterId)
@@ -1714,7 +1850,7 @@ async function updateFireteamPresenceFromProfile(row: SessionRow, env: Env, prof
     // Do not let a slower presence read overwrite a newer quest/share payload.
     // A later request retries presence against the new payload if this CAS misses.
     await env.DB.prepare("UPDATE fireteam_shares SET payload_json = ?, presence_refreshed_at = ?, presence_error = NULL WHERE membership_id = ? AND payload_json = ?")
-      .bind(JSON.stringify({ ...payload, character, activity, onlineState, sessionPresenceEvidence: sessionObservation.evidence, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations }), sourceObservedAt, row.membership_id, share.payload_json).run();
+      .bind(JSON.stringify({ ...payload, character, activity, onlineState, sessionPresenceEvidence: sessionObservation.evidence, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations }), refreshedAt, row.membership_id, share.payload_json).run();
 }
 
 async function refreshFireteamPresenceWithLease(row: SessionRow, env: Env): Promise<void> {
@@ -1783,7 +1919,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   // observation, that direct Bungie roster is authoritative for membership.
   // A synced teammate's independent snapshot enriches their card; it must not
   // veto a member the viewer is actively observing in the party.
-  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceUsable && viewerSessionLive);
+  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceUsable);
   const members: FireteamMember[] = visibleParty.map((member: any) => {
     const share: any = shares.get(member.membershipId);
     let payload: any = null;
@@ -1792,13 +1928,11 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     const memberTrackedItems = sharedTrackedItems(payload);
     const isSelf = member.membershipId === row.membership_id;
     const character = payload?.character;
-    const presenceAt = share?.presence_refreshed_at || share?.updated_at;
-    const memberPresenceUsable = fireteamPresenceUsable(presenceAt);
     const onlineState: FireteamMember["onlineState"] = isSelf
       ? viewerSessionLive
         ? "online"
         : viewerPresenceUsable && payload?.onlineState === "offline" ? "offline" : "unknown"
-      : member.observedInParty && (!share || memberPresenceUsable) ? "online" : "unknown";
+      : viewerPresenceUsable && member.observedInParty ? "online" : "unknown";
     const activity = onlineState === "online" ? payload?.activity || "Online · location unavailable" : undefined;
     const inGameName = member.displayName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
     return {
@@ -1806,7 +1940,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       displayName: inGameName,
       inGameName,
       emblemPath: character?.emblemPath || "",
-      presenceLabel: viewerSessionLive ? partyPresenceLabel(member.status) : "Presence unknown",
+      presenceLabel: viewerPresenceUsable ? partyPresenceLabel(member.status) : "Presence unknown",
       onlineState,
       character,
       activity,

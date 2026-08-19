@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -23,6 +23,18 @@ describe("profileComponentsFor", () => {
   it("retains item sockets and stats for gear", () => {
     expect(profileComponentsFor("gear")).toContain("310");
     expect(profileComponentsFor("gear")).toContain("305");
+  });
+});
+
+describe("Worker cache bounds", () => {
+  it("removes expired values and leaves room for another large profile", () => {
+    const cache = new Map([
+      ["expired", { expiresAt: 10 }],
+      ["oldest-live", { expiresAt: 100 }],
+      ["newest-live", { expiresAt: 100 }]
+    ]);
+    pruneExpiringCache(cache, 2, 50);
+    expect([...cache.keys()]).toEqual(["newest-live"]);
   });
 });
 
@@ -395,7 +407,11 @@ describe("manifest overlays", () => {
 
     const result = await loadBuildAdvisorManifests({ GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env);
 
-    expect(result.companionManifest.itemDefinitions).toMatchObject({ ability: {}, gear: {}, perk: {} });
+    expect(result.companionManifest.itemDefinitions).toHaveProperty("ability");
+    expect(result.companionManifest.itemDefinitions).not.toHaveProperty("gear");
+    expect(result.companionManifest.itemDefinitions).not.toHaveProperty("perk");
+    expect(result.gearManifest.gearItemDefinitions).toHaveProperty("gear");
+    expect(result.gearManifest.plugDefinitions).toHaveProperty("perk");
     expect(result.collectionManifest.items).toEqual([expect.objectContaining({ itemHash: "exotic" })]);
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(expect.arrayContaining([
       "https://example.test/data/build-advisor-manifest.json",
@@ -415,11 +431,11 @@ describe("manifest overlays", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await loadCompanionManifest({ GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env);
+    const result = await loadCompanionManifest({ GAME_DATA_URL: "https://companion-chunk.test/data/manifest.json" } as Env);
 
     expect(result.itemDefinitions).toEqual({ index: { name: "Index" }, chunk: { name: "Chunk" } });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://example.test/data/companion-manifest-00.json");
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("https://companion-chunk.test/data/companion-manifest-00.json");
   });
 
   it("combines the compact pursuit and activity-name artifacts without loading a full activity manifest", async () => {

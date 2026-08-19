@@ -101,6 +101,15 @@ describe("Fireteam reliability helpers", () => {
     expect(sessionPresenceConfirmed(expired.evidence, "2026-08-10T12:03:01.000Z", Date.parse("2026-08-10T12:03:01.000Z"))).toBe(false);
   });
 
+  it("accepts a recent successful fetch when Bungie's source snapshot was minted slightly earlier", () => {
+    const evidence = {
+      sourceObservedAt: "2026-08-10T12:01:00.000Z",
+      lastAdvancedAt: "2026-08-10T12:01:00.000Z",
+      minutesByCharacter: { c1: 48 }
+    };
+    expect(sessionPresenceConfirmed(evidence, "2026-08-10T12:01:30.000Z", Date.parse("2026-08-10T12:02:00.000Z"))).toBe(true);
+  });
+
   it("marks an ordered all-zero session snapshot offline", () => {
     const observation = observeGuardianSession(
       [{ characterId: "c1", minutesPlayedThisSession: 0 }],
@@ -167,10 +176,9 @@ describe("Fireteam reliability helpers", () => {
     expect(visiblePartyMembers(members, "1", true)).toEqual([{ membershipId: "1", observedInParty: false }]);
   });
 
-  it("does not let a viewer's retained party resurrect a synced offline teammate", () => {
+  it("does not let a stale teammate share veto a member in the viewer's fresh Bungie party roster", () => {
     const members = [{ membershipId: "1", observedInParty: true }, { membershipId: "2", observedInParty: true }];
-    expect(visiblePartyMembers(members, "1", true, (membershipId) => membershipId !== "2"))
-      .toEqual([{ membershipId: "1", observedInParty: true }]);
+    expect(visiblePartyMembers(members, "1", true)).toEqual(members);
   });
 
   it("does not let reciprocal stale party snapshots corroborate each other", () => {

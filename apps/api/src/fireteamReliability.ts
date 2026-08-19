@@ -132,7 +132,9 @@ export function sessionPresenceConfirmed(
   return Number.isFinite(sourceMs)
     && Number.isFinite(refreshedMs)
     && Number.isFinite(advancedMs)
-    && Math.abs(sourceMs - refreshedMs) <= 1_000
+    && refreshedMs >= sourceMs - 1_000
+    && now >= refreshedMs
+    && now - refreshedMs <= maxAgeMs
     && now >= sourceMs
     && now - sourceMs <= maxAgeMs
     && now >= advancedMs
@@ -235,11 +237,10 @@ export function resolveViewerPartyObservation(
 export function visiblePartyMembers<T extends { membershipId: string; observedInParty?: boolean }>(
   members: T[],
   selfMembershipId: string,
-  presenceFresh: boolean,
-  teammatePresenceUsable: (membershipId: string) => boolean = () => true
+  presenceFresh: boolean
 ): T[] {
   return members.filter((member) => member.membershipId === selfMembershipId
-    || presenceFresh && member.observedInParty !== false && teammatePresenceUsable(member.membershipId));
+    || presenceFresh && member.observedInParty !== false);
 }
 
 

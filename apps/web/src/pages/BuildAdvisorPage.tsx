@@ -75,7 +75,7 @@ export function BuildAdvisorPage() {
 }
 
 function BuildAdvisor() {
-  const { session, selectedCharacterId, selectCharacter, refresh, preferences = {}, setPreference = () => undefined } = useGuardian();
+  const { session, selectedCharacterId, selectCharacter, preferences = {}, setPreference = () => undefined } = useGuardian();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const forceNext = useRef(false);
@@ -109,8 +109,7 @@ function BuildAdvisor() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["gear"] }),
         queryClient.invalidateQueries({ queryKey: ["loadouts"] }),
-        queryClient.invalidateQueries({ queryKey: ["power"] }),
-        refresh()
+        queryClient.invalidateQueries({ queryKey: ["power"] })
       ]);
       await result.refetch();
     },
@@ -159,7 +158,6 @@ function BuildAdvisor() {
 
   const refreshInventory = async () => {
     forceNext.current = true;
-    await refresh();
     await result.refetch();
   };
   const openInBuilder = (recommendation: BuildAdvisorRecommendation) => {

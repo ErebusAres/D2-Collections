@@ -62,7 +62,8 @@ describe("Build Advisor page", () => {
     expect((await screen.findAllByText("Initial Owned Build")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Refresh inventory" }));
     expect((await screen.findAllByText("Refreshed Owned Build")).length).toBeGreaterThan(0);
-    expect(mocks.refresh).toHaveBeenCalled();
+    expect(mocks.refresh).not.toHaveBeenCalled();
+    expect(vi.mocked(api)).toHaveBeenCalledTimes(2);
     expect(vi.mocked(api).mock.calls.some(([path]) => String(path).includes("refresh=1"))).toBe(true);
   });
 

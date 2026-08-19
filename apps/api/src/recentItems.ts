@@ -214,7 +214,22 @@ export function isExoticEngramDefinition(definition: any): boolean {
 export function inventorySnapshotAvailable(profile: any, manifest: CompanionManifest): boolean {
   return manifest.version !== "unavailable"
     && Array.isArray(profile?.profileInventory?.data?.items)
-    && Boolean(profile?.characterInventories?.data && typeof profile.characterInventories.data === "object");
+    && Boolean(profile?.characterInventories?.data && typeof profile.characterInventories.data === "object")
+    && uninstancedInventoryHashes(profile).every((hash) => Boolean(manifest.itemDefinitions[hash]));
+}
+
+function uninstancedInventoryHashes(profile: any): string[] {
+  const hashes = new Set<string>();
+  const collect = (container: any) => {
+    for (const item of container?.items || []) {
+      if (item?.itemInstanceId) continue;
+      const hash = String(Number(item?.itemHash) >>> 0);
+      if (hash && hash !== "0" && Number(item?.quantity || 0) > 0) hashes.add(hash);
+    }
+  };
+  collect(profile?.profileInventory?.data);
+  Object.values(profile?.characterInventories?.data || {}).forEach(collect);
+  return [...hashes];
 }
 
 export function eventForTransition(observation: Observation, prior: Pick<ObservationRow, "state_value" | "quantity" | "observed_at"> | undefined, firstAccountObservation: boolean, now: string): Omit<RecentItemEvent, "id"> | undefined {

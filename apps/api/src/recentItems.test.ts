@@ -81,6 +81,9 @@ describe("recent item timeline transitions", () => {
     const manifest: any = { version: "current", itemDefinitions: {} };
     const profile = { profileInventory: { data: { items: [] } }, characterInventories: { data: { guardian: { items: [] } } } };
     expect(inventorySnapshotAvailable(profile, manifest)).toBe(true);
+    const unresolved = { profileInventory: { data: { items: [{ itemHash: 1, quantity: 2 }] } }, characterInventories: { data: { guardian: { items: [] } } } };
+    expect(inventorySnapshotAvailable(unresolved, manifest)).toBe(false);
+    expect(inventorySnapshotAvailable(unresolved, { ...manifest, itemDefinitions: { "1": { displayProperties: { name: "Material" } } } })).toBe(true);
     expect(inventorySnapshotAvailable({ ...profile, characterInventories: {} }, manifest)).toBe(false);
     expect(inventorySnapshotAvailable(profile, { ...manifest, version: "unavailable" })).toBe(false);
   });

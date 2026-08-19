@@ -69,10 +69,10 @@ export async function readFireteamActivityFeed(input: {
       ON observations.membership_id = events.membership_id AND observations.observation_key = events.source_key
     WHERE events.membership_id IN (${placeholders}) AND events.event_kind IN (${SHARED_LOOT_KINDS.map(() => "?").join(",")})
       AND events.last_observed_at >= ? ORDER BY events.last_observed_at DESC LIMIT ?`)
-    .bind(...enabledIds, ...SHARED_LOOT_KINDS, cutoff, FIRETEAM_FEED_HISTORY_LIMIT * 2).all<any>();
+    .bind(...enabledIds, ...SHARED_LOOT_KINDS, cutoff, FIRETEAM_FEED_HISTORY_LIMIT).all<any>();
   const channelKey = await fireteamChannelKey(input.partyMembershipIds);
   const messages = await input.env.DB.prepare("SELECT id, membership_id, display_name, body, created_at FROM fireteam_messages WHERE channel_key = ? AND created_at >= ? ORDER BY created_at DESC LIMIT ?")
-    .bind(channelKey, cutoff, FIRETEAM_FEED_HISTORY_LIMIT * 2).all<any>();
+    .bind(channelKey, cutoff, FIRETEAM_FEED_HISTORY_LIMIT).all<any>();
   const enabledSet = new Set(enabledIds);
   const lootEntries: FireteamActivityFeedEntry[] = (loot.results || []).map((row: any) => ({
     type: "loot", id: String(row.id), membershipId: String(row.membership_id), displayName: input.displayNames.get(String(row.membership_id)) || "Unknown Guardian", createdAt: String(row.last_observed_at), event: sharedRecentEventFromRow(row)

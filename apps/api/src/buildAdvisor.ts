@@ -108,6 +108,9 @@ export function normalizeBuildAdvisorInventory(
   gearManifest?: GearManifest
 ): NormalizedBuildAdvisorInventory {
   const definitions = companionManifest.itemDefinitions || {};
+  const gearItemDefinitions = gearManifest?.gearItemDefinitions || {};
+  const plugDefinitions = gearManifest?.plugDefinitions || {};
+  const definitionForHash = (hash: string): any => definitions[hash] || gearItemDefinitions[hash] || plugDefinitions[hash];
   const sockets = profile?.itemComponents?.sockets?.data || {};
   const reusablePlugs = profile?.itemComponents?.reusablePlugs?.data || {};
   const instances = profile?.itemComponents?.instances?.data || {};
@@ -161,13 +164,13 @@ export function normalizeBuildAdvisorInventory(
     const itemHash = hashOf(row.item?.itemHash);
     if (!instanceId || !itemHash || itemHash === "0" || seen.has(instanceId)) continue;
     seen.add(instanceId);
-    const definition: any = definitions[itemHash];
+    const definition: any = gearItemDefinitions[itemHash] || definitions[itemHash];
     if (!definition || ![2, 3].includes(Number(definition.itemType))) continue;
     const properties = definition.displayProperties || {};
     const name = String(properties.name || collectionByHash.get(itemHash)?.name || "Unknown item");
     const compact = collectionByHash.get(itemHash) || collectionByName.get(normalizeName(name));
-    const activePlugs = socketPlugHashes(sockets[instanceId]).map((hash) => plugEntry(hash, definitions)).filter(isDefined);
-    const selectablePlugs = reusablePlugHashes(reusablePlugs[instanceId]).map((hash) => plugEntry(hash, definitions)).filter(isDefined);
+    const activePlugs = socketPlugHashes(sockets[instanceId]).map((hash) => plugEntry(hash, definitionForHash)).filter(isDefined);
+    const selectablePlugs = reusablePlugHashes(reusablePlugs[instanceId]).map((hash) => plugEntry(hash, definitionForHash)).filter(isDefined);
     const className = compact?.className || classFromDefinition(definition) || (Number(definition.itemType) === 2 ? characterClasses.get(row.ownerCharacterId || "") : undefined);
     const damageType = String(compact?.damageType || definition.damageType || DAMAGE_BY_TYPE[Number(definition.defaultDamageType)] || "").trim() || undefined;
     const icon = imageUrl(properties.icon || compact?.icon);
@@ -1229,7 +1232,7 @@ function selectArmorLoadout(
         || right.power - left.power
         || itemEquipConvenience(right, character.characterId) - itemEquipConvenience(left, character.characterId)
         || left.name.localeCompare(right.name))
-      .slice(0, 12);
+      .slice(0, 8);
     return [slot, candidates];
   })) as Record<(typeof ARMOR_SLOTS)[number], BuildAdvisorOwnedItem[]>;
   const optimized = optimizeArmorCombinations(template, candidatesBySlot);
@@ -1300,7 +1303,7 @@ function optimizeArmorCombinations(
     states = expanded
       .sort((left, right) => right.searchScore - left.searchScore
         || armorCombinationId(left.items).localeCompare(armorCombinationId(right.items)))
-      .slice(0, 500);
+      .slice(0, 100);
   }
   const combinations = states
     .map((state) => armorCombination(state.items, state.rawScore, template))
@@ -1628,8 +1631,8 @@ function reusablePlugHashes(component: any): string[] {
   return Object.values(rows).flatMap((plugs: any) => Array.isArray(plugs) ? plugs : []).map((plug: any) => hashOf(plug?.plugItemHash || plug?.plugHash)).filter((hash: string) => hash && hash !== "0");
 }
 
-function plugEntry(hash: string, definitions: CompanionManifest["itemDefinitions"]): ReturnType<typeof named> | undefined {
-  const definition: any = definitions[hash];
+function plugEntry(hash: string, definitionForHash: (hash: string) => any): ReturnType<typeof named> | undefined {
+  const definition: any = definitionForHash(hash);
   const name = String(definition?.displayProperties?.name || "").trim();
   if (!name || /^empty (?:mod|perk|socket)/i.test(name)) return undefined;
   const icon = imageUrl(definition?.displayProperties?.icon);

@@ -14,7 +14,8 @@ let rewardsManifestCache: { value: RewardsManifest; expiresAt: number } | null =
 let guardianRankManifestCache: { value: GuardianRankManifest; expiresAt: number } | null = null;
 let journeyProgressManifestCache: { value: JourneyProgressManifest; expiresAt: number } | null = null;
 let rewardCodeManifestCache: { value: RewardCodeManifest; expiresAt: number } | null = null;
-let companionManifestCache: { value: CompanionManifest; expiresAt: number } | null = null;
+let companionManifestCache: { url: string; value: CompanionManifest; expiresAt: number } | null = null;
+let companionManifestIndexCache: { url: string; value: CompanionManifest; expiresAt: number } | null = null;
 let buildAdvisorManifestCache: { value: BuildAdvisorManifests; expiresAt: number } | null = null;
 const companionDefinitionCache = new Map<string, { value: Record<string, unknown>; expiresAt: number }>();
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
@@ -23,6 +24,8 @@ const publicMembershipTypeCache = new Map<string, number>();
 const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; offers?: any[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
 const socialRosterCache = new Map<string, { value: FireteamSocialData; expiresAt: number }>();
 const profileRequestCache = new Map<string, { promise: Promise<{ profile: any; accessToken: string }>; expiresAt: number }>();
+const PROFILE_REQUEST_CACHE_LIMIT = 8;
+const COMPANION_DEFINITION_CACHE_LIMIT = 4_000;
 const XUR_VENDOR_HASH = "2190858386";
 const XUR_GEAR_VENDOR_HASH = "3751514131";
 const XUR_ARMOR_STATS: Record<string, { name: string; icon: string }> = {
@@ -33,6 +36,23 @@ const XUR_ARMOR_STATS: Record<string, { name: string; icon: string }> = {
   "1943323491": { name: "Class", icon: "https://www.bungie.net/common/destiny2_content/icons/7eb845acb5b3a4a9b7e0b2f05f5c43f1.png" },
   "2996146975": { name: "Weapons", icon: "https://www.bungie.net/common/destiny2_content/icons/bc69675acdae9e6b9a68a02fb4d62e07.png" }
 };
+
+export function pruneExpiringCache<K, V extends { expiresAt: number }>(cache: Map<K, V>, maxEntries: number, now = Date.now()): void {
+  for (const [key, value] of cache) if (value.expiresAt <= now) cache.delete(key);
+  while (cache.size >= Math.max(1, maxEntries)) {
+    const oldest = cache.keys().next().value as K | undefined;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+}
+
+function setBoundedValue<K, V>(cache: Map<K, V>, key: K, value: V, maxEntries: number): void {
+  if (!cache.has(key) && cache.size >= Math.max(1, maxEntries)) {
+    const oldest = cache.keys().next().value as K | undefined;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
+  cache.set(key, value);
+}
 
 interface BuildAdvisorManifestArtifact {
   version: string;
@@ -84,6 +104,7 @@ export async function bungiePost(path: string, bodyValue: unknown, env: Env, acc
 
 export async function emblemPathFor(hash: string, env: Env): Promise<string | undefined> {
   if (!hash || hash === "0") return undefined;
+  pruneExpiringCache(emblemCache, 256);
   const cached = emblemCache.get(hash);
   if (cached && cached.expiresAt > Date.now()) return cached.path;
   try {
@@ -111,6 +132,7 @@ export async function publicProfileFor(
   env: Env,
   accessToken: string
 ): Promise<{ profile?: any; membershipType?: number; expiresAt: number }> {
+  pruneExpiringCache(publicProfileCache, 48);
   const cached = publicProfileCache.get(membershipId);
   if (cached && cached.expiresAt > Date.now()) return cached;
   const types = [...new Set([
@@ -122,7 +144,7 @@ export async function publicProfileFor(
       const profile = await bungieGet(`/Destiny2/${membershipType}/Profile/${membershipId}/?components=100,200,204`, env, accessToken);
       const userInfo = profile?.profile?.data?.userInfo;
       if (!userInfo || String(userInfo.membershipId || membershipId) !== membershipId) continue;
-      publicMembershipTypeCache.set(membershipId, membershipType);
+      setBoundedValue(publicMembershipTypeCache, membershipId, membershipType, 256);
       const result = { profile, membershipType, expiresAt: Date.now() + 55_000 };
       publicProfileCache.set(membershipId, result);
       return result;
@@ -143,6 +165,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
   warning?: string;
   offers?: any[];
 }> {
+  pruneExpiringCache(xurInventoryCache, 32);
   const cacheKey = `${row.membership_type}:${row.membership_id}:${characterId}:${includeDetails ? "details" : "hashes"}`;
   const cached = xurInventoryCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) return cached;
@@ -475,6 +498,7 @@ export function profileComponentsFor(mode: ProfileMode): string {
 }
 
 export async function profileFor(row: SessionRow, env: Env, mode: ProfileMode = "full", force = false, accessTokenOverride?: string): Promise<{ profile: any; accessToken: string }> {
+  pruneExpiringCache(profileRequestCache, PROFILE_REQUEST_CACHE_LIMIT);
   const components = profileComponentsFor(mode);
   const cacheKey = `${row.membership_type}:${row.membership_id}:${components}`;
   if (force) profileRequestCache.delete(cacheKey);
@@ -491,13 +515,10 @@ export async function profileFor(row: SessionRow, env: Env, mode: ProfileMode = 
 }
 
 export async function loadCompanionManifest(env: Env): Promise<CompanionManifest> {
-  if (companionManifestCache && companionManifestCache.expiresAt > Date.now()) return companionManifestCache.value;
   const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "companion-manifest.json");
+  if (companionManifestCache && companionManifestCache.url === url && companionManifestCache.expiresAt > Date.now()) return companionManifestCache.value;
   try {
-    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
-    if (!response.ok) throw new Error(`Companion manifest request returned ${response.status}.`);
-    const index = await response.json() as CompanionManifest;
-    if (!index?.version || !index.itemDefinitions || !index.bucketDefinitions) throw new Error("Companion manifest artifact is invalid.");
+    const index = await loadCompanionManifestIndex(env);
     const chunks = await Promise.all((index.itemDefinitionChunks || []).map(async (path) => {
       const chunkResponse = await fetch(new URL(path, url).toString(), { cf: { cacheTtl: 300, cacheEverything: true } });
       if (!chunkResponse.ok) throw new Error(`Companion manifest chunk request returned ${chunkResponse.status}.`);
@@ -506,7 +527,7 @@ export async function loadCompanionManifest(env: Env): Promise<CompanionManifest
       return chunk.itemDefinitions;
     }));
     const value = { ...index, itemDefinitions: Object.assign({}, index.itemDefinitions, ...chunks) };
-    companionManifestCache = { value, expiresAt: Date.now() + 300_000 };
+    companionManifestCache = { url, value, expiresAt: Date.now() + 300_000 };
     return value;
   } catch {
     return {
@@ -521,6 +542,34 @@ export async function loadCompanionManifest(env: Env): Promise<CompanionManifest
   }
 }
 
+async function loadCompanionManifestIndex(env: Env): Promise<CompanionManifest> {
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "companion-manifest.json");
+  if (companionManifestIndexCache && companionManifestIndexCache.url === url && companionManifestIndexCache.expiresAt > Date.now()) return companionManifestIndexCache.value;
+  const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+  if (!response.ok) throw new Error(`Companion manifest request returned ${response.status}.`);
+  const artifact = await response.json() as CompanionManifest;
+  if (!artifact?.version || !artifact.itemDefinitions) throw new Error("Companion manifest artifact is invalid.");
+  const value: CompanionManifest = {
+    ...artifact,
+    bucketDefinitions: artifact.bucketDefinitions || {},
+    loadoutNameDefinitions: artifact.loadoutNameDefinitions || {},
+    loadoutIconDefinitions: artifact.loadoutIconDefinitions || {},
+    loadoutColorDefinitions: artifact.loadoutColorDefinitions || {}
+  };
+  companionManifestIndexCache = { url, value, expiresAt: Date.now() + 300_000 };
+  return value;
+}
+
+export async function loadCompanionManifestForHashes(env: Env, itemHashes: string[]): Promise<CompanionManifest> {
+  const index = await loadCompanionManifestIndex(env);
+  const definitions = await companionItemDefinitionsFor(env, [...new Set(itemHashes.filter((hash) => /^\d+$/.test(hash)))]);
+  return {
+    ...index,
+    itemDefinitions: { ...index.itemDefinitions, ...definitions },
+    itemDefinitionChunks: []
+  };
+}
+
 export async function loadBuildAdvisorManifests(env: Env): Promise<BuildAdvisorManifests> {
   if (buildAdvisorManifestCache && buildAdvisorManifestCache.expiresAt > Date.now()) return buildAdvisorManifestCache.value;
   try {
@@ -533,10 +582,13 @@ export async function loadBuildAdvisorManifests(env: Env): Promise<BuildAdvisorM
     const artifact = await response.json() as BuildAdvisorManifestArtifact;
     if (!artifact?.version || !artifact.itemDefinitions || !Array.isArray(artifact.collectionItems)) throw new Error("Build Advisor manifest artifact is invalid.");
     if (artifact.version !== gearManifest.version) throw new Error("Build Advisor and Gear manifest versions do not match.");
+    // Keep the bounded advisor definitions separate from the Gear manifest.
+    // Merging both maps duplicated the multi-megabyte Gear artifact in the
+    // Worker heap and made cold Build Advisor requests vulnerable to 1102.
     const companionManifest: CompanionManifest = {
       version: artifact.version,
       generatedAt: artifact.generatedAt,
-      itemDefinitions: Object.assign({}, artifact.itemDefinitions, gearManifest.gearItemDefinitions, gearManifest.plugDefinitions),
+      itemDefinitions: artifact.itemDefinitions,
       bucketDefinitions: {},
       loadoutNameDefinitions: {},
       loadoutIconDefinitions: {},
@@ -555,11 +607,18 @@ export async function loadBuildAdvisorManifests(env: Env): Promise<BuildAdvisorM
     buildAdvisorManifestCache = { value, expiresAt: Date.now() + 300_000 };
     return value;
   } catch {
-    const [companionManifest, collectionManifest, gearManifest] = await Promise.all([
-      loadCompanionManifest(env),
-      loadManifest(env),
-      loadGearManifest(env)
-    ]);
+    // A missing bounded artifact must degrade the Advisor, not load the full
+    // multi-chunk companion manifest into the same isolate as Gear/Collection.
+    const [collectionManifest, gearManifest] = await Promise.all([loadManifest(env), loadGearManifest(env)]);
+    const companionManifest: CompanionManifest = {
+      version: "unavailable",
+      generatedAt: new Date().toISOString(),
+      itemDefinitions: {},
+      bucketDefinitions: {},
+      loadoutNameDefinitions: {},
+      loadoutIconDefinitions: {},
+      loadoutColorDefinitions: {}
+    };
     return { companionManifest, collectionManifest, gearManifest };
   }
 }
@@ -584,6 +643,7 @@ export function xurCategoryFor(definition: any): XurOffer["category"] {
 
 export async function companionItemDefinitionsFor(env: Env, itemHashes: string[]): Promise<Record<string, Record<string, unknown>>> {
   const now = Date.now();
+  pruneExpiringCache(companionDefinitionCache, COMPANION_DEFINITION_CACHE_LIMIT, now);
   const output: Record<string, Record<string, unknown>> = {};
   const missing = itemHashes.filter((hash) => {
     const cached = companionDefinitionCache.get(hash);
@@ -592,9 +652,7 @@ export async function companionItemDefinitionsFor(env: Env, itemHashes: string[]
   });
   if (!missing.length) return output;
   const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "companion-manifest.json");
-  const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
-  if (!response.ok) throw new Error(`Companion manifest request returned ${response.status}.`);
-  const index = await response.json() as CompanionManifest;
+  const index = await loadCompanionManifestIndex(env);
   const chunks = index.itemDefinitionChunks || [];
   if (!chunks.length) return { ...output, ...index.itemDefinitions };
   const wanted = new Set(missing);
@@ -606,7 +664,7 @@ export async function companionItemDefinitionsFor(env: Env, itemHashes: string[]
     for (const [hash, definition] of Object.entries(chunk.itemDefinitions || {})) {
       if (!wanted.has(hash)) continue;
       output[hash] = definition;
-      companionDefinitionCache.set(hash, { value: definition, expiresAt: now + 300_000 });
+      setBoundedValue(companionDefinitionCache, hash, { value: definition, expiresAt: now + 300_000 }, COMPANION_DEFINITION_CACHE_LIMIT);
     }
   }
   return output;
@@ -864,6 +922,7 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
 }
 
 export async function socialRosterFor(row: SessionRow, accessToken: string, env: Env): Promise<FireteamSocialData> {
+  pruneExpiringCache(socialRosterCache, 32);
   const cached = socialRosterCache.get(row.membership_id);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
   const contacts = new Map<string, FireteamContact>();
