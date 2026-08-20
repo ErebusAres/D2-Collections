@@ -127,8 +127,8 @@
 .loot b[data-rarity="Uncommon"] { color: #76c998; }
 .loot b[data-rarity="Common"] { color: #d0d3d7; }
 
-.tooltip { position: fixed; z-index: 500; display: block; }
-.tooltip > aside { position: relative !important; inset: auto !important; display: block !important; width: min(410px, calc(100vw - 24px)) !important; max-height: calc(100vh - 24px); overflow-y: auto; }
+.tooltip { position: fixed; z-index: 500; max-width: calc(100vw - 24px); display: block; }
+.tooltip > aside { position: relative !important; inset: auto !important; display: block !important; width: min(410px, calc(100vw - 24px)) !important; max-width: 100%; max-height: calc(100vh - 24px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
 
 .feed form {
   flex: 0 0 auto;
