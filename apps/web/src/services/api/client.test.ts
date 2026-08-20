@@ -12,7 +12,8 @@ const offlineCache = vi.hoisted(() => ({
 
 vi.mock("./offlineCache", () => offlineCache);
 
-import { api, ApiRequestError, connectionFailureReport, describeApiError, queuedApi, savedReadFailureIsCurrent } from "./client";
+import { api, ApiRequestError, describeApiError, queuedApi, savedReadFailureIsCurrent } from "./client";
+import { connectionFailureReport } from "./incidentReport";
 
 beforeEach(() => {
   vi.clearAllMocks();

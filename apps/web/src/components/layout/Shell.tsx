@@ -1,12 +1,12 @@
 import type { RecentItemTimelineData, ReportAdminSummaryData, RewardsPassData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowUp, Badge, Boxes, Coins, Compass, Copy, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
+import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../../services/api/client";
 import { hasClaimableReward, rewardLevelProgress } from "../../modules/rewards/rewardsProgress";
 import { useGuardian } from "../../context/GuardianContext";
-import { connectionFailureReport, getConnectionSnapshot, subscribeConnection, type ConnectionFailure } from "../../services/api/client";
+import { getConnectionSnapshot, subscribeConnection } from "../../services/api/client";
 import { HEADER_REFRESH_INTERVAL_MS } from "../../services/liveRefresh";
 import { GuardianFeed } from "../notifications/GuardianFeed";
 import { NotificationCenter } from "../notifications/NotificationCenter";
@@ -14,6 +14,7 @@ import { useGuardianNotifications } from "../../modules/notifications/useGuardia
 import styles from "./Shell.module.css";
 
 const OptionsPanel = lazy(() => import("./OptionsPanel").then((module) => ({ default: module.OptionsPanel })));
+const ServiceIncidentBanner = lazy(() => import("./ServiceIncidentBanner").then((module) => ({ default: module.ServiceIncidentBanner })));
 
 const tabs: Array<{ to: string; label: string; icon: typeof Globe2 }> = [
   { to: "/director", label: "Director", icon: Globe2 }, { to: "/collection", label: "Collection", icon: Boxes },
@@ -103,10 +104,11 @@ export function Shell() {
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>
-      {connection.activeFailure && <ServiceIncidentBanner failure={connection.activeFailure} copied={copiedIncident === connection.activeFailure.requestId} onCopy={async () => {
-        await navigator.clipboard.writeText(connectionFailureReport(connection.activeFailure!));
-        setCopiedIncident(connection.activeFailure?.requestId || connection.activeFailure?.occurredAt || "copied");
-      }} />}
+      {connection.activeFailure && <Suspense fallback={null}><ServiceIncidentBanner failure={connection.activeFailure} copied={copiedIncident === connection.activeFailure.requestId} onCopy={async () => {
+          const { connectionFailureReport } = await import("../../services/api/incidentReport");
+          await navigator.clipboard.writeText(connectionFailureReport(connection.activeFailure!));
+          setCopiedIncident(connection.activeFailure?.requestId || connection.activeFailure?.occurredAt || "copied");
+        }} /></Suspense>}
       {showScrollTop && <button type="button" className={styles.scrollTop} aria-label="Scroll to top" title="Scroll to top" onClick={() => window.scrollTo({ top: 0, behavior: document.documentElement.dataset.reducedMotion === "true" ? "auto" : "smooth" })}><ArrowUp /></button>}
       <footer className={styles.footer}><span>Guardian Nexus</span><span>Destiny companion</span><span>Activity data may be delayed</span></footer>
       <Suspense fallback={<aside aria-label="Guardian options" aria-hidden="true" inert />}>
@@ -114,20 +116,6 @@ export function Shell() {
       </Suspense>
     </div>
   );
-}
-
-function ServiceIncidentBanner({ failure, copied, onCopy }: { failure: ConnectionFailure; copied: boolean; onCopy: () => Promise<void> }) {
-  const cause = failure.code === "worker_resource_limit"
-    ? "The server reached its processing limit. Automatic requests are paused briefly before retrying."
-    : failure.code === "network_error"
-      ? "The browser could not reach the server. This request may not appear in backend logs."
-      : "The server could not complete this request. The reference below identifies the matching backend log entry.";
-  return <aside className={styles.serviceIncident} role="alert" aria-label="Guardian services incident">
-    <AlertTriangle />
-    <div className={styles.incidentSummary}><strong>Guardian services interrupted</strong><span>{cause}</span><small>{failure.message}</small></div>
-    <dl><div><dt>Route</dt><dd>{failure.route}</dd></div><div><dt>Error</dt><dd>{failure.code}</dd></div><div><dt>Status</dt><dd>{failure.status || "No response"}</dd></div><div><dt>Reference</dt><dd>{failure.requestId || "Unavailable"}</dd></div><div><dt>Occurred</dt><dd>{new Date(failure.occurredAt).toLocaleTimeString()}</dd></div></dl>
-    <button type="button" onClick={() => void onCopy()}><Copy />{copied ? "Incident copied" : "Copy incident details"}</button>
-  </aside>;
 }
 
 function usePageUtilities(): boolean {

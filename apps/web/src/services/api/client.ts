@@ -192,7 +192,7 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
   const blockedUntil = routeCircuitBreakers.get(route) || 0;
   if (blockedUntil > Date.now()) {
     const error = new ApiRequestError(503, { code: "worker_resource_limit", message: sectionFailureMessage(path), retryAfterSeconds: Math.max(1, Math.ceil((blockedUntil - Date.now()) / 1_000)), diagnostics: { failureSource: "client-circuit-breaker", method, breakerUntil: new Date(blockedUntil).toISOString() } });
-    recordRequestTrace({ route, method, status: 503, code: error.code, durationMs: elapsed(startedAt), occurredAt: new Date().toISOString(), requestId: error.requestId });
+    traceRequest(route, method, startedAt, 503, error.code, error.requestId);
     activateFailure(route, error);
     throw error;
   }
@@ -206,7 +206,7 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
     });
   } catch (error) {
     const requestError = new ApiRequestError(0, { code: "network_error", message: messageOf(error), requestId: clientRequestId(), diagnostics: { failureSource: "network", method, durationMs: elapsed(startedAt) } });
-    recordRequestTrace({ route, method, status: 0, code: requestError.code, durationMs: elapsed(startedAt), occurredAt: new Date().toISOString(), requestId: requestError.requestId });
+    traceRequest(route, method, startedAt, 0, requestError.code, requestError.requestId);
     activateFailure(route, requestError);
     throw requestError;
   }
@@ -217,26 +217,18 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
       const rayId = response.headers.get("cf-ray")?.split("-")[0] || raw.match(/Cloudflare Ray ID:\s*<strong[^>]*>([^<]+)/i)?.[1]?.trim();
       body = { code: "worker_resource_limit", message: sectionFailureMessage(path), requestId: rayId, diagnostics: {
         failureSource: "cloudflare-runtime",
-        method,
-        durationMs: elapsed(startedAt),
-        responseContentType: response.headers.get("content-type") || "unknown",
-        responseServer: response.headers.get("server") || "unknown",
         responseBodyKind: "cloudflare-1102",
-        cfRay: response.headers.get("cf-ray") || rayId
+        ...responseDiagnostics(response, method, startedAt)
       } };
     }
   }
   if (!response.ok) {
     body.diagnostics = {
       ...(body.diagnostics && typeof body.diagnostics === "object" ? body.diagnostics : {}),
-      method,
-      durationMs: elapsed(startedAt),
-      responseContentType: response.headers.get("content-type") || "unknown",
-      responseServer: response.headers.get("server") || "unknown",
-      cfRay: response.headers.get("cf-ray") || undefined
+      ...responseDiagnostics(response, method, startedAt)
     };
     const error = new ApiRequestError(response.status, body);
-    recordRequestTrace({ route, method, status: response.status, code: error.code, durationMs: elapsed(startedAt), occurredAt: new Date().toISOString(), requestId: error.requestId });
+    traceRequest(route, method, startedAt, response.status, error.code, error.requestId);
     activateFailure(route, error);
     if (error.code === "worker_resource_limit") {
       routeCircuitBreakers.set(route, Date.now() + 60_000 + Math.round(Math.random() * 10_000));
@@ -247,7 +239,7 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
   if (connectionSnapshot.activeFailure?.route === route) updateConnection({ activeFailure: undefined });
   if (!pendingMutations.length && !savedReadPaths.size) updateConnection({ lastError: undefined });
   routeCircuitBreakers.delete(route);
-  recordRequestTrace({ route, method, status: response.status, durationMs: elapsed(startedAt), occurredAt: new Date().toISOString(), requestId: String((body as any)?.requestId || "") || undefined });
+  traceRequest(route, method, startedAt, response.status, undefined, String((body as any)?.requestId || "") || undefined);
   return body as ApiEnvelope<T>;
 }
 
@@ -337,39 +329,15 @@ function activateFailure(route: string, error: ApiRequestError): void {
   updateConnection({ activeFailure, lastError: describeApiError(error) });
 }
 
-export function connectionFailureReport(failure: ConnectionFailure): string {
-  const diagnostics = failure.diagnostics || {};
-  const page = typeof location !== "undefined" ? location.pathname : "unknown";
-  const visibility = typeof document !== "undefined" ? document.visibilityState : "unknown";
-  const online = typeof navigator !== "undefined" ? navigator.onLine : undefined;
-  const browser = typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
-  return [
-    "Guardian Nexus service incident",
-    `Time: ${failure.occurredAt}`,
-    `Route: ${failure.route}`,
-    `Message: ${failure.message}`,
-    `Error code: ${failure.code}`,
-    failure.status ? `HTTP status: ${failure.status}` : "HTTP status: no response",
-    failure.requestId ? `Reference: ${failure.requestId}` : undefined,
-    failure.retryAfterSeconds ? `Retry after: ${failure.retryAfterSeconds}s` : undefined,
-    `Failure source: ${String(diagnostics.failureSource || "unknown")}`,
-    diagnostics.method ? `Method: ${String(diagnostics.method)}` : undefined,
-    diagnostics.durationMs !== undefined ? `Duration: ${String(diagnostics.durationMs)}ms` : undefined,
-    diagnostics.cfRay ? `Cloudflare Ray: ${String(diagnostics.cfRay)}` : undefined,
-    diagnostics.responseContentType ? `Response type: ${String(diagnostics.responseContentType)}` : undefined,
-    diagnostics.responseServer ? `Response server: ${String(diagnostics.responseServer)}` : undefined,
-    `Page: ${page}`,
-    `Tab visibility: ${visibility}`,
-    online === undefined ? undefined : `Browser online: ${online ? "yes" : "no"}`,
-    `Frontend commit: ${import.meta.env.VITE_GIT_COMMIT || "unknown"}`,
-    `Frontend built: ${import.meta.env.VITE_BUILD_TIMESTAMP || "unknown"}`,
-    `Browser: ${browser}`,
-    failure.recentRequests?.length ? "Recent API requests:" : undefined,
-    ...(failure.recentRequests || []).map((trace) => `- ${trace.occurredAt} ${trace.method} ${trace.route} -> ${trace.status}${trace.code ? ` ${trace.code}` : ""} (${trace.durationMs}ms)${trace.requestId ? ` [${trace.requestId}]` : ""}`)
-  ].filter(Boolean).join("\n");
+function elapsed(startedAt: number): number { return Math.max(0, Math.round(performance.now() - startedAt)); }
+
+function responseDiagnostics(response: Response, method: string, startedAt: number): Record<string, unknown> {
+  return { method, durationMs: elapsed(startedAt), responseContentType: response.headers.get("content-type") || "unknown", responseServer: response.headers.get("server") || "unknown", cfRay: response.headers.get("cf-ray") || undefined };
 }
 
-function elapsed(startedAt: number): number { return Math.max(0, Math.round(performance.now() - startedAt)); }
+function traceRequest(route: string, method: string, startedAt: number, status: number, code?: string, requestId?: string): void {
+  recordRequestTrace({ route, method, status, code, durationMs: elapsed(startedAt), occurredAt: new Date().toISOString(), requestId });
+}
 
 function recordRequestTrace(trace: RequestTrace): void {
   recentRequestTraces.push(trace);

@@ -42,11 +42,11 @@ vi.mock("../../context/GuardianContext", () => ({
 vi.mock("../../services/api/client", () => {
   return {
     api: vi.fn().mockResolvedValue({ data: { rewards: [] }, freshness: { state: "fresh", observedAt: "2026-07-16T00:00:00Z" }, warnings: [], requestId: "test" }),
-    connectionFailureReport: vi.fn(() => "copyable incident"),
     getConnectionSnapshot: () => connectionMock.snapshot,
     subscribeConnection: () => () => undefined
   };
 });
+vi.mock("../../services/api/incidentReport", () => ({ connectionFailureReport: vi.fn(() => "copyable incident") }));
 
 vi.mock("../reward-codes/RewardCodeMarquee", () => ({ RewardCodeMarquee: () => null }));
 vi.mock("../../modules/reward-codes/rewardCodes", () => ({ activeRewardCodes: () => [{ code: "NEW-CODE" }] }));
@@ -208,7 +208,7 @@ describe("Shell guardian identity", () => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     renderShell(<div>Page</div>);
 
-    const banner = screen.getByRole("alert", { name: "Guardian services incident" });
+    const banner = await screen.findByRole("alert", { name: "Guardian services incident" });
     expect(within(banner).getByText("worker_resource_limit")).toBeTruthy();
     expect(within(banner).getByText("ray-123")).toBeTruthy();
     fireEvent.click(within(banner).getByRole("button", { name: "Copy incident details" }));
