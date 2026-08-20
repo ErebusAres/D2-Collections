@@ -54,7 +54,7 @@ export function offlineCachePolicy(path: string): CachePolicy | undefined {
   // Fireteam activity is a non-authoritative event feed and may be retained
   // briefly so a document reload can honor its polling cooldown. Live Fireteam
   // membership and sharing are never restored from an offline snapshot.
-  if (pathname === "/api/v1/fireteam/activity") return { scope: "guardian", maxAgeMs: 5 * 60_000 };
+  if (pathname === "/api/v1/fireteam/activity" || pathname === "/api/v2/fireteam/activity" || pathname === "/api/v2/fireteam/recent-items") return { scope: "guardian", maxAgeMs: 5 * 60_000 };
   if (pathname === "/api/v1/me/quests") return { scope: "guardian", maxAgeMs: 24 * 60 * 60_000 };
   if (pathname === "/api/v1/matrix") return { scope: "guardian", maxAgeMs: 7 * 24 * 60 * 60_000 };
   if (pathname.startsWith("/api/v1/me/")) return { scope: "guardian", maxAgeMs: 7 * 24 * 60 * 60_000 };

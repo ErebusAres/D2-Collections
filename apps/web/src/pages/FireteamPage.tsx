@@ -14,7 +14,7 @@ const BUNGIE_PRESENCE_DISCLAIMER = "Bungie marks party and current-activity data
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
-import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
+import { useFireteamQuery, useFireteamV2Query } from "../modules/fireteam/useFireteamQuery";
 import { FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
 interface ShareVariables {
@@ -30,10 +30,13 @@ interface ShareVariables {
 }
 
 const TRACKED_ITEM_EXIT_MS = 1_600;
-export function FireteamPage() {
+export function FireteamPage({ version = "v1" }: { version?: "v1" | "v2" } = {}) {
   const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
   const queryClient = useQueryClient();
-  const result = useFireteamQuery(session?.guardian?.membershipId || "", selectedCharacterId, Boolean(session?.authenticated));
+  const legacyResult = useFireteamQuery(session?.guardian?.membershipId || "", selectedCharacterId, Boolean(session?.authenticated && version === "v1"));
+  const v2Result = useFireteamV2Query(session?.guardian?.membershipId || "", selectedCharacterId, Boolean(session?.authenticated && version === "v2"));
+  const result = version === "v2" ? v2Result : legacyResult;
+  const queryRoot = version === "v2" ? "fireteam-v2" : "fireteam";
   useEffect(() => {
     const prime = () => {
       primeCompletionAudio();
@@ -61,21 +64,23 @@ export function FireteamPage() {
   const activityFeedView = parseActivityFeedView(preferences["fireteam.activityFeedView.v1"]);
   const showRecentLoot = preferences["fireteam.recentLoot.v1"] !== "off";
   const recentItems = useQuery({
-    queryKey: ["recent-items", selectedCharacterId],
-    queryFn: () => api<RecentItemTimelineData>(`/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
+    queryKey: [version === "v2" ? "fireteam-v2-recent-items" : "recent-items", selectedCharacterId],
+    queryFn: () => api<RecentItemTimelineData>(version === "v2"
+      ? `/api/v2/fireteam/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`
+      : `/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
     staleTime: 30_000,
     refetchInterval: false
   });
   const activityFeed = useQuery({
-    queryKey: ["fireteam-activity", session?.guardian?.membershipId, selectedCharacterId],
-    queryFn: () => api<NonNullable<FireteamData["activityFeed"]>>("/api/v1/fireteam/activity"),
+    queryKey: [version === "v2" ? "fireteam-v2-activity" : "fireteam-activity", session?.guardian?.membershipId, selectedCharacterId],
+    queryFn: () => api<NonNullable<FireteamData["activityFeed"]>>(version === "v2" ? "/api/v2/fireteam/activity" : "/api/v1/fireteam/activity"),
     enabled: Boolean(session?.authenticated && activityFeedView !== "hidden"),
     staleTime: FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS,
     refetchInterval: false,
     refetchIntervalInBackground: false
   });
-  const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["recent-items", selectedCharacterId] }) });
+  const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: [version === "v2" ? "fireteam-v2-recent-items" : "recent-items", selectedCharacterId] }) });
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
   const preferenceTrackedItemOrder = useMemo(() => trackedPreference(preferences["fireteam.trackedOrder"]), [preferences]);
   const [trackedItemOrder, setTrackedItemOrder] = useState(preferenceTrackedItemOrder);
@@ -83,16 +88,16 @@ export function FireteamPage() {
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
   const [manualRemovingKey, setManualRemovingKey] = useState("");
   const share = useMutation({
-    mutationFn: ({ mode, sitePinnedQuestIds = pinnedIds, siteTrackedGuardianRankIds = guardianRankIds, siteTrackedJourneyIds = journeyIds, siteTrackedCollectionIds = collectionIds, siteTrackedBuilds = trackedBuilds, hiddenTrackedItemKeys: hiddenKeys = hiddenTrackedItemKeys, activityFeedEnabled }: ShareVariables) => queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedJourneyIds, siteTrackedCollectionIds, siteTrackedBuilds, hiddenTrackedItemKeys: hiddenKeys, ...(activityFeedEnabled === undefined ? {} : { activityFeedEnabled }), mode }) }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
+    mutationFn: ({ mode, sitePinnedQuestIds = pinnedIds, siteTrackedGuardianRankIds = guardianRankIds, siteTrackedJourneyIds = journeyIds, siteTrackedCollectionIds = collectionIds, siteTrackedBuilds = trackedBuilds, hiddenTrackedItemKeys: hiddenKeys = hiddenTrackedItemKeys, activityFeedEnabled }: ShareVariables) => queuedApi(version === "v2" ? "/api/v2/fireteam/share" : "/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedJourneyIds, siteTrackedCollectionIds, siteTrackedBuilds, hiddenTrackedItemKeys: hiddenKeys, ...(activityFeedEnabled === undefined ? {} : { activityFeedEnabled }), mode }) }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: [queryRoot] })
   });
   const stop = useMutation({
-    mutationFn: () => queuedApi("/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
+    mutationFn: () => queuedApi(version === "v2" ? "/api/v2/fireteam/share" : "/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: [queryRoot] })
   });
   const sendMessage = useMutation({
-    mutationFn: (body: string) => queuedApi("/api/v1/fireteam/messages", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ body }) }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
+    mutationFn: (body: string) => queuedApi(version === "v2" ? "/api/v2/fireteam/messages" : "/api/v1/fireteam/messages", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ body }) }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: [version === "v2" ? "fireteam-v2-activity" : "fireteam-activity"] })
   });
   const liveActivityFeed = activityFeed.data?.data && Array.isArray(activityFeed.data.data.entries) ? activityFeed.data.data : data?.activityFeed;
   const visibleActivityFeed = liveActivityFeed || {
@@ -197,7 +202,7 @@ export function FireteamPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="The backend checks live presence continuously and commits the full Fireteam snapshot every 5 minutes." actions={<>
+    <PageHeader eyebrow={version === "v2" ? "Isolated snapshot preview" : "Cooperative intelligence"} title={version === "v2" ? "Fireteam v2" : "Fireteam"} description={version === "v2" ? "A separate backend-owned snapshot refreshes roster and shared progress together every 5 minutes. Page reloads only read saved data." : "The backend checks live presence continuously and commits the full Fireteam snapshot every 5 minutes."} actions={<>
       <Freshness observedAt={data?.pageUpdatedAt} label="Last updated" warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
       {data && !data.sharingEnabled && <>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "temporary" })} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>

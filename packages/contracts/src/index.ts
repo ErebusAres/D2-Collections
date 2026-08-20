@@ -744,6 +744,11 @@ export interface FireteamData {
   pageUpdatedAt?: string;
   pageRefreshDueAt?: string;
   presenceObservedAt?: string;
+  snapshotVersion?: number;
+  refreshState?: "waiting" | "current" | "refreshing" | "delayed";
+  refreshAttemptedAt?: string;
+  refreshRetryAt?: string;
+  refreshErrorCode?: string;
   members: FireteamMember[];
   social?: FireteamSocialData;
   activityFeed?: FireteamActivityFeed;

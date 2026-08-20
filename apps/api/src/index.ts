@@ -82,6 +82,17 @@ import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMembers
 import { observeRecentItems, readRecentItems, removeRecentGearItem } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
 import { fireteamPageRefreshDueAt, fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, partySnapshotSourceObservedAt, resolveViewerPartyObservation, sourceObservationTimestamp, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
+import {
+  authoritativeFireteamV2Party,
+  FIRETEAM_V2_ACTIVE_WINDOW_MS,
+  FIRETEAM_V2_LEASE_MS,
+  FIRETEAM_V2_MAX_REFRESHES_PER_CRON,
+  fireteamV2RefreshState,
+  fireteamV2RetryAfter,
+  fireteamV2SourceAdvanced,
+  fireteamV2SnapshotUsable,
+  nextFireteamV2RefreshAt
+} from "./fireteamV2";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -224,12 +235,20 @@ export default {
     const now = new Date().toISOString();
     await env.DB.batch([
       env.DB.prepare("DELETE FROM fireteam_shares WHERE sharing_mode = 'temporary' AND expires_at <= ?").bind(now),
+      env.DB.prepare("DELETE FROM fireteam_snapshots_v2 WHERE sharing_mode = 'temporary' AND expires_at <= ?").bind(now),
       env.DB.prepare("DELETE FROM fireteam_messages WHERE created_at < ?").bind(new Date(Date.now() - FIRETEAM_FEED_RETENTION_DAYS * 86_400_000).toISOString()),
       env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
     ]);
     if (Math.floor(controller.scheduledTime / 60_000) % 5 === 0) await maintainNotificationStorage(env);
-    await refreshNextPersistentShare(env);
-    await refreshDueFireteamPresenceShares(env);
+    await refreshDueFireteamV2Snapshots(env).catch((error: any) => {
+      console.error("fireteam_v2_cron_failed", String(error?.code || error?.message || "unknown"));
+    });
+    await refreshNextPersistentShare(env).catch((error: any) => {
+      console.error("fireteam_legacy_progress_cron_failed", String(error?.code || error?.message || "unknown"));
+    });
+    await refreshDueFireteamPresenceShares(env).catch((error: any) => {
+      console.error("fireteam_legacy_presence_cron_failed", String(error?.code || error?.message || "unknown"));
+    });
   }
 };
 
@@ -296,6 +315,16 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/build-advisor" && request.method === "GET") return buildAdvisor(session.row, env, context);
   if (path === "/api/v1/me/build-advisor/equip" && request.method === "POST") { await requireCsrf(request, session.token, env); return equipBuildAdvisor(request, session.row, env, context); }
   if (path === "/api/v1/fireteam" && request.method === "GET") return fireteam(session.row, env, context);
+  if (path === "/api/v2/fireteam" && request.method === "GET") return fireteamV2(session.row, env, context);
+  if (path === "/api/v2/fireteam/recent-items" && request.method === "GET") return fireteamV2RecentItems(session.row, env, context);
+  if (path === "/api/v2/fireteam/activity" && request.method === "GET") return fireteamV2Activity(session.row, env, context);
+  if (path === "/api/v2/fireteam/messages" && request.method === "POST") { await requireCsrf(request, session.token, env); return postFireteamV2Message(request, session.row, env, context); }
+  if (path === "/api/v2/fireteam/share" && request.method === "PUT") { await requireCsrf(request, session.token, env); return upsertFireteamV2Share(request, session.row, env, context); }
+  if (path === "/api/v2/fireteam/share" && request.method === "DELETE") {
+    await requireCsrf(request, session.token, env);
+    await env.DB.prepare("DELETE FROM fireteam_snapshots_v2 WHERE membership_id = ?").bind(session.row.membership_id).run();
+    return envelope({ sharing: false }, env, context);
+  }
   if (path === "/api/v1/fireteam/social" && request.method === "GET") return fireteamSocial(session.row, env, context);
   if (path === "/api/v1/fireteam/activity" && request.method === "GET") return fireteamActivity(session.row, env, context);
   if (path === "/api/v1/fireteam/messages" && request.method === "POST") { await requireCsrf(request, session.token, env); return postFireteamMessage(request, session.row, env, context); }
@@ -1787,6 +1816,398 @@ async function trackedPreferenceIds(membershipId: string, env: Env, key: string)
   } catch { return new Set(); }
 }
 
+interface FireteamV2RefreshRow {
+  membership_id: string;
+  display_name: string;
+  character_id: string;
+  site_pinned_quest_ids_json: string;
+  sharing_mode: FireteamSharingMode;
+  expires_at: string;
+  settings_json: string;
+  snapshot_payload_json?: string;
+  refresh_started_at?: string;
+}
+
+interface FireteamV2SnapshotRow {
+  membership_id: string;
+  display_name: string;
+  character_id: string;
+  sharing_mode: "off" | FireteamSharingMode;
+  expires_at: string;
+  site_pinned_quest_ids_json: string;
+  settings_json: string;
+  snapshot_version: number;
+  payload_json?: string;
+  source_observed_at?: string;
+  committed_at?: string;
+  next_refresh_at?: string;
+  last_requested_at?: string;
+  refresh_started_at?: string;
+  last_attempt_at?: string;
+  retry_after_at?: string;
+  last_error_code?: string;
+  last_error_message?: string;
+}
+
+async function upsertFireteamV2Share(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const input = shareSchema.parse(await request.json());
+  const now = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + 15 * 60_000).toISOString();
+  const existing = await env.DB.prepare("SELECT settings_json FROM fireteam_snapshots_v2 WHERE membership_id = ?")
+    .bind(row.membership_id).first<{ settings_json: string }>();
+  let previousSettings: any = {};
+  try { previousSettings = existing?.settings_json ? JSON.parse(existing.settings_json) : {}; } catch { previousSettings = {}; }
+  const settings = {
+    siteTrackedGuardianRankIds: input.siteTrackedGuardianRankIds ?? previousSettings.siteTrackedGuardianRankIds ?? [],
+    siteTrackedJourneyIds: input.siteTrackedJourneyIds ?? previousSettings.siteTrackedJourneyIds ?? [],
+    siteTrackedCollectionIds: input.siteTrackedCollectionIds ?? previousSettings.siteTrackedCollectionIds ?? [],
+    siteTrackedBuilds: input.siteTrackedBuilds ?? previousSettings.siteTrackedBuilds ?? [],
+    hiddenTrackedItemKeys: input.hiddenTrackedItemKeys ?? previousSettings.hiddenTrackedItemKeys ?? [],
+    readiness: input.readiness === undefined ? previousSettings.readiness : input.readiness,
+    activityFeedEnabled: input.activityFeedEnabled === undefined ? previousSettings.activityFeedEnabled : input.activityFeedEnabled
+  };
+  await env.DB.prepare(`
+    INSERT INTO fireteam_snapshots_v2 (
+      membership_id, display_name, character_id, sharing_mode, expires_at,
+      site_pinned_quest_ids_json, settings_json, next_refresh_at, last_requested_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, '1970-01-01T00:00:00.000Z', ?)
+    ON CONFLICT(membership_id) DO UPDATE SET
+      display_name = excluded.display_name,
+      character_id = excluded.character_id,
+      sharing_mode = excluded.sharing_mode,
+      expires_at = excluded.expires_at,
+      site_pinned_quest_ids_json = excluded.site_pinned_quest_ids_json,
+      settings_json = excluded.settings_json,
+      next_refresh_at = CASE
+        WHEN fireteam_snapshots_v2.payload_json IS NULL OR fireteam_snapshots_v2.character_id <> excluded.character_id
+          THEN '1970-01-01T00:00:00.000Z'
+        ELSE fireteam_snapshots_v2.next_refresh_at
+      END,
+      retry_after_at = CASE
+        WHEN fireteam_snapshots_v2.payload_json IS NULL OR fireteam_snapshots_v2.character_id <> excluded.character_id
+          THEN NULL
+        ELSE fireteam_snapshots_v2.retry_after_at
+      END,
+      last_requested_at = excluded.last_requested_at
+  `).bind(
+    row.membership_id,
+    row.bungie_name || row.display_name,
+    input.characterId,
+    input.mode,
+    expiresAt,
+    JSON.stringify(input.sitePinnedQuestIds),
+    JSON.stringify(settings),
+    now
+  ).run();
+  return envelope({ sharing: true, mode: input.mode, expiresAt: input.mode === "temporary" ? expiresAt : undefined }, env, context);
+}
+
+async function buildFireteamV2Snapshot(row: SessionRow, refresh: FireteamV2RefreshRow, env: Env): Promise<{ payload: any; sourceObservedAt: string }> {
+  let previousPayload: any = null;
+  let settings: any = null;
+  try { previousPayload = refresh.snapshot_payload_json ? JSON.parse(refresh.snapshot_payload_json) : null; } catch { previousPayload = null; }
+  try { settings = refresh.settings_json ? JSON.parse(refresh.settings_json) : null; } catch { settings = null; }
+  let pinnedIds: string[] = [];
+  try { pinnedIds = z.array(z.string()).max(40).parse(JSON.parse(String(refresh.site_pinned_quest_ids_json || "[]"))); } catch { pinnedIds = []; }
+  const previousTrackedItems = sharedTrackedItems(previousPayload);
+  const previousTrackedKeys = new Set(previousTrackedItems.map(trackedItemKey));
+  const configuredCollectionIds = new Set<string>(Array.isArray(settings?.siteTrackedCollectionIds) ? settings.siteTrackedCollectionIds : []);
+  const needsCollectionProfile = configuredCollectionIds.size > 0 || [...previousTrackedKeys].some((key) => /^(?:exotic|catalyst):/.test(key));
+
+  const [{ profile }, questManifest, guardianRankManifest] = await Promise.all([
+    profileFor(row, env, needsCollectionProfile ? "fireteam-share" : "fireteam-v2"),
+    loadQuestManifest(env),
+    loadGuardianRankManifest(env)
+  ]);
+  const committedAt = new Date().toISOString();
+  const rawSourceObservedAt = typeof profile?.responseMintedTimestamp === "string" ? profile.responseMintedTimestamp : undefined;
+  if (!fireteamV2SourceAdvanced(previousPayload?.sessionPresenceEvidence?.sourceObservedAt, rawSourceObservedAt, Date.parse(committedAt))) {
+    throw httpError(503, "fireteam_source_not_advanced", "Bungie has not produced a newer Fireteam source snapshot yet.", 60);
+  }
+  const sourceObservedAt = new Date(Date.parse(rawSourceObservedAt!)).toISOString();
+  const profileCharacters = charactersFromProfile(profile);
+  const requestedCharacter = selectedCharacter(profileCharacters, refresh.character_id);
+  if (!requestedCharacter) throw httpError(404, "character_missing", "No Destiny character is available for this Fireteam snapshot.");
+  const sessionObservation = observeGuardianSession(profileCharacters, previousPayload?.sessionPresenceEvidence, sourceObservedAt);
+  const snapshotCharacter = profileCharacters.find((entry) => entry.characterId === sessionObservation.activeCharacterId)
+    || requestedCharacter;
+  const allQuests = normalizeQuests(profile, questManifest, snapshotCharacter.characterId, new Set(pinnedIds));
+  const questTracking = reconcileDestinyTrackedQuests(allQuests.quests, previousTrackedItems, previousPayload?.questUntrackedObservationCounts || {});
+  const activeTrackedQuests = questTracking.items;
+  const activeQuestIds = new Set(activeTrackedQuests.map((item) => item.id));
+  const compactSharedQuests = allQuests.quests
+    .filter((quest) => activeQuestIds.has(quest.instanceId))
+    .map((quest) => ({ ...quest, steps: undefined }));
+
+  const siteTrackedGuardianRanks = new Set<string>(Array.isArray(settings?.siteTrackedGuardianRankIds) ? settings.siteTrackedGuardianRankIds : []);
+  const guardianRanks = normalizeGuardianRanks(profile, guardianRankManifest, snapshotCharacter.characterId);
+  const journeyTrackedIds = new Set<string>(Array.isArray(settings?.siteTrackedJourneyIds) ? settings.siteTrackedJourneyIds : []);
+  const previousJourneyKeys = new Set([...previousTrackedKeys].filter((key) => /^(?:title|triumph|seasonal|weekly):/.test(key)));
+  const needsJourneyManifest = journeyTrackedIds.size > 0 || previousJourneyKeys.size > 0;
+  const needsActivityManifest = [...journeyTrackedIds, ...previousJourneyKeys].some((value) => (value.startsWith("weekly:") ? value.slice(7) : value).includes(":"));
+  const [journeyManifest, activityManifest] = await Promise.all([
+    needsJourneyManifest ? loadJourneyProgressManifest(env) : Promise.resolve(undefined),
+    needsActivityManifest ? loadActivityManifest(env) : Promise.resolve(undefined)
+  ]);
+  const journeyItems = journeyManifest
+    ? trackedJourneyItemsFromProfile(profile, journeyManifest, activityManifest, snapshotCharacter.characterId, journeyTrackedIds, sourceObservedAt, true, previousJourneyKeys)
+    : [];
+  const collectionTrackedIds = configuredCollectionIds;
+  const previousCollectionKeys = new Set([...previousTrackedKeys].filter((key) => /^(?:exotic|catalyst):/.test(key)));
+  const needsCollectionManifest = collectionTrackedIds.size > 0 || previousCollectionKeys.size > 0;
+  const collectionManifest = needsCollectionManifest ? await loadManifest(env) : undefined;
+  const collection = collectionManifest ? normalizeCollection(profile, collectionManifest) : undefined;
+  const trackedBuilds = z.array(fireteamTrackedBuildSchema).max(8).safeParse(settings?.siteTrackedBuilds || []);
+  const sharedBuilds = trackedBuilds.success ? trackedBuilds.data : [];
+  const assembledTrackedItems = mergeTrackedItems(
+    activeTrackedQuests,
+    trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, sourceObservedAt),
+    journeyItems.filter((item) => item.percent < 100),
+    collection ? trackedItemsFromCollection(collection, collectionTrackedIds, sourceObservedAt) : [],
+    sharedBuilds.filter((item) => item.percent < 100)
+  );
+  const visibility = applyTrackedItemVisibility(assembledTrackedItems, Array.isArray(settings?.hiddenTrackedItemKeys) ? settings.hiddenTrackedItemKeys : []);
+  const completedCandidates = mergeTrackedItems(
+    trackedItemsFromQuests(allQuests.quests, true, previousTrackedKeys),
+    trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, sourceObservedAt, true, previousTrackedKeys),
+    journeyItems,
+    collection ? trackedItemsFromCollection(collection, collectionTrackedIds, sourceObservedAt, true, previousTrackedKeys) : [],
+    sharedBuilds.filter((item) => item.percent >= 100)
+  );
+  const recentlyCompletedItems = completedTrackedItemEvents(
+    previousTrackedItems,
+    completedCandidates,
+    sharedRecentlyCompletedItems(previousPayload),
+    committedAt,
+    FIRETEAM_COMPLETION_RETENTION_MS,
+    questTracking.confirmedMissingKeys
+  );
+
+  const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
+  const observedPartyMembers = savedPartyMembers(transitory || {}, row);
+  const activityPartyMembers = authoritativeFireteamV2Party(
+    observedPartyMembers,
+    row.membership_id,
+    sessionObservation.onlineState,
+    Boolean(transitory)
+  );
+  const onlineState = sessionObservation.onlineState;
+  const activity = onlineState === "online"
+    ? guardianLocation(profile, questManifest, snapshotCharacter.characterId, onlineState)
+    : undefined;
+  return {
+    sourceObservedAt,
+    payload: {
+      character: snapshotCharacter,
+      activity,
+      onlineState,
+      sessionPresenceEvidence: sessionObservation.evidence,
+      trackedItems: visibility.items,
+      hiddenTrackedItemKeys: visibility.hiddenKeys,
+      recentlyCompletedItems,
+      quests: compactSharedQuests,
+      questUntrackedObservationCounts: questTracking.untrackedObservationCounts,
+      readiness: sharedReadiness(settings),
+      activityFeedEnabled: settings?.activityFeedEnabled === true,
+      activityFeedPreferenceSet: typeof settings?.activityFeedEnabled === "boolean",
+      activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId),
+      activityPartyMembers,
+      activityPartySourceObservedAt: sourceObservedAt
+    }
+  };
+}
+
+async function refreshDueFireteamV2Snapshots(env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  const activeSince = new Date(Date.now() - FIRETEAM_V2_ACTIVE_WINDOW_MS).toISOString();
+  const staleLease = new Date(Date.now() - FIRETEAM_V2_LEASE_MS).toISOString();
+  const { results = [] } = await env.DB.prepare(`
+    SELECT v.membership_id, v.display_name, v.character_id, v.site_pinned_quest_ids_json,
+      v.sharing_mode, v.expires_at, v.settings_json,
+      v.payload_json AS snapshot_payload_json, v.refresh_started_at
+    FROM fireteam_snapshots_v2 v
+    WHERE v.last_requested_at >= ?
+      AND v.next_refresh_at <= ?
+      AND (v.retry_after_at IS NULL OR v.retry_after_at <= ?)
+      AND (v.refresh_started_at IS NULL OR v.refresh_started_at < ?)
+      AND (v.sharing_mode = 'persistent' OR v.expires_at > ?)
+    ORDER BY v.next_refresh_at ASC, v.last_requested_at DESC
+    LIMIT ?
+  `).bind(activeSince, now, now, staleLease, now, FIRETEAM_V2_MAX_REFRESHES_PER_CRON).all<FireteamV2RefreshRow>();
+
+  for (const refresh of results) {
+    const startedAt = new Date().toISOString();
+    const claim = await env.DB.prepare(`
+      UPDATE fireteam_snapshots_v2
+      SET refresh_started_at = ?, last_attempt_at = ?, last_error_code = NULL, last_error_message = NULL
+      WHERE membership_id = ?
+        AND next_refresh_at <= ?
+        AND (retry_after_at IS NULL OR retry_after_at <= ?)
+        AND (refresh_started_at IS NULL OR refresh_started_at < ?)
+    `).bind(startedAt, startedAt, refresh.membership_id, startedAt, startedAt, staleLease).run();
+    if (Number(claim.meta?.changes || 0) < 1) continue;
+    const sessionRow = await fireteamSessionFor(String(refresh.membership_id), env);
+    if (!sessionRow) {
+      await env.DB.prepare(`
+        UPDATE fireteam_snapshots_v2
+        SET refresh_started_at = NULL, retry_after_at = ?, last_error_code = 'authorization_required', last_error_message = ?
+        WHERE membership_id = ? AND refresh_started_at = ?
+      `).bind(new Date(Date.now() + 5 * 60_000).toISOString(), "Bungie authorization must be renewed.", refresh.membership_id, startedAt).run();
+      continue;
+    }
+    try {
+      const snapshot = await buildFireteamV2Snapshot(sessionRow, refresh, env);
+      const committedAt = new Date().toISOString();
+      const nextRefreshAt = nextFireteamV2RefreshAt(committedAt)!;
+      const commit = await env.DB.prepare(`
+        UPDATE fireteam_snapshots_v2
+        SET snapshot_version = snapshot_version + 1,
+          payload_json = ?, source_observed_at = ?, committed_at = ?, next_refresh_at = ?,
+          expires_at = CASE WHEN sharing_mode = 'temporary' THEN ? ELSE expires_at END,
+          refresh_started_at = NULL, retry_after_at = NULL, last_error_code = NULL, last_error_message = NULL
+        WHERE membership_id = ? AND refresh_started_at = ?
+      `).bind(JSON.stringify(snapshot.payload), snapshot.sourceObservedAt, committedAt, nextRefreshAt, new Date(Date.now() + 15 * 60_000).toISOString(), refresh.membership_id, startedAt).run();
+      if (Number(commit.meta?.changes || 0) < 1) {
+        console.log(JSON.stringify({ event: "fireteam_v2_commit_superseded", membershipId: refresh.membership_id }));
+      }
+    } catch (error: any) {
+      await env.DB.prepare(`
+        UPDATE fireteam_snapshots_v2
+        SET refresh_started_at = NULL, retry_after_at = ?, last_error_code = ?, last_error_message = ?
+        WHERE membership_id = ? AND refresh_started_at = ?
+      `).bind(
+        fireteamV2RetryAfter(error),
+        String(error?.code || "snapshot_refresh_failed").slice(0, 80),
+        String(error?.message || "Fireteam v2 refresh failed.").slice(0, 240),
+        refresh.membership_id,
+        startedAt
+      ).run().catch(() => undefined);
+    }
+  }
+}
+
+async function fireteamV2(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const now = new Date().toISOString();
+  const ownSnapshot = await env.DB.prepare(`
+    SELECT * FROM fireteam_snapshots_v2
+    WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)
+  `).bind(row.membership_id, now).first<FireteamV2SnapshotRow>();
+  if (ownSnapshot) {
+    const requestedCutoff = new Date(Date.now() - 55_000).toISOString();
+    await env.DB.prepare(`
+      UPDATE fireteam_snapshots_v2 SET last_requested_at = ?
+      WHERE membership_id = ? AND (last_requested_at IS NULL OR last_requested_at <= ?)
+    `).bind(now, row.membership_id, requestedCutoff).run();
+  }
+  let ownPayload: any = null;
+  try { ownPayload = ownSnapshot?.payload_json ? JSON.parse(ownSnapshot.payload_json) : null; } catch { ownPayload = null; }
+  const usable = fireteamV2SnapshotUsable(ownSnapshot?.committed_at);
+  const storedParty = usable && Array.isArray(ownPayload?.activityPartyMembers) ? ownPayload.activityPartyMembers : [];
+  const party = storedParty.length
+    ? storedParty
+    : ownPayload?.character
+      ? [{ membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.bungie_name || row.display_name, status: 0, observedInParty: false }]
+      : [];
+  const partyIds = [...new Set(party.map((member: any) => String(member?.membershipId || "")).filter(Boolean))].slice(0, 12);
+  const snapshots = new Map<string, FireteamV2SnapshotRow>();
+  if (partyIds.length) {
+    const placeholders = partyIds.map(() => "?").join(",");
+    const rows = await env.DB.prepare(`SELECT * FROM fireteam_snapshots_v2 WHERE membership_id IN (${placeholders}) AND (sharing_mode = 'persistent' OR expires_at > ?)`)
+      .bind(...partyIds, now).all<FireteamV2SnapshotRow>();
+    for (const snapshot of rows.results || []) snapshots.set(String(snapshot.membership_id), snapshot);
+  }
+  const trackedItemCounts = new Map<string, number>();
+  for (const member of party) {
+    const snapshot = snapshots.get(String(member.membershipId));
+    let payload: any = null;
+    try { payload = snapshot?.payload_json ? JSON.parse(snapshot.payload_json) : null; } catch { payload = null; }
+    for (const item of sharedTrackedItems(payload)) {
+      const key = `${item.kind}:${item.definitionHash}`;
+      trackedItemCounts.set(key, (trackedItemCounts.get(key) || 0) + 1);
+    }
+  }
+  const members: FireteamMember[] = party.map((member: any) => {
+    const membershipId = String(member.membershipId);
+    const snapshot = snapshots.get(membershipId);
+    let payload: any = null;
+    try { payload = snapshot?.payload_json ? JSON.parse(snapshot.payload_json) : null; } catch { payload = null; }
+    if (membershipId === row.membership_id) payload = ownPayload;
+    const trackedItems = sharedTrackedItems(payload);
+    const isSelf = membershipId === row.membership_id;
+    const memberSnapshotUsable = fireteamV2SnapshotUsable(snapshot?.committed_at);
+    const onlineState: FireteamMember["onlineState"] = isSelf
+      ? ownPayload?.onlineState === "offline" ? "offline" : usable && ownPayload?.onlineState === "online" ? "online" : "unknown"
+      : usable && member.observedInParty ? "online" : "unknown";
+    const displayName = String(member.displayName || (isSelf ? row.bungie_name || row.display_name : "") || "Unknown Guardian");
+    return {
+      membershipId,
+      displayName,
+      inGameName: displayName,
+      emblemPath: payload?.character?.emblemPath || "",
+      presenceLabel: usable ? partyPresenceLabel(Number(member.status || 0)) : "Presence unknown",
+      onlineState,
+      character: payload?.character,
+      activity: onlineState === "online" ? payload?.activity || "Online · location unavailable" : undefined,
+      activitySource: onlineState === "online" && payload?.activity ? "shared" : "unavailable",
+      isSelf,
+      isLeader: Boolean(Number(member.status || 0) & 8),
+      syncState: snapshot?.payload_json ? "synced" : "not-synced",
+      sharing: Boolean(snapshot?.payload_json),
+      trackedItems,
+      recentlyCompletedItems: sharedRecentlyCompletedItems(payload),
+      readiness: sharedReadiness(payload),
+      quests: Array.isArray(payload?.quests) ? payload.quests : [],
+      overlaps: trackedItems.filter((item) => (trackedItemCounts.get(`${item.kind}:${item.definitionHash}`) || 0) > 1).map((item) => item.name),
+      freshness: {
+        state: memberSnapshotUsable ? "fresh" : "stale",
+        observedAt: snapshot?.committed_at || now,
+        ageSeconds: snapshot?.committed_at ? Math.max(0, Math.round((Date.now() - Date.parse(snapshot.committed_at)) / 1_000)) : 0
+      }
+    };
+  });
+  const refreshState = fireteamV2RefreshState({
+    committedAt: ownSnapshot?.committed_at,
+    nextRefreshAt: ownSnapshot?.next_refresh_at,
+    refreshStartedAt: ownSnapshot?.refresh_started_at,
+    lastErrorCode: ownSnapshot?.last_error_code
+  });
+  const data: FireteamData = {
+    sharingEnabled: Boolean(ownSnapshot),
+    sharingMode: ownSnapshot?.sharing_mode || "off",
+    sharingExpiresAt: ownSnapshot?.sharing_mode === "temporary" ? ownSnapshot.expires_at : undefined,
+    hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownPayload),
+    activity: usable && ownPayload?.onlineState === "online" ? ownPayload?.activity : undefined,
+    pageUpdatedAt: ownSnapshot?.committed_at,
+    pageRefreshDueAt: ownSnapshot?.next_refresh_at,
+    presenceObservedAt: ownSnapshot?.source_observed_at,
+    snapshotVersion: Number(ownSnapshot?.snapshot_version || 0),
+    refreshState,
+    refreshAttemptedAt: ownSnapshot?.last_attempt_at,
+    refreshRetryAt: ownSnapshot?.retry_after_at,
+    refreshErrorCode: ownSnapshot?.last_error_code,
+    members
+  };
+  const warnings = [
+    ...(!usable && ownSnapshot?.committed_at ? ["The last Fireteam v2 snapshot is too old to present teammates as current."] : []),
+    ...(ownSnapshot?.last_error_message ? [String(ownSnapshot.last_error_message)] : [])
+  ];
+  return envelope(data, env, context, {
+    observedAt: ownSnapshot?.committed_at || now,
+    state: usable ? "fresh" : "stale",
+    warnings
+  });
+}
+
+async function fireteamV2RecentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const data = await readRecentItems(row.membership_id, env);
+  const ageMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
+  return envelope<RecentItemTimelineData>(data, env, context, {
+    observedAt: data.observedAt,
+    state: ageMs <= 5 * 60_000 ? "fresh" : "stale",
+    warnings: ageMs <= 5 * 60_000 ? [] : ["Recent Loot is showing its last saved observation; Fireteam v2 does not start a separate Bungie refresh from the page."]
+  });
+}
+
 async function refreshNextPersistentShare(env: Env): Promise<void> {
   const refreshDueBefore = new Date(Date.now() - 5 * 60_000).toISOString();
   const activeSince = new Date(Date.now() - 10 * 60_000).toISOString();
@@ -2104,6 +2525,83 @@ function sharedHiddenTrackedItemKeys(payload: any): string[] {
 function sharedActivityPartyMembershipIds(payload: any, selfMembershipId: string): string[] {
   const values = Array.isArray(payload?.activityPartyMembershipIds) ? payload.activityPartyMembershipIds : [];
   return [...new Set([selfMembershipId, ...values.filter((value: unknown): value is string => typeof value === "string" && Boolean(value))])].slice(0, 12);
+}
+
+async function fireteamV2Activity(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const now = new Date().toISOString();
+  const ownSnapshot = await env.DB.prepare(`
+    SELECT payload_json, committed_at FROM fireteam_snapshots_v2
+    WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)
+  `).bind(row.membership_id, now).first<FireteamV2SnapshotRow>();
+  let ownPayload: any = null;
+  try { ownPayload = ownSnapshot?.payload_json ? JSON.parse(ownSnapshot.payload_json) : null; } catch { ownPayload = null; }
+  const usable = fireteamV2SnapshotUsable(ownSnapshot?.committed_at);
+  const partyIds = usable ? sharedActivityPartyMembershipIds(ownPayload, row.membership_id) : [row.membership_id];
+  const placeholders = partyIds.map(() => "?").join(",");
+  const snapshots = await env.DB.prepare(`
+    SELECT v.membership_id, v.payload_json, u.display_name, u.bungie_name
+    FROM fireteam_snapshots_v2 v
+    LEFT JOIN users u ON u.membership_id = v.membership_id
+    WHERE v.membership_id IN (${placeholders})
+      AND (v.sharing_mode = 'persistent' OR v.expires_at > ?)
+  `).bind(...partyIds, now).all<any>();
+  const enabledRows = (snapshots.results || []).filter((snapshot: any) => {
+    try { return sharedActivityFeedEnabled(JSON.parse(snapshot.payload_json || "{}")); } catch { return false; }
+  });
+  const displayNames = new Map(enabledRows.map((snapshot: any) => [
+    String(snapshot.membership_id),
+    String(snapshot.bungie_name || snapshot.display_name || "Unknown Guardian")
+  ]));
+  const feed = await readFireteamActivityFeed({
+    env,
+    viewerMembershipId: row.membership_id,
+    partyMembershipIds: partyIds,
+    enabledMembershipIds: enabledRows.map((snapshot: any) => String(snapshot.membership_id)),
+    displayNames,
+    enabled: usable && sharedActivityFeedEnabled(ownPayload),
+    now
+  });
+  return envelope(feed, env, context);
+}
+
+async function postFireteamV2Message(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const parsed = fireteamMessageSchema.parse(await request.json());
+  const body = normalizeFireteamMessage(parsed.body);
+  if (!body) throw httpError(400, "fireteam_message_empty", "Enter a message before sending.");
+  const now = new Date().toISOString();
+  const ownSnapshot = await env.DB.prepare(`
+    SELECT payload_json, committed_at FROM fireteam_snapshots_v2
+    WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)
+  `).bind(row.membership_id, now).first<FireteamV2SnapshotRow>();
+  let ownPayload: any = null;
+  try { ownPayload = ownSnapshot?.payload_json ? JSON.parse(ownSnapshot.payload_json) : null; } catch { ownPayload = null; }
+  if (!fireteamV2SnapshotUsable(ownSnapshot?.committed_at) || ownPayload?.onlineState !== "online") {
+    throw httpError(409, "fireteam_channel_unavailable", "Wait for a current Fireteam v2 snapshot before sending messages.");
+  }
+  const partyIds = sharedActivityPartyMembershipIds(ownPayload, row.membership_id);
+  if (partyIds.length < 2) throw httpError(409, "fireteam_channel_unavailable", "Join a Fireteam with another synced Guardian before sending messages.");
+  const placeholders = partyIds.map(() => "?").join(",");
+  const active = await env.DB.prepare(`
+    SELECT membership_id, payload_json FROM fireteam_snapshots_v2
+    WHERE membership_id IN (${placeholders})
+      AND (sharing_mode = 'persistent' OR expires_at > ?)
+  `).bind(...partyIds, now).all<any>();
+  const enabledIds = (active.results || []).filter((snapshot: any) => {
+    try { return sharedActivityFeedEnabled(JSON.parse(snapshot.payload_json || "{}")); } catch { return false; }
+  }).map((snapshot: any) => String(snapshot.membership_id));
+  if (!enabledIds.includes(row.membership_id) || !enabledIds.some((id) => id !== row.membership_id)) {
+    throw httpError(409, "fireteam_channel_unavailable", "Another Fireteam member must be sharing the activity feed before messages can be sent.");
+  }
+  const channelKey = await fireteamChannelKey(partyIds);
+  const rateCutoff = new Date(Date.now() - 10_000).toISOString();
+  const recent = await env.DB.prepare("SELECT COUNT(*) AS count FROM fireteam_messages WHERE channel_key = ? AND membership_id = ? AND created_at >= ?")
+    .bind(channelKey, row.membership_id, rateCutoff).first<{ count: number }>();
+  if (Number(recent?.count || 0) >= 3) throw httpError(429, "fireteam_message_rate_limited", "Please wait a few seconds before sending another message.", 10);
+  const id = crypto.randomUUID();
+  const displayName = row.bungie_name || row.display_name;
+  await env.DB.prepare("INSERT INTO fireteam_messages (id, channel_key, membership_id, display_name, body, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(id, channelKey, row.membership_id, displayName, body, now).run();
+  return envelope({ sent: true, id, createdAt: now }, env, context);
 }
 
 async function fireteamActivity(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

@@ -81,6 +81,26 @@ describe("Fireteam tracked items", () => {
     expect(activityCalls()).toBe(1);
   });
 
+  it("keeps Fireteam v2 on its isolated API and saved Recent Loot paths", async () => {
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (String(path).startsWith("/api/v2/fireteam/recent-items")) return recentItemsEnvelope() as never;
+      return envelope() as never;
+    });
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage version="v2" /></QueryClientProvider>);
+
+    expect(await screen.findByRole("heading", { name: "Fireteam v2" })).toBeTruthy();
+    expect(await screen.findByText("Shared tracked items")).toBeTruthy();
+    const paths = vi.mocked(api).mock.calls.map(([path]) => String(path));
+    expect(paths.some((path) => path.startsWith("/api/v2/fireteam?"))).toBe(true);
+    expect(paths).toContain("/api/v2/fireteam/activity");
+    expect(paths.some((path) => path.startsWith("/api/v2/fireteam/recent-items?"))).toBe(true);
+    expect(paths.some((path) => path.startsWith("/api/v1/fireteam?"))).toBe(false);
+    expect(paths.some((path) => path.startsWith("/api/v1/me/recent-items"))).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop sharing" }));
+    await waitFor(() => expect(vi.mocked(queuedApi).mock.calls.some(([path]) => path === "/api/v2/fireteam/share")).toBe(true));
+  });
+
   it("keeps recent tagged loot interactive before the tracked-item segment", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
       if (String(path).startsWith("/api/v1/me/recent-items")) return recentItemsEnvelope() as never;

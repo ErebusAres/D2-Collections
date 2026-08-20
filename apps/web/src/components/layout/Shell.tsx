@@ -2,7 +2,7 @@ import type { RecentItemTimelineData, ReportAdminSummaryData, RewardsPassData } 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { api } from "../../services/api/client";
 import { hasClaimableReward, rewardLevelProgress } from "../../modules/rewards/rewardsProgress";
 import { useGuardian } from "../../context/GuardianContext";
@@ -20,11 +20,12 @@ const tabs: Array<{ to: string; label: string; icon: typeof Globe2 }> = [
   { to: "/director", label: "Director", icon: Globe2 }, { to: "/collection", label: "Collection", icon: Boxes },
   { to: "/xur", label: "Xûr", icon: Coins }, { to: "/journey", label: "Journey", icon: ListTodo }, { to: "/gear", label: "Gear", icon: ShieldEllipsis },
   { to: "/loadouts", label: "Loadouts", icon: Layers3 }, { to: "/builds", label: "Builds", icon: Hammer }, { to: "/build-advisor", label: "Build Advisor", icon: ScanSearch },
-  { to: "/fireteam", label: "Fireteam", icon: Users }
+  { to: "/fireteam", label: "Fireteam", icon: Users }, { to: "/fireteam-v2", label: "Fireteam v2", icon: Users }
 ];
 
 export function Shell() {
   const { session, loading, error, signIn, selectedCharacterId, autoRefresh } = useGuardian();
+  const location = useLocation();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [copiedIncident, setCopiedIncident] = useState("");
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -41,7 +42,7 @@ export function Shell() {
   useQuery({
     queryKey: ["recent-items", selectedCharacterId],
     queryFn: () => api<RecentItemTimelineData>(`/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled: Boolean(session?.authenticated && selectedCharacterId),
+    enabled: Boolean(session?.authenticated && selectedCharacterId && location.pathname !== "/fireteam-v2"),
     staleTime: 30_000,
     refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false
   });

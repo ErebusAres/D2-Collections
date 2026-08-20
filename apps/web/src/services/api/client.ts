@@ -279,20 +279,24 @@ function sectionFailureMessage(path: string, error?: unknown): string {
   const pathname = path.split("?", 1)[0] || path;
   const delayed = (!error || (error instanceof ApiRequestError && error.code === "worker_resource_limit")) ? " delayed" : " unavailable";
   if (pathname === "/api/v1/fireteam") return `Fireteam live presence${delayed}—showing saved data.`;
+  if (pathname === "/api/v2/fireteam") return `Fireteam v2 snapshot${delayed}—showing the last committed version.`;
   if (pathname === "/api/v1/fireteam/social") return `Fireteam Social${delayed}—showing saved data.`;
   if (pathname === "/api/v1/fireteam/activity") return `Fireteam Activity${delayed}—showing saved data.`;
+  if (pathname === "/api/v2/fireteam/activity") return `Fireteam v2 Activity${delayed}—showing saved data.`;
+  if (pathname === "/api/v2/fireteam/recent-items") return `Fireteam v2 Recent Loot${delayed}—showing saved data.`;
   if (pathname === "/api/v1/me/recent-items") return `Recent items${delayed}—showing saved data.`;
   return error ? messageOf(error) : "Guardian services are temporarily over capacity.";
 }
 
 function isLiveFireteamStatePath(path: string): boolean {
   const pathname = path.split("?", 1)[0] || path;
-  return pathname === "/api/v1/fireteam" || pathname === "/api/v1/fireteam/social" || pathname === "/api/v1/fireteam/activity";
+  return pathname === "/api/v1/fireteam" || pathname === "/api/v1/fireteam/social" || pathname === "/api/v1/fireteam/activity"
+    || pathname === "/api/v2/fireteam" || pathname === "/api/v2/fireteam/activity";
 }
 
 function isIndependentFireteamSection(path: string): boolean {
   const pathname = path.split("?", 1)[0] || path;
-  return isLiveFireteamStatePath(path) || pathname === "/api/v1/me/recent-items";
+  return isLiveFireteamStatePath(path) || pathname === "/api/v1/me/recent-items" || pathname === "/api/v2/fireteam/recent-items";
 }
 
 function rememberWorkerResourceLimit(route: string, rayId?: string): void {

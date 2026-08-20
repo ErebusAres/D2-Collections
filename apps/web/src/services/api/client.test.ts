@@ -92,6 +92,23 @@ describe("API client", () => {
     expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
   });
 
+  it("never resurrects an older Fireteam v2 snapshot when its D1 read fails", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { snapshotVersion: 7, members: [{ membershipId: "1", isSelf: true }] },
+        freshness: { state: "fresh", observedAt: "2026-08-20T16:00:00.000Z" },
+        warnings: [],
+        requestId: "live-fireteam-v2"
+      }), { status: 200 }))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    await api("/api/v2/fireteam?characterId=v2-no-resurrection");
+    await expect(api("/api/v2/fireteam?characterId=v2-no-resurrection")).rejects.toThrow("Failed to fetch");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
+  });
+
   it("retains a Fireteam 1102 Ray ID and opens a per-route circuit breaker", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("error code: 1102 Worker exceeded resource limits", { status: 500, headers: { "cf-ray": "abc123-ORD" } }));
     await expect(api("/api/v1/fireteam?characterId=c1")).rejects.toMatchObject({ code: "worker_resource_limit", message: "Fireteam live presence delayed—showing saved data.", requestId: "abc123" });
