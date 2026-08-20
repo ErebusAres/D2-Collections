@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, partySnapshotMatchesSession, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -130,7 +130,7 @@ describe("Fireteam reliability helpers", () => {
     const self = { membershipId: "1", displayName: "Self", status: 9, observedInParty: true };
     const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
     expect(offlineViewerParty([self, teammate], [self, teammate], "1")).toEqual([{ ...self, status: 0, observedInParty: false }]);
-    expect(resolveViewerPartyObservation([self, teammate], [self, teammate], true, 0, "1", true)).toEqual({
+    expect(resolveViewerPartyObservation([self, teammate], [self, teammate], true, 0, "1", "offline")).toEqual({
       members: [{ ...self, status: 0, observedInParty: false }],
       consecutiveSoloObservations: 0,
       candidateObservations: 0
@@ -140,11 +140,22 @@ describe("Fireteam reliability helpers", () => {
   it("applies the offline override during a tracked-progress share refresh", () => {
     const self = { membershipId: "1", displayName: "Self", status: 9, observedInParty: true };
     const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
-    expect(resolveViewerPartyObservation([self, teammate], [self, teammate], true, 2, "1", true)).toEqual({
+    expect(resolveViewerPartyObservation([self, teammate], [self, teammate], true, 2, "1", "offline")).toEqual({
       members: [{ ...self, status: 0, observedInParty: false }],
       consecutiveSoloObservations: 0,
       candidateObservations: 0
     });
+  });
+
+  it("converges a stale transitory roster to solo when the player session stays unconfirmed", () => {
+    const self = { membershipId: "1", displayName: "Self", status: 9, observedInParty: true };
+    const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
+    const first = resolveViewerPartyObservation([self, teammate], [self, teammate], true, 0, "1", "unknown");
+    expect(first).toEqual({ members: [self, teammate], consecutiveSoloObservations: 1, candidateSignature: "1", candidateObservations: 1 });
+    const second = resolveViewerPartyObservation([self, teammate], first.members, true, first.consecutiveSoloObservations, "1", "unknown", first.candidateSignature, first.candidateObservations);
+    expect(second.candidateObservations).toBe(2);
+    const third = resolveViewerPartyObservation([self, teammate], second.members, true, second.consecutiveSoloObservations, "1", "unknown", second.candidateSignature, second.candidateObservations);
+    expect(third).toEqual({ members: [{ ...self, status: 0, observedInParty: false }], consecutiveSoloObservations: 0, candidateObservations: 0 });
   });
 
   it("does not resurrect a collapsed Fireteam from one stale party snapshot", () => {
@@ -205,6 +216,7 @@ describe("Fireteam reliability helpers", () => {
 
     const independentlyLiveTeammate = {
       ...staleTeammate,
+      activityPartySourceObservedAt: "2026-08-10T12:01:00.000Z",
       sessionPresenceEvidence: {
         sourceObservedAt: "2026-08-10T12:01:00.000Z",
         lastAdvancedAt: "2026-08-10T12:01:00.000Z",
@@ -213,6 +225,22 @@ describe("Fireteam reliability helpers", () => {
     };
     expect(syncedTeammatePresenceConfirmed(independentlyLiveTeammate, "1", "2026-08-10T12:01:00.000Z", now)).toBe(true);
     expect(syncedTeammatePresenceConfirmed({ ...independentlyLiveTeammate, activityPartyMembers: [] }, "1", "2026-08-10T12:01:00.000Z", now)).toBe(false);
+  });
+
+  it("requires the player state and party roster to come from the same Bungie snapshot", () => {
+    const payload = {
+      onlineState: "online",
+      activityPartySourceObservedAt: "2026-08-10T12:01:00.000Z",
+      sessionPresenceEvidence: {
+        sourceObservedAt: "2026-08-10T12:01:00.000Z",
+        lastAdvancedAt: "2026-08-10T12:01:00.000Z",
+        minutesByCharacter: { c1: 12 }
+      }
+    };
+    const now = Date.parse("2026-08-10T12:02:00.000Z");
+    expect(partySnapshotMatchesSession(payload)).toBe(true);
+    expect(viewerPartyPresenceConfirmed(payload, "2026-08-10T12:01:00.000Z", now)).toBe(true);
+    expect(viewerPartyPresenceConfirmed({ ...payload, activityPartySourceObservedAt: "2026-08-10T12:00:00.000Z" }, "2026-08-10T12:01:00.000Z", now)).toBe(false);
   });
 
   it("preserves member results while bounding public lookup concurrency", async () => {

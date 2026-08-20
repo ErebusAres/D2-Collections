@@ -27,7 +27,7 @@ function FireteamRefreshCountdown() {
   const { session, selectedCharacterId, autoRefresh, preferences } = useGuardian();
   const queryClient = useQueryClient();
   const membershipId = session?.guardian?.membershipId || "";
-  const result = useFireteamQuery(membershipId, selectedCharacterId, Boolean(session?.authenticated), autoRefresh);
+  const result = useFireteamQuery(membershipId, selectedCharacterId, Boolean(session?.authenticated), true);
   const orders = useQuery({
     queryKey: ["quests", selectedCharacterId, ""],
     queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=`),
@@ -45,8 +45,6 @@ function FireteamRefreshCountdown() {
   const collectionTracked = preferences["collection.tracked"];
   const buildTracked = preferences["buildAdvisor.trackedBuilds.v1"];
   const [now, setNow] = useState(() => Date.now());
-  const [nextRefreshAt, setNextRefreshAt] = useState<number | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [timerPinned, setTimerPinned] = useState(false);
   const refreshRunning = useRef(false);
   const shareRefreshRunning = useRef(false);
@@ -54,7 +52,7 @@ function FireteamRefreshCountdown() {
   const completionContext = useRef("");
   const { notice: completionNotice, announce: announceCompletion, dismiss: dismissCompletion, clear: clearCompletions } = useCompletionPings();
   const timerRail = useRef<HTMLElement | null>(null);
-  const canRefreshFireteam = Boolean(session?.authenticated && selectedCharacterId);
+  const canRefreshProgress = Boolean(session?.authenticated && selectedCharacterId);
   const refreshDeadlineKey = membershipId && selectedCharacterId ? `${FIRETEAM_REFRESH_DEADLINE_PREFIX}${membershipId}:${selectedCharacterId}` : "";
   const shouldRenewTemporaryShare = Boolean(data?.sharingEnabled && mode === "temporary");
   const activeSeasonalOrders = useMemo(
@@ -105,7 +103,6 @@ function FireteamRefreshCountdown() {
   const refreshFireteamProgress = useCallback(async () => {
     if (refreshRunning.current || !selectedCharacterId) return;
     refreshRunning.current = true;
-    setRefreshing(true);
     try {
       // One pursuit snapshot supplies both priority 1 (quests) and priority 2
       // (Seasonal Hub orders). Do not duplicate the Bungie request.
@@ -135,21 +132,16 @@ function FireteamRefreshCountdown() {
       await queryClient.refetchQueries({ queryKey: ["recent-items", selectedCharacterId], exact: true, type: "active" });
     } finally {
       refreshRunning.current = false;
-      setRefreshing(false);
     }
   }, [buildTracked, collectionTracked, guardianRankTracked, hiddenKeysSignature, journeyTracked, membershipId, mode, queryClient, selectedCharacterId, session?.csrfToken, shouldRenewTemporaryShare, storageKey]);
 
   useEffect(() => {
-    if (!autoRefresh || !canRefreshFireteam) {
-      setNextRefreshAt(null);
-      return;
-    }
+    if (!autoRefresh || !canRefreshProgress) return;
     let timer = 0;
     const schedule = (deadline: number) => {
       if (refreshDeadlineKey) {
         try { localStorage.setItem(refreshDeadlineKey, String(deadline)); } catch { /* The in-memory deadline still works. */ }
       }
-      setNextRefreshAt(deadline);
       const delay = Math.max(0, deadline - Date.now());
       timer = window.setTimeout(async () => {
         const nextDeadline = Date.now() + LIVE_REFRESH_INTERVAL_MS;
@@ -171,16 +163,16 @@ function FireteamRefreshCountdown() {
       window.clearTimeout(timer);
       window.removeEventListener("storage", syncDeadline);
     };
-  }, [autoRefresh, canRefreshFireteam, refreshDeadlineKey, refreshFireteamProgress]);
+  }, [autoRefresh, canRefreshProgress, refreshDeadlineKey, refreshFireteamProgress]);
 
   const label = useMemo(() => {
-    if (!autoRefresh) return "Fireteam refresh off";
-    if (!canRefreshFireteam) return "Fireteam refresh unavailable";
-    if (refreshing) return "Refreshing Fireteam data";
-    if (!nextRefreshAt) return "Scheduling Fireteam refresh";
-    const seconds = Math.max(0, Math.ceil((nextRefreshAt - now) / 1_000));
-    return `Fireteam refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-  }, [autoRefresh, canRefreshFireteam, nextRefreshAt, now, refreshing]);
+    if (!session?.authenticated || !selectedCharacterId) return "Live roster unavailable";
+    if (!data?.sharingEnabled) return "Live roster sync inactive";
+    const nextRefreshMs = Date.parse(data.nextPresenceRefreshAt || "");
+    if (!Number.isFinite(nextRefreshMs) || nextRefreshMs <= now) return result.isFetching ? "Checking live roster" : "Live roster refresh queued";
+    const seconds = Math.max(0, Math.ceil((nextRefreshMs - now) / 1_000));
+    return `Live roster refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  }, [data?.nextPresenceRefreshAt, data?.sharingEnabled, now, result.isFetching, selectedCharacterId, session?.authenticated]);
 
   return <><CompletionPing notice={completionNotice} onDismiss={dismissCompletion} /><aside ref={timerRail} className={styles.fireteamRefreshRail}>
     <div className={`${styles.fireteamRefreshDock} ${timerPinned ? styles.fireteamRefreshDockPinned : ""}`}>

@@ -12,8 +12,8 @@ export function useFireteamQuery(membershipId: string, characterId: string, enab
     queryFn: () => api<FireteamData>(`/api/v1/fireteam?characterId=${encodeURIComponent(characterId)}`),
     enabled: Boolean(enabled && characterId),
     staleTime: LIVE_REFRESH_INTERVAL_MS,
-    // The API read is cheap and schedules a leased, narrow Bungie presence
-    // refresh. Tracked progress keeps its separate five-minute cadence.
+    // This polls only the backend's saved D1 snapshot. The scheduled Worker,
+    // not the browser, owns Bungie's narrow presence refresh.
     refetchInterval: refreshPresence ? FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false,
     refetchOnMount: false,

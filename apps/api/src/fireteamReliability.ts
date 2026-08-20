@@ -148,6 +148,18 @@ export function reciprocalPartyObserved(payload: any, viewerMembershipId: string
   return party.some((member: any) => String(member?.membershipId || "") === viewerMembershipId && member?.observedInParty === true);
 }
 
+export function partySnapshotMatchesSession(payload: any): boolean {
+  const partySourceMs = Date.parse(String(payload?.activityPartySourceObservedAt || ""));
+  const sessionSourceMs = Date.parse(String(payload?.sessionPresenceEvidence?.sourceObservedAt || ""));
+  return Number.isFinite(partySourceMs) && Number.isFinite(sessionSourceMs) && partySourceMs === sessionSourceMs;
+}
+
+export function viewerPartyPresenceConfirmed(payload: any, presenceRefreshedAt: string | undefined, now = Date.now()): boolean {
+  return payload?.onlineState === "online"
+    && partySnapshotMatchesSession(payload)
+    && sessionPresenceConfirmed(payload?.sessionPresenceEvidence, presenceRefreshedAt, now);
+}
+
 export function syncedTeammatePresenceConfirmed(
   payload: any,
   viewerMembershipId: string,
@@ -155,6 +167,7 @@ export function syncedTeammatePresenceConfirmed(
   now = Date.now()
 ): boolean {
   return payload?.onlineState === "online"
+    && partySnapshotMatchesSession(payload)
     && sessionPresenceConfirmed(payload?.sessionPresenceEvidence, presenceRefreshedAt, now)
     && reciprocalPartyObserved(payload, viewerMembershipId);
 }
@@ -259,13 +272,35 @@ export function resolveViewerPartyObservation(
   transitoryAvailable: boolean,
   consecutiveSoloObservations: number,
   selfMembershipId: string,
-  viewerDirectlyOffline: boolean,
+  viewerSessionState: GuardianPresenceState,
   previousCandidateSignature = "",
   previousCandidateObservations = 0
 ): PartyObservation {
-  return viewerDirectlyOffline
-    ? { members: offlineViewerParty(observed, previous, selfMembershipId), consecutiveSoloObservations: 0, candidateObservations: 0 }
-    : resolvePartyObservation(observed, previous, transitoryAvailable, consecutiveSoloObservations, previousCandidateSignature, previousCandidateObservations);
+  if (viewerSessionState === "offline") {
+    return { members: offlineViewerParty(observed, previous, selfMembershipId), consecutiveSoloObservations: 0, candidateObservations: 0 };
+  }
+  if (viewerSessionState === "unknown") {
+    // Bungie's transitory party can remain populated after logout. When the
+    // character session is no longer confirmed, feed a solo observation into
+    // the same persisted transition state instead of accepting that stale
+    // transitory roster as current truth.
+    return resolvePartyObservation(
+      offlineViewerParty(observed, previous, selfMembershipId),
+      previous,
+      true,
+      consecutiveSoloObservations,
+      previousCandidateSignature,
+      previousCandidateObservations
+    );
+  }
+  return resolvePartyObservation(
+    observed,
+    previous,
+    transitoryAvailable,
+    consecutiveSoloObservations,
+    previousCandidateSignature,
+    previousCandidateObservations
+  );
 }
 
 function partyMembershipSignature(members: SavedPartyMember[]): string {
@@ -275,10 +310,10 @@ function partyMembershipSignature(members: SavedPartyMember[]): string {
 export function visiblePartyMembers<T extends { membershipId: string; observedInParty?: boolean }>(
   members: T[],
   selfMembershipId: string,
-  presenceFresh: boolean
+  partySnapshotConfirmed: boolean
 ): T[] {
   return members.filter((member) => member.membershipId === selfMembershipId
-    || presenceFresh && member.observedInParty !== false);
+    || partySnapshotConfirmed && member.observedInParty !== false);
 }
 
 

@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems, removeRecentGearItem } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, resolveViewerPartyObservation, sourceObservationTimestamp, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1713,14 +1713,13 @@ async function storeShare(
   const previousPartyMembers = Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : undefined;
   const observedPartyMembers = savedPartyMembers(transitory || {}, row);
   const sessionObservation = observeGuardianSession(profileCharacters, previousPayload?.sessionPresenceEvidence, sourceObservedAt);
-  const directlyOffline = sessionObservation.onlineState === "offline";
   const initialPartyObservation = resolveViewerPartyObservation(
     observedPartyMembers,
     previousPartyMembers || [],
     Boolean(transitory),
     Number(previousPayload?.activityPartySoloObservationCount || 0),
     row.membership_id,
-    directlyOffline,
+    sessionObservation.onlineState,
     String(previousPayload?.activityPartyCandidateSignature || ""),
     Number(previousPayload?.activityPartyCandidateObservationCount || 0)
   );
@@ -1739,7 +1738,8 @@ async function storeShare(
   const activity = previousPartyMembers === undefined && sessionObservation.onlineState === "online" ? allQuests.currentActivity : previousPayload?.activity;
   const onlineState = previousPartyMembers === undefined ? sessionObservation.onlineState : previousPayload?.onlineState;
   const sessionPresenceEvidence = previousPartyMembers === undefined ? sessionObservation.evidence : previousPayload?.sessionPresenceEvidence;
-  const payload = { character, activity, onlineState, sessionPresenceEvidence, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, questUntrackedObservationCounts: questTracking.untrackedObservationCounts, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations, activityPartyCandidateSignature: partyObservation.candidateSignature || "", activityPartyCandidateObservationCount: partyObservation.candidateObservations };
+  const activityPartySourceObservedAt = previousPartyMembers === undefined ? sourceObservedAt : previousPayload?.activityPartySourceObservedAt;
+  const payload = { character, activity, onlineState, sessionPresenceEvidence, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, questUntrackedObservationCounts: questTracking.untrackedObservationCounts, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySourceObservedAt, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations, activityPartyCandidateSignature: partyObservation.candidateSignature || "", activityPartyCandidateObservationCount: partyObservation.candidateObservations };
   // The upsert atomically copies presence-owned fields from the current D1 row.
   // This closes the race where a slower progress request read an old party and
   // finished after the narrow presence writer had already stored a newer one.
@@ -1759,6 +1759,7 @@ async function storeShare(
           '$.sessionPresenceEvidence', json_extract(fireteam_shares.payload_json, '$.sessionPresenceEvidence'),
           '$.activityPartyMembershipIds', json_extract(fireteam_shares.payload_json, '$.activityPartyMembershipIds'),
           '$.activityPartyMembers', json_extract(fireteam_shares.payload_json, '$.activityPartyMembers'),
+          '$.activityPartySourceObservedAt', json_extract(fireteam_shares.payload_json, '$.activityPartySourceObservedAt'),
           '$.activityPartySoloObservationCount', json_extract(fireteam_shares.payload_json, '$.activityPartySoloObservationCount'),
           '$.activityPartyCandidateSignature', json_extract(fireteam_shares.payload_json, '$.activityPartyCandidateSignature'),
           '$.activityPartyCandidateObservationCount', json_extract(fireteam_shares.payload_json, '$.activityPartyCandidateObservationCount')
@@ -1815,13 +1816,15 @@ async function refreshNextPersistentShare(env: Env): Promise<void> {
 async function refreshDueFireteamPresenceShares(env: Env): Promise<void> {
   const now = new Date().toISOString();
   const dueBefore = new Date(Date.now() - 55_000).toISOString();
+  const activeSince = new Date(Date.now() - 10 * 60_000).toISOString();
   const { results = [] } = await env.DB.prepare(`
     SELECT membership_id FROM fireteam_shares
     WHERE (sharing_mode = 'persistent' OR expires_at > ?)
       AND (presence_refreshed_at IS NULL OR presence_refreshed_at <= ?)
-    ORDER BY COALESCE(presence_refreshed_at, updated_at) ASC
+    ORDER BY CASE WHEN presence_requested_at >= ? THEN 0 ELSE 1 END,
+      COALESCE(presence_refreshed_at, updated_at) ASC
     LIMIT 8
-  `).bind(now, dueBefore).all<{ membership_id: string }>();
+  `).bind(now, dueBefore, activeSince).all<{ membership_id: string }>();
   for (const share of results) {
     const membershipId = String(share.membership_id || "");
     if (!membershipId) continue;
@@ -1890,7 +1893,6 @@ async function updateFireteamPresenceFromProfile(row: SessionRow, env: Env, prof
     const character = characters.find((entry) => entry.characterId === sessionObservation.activeCharacterId)
       || selectedCharacter(characters, payload?.character?.characterId)
       || payload?.character;
-    const directlyOffline = sessionObservation.onlineState === "offline";
     const observedPartyMembers = savedPartyMembers(transitory || {}, row);
     const previousPartyMembers = Array.isArray(payload?.activityPartyMembers) ? payload.activityPartyMembers : [];
     const partyObservation = resolveViewerPartyObservation(
@@ -1899,7 +1901,7 @@ async function updateFireteamPresenceFromProfile(row: SessionRow, env: Env, prof
       Boolean(transitory),
       Number(payload?.activityPartySoloObservationCount || 0),
       row.membership_id,
-      directlyOffline,
+      sessionObservation.onlineState,
       String(payload?.activityPartyCandidateSignature || ""),
       Number(payload?.activityPartyCandidateObservationCount || 0)
     );
@@ -1912,7 +1914,7 @@ async function updateFireteamPresenceFromProfile(row: SessionRow, env: Env, prof
     // Do not let a slower presence read overwrite a newer quest/share payload.
     // A later request retries presence against the new payload if this CAS misses.
     await env.DB.prepare("UPDATE fireteam_shares SET payload_json = ?, presence_refreshed_at = ?, presence_error = NULL WHERE membership_id = ? AND payload_json = ?")
-      .bind(JSON.stringify({ ...payload, character, activity, onlineState, sessionPresenceEvidence: sessionObservation.evidence, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations, activityPartyCandidateSignature: partyObservation.candidateSignature || "", activityPartyCandidateObservationCount: partyObservation.candidateObservations }), refreshedAt, row.membership_id, share.payload_json).run();
+      .bind(JSON.stringify({ ...payload, character, activity, onlineState, sessionPresenceEvidence: sessionObservation.evidence, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySourceObservedAt: sourceObservedAt, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations, activityPartyCandidateSignature: partyObservation.candidateSignature || "", activityPartyCandidateObservationCount: partyObservation.candidateObservations }), refreshedAt, row.membership_id, share.payload_json).run();
 }
 
 async function claimFireteamPresenceRefresh(membershipId: string, env: Env): Promise<string | undefined> {
@@ -1931,6 +1933,9 @@ async function releaseFireteamPresenceRefresh(membershipId: string, startedAt: s
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const started = performance.now();
   const now = new Date().toISOString();
+  const requestWriteCutoff = new Date(Date.now() - 55_000).toISOString();
+  await env.DB.prepare("UPDATE fireteam_shares SET presence_requested_at = ? WHERE membership_id = ? AND (presence_requested_at IS NULL OR presence_requested_at <= ?)")
+    .bind(now, row.membership_id, requestWriteCutoff).run().catch(() => undefined);
   const ownShare = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error, presence_refreshed_at, presence_error FROM fireteam_shares WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)")
     .bind(row.membership_id, now).first<any>();
   // This route is deliberately D1-only. The scheduled Worker owns Bungie
@@ -1963,13 +1968,12 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   const viewerPresenceAt = ownShare?.presence_refreshed_at || ownShare?.updated_at;
   const viewerPresenceFresh = Boolean(viewerPresenceAt) && Date.now() - Date.parse(viewerPresenceAt) <= 2 * 60_000;
   const viewerPresenceUsable = fireteamPresenceUsable(viewerPresenceAt);
-  const viewerSessionLive = ownSharePayload?.onlineState === "online"
-    && sessionPresenceConfirmed(ownSharePayload?.sessionPresenceEvidence, viewerPresenceAt);
+  const viewerSessionLive = viewerPartyPresenceConfirmed(ownSharePayload, viewerPresenceAt);
   // Once the viewer's own fresh session proves that this is a current party
   // observation, that direct Bungie roster is authoritative for membership.
   // A synced teammate's independent snapshot enriches their card; it must not
   // veto a member the viewer is actively observing in the party.
-  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerPresenceUsable);
+  const visibleParty = visiblePartyMembers(party, row.membership_id, viewerSessionLive);
   const members: FireteamMember[] = visibleParty.map((member: any) => {
     const share: any = shares.get(member.membershipId);
     let payload: any = null;
@@ -1982,7 +1986,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       ? viewerSessionLive
         ? "online"
         : viewerPresenceUsable && payload?.onlineState === "offline" ? "offline" : "unknown"
-      : viewerPresenceFresh && member.observedInParty ? "online" : "unknown";
+      : viewerSessionLive && member.observedInParty ? "online" : "unknown";
     const activity = onlineState === "online" ? payload?.activity || "Online · location unavailable" : undefined;
     const inGameName = member.displayName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
     return {
@@ -1990,7 +1994,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       displayName: inGameName,
       inGameName,
       emblemPath: character?.emblemPath || "",
-      presenceLabel: viewerPresenceUsable ? partyPresenceLabel(member.status) : "Presence unknown",
+      presenceLabel: viewerSessionLive ? partyPresenceLabel(member.status) : "Presence unknown",
       onlineState,
       character,
       activity,
@@ -2014,7 +2018,10 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     };
   });
   const presenceRefreshDue = Boolean(ownShare) && fireteamPresenceRefreshDue(viewerPresenceAt);
-  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: viewerPresenceFresh ? ownSharePayload?.activity : undefined, members };
+  const nextPresenceRefreshAt = viewerPresenceAt && Number.isFinite(Date.parse(viewerPresenceAt))
+    ? new Date(Date.parse(viewerPresenceAt) + 60_000).toISOString()
+    : undefined;
+  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: viewerSessionLive ? ownSharePayload?.activity : undefined, presenceObservedAt: viewerPresenceAt, nextPresenceRefreshAt, members };
   console.log(JSON.stringify({ event: "fireteam_core_timing", profileMs: 0, activityLookupMs: 0, d1SharesMs: Math.round(shareMs), publicMembersMs: 0, feedMs: 0, socialMs: 0, totalMs: Math.round(performance.now() - started), partySize: party.length, synchronizedShares: shares.size, cacheState: viewerPresenceFresh ? presenceRefreshDue ? "fresh-refreshing" : "fresh" : ownShare ? "stale-refreshing" : "missing" }));
   return envelope(data, env, context, { observedAt: viewerPresenceAt || now, state: viewerPresenceFresh ? "fresh" : "stale", warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(!viewerPresenceFresh && ownShare ? ["Live Fireteam presence is refreshing; saved member data remains available."] : []), ...(ownShare?.presence_error ? [String(ownShare.presence_error)] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
 }

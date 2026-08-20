@@ -34,20 +34,19 @@ afterEach(() => {
 });
 
 describe("Fireteam refresh cycle", () => {
-  it("keeps the visible refresh deadline across a page reload", async () => {
-    vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests") ? ordersEnvelope() : envelope("persistent"));
+  it("derives the visible roster deadline from the backend observation across a page reload", async () => {
+    const observedAt = new Date(Date.now()).toISOString();
+    vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests") ? ordersEnvelope() : envelope("persistent", observedAt));
     const firstClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const first = render(<MemoryRouter><QueryClientProvider client={firstClient}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText("Fireteam refresh in 5:00")).toBeTruthy();
+    expect(await screen.findByText("Live roster refresh in 1:00")).toBeTruthy();
 
-    await act(async () => { vi.advanceTimersByTime(2 * 60_000); });
-    expect(screen.getByText("Fireteam refresh in 3:00")).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(30_000); });
+    expect(screen.getByText("Live roster refresh in 0:30")).toBeTruthy();
     first.unmount();
 
     render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText("Fireteam refresh in 3:00")).toBeTruthy();
-    await act(async () => { vi.advanceTimersByTime(3 * 60_000); });
-    await waitFor(() => expect(screen.getByText(/Fireteam refresh in 5:00|Refreshing Fireteam data/)).toBeTruthy());
+    expect(await screen.findByText("Live roster refresh in 0:30")).toBeTruthy();
   });
 
   it("refreshes presence independently while a tracked-progress write is queued", async () => {
@@ -69,7 +68,7 @@ describe("Fireteam refresh cycle", () => {
     });
 
     render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText(/Fireteam refresh in/)).toBeTruthy();
+    expect(await screen.findByText(/Live roster refresh in/)).toBeTruthy();
     expect(await screen.findByText("Active in Destiny · 6")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Seasonal Hub Orders" }).getAttribute("href")).toBe("/journey/season");
     expect(screen.getByRole("link", { name: /Hub order 1/ }).getAttribute("href")).toBe("/quests/order-1");
@@ -115,7 +114,7 @@ describe("Fireteam refresh cycle", () => {
   it("does not duplicate the Worker cron's persistent share rebuild", async () => {
     vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests") ? ordersEnvelope() : envelope("persistent"));
     render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText(/Fireteam refresh in/)).toBeTruthy();
+    expect(await screen.findByText(/Live roster refresh in/)).toBeTruthy();
 
     await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
     await waitFor(() => expect(vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v1/me/quests")).length).toBe(2));
@@ -123,10 +122,12 @@ describe("Fireteam refresh cycle", () => {
   });
 });
 
-function envelope(sharingMode: "temporary" | "persistent" = "persistent") {
+function envelope(sharingMode: "temporary" | "persistent" = "persistent", presenceObservedAt = new Date(Date.now()).toISOString()) {
   const data: FireteamData = {
     sharingEnabled: true,
     sharingMode,
+    presenceObservedAt,
+    nextPresenceRefreshAt: new Date(Date.parse(presenceObservedAt) + 60_000).toISOString(),
     hiddenTrackedItemKeys: [],
     members: [{
       membershipId: "member-1",
@@ -160,7 +161,7 @@ function envelope(sharingMode: "temporary" | "persistent" = "persistent") {
     }],
     social: { state: "available", friendsState: "available", clanState: "available", contacts: [] }
   };
-  return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "fireteam" };
+  return { data, freshness: { state: "fresh" as const, observedAt: presenceObservedAt }, warnings: [], requestId: "fireteam" };
 }
 
 

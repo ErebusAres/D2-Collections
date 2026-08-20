@@ -197,7 +197,7 @@ export function FireteamPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="Shared progress refreshes every 5 minutes while auto-refresh is enabled." actions={<>
+    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="The backend checks the live roster about every minute; shared quest and gear progress refreshes every 5 minutes." actions={<>
       <Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
       {data && !data.sharingEnabled && <>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "temporary" })} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>
