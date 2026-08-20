@@ -21,22 +21,23 @@ describe("Fireteam reliability helpers", () => {
   it("requires three consecutive solo observations before collapsing a saved Fireteam", () => {
     const self = { membershipId: "1", displayName: "Self", status: 1, observedInParty: false };
     const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
-    expect(resolvePartyObservation([self], [self, teammate], false, 1)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 1 });
-    expect(resolvePartyObservation([self], [self, teammate], true, 0)).toEqual({ members: [self, { ...teammate, observedInParty: false }], consecutiveSoloObservations: 1 });
-    expect(resolvePartyObservation([self], [self, teammate], true, 1)).toEqual({ members: [self, { ...teammate, observedInParty: false }], consecutiveSoloObservations: 2 });
-    expect(resolvePartyObservation([self], [self, teammate], true, 2)).toEqual({ members: [self], consecutiveSoloObservations: 0 });
-    expect(resolvePartyObservation([self, teammate], [self], true, 2)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 0 });
+    expect(resolvePartyObservation([self], [self, teammate], false, 1)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 1, candidateObservations: 0 });
+    expect(resolvePartyObservation([self], [self, teammate], true, 0)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 1, candidateSignature: "1", candidateObservations: 1 });
+    expect(resolvePartyObservation([self], [self, teammate], true, 1, "1", 1)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 2, candidateSignature: "1", candidateObservations: 2 });
+    expect(resolvePartyObservation([self], [self, teammate], true, 2, "1", 2)).toEqual({ members: [self], consecutiveSoloObservations: 0, candidateObservations: 0 });
+    expect(resolvePartyObservation([self, teammate], [self], true, 0)).toEqual({ members: [self], consecutiveSoloObservations: 0, candidateSignature: "1,2", candidateObservations: 1 });
+    expect(resolvePartyObservation([self, teammate], [self], true, 0, "1,2", 1)).toEqual({ members: [self, teammate], consecutiveSoloObservations: 0, candidateObservations: 0 });
   });
 
   it("keeps progress refreshes from replacing an established presence snapshot", () => {
     const self = { membershipId: "1", displayName: "Self", status: 1, observedInParty: false };
     const staleTeammate = { membershipId: "2", displayName: "Stale", status: 1, observedInParty: true };
     const currentTeammate = { membershipId: "3", displayName: "Current", status: 1, observedInParty: true };
-    expect(partyObservationForProgressRefresh([self, currentTeammate], 1, { members: [self, staleTeammate], consecutiveSoloObservations: 0 })).toEqual({
-      members: [self, currentTeammate], consecutiveSoloObservations: 1
+    expect(partyObservationForProgressRefresh([self, currentTeammate], 1, { members: [self, staleTeammate], consecutiveSoloObservations: 0, candidateObservations: 0 })).toEqual({
+      members: [self, currentTeammate], consecutiveSoloObservations: 1, candidateObservations: 0
     });
-    expect(partyObservationForProgressRefresh(undefined, 0, { members: [self, currentTeammate], consecutiveSoloObservations: 0 })).toEqual({
-      members: [self, currentTeammate], consecutiveSoloObservations: 0
+    expect(partyObservationForProgressRefresh(undefined, 0, { members: [self, currentTeammate], consecutiveSoloObservations: 0, candidateObservations: 0 })).toEqual({
+      members: [self, currentTeammate], consecutiveSoloObservations: 0, candidateObservations: 0
     });
   });
 
@@ -47,10 +48,10 @@ describe("Fireteam reliability helpers", () => {
     expect(fireteamPresenceRefreshDue("2026-08-09T11:59:00.000Z", now)).toBe(true);
   });
 
-  it("expires party presence after two missed one-minute refreshes", () => {
+  it("keeps the accepted roster stable through a short refresh outage", () => {
     const now = Date.parse("2026-08-09T12:00:00.000Z");
-    expect(fireteamPresenceUsable("2026-08-09T11:58:00.000Z", now)).toBe(true);
-    expect(fireteamPresenceUsable("2026-08-09T11:57:59.000Z", now)).toBe(false);
+    expect(fireteamPresenceUsable("2026-08-09T11:50:00.000Z", now)).toBe(true);
+    expect(fireteamPresenceUsable("2026-08-09T11:49:59.000Z", now)).toBe(false);
   });
 
   it("does not treat a stale non-zero session total as online presence", () => {
@@ -131,7 +132,8 @@ describe("Fireteam reliability helpers", () => {
     expect(offlineViewerParty([self, teammate], [self, teammate], "1")).toEqual([{ ...self, status: 0, observedInParty: false }]);
     expect(resolveViewerPartyObservation([self, teammate], [self, teammate], true, 0, "1", true)).toEqual({
       members: [{ ...self, status: 0, observedInParty: false }],
-      consecutiveSoloObservations: 0
+      consecutiveSoloObservations: 0,
+      candidateObservations: 0
     });
   });
 
@@ -140,8 +142,19 @@ describe("Fireteam reliability helpers", () => {
     const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
     expect(resolveViewerPartyObservation([self, teammate], [self, teammate], true, 2, "1", true)).toEqual({
       members: [{ ...self, status: 0, observedInParty: false }],
-      consecutiveSoloObservations: 0
+      consecutiveSoloObservations: 0,
+      candidateObservations: 0
     });
+  });
+
+  it("does not resurrect a collapsed Fireteam from one stale party snapshot", () => {
+    const self = { membershipId: "1", displayName: "Self", status: 1, observedInParty: false };
+    const teammate = { membershipId: "2", displayName: "Teammate", status: 1, observedInParty: true };
+    const first = resolvePartyObservation([self, teammate], [self], true, 0);
+    expect(first.members).toEqual([self]);
+    expect(first.candidateObservations).toBe(1);
+    const soloAgain = resolvePartyObservation([self], first.members, true, first.consecutiveSoloObservations, first.candidateSignature, first.candidateObservations);
+    expect(soloAgain).toEqual({ members: [self], consecutiveSoloObservations: 0, candidateObservations: 0 });
   });
 
   it("does not present retained teammates as a current party when viewer presence is stale", () => {

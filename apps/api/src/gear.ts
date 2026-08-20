@@ -192,8 +192,8 @@ function weaponRatingKind(plug: any): "first" | "second" | "trait" | undefined {
   const type = normalize(plug?.itemTypeDisplayName);
   if (/origin trait|intrinsic/.test(type)) return undefined;
   if (/trait/.test(type)) return "trait";
-  if (/barrel|scope|sight|blade|haft/.test(type)) return "first";
-  if (/magazine|battery|guard|grip|stock/.test(type)) return "second";
+  if (/barrel|scope|sight|blade|haft|string/.test(type)) return "first";
+  if (/magazine|battery|guard|grip|stock|arrow/.test(type)) return "second";
   return undefined;
 }
 

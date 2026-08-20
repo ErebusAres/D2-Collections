@@ -207,8 +207,16 @@ export default {
         code: error?.code || "server_error",
         message: status >= 500 && !error?.code ? "Guardian Nexus could not complete the request." : error?.message || "Request failed.",
         ...(error?.retryAfterSeconds ? { retryAfterSeconds: error.retryAfterSeconds } : {}),
-        requestId: context.requestId
-      }, status, env, context.origin, error?.retryAfterSeconds);
+        requestId: context.requestId,
+        diagnostics: redact({
+          failureSource: error?.bungieErrorCode || error?.bungieErrorStatus ? "bungie-upstream" : "guardian-nexus-api",
+          route: context.url.pathname,
+          upstreamHttpStatus: error?.httpStatus,
+          bungieErrorCode: error?.bungieErrorCode,
+          bungieErrorStatus: error?.bungieErrorStatus,
+          throttleSeconds: error?.throttleSeconds
+        })
+      }, status, env, context.origin, error?.retryAfterSeconds, { "X-Guardian-Nexus-Request-Id": context.requestId });
     }
   },
 
@@ -221,6 +229,7 @@ export default {
     ]);
     if (Math.floor(controller.scheduledTime / 60_000) % 5 === 0) await maintainNotificationStorage(env);
     await refreshNextPersistentShare(env);
+    await refreshDueFireteamPresenceShares(env);
   }
 };
 
@@ -547,7 +556,7 @@ function envelope<T>(data: T, env: Env, context: RequestContext, options: { warn
     warnings: options.warnings || [],
     requestId: context.requestId
   };
-  return json(body, 200, env, context.origin);
+  return json(body, 200, env, context.origin, undefined, { "X-Guardian-Nexus-Request-Id": context.requestId });
 }
 
 async function requireSession(request: Request, env: Env): Promise<{ token: string; row: SessionRow }> {
@@ -1619,11 +1628,10 @@ async function storeShare(
   providedTrackedBuilds?: import("@guardian-nexus/contracts").FireteamTrackedItem[],
   providedActivityFeedEnabled?: boolean
 ): Promise<{ expiresAt: string; sharedQuestCount: number; sharedTrackedItemCount: number; sourceMintedAt?: string; profile: any }> {
-  const [{ profile }, manifest, guardianRankManifest, collectionManifest, previousShare] = await Promise.all([
+  const [{ profile }, manifest, guardianRankManifest, previousShare] = await Promise.all([
     profileFor(row, env, "fireteam-share"),
     loadQuestManifest(env),
     loadGuardianRankManifest(env),
-    loadManifest(env),
     env.DB.prepare("SELECT payload_json FROM fireteam_shares WHERE membership_id = ?").bind(row.membership_id).first<{ payload_json: string }>()
   ]);
   let previousPayload: any = null;
@@ -1662,14 +1670,17 @@ async function storeShare(
   const collectionTrackedIds = providedCollectionIds === undefined
     ? await trackedPreferenceIds(row.membership_id, env, "collection.tracked")
     : new Set(providedCollectionIds);
-  const collection = normalizeCollection(profile, collectionManifest);
+  const previousCollectionKeys = new Set([...previousTrackedKeys].filter((key) => /^(?:exotic|catalyst):/.test(key)));
+  const needsCollectionManifest = collectionTrackedIds.size > 0 || previousCollectionKeys.size > 0;
+  const collectionManifest = needsCollectionManifest ? await loadManifest(env) : undefined;
+  const collection = collectionManifest ? normalizeCollection(profile, collectionManifest) : undefined;
   const trackedBuilds = providedTrackedBuilds === undefined ? sharedTrackedBuilds(previousPayload) : providedTrackedBuilds;
   const activeTrackedBuilds = trackedBuilds.filter((item) => item.percent < 100);
   const assembledTrackedItems = mergeTrackedItems(
     activeTrackedQuests,
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || new Date().toISOString()),
     journeyItems.filter((item) => item.percent < 100),
-    trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString()),
+    collection ? trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || new Date().toISOString()) : [],
     activeTrackedBuilds
   );
   const visibility = applyTrackedItemVisibility(
@@ -1683,7 +1694,7 @@ async function storeShare(
     trackedItemsFromQuests(allQuests.quests, true, previousTrackedKeys),
     trackedItemsFromGuardianRanks(guardianRanks, siteTrackedGuardianRanks, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
     journeyItems,
-    trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys),
+    collection ? trackedItemsFromCollection(collection, collectionTrackedIds, profile?.responseMintedTimestamp || updatedAt, true, previousTrackedKeys) : [],
     trackedBuilds.filter((item) => item.percent >= 100)
   );
   const recentlyCompletedItems = completedTrackedItemEvents(
@@ -1709,18 +1720,26 @@ async function storeShare(
     Boolean(transitory),
     Number(previousPayload?.activityPartySoloObservationCount || 0),
     row.membership_id,
-    directlyOffline
+    directlyOffline,
+    String(previousPayload?.activityPartyCandidateSignature || ""),
+    Number(previousPayload?.activityPartyCandidateObservationCount || 0)
   );
   // Quest/order progress refreshes and presence refreshes use different Bungie
   // component sets. Once a presence snapshot exists, only the narrow presence
   // refresher may replace party membership, location, or online state.
-  const partyObservation = partyObservationForProgressRefresh(previousPartyMembers, Number(previousPayload?.activityPartySoloObservationCount || 0), initialPartyObservation);
+  const partyObservation = partyObservationForProgressRefresh(
+    previousPartyMembers,
+    Number(previousPayload?.activityPartySoloObservationCount || 0),
+    initialPartyObservation,
+    String(previousPayload?.activityPartyCandidateSignature || ""),
+    Number(previousPayload?.activityPartyCandidateObservationCount || 0)
+  );
   const activityPartyMembers = partyObservation.members;
   const activityPartyMembershipIds = activityPartyMembers.map((member) => member.membershipId);
   const activity = previousPartyMembers === undefined && sessionObservation.onlineState === "online" ? allQuests.currentActivity : previousPayload?.activity;
   const onlineState = previousPartyMembers === undefined ? sessionObservation.onlineState : previousPayload?.onlineState;
   const sessionPresenceEvidence = previousPartyMembers === undefined ? sessionObservation.evidence : previousPayload?.sessionPresenceEvidence;
-  const payload = { character, activity, onlineState, sessionPresenceEvidence, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, questUntrackedObservationCounts: questTracking.untrackedObservationCounts, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations };
+  const payload = { character, activity, onlineState, sessionPresenceEvidence, trackedItems, hiddenTrackedItemKeys: visibility.hiddenKeys, recentlyCompletedItems, quests: compactSharedQuests, questUntrackedObservationCounts: questTracking.untrackedObservationCounts, readiness, activityFeedEnabled, activityFeedPreferenceSet, activityPartyMembershipIds, activityPartyMembers, activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations, activityPartyCandidateSignature: partyObservation.candidateSignature || "", activityPartyCandidateObservationCount: partyObservation.candidateObservations };
   // The upsert atomically copies presence-owned fields from the current D1 row.
   // This closes the race where a slower progress request read an old party and
   // finished after the narrow presence writer had already stored a newer one.
@@ -1740,7 +1759,9 @@ async function storeShare(
           '$.sessionPresenceEvidence', json_extract(fireteam_shares.payload_json, '$.sessionPresenceEvidence'),
           '$.activityPartyMembershipIds', json_extract(fireteam_shares.payload_json, '$.activityPartyMembershipIds'),
           '$.activityPartyMembers', json_extract(fireteam_shares.payload_json, '$.activityPartyMembers'),
-          '$.activityPartySoloObservationCount', json_extract(fireteam_shares.payload_json, '$.activityPartySoloObservationCount')
+          '$.activityPartySoloObservationCount', json_extract(fireteam_shares.payload_json, '$.activityPartySoloObservationCount'),
+          '$.activityPartyCandidateSignature', json_extract(fireteam_shares.payload_json, '$.activityPartyCandidateSignature'),
+          '$.activityPartyCandidateObservationCount', json_extract(fireteam_shares.payload_json, '$.activityPartyCandidateObservationCount')
         )
         ELSE excluded.payload_json
       END,
@@ -1766,17 +1787,12 @@ async function trackedPreferenceIds(membershipId: string, env: Env, key: string)
 }
 
 async function refreshNextPersistentShare(env: Env): Promise<void> {
-  const { results = [] } = await env.DB.prepare("SELECT membership_id, character_id, site_pinned_quest_ids_json FROM fireteam_shares WHERE sharing_mode = 'persistent' ORDER BY COALESCE(background_refresh_attempted_at, updated_at) ASC LIMIT 1").all<any>();
+  const refreshDueBefore = new Date(Date.now() - 4 * 60_000).toISOString();
+  const { results = [] } = await env.DB.prepare("SELECT membership_id, character_id, site_pinned_quest_ids_json FROM fireteam_shares WHERE sharing_mode = 'persistent' AND COALESCE(background_refresh_attempted_at, updated_at) <= ? ORDER BY COALESCE(background_refresh_attempted_at, updated_at) ASC LIMIT 1").bind(refreshDueBefore).all<any>();
   for (const share of results) {
     await env.DB.prepare("UPDATE fireteam_shares SET background_refresh_attempted_at = ? WHERE membership_id = ?")
       .bind(new Date().toISOString(), String(share.membership_id)).run();
-    const row = await env.DB.prepare(`
-      SELECT s.session_hash, s.membership_id, u.membership_type, u.display_name, u.bungie_name,
-        s.access_token_cipher, s.refresh_token_cipher, s.access_expires_at, s.refresh_expires_at
-      FROM oauth_sessions s JOIN users u ON u.membership_id = s.membership_id
-      WHERE s.membership_id = ? AND s.refresh_expires_at > ?
-      ORDER BY s.updated_at DESC LIMIT 1
-    `).bind(String(share.membership_id), Math.floor(Date.now() / 1000)).first<SessionRow>();
+    const row = await fireteamSessionFor(String(share.membership_id), env);
     if (!row) {
       await env.DB.prepare("UPDATE fireteam_shares SET last_error = ? WHERE membership_id = ?").bind("Bungie authorization must be renewed.", String(share.membership_id)).run();
       continue;
@@ -1794,6 +1810,43 @@ async function refreshNextPersistentShare(env: Env): Promise<void> {
       await releaseFireteamPresenceRefresh(row.membership_id, presenceLease, env);
     }
   }
+}
+
+async function refreshDueFireteamPresenceShares(env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  const dueBefore = new Date(Date.now() - 55_000).toISOString();
+  const { results = [] } = await env.DB.prepare(`
+    SELECT membership_id FROM fireteam_shares
+    WHERE (sharing_mode = 'persistent' OR expires_at > ?)
+      AND (presence_refreshed_at IS NULL OR presence_refreshed_at <= ?)
+    ORDER BY COALESCE(presence_refreshed_at, updated_at) ASC
+    LIMIT 8
+  `).bind(now, dueBefore).all<{ membership_id: string }>();
+  for (const share of results) {
+    const membershipId = String(share.membership_id || "");
+    if (!membershipId) continue;
+    const row = await fireteamSessionFor(membershipId, env);
+    if (!row) {
+      await env.DB.prepare("UPDATE fireteam_shares SET presence_error = ? WHERE membership_id = ?")
+        .bind("Bungie authorization must be renewed.", membershipId).run().catch(() => undefined);
+      continue;
+    }
+    const lease = await claimFireteamPresenceRefresh(membershipId, env);
+    if (!lease) continue;
+    try { await refreshFireteamPresence(row, env); }
+    catch { /* refreshFireteamPresence stores the narrow failure code. */ }
+    finally { await releaseFireteamPresenceRefresh(membershipId, lease, env); }
+  }
+}
+
+async function fireteamSessionFor(membershipId: string, env: Env): Promise<SessionRow | null> {
+  return env.DB.prepare(`
+    SELECT s.session_hash, s.membership_id, u.membership_type, u.display_name, u.bungie_name,
+      s.access_token_cipher, s.refresh_token_cipher, s.access_expires_at, s.refresh_expires_at
+    FROM oauth_sessions s JOIN users u ON u.membership_id = s.membership_id
+    WHERE s.membership_id = ? AND s.refresh_expires_at > ?
+    ORDER BY s.updated_at DESC LIMIT 1
+  `).bind(membershipId, Math.floor(Date.now() / 1000)).first<SessionRow>();
 }
 
 function savedPartyMembers(transitory: any, row: SessionRow): Array<{ membershipId: string; membershipType?: number; displayName: string; status: number; observedInParty: boolean }> {
@@ -1840,7 +1893,16 @@ async function updateFireteamPresenceFromProfile(row: SessionRow, env: Env, prof
     const directlyOffline = sessionObservation.onlineState === "offline";
     const observedPartyMembers = savedPartyMembers(transitory || {}, row);
     const previousPartyMembers = Array.isArray(payload?.activityPartyMembers) ? payload.activityPartyMembers : [];
-    const partyObservation = resolveViewerPartyObservation(observedPartyMembers, previousPartyMembers, Boolean(transitory), Number(payload?.activityPartySoloObservationCount || 0), row.membership_id, directlyOffline);
+    const partyObservation = resolveViewerPartyObservation(
+      observedPartyMembers,
+      previousPartyMembers,
+      Boolean(transitory),
+      Number(payload?.activityPartySoloObservationCount || 0),
+      row.membership_id,
+      directlyOffline,
+      String(payload?.activityPartyCandidateSignature || ""),
+      Number(payload?.activityPartyCandidateObservationCount || 0)
+    );
     const activityPartyMembers = partyObservation.members;
     // A frozen non-zero session total and a transitory party can both survive
     // logout. Neither may claim current presence; only movement across ordered
@@ -1850,14 +1912,7 @@ async function updateFireteamPresenceFromProfile(row: SessionRow, env: Env, prof
     // Do not let a slower presence read overwrite a newer quest/share payload.
     // A later request retries presence against the new payload if this CAS misses.
     await env.DB.prepare("UPDATE fireteam_shares SET payload_json = ?, presence_refreshed_at = ?, presence_error = NULL WHERE membership_id = ? AND payload_json = ?")
-      .bind(JSON.stringify({ ...payload, character, activity, onlineState, sessionPresenceEvidence: sessionObservation.evidence, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations }), refreshedAt, row.membership_id, share.payload_json).run();
-}
-
-async function refreshFireteamPresenceWithLease(row: SessionRow, env: Env): Promise<void> {
-  const startedAt = await claimFireteamPresenceRefresh(row.membership_id, env);
-  if (!startedAt) return;
-  try { await refreshFireteamPresence(row, env); }
-  finally { await releaseFireteamPresenceRefresh(row.membership_id, startedAt, env); }
+      .bind(JSON.stringify({ ...payload, character, activity, onlineState, sessionPresenceEvidence: sessionObservation.evidence, activityPartyMembers, activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId), activityPartySoloObservationCount: partyObservation.consecutiveSoloObservations, activityPartyCandidateSignature: partyObservation.candidateSignature || "", activityPartyCandidateObservationCount: partyObservation.candidateObservations }), refreshedAt, row.membership_id, share.payload_json).run();
 }
 
 async function claimFireteamPresenceRefresh(membershipId: string, env: Env): Promise<string | undefined> {
@@ -1876,16 +1931,11 @@ async function releaseFireteamPresenceRefresh(membershipId: string, startedAt: s
 async function fireteam(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const started = performance.now();
   const now = new Date().toISOString();
-  let ownShare = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error, presence_refreshed_at, presence_error FROM fireteam_shares WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)")
+  const ownShare = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error, presence_refreshed_at, presence_error FROM fireteam_shares WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)")
     .bind(row.membership_id, now).first<any>();
-  // When presence is due, refresh before constructing the response. The old
-  // flow returned stale membership first and only refreshed in waitUntil,
-  // making every visible result one polling cycle behind reality.
-  if (ownShare && fireteamPresenceRefreshDue(ownShare.presence_refreshed_at || ownShare.updated_at)) {
-    await refreshFireteamPresenceWithLease(row, env).catch(() => undefined);
-    ownShare = await env.DB.prepare("SELECT membership_id, display_name, updated_at, expires_at, payload_json, sharing_mode, last_error, presence_refreshed_at, presence_error FROM fireteam_shares WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)")
-      .bind(row.membership_id, now).first<any>();
-  }
+  // This route is deliberately D1-only. The scheduled Worker owns Bungie
+  // presence refreshes, so page reloads and multiple tabs cannot multiply
+  // upstream profile requests or make roster truth depend on a browser.
   let ownSharePayload: any = null;
   try { ownSharePayload = ownShare?.payload_json ? JSON.parse(ownShare.payload_json) : null; } catch { ownSharePayload = null; }
   const storedParty = Array.isArray(ownSharePayload?.activityPartyMembers) ? ownSharePayload.activityPartyMembers : [];
@@ -1932,7 +1982,7 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
       ? viewerSessionLive
         ? "online"
         : viewerPresenceUsable && payload?.onlineState === "offline" ? "offline" : "unknown"
-      : viewerPresenceUsable && member.observedInParty ? "online" : "unknown";
+      : viewerPresenceFresh && member.observedInParty ? "online" : "unknown";
     const activity = onlineState === "online" ? payload?.activity || "Online · location unavailable" : undefined;
     const inGameName = member.displayName || (isSelf ? row.bungie_name || row.display_name : share?.display_name) || "Unknown Guardian";
     return {
@@ -1964,7 +2014,6 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     };
   });
   const presenceRefreshDue = Boolean(ownShare) && fireteamPresenceRefreshDue(viewerPresenceAt);
-  if (presenceRefreshDue) context.waitUntil?.(refreshFireteamPresenceWithLease(row, env).catch(() => undefined));
   const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: viewerPresenceFresh ? ownSharePayload?.activity : undefined, members };
   console.log(JSON.stringify({ event: "fireteam_core_timing", profileMs: 0, activityLookupMs: 0, d1SharesMs: Math.round(shareMs), publicMembersMs: 0, feedMs: 0, socialMs: 0, totalMs: Math.round(performance.now() - started), partySize: party.length, synchronizedShares: shares.size, cacheState: viewerPresenceFresh ? presenceRefreshDue ? "fresh-refreshing" : "fresh" : ownShare ? "stale-refreshing" : "missing" }));
   return envelope(data, env, context, { observedAt: viewerPresenceAt || now, state: viewerPresenceFresh ? "fresh" : "stale", warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(!viewerPresenceFresh && ownShare ? ["Live Fireteam presence is refreshing; saved member data remains available."] : []), ...(ownShare?.presence_error ? [String(ownShare.presence_error)] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });

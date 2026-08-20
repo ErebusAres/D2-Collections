@@ -52,7 +52,10 @@ describe("API client", () => {
   });
 
   it("builds a copyable incident report with the narrowing details", () => {
-    expect(connectionFailureReport({ code: "worker_resource_limit", message: "Over capacity", route: "/api/v1/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", status: 500, requestId: "ray-123", retryAfterSeconds: 60 })).toContain("Error code: worker_resource_limit\nHTTP status: 500\nReference: ray-123\nRetry after: 60s");
+    const report = connectionFailureReport({ code: "worker_resource_limit", message: "Over capacity", route: "/api/v1/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", status: 500, requestId: "ray-123", retryAfterSeconds: 60, diagnostics: { failureSource: "cloudflare-runtime", method: "GET", durationMs: 123, cfRay: "ray-123-ORD" }, recentRequests: [{ route: "/api/v1/me/gear", method: "GET", status: 200, durationMs: 80, occurredAt: "2026-08-18T13:59:59.000Z" }] });
+    expect(report).toContain("Error code: worker_resource_limit\nHTTP status: 500\nReference: ray-123\nRetry after: 60s");
+    expect(report).toContain("Failure source: cloudflare-runtime\nMethod: GET\nDuration: 123ms\nCloudflare Ray: ray-123-ORD");
+    expect(report).toContain("Recent API requests:\n- 2026-08-18T13:59:59.000Z GET /api/v1/me/gear -> 200 (80ms)");
   });
 
   it("assigns client-side references to network failures", async () => {
@@ -61,8 +64,8 @@ describe("API client", () => {
   });
 
   it("turns Cloudflare 1102 pages into a retryable service error", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("error code: 1102 Worker exceeded resource limits", { status: 500 }));
-    await expect(api("/api/v1/session")).rejects.toMatchObject({ status: 500, code: "worker_resource_limit", message: "Guardian services are temporarily over capacity." });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("error code: 1102 Worker exceeded resource limits", { status: 500, headers: { "cf-ray": "runtime-ray-ORD", "content-type": "text/html", server: "cloudflare" } }));
+    await expect(api("/api/v1/session")).rejects.toMatchObject({ status: 500, code: "worker_resource_limit", message: "Guardian services are temporarily over capacity.", diagnostics: { failureSource: "cloudflare-runtime", method: "GET", responseBodyKind: "cloudflare-1102", cfRay: "runtime-ray-ORD" } });
   });
 
   it("never resurrects an older in-memory Fireteam payload when the live read fails", async () => {

@@ -19,6 +19,7 @@ export interface ApiError {
   message: string;
   retryAfterSeconds?: number;
   requestId: string;
+  diagnostics?: Record<string, unknown>;
 }
 
 export type GuardianClass = "Titan" | "Hunter" | "Warlock" | "Unknown";

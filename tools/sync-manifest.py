@@ -587,7 +587,8 @@ def relevant_weapon_plug(definition: dict) -> bool:
         return False
     return "weapon" in category or any(term in category for term in (
         "intrinsic", "frame", "barrel", "magazine", "scope", "sight", "grip",
-        "stock", "trait", "perk", "origin", "masterwork", "enhancement",
+        "stock", "blade", "guard", "haft", "string", "arrow", "trait", "perk",
+        "origin", "masterwork", "enhancement",
     ))
 
 

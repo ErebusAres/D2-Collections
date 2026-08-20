@@ -6,6 +6,7 @@ export class ApiRequestError extends Error {
   code: string;
   retryAfterSeconds?: number;
   requestId?: string;
+  diagnostics?: Record<string, unknown>;
 
   constructor(status: number, body: Partial<ApiError>) {
     super(body.message || "Guardian Nexus request failed.");
@@ -13,7 +14,18 @@ export class ApiRequestError extends Error {
     this.code = body.code || "request_failed";
     this.retryAfterSeconds = body.retryAfterSeconds;
     this.requestId = body.requestId || clientRequestId();
+    this.diagnostics = body.diagnostics;
   }
+}
+
+interface RequestTrace {
+  route: string;
+  method: string;
+  status: number;
+  code?: string;
+  durationMs: number;
+  occurredAt: string;
+  requestId?: string;
 }
 
 export interface ConnectionFailure {
@@ -24,6 +36,8 @@ export interface ConnectionFailure {
   requestId?: string;
   status?: number;
   retryAfterSeconds?: number;
+  diagnostics?: Record<string, unknown>;
+  recentRequests?: RequestTrace[];
 }
 
 interface ConnectionSnapshot {
@@ -63,6 +77,7 @@ const lastSuccessfulReads = new Map<string, { envelope: ApiEnvelope<unknown>; sa
 const savedReadPaths = new Map<string, string>();
 const savedReadFailures = new Map<string, number>();
 const routeCircuitBreakers = new Map<string, number>();
+const recentRequestTraces: RequestTrace[] = [];
 const SAVED_READ_WARNING_TTL_MS = 2 * 60_000;
 const RELOAD_PERSISTED_READ_COOLDOWNS_MS: Readonly<Record<string, number>> = {
   "/api/v1/fireteam/activity": 60_000,
@@ -172,9 +187,12 @@ async function waitForReloadReadTurn(path: string, cooldownMs: number): Promise<
 
 async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEnvelope<T>> {
   const route = path.split("?", 1)[0] || path;
+  const method = String(init.method || "GET").toUpperCase();
+  const startedAt = performance.now();
   const blockedUntil = routeCircuitBreakers.get(route) || 0;
   if (blockedUntil > Date.now()) {
-    const error = new ApiRequestError(503, { code: "worker_resource_limit", message: sectionFailureMessage(path), retryAfterSeconds: Math.max(1, Math.ceil((blockedUntil - Date.now()) / 1_000)) });
+    const error = new ApiRequestError(503, { code: "worker_resource_limit", message: sectionFailureMessage(path), retryAfterSeconds: Math.max(1, Math.ceil((blockedUntil - Date.now()) / 1_000)), diagnostics: { failureSource: "client-circuit-breaker", method, breakerUntil: new Date(blockedUntil).toISOString() } });
+    recordRequestTrace({ route, method, status: 503, code: error.code, durationMs: elapsed(startedAt), occurredAt: new Date().toISOString(), requestId: error.requestId });
     activateFailure(route, error);
     throw error;
   }
@@ -187,7 +205,8 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
       headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), ...init.headers }
     });
   } catch (error) {
-    const requestError = new ApiRequestError(0, { code: "network_error", message: messageOf(error), requestId: clientRequestId() });
+    const requestError = new ApiRequestError(0, { code: "network_error", message: messageOf(error), requestId: clientRequestId(), diagnostics: { failureSource: "network", method, durationMs: elapsed(startedAt) } });
+    recordRequestTrace({ route, method, status: 0, code: requestError.code, durationMs: elapsed(startedAt), occurredAt: new Date().toISOString(), requestId: requestError.requestId });
     activateFailure(route, requestError);
     throw requestError;
   }
@@ -196,11 +215,28 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
   try { body = raw ? JSON.parse(raw) : {}; } catch {
     if (!response.ok && /1102|exceeded resource limits/i.test(raw)) {
       const rayId = response.headers.get("cf-ray")?.split("-")[0] || raw.match(/Cloudflare Ray ID:\s*<strong[^>]*>([^<]+)/i)?.[1]?.trim();
-      body = { code: "worker_resource_limit", message: sectionFailureMessage(path), requestId: rayId };
+      body = { code: "worker_resource_limit", message: sectionFailureMessage(path), requestId: rayId, diagnostics: {
+        failureSource: "cloudflare-runtime",
+        method,
+        durationMs: elapsed(startedAt),
+        responseContentType: response.headers.get("content-type") || "unknown",
+        responseServer: response.headers.get("server") || "unknown",
+        responseBodyKind: "cloudflare-1102",
+        cfRay: response.headers.get("cf-ray") || rayId
+      } };
     }
   }
   if (!response.ok) {
+    body.diagnostics = {
+      ...(body.diagnostics && typeof body.diagnostics === "object" ? body.diagnostics : {}),
+      method,
+      durationMs: elapsed(startedAt),
+      responseContentType: response.headers.get("content-type") || "unknown",
+      responseServer: response.headers.get("server") || "unknown",
+      cfRay: response.headers.get("cf-ray") || undefined
+    };
     const error = new ApiRequestError(response.status, body);
+    recordRequestTrace({ route, method, status: response.status, code: error.code, durationMs: elapsed(startedAt), occurredAt: new Date().toISOString(), requestId: error.requestId });
     activateFailure(route, error);
     if (error.code === "worker_resource_limit") {
       routeCircuitBreakers.set(route, Date.now() + 60_000 + Math.round(Math.random() * 10_000));
@@ -211,6 +247,7 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
   if (connectionSnapshot.activeFailure?.route === route) updateConnection({ activeFailure: undefined });
   if (!pendingMutations.length && !savedReadPaths.size) updateConnection({ lastError: undefined });
   routeCircuitBreakers.delete(route);
+  recordRequestTrace({ route, method, status: response.status, durationMs: elapsed(startedAt), occurredAt: new Date().toISOString(), requestId: String((body as any)?.requestId || "") || undefined });
   return body as ApiEnvelope<T>;
 }
 
@@ -292,13 +329,20 @@ function activateFailure(route: string, error: ApiRequestError): void {
     occurredAt: new Date().toISOString(),
     requestId: error.requestId,
     status: error.status || undefined,
-    retryAfterSeconds: error.retryAfterSeconds
+    retryAfterSeconds: error.retryAfterSeconds,
+    diagnostics: error.diagnostics,
+    recentRequests: recentRequestTraces.slice(-6)
   };
   rememberApiFailure(route, error);
   updateConnection({ activeFailure, lastError: describeApiError(error) });
 }
 
 export function connectionFailureReport(failure: ConnectionFailure): string {
+  const diagnostics = failure.diagnostics || {};
+  const page = typeof location !== "undefined" ? location.pathname : "unknown";
+  const visibility = typeof document !== "undefined" ? document.visibilityState : "unknown";
+  const online = typeof navigator !== "undefined" ? navigator.onLine : undefined;
+  const browser = typeof navigator !== "undefined" ? navigator.userAgent : "unknown";
   return [
     "Guardian Nexus service incident",
     `Time: ${failure.occurredAt}`,
@@ -307,8 +351,29 @@ export function connectionFailureReport(failure: ConnectionFailure): string {
     `Error code: ${failure.code}`,
     failure.status ? `HTTP status: ${failure.status}` : "HTTP status: no response",
     failure.requestId ? `Reference: ${failure.requestId}` : undefined,
-    failure.retryAfterSeconds ? `Retry after: ${failure.retryAfterSeconds}s` : undefined
+    failure.retryAfterSeconds ? `Retry after: ${failure.retryAfterSeconds}s` : undefined,
+    `Failure source: ${String(diagnostics.failureSource || "unknown")}`,
+    diagnostics.method ? `Method: ${String(diagnostics.method)}` : undefined,
+    diagnostics.durationMs !== undefined ? `Duration: ${String(diagnostics.durationMs)}ms` : undefined,
+    diagnostics.cfRay ? `Cloudflare Ray: ${String(diagnostics.cfRay)}` : undefined,
+    diagnostics.responseContentType ? `Response type: ${String(diagnostics.responseContentType)}` : undefined,
+    diagnostics.responseServer ? `Response server: ${String(diagnostics.responseServer)}` : undefined,
+    `Page: ${page}`,
+    `Tab visibility: ${visibility}`,
+    online === undefined ? undefined : `Browser online: ${online ? "yes" : "no"}`,
+    `Frontend commit: ${import.meta.env.VITE_GIT_COMMIT || "unknown"}`,
+    `Frontend built: ${import.meta.env.VITE_BUILD_TIMESTAMP || "unknown"}`,
+    `Browser: ${browser}`,
+    failure.recentRequests?.length ? "Recent API requests:" : undefined,
+    ...(failure.recentRequests || []).map((trace) => `- ${trace.occurredAt} ${trace.method} ${trace.route} -> ${trace.status}${trace.code ? ` ${trace.code}` : ""} (${trace.durationMs}ms)${trace.requestId ? ` [${trace.requestId}]` : ""}`)
   ].filter(Boolean).join("\n");
+}
+
+function elapsed(startedAt: number): number { return Math.max(0, Math.round(performance.now() - startedAt)); }
+
+function recordRequestTrace(trace: RequestTrace): void {
+  recentRequestTraces.push(trace);
+  if (recentRequestTraces.length > 12) recentRequestTraces.splice(0, recentRequestTraces.length - 12);
 }
 
 function clientRequestId(): string {

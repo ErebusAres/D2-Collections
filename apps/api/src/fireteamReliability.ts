@@ -12,6 +12,8 @@ export interface SavedPartyMember {
 export interface PartyObservation {
   members: SavedPartyMember[];
   consecutiveSoloObservations: number;
+  candidateSignature?: string;
+  candidateObservations: number;
 }
 
 export type GuardianPresenceState = "online" | "offline" | "unknown";
@@ -177,31 +179,61 @@ export function resolvePartyObservation(
   observed: SavedPartyMember[],
   previous: SavedPartyMember[],
   transitoryAvailable: boolean,
-  consecutiveSoloObservations = 0
+  consecutiveSoloObservations = 0,
+  previousCandidateSignature = "",
+  previousCandidateObservations = 0
 ): PartyObservation {
-  if (!transitoryAvailable) return { members: previous.length ? previous.slice(0, 12) : observed, consecutiveSoloObservations };
-  if (observed.length > 1) return { members: observed, consecutiveSoloObservations: 0 };
-  if (previous.length <= 1) return { members: observed, consecutiveSoloObservations: 0 };
-  const nextSoloObservations = Math.max(0, consecutiveSoloObservations) + 1;
-  return nextSoloObservations < 3
-    ? {
-      members: previous.slice(0, 12).map((member) => ({
-        ...member,
-        observedInParty: observed.some((candidate) => candidate.membershipId === member.membershipId && candidate.observedInParty)
-      })),
-      consecutiveSoloObservations: nextSoloObservations
-    }
-    : { members: observed, consecutiveSoloObservations: 0 };
+  const prior = previous.slice(0, 12);
+  if (!transitoryAvailable) return {
+    members: prior.length ? prior : observed,
+    consecutiveSoloObservations,
+    ...(previousCandidateSignature ? { candidateSignature: previousCandidateSignature } : {}),
+    candidateObservations: previousCandidateObservations
+  };
+  if (!prior.length) return { members: observed.slice(0, 12), consecutiveSoloObservations: 0, candidateObservations: 0 };
+
+  const observedSignature = partyMembershipSignature(observed);
+  const acceptedSignature = partyMembershipSignature(prior);
+  if (observedSignature === acceptedSignature) {
+    return { members: observed.slice(0, 12), consecutiveSoloObservations: 0, candidateObservations: 0 };
+  }
+
+  // Bungie's transitory component can alternate between an old party and a
+  // solo snapshot. Treat either direction as a candidate transition. A real
+  // join/change must repeat twice; leaving a party must repeat three times.
+  // Until confirmed, keep the accepted roster visible instead of marking it
+  // `observedInParty: false` and immediately defeating the debounce below.
+  const candidateObservations = previousCandidateSignature === observedSignature
+    ? Math.max(0, previousCandidateObservations) + 1
+    : 1;
+  const soloCandidate = observed.length <= 1;
+  const requiredObservations = soloCandidate ? 3 : 2;
+  if (candidateObservations < requiredObservations) {
+    return {
+      members: prior,
+      consecutiveSoloObservations: soloCandidate ? candidateObservations : 0,
+      candidateSignature: observedSignature,
+      candidateObservations
+    };
+  }
+  return { members: observed.slice(0, 12), consecutiveSoloObservations: 0, candidateObservations: 0 };
 }
 
 export function partyObservationForProgressRefresh(
   previous: SavedPartyMember[] | undefined,
   previousConsecutiveSoloObservations: number,
-  initial: PartyObservation
+  initial: PartyObservation,
+  previousCandidateSignature = "",
+  previousCandidateObservations = 0
 ): PartyObservation {
   return previous === undefined
     ? initial
-    : { members: previous.slice(0, 12), consecutiveSoloObservations: Math.max(0, previousConsecutiveSoloObservations) };
+    : {
+      members: previous.slice(0, 12),
+      consecutiveSoloObservations: Math.max(0, previousConsecutiveSoloObservations),
+      ...(previousCandidateSignature ? { candidateSignature: previousCandidateSignature } : {}),
+      candidateObservations: Math.max(0, previousCandidateObservations)
+    };
 }
 
 export function fireteamPresenceRefreshDue(refreshedAt?: string, now = Date.now(), intervalMs = 60_000): boolean {
@@ -209,7 +241,7 @@ export function fireteamPresenceRefreshDue(refreshedAt?: string, now = Date.now(
   return now - Date.parse(refreshedAt) >= intervalMs;
 }
 
-export function fireteamPresenceUsable(refreshedAt?: string, now = Date.now(), maxAgeMs = 2 * 60_000): boolean {
+export function fireteamPresenceUsable(refreshedAt?: string, now = Date.now(), maxAgeMs = 10 * 60_000): boolean {
   if (!refreshedAt) return false;
   const observedAt = Date.parse(refreshedAt);
   return Number.isFinite(observedAt) && now - observedAt <= maxAgeMs;
@@ -227,11 +259,17 @@ export function resolveViewerPartyObservation(
   transitoryAvailable: boolean,
   consecutiveSoloObservations: number,
   selfMembershipId: string,
-  viewerDirectlyOffline: boolean
+  viewerDirectlyOffline: boolean,
+  previousCandidateSignature = "",
+  previousCandidateObservations = 0
 ): PartyObservation {
   return viewerDirectlyOffline
-    ? { members: offlineViewerParty(observed, previous, selfMembershipId), consecutiveSoloObservations: 0 }
-    : resolvePartyObservation(observed, previous, transitoryAvailable, consecutiveSoloObservations);
+    ? { members: offlineViewerParty(observed, previous, selfMembershipId), consecutiveSoloObservations: 0, candidateObservations: 0 }
+    : resolvePartyObservation(observed, previous, transitoryAvailable, consecutiveSoloObservations, previousCandidateSignature, previousCandidateObservations);
+}
+
+function partyMembershipSignature(members: SavedPartyMember[]): string {
+  return [...new Set(members.map((member) => member.membershipId).filter(Boolean))].sort().join(",");
 }
 
 export function visiblePartyMembers<T extends { membershipId: string; observedInParty?: boolean }>(

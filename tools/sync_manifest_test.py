@@ -74,9 +74,17 @@ class BuildCatalogClassificationTests(unittest.TestCase):
 
     def test_weapon_plug_filter_keeps_roll_traits_but_excludes_cosmetics(self) -> None:
         perk = {"displayProperties": {"name": "Incandescent"}, "plug": {"plugCategoryIdentifier": "v500.weapon.traits"}}
+        sword_blade = {"displayProperties": {"name": "Tempered Edge"}, "itemTypeDisplayName": "Sword Blade", "plug": {"plugCategoryIdentifier": "sword_blades"}}
+        sword_guard = {"displayProperties": {"name": "Swordmaster's Guard"}, "itemTypeDisplayName": "Sword Guard", "plug": {"plugCategoryIdentifier": "sword_guards"}}
+        bow_string = {"displayProperties": {"name": "Elastic String"}, "itemTypeDisplayName": "Bowstring", "plug": {"plugCategoryIdentifier": "bowstrings"}}
+        arrow = {"displayProperties": {"name": "Fiberglass Arrow Shaft"}, "itemTypeDisplayName": "Arrow", "plug": {"plugCategoryIdentifier": "arrows"}}
         ornament = {"displayProperties": {"name": "Weapon Ornament"}, "itemTypeDisplayName": "Weapon Ornament", "plug": {"plugCategoryIdentifier": "weapon_skins"}}
 
         self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(perk))
+        self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(sword_blade))
+        self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(sword_guard))
+        self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(bow_string))
+        self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(arrow))
         self.assertFalse(SYNC_MANIFEST.relevant_weapon_plug(ornament))
 
     def test_catalyst_artwork_prefers_the_real_plug_icon_over_bungies_generic_symbol(self) -> None:

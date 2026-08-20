@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, profileFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -35,6 +35,26 @@ describe("Worker cache bounds", () => {
     ]);
     pruneExpiringCache(cache, 2, 50);
     expect([...cache.keys()]).toEqual(["newest-live"]);
+  });
+
+  it("coalesces only in-flight profiles and releases completed profile bodies", async () => {
+    let release!: () => void;
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      await new Promise<void>((resolve) => { release = resolve; });
+      return new Response(JSON.stringify({ ErrorCode: 1, Response: { profile: { data: {} } } }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const row = { membership_type: 3, membership_id: `profile-cache-${Date.now()}` } as SessionRow;
+    const env = { BUNGIE_API_KEY: "test" } as Env;
+    const first = profileFor(row, env, "fireteam", false, "access");
+    const second = profileFor(row, env, "fireteam", false, "access");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    release();
+    await Promise.all([first, second]);
+
+    fetchMock.mockImplementation(async () => new Response(JSON.stringify({ ErrorCode: 1, Response: { profile: { data: {} } } }), { status: 200 }));
+    await profileFor(row, env, "fireteam", false, "access");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 
