@@ -100,5 +100,7 @@ describe("FireteamActivityFeed", () => {
   it("places the activity tooltip beside its trigger while keeping it inside the viewport", () => {
     expect(activityTooltipPosition({ left: 800, right: 900, top: 650 }, { width: 410, height: 360 }, 1_000, 800)).toEqual({ left: 380, top: 428 });
     expect(activityTooltipPosition({ left: 20, right: 120, top: 5 }, { width: 410, height: 360 }, 500, 400)).toEqual({ left: 78, top: 12 });
+    expect(activityTooltipPosition({ left: 800, right: 900, top: 100 }, { width: 0, height: 0 }, 1_200, 800)).toEqual({ left: 190, top: 84 });
+    expect(activityTooltipPosition({ left: 20, right: 120, top: 5 }, { width: 0, height: 0 }, 500, 400)).toEqual({ left: 12, top: 12 });
   });
 });

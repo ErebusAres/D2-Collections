@@ -208,7 +208,7 @@ function ActivityTierDiamond({ tier, kind }: { tier: number; kind: "Weapon" | "A
 export function activityTooltipPosition(anchor: Pick<DOMRect, "left" | "right" | "top">, overlay: Pick<DOMRect, "width" | "height">, viewportWidth: number, viewportHeight: number): { left: number; top: number } {
   const gap = 10;
   const edge = 12;
-  const width = Math.min(overlay.width || 410, Math.max(0, viewportWidth - edge * 2));
+  const width = Math.min(overlay.width || 600, Math.max(0, viewportWidth - edge * 2));
   const height = Math.min(overlay.height || 360, Math.max(0, viewportHeight - edge * 2));
   const left = anchor.left - width - gap >= edge ? anchor.left - width - gap : Math.min(Math.max(edge, anchor.right + gap), Math.max(edge, viewportWidth - width - edge));
   const top = Math.min(Math.max(edge, anchor.top - 16), Math.max(edge, viewportHeight - height - edge));
