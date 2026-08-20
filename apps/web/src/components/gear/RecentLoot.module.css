@@ -116,6 +116,8 @@
   max-width: calc(100vw - 24px);
   padding: 10px;
   overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
   border: 1px solid var(--cyan);
   background: #071119;
   box-shadow: 0 15px 40px rgba(0, 0, 0, .65);
