@@ -35,26 +35,56 @@ afterEach(() => {
 
 describe("Fireteam refresh cycle", () => {
   it("uses the displayed deadline to run the one Fireteam page refresh scheduler", async () => {
+    vi.setSystemTime("2026-08-20T11:57:00.000Z");
+    const initialSnapshotAt = "2026-08-20T11:55:00.000Z";
     let fireteamReads = 0;
     vi.mocked(api).mockImplementation(async (path) => {
       if (path.startsWith("/api/v1/me/quests")) return ordersEnvelope();
       fireteamReads += 1;
-      return envelope("persistent");
+      return envelope("persistent", fireteamReads === 1 ? initialSnapshotAt : new Date(Date.now()).toISOString());
     });
     const firstClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<MemoryRouter><QueryClientProvider client={firstClient}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText("Fireteam page refresh in 5:00")).toBeTruthy();
+    expect(await screen.findByText("Fireteam page refresh in 3:00")).toBeTruthy();
     await waitFor(() => expect(fireteamReads).toBe(1));
 
     await act(async () => { vi.advanceTimersByTime(2 * 60_000); });
-    expect(screen.getByText("Fireteam page refresh in 3:00")).toBeTruthy();
-    await act(async () => { vi.advanceTimersByTime(3 * 60_000); });
+    expect(screen.getByText("Fireteam page refresh in 1:00")).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(fireteamReads).toBe(2));
     expect(screen.queryByText(/refresh queued/i)).toBeNull();
     expect(screen.getByText(/Fireteam page refresh in 5:00|Refreshing Fireteam page/)).toBeTruthy();
   });
 
+  it("does not reset the deadline when a page read returns the same committed snapshot", async () => {
+    const snapshotAt = new Date(Date.now()).toISOString();
+    let fireteamReads = 0;
+    let orderReads = 0;
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path.startsWith("/api/v1/me/quests")) {
+        orderReads += 1;
+        return ordersEnvelope();
+      }
+      fireteamReads += 1;
+      return envelope("persistent", snapshotAt);
+    });
+
+    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
+    expect(await screen.findByText("Fireteam page refresh in 5:00")).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
+    await waitFor(() => expect(fireteamReads).toBe(2));
+    expect(screen.getByText("Refreshing Fireteam page")).toBeTruthy();
+    expect(orderReads).toBe(1);
+
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    await waitFor(() => expect(fireteamReads).toBe(3));
+    expect(screen.getByText("Refreshing Fireteam page")).toBeTruthy();
+    expect(orderReads).toBe(1);
+  });
+
   it("refreshes presence independently while a tracked-progress write is queued", async () => {
+    const initialSnapshotAt = new Date(Date.now()).toISOString();
+    let snapshotCommitted = false;
     let fireteamReads = 0;
     let orderReads = 0;
     let finishWrite!: () => void;
@@ -65,10 +95,11 @@ describe("Fireteam refresh cycle", () => {
         return ordersEnvelope();
       }
       fireteamReads += 1;
-      return envelope("temporary");
+      return envelope("temporary", snapshotCommitted ? new Date(Date.now()).toISOString() : initialSnapshotAt);
     });
     vi.mocked(queuedApi).mockImplementation(async () => {
       await writeFinished;
+      snapshotCommitted = true;
       return { data: { sharing: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "share" };
     });
 
@@ -92,7 +123,9 @@ describe("Fireteam refresh cycle", () => {
     await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
     expect(JSON.parse(String(vi.mocked(queuedApi).mock.calls[0]?.[1]?.body))).not.toHaveProperty("activityFeedEnabled");
     expect(orderReads).toBe(2);
-    finishWrite();
+    await act(async () => { finishWrite(); });
+    await waitFor(() => expect(fireteamReads).toBe(3));
+    expect(screen.getByText(/Fireteam page refresh in 5:00|Refreshing Fireteam page/)).toBeTruthy();
   });
 
   it("runs the completion step before cleaning up a Hub order Bungie reports complete", async () => {
@@ -131,6 +164,8 @@ function envelope(sharingMode: "temporary" | "persistent" = "persistent", presen
   const data: FireteamData = {
     sharingEnabled: true,
     sharingMode,
+    pageUpdatedAt: presenceObservedAt,
+    pageRefreshDueAt: new Date(Date.parse(presenceObservedAt) + 5 * 60_000).toISOString(),
     presenceObservedAt,
     hiddenTrackedItemKeys: [],
     members: [{

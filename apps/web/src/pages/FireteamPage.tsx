@@ -197,8 +197,8 @@ export function FireteamPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="The backend checks the live roster about every minute; shared quest and gear progress refreshes every 5 minutes." actions={<>
-      <Freshness observedAt={data?.presenceObservedAt} label="Last updated" warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
+    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="The backend checks live presence continuously and commits the full Fireteam snapshot every 5 minutes." actions={<>
+      <Freshness observedAt={data?.pageUpdatedAt} label="Last updated" warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
       {data && !data.sharingEnabled && <>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "temporary" })} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "persistent" })} disabled={share.isPending}><Repeat2 size={15} />Always share</button>

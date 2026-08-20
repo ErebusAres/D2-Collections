@@ -37,12 +37,18 @@ export interface GuardianSessionObservation {
 // alternate the same Fireteam between visible and hidden.
 const SESSION_ADVANCE_GRACE_MS = 2 * 60_000;
 const SESSION_CONFIRMATION_MAX_AGE_MS = 2 * 60_000;
+const FIRETEAM_PAGE_REFRESH_INTERVAL_MS = 5 * 60_000;
 
 export function sourceObservationTimestamp(sourceObservedAt: unknown, now = Date.now()): string {
   const parsed = typeof sourceObservedAt === "string" ? Date.parse(sourceObservedAt) : Number.NaN;
   return Number.isFinite(parsed) && parsed <= now + 60_000
     ? new Date(parsed).toISOString()
     : new Date(now).toISOString();
+}
+
+export function fireteamPageRefreshDueAt(updatedAt: string | undefined): string | undefined {
+  const updatedMs = Date.parse(updatedAt || "");
+  return Number.isFinite(updatedMs) ? new Date(updatedMs + FIRETEAM_PAGE_REFRESH_INTERVAL_MS).toISOString() : undefined;
 }
 
 /**

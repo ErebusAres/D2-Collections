@@ -36,14 +36,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("Fireteam tracked items", () => {
-  it("shows the Bungie source snapshot time instead of the later page-request time", async () => {
+  it("shows the committed page snapshot time instead of the later page-request time", async () => {
     const response = envelope();
     response.freshness.observedAt = "2026-08-08T13:45:00.000Z";
     response.warnings = ["Bungie marks party and current-activity data as non-authoritative and potentially stale."];
     vi.mocked(api).mockImplementation(async (path) => String(path).startsWith("/api/v1/fireteam?") ? response : envelope());
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
-    const sourceTime = new Date(response.data.presenceObservedAt!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const sourceTime = new Date(response.data.pageUpdatedAt!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const requestTime = new Date(response.freshness.observedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const updated = await screen.findByText(`Last updated ${sourceTime}`);
     expect(screen.queryByText(`Last updated ${requestTime}`)).toBeNull();
@@ -415,6 +415,8 @@ function envelope() {
   const data: FireteamData = {
     sharingEnabled: true,
     sharingMode: "temporary",
+    pageUpdatedAt: "2026-08-08T12:34:00.000Z",
+    pageRefreshDueAt: "2026-08-08T12:39:00.000Z",
     presenceObservedAt: "2026-08-08T12:34:00.000Z",
     hiddenTrackedItemKeys: [],
     activity: "The Tower",

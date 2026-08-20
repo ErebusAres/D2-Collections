@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, partySnapshotMatchesSession, partySnapshotSourceObservedAt, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPageRefreshDueAt, fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, partySnapshotMatchesSession, partySnapshotSourceObservedAt, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
+  it("derives the page deadline from the committed snapshot timestamp", () => {
+    expect(fireteamPageRefreshDueAt("2026-08-20T11:55:00.000Z")).toBe("2026-08-20T12:00:00.000Z");
+    expect(fireteamPageRefreshDueAt(undefined)).toBeUndefined();
+  });
+
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
     const now = Date.parse("2026-08-08T20:00:00.000Z");
     expect(fireteamSocialCacheState(undefined, now)).toBe("missing");

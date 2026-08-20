@@ -741,6 +741,8 @@ export interface FireteamData {
   sharingExpiresAt?: string;
   hiddenTrackedItemKeys?: string[];
   activity?: string;
+  pageUpdatedAt?: string;
+  pageRefreshDueAt?: string;
   presenceObservedAt?: string;
   members: FireteamMember[];
   social?: FireteamSocialData;

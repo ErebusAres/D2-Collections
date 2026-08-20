@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems, removeRecentGearItem } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, partySnapshotSourceObservedAt, resolveViewerPartyObservation, sourceObservationTimestamp, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPageRefreshDueAt, fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, partySnapshotSourceObservedAt, resolveViewerPartyObservation, sourceObservationTimestamp, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -1788,8 +1788,16 @@ async function trackedPreferenceIds(membershipId: string, env: Env, key: string)
 }
 
 async function refreshNextPersistentShare(env: Env): Promise<void> {
-  const refreshDueBefore = new Date(Date.now() - 4 * 60_000).toISOString();
-  const { results = [] } = await env.DB.prepare("SELECT membership_id, character_id, site_pinned_quest_ids_json FROM fireteam_shares WHERE sharing_mode = 'persistent' AND COALESCE(background_refresh_attempted_at, updated_at) <= ? ORDER BY COALESCE(background_refresh_attempted_at, updated_at) ASC LIMIT 1").bind(refreshDueBefore).all<any>();
+  const refreshDueBefore = new Date(Date.now() - 5 * 60_000).toISOString();
+  const activeSince = new Date(Date.now() - 10 * 60_000).toISOString();
+  const { results = [] } = await env.DB.prepare(`
+    SELECT membership_id, character_id, site_pinned_quest_ids_json FROM fireteam_shares
+    WHERE sharing_mode = 'persistent'
+      AND CASE WHEN background_refresh_attempted_at > updated_at THEN background_refresh_attempted_at ELSE updated_at END <= ?
+    ORDER BY CASE WHEN presence_requested_at >= ? THEN 0 ELSE 1 END,
+      CASE WHEN background_refresh_attempted_at > updated_at THEN background_refresh_attempted_at ELSE updated_at END ASC
+    LIMIT 1
+  `).bind(refreshDueBefore, activeSince).all<any>();
   for (const share of results) {
     await env.DB.prepare("UPDATE fireteam_shares SET background_refresh_attempted_at = ? WHERE membership_id = ?")
       .bind(new Date().toISOString(), String(share.membership_id)).run();
@@ -2019,7 +2027,8 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
   });
   const presenceRefreshDue = Boolean(ownShare) && fireteamPresenceRefreshDue(viewerPresenceAt);
   const presenceObservedAt = partySnapshotSourceObservedAt(ownSharePayload);
-  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: viewerSessionLive ? ownSharePayload?.activity : undefined, presenceObservedAt, members };
+  const pageUpdatedAt = ownShare?.updated_at;
+  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: viewerSessionLive ? ownSharePayload?.activity : undefined, pageUpdatedAt, pageRefreshDueAt: fireteamPageRefreshDueAt(pageUpdatedAt), presenceObservedAt, members };
   console.log(JSON.stringify({ event: "fireteam_core_timing", profileMs: 0, activityLookupMs: 0, d1SharesMs: Math.round(shareMs), publicMembersMs: 0, feedMs: 0, socialMs: 0, totalMs: Math.round(performance.now() - started), partySize: party.length, synchronizedShares: shares.size, cacheState: viewerPresenceFresh ? presenceRefreshDue ? "fresh-refreshing" : "fresh" : ownShare ? "stale-refreshing" : "missing" }));
   return envelope(data, env, context, { observedAt: viewerPresenceAt || now, state: viewerPresenceFresh ? "fresh" : "stale", warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(!viewerPresenceFresh && ownShare ? ["Live Fireteam presence is refreshing; saved member data remains available."] : []), ...(ownShare?.presence_error ? [String(ownShare.presence_error)] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
 }
