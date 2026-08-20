@@ -80,7 +80,7 @@ const routeCircuitBreakers = new Map<string, number>();
 const recentRequestTraces: RequestTrace[] = [];
 const SAVED_READ_WARNING_TTL_MS = 2 * 60_000;
 const RELOAD_PERSISTED_READ_COOLDOWNS_MS: Readonly<Record<string, number>> = {
-  "/api/v1/fireteam/activity": 60_000,
+  "/api/v2/fireteam/activity": 60_000,
   "/api/v1/me/journey": 5 * 60_000
 };
 let mutationAuthHeaders: (() => HeadersInit) | undefined;
@@ -150,9 +150,7 @@ async function performReadRequest<T>(path: string, init: RequestInit): Promise<A
     const ageSeconds = Math.max(0, Math.round((Date.now() - Date.parse(cached.savedAt)) / 1_000));
     savedReadPaths.set(path, cached.savedAt);
     savedReadFailures.set(path, Date.now());
-    // A saved Fireteam response is never live presence, regardless of whether
-    // it came from IndexedDB or the newer in-memory cache.
-    const savedEnvelope = sanitizeSavedFireteamPresence(path, cached.envelope);
+    const savedEnvelope = cached.envelope;
     updateSavedDataConnection({ lastError: sectionFailureMessage(path, error) });
     const savedWarning = isIndependentFireteamSection(path)
       ? `${sectionFailureMessage(path, error)} Showing saved data from ${new Date(cached.savedAt).toLocaleString()}.`
@@ -278,25 +276,21 @@ function messageOf(error: unknown): string { return error instanceof Error ? err
 function sectionFailureMessage(path: string, error?: unknown): string {
   const pathname = path.split("?", 1)[0] || path;
   const delayed = (!error || (error instanceof ApiRequestError && error.code === "worker_resource_limit")) ? " delayed" : " unavailable";
-  if (pathname === "/api/v1/fireteam") return `Fireteam live presence${delayed}—showing saved data.`;
-  if (pathname === "/api/v2/fireteam") return `Fireteam v2 snapshot${delayed}—showing the last committed version.`;
-  if (pathname === "/api/v1/fireteam/social") return `Fireteam Social${delayed}—showing saved data.`;
-  if (pathname === "/api/v1/fireteam/activity") return `Fireteam Activity${delayed}—showing saved data.`;
-  if (pathname === "/api/v2/fireteam/activity") return `Fireteam v2 Activity${delayed}—showing saved data.`;
-  if (pathname === "/api/v2/fireteam/recent-items") return `Fireteam v2 Recent Loot${delayed}—showing saved data.`;
+  if (pathname === "/api/v2/fireteam") return `Fireteam snapshot${delayed}—showing the last committed version.`;
+  if (pathname === "/api/v2/fireteam/activity") return `Fireteam Activity${delayed}—showing saved data.`;
+  if (pathname === "/api/v2/fireteam/recent-items") return `Fireteam Recent Loot${delayed}—showing saved data.`;
   if (pathname === "/api/v1/me/recent-items") return `Recent items${delayed}—showing saved data.`;
   return error ? messageOf(error) : "Guardian services are temporarily over capacity.";
 }
 
 function isLiveFireteamStatePath(path: string): boolean {
   const pathname = path.split("?", 1)[0] || path;
-  return pathname === "/api/v1/fireteam" || pathname === "/api/v1/fireteam/social" || pathname === "/api/v1/fireteam/activity"
-    || pathname === "/api/v2/fireteam" || pathname === "/api/v2/fireteam/activity";
+  return pathname === "/api/v2/fireteam" || pathname === "/api/v2/fireteam/activity";
 }
 
 function isIndependentFireteamSection(path: string): boolean {
   const pathname = path.split("?", 1)[0] || path;
-  return isLiveFireteamStatePath(path) || pathname === "/api/v1/me/recent-items" || pathname === "/api/v2/fireteam/recent-items";
+  return isLiveFireteamStatePath(path) || pathname === "/api/v2/fireteam/recent-items";
 }
 
 function rememberWorkerResourceLimit(route: string, rayId?: string): void {
@@ -372,14 +366,6 @@ export function getLastApiErrorDiagnostics(): Record<string, unknown> | undefine
     const value = JSON.parse(sessionStorage.getItem(LAST_API_ERROR_DIAGNOSTIC_KEY) || "null");
     return value && typeof value === "object" ? value : undefined;
   } catch { return undefined; }
-}
-
-function sanitizeSavedFireteamPresence<T>(path: string, envelope: ApiEnvelope<T>): ApiEnvelope<T> {
-  if ((path.split("?", 1)[0] || path) !== "/api/v1/fireteam") return envelope;
-  const data = envelope.data as any;
-  if (!data || !Array.isArray(data.members)) return envelope;
-  const self = data.members.filter((member: any) => member?.isSelf === true || activeMembershipId && String(member?.membershipId || "") === activeMembershipId);
-  return { ...envelope, data: { ...data, activity: undefined, members: self.map((member: any) => ({ ...member, onlineState: "unknown", presenceLabel: "Presence unknown", activity: undefined, activitySource: "unavailable" })) } };
 }
 
 function updateConnection(value: Partial<ConnectionSnapshot>): void {

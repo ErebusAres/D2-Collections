@@ -666,30 +666,6 @@ export interface ActivityHistoryData {
   };
 }
 
-export type FireteamReadinessRole = "damage" | "support" | "control" | "flex";
-export type FireteamReadinessState = "ready" | "needs-attention" | "not-checked";
-
-/** A player-confirmed, activity-scoped summary. It never contains raw inventory or Collections data. */
-export interface FireteamReadinessSummary {
-  schemaVersion: 1;
-  activityName: string;
-  role: FireteamReadinessRole;
-  state: FireteamReadinessState;
-  build?: {
-    id?: string;
-    title: string;
-    subclass?: string;
-  };
-  prerequisites: {
-    id: string;
-    label: string;
-    state: FireteamReadinessState;
-  }[];
-  note?: string;
-  source: "player-confirmed";
-  updatedAt: string;
-}
-
 export interface FireteamMember {
   membershipId: string;
   displayName: string;
@@ -699,38 +675,19 @@ export interface FireteamMember {
   onlineState: "online" | "offline" | "unknown";
   character?: CharacterSummary;
   activity?: string;
-  activitySource: "public" | "shared" | "fireteam" | "unavailable";
+  activitySource: "shared" | "unavailable";
   isSelf: boolean;
   isLeader: boolean;
-  syncState: "synced" | "not-synced";
+  syncState: "synced" | "delayed" | "not-synced";
   sharing: boolean;
   sharingMode?: FireteamSharingMode;
   expiresAt?: string;
   trackedItems: FireteamTrackedItem[];
   recentlyCompletedItems?: FireteamCompletedTrackedItem[];
-  readiness?: FireteamReadinessSummary;
-  /** @deprecated Retained for compatibility with Fireteam shares created by older web bundles. */
+  /** Compact quest/order progress used by the Fireteam Seasonal Hub rail. */
   quests: QuestProgress[];
   overlaps: string[];
   freshness: Freshness;
-}
-
-export interface FireteamContact {
-  membershipId: string;
-  membershipType?: number;
-  displayName: string;
-  source: "friend" | "clan" | "friend-and-clan";
-  clanName?: string;
-  onlineState: "online" | "offline" | "unknown";
-  inDestiny2: boolean;
-}
-
-export interface FireteamSocialData {
-  state: "available" | "reauthorization-required" | "unavailable";
-  friendsState?: "available" | "reauthorization-required" | "unavailable";
-  clanState?: "available" | "unavailable";
-  contacts: FireteamContact[];
-  warning?: string;
 }
 
 export type FireteamSharingMode = "temporary" | "persistent";
@@ -749,8 +706,8 @@ export interface FireteamData {
   refreshAttemptedAt?: string;
   refreshRetryAt?: string;
   refreshErrorCode?: string;
+  activityFeedEnabled?: boolean;
   members: FireteamMember[];
-  social?: FireteamSocialData;
   activityFeed?: FireteamActivityFeed;
 }
 
@@ -1153,7 +1110,6 @@ export type UserPreferenceKey =
   | "collection.filters"
   | "collection.tracked"
   | "fireteam.trackedOrder"
-  | "fireteam.readinessDraft.v1"
   | "quests.layout"
   | "quests.filters"
   | "guardianRank.tracked"

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { FireteamData, QuestData, QuestProgress } from "@guardian-nexus/contracts";
+import type { FireteamData, QuestProgress } from "@guardian-nexus/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -8,167 +8,120 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
 import { FireteamRoute } from "./FireteamRoute";
 
+const guardianSettings = vi.hoisted(() => ({ autoRefresh: true }));
+
 vi.mock("../context/GuardianContext", () => ({
-  pinsKey: (membershipId: string, characterId: string) => `pins:${membershipId}:${characterId}`,
   useGuardian: () => ({
     session: { authenticated: true, csrfToken: "csrf", guardian: { membershipId: "member-1" } },
     selectedCharacterId: "c1",
-    autoRefresh: true,
-    preferences: { "guardianRank.tracked": "[]", "journey.tracked": "[]" }
+    autoRefresh: guardianSettings.autoRefresh,
+    preferences: {}
   })
 }));
 vi.mock("../services/api/client", () => ({ api: vi.fn(), queuedApi: vi.fn(), mutationHeaders: vi.fn(() => ({})) }));
 vi.mock("./FireteamPage", () => ({ FireteamPage: () => <div>Fireteam content</div> }));
 
 beforeEach(() => {
+  guardianSettings.autoRefresh = true;
   vi.useFakeTimers({ shouldAdvanceTime: true });
-  localStorage.setItem("pins:member-1:c1", "[]");
-  vi.mocked(queuedApi).mockResolvedValue({ data: { sharing: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "share" });
 });
 
 afterEach(() => {
   cleanup();
-  localStorage.clear();
   vi.useRealTimers();
   vi.clearAllMocks();
 });
 
-describe("Fireteam refresh cycle", () => {
-  it("uses the displayed deadline to run the one Fireteam page refresh scheduler", async () => {
+describe("Fireteam page", () => {
+  it("uses only the committed deadline and never resets on the same snapshot", async () => {
     vi.setSystemTime("2026-08-20T11:57:00.000Z");
-    const initialSnapshotAt = "2026-08-20T11:55:00.000Z";
-    let fireteamReads = 0;
-    vi.mocked(api).mockImplementation(async (path) => {
-      if (path.startsWith("/api/v1/me/quests")) return ordersEnvelope();
-      fireteamReads += 1;
-      return envelope("persistent", fireteamReads === 1 ? initialSnapshotAt : new Date(Date.now()).toISOString());
-    });
-    const firstClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<MemoryRouter><QueryClientProvider client={firstClient}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText("Fireteam page refresh in 3:00")).toBeTruthy();
-    await waitFor(() => expect(fireteamReads).toBe(1));
+    let version = 4;
+    let committedAt = "2026-08-20T11:55:00.000Z";
+    vi.mocked(api).mockImplementation(async () => fireteamEnvelope(version, committedAt));
 
-    await act(async () => { vi.advanceTimersByTime(2 * 60_000); });
-    expect(screen.getByText("Fireteam page refresh in 1:00")).toBeTruthy();
-    await act(async () => { vi.advanceTimersByTime(60_000); });
-    await waitFor(() => expect(fireteamReads).toBe(2));
-    expect(screen.queryByText(/refresh queued/i)).toBeNull();
-    expect(screen.getByText(/Fireteam page refresh in 5:00|Refreshing Fireteam page/)).toBeTruthy();
+    const client = renderFireteam();
+    const refetchQueries = vi.spyOn(client, "refetchQueries");
+    expect(await screen.findByText("Fireteam refresh in 3:00")).toBeTruthy();
+    expect(vi.mocked(api)).toHaveBeenCalledTimes(1);
+
+    await act(async () => { vi.advanceTimersByTime(3 * 60_000); });
+    await waitFor(() => expect(vi.mocked(api)).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("Refreshing Fireteam")).toBeTruthy();
+
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    await waitFor(() => expect(vi.mocked(api)).toHaveBeenCalledTimes(3));
+    expect(screen.getByText("Refreshing Fireteam")).toBeTruthy();
+
+    version = 5;
+    committedAt = new Date(Date.now()).toISOString();
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    await waitFor(() => expect(screen.getByText("Fireteam refresh in 4:55")).toBeTruthy());
+    expect(refetchQueries).toHaveBeenCalledWith({ queryKey: ["fireteam-recent-items", "c1"], exact: true, type: "active" });
+    expect(refetchQueries).toHaveBeenCalledWith({ queryKey: ["fireteam-activity", "member-1", "c1"], exact: true, type: "active" });
   });
 
-  it("does not reset the deadline when a page read returns the same committed snapshot", async () => {
-    const snapshotAt = new Date(Date.now()).toISOString();
-    let fireteamReads = 0;
-    let orderReads = 0;
-    vi.mocked(api).mockImplementation(async (path) => {
-      if (path.startsWith("/api/v1/me/quests")) {
-        orderReads += 1;
-        return ordersEnvelope();
-      }
-      fireteamReads += 1;
-      return envelope("persistent", snapshotAt);
-    });
-
-    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText("Fireteam page refresh in 5:00")).toBeTruthy();
-    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
-    await waitFor(() => expect(fireteamReads).toBe(2));
-    expect(screen.getByText("Refreshing Fireteam page")).toBeTruthy();
-    expect(orderReads).toBe(1);
-
-    await act(async () => { vi.advanceTimersByTime(60_000); });
-    await waitFor(() => expect(fireteamReads).toBe(3));
-    expect(screen.getByText("Refreshing Fireteam page")).toBeTruthy();
-    expect(orderReads).toBe(1);
-  });
-
-  it("refreshes presence independently while a tracked-progress write is queued", async () => {
-    const initialSnapshotAt = new Date(Date.now()).toISOString();
-    let snapshotCommitted = false;
-    let fireteamReads = 0;
-    let orderReads = 0;
-    let finishWrite!: () => void;
-    const writeFinished = new Promise<void>((resolve) => { finishWrite = resolve; });
-    vi.mocked(api).mockImplementation(async (path) => {
-      if (path.startsWith("/api/v1/me/quests")) {
-        orderReads += 1;
-        return ordersEnvelope();
-      }
-      fireteamReads += 1;
-      return envelope("temporary", snapshotCommitted ? new Date(Date.now()).toISOString() : initialSnapshotAt);
-    });
-    vi.mocked(queuedApi).mockImplementation(async () => {
-      await writeFinished;
-      snapshotCommitted = true;
-      return { data: { sharing: true }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "share" };
-    });
-
-    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText("Fireteam page refresh in 5:00")).toBeTruthy();
-    expect(await screen.findByText("Active in Destiny · 6")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Seasonal Hub Orders" }).getAttribute("href")).toBe("/journey/season");
-    expect(screen.getByRole("link", { name: /Hub order 1/ }).getAttribute("href")).toBe("/quests/order-1");
-    expect(screen.getByRole("img", { name: "Trace Rifle" }).getAttribute("title")).toBe("Trace Rifle");
-    expect(screen.queryByText("[Trace Rifle]", { exact: false })).toBeNull();
-    await waitFor(() => expect(fireteamReads).toBe(1));
-    expect(orderReads).toBe(1);
-
-    await act(async () => { vi.advanceTimersByTime(60_000); });
-    expect(fireteamReads).toBe(1);
-    expect(orderReads).toBe(1);
+  it("derives tracked Hub orders from the same snapshot without a quest endpoint", async () => {
+    vi.mocked(api).mockResolvedValue(fireteamEnvelope(1, new Date(Date.now()).toISOString(), [order()]));
+    renderFireteam();
+    expect(await screen.findByText("Tracked in Destiny · 1")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Atomic order/ }).getAttribute("href")).toBe("/quests/order-1");
+    expect(vi.mocked(api).mock.calls.every(([path]) => String(path).startsWith("/api/v2/fireteam?"))).toBe(true);
     expect(queuedApi).not.toHaveBeenCalled();
-
-    await act(async () => { vi.advanceTimersByTime(4 * 60_000); });
-    await waitFor(() => expect(fireteamReads).toBe(2));
-    await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
-    expect(JSON.parse(String(vi.mocked(queuedApi).mock.calls[0]?.[1]?.body))).not.toHaveProperty("activityFeedEnabled");
-    expect(orderReads).toBe(2);
-    await act(async () => { finishWrite(); });
-    await waitFor(() => expect(fireteamReads).toBe(3));
-    expect(screen.getByText(/Fireteam page refresh in 5:00|Refreshing Fireteam page/)).toBeTruthy();
   });
 
-  it("runs the completion step before cleaning up a Hub order Bungie reports complete", async () => {
-    let firstOrderComplete = false;
-    vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests")
-      ? ordersEnvelope(firstOrderComplete)
-      : envelope());
-
-    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText("Active in Destiny · 6")).toBeTruthy();
-    expect(screen.getByText("Hub order 1")).toBeTruthy();
-    expect(screen.getByText("Hub order 6")).toBeTruthy();
-
-    firstOrderComplete = true;
-    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
-    await waitFor(() => expect(screen.getByText("Active in Destiny · 5")).toBeTruthy());
-    expect(screen.queryByRole("link", { name: /Hub order 1/ })).toBeNull();
-    expect(screen.getByText("Hub order 6")).toBeTruthy();
-    const completion = await screen.findByRole("status");
-    expect(completion.textContent).toContain("Order complete");
-    expect(completion.textContent).toContain("Hub order 1");
-  });
-
-  it("does not duplicate the Worker cron's persistent share rebuild", async () => {
-    vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests") ? ordersEnvelope() : envelope("persistent"));
-    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText(/Fireteam page refresh in/)).toBeTruthy();
-
-    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
-    await waitFor(() => expect(vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v1/me/quests")).length).toBe(2));
+  it("waits for the backend when no snapshot has committed", async () => {
+    vi.mocked(api).mockResolvedValue(fireteamEnvelope(0));
+    renderFireteam();
+    expect(await screen.findByText("Preparing Fireteam snapshot")).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    await waitFor(() => expect(vi.mocked(api).mock.calls.length).toBeGreaterThanOrEqual(2));
     expect(queuedApi).not.toHaveBeenCalled();
+  });
+
+  it("shows and honors the backend retry deadline after a delayed refresh", async () => {
+    vi.setSystemTime("2026-08-20T12:00:00.000Z");
+    const response = fireteamEnvelope(4, "2026-08-20T11:55:00.000Z");
+    response.data.refreshState = "delayed";
+    response.data.refreshRetryAt = "2026-08-20T12:01:00.000Z";
+    vi.mocked(api).mockResolvedValue(response);
+
+    renderFireteam();
+    expect(await screen.findByText("Fireteam retry in 1:00")).toBeTruthy();
+    expect(vi.mocked(api)).toHaveBeenCalledTimes(1);
+
+    await act(async () => { vi.advanceTimersByTime(59_000); });
+    expect(vi.mocked(api)).toHaveBeenCalledTimes(1);
+    await act(async () => { vi.advanceTimersByTime(1_000); });
+    await waitFor(() => expect(vi.mocked(api)).toHaveBeenCalledTimes(2));
+  });
+
+  it("honors the global auto-refresh setting without hiding committed data", async () => {
+    guardianSettings.autoRefresh = false;
+    vi.mocked(api).mockResolvedValue(fireteamEnvelope(2, "2026-08-20T11:55:00.000Z"));
+    renderFireteam();
+
+    expect(await screen.findByText("Fireteam refresh off")).toBeTruthy();
+    expect(screen.getByText("Fireteam content")).toBeTruthy();
+    expect(vi.mocked(api)).toHaveBeenCalledTimes(1);
   });
 });
 
-function envelope(sharingMode: "temporary" | "persistent" = "persistent", presenceObservedAt = new Date(Date.now()).toISOString()) {
+function renderFireteam() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<MemoryRouter><QueryClientProvider client={client}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
+  return client;
+}
+
+function fireteamEnvelope(snapshotVersion: number, committedAt?: string, quests: QuestProgress[] = []) {
+  const pageRefreshDueAt = committedAt ? new Date(Date.parse(committedAt) + 5 * 60_000).toISOString() : undefined;
   const data: FireteamData = {
     sharingEnabled: true,
-    sharingMode,
-    pageUpdatedAt: presenceObservedAt,
-    pageRefreshDueAt: new Date(Date.parse(presenceObservedAt) + 5 * 60_000).toISOString(),
-    presenceObservedAt,
-    hiddenTrackedItemKeys: [],
-    members: [{
+    sharingMode: "persistent",
+    snapshotVersion,
+    pageUpdatedAt: committedAt,
+    pageRefreshDueAt,
+    refreshState: snapshotVersion ? "current" : "waiting",
+    members: snapshotVersion ? [{
       membershipId: "member-1",
       displayName: "Guardian",
       inGameName: "Guardian#1234",
@@ -179,60 +132,32 @@ function envelope(sharingMode: "temporary" | "persistent" = "persistent", presen
       isLeader: false,
       syncState: "synced",
       sharing: true,
-      sharingMode,
-      trackedItems: [{
-        id: "order-1",
-        definitionHash: "order-hash",
-        kind: "order",
-        name: "Weekly order",
-        description: "Complete activities.",
-        icon: "",
-        context: "Order · Seasonal Hub",
-        trackedInDestiny: true,
-        trackedInGuardianNexus: false,
-        objectives: [{ objectiveHash: "objective-1", name: "Activities", progress: 2, completionValue: 5, percent: 40, complete: false, progressAvailable: true }],
-        percent: 40,
-        updatedAt: "now"
-      }],
-      quests: [],
+      trackedItems: [],
+      quests,
       overlaps: [],
-      freshness: { state: "fresh", observedAt: "now", ageSeconds: 0 }
-    }],
-    social: { state: "available", friendsState: "available", clanState: "available", contacts: [] }
+      freshness: { state: "fresh", observedAt: committedAt!, ageSeconds: 0 }
+    }] : []
   };
-  return { data, freshness: { state: "fresh" as const, observedAt: presenceObservedAt }, warnings: [], requestId: "fireteam" };
+  return { data, freshness: { state: snapshotVersion ? "fresh" as const : "stale" as const, observedAt: committedAt || new Date().toISOString() }, warnings: [], requestId: "fireteam" };
 }
 
-
-function ordersEnvelope(firstOrderComplete = false) {
-  const quests: QuestProgress[] = Array.from({ length: 6 }, (_, index) => {
-    const complete = firstOrderComplete && index === 0;
-    return {
-      instanceId: `order-${index + 1}`,
-      itemHash: `order-hash-${index + 1}`,
-      name: `Hub order ${index + 1}`,
-      description: "Complete Seasonal Hub activities.",
-      itemType: "Order",
-      icon: "",
-      currentStep: `Order objective ${index + 1}`,
-      characterId: "c1",
-      inGameTracked: false,
-      sitePinned: false,
-      isExoticUnlock: false,
-      rewards: [],
-      objectives: [{
-        objectiveHash: `objective-${index + 1}`,
-        name: index === 0 ? "[Trace Rifle] Rapidly defeated" : `Activities ${index + 1}`,
-        progress: complete ? 5 : 2,
-        completionValue: 5,
-        complete,
-        percent: complete ? 100 : 40
-      }],
-      percent: complete ? 100 : 40,
-      updatedAt: "now",
-      category: "order"
-    };
-  });
-  const data: QuestData = { quests, recommendations: [] };
-  return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [], requestId: "orders" };
+function order(): QuestProgress {
+  return {
+    instanceId: "order-1",
+    itemHash: "hash-1",
+    name: "Atomic order",
+    description: "One snapshot.",
+    itemType: "Order",
+    icon: "",
+    currentStep: "Defeat targets",
+    characterId: "c1",
+    inGameTracked: true,
+    sitePinned: false,
+    isExoticUnlock: false,
+    rewards: [],
+    objectives: [{ objectiveHash: "objective-1", name: "Defeat targets", progress: 2, completionValue: 5, complete: false, percent: 40 }],
+    percent: 40,
+    updatedAt: "2026-08-20T11:55:00.000Z",
+    category: "order"
+  };
 }

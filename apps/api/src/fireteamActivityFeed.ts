@@ -13,6 +13,14 @@ export function sharedActivityFeedEnabled(payload: any): boolean {
   return payload?.activityFeedEnabled !== false;
 }
 
+export function configuredFireteamActivityFeedEnabled(settingsJson: string | undefined, payload: any): boolean {
+  try {
+    const settings = JSON.parse(settingsJson || "{}");
+    if (typeof settings?.activityFeedEnabled === "boolean") return settings.activityFeedEnabled;
+  } catch { /* Fall back to the committed snapshot's compatibility marker. */ }
+  return sharedActivityFeedEnabled(payload);
+}
+
 export function normalizeFireteamMessage(value: unknown): string {
   const printable = [...String(value ?? "")].map((character) => {
     const code = character.charCodeAt(0);

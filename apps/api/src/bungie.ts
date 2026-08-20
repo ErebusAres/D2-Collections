@@ -1,4 +1,4 @@
-import type { ActivityNameManifest, CompactManifest, CompanionManifest, FireteamContact, FireteamSocialData, GearManifest, GuardianRankManifest, JourneyProgressManifest, ManifestItem, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
+import type { ActivityNameManifest, CompactManifest, CompanionManifest, GearManifest, GuardianRankManifest, JourneyProgressManifest, ManifestItem, RewardsManifest, RewardsPassProgress, XurOffer } from "@guardian-nexus/contracts";
 import type { Env, SessionRow } from "./types";
 import { decrypt, encrypt, httpError } from "./security";
 import { imageUrl } from "@guardian-nexus/domain";
@@ -12,7 +12,6 @@ let companionManifestIndexCache: { url: string; value: CompanionManifest; expire
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicMembershipTypeCache = new Map<string, number>();
 const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; offers?: any[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
-const socialRosterCache = new Map<string, { value: FireteamSocialData; expiresAt: number }>();
 const inFlightProfileRequests = new Map<string, Promise<{ profile: any; accessToken: string }>>();
 const XUR_VENDOR_HASH = "2190858386";
 const XUR_GEAR_VENDOR_HASH = "3751514131";
@@ -444,7 +443,7 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export type ProfileMode = "full" | "session" | "collection" | "quests" | "journey" | "fireteam" | "fireteam-share" | "fireteam-v2" | "gear" | "gear-action" | "recent-items" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
+export type ProfileMode = "full" | "session" | "collection" | "quests" | "journey" | "fireteam" | "gear" | "gear-action" | "recent-items" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
 
 export function profileComponentsFor(mode: ProfileMode): string {
   return mode === "session"
@@ -455,12 +454,8 @@ export function profileComponentsFor(mode: ProfileMode): string {
         ? "100,102,200,201,204,301,310"
       : mode === "journey"
         ? "100,200,202,204,900"
-        : mode === "fireteam-share"
-          ? "100,102,200,201,202,204,301,310,800,900,1000"
-        : mode === "fireteam-v2"
-          ? "100,102,200,201,202,204,301,310,900,1000"
         : mode === "fireteam"
-          ? "100,200,204,1000"
+          ? "100,102,200,201,202,204,205,300,301,304,305,307,310,800,900,1000"
         : mode === "recent-items"
           ? "100,102,200,201,205,300,301,304,305,307,310,800,900"
         : mode === "gear-action"
@@ -875,136 +870,4 @@ export async function seasonPassProgress(profile: any, accessToken: string, env:
   } catch (error: any) {
     return unavailable(`The current DestinySeasonPassDefinition could not be loaded: ${String(error?.message || "Bungie request failed.")}`);
   }
-}
-
-export async function socialRosterFor(row: SessionRow, accessToken: string, env: Env): Promise<FireteamSocialData> {
-  pruneExpiringCache(socialRosterCache, 32);
-  const cached = socialRosterCache.get(row.membership_id);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
-  const contacts = new Map<string, FireteamContact>();
-  let friendsAvailable = false;
-  let clanAvailable = false;
-  let reauthorizationRequired = false;
-
-  try {
-    const response = await bungieGet("/Social/Friends/", env, accessToken);
-    friendsAvailable = true;
-    for (const friend of response?.friends || []) {
-      const membershipId = String(friend?.lastSeenAsMembershipId || "");
-      const name = destinyDisplayName(friend) || destinyDisplayName(friend?.bungieNetUser) || "Bungie friend";
-      if (!membershipId && !name) continue;
-      const key = membershipId || name.toLocaleLowerCase();
-      contacts.set(key, {
-        membershipId,
-        membershipType: Number(friend?.lastSeenAsBungieMembershipType || 0) || undefined,
-        displayName: name,
-        source: "friend",
-        onlineState: Number(friend?.onlineStatus || 0) === 1 ? "online" : "unknown",
-        inDestiny2: (Number(friend?.onlineTitle || 0) & 2) !== 0
-      });
-    }
-  } catch (error: any) {
-    reauthorizationRequired = Number(error?.status || 0) === 401 || Number(error?.status || 0) === 403 || /scope|permission|authorization/i.test(String(error?.message || ""));
-  }
-
-  try {
-    const groups = await bungieGet(`/GroupV2/User/${row.membership_type}/${row.membership_id}/0/1/`, env, accessToken);
-    for (const membership of groups?.results || []) {
-      const groupId = String(membership?.group?.groupId || "");
-      const clanName = String(membership?.group?.name || membership?.group?.about || "Clan").trim();
-      if (!groupId) continue;
-      for (let page = 1; page <= 20; page += 1) {
-        const response = await bungieGet(`/GroupV2/${groupId}/Members/?currentpage=${page}`, env, accessToken);
-        clanAvailable = true;
-        for (const member of response?.results || []) {
-          const user = member?.destinyUserInfo || member?.bungieNetUserInfo || {};
-          const membershipId = String(user?.membershipId || "");
-          const name = destinyDisplayName(user) || "Clan member";
-          if (!membershipId || membershipId === row.membership_id) continue;
-          const existing = contacts.get(membershipId);
-          const clanOnlineState = typeof member?.isOnline === "boolean" ? member.isOnline ? "online" : "offline" : "unknown";
-          contacts.set(membershipId, {
-            membershipId,
-            membershipType: Number(user?.membershipType || 0) || existing?.membershipType,
-            displayName: existing?.displayName || name,
-            source: existing?.source === "friend" || existing?.source === "friend-and-clan" ? "friend-and-clan" : "clan",
-            clanName: mergeClanNames(existing?.clanName, clanName),
-            onlineState: existing?.onlineState === "online" || clanOnlineState === "online"
-              ? "online"
-              : existing?.onlineState === "offline" || clanOnlineState === "offline"
-                ? "offline"
-                : "unknown",
-            inDestiny2: existing?.inDestiny2 || false
-          });
-        }
-        if (!response?.hasMore) break;
-      }
-    }
-  } catch {
-    clanAvailable = false;
-  }
-
-  const available = friendsAvailable || clanAvailable;
-  const uniqueContacts = dedupeSocialContacts([...contacts.values()]);
-  const value: FireteamSocialData = {
-    state: available ? "available" : reauthorizationRequired ? "reauthorization-required" : "unavailable",
-    friendsState: friendsAvailable ? "available" : reauthorizationRequired ? "reauthorization-required" : "unavailable",
-    clanState: clanAvailable ? "available" : "unavailable",
-    contacts: uniqueContacts.sort((a, b) => socialOrder(a) - socialOrder(b) || a.displayName.localeCompare(b.displayName)),
-    ...(!friendsAvailable && reauthorizationRequired
-      ? { warning: "Bungie friends require the ReadUserData app permission and a fresh authorization." }
-      : !available ? { warning: "Bungie friends and clan presence are temporarily unavailable." } : {})
-  };
-  socialRosterCache.set(row.membership_id, { value, expiresAt: Date.now() + 2 * 60_000 });
-  return value;
-}
-
-export function dedupeSocialContacts(contacts: FireteamContact[]): FireteamContact[] {
-  const unique = new Map<string, FireteamContact>();
-  for (const contact of contacts) {
-    // A complete Bungie Name (including its discriminator) is globally unique.
-    // Cross-save clan rosters may still return one row per platform membership.
-    const normalizedName = contact.displayName.trim().toLocaleLowerCase();
-    const key = /#\d{4}$/.test(normalizedName) ? `name:${normalizedName}` : `membership:${contact.membershipId || normalizedName}`;
-    const existing = unique.get(key);
-    if (!existing) {
-      unique.set(key, contact);
-      continue;
-    }
-
-    const preferIncomingIdentity = existing.onlineState !== "online" && contact.onlineState === "online";
-    unique.set(key, {
-      ...existing,
-      ...(preferIncomingIdentity ? {
-        membershipId: contact.membershipId,
-        membershipType: contact.membershipType || existing.membershipType
-      } : {}),
-      source: mergeSocialSources(existing.source, contact.source),
-      clanName: mergeClanNames(existing.clanName, contact.clanName || "") || undefined,
-      onlineState: existing.onlineState === "online" || contact.onlineState === "online"
-        ? "online"
-        : existing.onlineState === "unknown" || contact.onlineState === "unknown"
-          ? "unknown"
-          : "offline",
-      inDestiny2: existing.inDestiny2 || contact.inDestiny2
-    });
-  }
-  return [...unique.values()];
-}
-
-function mergeSocialSources(left: FireteamContact["source"], right: FireteamContact["source"]): FireteamContact["source"] {
-  if (left === right) return left;
-  if (left === "friend-and-clan" || right === "friend-and-clan") return "friend-and-clan";
-  return "friend-and-clan";
-}
-
-function mergeClanNames(existing: string | undefined, next: string): string {
-  return [...new Set([...(existing || "").split(" · "), next].filter(Boolean))].join(" · ");
-}
-
-function socialOrder(contact: FireteamContact): number {
-  if (contact.onlineState === "online" && contact.inDestiny2) return 0;
-  if (contact.onlineState === "online") return 1;
-  if (contact.onlineState === "unknown") return 2;
-  return 3;
 }

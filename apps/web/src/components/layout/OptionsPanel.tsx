@@ -22,25 +22,34 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
   const fireteam = useFireteamQuery(session?.guardian?.membershipId || "", guardianState.selectedCharacterId, Boolean(open && session?.authenticated));
   const setPersistentSharing = useMutation({
     mutationFn: (enabled: boolean) => {
-      if (!enabled) return queuedApi("/api/v1/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) });
-      let sitePinnedQuestIds: string[] = [];
-      try { sitePinnedQuestIds = JSON.parse(localStorage.getItem(pinsKey(session?.guardian?.membershipId || "", guardianState.selectedCharacterId)) || "[]") as string[]; } catch { sitePinnedQuestIds = []; }
-      let siteTrackedGuardianRankIds: string[] = [];
-      try {
-        const parsed = JSON.parse(guardianState.preferences["guardianRank.tracked"] || "[]");
-        siteTrackedGuardianRankIds = Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 200) : [];
-      } catch { siteTrackedGuardianRankIds = []; }
-      return queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedBuilds: parseTrackedBuilds(guardianState.preferences["buildAdvisor.trackedBuilds.v1"]), mode: "persistent" }) });
+      if (!enabled) return queuedApi("/api/v2/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) });
+      const sitePinnedQuestIds = readLocalTrackedPreference(pinsKey(session?.guardian?.membershipId || "", guardianState.selectedCharacterId), 40);
+      const siteTrackedGuardianRankIds = trackedPreference(guardianState.preferences["guardianRank.tracked"], 200);
+      return queuedApi("/api/v2/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({
+        characterId: guardianState.selectedCharacterId,
+        sitePinnedQuestIds,
+        siteTrackedGuardianRankIds,
+        siteTrackedJourneyIds: trackedPreference(guardianState.preferences["journey.tracked"], 500),
+        siteTrackedCollectionIds: trackedPreference(guardianState.preferences["collection.tracked"], 200),
+        siteTrackedBuilds: parseTrackedBuilds(guardianState.preferences["buildAdvisor.trackedBuilds.v1"]),
+        hiddenTrackedItemKeys: fireteam.data?.data.hiddenTrackedItemKeys || [],
+        mode: "persistent"
+      }) });
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["fireteam"] }),
+      queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
+    ])
   });
   const setActivityFeed = useMutation({
     mutationFn: (enabled: boolean) => {
-      let sitePinnedQuestIds: string[] = [];
-      try { sitePinnedQuestIds = JSON.parse(localStorage.getItem(pinsKey(session?.guardian?.membershipId || "", guardianState.selectedCharacterId)) || "[]") as string[]; } catch { sitePinnedQuestIds = []; }
-      return queuedApi("/api/v1/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, mode: fireteam.data?.data.sharingMode === "temporary" ? "temporary" : "persistent", activityFeedEnabled: enabled }) });
+      const sitePinnedQuestIds = readLocalTrackedPreference(pinsKey(session?.guardian?.membershipId || "", guardianState.selectedCharacterId), 40);
+      return queuedApi("/api/v2/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, mode: fireteam.data?.data.sharingMode === "temporary" ? "temporary" : "persistent", activityFeedEnabled: enabled }) });
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam"] })
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["fireteam"] }),
+      queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
+    ])
   });
   const signOut = useMutation({
     mutationFn: () => api("/api/v1/session", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
@@ -93,7 +102,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
         {session?.authenticated && <section>
           <h3>Fireteam privacy</h3>
           <Toggle label="Always share with friends" description={fireteam.data?.data.sharingMode === "persistent" ? "Background updates are active until you disable sharing or sign out." : "Keep a timestamped last-known snapshot visible to your current fireteam."} checked={fireteam.data?.data.sharingMode === "persistent"} onChange={(value) => setPersistentSharing.mutate(value)} />
-          <Toggle label="Fireteam activity feed" description="Share recent gear finds and exchange short messages only with synced members of your current Fireteam." checked={Boolean(fireteam.data?.data.activityFeed?.enabled)} disabled={!fireteam.data?.data.sharingEnabled || setActivityFeed.isPending} onChange={(value) => setActivityFeed.mutate(value)} />
+          <Toggle label="Fireteam activity feed" description="Share recent gear finds and exchange short messages only with synced members of your current Fireteam." checked={Boolean(fireteam.data?.data.activityFeedEnabled)} disabled={!fireteam.data?.data.sharingEnabled || setActivityFeed.isPending} onChange={(value) => setActivityFeed.mutate(value)} />
         </section>}
         {hasAdminTools && <section className={styles.adminTools}>
           <h3>Admin tools{session?.rolesState === "stale" ? " · Last verified" : ""}</h3>
@@ -129,4 +138,23 @@ function AdminLink({ to, label, icon, onClick }: { to: string; label: string; ic
 
 function Toggle({ label, description, checked, onChange, disabled = false }: { label: string; description: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
   return <label className={styles.toggle}><span><b>{label}</b><small>{description}</small></span><input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} /><i /></label>;
+}
+
+function trackedPreference(value: string | undefined, limit: number): string[] {
+  try {
+    const parsed = JSON.parse(value || "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, limit)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function readLocalTrackedPreference(key: string, limit: number): string[] {
+  try {
+    return trackedPreference(localStorage.getItem(key) || undefined, limit);
+  } catch {
+    return [];
+  }
 }

@@ -53,7 +53,7 @@ describe("API client", () => {
   });
 
   it("builds a copyable incident report with the narrowing details", () => {
-    const report = connectionFailureReport({ code: "worker_resource_limit", message: "Over capacity", route: "/api/v1/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", status: 500, requestId: "ray-123", retryAfterSeconds: 60, diagnostics: { failureSource: "cloudflare-runtime", method: "GET", durationMs: 123, cfRay: "ray-123-ORD" }, recentRequests: [{ route: "/api/v1/me/gear", method: "GET", status: 200, durationMs: 80, occurredAt: "2026-08-18T13:59:59.000Z" }] });
+    const report = connectionFailureReport({ code: "worker_resource_limit", message: "Over capacity", route: "/api/v2/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", status: 500, requestId: "ray-123", retryAfterSeconds: 60, diagnostics: { failureSource: "cloudflare-runtime", method: "GET", durationMs: 123, cfRay: "ray-123-ORD" }, recentRequests: [{ route: "/api/v1/me/gear", method: "GET", status: 200, durationMs: 80, occurredAt: "2026-08-18T13:59:59.000Z" }] });
     expect(report).toContain("Error code: worker_resource_limit\nHTTP status: 500\nReference: ray-123\nRetry after: 60s");
     expect(report).toContain("Failure source: cloudflare-runtime\nMethod: GET\nDuration: 123ms\nCloudflare Ray: ray-123-ORD");
     expect(report).toContain("Recent API requests:\n- 2026-08-18T13:59:59.000Z GET /api/v1/me/gear -> 200 (80ms)");
@@ -69,41 +69,18 @@ describe("API client", () => {
     await expect(api("/api/v1/session")).rejects.toMatchObject({ status: 500, code: "worker_resource_limit", message: "Guardian services are temporarily over capacity.", diagnostics: { failureSource: "cloudflare-runtime", method: "GET", responseBodyKind: "cloudflare-1102", cfRay: "runtime-ray-ORD" } });
   });
 
-  it("never resurrects an older in-memory Fireteam payload when the live read fails", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        data: {
-          members: [
-            { membershipId: "1", isSelf: true },
-            { membershipId: "2", isSelf: false },
-          ],
-          trackedItems: ["old-shared-item"]
-        },
-        freshness: { state: "fresh", observedAt: "2026-08-10T16:00:00.000Z" },
-        warnings: [],
-        requestId: "live-fireteam"
-      }), { status: 200 }))
-      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
-
-    await api("/api/v1/fireteam?characterId=memory-fallback");
-    await expect(api("/api/v1/fireteam?characterId=memory-fallback")).rejects.toThrow("Failed to fetch");
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
-  });
-
-  it("never resurrects an older Fireteam v2 snapshot when its D1 read fails", async () => {
+  it("never resurrects an older Fireteam snapshot when its D1 read fails", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify({
         data: { snapshotVersion: 7, members: [{ membershipId: "1", isSelf: true }] },
         freshness: { state: "fresh", observedAt: "2026-08-20T16:00:00.000Z" },
         warnings: [],
-        requestId: "live-fireteam-v2"
+        requestId: "live-fireteam"
       }), { status: 200 }))
       .mockRejectedValueOnce(new TypeError("Failed to fetch"));
 
-    await api("/api/v2/fireteam?characterId=v2-no-resurrection");
-    await expect(api("/api/v2/fireteam?characterId=v2-no-resurrection")).rejects.toThrow("Failed to fetch");
+    await api("/api/v2/fireteam?characterId=no-resurrection");
+    await expect(api("/api/v2/fireteam?characterId=no-resurrection")).rejects.toThrow("Failed to fetch");
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
@@ -111,14 +88,14 @@ describe("API client", () => {
 
   it("retains a Fireteam 1102 Ray ID and opens a per-route circuit breaker", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("error code: 1102 Worker exceeded resource limits", { status: 500, headers: { "cf-ray": "abc123-ORD" } }));
-    await expect(api("/api/v1/fireteam?characterId=c1")).rejects.toMatchObject({ code: "worker_resource_limit", message: "Fireteam live presence delayed—showing saved data.", requestId: "abc123" });
-    await expect(api("/api/v1/fireteam?characterId=c2")).rejects.toMatchObject({ code: "worker_resource_limit" });
+    await expect(api("/api/v2/fireteam?characterId=c1")).rejects.toMatchObject({ code: "worker_resource_limit", message: "Fireteam snapshot delayed—showing the last committed version.", requestId: "abc123" });
+    await expect(api("/api/v2/fireteam?characterId=c2")).rejects.toMatchObject({ code: "worker_resource_limit" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     offlineCache.readApiResponse.mockResolvedValue({
       savedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
       envelope: { data: { members: [{ membershipId: "2", isSelf: false }], trackedItems: ["stale"] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved" }
     });
-    await expect(api<any>("/api/v1/fireteam?characterId=c3")).rejects.toMatchObject({ code: "worker_resource_limit" });
+    await expect(api<any>("/api/v2/fireteam?characterId=c3")).rejects.toMatchObject({ code: "worker_resource_limit" });
     expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
   });
 
@@ -199,7 +176,7 @@ describe("API client", () => {
     offlineCache.readApiResponse.mockResolvedValue(saved);
     const fetchMock = vi.spyOn(globalThis, "fetch");
 
-    await expect(api<{ events: string[] }>("/api/v1/fireteam/activity")).resolves.toEqual(saved.envelope);
+    await expect(api<{ events: string[] }>("/api/v2/fireteam/activity")).resolves.toEqual(saved.envelope);
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -211,7 +188,7 @@ describe("API client", () => {
     });
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ data: { events: ["new"] }, freshness: { state: "fresh", observedAt: "new" }, warnings: [], requestId: "new-feed" }), { status: 200 }));
 
-    await expect(api<{ events: string[] }>("/api/v1/fireteam/activity?test=expired")).resolves.toMatchObject({ data: { events: ["new"] } });
+    await expect(api<{ events: string[] }>("/api/v2/fireteam/activity?test=expired")).resolves.toMatchObject({ data: { events: ["new"] } });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

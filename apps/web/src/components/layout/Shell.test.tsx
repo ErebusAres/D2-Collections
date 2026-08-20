@@ -81,7 +81,7 @@ describe("Shell guardian identity", () => {
     expect(screen.getByLabelText("Light Level: 409 · Open").getAttribute("href")).toBe("/power");
     expect(screen.getByLabelText("Guardian Rank: 5 · Open").getAttribute("href")).toBe("/journey/guardian-rank");
     const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
-    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Fireteam", "Fireteam v2"]);
+    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Fireteam"]);
     expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");
     expect(screen.queryByRole("navigation", { name: "Mobile quick actions" })).toBeNull();
     const statLabels = [...screen.getByLabelText("Guardian stats").children].map((entry) => entry.getAttribute("aria-label"));
@@ -151,7 +151,7 @@ describe("Shell guardian identity", () => {
     renderShell(<div>Page</div>);
 
     const primaryTabs = [...screen.getByRole("navigation", { name: "Guardian Nexus sections" }).querySelectorAll("a")].map((entry) => entry.textContent);
-    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Fireteam", "Fireteam v2"]);
+    expect(primaryTabs).toEqual(["Director", "Collection", "Xûr", "Journey", "Gear", "Loadouts", "Builds", "Build Advisor", "Fireteam"]);
     expect(screen.queryByRole("link", { name: "API Lab" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Guardian Matrix" })).toBeNull();
     expect(screen.getByRole("link", { name: "Build Advisor" }).getAttribute("href")).toBe("/build-advisor");
@@ -203,7 +203,7 @@ describe("Shell guardian identity", () => {
   });
 
   it("pins a detailed copyable service incident to the window", async () => {
-    connectionMock.snapshot.activeFailure = { code: "worker_resource_limit", message: "Guardian services are temporarily over capacity.", route: "/api/v1/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", requestId: "ray-123", status: 500 };
+    connectionMock.snapshot.activeFailure = { code: "worker_resource_limit", message: "Guardian services are temporarily over capacity.", route: "/api/v2/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", requestId: "ray-123", status: 500 };
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     renderShell(<div>Page</div>);

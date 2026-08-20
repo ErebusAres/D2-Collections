@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, profileFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, socialRosterFor, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, profileFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -16,7 +16,7 @@ describe("profileComponentsFor", () => {
     expect(profileComponentsFor("collection")).toBe("100,102,200,201,800,900");
     expect(profileComponentsFor("session")).toBe("100,200,201,202,204");
     expect(profileComponentsFor("quests")).toBe("100,102,200,201,204,301,310");
-    expect(profileComponentsFor("fireteam")).toBe("100,200,204,1000");
+    expect(profileComponentsFor("fireteam")).toBe("100,102,200,201,202,204,205,300,301,304,305,307,310,800,900,1000");
     expect(profileComponentsFor("recent-items")).toBe("100,102,200,201,205,300,301,304,305,307,310,800,900");
   });
 
@@ -327,79 +327,6 @@ describe("seasonPassProgress", () => {
         reason: expect.stringContaining("characterProgressions")
       }
     });
-  });
-});
-
-describe("socialRosterFor", () => {
-  it("merges Bungie friends and clan presence without duplicating a Guardian", async () => {
-    const responses = [
-      { friends: [{ lastSeenAsMembershipId: "friend-1", lastSeenAsBungieMembershipType: 3, bungieGlobalDisplayName: "Friend", bungieGlobalDisplayNameCode: 7, onlineStatus: 1, onlineTitle: 2 }] },
-      { results: [{ group: { groupId: "clan-1", name: "Test Clan" } }] },
-      { results: [{ isOnline: true, destinyUserInfo: { membershipId: "friend-1", membershipType: 3, bungieGlobalDisplayName: "Friend", bungieGlobalDisplayNameCode: 7 } }, { isOnline: false, destinyUserInfo: { membershipId: "clan-2", membershipType: 3, bungieGlobalDisplayName: "Clanmate", bungieGlobalDisplayNameCode: 8 } }] }
-    ];
-    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: responses.shift() }), { status: 200, headers: { "Content-Type": "application/json" } }))));
-    const row = { membership_type: 3, membership_id: "social-test-member" } as SessionRow;
-
-    const result = await socialRosterFor(row, "access", { BUNGIE_API_KEY: "test" } as Env);
-
-    expect(result.state).toBe("available");
-    expect(result.friendsState).toBe("available");
-    expect(result.clanState).toBe("available");
-    expect(result.contacts).toMatchObject([
-      { membershipId: "friend-1", displayName: "Friend#0007", source: "friend-and-clan", clanName: "Test Clan", onlineState: "online", inDestiny2: true },
-      { membershipId: "clan-2", displayName: "Clanmate#0008", source: "clan", onlineState: "offline" }
-    ]);
-  });
-
-  it("loads every returned clan member page", async () => {
-    const responses = [
-      { friends: [] },
-      { results: [{ group: { groupId: "clan-pages", name: "Full Clan" } }] },
-      { results: [{ isOnline: false, destinyUserInfo: { membershipId: "page-1", membershipType: 3, bungieGlobalDisplayName: "First" } }], hasMore: true },
-      { results: [{ isOnline: false, destinyUserInfo: { membershipId: "page-2", membershipType: 3, bungieGlobalDisplayName: "Second" } }], hasMore: false }
-    ];
-    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: responses.shift() }), { status: 200, headers: { "Content-Type": "application/json" } })));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const result = await socialRosterFor({ membership_type: 3, membership_id: "paged-social-member" } as SessionRow, "access", { BUNGIE_API_KEY: "test" } as Env);
-
-    expect(result.contacts.map((contact) => contact.membershipId)).toEqual(["page-1", "page-2"]);
-    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(expect.arrayContaining([expect.stringContaining("currentpage=1"), expect.stringContaining("currentpage=2")]));
-  });
-
-  it("collapses cross-save platform memberships that share one complete Bungie Name", async () => {
-    const responses = [
-      { friends: [{ lastSeenAsMembershipId: "friend-platform", lastSeenAsBungieMembershipType: 2, bungieGlobalDisplayName: "CrossSave", bungieGlobalDisplayNameCode: 42, onlineStatus: 0, onlineTitle: 0 }] },
-      { results: [{ group: { groupId: "cross-save-clan", name: "Test Clan" } }] },
-      { results: [
-        { isOnline: false, destinyUserInfo: { membershipId: "inactive-platform", membershipType: 2, bungieGlobalDisplayName: "CrossSave", bungieGlobalDisplayNameCode: 42 } },
-        { isOnline: true, destinyUserInfo: { membershipId: "active-platform", membershipType: 3, bungieGlobalDisplayName: "CrossSave", bungieGlobalDisplayNameCode: 42 } }
-      ] }
-    ];
-    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: responses.shift() }), { status: 200, headers: { "Content-Type": "application/json" } }))));
-
-    const result = await socialRosterFor({ membership_type: 3, membership_id: "cross-save-social-member" } as SessionRow, "access", { BUNGIE_API_KEY: "test" } as Env);
-
-    expect(result.contacts).toEqual([expect.objectContaining({
-      membershipId: "active-platform",
-      membershipType: 3,
-      displayName: "CrossSave#0042",
-      source: "friend-and-clan",
-      clanName: "Test Clan",
-      onlineState: "online"
-    })]);
-  });
-
-  it("does not label Bungie's offline-or-unknown friend presence as confirmed offline", async () => {
-    const responses = [
-      { friends: [{ lastSeenAsMembershipId: "hidden-friend", lastSeenAsBungieMembershipType: 3, bungieGlobalDisplayName: "Hidden", onlineStatus: 0, onlineTitle: 0 }] },
-      { results: [] }
-    ];
-    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: responses.shift() }), { status: 200, headers: { "Content-Type": "application/json" } }))));
-
-    const result = await socialRosterFor({ membership_type: 3, membership_id: "hidden-social-member" } as SessionRow, "access", { BUNGIE_API_KEY: "test" } as Env);
-
-    expect(result.contacts).toMatchObject([{ membershipId: "hidden-friend", onlineState: "unknown", inDestiny2: false }]);
   });
 });
 

@@ -1,10 +1,22 @@
 # Guardian Nexus Codex handoff
 
-Last updated: 2026-08-10
+Last updated: 2026-08-20
 
 This file is the operational handoff for Chris Codex or another maintainer continuing the current Guardian Nexus roadmap implementation. Keep it current when scope, validation, or publish state changes.
 
 ## Current objective
+
+### 2026-08-20 canonical Fireteam snapshot replacement
+
+Fireteam now has one product surface at `/fireteam`. The separate `/fireteam-v2` preview, the legacy `/api/v1/fireteam*` runtime, dual React Query hooks, old Social cache, presence-debounce pipeline, public-member lookup path, and retired readiness payload have been removed. The retained internal API boundary is `/api/v2/fireteam*`, but all player-facing naming is simply **Fireteam**. Migration `0027_promote_fireteam_snapshots.sql` preserves sharing mode, pinned quests, and an explicitly saved Activity preference for legacy-only users, promotes `fireteam_snapshots_v2` to the canonical `fireteam_snapshots` table, and removes the superseded share and Social tables.
+
+The canonical Worker performs no Bungie or manifest work on the Fireteam GET response. A minute cron refreshes bounded due snapshots, keeps persistent shares updating in the background, and refreshes temporary shares only while recently requested. Roster, player state, tracked quests/orders, Guardian Rank, Journey, Collection progress, build tracking, completion transitions, and Recent Loot observation are produced from the same Bungie profile snapshot and committed under one monotonically increasing version and one five-minute deadline. Changing the selected character invalidates the prior committed payload; preference changes schedule a real refresh without pretending the old payload is new. Opening one current Fireteam activates all opted-in party snapshots so members do not each need the page open.
+
+Current-party display fails closed when the viewer snapshot is stale. A teammate with an old snapshot remains identifiable as delayed but contributes no shared progress, activity, completion, overlap, or Activity-feed authorization. Activity enable/disable is read immediately from saved configuration, while membership and feed entries still require fresh committed snapshots from enabled party members. The page timer polls only for a newer committed version, honors backend retry deadlines, and never resets from a reload or repeated read of the same snapshot. The Seasonal Hub rail and Recent Loot rail read the same snapshot system rather than launching separate quest/profile refreshes.
+
+When the core version advances, the route explicitly refetches the active Recent Loot and Activity D1 views before ending the refresh cycle. Sharing-mode and Activity-preference mutations invalidate both the core snapshot and Activity query, and stopping sharing clears both views. This prevents an open Fireteam page from retaining an older secondary section after its member snapshot has advanced. The shell also suppresses its generic Recent Items observer for both `/fireteam` and `/fireteam/`, leaving the canonical snapshot as the only profile observation on that surface.
+
+Local validation applied the complete 28-migration chain to SQLite, including seeded legacy/v2 upgrade cases, and verified that only the canonical Fireteam table/index remain. Archive/source/CSS boundaries, ESLint, every TypeScript target, tooling tests, manifest tests, the Web production build, performance budgets, and focused Fireteam/API regressions all pass. Vitest 3.2.7 reports passing files but does not terminate under this workspace's Node 24.19 runtime, including on an untouched baseline test, so the aggregate audit cannot record a clean process exit here. Wrangler's API dry-run also requires a network call blocked by this sandbox; a direct local API bundle succeeds. Publication and deployment evidence must be taken from the repository's Node 22 GitHub Actions workflow; local validation alone does not imply a successful deployment.
 
 ### 2026-08-10 single Fireteam presence authority
 
@@ -104,9 +116,9 @@ The current objective-icon release replaces Bungie's bracketed objective markers
 
 ## Current repository state
 
-- Checkout: `C:\Users\Erebu\OneDrive\Documents\GitHub\D2-Collections`
-- Current implementation branch: `codex/fireteam-tier-evidence`, based on production merge `d830c15`; the numbered Activity diamond and legacy-event rehydration are live, while only this final evidence handoff is pending release.
-- Base branch: `main`; use `git rev-parse HEAD` for the current tip. The Fireteam activity product merge is `1b996632927c6dcc37be986ce1f3ebe16fcd187e` (PR #86), followed by its delivery-state handoff merge `48bd7ed3441b237708f0545ec527fdf27ae2ad75` (PR #87).
+- Checkout: repository root for `ErebusAres/D2-Collections`.
+- Implementation base: `main` at `7a43365` (`Add isolated Fireteam v2 snapshot page`); this handoff describes the canonical Fireteam replacement release built on that checkpoint.
+- Release target: `main`; use `git rev-parse HEAD` and the matching GitHub Actions run for the final commit and deployment state.
 - Remote: `https://github.com/ErebusAres/D2-Collections.git`
 - Foundation commit: `bd3e875` (`Add Build Advisor planning foundation`)
 - Weapon workspace commit: `c2282b7` (`Add private weapon roll workspace`)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { combineFireteamActivityEntries, fireteamChannelKey, normalizeFireteamMessage, sanitizeSharedRecentEvent, sharedActivityFeedEnabled, sharedRecentEventFromRow } from "./fireteamActivityFeed";
+import { combineFireteamActivityEntries, configuredFireteamActivityFeedEnabled, fireteamChannelKey, normalizeFireteamMessage, sanitizeSharedRecentEvent, sharedActivityFeedEnabled, sharedRecentEventFromRow } from "./fireteamActivityFeed";
 
 describe("Fireteam activity feed", () => {
   it("uses one stable channel key for the same party regardless of order", async () => {
@@ -36,5 +36,11 @@ describe("Fireteam activity feed", () => {
     expect(sharedActivityFeedEnabled({ activityFeedEnabled: false })).toBe(true);
     expect(sharedActivityFeedEnabled({ activityFeedEnabled: false, activityFeedPreferenceSet: true })).toBe(false);
     expect(sharedActivityFeedEnabled({ activityFeedEnabled: true, activityFeedPreferenceSet: true })).toBe(true);
+  });
+
+  it("applies the saved preference immediately without waiting for a new snapshot", () => {
+    expect(configuredFireteamActivityFeedEnabled('{"activityFeedEnabled":false}', { activityFeedEnabled: true, activityFeedPreferenceSet: true })).toBe(false);
+    expect(configuredFireteamActivityFeedEnabled('{"activityFeedEnabled":true}', { activityFeedEnabled: false, activityFeedPreferenceSet: true })).toBe(true);
+    expect(configuredFireteamActivityFeedEnabled("malformed", { activityFeedEnabled: false, activityFeedPreferenceSet: true })).toBe(false);
   });
 });

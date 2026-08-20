@@ -6,7 +6,6 @@ import { Shell } from "./components/layout/Shell";
 const CollectionPage = lazy(() => import("./pages/CollectionPage").then((module) => ({ default: module.CollectionPage })));
 const DevPage = lazy(() => import("./pages/DevPage").then((module) => ({ default: module.DevPage })));
 const FireteamPage = lazy(() => import("./pages/FireteamRoute").then((module) => ({ default: module.FireteamRoute })));
-const FireteamV2Page = lazy(() => import("./pages/FireteamV2Route").then((module) => ({ default: module.FireteamV2Route })));
 const GearPage = lazy(() => import("./pages/GearPage").then((module) => ({ default: module.GearPage })));
 const MatrixPage = lazy(() => import("./pages/MatrixPage").then((module) => ({ default: module.MatrixPage })));
 const MailboxPage = lazy(() => import("./pages/MailboxPage").then((module) => ({ default: module.MailboxPage })));
@@ -84,7 +83,6 @@ export function App() {
         <Route path="reports/admin" element={<PageRoute><ReportAdminPage /></PageRoute>} />
         <Route path="codes" element={<PageRoute><RewardCodesPage /></PageRoute>} />
         <Route path="fireteam" element={<PageRoute><FireteamPage /></PageRoute>} />
-        <Route path="fireteam-v2" element={<PageRoute><FireteamV2Page /></PageRoute>} />
         <Route path="matrix" element={<PageRoute><MatrixPage /></PageRoute>} />
         <Route path="build-advisor" element={<PageRoute><BuildAdvisorPage /></PageRoute>} />
         <Route path="next/*" element={<PageRoute><NextStepsPage /></PageRoute>} />

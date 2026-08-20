@@ -20,7 +20,7 @@ const tabs: Array<{ to: string; label: string; icon: typeof Globe2 }> = [
   { to: "/director", label: "Director", icon: Globe2 }, { to: "/collection", label: "Collection", icon: Boxes },
   { to: "/xur", label: "Xûr", icon: Coins }, { to: "/journey", label: "Journey", icon: ListTodo }, { to: "/gear", label: "Gear", icon: ShieldEllipsis },
   { to: "/loadouts", label: "Loadouts", icon: Layers3 }, { to: "/builds", label: "Builds", icon: Hammer }, { to: "/build-advisor", label: "Build Advisor", icon: ScanSearch },
-  { to: "/fireteam", label: "Fireteam", icon: Users }, { to: "/fireteam-v2", label: "Fireteam v2", icon: Users }
+  { to: "/fireteam", label: "Fireteam", icon: Users }
 ];
 
 export function Shell() {
@@ -42,7 +42,7 @@ export function Shell() {
   useQuery({
     queryKey: ["recent-items", selectedCharacterId],
     queryFn: () => api<RecentItemTimelineData>(`/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled: Boolean(session?.authenticated && selectedCharacterId && location.pathname !== "/fireteam-v2"),
+    enabled: Boolean(session?.authenticated && selectedCharacterId && location.pathname.replace(/\/+$/, "") !== "/fireteam"),
     staleTime: 30_000,
     refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false
   });

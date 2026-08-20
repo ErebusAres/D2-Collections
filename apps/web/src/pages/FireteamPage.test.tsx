@@ -40,7 +40,7 @@ describe("Fireteam tracked items", () => {
     const response = envelope();
     response.freshness.observedAt = "2026-08-08T13:45:00.000Z";
     response.warnings = ["Bungie marks party and current-activity data as non-authoritative and potentially stale."];
-    vi.mocked(api).mockImplementation(async (path) => String(path).startsWith("/api/v1/fireteam?") ? response : envelope());
+    vi.mocked(api).mockImplementation(async (path) => String(path).startsWith("/api/v2/fireteam?") ? response : envelope());
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
     const sourceTime = new Date(response.data.pageUpdatedAt!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -51,9 +51,7 @@ describe("Fireteam tracked items", () => {
     expect(updated.compareDocumentPosition(stopSharing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     screen.getByText("Bungie marks party and current-activity data as non-authoritative and potentially stale.");
-    expect(screen.queryByRole("heading", { name: "Friends & clan" })).toBeNull();
     expect(screen.getAllByText(/Bungie marks party/)).toHaveLength(1);
-    expect(vi.mocked(api).mock.calls.some(([path]) => path === "/api/v1/fireteam/social")).toBe(false);
   });
 
   it("leaves five-minute refresh scheduling to the route coordinator", async () => {
@@ -62,7 +60,7 @@ describe("Fireteam tracked items", () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
     await screen.findByText("Shared tracked items");
-    const primaryCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v1/fireteam?characterId=")).length;
+    const primaryCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam?characterId=")).length;
     expect(primaryCalls()).toBe(1);
     await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
     expect(primaryCalls()).toBe(1);
@@ -73,7 +71,7 @@ describe("Fireteam tracked items", () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
     await screen.findByText("Shared tracked items");
-    const activityCalls = () => vi.mocked(api).mock.calls.filter(([path]) => path === "/api/v1/fireteam/activity").length;
+    const activityCalls = () => vi.mocked(api).mock.calls.filter(([path]) => path === "/api/v2/fireteam/activity").length;
     expect(activityCalls()).toBe(1);
     await act(async () => { vi.advanceTimersByTime(10_000); });
     expect(activityCalls()).toBe(1);
@@ -81,29 +79,32 @@ describe("Fireteam tracked items", () => {
     expect(activityCalls()).toBe(1);
   });
 
-  it("keeps Fireteam v2 on its isolated API and saved Recent Loot paths", async () => {
+  it("uses the canonical snapshot API and saved Recent Loot paths", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
       if (String(path).startsWith("/api/v2/fireteam/recent-items")) return recentItemsEnvelope() as never;
       return envelope() as never;
     });
-    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage version="v2" /></QueryClientProvider>);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateQueries = vi.spyOn(client, "invalidateQueries");
+    render(<QueryClientProvider client={client}><FireteamPage /></QueryClientProvider>);
 
-    expect(await screen.findByRole("heading", { name: "Fireteam v2" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Fireteam" })).toBeTruthy();
     expect(await screen.findByText("Shared tracked items")).toBeTruthy();
     const paths = vi.mocked(api).mock.calls.map(([path]) => String(path));
     expect(paths.some((path) => path.startsWith("/api/v2/fireteam?"))).toBe(true);
     expect(paths).toContain("/api/v2/fireteam/activity");
     expect(paths.some((path) => path.startsWith("/api/v2/fireteam/recent-items?"))).toBe(true);
-    expect(paths.some((path) => path.startsWith("/api/v1/fireteam?"))).toBe(false);
     expect(paths.some((path) => path.startsWith("/api/v1/me/recent-items"))).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "Stop sharing" }));
     await waitFor(() => expect(vi.mocked(queuedApi).mock.calls.some(([path]) => path === "/api/v2/fireteam/share")).toBe(true));
+    await waitFor(() => expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["fireteam-activity"] }));
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["fireteam"] });
   });
 
   it("keeps recent tagged loot interactive before the tracked-item segment", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
-      if (String(path).startsWith("/api/v1/me/recent-items")) return recentItemsEnvelope() as never;
+      if (String(path).startsWith("/api/v2/fireteam/recent-items")) return recentItemsEnvelope() as never;
       return envelope() as never;
     });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
@@ -388,6 +389,29 @@ describe("Fireteam tracked items", () => {
     expect(screen.getAllByRole("button", { name: "Untrack Rank service from Fireteam" })).toHaveLength(1);
   });
 
+  it("labels a stale teammate snapshot as delayed without rendering stale progress", async () => {
+    const mixed = envelope();
+    mixed.data.members.push({
+      ...mixed.data.members[0]!,
+      membershipId: "member-delayed",
+      displayName: "Delayed Guardian",
+      inGameName: "DelayedGuardian#5678",
+      isSelf: false,
+      syncState: "delayed",
+      trackedItems: [],
+      quests: [],
+      freshness: { state: "stale", observedAt: "2026-08-08T12:20:00.000Z", ageSeconds: 840 }
+    });
+    vi.mocked(api).mockResolvedValue(mixed);
+
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    const card = (await screen.findByText("DelayedGuardian#5678")).closest("article")!;
+    expect(card.textContent).toContain("Sync delayed");
+    expect(card.textContent).toContain("Shared progress is refreshing.");
+    expect(card.textContent).not.toContain("Weekly order");
+  });
+
   it("persists a reordered self-card list without changing the Fireteam share payload", async () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
     await screen.findByText("Weekly order");
@@ -468,7 +492,7 @@ function envelope() {
       overlaps: [],
       freshness: { state: "fresh", observedAt: "now", ageSeconds: 0 }
     }],
-    social: { state: "available", friendsState: "available", clanState: "available", contacts: [] }
+    activityFeedEnabled: true
   };
   return { data, freshness: { state: "fresh" as const, observedAt: "now" }, warnings: [] as string[], requestId: "fireteam" };
 }
