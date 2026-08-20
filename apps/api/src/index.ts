@@ -81,7 +81,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems, removeRecentGearItem } from "./recentItems";
 import { FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sharedActivityFeedEnabled } from "./fireteamActivityFeed";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, resolveViewerPartyObservation, sourceObservationTimestamp, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, observeGuardianSession, partyObservationForProgressRefresh, partySnapshotSourceObservedAt, resolveViewerPartyObservation, sourceObservationTimestamp, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 const fireteamReadinessSchema = z.object({
   schemaVersion: z.literal(1),
@@ -2018,10 +2018,8 @@ async function fireteam(row: SessionRow, env: Env, context: RequestContext): Pro
     };
   });
   const presenceRefreshDue = Boolean(ownShare) && fireteamPresenceRefreshDue(viewerPresenceAt);
-  const nextPresenceRefreshAt = viewerPresenceAt && Number.isFinite(Date.parse(viewerPresenceAt))
-    ? new Date(Date.parse(viewerPresenceAt) + 60_000).toISOString()
-    : undefined;
-  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: viewerSessionLive ? ownSharePayload?.activity : undefined, presenceObservedAt: viewerPresenceAt, nextPresenceRefreshAt, members };
+  const presenceObservedAt = partySnapshotSourceObservedAt(ownSharePayload);
+  const data: FireteamData = { sharingEnabled: Boolean(ownShare), sharingMode: ownShare?.sharing_mode || "off", sharingExpiresAt: ownShare?.sharing_mode === "temporary" ? ownShare.expires_at : undefined, hiddenTrackedItemKeys: sharedHiddenTrackedItemKeys(ownSharePayload), activity: viewerSessionLive ? ownSharePayload?.activity : undefined, presenceObservedAt, members };
   console.log(JSON.stringify({ event: "fireteam_core_timing", profileMs: 0, activityLookupMs: 0, d1SharesMs: Math.round(shareMs), publicMembersMs: 0, feedMs: 0, socialMs: 0, totalMs: Math.round(performance.now() - started), partySize: party.length, synchronizedShares: shares.size, cacheState: viewerPresenceFresh ? presenceRefreshDue ? "fresh-refreshing" : "fresh" : ownShare ? "stale-refreshing" : "missing" }));
   return envelope(data, env, context, { observedAt: viewerPresenceAt || now, state: viewerPresenceFresh ? "fresh" : "stale", warnings: ["Bungie marks party and current-activity data as non-authoritative and potentially stale.", ...(!viewerPresenceFresh && ownShare ? ["Live Fireteam presence is refreshing; saved member data remains available."] : []), ...(ownShare?.presence_error ? [String(ownShare.presence_error)] : []), ...(ownShare?.last_error ? [String(ownShare.last_error)] : [])] });
 }

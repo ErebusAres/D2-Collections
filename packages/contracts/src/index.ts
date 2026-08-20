@@ -742,7 +742,6 @@ export interface FireteamData {
   hiddenTrackedItemKeys?: string[];
   activity?: string;
   presenceObservedAt?: string;
-  nextPresenceRefreshAt?: string;
   members: FireteamMember[];
   social?: FireteamSocialData;
   activityFeed?: FireteamActivityFeed;

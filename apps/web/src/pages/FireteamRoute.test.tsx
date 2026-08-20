@@ -34,19 +34,24 @@ afterEach(() => {
 });
 
 describe("Fireteam refresh cycle", () => {
-  it("derives the visible roster deadline from the backend observation across a page reload", async () => {
-    const observedAt = new Date(Date.now()).toISOString();
-    vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests") ? ordersEnvelope() : envelope("persistent", observedAt));
+  it("uses the displayed deadline to run the one Fireteam page refresh scheduler", async () => {
+    let fireteamReads = 0;
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path.startsWith("/api/v1/me/quests")) return ordersEnvelope();
+      fireteamReads += 1;
+      return envelope("persistent");
+    });
     const firstClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const first = render(<MemoryRouter><QueryClientProvider client={firstClient}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText("Live roster refresh in 1:00")).toBeTruthy();
+    render(<MemoryRouter><QueryClientProvider client={firstClient}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
+    expect(await screen.findByText("Fireteam page refresh in 5:00")).toBeTruthy();
+    await waitFor(() => expect(fireteamReads).toBe(1));
 
-    await act(async () => { vi.advanceTimersByTime(30_000); });
-    expect(screen.getByText("Live roster refresh in 0:30")).toBeTruthy();
-    first.unmount();
-
-    render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText("Live roster refresh in 0:30")).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(2 * 60_000); });
+    expect(screen.getByText("Fireteam page refresh in 3:00")).toBeTruthy();
+    await act(async () => { vi.advanceTimersByTime(3 * 60_000); });
+    await waitFor(() => expect(fireteamReads).toBe(2));
+    expect(screen.queryByText(/refresh queued/i)).toBeNull();
+    expect(screen.getByText(/Fireteam page refresh in 5:00|Refreshing Fireteam page/)).toBeTruthy();
   });
 
   it("refreshes presence independently while a tracked-progress write is queued", async () => {
@@ -68,7 +73,7 @@ describe("Fireteam refresh cycle", () => {
     });
 
     render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText(/Live roster refresh in/)).toBeTruthy();
+    expect(await screen.findByText("Fireteam page refresh in 5:00")).toBeTruthy();
     expect(await screen.findByText("Active in Destiny · 6")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Seasonal Hub Orders" }).getAttribute("href")).toBe("/journey/season");
     expect(screen.getByRole("link", { name: /Hub order 1/ }).getAttribute("href")).toBe("/quests/order-1");
@@ -78,14 +83,14 @@ describe("Fireteam refresh cycle", () => {
     expect(orderReads).toBe(1);
 
     await act(async () => { vi.advanceTimersByTime(60_000); });
-    await waitFor(() => expect(fireteamReads).toBe(2));
+    expect(fireteamReads).toBe(1);
     expect(orderReads).toBe(1);
     expect(queuedApi).not.toHaveBeenCalled();
 
     await act(async () => { vi.advanceTimersByTime(4 * 60_000); });
+    await waitFor(() => expect(fireteamReads).toBe(2));
     await waitFor(() => expect(queuedApi).toHaveBeenCalledTimes(1));
     expect(JSON.parse(String(vi.mocked(queuedApi).mock.calls[0]?.[1]?.body))).not.toHaveProperty("activityFeedEnabled");
-    await waitFor(() => expect(fireteamReads).toBeGreaterThanOrEqual(3));
     expect(orderReads).toBe(2);
     finishWrite();
   });
@@ -114,7 +119,7 @@ describe("Fireteam refresh cycle", () => {
   it("does not duplicate the Worker cron's persistent share rebuild", async () => {
     vi.mocked(api).mockImplementation(async (path) => path.startsWith("/api/v1/me/quests") ? ordersEnvelope() : envelope("persistent"));
     render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamRoute /></QueryClientProvider></MemoryRouter>);
-    expect(await screen.findByText(/Live roster refresh in/)).toBeTruthy();
+    expect(await screen.findByText(/Fireteam page refresh in/)).toBeTruthy();
 
     await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
     await waitFor(() => expect(vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v1/me/quests")).length).toBe(2));
@@ -127,7 +132,6 @@ function envelope(sharingMode: "temporary" | "persistent" = "persistent", presen
     sharingEnabled: true,
     sharingMode,
     presenceObservedAt,
-    nextPresenceRefreshAt: new Date(Date.parse(presenceObservedAt) + 60_000).toISOString(),
     hiddenTrackedItemKeys: [],
     members: [{
       membershipId: "member-1",

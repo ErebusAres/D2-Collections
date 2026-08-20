@@ -36,13 +36,17 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); sessionStorage.clear(); vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe("Fireteam tracked items", () => {
-  it("keeps the update time beside sharing controls and moves the Bungie disclaimer to the page footer", async () => {
+  it("shows the Bungie source snapshot time instead of the later page-request time", async () => {
     const response = envelope();
+    response.freshness.observedAt = "2026-08-08T13:45:00.000Z";
     response.warnings = ["Bungie marks party and current-activity data as non-authoritative and potentially stale."];
     vi.mocked(api).mockImplementation(async (path) => String(path).startsWith("/api/v1/fireteam?") ? response : envelope());
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
-    const updated = await screen.findByText(/Updated/i);
+    const sourceTime = new Date(response.data.presenceObservedAt!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const requestTime = new Date(response.freshness.observedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const updated = await screen.findByText(`Last updated ${sourceTime}`);
+    expect(screen.queryByText(`Last updated ${requestTime}`)).toBeNull();
     const stopSharing = screen.getByRole("button", { name: "Stop sharing" });
     expect(updated.compareDocumentPosition(stopSharing) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
@@ -64,7 +68,7 @@ describe("Fireteam tracked items", () => {
     expect(primaryCalls()).toBe(1);
   });
 
-  it("does not hammer the activity feed every ten seconds", async () => {
+  it("leaves activity-feed scheduling to the route's single five-minute coordinator", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
@@ -73,8 +77,8 @@ describe("Fireteam tracked items", () => {
     expect(activityCalls()).toBe(1);
     await act(async () => { vi.advanceTimersByTime(10_000); });
     expect(activityCalls()).toBe(1);
-    await act(async () => { vi.advanceTimersByTime(50_000); });
-    await waitFor(() => expect(activityCalls()).toBe(2));
+    await act(async () => { vi.advanceTimersByTime(4 * 60_000 + 50_000); });
+    expect(activityCalls()).toBe(1);
   });
 
   it("keeps recent tagged loot interactive before the tracked-item segment", async () => {
@@ -411,6 +415,7 @@ function envelope() {
   const data: FireteamData = {
     sharingEnabled: true,
     sharingMode: "temporary",
+    presenceObservedAt: "2026-08-08T12:34:00.000Z",
     hiddenTrackedItemKeys: [],
     activity: "The Tower",
     members: [{

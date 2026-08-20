@@ -34,6 +34,6 @@ function StatePanel({ icon, title, text, action }: { icon: ReactNode; title: str
   return <section className={styles.state}><div>{icon}</div><span>Guardian Nexus</span><h2>{title}</h2><p>{text}</p>{action}</section>;
 }
 
-export function Freshness({ observedAt, warning }: { observedAt?: string; warning?: string }) {
-  return <div className={styles.freshness}><i /><span>{observedAt ? `Updated ${new Date(observedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Awaiting sync"}</span>{warning && <em>{warning}</em>}</div>;
+export function Freshness({ observedAt, warning, label = "Updated" }: { observedAt?: string; warning?: string; label?: string }) {
+  return <div className={styles.freshness}><i /><span>{observedAt ? `${label} ${new Date(observedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Awaiting sync"}</span>{warning && <em>{warning}</em>}</div>;
 }

@@ -154,6 +154,12 @@ export function partySnapshotMatchesSession(payload: any): boolean {
   return Number.isFinite(partySourceMs) && Number.isFinite(sessionSourceMs) && partySourceMs === sessionSourceMs;
 }
 
+export function partySnapshotSourceObservedAt(payload: any): string | undefined {
+  if (!partySnapshotMatchesSession(payload)) return undefined;
+  const sourceMs = Date.parse(String(payload?.activityPartySourceObservedAt || ""));
+  return Number.isFinite(sourceMs) ? new Date(sourceMs).toISOString() : undefined;
+}
+
 export function viewerPartyPresenceConfirmed(payload: any, presenceRefreshedAt: string | undefined, now = Date.now()): boolean {
   return payload?.onlineState === "online"
     && partySnapshotMatchesSession(payload)

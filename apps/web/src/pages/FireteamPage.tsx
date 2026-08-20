@@ -72,7 +72,7 @@ export function FireteamPage() {
     queryFn: () => api<NonNullable<FireteamData["activityFeed"]>>("/api/v1/fireteam/activity"),
     enabled: Boolean(session?.authenticated && activityFeedView !== "hidden"),
     staleTime: FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS,
-    refetchInterval: FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS,
+    refetchInterval: false,
     refetchIntervalInBackground: false
   });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["recent-items", selectedCharacterId] }) });
@@ -198,7 +198,7 @@ export function FireteamPage() {
 
   return <AuthGate>
     <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="The backend checks the live roster about every minute; shared quest and gear progress refreshes every 5 minutes." actions={<>
-      <Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
+      <Freshness observedAt={data?.presenceObservedAt} label="Last updated" warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
       {data && !data.sharingEnabled && <>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "temporary" })} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "persistent" })} disabled={share.isPending}><Repeat2 size={15} />Always share</button>

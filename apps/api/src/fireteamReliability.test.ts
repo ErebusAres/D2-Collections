@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, partySnapshotMatchesSession, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
+import { fireteamPresenceRefreshDue, fireteamPresenceUsable, fireteamSocialCacheState, guardianSessionCacheState, mapWithConcurrency, observeGuardianSession, offlineViewerParty, partyObservationForProgressRefresh, partySnapshotMatchesSession, partySnapshotSourceObservedAt, resolvePartyObservation, resolveViewerPartyObservation, sessionPresenceConfirmed, sourceObservationTimestamp, syncedTeammatePresenceConfirmed, viewerPartyPresenceConfirmed, visiblePartyMembers } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
   it("classifies fresh, stale-usable, expired, and missing social data", () => {
@@ -239,8 +239,11 @@ describe("Fireteam reliability helpers", () => {
     };
     const now = Date.parse("2026-08-10T12:02:00.000Z");
     expect(partySnapshotMatchesSession(payload)).toBe(true);
+    expect(partySnapshotSourceObservedAt(payload)).toBe("2026-08-10T12:01:00.000Z");
     expect(viewerPartyPresenceConfirmed(payload, "2026-08-10T12:01:00.000Z", now)).toBe(true);
-    expect(viewerPartyPresenceConfirmed({ ...payload, activityPartySourceObservedAt: "2026-08-10T12:00:00.000Z" }, "2026-08-10T12:01:00.000Z", now)).toBe(false);
+    const mismatched = { ...payload, activityPartySourceObservedAt: "2026-08-10T12:00:00.000Z" };
+    expect(partySnapshotSourceObservedAt(mismatched)).toBeUndefined();
+    expect(viewerPartyPresenceConfirmed(mismatched, "2026-08-10T12:01:00.000Z", now)).toBe(false);
   });
 
   it("preserves member results while bounding public lookup concurrency", async () => {
