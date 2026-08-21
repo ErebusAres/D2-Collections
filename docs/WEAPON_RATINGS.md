@@ -27,6 +27,8 @@ Quality tiers are stable and intentionally broad:
 
 Overall is the mean of whichever PvE/PvP scores have applicable evidence. Cards call the result a **roll match**, and the tooltip keeps mode scores separate because a roll can be excellent in one mode and poor in the other.
 
+The shared weapon panel renders this evidence consistently anywhere Guardian Nexus has a complete physical weapon roll: Fireteam and Gear Recent Loot, Vault item details, weapon cards, and duplicate comparison. It shows every selectable barrel, magazine, and trait, marks the currently selected option, and gives each option a separate PvE/PvP judgment. Exact DIM evidence stays binary (curator recommended or not listed); percentages are used only for explicitly labeled same-weapon or weapon-type fallback evidence. Gear tags remain user decisions and are not represented as rating votes.
+
 ## Honest unknown states
 
 - Incomplete Bungie socket data remains `incomplete`.

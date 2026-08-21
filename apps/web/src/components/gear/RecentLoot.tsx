@@ -1,10 +1,11 @@
 import type { ArmorItem, GearTag, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
-import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, Columns3, ExternalLink, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
+import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, Sparkles } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
 import { GearTagBadge, GearTagPicker } from "./GearTagPicker";
 import { GearTierRail } from "./GearTierRail";
+import { WeaponRatingPanel } from "./WeaponRatingPanel";
 import styles from "./RecentLoot.module.css";
 
 export type LootItem = ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & WeaponItem);
@@ -224,24 +225,12 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
       <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>
-    <div className={styles.cardActions}>{compact && <QuickLootReview item={item} onTag={onTag} busy={busy} />}<GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />{actions}</div>
+    <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />{actions}</div>
     {open && <ItemTooltip id={tooltipId} item={item} />}
   </article>;
 }
 
-function QuickLootReview({ item, onTag, busy }: { item: LootItem; onTag: (tag?: GearTag) => void; busy: boolean }) {
-  const keep = item.tag === "keep";
-  const junk = item.tag === "junk";
-  return <div className={styles.quickReview} aria-label={`Review ${item.name}`}>
-    <button type="button" className={styles.quickKeep} aria-label={`Keep ${item.name}`} aria-pressed={keep} title={keep ? "Clear Keep" : "Keep"} disabled={busy} onClick={() => onTag(keep ? undefined : "keep")}><ThumbsUp /></button>
-    <button type="button" className={styles.quickJunk} aria-label={`Mark ${item.name} as junk`} aria-pressed={junk} title={junk ? "Clear Junk" : "Junk"} disabled={busy} onClick={() => onTag(junk ? undefined : "junk")}><ThumbsDown /></button>
-  </div>;
-}
-
 export function ItemTooltip({ item, id }: { item: LootItem; id?: string }) {
-  const [, setRatingsLoaded] = useState(false);
-  useEffect(() => { if (item.kind !== "weapon") return; let cancelled = false; void loadWeaponRatings().then((database) => { if (!cancelled) setRatingsLoaded(Boolean(database)); }); return () => { cancelled = true; }; }, [item.kind]);
-  const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
   return <aside id={id} className={styles.tooltip} role="tooltip"><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span></header>
     <div className={styles.identity}><b>{item.power || "—"} Power</b><span>{item.kind === "weapon" ? item.slot : item.className}</span><span>{item.inPostmaster ? "Postmaster" : item.location}{item.equipped ? " · Equipped" : ""}</span></div>
     <nav className={styles.sourceLinks}><a href={`https://www.light.gg/db/items/${item.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a><span><Clock3 /> First observed {new Date(item.firstSeenAt).toLocaleString()}</span></nav>
@@ -249,13 +238,7 @@ export function ItemTooltip({ item, id }: { item: LootItem; id?: string }) {
       {item.trackerValue !== undefined && <p className={styles.tracker}><BarChart3 /> Enemies defeated <b>{item.trackerValue.toLocaleString()}</b></p>}
       <div className={styles.weaponStats}>{(item.stats || []).map((stat) => <span key={stat.hash}><small>{stat.name}</small>{stat.displayAsNumeric ? <i /> : <i><em style={{ width: `${Math.min(100, Math.max(0, stat.value / Math.max(1, stat.maximumValue) * 100))}%` }} /></i>}<b>{stat.value}</b></span>)}</div>
       {item.masterwork && <div className={styles.intrinsic}>{item.masterwork.icon && <img src={item.masterwork.icon} alt="" />}<span><b>{item.masterwork.name}</b><small>{item.masterwork.description || "Weapon masterwork"}</small></span></div>}
-      <div className={styles.perks}>{item.perkColumns.map((column) => <span key={column.socketIndex}>{column.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<b>{column.active?.name || "Unknown socket"}</b><small>{column.active?.description || `${column.options.length} selectable options`}</small></span>)}</div>
-      <div className={styles.value} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <>
-        <header><span><b>{item.rollDataState === "complete" ? qualityLabel(value.quality) : `Provisional ${qualityLabel(value.quality)}`} roll match</b><small>{value.basis === "weapon" ? "Exact weapon evidence" : value.basis === "weapon-family" ? "Same-weapon reissue evidence" : `${item.itemType} fallback`}</small></span><strong>{value.overall}%</strong></header>
-        <div className={styles.modeScores}><span><small>PvE</small><b>{value.pve === undefined ? "—" : `${value.pve}%`}</b></span><span><small>PvP</small><b>{value.pvp === undefined ? "—" : `${value.pvp}%`}</b></span><span><small>Confidence</small><b>{value.confidence}</b></span></div>
-        {value.reasons.map((reason) => <p key={reason}>{reason}</p>)}
-        <small>Source: {value.source}. Reviewed {value.reviewedAt}.</small>
-      </> : <><b>{value?.state === "incomplete" ? "Roll rating pending" : "Community roll rating unavailable"}</b><small>{value?.reasons[0]}</small></>}</div>
+      <WeaponRatingPanel weapon={item} compact />
     </> : <div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal}</strong></div>}
     <footer>First observed time is Guardian Nexus history, not an exact Bungie drop timestamp. Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse</footer>
   </aside>;

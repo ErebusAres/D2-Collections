@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
 import { playCompletionChime } from "../services/completionAudio";
 import { FireteamPage } from "./FireteamPage";
-import styles from "./Pages.module.css";
+import styles from "./FireteamPage.module.css";
 
 const setPreference = vi.fn();
 const guardianSettings = vi.hoisted(() => ({ autoRefresh: false }));
@@ -120,7 +120,8 @@ describe("Fireteam tracked items", () => {
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
     expect((await screen.findByRole("tooltip")).textContent).toContain("Recent Rifle");
     expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Keep Recent Rifle" }));
+    fireEvent.click(screen.getByRole("button", { name: "Favorite" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Keep" }));
     await waitFor(() => expect(vi.mocked(queuedApi).mock.calls.some(([path]) => path === "/api/v1/me/gear/item-state")).toBe(true));
     const [, init] = vi.mocked(queuedApi).mock.calls.find(([path]) => path === "/api/v1/me/gear/item-state")!;
     expect(JSON.parse(String(init?.body))).toEqual({ itemInstanceId: "loot-1", tag: "keep" });

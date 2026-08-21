@@ -1,12 +1,13 @@
-import type { ArmorPerk, GearActionRequest, GearData, GearTag, UserPreferenceKey, WeaponItem, WeaponPerkColumn } from "@guardian-nexus/contracts";
+import type { GearActionRequest, GearData, GearTag, UserPreferenceKey, WeaponItem } from "@guardian-nexus/contracts";
 import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, Columns3, Hammer, Lock, LockOpen, Search, Shield, Sparkles, Star, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { GearTagBadge, GearTagFilter, GearTagPicker } from "./GearTagPicker";
 import { GearTierRail } from "./GearTierRail";
 import { parseWatchlist } from "../../modules/watchlists/watchlists";
-import { evaluateWeapon, evaluateWeaponPerk, loadWeaponRatings, qualityLabel, type WeaponRatingDatabase, type WeaponTraitValue } from "../../modules/loot/weaponEvaluator";
+import { loadWeaponRatings, type WeaponRatingDatabase } from "../../modules/loot/weaponEvaluator";
 import styles from "../../pages/Pages.module.css";
 import { RecentItemRow, recentLoot } from "./RecentLoot";
+import { WeaponRatingPanel } from "./WeaponRatingPanel";
 
 interface Props {
   data: GearData;
@@ -96,87 +97,18 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
 }
 
 function WeaponCard({ weapon, ratings, selectedCharacterId, onWishlist, onCompare, onTag, onAction, busy }: { weapon: WeaponItem; ratings?: WeaponRatingDatabase; selectedCharacterId: string; onWishlist: () => void; onCompare: () => void; onTag: (tag: "" | GearTag) => void; onAction: Props["onAction"]; busy: boolean }) {
-  const value = evaluateWeapon(weapon, ratings);
   return <article tabIndex={0} data-gear-instance={weapon.instanceId} onMouseEnter={activateGearShortcut} onMouseLeave={deactivateGearShortcut} onFocus={activateGearShortcut} onBlur={deactivateGearShortcut} className={`${styles.weaponCard} ${weapon.rarity === "Exotic" ? styles.exoticArmor : ""} ${weapon.masterworked ? styles.masterworkedArmor : ""}`} data-review={weapon.reviewState}>
     <header><div className={styles.weaponArt}><GearTierRail tier={weapon.gearTier} kind="Weapon" />{weapon.icon && <img src={weapon.icon} alt="" />}<GearTagBadge tag={weapon.tag} /><b>{weapon.power || ""}</b></div><div><span>{weapon.damageType} · {weapon.itemType}</span><h2>{weapon.name}</h2><p>{weapon.location}{weapon.equipped ? " · Equipped" : ""}</p></div><button className={weapon.wishlisted ? styles.weaponWishlisted : ""} onClick={onWishlist} title={weapon.wishlisted ? "Remove weapon from wishlist" : "Add weapon to wishlist"}><Star /></button></header>
     <div className={styles.weaponSignals}>{weapon.crafted && <span><Hammer /> Crafted</span>}{weapon.enhanced && <span><Sparkles /> Enhanced</span>}{weapon.originTraits.map((trait) => <span key={trait.hash} title={trait.description}>{trait.icon && <img src={trait.icon} alt="" />}{trait.name}</span>)}</div>
-    <div className={styles.weaponRating} data-state={value.state} data-quality={value.quality} title={value.reasons.join(" ")}>
-      <span><b>{value.state === "scored" ? `${weapon.rollDataState === "complete" ? "Options" : "Est."} ${value.overall}%` : value.state === "incomplete" ? "Options pending" : "Rating unavailable"}</b><small>{value.state === "scored" ? `${qualityLabel(value.quality)} · ${value.basis === "weapon" ? "exact DIM data" : value.basis === "weapon-family" ? "same-weapon evidence" : `${weapon.itemType} evidence`} · ${value.confidence} confidence` : value.reasons[0]}</small></span>
-      {value.state === "scored" && <span className={styles.weaponModeRatings}><small>PvE <b>{value.pve === undefined ? "—" : `${value.pve}%`}</b></small><small>PvP <b>{value.pvp === undefined ? "—" : `${value.pvp}%`}</b></small></span>}
-    </div>
-    <WeaponPerkColumns weapon={weapon} ratings={ratings} />
+    <WeaponRatingPanel weapon={weapon} ratings={ratings} />
     <div className={styles.weaponReview}><CheckCircle2 /><span><b>{reviewLabel(weapon.reviewState)}</b><small>{weapon.reviewReasons[0]}</small></span>{weapon.duplicateCount > 1 && <button onClick={onCompare}>Compare {weapon.duplicateCount}</button>}</div>
     <footer><GearTagPicker value={weapon.tag} onChange={(value) => onTag(value || "")} disabled={busy} compact /><span className={styles.footerSpacer} /><button title={weapon.locked ? "Unlock" : "Lock"} onClick={() => onAction({ action: "setLock", itemInstanceId: weapon.instanceId, locked: !weapon.locked, characterId: weapon.ownerCharacterId || selectedCharacterId })}>{weapon.locked ? <Lock /> : <LockOpen />}</button>{weapon.location === "vault" ? <button title="Pull to Selected Guardian" onClick={() => onAction({ action: "transfer", itemInstanceId: weapon.instanceId, target: "character", targetCharacterId: selectedCharacterId })}><ArrowDownToLine /></button> : <button disabled={weapon.equipped} title={weapon.equipped ? "Equip another weapon before vaulting this one" : "Move to vault"} onClick={() => onAction({ action: "transfer", itemInstanceId: weapon.instanceId, target: "vault" })}><ArrowUpFromLine /></button>}<button title="Equip on Selected Guardian" onClick={() => onAction({ action: "equip", itemInstanceId: weapon.instanceId, characterId: selectedCharacterId }, `Equip ${weapon.name} on the Selected Guardian? This may move it between characters first.`)}><Shield /></button></footer>
   </article>;
 }
 
-function WeaponPerkColumns({ weapon, ratings }: { weapon: WeaponItem; ratings?: WeaponRatingDatabase }) {
-  const columns = weapon.perkColumns
-    .filter((column): column is WeaponPerkColumn & { ratingColumn: 0 | 1 | 2 | 3 } => column.ratingColumn !== undefined)
-    .sort((left, right) => left.ratingColumn - right.ratingColumn);
-  if (!columns.length) return <div className={styles.weaponTraitPending}><Columns3 /><span><b>Perk columns unavailable</b><small>Bungie has not returned identifiable weapon perk columns for this snapshot.</small></span></div>;
-  return <div className={styles.weaponTraitColumns}>{columns.map((column) => {
-    const options = uniqueTraitOptions(column);
-    return <section key={column.socketIndex} className={styles.weaponTraitColumn}>
-      <header><b>{ratingColumnLabel(weapon, column.ratingColumn)}</b><small>{options.length} option{options.length === 1 ? "" : "s"}</small></header>
-      <div>{options.map((perk) => {
-        const rating = evaluateWeaponPerk(weapon, column.ratingColumn, perk.hash, ratings);
-        const active = perk.hash === column.active?.hash;
-        const recommendedModes = [rating.pve === 100 ? "PvE" : "", rating.pvp === 100 ? "PvP" : ""].filter(Boolean).join(" and ");
-        return <div key={perk.hash} className={styles.weaponTraitOption} data-active={active} data-recommended={rating.recommended} title={traitRatingTitle(perk, rating, active)}>
-          <span className={styles.weaponTraitIcon}>{perk.icon ? <img src={perk.icon} alt="" /> : <Columns3 />}{rating.recommended && <RecommendationThumb label={`DIM recommends ${perk.name} for ${recommendedModes}`} />}</span>
-          <span><b>{perk.name}</b><small>{traitRatingLabel(rating)}</small></span>
-          {active && <em>Selected</em>}
-        </div>;
-      })}</div>
-    </section>;
-  })}</div>;
-}
-
-function RecommendationThumb({ label }: { label: string }) {
-  return <svg role="img" aria-label={label} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M7 10v12" />
-    <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
-  </svg>;
-}
-
-function uniqueTraitOptions(column: WeaponPerkColumn): ArmorPerk[] {
-  const options = column.active ? [column.active, ...column.options] : column.options;
-  return [...new Map(options.filter((perk) => perk.hash && perk.name).map((perk) => [perk.hash, perk])).values()];
-}
-
-function ratingColumnLabel(weapon: WeaponItem, column: 0 | 1 | 2 | 3): string {
-  if (column === 2) return "Trait 1";
-  if (column === 3) return "Trait 2";
-  if (column === 0) return weapon.itemType === "Sword" ? "Blade" : weapon.itemType === "Combat Bow" ? "String" : "Barrel / Sight";
-  return weapon.itemType === "Sword" ? "Guard" : weapon.itemType === "Combat Bow" ? "Arrow" : "Magazine / Battery";
-}
-
-function traitRatingLabel(rating: WeaponTraitValue): string {
-  if (rating.state !== "scored") return "Unrated";
-  if (rating.basis === "weapon") return `PvE ${recommendationMark(rating.pve)} · PvP ${recommendationMark(rating.pvp)}`;
-  return `PvE ${percentageMark(rating.pve)} · PvP ${percentageMark(rating.pvp)}`;
-}
-
-function traitRatingTitle(perk: ArmorPerk, rating: WeaponTraitValue, active: boolean): string {
-  const prefix = `${perk.name}${active ? " (selected)" : ""}.`;
-  const modes = rating.state === "scored" && rating.basis === "weapon"
-    ? `PvE: ${recommendationWord(rating.pve, rating.pvePairings)} PvP: ${recommendationWord(rating.pvp, rating.pvpPairings)}`
-    : rating.state === "scored" ? `PvE evidence: ${percentageMark(rating.pve)}. PvP evidence: ${percentageMark(rating.pvp)}.` : "";
-  return [prefix, perk.description, modes, ...rating.reasons].filter(Boolean).join(" ");
-}
-
-function recommendationMark(score?: number): string { return score === undefined ? "—" : score === 100 ? "✓" : "×"; }
-function percentageMark(score?: number): string { return score === undefined ? "—" : `${score}%`; }
-function recommendationWord(score?: number, pairings?: number): string {
-  if (score === undefined) return "not reviewed.";
-  if (score !== 100) return "not selected by the curator.";
-  return `recommended${pairings ? ` in ${pairings} curated trait pairing${pairings === 1 ? "" : "s"}` : ""}.`;
-}
-
 function WeaponComparison({ items, onClose }: { items: WeaponItem[]; onClose: () => void }) {
   const maxColumns = Math.max(...items.map((item) => item.perkColumns.length));
-  return <div className={styles.compareOverlay}><button aria-label="Close weapon comparison" onClick={onClose} /><section><header><div><span>Weapon roll comparison</span><h2>{items[0]?.name}</h2><p>{items.length} physical copies · no dismantling automation</p></div><button onClick={onClose}><X /></button></header><div className={styles.weaponCompareGrid}>{items.map((item) => <article key={item.instanceId}><header>{item.icon && <img src={item.icon} alt="" />}<span><b>{item.location}{item.equipped ? " · Equipped" : ""}</b><small>{item.power} Power · {item.damageType}</small></span>{item.wishlisted && <Star />}</header>{Array.from({ length: maxColumns }, (_, index) => { const column = item.perkColumns[index]; return <div key={index}>{column?.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<span><b>{column?.active?.name || "No verified perk"}</b><small>{column?.options.map((perk) => perk.name).join(" · ") || "Bungie data unavailable"}</small></span></div>; })}<footer><strong>{reviewLabel(item.reviewState)}</strong><p>{item.reviewReasons[0]}</p></footer></article>)}</div></section></div>;
+  return <div className={styles.compareOverlay}><button aria-label="Close weapon comparison" onClick={onClose} /><section><header><div><span>Weapon roll comparison</span><h2>{items[0]?.name}</h2><p>{items.length} physical copies · separate PvE and PvP evidence</p></div><button onClick={onClose}><X /></button></header><div className={styles.weaponCompareGrid}>{items.map((item) => <article key={item.instanceId}><header>{item.icon && <img src={item.icon} alt="" />}<span><b>{item.location}{item.equipped ? " · Equipped" : ""}</b><small>{item.power} Power · {item.damageType}</small></span>{item.wishlisted && <Star />}</header><WeaponRatingPanel weapon={item} compact />{Array.from({ length: maxColumns }, (_, index) => { const column = item.perkColumns[index]; return <div key={index}>{column?.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<span><b>{column?.active?.name || "No verified perk"}</b><small>{column?.options.map((perk) => perk.name).join(" · ") || "Bungie data unavailable"}</small></span></div>; })}<footer><strong>{reviewLabel(item.reviewState)}</strong><p>{item.reviewReasons[0]}</p></footer></article>)}</div></section></div>;
 }
 
 function duplicateGroups(items: WeaponItem[]): string[] { const counts = new Map<string, number>(); for (const item of items) counts.set(item.itemHash, (counts.get(item.itemHash) || 0) + 1); return [...counts].filter(([, count]) => count > 1).map(([hash]) => hash); }

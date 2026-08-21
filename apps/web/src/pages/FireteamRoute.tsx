@@ -10,15 +10,12 @@ import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
 import { completionTransition, isQuestComplete } from "../modules/tracking/completionTracking";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import { FireteamPage } from "./FireteamPage";
-import styles from "./Pages.module.css";
+import styles from "./FireteamRoute.module.css";
 
 const SNAPSHOT_READ_RETRY_MS = 5_000;
 
 export function FireteamRoute() {
-  return <div className={styles.fireteamRoute}>
-    <FireteamRefreshCountdown />
-    <div className={styles.fireteamPageContent}><FireteamPage /></div>
-  </div>;
+  return <div className={styles.route}><FireteamRefreshCountdown /><FireteamPage /></div>;
 }
 
 function FireteamRefreshCountdown() {
@@ -34,8 +31,6 @@ function FireteamRefreshCountdown() {
   );
   const [now, setNow] = useState(() => Date.now());
   const [refreshing, setRefreshing] = useState(false);
-  const [timerPinned, setTimerPinned] = useState(false);
-  const timerRail = useRef<HTMLElement | null>(null);
   const completionState = useRef<Map<string, boolean> | null>(null);
   const completionContext = useRef("");
   const { notice: completionNotice, announce: announceCompletion, dismiss: dismissCompletion, clear: clearCompletions } = useCompletionPings();
@@ -43,25 +38,6 @@ function FireteamRefreshCountdown() {
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const updatePinnedState = () => {
-      const rail = timerRail.current;
-      if (!rail || window.innerWidth <= 1_200) {
-        setTimerPinned(false);
-        return;
-      }
-      const headerHeight = Number.parseFloat(getComputedStyle(rail).getPropertyValue("--shell-header-height")) || 130;
-      setTimerPinned(rail.getBoundingClientRect().top <= headerHeight + 10);
-    };
-    updatePinnedState();
-    window.addEventListener("scroll", updatePinnedState, { passive: true });
-    window.addEventListener("resize", updatePinnedState);
-    return () => {
-      window.removeEventListener("scroll", updatePinnedState);
-      window.removeEventListener("resize", updatePinnedState);
-    };
   }, []);
 
   useEffect(() => {
@@ -139,27 +115,25 @@ function FireteamRefreshCountdown() {
     return `Fireteam refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.snapshotVersion, now, refreshing, selectedCharacterId, session?.authenticated]);
 
-  return <><CompletionPing notice={completionNotice} onDismiss={dismissCompletion} /><aside ref={timerRail} className={styles.fireteamRefreshRail}>
-    <div className={`${styles.fireteamRefreshDock} ${timerPinned ? styles.fireteamRefreshDockPinned : ""}`}>
-      <span className={styles.fireteamRefreshTimer} aria-live="polite"><Timer size={15} />{label}</span>
-      <section className={styles.fireteamTrackedOrders}>
+  return <><CompletionPing notice={completionNotice} onDismiss={dismissCompletion} /><aside className={styles.commandBar}>
+      <span className={styles.refreshTimer} aria-live="polite"><Timer size={15} />{label}</span>
+      <section className={styles.trackedOrders}>
         <header>
           <span>Active Orders · {orders.length}</span>
           <Link to="/journey/season"><strong>Seasonal Hub Orders</strong><ArrowRight /></Link>
         </header>
         {orders.length
-          ? orders.map((order) => <SeasonalHubOrder key={order.instanceId} order={order} />)
+          ? <div className={styles.orderList}>{orders.map((order) => <SeasonalHubOrder key={order.instanceId} order={order} />)}</div>
           : result.isLoading
             ? <p>Loading active Hub orders…</p>
             : <p>No active Seasonal Hub orders.</p>}
       </section>
-    </div>
   </aside></>;
 }
 
 function SeasonalHubOrder({ order }: { order: QuestProgress }) {
   const activeObjective = order.objectives.find((objective) => !objective.complete) || order.objectives[0];
-  return <Link className={styles.fireteamTrackedOrder} to={`/quests/${encodeURIComponent(order.instanceId)}`}>
+  return <Link className={styles.trackedOrder} to={`/quests/${encodeURIComponent(order.instanceId)}`}>
     <div>{order.icon ? <img src={order.icon} alt="" /> : <Timer />}</div>
     <span>
       <strong>{order.name}</strong>
