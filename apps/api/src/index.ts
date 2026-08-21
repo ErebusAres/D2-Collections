@@ -22,6 +22,8 @@ import type {
   EquipLoadoutRequest,
   EquipLoadoutResult,
   LoadoutsData,
+  LootWatcherConfig,
+  LootWatcherRunResult,
   MailboxData,
   MailboxPullRequest,
   MailboxPullResult,
@@ -32,6 +34,7 @@ import type {
   QuestData,
   RecentItemTimelineData,
   RewardCodeStatusData,
+  RunLootWatchersRequest,
   RewardsPassData,
   RaidRotationsData,
   SessionData,
@@ -47,6 +50,7 @@ import { addXurCollectionStates, applyQuestPins, charactersFromProfile, guardian
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { gearActionItemsFromProfile, normalizeGear, type GearStateRow } from "./gear";
+import { planLootWatchers } from "./lootWatchers";
 import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
 import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
@@ -144,6 +148,13 @@ const probeSchema = z.object({
 });
 
 const gearStateSchema = z.object({ itemInstanceId: z.string().regex(/^\d+$/), tag: z.enum(["favorite", "keep", "junk", "infuse", "archive"]).nullable().optional(), dismissed: z.boolean().optional() });
+const lootWatcherConfigSchema = z.object({
+  farmingMode: z.boolean(),
+  highestPowerLock: z.boolean(),
+  tier5FitLock: z.boolean(),
+  duplicateFitJunk: z.boolean()
+}).strict();
+const runLootWatchersSchema = z.object({ characterId: z.string().regex(/^\d+$/), config: lootWatcherConfigSchema }).strict();
 const gearActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("transfer"), itemInstanceId: z.string().regex(/^\d+$/), target: z.enum(["vault", "character"]), targetCharacterId: z.string().regex(/^\d+$/).optional() }),
   z.object({ action: z.literal("equip"), itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/) }),
@@ -168,6 +179,7 @@ const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("fireteam.recentLoot.v1"), value: z.enum(["on", "off"]) }),
   z.object({ key: z.literal("fireteam.recentLootLimit.v1"), value: z.enum(["12", "24", "48"]) }),
   z.object({ key: z.literal("fireteam.activityFeedView.v1"), value: z.enum(["open", "minimized", "hidden"]) }),
+  z.object({ key: z.enum(["fireteam.watcher.farming.v1", "fireteam.watcher.highestPower.v1", "fireteam.watcher.tier5Fits.v1", "fireteam.watcher.duplicateFits.v1"]), value: z.enum(["on", "off"]) }),
   z.object({ key: z.literal("quests.layout"), value: z.enum(["grid", "list"]) }),
   z.object({ key: z.literal("build.detail.layout"), value: z.enum(["standard", "overview", "compact", "detailed"]) }),
   z.object({ key: z.literal("planner.duration"), value: z.enum(["30", "60", "120"]) }),
@@ -298,6 +310,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (path === "/api/v1/me/build-advisor/equip" && request.method === "POST") { await requireCsrf(request, session.token, env); return equipBuildAdvisor(request, session.row, env, context); }
   if (path === "/api/v2/fireteam" && request.method === "GET") return fireteamSnapshot(session.row, env, context);
   if (path === "/api/v2/fireteam/recent-items" && request.method === "GET") return fireteamRecentItems(session.row, env, context);
+  if (path === "/api/v2/fireteam/loot-watchers/run" && request.method === "POST") { await requireCsrf(request, session.token, env); return runLootWatchers(request, session.row, env, context); }
   if (path === "/api/v2/fireteam/activity" && request.method === "GET") return fireteamActivity(session.row, env, context);
   if (path === "/api/v2/fireteam/messages" && request.method === "POST") { await requireCsrf(request, session.token, env); return postFireteamMessage(request, session.row, env, context); }
   if (path === "/api/v2/fireteam/share" && request.method === "PUT") { await requireCsrf(request, session.token, env); return upsertFireteamShare(request, session.row, env, context); }
@@ -1222,8 +1235,8 @@ async function refreshRecentItemObservationsWithLease(row: SessionRow, env: Env,
 }
 
 async function refreshRecentItemObservations(row: SessionRow, env: Env, characterId?: string): Promise<void> {
-  const { profile } = await profileFor(row, env, "recent-items");
-  await observeRecentItemsFromProfile(row, env, profile, characterId);
+  const { profile, accessToken } = await profileFor(row, env, "recent-items");
+  await observeRecentItemsFromProfile(row, env, profile, characterId, undefined, accessToken);
 }
 
 async function observeRecentItemsFromProfile(
@@ -1231,7 +1244,8 @@ async function observeRecentItemsFromProfile(
   env: Env,
   profile: any,
   characterId?: string,
-  observedAt = new Date().toISOString()
+  observedAt = new Date().toISOString(),
+  accessToken?: string
 ): Promise<void> {
   const [gearManifest, collectionManifest] = await Promise.all([loadGearManifest(env), loadManifest(env)]);
   const companionManifest = await loadCompanionManifestForHashes(env, uninstancedInventoryItemHashes(profile));
@@ -1250,6 +1264,13 @@ async function observeRecentItemsFromProfile(
     VALUES (?, ?, NULL, NULL)
     ON CONFLICT(membership_id) DO UPDATE SET refreshed_at = excluded.refreshed_at, refresh_started_at = NULL, last_error = NULL
   `).bind(row.membership_id, observedAt).run();
+  if (accessToken) {
+    const config = await lootWatcherConfigFor(row.membership_id, env);
+    if (Object.values(config).some(Boolean)) {
+      const result = await applyLootWatcherActions(row, env, profile, accessToken, gearData, config, new Set(missing.map((item) => item.instanceId)), states.size > 0);
+      if (result.warnings.length) console.log(JSON.stringify({ event: "loot_watchers_partial", membershipId: row.membership_id, warnings: result.warnings.slice(0, 4) }));
+    }
+  }
 }
 
 function uninstancedInventoryItemHashes(profile: any): string[] {
@@ -1595,6 +1616,91 @@ async function gearAction(request: Request, row: SessionRow, env: Env, context: 
   return envelope(result, env, context, { warnings: result.failed.length ? ["One or more Gear actions failed. Inventory was refreshed from Bungie after the completed steps."] : [] });
 }
 
+const LOOT_WATCHER_PREFERENCE_KEYS = {
+  farmingMode: "fireteam.watcher.farming.v1",
+  highestPowerLock: "fireteam.watcher.highestPower.v1",
+  tier5FitLock: "fireteam.watcher.tier5Fits.v1",
+  duplicateFitJunk: "fireteam.watcher.duplicateFits.v1"
+} as const;
+
+async function lootWatcherConfigFor(membershipId: string, env: Env): Promise<LootWatcherConfig> {
+  const keys = Object.values(LOOT_WATCHER_PREFERENCE_KEYS);
+  const result = await env.DB.prepare(`SELECT preference_key, preference_value FROM user_preferences WHERE membership_id = ? AND preference_key IN (?, ?, ?, ?)`)
+    .bind(membershipId, ...keys).all<{ preference_key: string; preference_value: string }>();
+  const values = new Map((result.results || []).map((entry) => [entry.preference_key, entry.preference_value]));
+  return {
+    farmingMode: values.get(LOOT_WATCHER_PREFERENCE_KEYS.farmingMode) === "on",
+    highestPowerLock: values.get(LOOT_WATCHER_PREFERENCE_KEYS.highestPowerLock) === "on",
+    tier5FitLock: values.get(LOOT_WATCHER_PREFERENCE_KEYS.tier5FitLock) === "on",
+    duplicateFitJunk: values.get(LOOT_WATCHER_PREFERENCE_KEYS.duplicateFitJunk) === "on"
+  };
+}
+
+async function saveLootWatcherConfig(membershipId: string, config: LootWatcherConfig, env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  await env.DB.batch(Object.entries(LOOT_WATCHER_PREFERENCE_KEYS).map(([configKey, preferenceKey]) => env.DB.prepare(`
+    INSERT INTO user_preferences (membership_id, preference_key, preference_value, updated_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(membership_id, preference_key) DO UPDATE SET preference_value = excluded.preference_value, updated_at = excluded.updated_at
+  `).bind(membershipId, preferenceKey, config[configKey as keyof LootWatcherConfig] ? "on" : "off", now)));
+}
+
+async function runLootWatchers(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+  const input = runLootWatchersSchema.parse(await request.json()) as RunLootWatchersRequest;
+  await saveLootWatcherConfig(row.membership_id, input.config, env);
+  const { profile, accessToken } = await profileFor(row, env, "recent-items", true);
+  const character = charactersFromProfile(profile).find((entry) => entry.characterId === input.characterId);
+  if (!character) throw httpError(403, "character_invalid", "That character does not belong to this Guardian.");
+  const [manifest, states] = await Promise.all([loadGearManifest(env), gearStates(row.membership_id, env)]);
+  const now = new Date().toISOString();
+  const data = normalizeGear(profile, manifest, character.characterId, character.className, states, now);
+  const missing = [...data.items, ...(data.weapons || [])].filter((item) => !states.has(item.instanceId));
+  for (let offset = 0; offset < missing.length; offset += 80) {
+    await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
+  }
+  const result = await applyLootWatcherActions(row, env, profile, accessToken, data, input.config, new Set(), states.size > 0);
+  return envelope<LootWatcherRunResult>(result, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: result.warnings });
+}
+
+async function applyLootWatcherActions(row: SessionRow, env: Env, profile: any, accessToken: string, data: GearData, config: LootWatcherConfig, newInstanceIds: Set<string>, baselineEstablished: boolean): Promise<LootWatcherRunResult> {
+  const plan = planLootWatchers(data, config, newInstanceIds, baselineEstablished);
+  const byId = gearActionItemsFromProfile(profile);
+  const result: LootWatcherRunResult = { movedToVault: [], locked: [], taggedJunk: [], skipped: [...plan.skipped], warnings: [] };
+  for (const instanceId of plan.lock.slice(0, 20)) {
+    const item = byId.get(instanceId);
+    if (!item) { result.skipped.push(`${instanceId} is no longer owned.`); continue; }
+    try {
+      await bungiePost("/Destiny2/Actions/Items/SetLockState/", { state: true, itemId: instanceId, characterId: item.ownerCharacterId || data.selectedCharacterId, membershipType: row.membership_type }, env, accessToken);
+      result.locked.push(instanceId);
+      await auditGear(row, env, "lootWatcherLock", instanceId, item.ownerCharacterId || data.selectedCharacterId, 200, undefined, 0);
+    } catch (error: any) {
+      result.warnings.push(`Could not lock ${instanceId}: ${String(error?.message || "Bungie action failed.")}`);
+      await auditGear(row, env, "lootWatcherLock", instanceId, item.ownerCharacterId || data.selectedCharacterId, Number(error?.status || 500), String(error?.code || "action_failed"), 0);
+    }
+  }
+  if (plan.lock.length > 20) result.warnings.push(`${plan.lock.length - 20} additional Power locks will be retried on the next watcher run.`);
+  const junkItems = data.items.filter((item) => plan.tagJunk.includes(item.instanceId));
+  for (let offset = 0; offset < junkItems.length; offset += 80) {
+    await env.DB.batch(junkItems.slice(offset, offset + 80).map((item) => env.DB.prepare(`
+      INSERT INTO gear_item_state (membership_id, item_instance_id, tag, first_seen_at, updated_at) VALUES (?, ?, 'junk', ?, ?)
+      ON CONFLICT(membership_id, item_instance_id) DO UPDATE SET tag = 'junk', updated_at = excluded.updated_at
+    `).bind(row.membership_id, item.instanceId, item.firstSeenAt, new Date().toISOString())));
+  }
+  result.taggedJunk.push(...junkItems.map((item) => item.instanceId));
+  for (const instanceId of plan.moveToVault.slice(0, 5)) {
+    const item = byId.get(instanceId);
+    if (!item || !item.ownerCharacterId || item.location !== "inventory" || item.equipped) { result.skipped.push(`${instanceId} is not movable inventory gear.`); continue; }
+    try {
+      await transfer(item, true, item.ownerCharacterId, row, env, accessToken);
+      result.movedToVault.push(instanceId);
+      await auditGear(row, env, "lootWatcherFarm", instanceId, "vault", 200, undefined, 0);
+    } catch (error: any) {
+      result.warnings.push(`Could not move ${instanceId} to the vault: ${String(error?.message || "Bungie action failed.")}`);
+      await auditGear(row, env, "lootWatcherFarm", instanceId, "vault", Number(error?.status || 500), String(error?.code || "action_failed"), 0);
+    }
+  }
+  return result;
+}
+
 async function gearStates(membershipId: string, env: Env): Promise<Map<string, GearStateRow>> {
   const { results = [] } = await env.DB.prepare("SELECT item_instance_id, tag, first_seen_at, dismissed_at FROM gear_item_state WHERE membership_id = ?").bind(membershipId).all<GearStateRow>();
   return new Map(results.map((row) => [String(row.item_instance_id), row]));
@@ -1707,7 +1813,7 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   const previousTrackedKeys = new Set(previousTrackedItems.map(trackedItemKey));
   const configuredCollectionIds = new Set<string>(Array.isArray(settings?.siteTrackedCollectionIds) ? settings.siteTrackedCollectionIds : []);
 
-  const [{ profile }, questManifest, guardianRankManifest] = await Promise.all([
+  const [{ profile, accessToken }, questManifest, guardianRankManifest] = await Promise.all([
     profileFor(row, env, "fireteam"),
     loadQuestManifest(env),
     loadGuardianRankManifest(env)
@@ -1789,7 +1895,7 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
     ? guardianLocation(profile, questManifest, snapshotCharacter.characterId, onlineState)
     : undefined;
   try {
-    await observeRecentItemsFromProfile(row, env, profile, snapshotCharacter.characterId, committedAt);
+    await observeRecentItemsFromProfile(row, env, profile, snapshotCharacter.characterId, committedAt, accessToken);
   } catch (error: any) {
     await env.DB.prepare(`
       INSERT INTO recent_item_refresh_state (membership_id, refreshed_at, refresh_started_at, last_error)

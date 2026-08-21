@@ -882,6 +882,26 @@ export interface GearData {
   totals: { armor: number; weapons?: number; vault: number; equipped: number; locked: number; grouped: number; newItems: number };
 }
 
+export interface LootWatcherConfig {
+  farmingMode: boolean;
+  highestPowerLock: boolean;
+  tier5FitLock: boolean;
+  duplicateFitJunk: boolean;
+}
+
+export interface RunLootWatchersRequest {
+  characterId: string;
+  config: LootWatcherConfig;
+}
+
+export interface LootWatcherRunResult {
+  movedToVault: string[];
+  locked: string[];
+  taggedJunk: string[];
+  skipped: string[];
+  warnings: string[];
+}
+
 export type RecentItemEventKind = "weapon-found" | "armor-found" | "catalyst-found" | "catalyst-completed" | "exotic-engram-found" | "inventory-gained";
 
 export interface RecentItemEvent {
@@ -1109,6 +1129,10 @@ export type UserPreferenceKey =
   | "fireteam.recentLoot.v1"
   | "fireteam.recentLootLimit.v1"
   | "fireteam.activityFeedView.v1"
+  | "fireteam.watcher.farming.v1"
+  | "fireteam.watcher.highestPower.v1"
+  | "fireteam.watcher.tier5Fits.v1"
+  | "fireteam.watcher.duplicateFits.v1"
   | "weapons.filters"
   | "weapons.wishlist"
   | "collection.sort"

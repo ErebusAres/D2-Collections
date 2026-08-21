@@ -161,6 +161,16 @@ describe("RecentItemRow", () => {
     expect(screen.getByText(/Showing saved Guardian data/).closest("footer")).toBeTruthy();
   });
 
+  it("renders four square Recent Loot watcher toggles off by default and reports the selected watcher", () => {
+    const onWatcherChange = vi.fn();
+    render(<MemoryRouter><CompactRecentLootBar events={[]} watchers={{ farmingMode: false, highestPowerLock: false, tier5FitLock: false, duplicateFitJunk: false }} onWatcherChange={onWatcherChange} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
+    const buttons = screen.getAllByRole("button", { name: /watcher off/ });
+    expect(buttons).toHaveLength(4);
+    expect(buttons.every((button) => button.getAttribute("aria-pressed") === "false")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Tier 5 fits watcher off" }));
+    expect(onWatcherChange).toHaveBeenCalledWith("tier5FitLock", true);
+  });
+
   it("distinguishes loading, baseline, and request errors instead of reporting each as empty history", () => {
     const { rerender } = render(<MemoryRouter><CompactRecentLootBar events={[]} loading onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
     expect(screen.getByText(/Checking your latest Bungie profile snapshot/)).toBeTruthy();

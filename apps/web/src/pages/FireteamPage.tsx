@@ -1,4 +1,4 @@
-import type { FireteamCompletedTrackedItem, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, RecentItemTimelineData } from "@guardian-nexus/contracts";
+import type { FireteamCompletedTrackedItem, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpToLine, BookmarkMinus, CheckCircle2, Crown, EyeOff, GripVertical, Link2, MessageSquare, Repeat2, Share2, Timer, UserMinus, Users } from "lucide-react";
@@ -30,11 +30,27 @@ interface ShareVariables {
 }
 
 const TRACKED_ITEM_EXIT_MS = 1_600;
+const LOOT_WATCHER_PREFERENCES: Record<keyof LootWatcherConfig, UserPreferenceKey> = {
+  farmingMode: "fireteam.watcher.farming.v1",
+  highestPowerLock: "fireteam.watcher.highestPower.v1",
+  tier5FitLock: "fireteam.watcher.tier5Fits.v1",
+  duplicateFitJunk: "fireteam.watcher.duplicateFits.v1"
+};
 function updateFireteamCachedTag(value: unknown, itemInstanceId: string, tag?: GearTag): unknown {
   if (!value || typeof value !== "object") return value;
   const root = value as any; const data = root.data;
   if (!data || !Array.isArray(data.events)) return value;
   return { ...root, data: { ...data, events: data.events.map((event: any) => event.gear?.instanceId === itemInstanceId ? { ...event, gear: { ...event.gear, tag } } : event) } };
+}
+function watcherResultLabel(result: LootWatcherRunResult): string {
+  const actions = [
+    result.movedToVault.length ? `${result.movedToVault.length} moved` : "",
+    result.locked.length ? `${result.locked.length} locked` : "",
+    result.taggedJunk.length ? `${result.taggedJunk.length} tagged junk` : ""
+  ].filter(Boolean);
+  if (result.warnings[0]) return actions.length ? `${actions.join(" · ")} · ${result.warnings[0]}` : result.warnings[0];
+  if (result.skipped[0] && !actions.length) return result.skipped[0];
+  return actions.length ? actions.join(" · ") : "Watcher settings saved.";
 }
 export function FireteamPage() {
   const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
@@ -66,6 +82,12 @@ export function FireteamPage() {
   const trackedBuilds = useMemo(() => parseTrackedBuilds(preferences["buildAdvisor.trackedBuilds.v1"]), [preferences]);
   const activityFeedView = parseActivityFeedView(preferences["fireteam.activityFeedView.v1"]);
   const showRecentLoot = preferences["fireteam.recentLoot.v1"] !== "off";
+  const lootWatchers = useMemo<LootWatcherConfig>(() => ({
+    farmingMode: preferences[LOOT_WATCHER_PREFERENCES.farmingMode] === "on",
+    highestPowerLock: preferences[LOOT_WATCHER_PREFERENCES.highestPowerLock] === "on",
+    tier5FitLock: preferences[LOOT_WATCHER_PREFERENCES.tier5FitLock] === "on",
+    duplicateFitJunk: preferences[LOOT_WATCHER_PREFERENCES.duplicateFitJunk] === "on"
+  }), [preferences]);
   const recentItems = useQuery({
     queryKey: ["fireteam-recent-items", selectedCharacterId],
     queryFn: () => api<RecentItemTimelineData>(`/api/v2/fireteam/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
@@ -83,6 +105,22 @@ export function FireteamPage() {
   });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onMutate: async (input) => { const queryKey = ["fireteam-recent-items", selectedCharacterId] as const; await queryClient.cancelQueries({ queryKey }); const previous = queryClient.getQueryData(queryKey); queryClient.setQueryData(queryKey, (value: unknown) => updateFireteamCachedTag(value, input.itemInstanceId, input.tag || undefined)); return { queryKey, previous }; }, onError: (_error, _input, context) => queryClient.setQueryData(context?.queryKey || ["fireteam-recent-items", selectedCharacterId], context?.previous), onSettled: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }) });
   const gearAction = useMutation({ mutationFn: async (input: GearActionRequest) => { const response = await api<GearActionResult>("/api/v1/me/gear/action", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }); if (response.data.failed[0]) throw new Error(response.data.failed[0].message); return response; }, onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }), queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] })]) });
+  const watcherRun = useMutation({
+    mutationFn: (config: LootWatcherConfig) => api<LootWatcherRunResult>("/api/v2/fireteam/loot-watchers/run", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, config }) }),
+    onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }), queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] })])
+  });
+  const toggleLootWatcher = (key: keyof LootWatcherConfig, enabled: boolean) => {
+    const next = { ...lootWatchers, [key]: enabled };
+    setPreference(LOOT_WATCHER_PREFERENCES[key], enabled ? "on" : "off");
+    watcherRun.mutate(next);
+  };
+  const watcherStatus = watcherRun.isPending
+    ? "Updating watchers…"
+    : watcherRun.error instanceof Error
+      ? watcherRun.error.message
+      : watcherRun.data
+        ? watcherResultLabel(watcherRun.data.data)
+        : undefined;
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
   const preferenceTrackedItemOrder = useMemo(() => trackedPreference(preferences["fireteam.trackedOrder"]), [preferences]);
   const [trackedItemOrder, setTrackedItemOrder] = useState(preferenceTrackedItemOrder);
@@ -222,7 +260,7 @@ export function FireteamPage() {
       </>}
     </>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
-    {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} onSocketChange={(item, socketIndex, plugItemHash) => gearAction.mutate({ action: "setWeaponSocket", itemInstanceId: item.instanceId, characterId: selectedCharacterId, socketIndex, plugItemHash })} busy={gearState.isPending || gearAction.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Private observation continues with Fireteam snapshots</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
+    {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} onSocketChange={(item, socketIndex, plugItemHash) => gearAction.mutate({ action: "setWeaponSocket", itemInstanceId: item.instanceId, characterId: selectedCharacterId, socketIndex, plugItemHash })} busy={gearState.isPending || gearAction.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} watchers={lootWatchers} onWatcherChange={toggleLootWatcher} watcherBusy={watcherRun.isPending} watcherStatus={watcherStatus} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Private observation continues with Fireteam snapshots</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
     {(gearState.error || gearAction.error) && <div className={styles.gearError}>{(gearState.error || gearAction.error)?.message}</div>}
     {data && <>
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
