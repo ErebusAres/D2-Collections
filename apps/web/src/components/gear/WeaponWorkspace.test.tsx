@@ -59,18 +59,20 @@ describe("WeaponWorkspace", () => {
 
   it("shows the shared sourced rating on every weapon card", async () => {
     render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={vi.fn()} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
-    await waitFor(() => expect(screen.getAllByText("Options 100%")).toHaveLength(2));
-    expect(screen.getAllByText(/Excellent · exact DIM data · high confidence/)).toHaveLength(2);
+    await waitFor(() => expect(screen.getAllByText("Excellent")).toHaveLength(2));
+    expect(screen.getAllByText("PvE")).toHaveLength(2);
+    expect(screen.getAllByText("100%")).toHaveLength(2);
+    expect(screen.getAllByText("high confidence")).toHaveLength(2);
     expect(vi.mocked(fetch).mock.calls.length).toBeLessThanOrEqual(1);
   });
 
   it("shows and rates every selectable trait while leaving non-recommended options visible", async () => {
     render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={vi.fn()} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
-    await waitFor(() => expect(screen.getAllByLabelText("DIM recommends Target Lock for PvE")).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByLabelText("PvE curator recommended").length).toBeGreaterThan(1));
     expect(screen.getAllByText("Keep Away")).toHaveLength(2);
     expect(screen.getAllByText("Backup Plan")).toHaveLength(2);
     expect(screen.getAllByText("Barrel / Sight")).toHaveLength(2);
     expect(screen.getAllByText("Magazine / Battery")).toHaveLength(2);
-    expect(screen.getAllByText("PvE × · PvP —")).toHaveLength(2);
+    expect(screen.getAllByLabelText("PvE not listed by the curator").length).toBeGreaterThan(1);
   });
 });

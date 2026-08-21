@@ -222,7 +222,7 @@
 .timelineCard .cardActions { display: none; }
 .carouselPage > .card:nth-last-child(-n+4) .tooltip { right: 0; left: auto; }
 
-.tooltip { width: min(600px, calc(100vw - 24px)); max-height: min(720px, calc(100vh - 32px)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; text-align: left; }
+.tooltip { width: min(440px, calc(100vw - 24px)); max-height: min(640px, calc(100vh - 32px)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; text-align: left; }
 .identity { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 8px -10px 0; padding: 9px 10px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .identity b { color: var(--cyan); font: 600 18px "Barlow Condensed"; }
 .identity span { color: var(--muted); font-size: 10px; text-transform: capitalize; }

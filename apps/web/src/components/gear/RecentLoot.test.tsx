@@ -63,16 +63,16 @@ describe("RecentItemRow", () => {
     await waitFor(() => expect(screen.getByText("Roll 75%")).toBeTruthy());
     expect(screen.getByText("Strong")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
-    expect(screen.getByRole("tooltip").textContent).toContain("Exact weapon evidence");
-    expect(screen.getByRole("tooltip").textContent).toContain("Confidencehigh");
+    expect(screen.getByRole("tooltip").textContent).toContain("Exact weapon");
+    expect(screen.getByRole("tooltip").textContent).toContain("high confidence");
     expect(screen.getByRole("tooltip").textContent).toContain("PvE100%");
     expect(screen.getByRole("tooltip").textContent).toContain("PvP50%");
     cleanup();
     render(<RecentItemRow title="Partially observed" items={recentLoot([], [{ ...rated, rollDataState: "partial" as const }])} onTag={vi.fn()} />);
     await waitFor(() => expect(screen.getByText("Est. 75%")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
-    expect(screen.getByRole("tooltip").textContent).toContain("Provisional Strong roll match");
-    expect(screen.getByRole("tooltip").textContent).toContain("Confidencemedium");
+    expect(screen.getByRole("tooltip").textContent).toContain("Provisional Strong");
+    expect(screen.getByRole("tooltip").textContent).toContain("medium confidence");
     cleanup();
     render(<MemoryRouter><CompactRecentLootBar items={[{ ...rated, kind: "weapon" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText("Roll 75%")).toBeTruthy());
@@ -97,19 +97,12 @@ describe("RecentItemRow", () => {
     expect(Array.from(screen.getByRole("combobox", { name: "Recent loot cards to keep" }).querySelectorAll("option")).map((option) => option.textContent)).toEqual(["12", "24", "48"]);
   });
 
-  it("restores direct thumbs-up and thumbs-down review actions on Fireteam loot", () => {
+  it("uses the explicit tag menu instead of thumbs-up and thumbs-down review actions", () => {
     const onTag = vi.fn();
-    const { rerender } = render(<MemoryRouter><CompactRecentLootBar items={[{ ...weapon, kind: "weapon" }]} onTag={onTag} onHide={vi.fn()} /></MemoryRouter>);
-
-    fireEvent.click(screen.getByRole("button", { name: "Keep Recent Rifle" }));
-    expect(onTag).toHaveBeenLastCalledWith(expect.objectContaining({ instanceId: "1" }), "keep");
-    fireEvent.click(screen.getByRole("button", { name: "Mark Recent Rifle as junk" }));
-    expect(onTag).toHaveBeenLastCalledWith(expect.objectContaining({ instanceId: "1" }), "junk");
-
-    rerender(<MemoryRouter><CompactRecentLootBar items={[{ ...weapon, kind: "weapon", tag: "keep" }]} onTag={onTag} onHide={vi.fn()} /></MemoryRouter>);
-    expect(screen.getByRole("button", { name: "Keep Recent Rifle" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "Keep Recent Rifle" }));
-    expect(onTag).toHaveBeenLastCalledWith(expect.objectContaining({ instanceId: "1" }), undefined);
+    render(<MemoryRouter><CompactRecentLootBar items={[{ ...weapon, kind: "weapon" }]} onTag={onTag} onHide={vi.fn()} /></MemoryRouter>);
+    expect(screen.queryByRole("button", { name: "Keep Recent Rifle" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Mark Recent Rifle as junk" })).toBeNull();
+    expect(screen.getByRole("button", { name: /tag/i })).toBeTruthy();
   });
 
   it("renders catalyst observations as icon cards with progress details", () => {
