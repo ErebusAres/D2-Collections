@@ -132,14 +132,6 @@
 .tooltip header em { color: var(--muted); font-size: 10px; font-style: normal; }
 .tooltip > p { display: flex; gap: 5px; margin: 8px 0; color: var(--faint); font-size: 10px; }
 .tooltip > p svg { width: 12px; flex: 0 0 auto; }
-.perks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
-.perks span { min-width: 0; display: grid; grid-template-columns: 30px minmax(0, 1fr); align-content: start; gap: 0 6px; padding: 5px; border: 1px solid var(--line); }
-.perks img, .perks svg { grid-row: 1 / 3; width: 28px; height: 28px; }
-.perks b { min-width: 0; font-size: 10px; }
-.perks small { min-width: 0; color: var(--faint); font-size: 8px; }
-.value { display: grid; margin-top: 7px; padding: 7px; border: 1px solid var(--line); }
-.value b { color: var(--cyan); font-size: 10px; }
-.value small { color: var(--faint); font-size: 9px; }
 .stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; margin-top: 8px; }
 .stats span { min-width: 0; display: grid; place-items: center; padding: 4px; border: 1px solid var(--line); text-align: center; text-transform: capitalize; }
 .stats small { color: var(--faint); font-size: 8px; }
@@ -197,11 +189,6 @@
 .cardActions { min-height: 29px; display: flex; justify-content: center; gap: 3px; }
 .cardActions > * { min-width: 0; }
 .cardActions button { min-width: 24px; height: 26px; padding: 0 4px; }
-.quickReview { display: flex; gap: 2px; }
-.quickReview button { width: 21px; min-width: 21px; display: grid; place-items: center; border: 1px solid var(--line); background: rgba(255,255,255,.025); color: var(--faint); }
-.quickReview svg { width: 12px; height: 12px; }
-.quickReview .quickKeep:hover:not(:disabled), .quickReview .quickKeep:focus-visible, .quickReview .quickKeep[aria-pressed="true"] { border-color: rgba(117,217,156,.62); background: rgba(117,217,156,.12); color: #75d99c; }
-.quickReview .quickJunk:hover:not(:disabled), .quickReview .quickJunk:focus-visible, .quickReview .quickJunk[aria-pressed="true"] { border-color: rgba(239,121,134,.62); background: rgba(239,121,134,.12); color: var(--danger); }
 .history > div { grid-template-columns: repeat(auto-fill, minmax(104px, 104px)); align-items: start; gap: 10px; }
 .history .card { min-width: 104px; min-height: 0; }
 .compactCard { min-width: 82px; width: 82px; min-height: 137px; height: auto; padding: 3px; }
@@ -241,24 +228,6 @@
 .intrinsic { min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 7px; margin: 8px 0; padding: 6px; border: 1px solid var(--line); }
 .intrinsic img { width: 32px; height: 32px; }.intrinsic span { min-width: 0; display: grid; }.intrinsic b { font-size: 10px; }.intrinsic small { color: var(--faint); font-size: 8px; }
 .intrinsic > span:only-child { grid-column: 1 / -1; }
-.value[data-state="scored"] { border-color: rgba(73,207,209,.45); }
-.value[data-quality="excellent"] { border-color: rgba(117,217,156,.58); }
-.value[data-quality="mixed"] { border-color: rgba(231,200,119,.52); }
-.value[data-quality="weak"] { border-color: rgba(239,156,92,.58); }
-.value[data-quality="poor"] { border-color: color-mix(in srgb, var(--danger) 60%, transparent); }
-.tooltip .value > header { min-width: 0; display: flex; grid-template-columns: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px; }
-.tooltip .value > header span { min-width: 0; display: grid; }
-.tooltip .value > header small { color: var(--faint); font-size: 8px; text-transform: uppercase; }
-.tooltip .value > header strong { color: var(--cyan); font: 600 25px "Barlow Condensed"; }
-.value[data-quality="excellent"] > header strong { color: #75d99c; }
-.value[data-quality="mixed"] > header strong { color: var(--gold); }
-.value[data-quality="weak"] > header strong { color: #ef9c5c; }
-.value[data-quality="poor"] > header strong { color: var(--danger); }
-.modeScores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin: 6px 0; }
-.modeScores span { min-width: 0; display: grid; padding: 5px; border: 1px solid var(--line); }
-.modeScores small { color: var(--faint); font-size: 8px; text-transform: uppercase; }
-.modeScores b { color: var(--ink); font: 600 13px "Barlow Condensed"; text-transform: capitalize; }
-.value p { margin: 2px 0; color: var(--muted); font-size: 9px; }
 
 @media (max-width: 800px) {
   .history > div { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
@@ -270,6 +239,5 @@
   .sourceLinks { flex-direction: column; }
   .weaponStats > span { grid-template-columns: minmax(0, 1fr) 30px; }
   .weaponStats small { grid-column: 1 / -1; }
-  .perks { grid-template-columns: minmax(0, 1fr); }
   .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
