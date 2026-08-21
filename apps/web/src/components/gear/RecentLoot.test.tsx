@@ -97,6 +97,21 @@ describe("RecentItemRow", () => {
     expect(Array.from(screen.getByRole("combobox", { name: "Recent loot cards to keep" }).querySelectorAll("option")).map((option) => option.textContent)).toEqual(["12", "24", "48"]);
   });
 
+  it("restores direct thumbs-up and thumbs-down review actions on Fireteam loot", () => {
+    const onTag = vi.fn();
+    const { rerender } = render(<MemoryRouter><CompactRecentLootBar items={[{ ...weapon, kind: "weapon" }]} onTag={onTag} onHide={vi.fn()} /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep Recent Rifle" }));
+    expect(onTag).toHaveBeenLastCalledWith(expect.objectContaining({ instanceId: "1" }), "keep");
+    fireEvent.click(screen.getByRole("button", { name: "Mark Recent Rifle as junk" }));
+    expect(onTag).toHaveBeenLastCalledWith(expect.objectContaining({ instanceId: "1" }), "junk");
+
+    rerender(<MemoryRouter><CompactRecentLootBar items={[{ ...weapon, kind: "weapon", tag: "keep" }]} onTag={onTag} onHide={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: "Keep Recent Rifle" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Keep Recent Rifle" }));
+    expect(onTag).toHaveBeenLastCalledWith(expect.objectContaining({ instanceId: "1" }), undefined);
+  });
+
   it("renders catalyst observations as icon cards with progress details", () => {
     render(<MemoryRouter><CompactRecentLootBar items={[]} catalysts={[{ recordHash: "cat-1", name: "Sunshot Catalyst", icon: "/sunshot.jpg", state: "obtained", percent: 63, observedAt: "2026-08-06T12:00:00Z" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
 

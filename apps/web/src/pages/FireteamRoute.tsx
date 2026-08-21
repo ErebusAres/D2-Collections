@@ -144,14 +144,14 @@ function FireteamRefreshCountdown() {
       <span className={styles.fireteamRefreshTimer} aria-live="polite"><Timer size={15} />{label}</span>
       <section className={styles.fireteamTrackedOrders}>
         <header>
-          <span>Tracked in Destiny · {orders.length}</span>
+          <span>Active Orders · {orders.length}</span>
           <Link to="/journey/season"><strong>Seasonal Hub Orders</strong><ArrowRight /></Link>
         </header>
         {orders.length
           ? orders.map((order) => <SeasonalHubOrder key={order.instanceId} order={order} />)
           : result.isLoading
-            ? <p>Loading tracked Hub orders…</p>
-            : <p>No tracked Seasonal Hub orders.</p>}
+            ? <p>Loading active Hub orders…</p>
+            : <p>No active Seasonal Hub orders.</p>}
       </section>
     </div>
   </aside></>;

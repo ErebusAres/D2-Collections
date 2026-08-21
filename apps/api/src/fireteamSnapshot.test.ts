@@ -4,6 +4,7 @@ import {
   FIRETEAM_MAX_REFRESHES_PER_CRON,
   fireteamRefreshState,
   fireteamRetryAfter,
+  fireteamSharedQuests,
   fireteamSnapshotAdvanced,
   fireteamSourceAdvanced,
   fireteamSnapshotUsable,
@@ -33,6 +34,19 @@ describe("Fireteam snapshot contract", () => {
   it("does not claim a new cycle until a newer snapshot version commits", () => {
     expect(fireteamSnapshotAdvanced(7, 7)).toBe(false);
     expect(fireteamSnapshotAdvanced(7, 8)).toBe(true);
+  });
+
+  it("commits every active Seasonal Hub Order while keeping other pursuits opt-in", () => {
+    const quests = [
+      pursuit("tracked-quest", "quest", true),
+      pursuit("hub-order", "order", false),
+      pursuit("private-quest", "quest", false)
+    ];
+
+    const shared = fireteamSharedQuests(quests, new Set(["tracked-quest"]));
+
+    expect(shared.map((quest) => quest.instanceId)).toEqual(["tracked-quest", "hub-order"]);
+    expect(shared.every((quest) => quest.steps === undefined)).toBe(true);
   });
 
   it("rejects repeated or stale Bungie source snapshots instead of moving Last updated", () => {
@@ -68,3 +82,24 @@ describe("Fireteam snapshot contract", () => {
     expect(fireteamRetryAfter({ retryAfterSeconds: 90 }, now)).toBe("2026-08-20T12:01:30.000Z");
   });
 });
+
+function pursuit(instanceId: string, category: "quest" | "order", inGameTracked: boolean) {
+  return {
+    instanceId,
+    itemHash: `hash-${instanceId}`,
+    name: instanceId,
+    description: "Snapshot pursuit",
+    icon: "",
+    currentStep: "Complete the objective",
+    characterId: "character-1",
+    inGameTracked,
+    sitePinned: false,
+    isExoticUnlock: false,
+    rewards: [],
+    objectives: [{ objectiveHash: `objective-${instanceId}`, name: "Progress", progress: 1, completionValue: 5, complete: false, percent: 20 }],
+    steps: [{ itemHash: "step", stepNumber: 1, name: "Step", description: "Do it", status: "current" as const, objectives: [], percent: 0, progressKnown: true }],
+    percent: 20,
+    updatedAt: "2026-08-20T12:00:00.000Z",
+    category
+  };
+}

@@ -1,5 +1,5 @@
 import type { ArmorItem, GearTag, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
-import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, Columns3, ExternalLink, Sparkles } from "lucide-react";
+import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, Columns3, ExternalLink, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
@@ -224,9 +224,18 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
       <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>
-    <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />{actions}</div>
+    <div className={styles.cardActions}>{compact && <QuickLootReview item={item} onTag={onTag} busy={busy} />}<GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />{actions}</div>
     {open && <ItemTooltip id={tooltipId} item={item} />}
   </article>;
+}
+
+function QuickLootReview({ item, onTag, busy }: { item: LootItem; onTag: (tag?: GearTag) => void; busy: boolean }) {
+  const keep = item.tag === "keep";
+  const junk = item.tag === "junk";
+  return <div className={styles.quickReview} aria-label={`Review ${item.name}`}>
+    <button type="button" className={styles.quickKeep} aria-label={`Keep ${item.name}`} aria-pressed={keep} title={keep ? "Clear Keep" : "Keep"} disabled={busy} onClick={() => onTag(keep ? undefined : "keep")}><ThumbsUp /></button>
+    <button type="button" className={styles.quickJunk} aria-label={`Mark ${item.name} as junk`} aria-pressed={junk} title={junk ? "Clear Junk" : "Junk"} disabled={busy} onClick={() => onTag(junk ? undefined : "junk")}><ThumbsDown /></button>
+  </div>;
 }
 
 export function ItemTooltip({ item, id }: { item: LootItem; id?: string }) {

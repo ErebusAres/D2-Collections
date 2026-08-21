@@ -88,6 +88,7 @@ import {
   FIRETEAM_MAX_REFRESHES_PER_CRON,
   fireteamRefreshState,
   fireteamRetryAfter,
+  fireteamSharedQuests,
   fireteamSourceAdvanced,
   fireteamSnapshotUsable,
   nextFireteamRefreshAt
@@ -1720,9 +1721,7 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   const questTracking = reconcileDestinyTrackedQuests(allQuests.quests, previousTrackedItems, previousPayload?.questUntrackedObservationCounts || {});
   const activeTrackedQuests = questTracking.items;
   const activeQuestIds = new Set(activeTrackedQuests.map((item) => item.id));
-  const compactSharedQuests = allQuests.quests
-    .filter((quest) => activeQuestIds.has(quest.instanceId))
-    .map((quest) => ({ ...quest, steps: undefined }));
+  const compactSharedQuests = fireteamSharedQuests(allQuests.quests, activeQuestIds);
 
   const siteTrackedGuardianRanks = new Set<string>(Array.isArray(settings?.siteTrackedGuardianRankIds) ? settings.siteTrackedGuardianRankIds : []);
   const guardianRanks = normalizeGuardianRanks(profile, guardianRankManifest, snapshotCharacter.characterId);

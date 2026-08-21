@@ -1,3 +1,4 @@
+import type { QuestProgress } from "@guardian-nexus/contracts";
 import type { SavedPartyMember, GuardianPresenceState } from "./fireteamReliability";
 
 export const FIRETEAM_REFRESH_INTERVAL_MS = 5 * 60_000;
@@ -78,6 +79,17 @@ export function fireteamRetryAfter(error: unknown, now = Date.now()): string {
 
 export function fireteamSnapshotAdvanced(previousVersion: number | undefined, nextVersion: number | undefined): boolean {
   return Number.isFinite(nextVersion) && Number(nextVersion) > Number(previousVersion || 0);
+}
+
+/**
+ * The Fireteam rail owns Seasonal Hub Order visibility, so every order in the
+ * current pursuit inventory must be present in the committed snapshot. Other
+ * pursuits remain opt-in through Destiny or Guardian Nexus tracking.
+ */
+export function fireteamSharedQuests(quests: QuestProgress[], trackedQuestIds: ReadonlySet<string>): QuestProgress[] {
+  return quests
+    .filter((quest) => quest.category === "order" || trackedQuestIds.has(quest.instanceId))
+    .map((quest) => ({ ...quest, steps: undefined }));
 }
 
 export function fireteamSourceAdvanced(

@@ -60,10 +60,10 @@ describe("Fireteam page", () => {
     expect(refetchQueries).toHaveBeenCalledWith({ queryKey: ["fireteam-activity", "member-1", "c1"], exact: true, type: "active" });
   });
 
-  it("derives tracked Hub orders from the same snapshot without a quest endpoint", async () => {
-    vi.mocked(api).mockResolvedValue(fireteamEnvelope(1, new Date(Date.now()).toISOString(), [order()]));
+  it("derives every active Hub order from the same snapshot without requiring Destiny tracking", async () => {
+    vi.mocked(api).mockResolvedValue(fireteamEnvelope(1, new Date(Date.now()).toISOString(), [order(false)]));
     renderFireteam();
-    expect(await screen.findByText("Tracked in Destiny · 1")).toBeTruthy();
+    expect(await screen.findByText("Active Orders · 1")).toBeTruthy();
     expect(screen.getByRole("link", { name: /Atomic order/ }).getAttribute("href")).toBe("/quests/order-1");
     expect(vi.mocked(api).mock.calls.every(([path]) => String(path).startsWith("/api/v2/fireteam?"))).toBe(true);
     expect(queuedApi).not.toHaveBeenCalled();
@@ -141,7 +141,7 @@ function fireteamEnvelope(snapshotVersion: number, committedAt?: string, quests:
   return { data, freshness: { state: snapshotVersion ? "fresh" as const : "stale" as const, observedAt: committedAt || new Date().toISOString() }, warnings: [], requestId: "fireteam" };
 }
 
-function order(): QuestProgress {
+function order(inGameTracked = true): QuestProgress {
   return {
     instanceId: "order-1",
     itemHash: "hash-1",
@@ -151,7 +151,7 @@ function order(): QuestProgress {
     icon: "",
     currentStep: "Defeat targets",
     characterId: "c1",
-    inGameTracked: true,
+    inGameTracked,
     sitePinned: false,
     isExoticUnlock: false,
     rewards: [],

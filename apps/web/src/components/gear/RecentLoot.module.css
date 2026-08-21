@@ -197,6 +197,11 @@
 .cardActions { min-height: 29px; display: flex; justify-content: center; gap: 3px; }
 .cardActions > * { min-width: 0; }
 .cardActions button { min-width: 24px; height: 26px; padding: 0 4px; }
+.quickReview { display: flex; gap: 2px; }
+.quickReview button { width: 21px; min-width: 21px; display: grid; place-items: center; border: 1px solid var(--line); background: rgba(255,255,255,.025); color: var(--faint); }
+.quickReview svg { width: 12px; height: 12px; }
+.quickReview .quickKeep:hover:not(:disabled), .quickReview .quickKeep:focus-visible, .quickReview .quickKeep[aria-pressed="true"] { border-color: rgba(117,217,156,.62); background: rgba(117,217,156,.12); color: #75d99c; }
+.quickReview .quickJunk:hover:not(:disabled), .quickReview .quickJunk:focus-visible, .quickReview .quickJunk[aria-pressed="true"] { border-color: rgba(239,121,134,.62); background: rgba(239,121,134,.12); color: var(--danger); }
 .history > div { grid-template-columns: repeat(auto-fill, minmax(104px, 104px)); align-items: start; gap: 10px; }
 .history .card { min-width: 104px; min-height: 0; }
 .compactCard { min-width: 82px; width: 82px; min-height: 137px; height: auto; padding: 3px; }
