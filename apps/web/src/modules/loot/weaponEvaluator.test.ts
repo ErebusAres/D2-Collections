@@ -35,13 +35,14 @@ describe("weapon evaluator", () => {
     expect(result.source).toContain("DIM");
   });
 
-  it("scores every selectable option instead of only the currently selected plugs", () => {
+  it("scores only the equipped roll even when the full pool contains recommended perks", () => {
     const candidate = weapon("877384", ["bad-barrel", "bad-mag", "bad-trait-a", "bad-trait-b"]);
     const recommended = ["839105230", "106909392", "3824105627", "1134488199"];
     candidate.perkColumns.forEach((column, index) => {
       column.options = [{ hash: recommended[index]!, name: recommended[index]!, description: "" }];
     });
-    expect(evaluateWeapon(candidate, ratings)).toMatchObject({ state: "scored", pve: 100, overall: 75, confidence: "high", basis: "weapon" });
+    expect(evaluateWeapon(candidate, ratings)).toMatchObject({ state: "scored", pve: 0, overall: 0, confidence: "high", basis: "weapon" });
+    expect(evaluateWeaponPerk(candidate, 0, recommended[0]!, ratings)).toMatchObject({ state: "scored", pve: 100, recommended: true });
   });
 
   it("uses equal column weights while preserving the recommended trait pairing", () => {
@@ -123,9 +124,10 @@ describe("weapon evaluator", () => {
   });
 
   it("recognizes DIM-recommended options on both Aurora Dawn item hashes", () => {
-    const aurora = weapon("2111625436", ["unpicked-blade", "unpicked-guard", "unpicked-trait-a", "unpicked-trait-b"], "Sword");
+    const recommended = ["938542991", "269888150", "4132187021", "3913600130"];
+    const aurora = weapon("2111625436", recommended, "Sword");
     aurora.name = "Aurora Dawn";
-    ["938542991", "269888150", "4132187021", "3913600130"].forEach((hash, index) => {
+    recommended.forEach((hash, index) => {
       aurora.perkColumns[index]!.options = [{ hash, name: hash, description: "" }];
     });
     expect(evaluateWeapon(aurora, ratings)).toMatchObject({ state: "scored", pve: 100, overall: 100, basis: "weapon", confidence: "high" });

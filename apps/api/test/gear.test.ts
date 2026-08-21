@@ -27,11 +27,13 @@ describe("normalizeGear", () => {
     const manifest: any = {
       version: "weapon-test", generatedAt: "now",
       gearItemDefinitions: { "11": { itemType: 3, itemTypeDisplayName: "Auto Rifle", defaultDamageType: 2, inventory: { tierTypeName: "Legendary", bucketTypeHash: "2465295065" }, displayProperties: { name: "Test Rifle", icon: "/rifle.png" } } },
+      weaponPerkColumns: { "11": [[], [], ["22", "24", "25"], []] },
       plugDefinitions: {
         "21": { hash: 21, itemTypeDisplayName: "Intrinsic", displayProperties: { name: "Adaptive Frame" }, plug: { plugCategoryIdentifier: "weapon.intrinsics" } },
         "22": { hash: 22, itemTypeDisplayName: "Trait", displayProperties: { name: "Incandescent" }, plug: { plugCategoryIdentifier: "weapon.traits" } },
         "23": { hash: 23, itemTypeDisplayName: "Origin Trait", displayProperties: { name: "Test Origin" }, plug: { plugCategoryIdentifier: "weapon.origin_traits" } },
-        "24": { hash: 24, itemTypeDisplayName: "Trait", displayProperties: { name: "Target Lock" }, plug: { plugCategoryIdentifier: "weapon.traits" } }
+        "24": { hash: 24, itemTypeDisplayName: "Trait", displayProperties: { name: "Target Lock" }, plug: { plugCategoryIdentifier: "weapon.traits" } },
+        "25": { hash: 25, itemTypeDisplayName: "Trait", displayProperties: { name: "Onslaught" }, plug: { plugCategoryIdentifier: "weapon.traits" } }
       }, statDefinitions: {}
     };
 
@@ -39,7 +41,9 @@ describe("normalizeGear", () => {
     expect(data.gearSchemaVersion).toBe(2);
     expect(data.weapons).toHaveLength(2);
     expect(data.weapons?.[0]).toMatchObject({ name: "Test Rifle", slot: "Energy", damageType: "Arc", gearTier: 4, crafted: true, duplicateCount: 2, reviewState: "configured" });
-    expect(data.weapons?.[0]?.perkColumns[1]).toMatchObject({ ratingColumn: 2, active: { name: "Incandescent" }, options: expect.arrayContaining([expect.objectContaining({ name: "Target Lock" })]) });
+    const traitColumn = data.weapons?.[0]?.perkColumns.find((column) => column.ratingColumn === 2);
+    expect(traitColumn).toMatchObject({ ratingColumn: 2, active: { name: "Incandescent" }, options: expect.arrayContaining([expect.objectContaining({ name: "Target Lock" })]) });
+    expect(traitColumn?.options.map((perk) => perk.name)).toEqual(expect.arrayContaining(["Incandescent", "Target Lock", "Onslaught"]));
     expect(data.weapons?.[1]).toMatchObject({ gearTier: 2, duplicateCount: 2, reviewState: "duplicate-review" });
   });
 

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
 import { playCompletionChime } from "../services/completionAudio";
 import { FireteamPage } from "./FireteamPage";
-import styles from "./FireteamPage.module.css";
+import styles from "./Pages.module.css";
 
 const setPreference = vi.fn();
 const guardianSettings = vi.hoisted(() => ({ autoRefresh: false }));
@@ -118,7 +118,7 @@ describe("Fireteam tracked items", () => {
     expect(screen.queryByRole("combobox", { name: "Recent loot cards to keep" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
-    expect((await screen.findByRole("tooltip")).textContent).toContain("Recent Rifle");
+    expect((await screen.findByRole("dialog")).textContent).toContain("Recent Rifle");
     expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Favorite" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Keep" }));

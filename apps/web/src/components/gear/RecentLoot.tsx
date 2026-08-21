@@ -1,5 +1,5 @@
 import type { ArmorItem, GearTag, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
-import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, Sparkles } from "lucide-react";
+import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, Sparkles, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
@@ -203,7 +203,7 @@ export function TimelineEventTooltip({ event, id }: { event: RecentItemEvent; id
 }
 
 export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, compact = false, actions }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; busy: boolean; compact?: boolean; actions?: ReactNode }) {
-  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState(false);
   const tooltipId = useId();
   const [, setRatingsLoaded] = useState(false);
   const [ratingAttempt, setRatingAttempt] = useState(0);
@@ -219,19 +219,19 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
     return () => { cancelled = true; if (retry !== undefined) window.clearTimeout(retry); };
   }, [item.kind, ratingAttempt]);
   const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
-  return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} tabIndex={0} onKeyDown={(key) => { if (key.key === "Escape") setOpen(false); }} onFocus={() => { onActivate(); setOpen(true); }} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) { onDeactivate(); setOpen(false); } }} onMouseEnter={() => { onActivate(); setOpen(true); }} onMouseLeave={() => { onDeactivate(); setOpen(false); }}>
-    <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={open} aria-describedby={open ? tooltipId : undefined} onClick={() => setOpen(true)}>
+  return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} data-selected={selected} onKeyDown={(key) => { if (key.key === "Escape") setSelected(false); }} onFocus={onActivate} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onDeactivate(); }} onMouseEnter={onActivate} onMouseLeave={onDeactivate}>
+    <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={selected} aria-controls={selected ? tooltipId : undefined} onClick={() => setSelected((value) => !value)}>
       <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
       <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>
     <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />{actions}</div>
-    {open && <ItemTooltip id={tooltipId} item={item} />}
+    {selected && <ItemTooltip id={tooltipId} item={item} utility onClose={() => setSelected(false)} />}
   </article>;
 }
 
-export function ItemTooltip({ item, id }: { item: LootItem; id?: string }) {
-  return <aside id={id} className={styles.tooltip} role="tooltip"><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span></header>
+export function ItemTooltip({ item, id, utility = false, onClose }: { item: LootItem; id?: string; utility?: boolean; onClose?: () => void }) {
+  return <aside id={id} className={`${styles.tooltip} ${utility ? styles.utilityCard : ""}`} role={utility ? "dialog" : "tooltip"} aria-label={utility ? `${item.name} details` : undefined}><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span>{utility && <button className={styles.utilityClose} type="button" aria-label={`Close ${item.name} details`} onClick={onClose}><X /></button>}</header>
     <div className={styles.identity}><b>{item.power || "—"} Power</b><span>{item.kind === "weapon" ? item.slot : item.className}</span><span>{item.inPostmaster ? "Postmaster" : item.location}{item.equipped ? " · Equipped" : ""}</span></div>
     <nav className={styles.sourceLinks}><a href={`https://www.light.gg/db/items/${item.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a><span><Clock3 /> First observed {new Date(item.firstSeenAt).toLocaleString()}</span></nav>
     {item.kind === "weapon" ? <>

@@ -19,10 +19,14 @@ describe("RecentItemRow", () => {
     expect(screen.getByLabelText("Weapon tier 3").querySelectorAll("span")).toHaveLength(5);
   });
 
-  it("keeps the detail tooltip open when the inspection tile receives focus and a click", () => {
+  it("opens a persistent utility card only when the inspection tile is selected", () => {
     render(<RecentItemRow title="Recently acquired" items={recentLoot([], [weapon])} onTag={vi.fn()} />);
+    fireEvent.mouseEnter(screen.getByText("Recent Rifle").closest("article")!);
+    expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
-    expect(screen.getByRole("tooltip").textContent).toContain("Recent Rifle");
+    expect(screen.getByRole("dialog", { name: "Recent Rifle details" }).textContent).toContain("Recent Rifle");
+    fireEvent.click(screen.getByRole("button", { name: "Close Recent Rifle details" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("labels a roll with no visible rating perks as pending instead of generic Bungie data", async () => {
@@ -63,16 +67,16 @@ describe("RecentItemRow", () => {
     await waitFor(() => expect(screen.getByText("Roll 75%")).toBeTruthy());
     expect(screen.getByText("Strong")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
-    expect(screen.getByRole("tooltip").textContent).toContain("Exact weapon");
-    expect(screen.getByRole("tooltip").textContent).toContain("high confidence");
-    expect(screen.getByRole("tooltip").textContent).toContain("PvE100%");
-    expect(screen.getByRole("tooltip").textContent).toContain("PvP50%");
+    expect(screen.getByRole("dialog").textContent).toContain("Exact DIM weapon");
+    expect(screen.getByRole("dialog").textContent).toContain("high confidence");
+    expect(screen.getByRole("dialog").textContent).toContain("PvE100%");
+    expect(screen.getByRole("dialog").textContent).toContain("PvP50%");
     cleanup();
     render(<RecentItemRow title="Partially observed" items={recentLoot([], [{ ...rated, rollDataState: "partial" as const }])} onTag={vi.fn()} />);
     await waitFor(() => expect(screen.getByText("Est. 75%")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
-    expect(screen.getByRole("tooltip").textContent).toContain("Provisional Strong");
-    expect(screen.getByRole("tooltip").textContent).toContain("medium confidence");
+    expect(screen.getByRole("dialog").textContent).toContain("Est. Strong");
+    expect(screen.getByRole("dialog").textContent).toContain("medium confidence");
     cleanup();
     render(<MemoryRouter><CompactRecentLootBar items={[{ ...rated, kind: "weapon" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText("Roll 75%")).toBeTruthy());

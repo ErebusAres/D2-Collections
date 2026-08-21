@@ -8,7 +8,7 @@ import { AuthGate, Freshness, PageHeader, QueryState } from "../components/commo
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { playCompletionChime, primeCompletionAudio } from "../services/completionAudio";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
-import styles from "./FireteamPage.module.css";
+import styles from "./Pages.module.css";
 
 const BUNGIE_PRESENCE_DISCLAIMER = "Bungie marks party and current-activity data as non-authoritative and potentially stale.";
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
@@ -202,11 +202,6 @@ export function FireteamPage() {
     }, TRACKED_ITEM_EXIT_MS);
   };
 
-  const onlineMembers = data?.members.filter((member) => member.onlineState === "online").length || 0;
-  const sharingMembers = data?.members.filter((member) => member.sharing).length || 0;
-  const trackedItemCount = data?.members.reduce((total, member) => total + (Array.isArray(member.trackedItems) ? member.trackedItems.length : member.quests.length), 0) || 0;
-  const leader = data?.members.find((member) => member.isLeader);
-
   return <AuthGate>
     <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="One backend-owned snapshot refreshes roster, shared progress, and Recent Loot together every 5 minutes. Page reloads read only committed data." actions={<>
       <Freshness observedAt={data?.pageUpdatedAt} label="Last updated" warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
@@ -220,15 +215,8 @@ export function FireteamPage() {
       </>}
     </>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
-    {data && <section className={styles.overview} aria-label="Fireteam snapshot overview">
-      <div><span>Current roster</span><strong>{data.members.length} Guardian{data.members.length === 1 ? "" : "s"}</strong><small>{onlineMembers} confirmed online</small></div>
-      <div><span>Shared progress</span><strong>{trackedItemCount} tracked</strong><small>{sharingMembers} member{sharingMembers === 1 ? "" : "s"} sharing</small></div>
-      <div><span>Fireteam leader</span><strong>{leader?.inGameName || "Unconfirmed"}</strong><small>{leader ? presenceLocation(leader) : "Waiting for Bungie roster state"}</small></div>
-      <div><span>Snapshot</span><strong>Version {data.snapshotVersion || "—"}</strong><small>{data.refreshState === "delayed" ? "Refresh delayed" : data.refreshState === "refreshing" ? "Refresh in progress" : "Committed and readable"}</small></div>
-    </section>}
     {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} busy={gearState.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Private observation continues with Fireteam snapshots</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
     {data && <>
-      <header className={styles.sectionHeading}><span><small>Live cooperative view</small><h2>Current roster</h2></span><p>Presence, shared objectives, guides, and account-safe commands from one committed snapshot</p></header>
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
     </>}
     {session?.authenticated && <FireteamActivityFeed feed={visibleActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : activityFeed.error instanceof Error ? activityFeed.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}

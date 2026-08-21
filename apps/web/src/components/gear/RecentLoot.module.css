@@ -124,7 +124,7 @@
   color: var(--ink);
 }
 .tooltip::before { content: ""; position: absolute; left: 28px; top: -6px; width: 10px; height: 10px; border-left: 1px solid var(--cyan); border-top: 1px solid var(--cyan); background: #071119; transform: rotate(45deg); }
-.tooltip > header { min-width: 0; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 9px; }
+.tooltip > header { min-width: 0; display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 9px; }
 .tooltip header img { width: 48px; height: 48px; }
 .tooltip header span { min-width: 0; display: grid; }
 .tooltip > header > span:only-child { grid-column: 1 / -1; }
@@ -209,7 +209,10 @@
 .timelineCard .cardActions { display: none; }
 .carouselPage > .card:nth-last-child(-n+4) .tooltip { right: 0; left: auto; }
 
-.tooltip { width: min(440px, calc(100vw - 24px)); max-height: min(640px, calc(100vh - 32px)); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; text-align: left; }
+.tooltip { width: min(400px, calc(100vw - 24px)); max-height: min(540px, calc(100vh - 32px)); overflow: visible auto; overscroll-behavior: contain; text-align: left; }
+.card[data-selected=true] { border-color: var(--cyan); box-shadow: 0 0 0 1px rgba(155,231,226,.22), 0 10px 28px rgba(0,0,0,.36); }
+.utilityCard { z-index: 120; border-color: rgba(255,255,255,.3); background:#111820; }
+.utilityClose { width:28px;height:28px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.22);color:var(--muted) }.utilityClose:hover,.utilityClose:focus-visible{border-color:var(--cyan);color:var(--cyan)}.utilityClose svg{width:14px}
 .identity { min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 8px -10px 0; padding: 9px 10px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .identity b { color: var(--cyan); font: 600 18px "Barlow Condensed"; }
 .identity span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
