@@ -459,7 +459,7 @@ export function profileComponentsFor(mode: ProfileMode): string {
         : mode === "recent-items"
           ? "100,102,200,201,205,300,301,304,305,307,310,800,900"
         : mode === "gear-action"
-          ? "100,102,200,201,205,307"
+          ? "100,102,200,201,205,305,307,310"
     : mode === "mailbox"
       ? "100,200,201"
         : mode === "loadouts"

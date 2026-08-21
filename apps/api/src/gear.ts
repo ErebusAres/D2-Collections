@@ -170,11 +170,13 @@ function weaponPerkColumns(itemSockets: any[], reusableBySocket: Record<string, 
       ...(reusableBySocket[String(socketIndex)] || []).map((entry: any) => entry?.plugItemHash ?? entry?.plugHash)
     ].map(hashOf).filter((hash) => hash !== "0");
     const definitions = [...new Map(optionHashes.map((hash) => [hash, plugs[hash]]).filter((entry): entry is [string, any] => Boolean(entry[1])))];
-    const kind = weaponPlugKind(activeDefinition || definitions[0]?.[1]);
-    if (!kind || kind === "origin" || kind === "masterwork") return undefined;
+    const plugKind = weaponPlugKind(activeDefinition || definitions[0]?.[1]);
+    if (!plugKind || plugKind === "masterwork") return undefined;
     const options = definitions.map(([, definition]) => perk(definition)).filter((value) => value.name);
     const ratingKind = weaponRatingKind(activeDefinition || definitions[0]?.[1]);
-    return { socketIndex, ...(ratingKind ? { ratingKind } : {}), ...(activeDefinition ? { active: perk(activeDefinition) } : {}), options };
+    const selectablePlugHashes = [...new Set([activeHash, ...optionHashes].filter((hash) => hash !== "0"))];
+    const kind = plugKind === "origin" ? "origin" as const : ratingKind;
+    return { socketIndex, ...(kind ? { kind } : {}), ...(ratingKind ? { ratingKind } : {}), ...(activeDefinition ? { active: perk(activeDefinition) } : {}), options, selectablePlugHashes };
   }).filter((value): value is WeaponPerkColumn & { ratingKind?: "first" | "second" | "trait" } => Boolean(value));
   let traitColumn = 2;
   const mapped: WeaponPerkColumn[] = columns.map(({ ratingKind, ...column }): WeaponPerkColumn => {
@@ -188,13 +190,14 @@ function weaponPerkColumns(itemSockets: any[], reusableBySocket: Record<string, 
     return column;
   });
   if (!fullPool.some((column) => column?.length)) return mapped;
-  return ([0, 1, 2, 3] as const).flatMap((ratingColumn) => {
+  const rated = ([0, 1, 2, 3] as const).flatMap((ratingColumn) => {
     const current = mapped.find((column) => column.ratingColumn === ratingColumn);
     const poolOptions = (fullPool[ratingColumn] || []).map((hash) => plugs[hash]).filter(Boolean).map(perk).filter((value) => value.name);
     const options = [...new Map([...(current?.options || []), ...poolOptions].map((option) => [option.hash, option])).values()];
     if (!current && !options.length) return [];
-    return [{ socketIndex: current?.socketIndex ?? -(ratingColumn + 1), ratingColumn, ...(current?.active ? { active: current.active } : {}), options }];
+    return [{ socketIndex: current?.socketIndex ?? -(ratingColumn + 1), ratingColumn, ...(current?.kind ? { kind: current.kind } : {}), ...(current?.active ? { active: current.active } : {}), ...(current?.selectablePlugHashes ? { selectablePlugHashes: current.selectablePlugHashes } : {}), options }];
   });
+  return [...rated, ...mapped.filter((column) => column.kind === "origin")];
 }
 
 function weaponRatingKind(plug: any): "first" | "second" | "trait" | undefined {
@@ -211,9 +214,9 @@ function weaponPlugKind(plug: any): "perk" | "origin" | "masterwork" | undefined
   const category = normalize(plug?.plug?.plugCategoryIdentifier);
   const text = normalize(`${plug?.displayProperties?.name} ${plug?.itemTypeDisplayName} ${category}`);
   if (/ornament|shader|tracker|kill counter|memento|empty /.test(text)) return undefined;
-  if (/origin/.test(category)) return "origin";
+  if (/origin/.test(text)) return "origin";
   if (/masterwork/.test(category) || /masterwork/.test(plug?.itemTypeDisplayName || "")) return "masterwork";
-  if (/weapon|intrinsic|frame|barrel|magazine|scope|sight|grip|stock|trait|perk|enhancement/.test(category)) return "perk";
+  if (/weapon|intrinsic|frame|barrel|magazine|battery|scope|sight|blade|guard|haft|string|arrow|grip|stock|trait|perk|enhancement/.test(text)) return "perk";
   return undefined;
 }
 

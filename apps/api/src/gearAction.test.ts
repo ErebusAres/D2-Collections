@@ -4,7 +4,7 @@ import { gearActionItemsFromProfile } from "./gear";
 
 describe("gear action inventory", () => {
   it("requests only the inventory components required for mutations", () => {
-    expect(profileComponentsFor("gear-action")).toBe("100,102,200,201,205,307");
+    expect(profileComponentsFor("gear-action")).toBe("100,102,200,201,205,305,307,310");
   });
 
   it("finds action targets without loading or normalizing the Gear manifest", () => {

@@ -819,8 +819,12 @@ export interface WeaponPerkColumn {
   socketIndex: number;
   /** DIM wishlist position: barrel/sight, magazine/battery, trait one, or trait two. */
   ratingColumn?: 0 | 1 | 2 | 3;
+  /** Semantic socket family used for weapon-specific labels and origin traits. */
+  kind?: "first" | "second" | "trait" | "origin";
   active?: ArmorPerk;
   options: ArmorPerk[];
+  /** Plugs Bungie reports as reversible choices on this exact physical roll. */
+  selectablePlugHashes?: string[];
 }
 
 export interface WeaponStat {
@@ -911,7 +915,8 @@ export type GearActionRequest =
   | { action: "transfer"; itemInstanceId: string; target: "vault" | "character"; targetCharacterId?: string }
   | { action: "equip"; itemInstanceId: string; characterId: string }
   | { action: "setLock"; itemInstanceId: string; locked: boolean; characterId?: string }
-  | { action: "groupPull"; itemInstanceIds: string[]; characterId: string };
+  | { action: "groupPull"; itemInstanceIds: string[]; characterId: string }
+  | { action: "setWeaponSocket"; itemInstanceId: string; characterId: string; socketIndex: number; plugItemHash: string };
 
 export interface GearActionResult {
   action: GearActionRequest["action"];
