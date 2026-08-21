@@ -1717,7 +1717,9 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   const sessionObservation = observeGuardianSession(profileCharacters, previousPayload?.sessionPresenceEvidence, sourceObservedAt);
   const snapshotCharacter = profileCharacters.find((entry) => entry.characterId === sessionObservation.activeCharacterId)
     || requestedCharacter;
-  const allQuests = normalizeQuests(profile, questManifest, snapshotCharacter.characterId, new Set(pinnedIds));
+  // Fireteam presence follows the observed active character, but the order rail
+  // belongs to the character the player selected in Guardian Nexus.
+  const allQuests = normalizeQuests(profile, questManifest, requestedCharacter.characterId, new Set(pinnedIds));
   const questTracking = reconcileDestinyTrackedQuests(allQuests.quests, previousTrackedItems, previousPayload?.questUntrackedObservationCounts || {});
   const activeTrackedQuests = questTracking.items;
   const activeQuestIds = new Set(activeTrackedQuests.map((item) => item.id));

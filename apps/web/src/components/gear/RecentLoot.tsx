@@ -204,6 +204,7 @@ export function TimelineEventTooltip({ event, id }: { event: RecentItemEvent; id
 
 export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, compact = false, actions }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; busy: boolean; compact?: boolean; actions?: ReactNode }) {
   const [selected, setSelected] = useState(false);
+  const card = useRef<HTMLElement>(null);
   const tooltipId = useId();
   const [, setRatingsLoaded] = useState(false);
   const [ratingAttempt, setRatingAttempt] = useState(0);
@@ -218,8 +219,16 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, busy, co
     });
     return () => { cancelled = true; if (retry !== undefined) window.clearTimeout(retry); };
   }, [item.kind, ratingAttempt]);
+  useEffect(() => {
+    if (!selected) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!card.current?.contains(event.target as Node)) setSelected(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [selected]);
   const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
-  return <article className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} data-selected={selected} onKeyDown={(key) => { if (key.key === "Escape") setSelected(false); }} onFocus={onActivate} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onDeactivate(); }} onMouseEnter={onActivate} onMouseLeave={onDeactivate}>
+  return <article ref={card} className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} data-selected={selected} onKeyDown={(key) => { if (key.key === "Escape") setSelected(false); }} onFocus={onActivate} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onDeactivate(); }} onMouseEnter={onActivate} onMouseLeave={onDeactivate}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={selected} aria-controls={selected ? tooltipId : undefined} onClick={() => setSelected((value) => !value)}>
       <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
       <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong>}</span>
