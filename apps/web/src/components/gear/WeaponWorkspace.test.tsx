@@ -10,15 +10,16 @@ const weapon = (instanceId: string, perk: string): WeaponItem => ({
   perkColumns: [
     { socketIndex: 0, ratingColumn: 0, active: { hash: "Arrowhead Brake", name: "Arrowhead Brake", description: "Controls recoil." }, options: [] },
     { socketIndex: 1, ratingColumn: 1, active: { hash: "Tactical Mag", name: "Tactical Mag", description: "Improves magazine and stability." }, options: [] },
-    { socketIndex: 2, ratingColumn: 2, active: { hash: "Perpetual Motion", name: "Perpetual Motion", description: "Builds stability while moving." }, options: [
+    { socketIndex: 2, ratingColumn: 2, selectablePlugHashes: ["Perpetual Motion", "Keep Away"], active: { hash: "Perpetual Motion", name: "Perpetual Motion", description: "Builds stability while moving." }, options: [
       { hash: "Perpetual Motion", name: "Perpetual Motion", description: "Builds stability while moving." },
       { hash: "Keep Away", name: "Keep Away", description: "Improves performance at range." }
     ] },
-    { socketIndex: 3, ratingColumn: 3, active: { hash: perk, name: perk, description: "" }, options: [
+    { socketIndex: 3, ratingColumn: 3, selectablePlugHashes: [perk, "Backup Plan"], active: { hash: perk, name: perk, description: "" }, options: [
       { hash: "Incandescent", name: "Incandescent", description: "Spreads scorch." },
       { hash: "Target Lock", name: "Target Lock", description: "Builds damage on one target." },
       { hash: "Backup Plan", name: "Backup Plan", description: "Readies faster after swapping." }
-    ] }
+    ] },
+    { socketIndex: 4, kind: "origin", selectablePlugHashes: ["Origin A", "Origin B"], active: { hash: "Origin A", name: "Origin A", description: "Foundry origin." }, options: [{ hash: "Origin A", name: "Origin A", description: "Foundry origin." }, { hash: "Origin B", name: "Origin B", description: "Seasonal origin." }] }
   ],
   originTraits: [], rollDataState: "complete", reviewState: "duplicate-review", reviewReasons: ["Compare physical copies."], duplicateCount: 2, wishlisted: false,
   firstSeenAt: "2026-08-01T00:00:00Z", isNew: false
@@ -74,6 +75,17 @@ describe("WeaponWorkspace", () => {
     expect(screen.getAllByLabelText(/Backup Plan/)).toHaveLength(2);
     expect(screen.getAllByText("Barrel")).toHaveLength(2);
     expect(screen.getAllByText("Magazine")).toHaveLength(2);
+    expect(screen.getAllByText("Origin Trait")).toHaveLength(2);
     expect(screen.getAllByLabelText(/PvE not recommended for this weapon/).length).toBeGreaterThan(1);
+  });
+
+  it("selects only plugs available on the owned roll across traits and origin traits", () => {
+    const onAction = vi.fn();
+    render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={vi.fn()} onTag={vi.fn()} onAction={onAction} busy={false} />);
+    fireEvent.click(screen.getAllByRole("button", { name: /Keep Away.*Select this option/ })[0]!);
+    expect(onAction).toHaveBeenCalledWith({ action: "setWeaponSocket", itemInstanceId: "1", characterId: "character", socketIndex: 2, plugItemHash: "Keep Away" });
+    fireEvent.click(screen.getAllByRole("button", { name: /Origin B.*Select this option/ })[0]!);
+    expect(onAction).toHaveBeenCalledWith({ action: "setWeaponSocket", itemInstanceId: "1", characterId: "character", socketIndex: 4, plugItemHash: "Origin B" });
+    expect(screen.getAllByRole("button", { name: /Target Lock/ })[0]?.getAttribute("data-selectable")).toBe("false");
   });
 });

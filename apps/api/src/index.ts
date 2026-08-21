@@ -148,7 +148,8 @@ const gearActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("transfer"), itemInstanceId: z.string().regex(/^\d+$/), target: z.enum(["vault", "character"]), targetCharacterId: z.string().regex(/^\d+$/).optional() }),
   z.object({ action: z.literal("equip"), itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/) }),
   z.object({ action: z.literal("setLock"), itemInstanceId: z.string().regex(/^\d+$/), locked: z.boolean(), characterId: z.string().regex(/^\d+$/).optional() }),
-  z.object({ action: z.literal("groupPull"), itemInstanceIds: z.array(z.string().regex(/^\d+$/)).min(1).max(20), characterId: z.string().regex(/^\d+$/) })
+  z.object({ action: z.literal("groupPull"), itemInstanceIds: z.array(z.string().regex(/^\d+$/)).min(1).max(20), characterId: z.string().regex(/^\d+$/) }),
+  z.object({ action: z.literal("setWeaponSocket"), itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/), socketIndex: z.number().int().nonnegative().max(99), plugItemHash: z.string().regex(/^\d+$/) })
 ]);
 const mailboxPullSchema = z.object({ itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/), quantity: z.number().int().positive().max(999_999_999) });
 const equipLoadoutSchema = z.object({ loadoutIndex: z.number().int().nonnegative().max(99), characterId: z.string().regex(/^\d+$/) });
@@ -1555,12 +1556,18 @@ async function gearAction(request: Request, row: SessionRow, env: Env, context: 
   const result: GearActionResult = { action: input.action, succeeded: [], skipped: [], failed: [] };
   for (const instanceId of requested) {
     const item = byId.get(instanceId);
-    const targetId = input.action === "equip" || input.action === "groupPull" ? input.characterId : input.action === "transfer" ? input.targetCharacterId : input.characterId;
+    const targetId = input.action === "equip" || input.action === "groupPull" || input.action === "setWeaponSocket" ? input.characterId : input.action === "transfer" ? input.targetCharacterId : input.characterId;
     const target = targetId ? characters.find((character) => character.characterId === targetId) : undefined;
     if (!item) { result.failed.push({ itemInstanceId: instanceId, code: "ownership_invalid", message: "Item is not owned by this Guardian." }); continue; }
     if (targetId && !target) { result.failed.push({ itemInstanceId: instanceId, code: "character_invalid", message: "Target character is not owned by this Guardian." }); continue; }
     try {
-      if (input.action === "setLock") {
+      if (input.action === "setWeaponSocket") {
+        const socket = profile?.itemComponents?.sockets?.data?.[instanceId]?.sockets?.[input.socketIndex];
+        const reusable = profile?.itemComponents?.reusablePlugs?.data?.[instanceId]?.plugs?.[String(input.socketIndex)] || [];
+        const selectable = new Set([socket?.plugHash, ...reusable.map((entry: any) => entry?.plugItemHash ?? entry?.plugHash)].map((hash) => String(Number(hash || 0) >>> 0)));
+        if (!selectable.has(input.plugItemHash)) throw httpError(409, "plug_not_selectable", "That plug is not a selectable choice on this owned weapon roll.");
+        await bungiePost("/Destiny2/Actions/Items/InsertSocketPlugFree/", { plug: { socketIndex: input.socketIndex, socketArrayType: 0, plugItemHash: Number(input.plugItemHash) }, itemId: instanceId, characterId: item.ownerCharacterId || input.characterId, membershipType: row.membership_type }, env, accessToken);
+      } else if (input.action === "setLock") {
         await bungiePost("/Destiny2/Actions/Items/SetLockState/", { state: input.locked, itemId: instanceId, characterId: input.characterId || item.ownerCharacterId || selected.characterId, membershipType: row.membership_type }, env, accessToken);
       } else if (input.action === "transfer") {
         if (input.target === "vault") {

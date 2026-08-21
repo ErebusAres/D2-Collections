@@ -20,11 +20,16 @@ describe("RecentItemRow", () => {
   });
 
   it("opens a persistent utility card only when the inspection tile is selected", () => {
-    render(<RecentItemRow title="Recently acquired" items={recentLoot([], [weapon])} onTag={vi.fn()} />);
+    const onTag = vi.fn();
+    render(<RecentItemRow title="Recently acquired" items={recentLoot([], [weapon])} onTag={onTag} />);
     fireEvent.mouseEnter(screen.getByText("Recent Rifle").closest("article")!);
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
     expect(screen.getByRole("dialog", { name: "Recent Rifle details" }).textContent).toContain("Recent Rifle");
+    fireEvent.mouseLeave(screen.getByRole("button", { name: "Inspect Recent Rifle" }).closest("article")!);
+    fireEvent.keyDown(window, { key: "2", shiftKey: true });
+    expect(onTag).toHaveBeenCalledWith(expect.objectContaining({ instanceId: "1" }), "keep");
+    expect(screen.getByRole("dialog").querySelector('[aria-label*="tag" i]')).toBeTruthy();
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
