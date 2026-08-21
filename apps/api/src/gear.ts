@@ -44,6 +44,7 @@ export interface GearActionItem {
   location: ArmorItem["location"];
   equipped: boolean;
   locked: boolean;
+  bucketHash?: string;
 }
 
 export function gearActionItemsFromProfile(profile: any): Map<string, GearActionItem> {
@@ -66,7 +67,8 @@ export function gearActionItemsFromProfile(profile: any): Map<string, GearAction
       ownerCharacterId: row.ownerCharacterId,
       location: row.location,
       equipped: row.equipped,
-      locked: Boolean(Number(state[instanceId]?.state ?? row.item?.state ?? 0) & 1)
+      locked: Boolean(Number(state[instanceId]?.state ?? row.item?.state ?? 0) & 1),
+      bucketHash: row.item?.bucketHash ? String(Number(row.item.bucketHash) >>> 0) : undefined
     });
   }
   return items;

@@ -1,5 +1,5 @@
-import type { ArmorItem, GearTag, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
-import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, Sparkles, X } from "lucide-react";
+import type { ArmorItem, GearTag, LootWatcherConfig, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
+import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, LockKeyhole, PackageOpen, ShieldCheck, Sparkles, Tags, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
@@ -95,7 +95,7 @@ export function RecentEventRow({ title, subtitle, events, onTag, onSocketChange,
   </section>;
 }
 
-export function CompactRecentLootBar({ events, items = [], catalysts = [], displayLimit = 24, onDisplayLimitChange, onTag, onSocketChange, busy = false, onHide, loading = false, error, warnings = [], retentionDays, observedAt, firstObservationEstablished = false, onRetry }: { events?: RecentItemEvent[]; items?: LootItem[]; catalysts?: RecentCatalystObservation[]; displayLimit?: RecentLootDisplayLimit; onDisplayLimitChange?: (limit: RecentLootDisplayLimit) => void; onTag: (item: LootItem, tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean; onHide: () => void; loading?: boolean; error?: Error | null; warnings?: string[]; retentionDays?: number; observedAt?: string; firstObservationEstablished?: boolean; onRetry?: () => void }) {
+export function CompactRecentLootBar({ events, items = [], catalysts = [], displayLimit = 24, onDisplayLimitChange, onTag, onSocketChange, busy = false, onHide, loading = false, error, warnings = [], retentionDays, observedAt, firstObservationEstablished = false, onRetry, watchers, onWatcherChange, watcherBusy = false, watcherStatus }: { events?: RecentItemEvent[]; items?: LootItem[]; catalysts?: RecentCatalystObservation[]; displayLimit?: RecentLootDisplayLimit; onDisplayLimitChange?: (limit: RecentLootDisplayLimit) => void; onTag: (item: LootItem, tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean; onHide: () => void; loading?: boolean; error?: Error | null; warnings?: string[]; retentionDays?: number; observedAt?: string; firstObservationEstablished?: boolean; onRetry?: () => void; watchers?: LootWatcherConfig; onWatcherChange?: (key: keyof LootWatcherConfig, enabled: boolean) => void; watcherBusy?: boolean; watcherStatus?: string }) {
   const active = useRef<LootItem | undefined>(undefined);
   const viewport = useRef<HTMLDivElement | null>(null);
   const [pageSize, setPageSize] = useState(12);
@@ -142,8 +142,14 @@ export function CompactRecentLootBar({ events, items = [], catalysts = [], displ
       : firstObservationEstablished
         ? "Private baseline established. New observed changes will appear here."
         : "No item changes have been observed yet.";
+  const watcherButtons = [
+    ["farmingMode", "Farming Mode", "Keep one inventory slot free in each weapon and armor bucket by moving unprotected gear to the vault.", PackageOpen],
+    ["highestPowerLock", "Highest Power", "Lock the highest-Power weapon and armor item in every equipment slot.", LockKeyhole],
+    ["tier5FitLock", "Tier 5 fits", "Lock newly observed Tier 5 non-Exotic armor when its archetype and bonus-stat combination is new.", ShieldCheck],
+    ["duplicateFitJunk", "Duplicate fits", "Tag inferior duplicate non-Exotic armor fits as junk, grouped by armor name, archetype, and bonus stat.", Tags]
+  ] as const;
   return <section className={styles.compactBar}>
-    <header><Sparkles /><strong>Recent loot</strong></header>
+    <header><span className={styles.compactTitle}><Sparkles /><strong>Recent loot</strong></span>{watchers && onWatcherChange && <nav className={styles.lootWatchers} aria-label="Recent Loot watchers">{watcherButtons.map(([key, label, description, Icon]) => <button key={key} type="button" aria-label={`${label} watcher ${watchers[key] ? "on" : "off"}`} aria-pressed={watchers[key]} data-active={watchers[key]} data-tooltip={`${label}: ${description}`} disabled={watcherBusy} onClick={() => onWatcherChange(key, !watchers[key])}><Icon /><span>{label}</span></button>)}</nav>}</header>
     <div className={styles.timelineBody}>
       <header className={styles.timelineHeader}>
         <small>{events ? <>Private observed timeline · newest to oldest · {visible.length} events{retentionDays ? ` · ${retentionDays} days` : ""}</> : <>Private · {visible.length} of {entries.length} first observed</>}</small>
@@ -151,7 +157,7 @@ export function CompactRecentLootBar({ events, items = [], catalysts = [], displ
         <button type="button" onClick={onHide}>Hide</button>
       </header>
       <div className={styles.carousel}><button type="button" aria-label="Previous recent loot page" onClick={() => setPage((value) => Math.max(0, value - 1))} disabled={currentPage === 0}><ChevronLeft /></button><div className={styles.carouselViewport} ref={viewport}><div className={styles.carouselPage}>{pageEntries.length ? pageEntries.map(renderEntry) : <p role={error ? "alert" : undefined}>{emptyMessage}{error && onRetry && <button type="button" onClick={onRetry}>Retry</button>}</p>}</div></div><span className={styles.pageCount}>{currentPage + 1} / {pageCount}</span><button type="button" aria-label="Next recent loot page" onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} disabled={currentPage >= pageCount - 1}><ChevronRight /></button></div>
-      {(observedAt || warnings.length > 0) && <footer className={styles.timelineFooter}>{observedAt && <small>Checked {new Date(observedAt).toLocaleTimeString()}</small>}{warnings.map((warning) => <small className={styles.timelineWarning} key={warning}>{warning}</small>)}</footer>}
+      {(observedAt || warnings.length > 0 || watcherStatus) && <footer className={styles.timelineFooter}>{observedAt && <small>Checked {new Date(observedAt).toLocaleTimeString()}</small>}{watcherStatus && <small className={styles.watcherStatus}>{watcherStatus}</small>}{warnings.map((warning) => <small className={styles.timelineWarning} key={warning}>{warning}</small>)}</footer>}
     </div>
   </section>;
 }
