@@ -808,6 +808,42 @@ def is_weapon_roll_definition(definition: dict) -> bool:
     return not re.search(r"^(empty|locked|classified|random perk|deprecated|default)", name, re.IGNORECASE)
 
 
+def weapon_rating_kind(definition: dict) -> str | None:
+    item_type = str(definition.get("itemTypeDisplayName", "")).lower()
+    category = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
+    if "origin" in category or "origin trait" in item_type or "intrinsic" in item_type:
+        return None
+    if "trait" in item_type:
+        return "trait"
+    if re.search(r"barrel|scope|sight|blade|haft|bowstring|string|rail|bolt|handle|tang", item_type):
+        return "first"
+    if re.search(r"magazine|battery|guard|grip|stock|arrow|power core", item_type):
+        return "second"
+    return None
+
+
+def weapon_perk_columns(definition: dict, inventory: dict[str, dict], plug_sets: dict[str, dict]) -> list[list[str]]:
+    columns: list[list[str]] = [[], [], [], []]
+    trait_column = 2
+    for socket in (definition.get("sockets") or {}).get("socketEntries", []):
+        hashes = sorted(
+            item_hash for item_hash in socket_entry_plug_hashes(socket, plug_sets)
+            if item_hash in inventory and is_weapon_roll_definition(inventory[item_hash])
+        )
+        kind = next((weapon_rating_kind(inventory[item_hash]) for item_hash in hashes if weapon_rating_kind(inventory[item_hash])), None)
+        if kind == "first":
+            rating_column = 0
+        elif kind == "second":
+            rating_column = 1
+        elif kind == "trait" and trait_column <= 3:
+            rating_column = trait_column
+            trait_column += 1
+        else:
+            continue
+        columns[rating_column] = list(dict.fromkeys([*columns[rating_column], *hashes]))
+    return columns
+
+
 def artifact_perk_pool(definition: dict, inventory: dict[str, dict], plug_sets: dict[str, dict]) -> dict | None:
     """Extract the three Artifact 2.0 buckets and equipped-slot counts.
 
@@ -1220,6 +1256,10 @@ def main() -> None:
             "generatedAt": generated_at,
             "gearItemDefinitions": {key: minimal_gear_item(value) for key, value in gear_defs.items()},
             "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
+            "weaponPerkColumns": {
+                key: columns for key, value in gear_defs.items()
+                if int(value.get("itemType", -1)) == 3 and any(columns := weapon_perk_columns(value, inventory, plug_sets))
+            },
             "statDefinitions": {key: {"hash": key, "displayProperties": display(value)} for key, value in stat_definitions.items() if key in ARMOR_STAT_HASHES},
         }
         OUTPUT.parent.mkdir(parents=True, exist_ok=True)
@@ -1402,6 +1442,10 @@ def main() -> None:
         "generatedAt": compact["generatedAt"],
         "gearItemDefinitions": {key: minimal_gear_item(value) for key, value in gear_defs.items()},
         "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
+        "weaponPerkColumns": {
+            key: columns for key, value in gear_defs.items()
+            if int(value.get("itemType", -1)) == 3 and any(columns := weapon_perk_columns(value, inventory, plug_sets))
+        },
         "statDefinitions": {key: {"hash": key, "displayProperties": display(value)} for key, value in stat_definitions.items() if key in {"392767087", "4244567218", "1735777505", "144602215", "2996146975", "1943323491"}},
     }
     advisor_compact = build_advisor_manifest(inventory, compact["items"], damage_types, buckets, version, compact["generatedAt"])

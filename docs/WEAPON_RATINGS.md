@@ -27,7 +27,9 @@ Quality tiers are stable and intentionally broad:
 
 Overall is the mean of whichever PvE/PvP scores have applicable evidence. Cards call the result a **roll match**, and the tooltip keeps mode scores separate because a roll can be excellent in one mode and poor in the other.
 
-The shared weapon panel renders this evidence consistently anywhere Guardian Nexus has a complete physical weapon roll: Fireteam and Gear Recent Loot, Vault item details, weapon cards, and duplicate comparison. It shows every selectable barrel, magazine, and trait, marks the currently selected option, and gives each option a separate PvE/PvP judgment. Exact DIM evidence stays binary (curator recommended or not listed); percentages are used only for explicitly labeled same-weapon or weapon-type fallback evidence. Gear tags remain user decisions and are not represented as rating votes.
+The shared weapon panel renders this evidence consistently anywhere Guardian Nexus has a physical weapon roll: Fireteam and Gear Recent Loot, Vault item details, weapon cards, and duplicate comparison. The generated Gear manifest supplies the weapon's complete four-column perk pool, not just the perks equipped on an owned instance. The compact DIM-style grid marks equipped perks with a filled ring and gives every perk separate PvE/PvP thumbs-up, thumbs-down, mixed, or unrated markers. Hovering or focusing an icon reveals its name, description, recommendation basis, and mode-specific result. Exact DIM evidence stays binary; percentages are used only for explicitly labeled same-weapon or weapon-type fallback evidence. Gear tags remain user decisions and are not represented as rating votes.
+
+Recent Loot weapon cards open this panel as a persistent utility card when selected. Merely hovering the weapon tile does not cover the page with the full card; hover and focus are reserved for the small individual-perk detail tooltips.
 
 ## Honest unknown states
 

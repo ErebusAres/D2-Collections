@@ -72,6 +72,35 @@ class BuildCatalogClassificationTests(unittest.TestCase):
         self.assertEqual(value["defaultDamageType"], 2)
         self.assertEqual(value["inventory"]["bucketTypeHash"], "2465295065")
 
+    def test_weapon_perk_columns_keep_the_complete_four_column_pool(self) -> None:
+        inventory = {
+            "10": item_definition(name="Arrowhead Brake", item_type="Barrel", plug="weapon.barrels"),
+            "11": item_definition(name="Fluted Barrel", item_type="Barrel", plug="weapon.barrels"),
+            "20": item_definition(name="Accurized Rounds", item_type="Magazine", plug="weapon.magazines"),
+            "30": item_definition(name="Keep Away", item_type="Trait", plug="weapon.traits"),
+            "31": item_definition(name="Rapid Hit", item_type="Trait", plug="weapon.traits"),
+            "40": item_definition(name="Kill Clip", item_type="Trait", plug="weapon.traits"),
+            "50": item_definition(name="Origin", item_type="Origin Trait", plug="weapon.origin_traits"),
+        }
+        for definition in inventory.values():
+            definition["displayProperties"]["icon"] = "/perk.png"
+        plug_sets = {
+            "barrels": {"reusablePlugItems": [{"plugItemHash": 10}, {"plugItemHash": 11}]},
+            "magazines": {"reusablePlugItems": [{"plugItemHash": 20}]},
+            "trait-one": {"reusablePlugItems": [{"plugItemHash": 30}, {"plugItemHash": 31}]},
+            "trait-two": {"reusablePlugItems": [{"plugItemHash": 40}]},
+            "origins": {"reusablePlugItems": [{"plugItemHash": 50}]},
+        }
+        weapon = {"sockets": {"socketEntries": [
+            {"randomizedPlugSetHash": "barrels"}, {"randomizedPlugSetHash": "magazines"},
+            {"randomizedPlugSetHash": "trait-one"}, {"randomizedPlugSetHash": "trait-two"},
+            {"reusablePlugSetHash": "origins"},
+        ]}}
+
+        self.assertEqual(SYNC_MANIFEST.weapon_perk_columns(weapon, inventory, plug_sets), [
+            ["10", "11"], ["20"], ["30", "31"], ["40"],
+        ])
+
     def test_weapon_plug_filter_keeps_roll_traits_but_excludes_cosmetics(self) -> None:
         perk = {"displayProperties": {"name": "Incandescent"}, "plug": {"plugCategoryIdentifier": "v500.weapon.traits"}}
         sword_blade = {"displayProperties": {"name": "Tempered Edge"}, "itemTypeDisplayName": "Sword Blade", "plug": {"plugCategoryIdentifier": "sword_blades"}}

@@ -2019,6 +2019,8 @@ export interface GearManifest {
   generatedAt: string;
   gearItemDefinitions: Record<string, Record<string, unknown>>;
   plugDefinitions: Record<string, Record<string, unknown>>;
+  /** Complete DIM-aligned barrel, magazine, trait-one, and trait-two pools by weapon hash. */
+  weaponPerkColumns?: Record<string, string[][]>;
   statDefinitions: Record<string, Record<string, unknown>>;
 }
 
