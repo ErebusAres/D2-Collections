@@ -43,11 +43,11 @@ describe("WeaponWorkspace", () => {
   it("shows physical rolls and opens a perk-column duplicate comparison", () => {
     render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={vi.fn()} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
     expect(screen.getAllByText("Test Rifle")).toHaveLength(2);
-    expect(screen.getAllByText("Incandescent").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Incandescent/ }).length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Weapon tier 4")).toHaveLength(2);
     fireEvent.click(screen.getAllByRole("button", { name: "Compare 2" })[0]!);
     expect(screen.getByText("Weapon roll comparison")).toBeTruthy();
-    expect(screen.getAllByText("Target Lock").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Target Lock/ }).length).toBeGreaterThan(0);
   });
 
   it("persists a weapon-name wishlist without exposing inventory publicly", () => {
@@ -69,6 +69,8 @@ describe("WeaponWorkspace", () => {
   it("shows and rates every selectable trait while leaving non-recommended options visible", async () => {
     render(<WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={vi.fn()} onTag={vi.fn()} onAction={vi.fn()} busy={false} />);
     await waitFor(() => expect(screen.getAllByLabelText(/Keep Away.*PvE curator recommended/)).toHaveLength(2));
+    fireEvent.mouseEnter(screen.getAllByRole("button", { name: /Keep Away/ })[0]!);
+    expect(screen.getByRole("tooltip").parentElement).toBe(document.body);
     expect(screen.getAllByLabelText(/Backup Plan/)).toHaveLength(2);
     expect(screen.getAllByText("Barrel")).toHaveLength(2);
     expect(screen.getAllByText("Magazine")).toHaveLength(2);

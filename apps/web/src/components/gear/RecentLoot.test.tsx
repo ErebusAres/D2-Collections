@@ -25,6 +25,9 @@ describe("RecentItemRow", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
     expect(screen.getByRole("dialog", { name: "Recent Rifle details" }).textContent).toContain("Recent Rifle");
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
     fireEvent.click(screen.getByRole("button", { name: "Close Recent Rifle details" }));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
