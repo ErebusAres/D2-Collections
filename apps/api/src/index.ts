@@ -83,7 +83,7 @@ import {
 import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
-import { observeRecentItems, readRecentItems, recentItemObservationDue, removeRecentGearItem } from "./recentItems";
+import { FIRETEAM_RECENT_ITEM_LIMIT, observeRecentItems, readRecentItems, recentItemObservationDue, removeRecentGearItem } from "./recentItems";
 import { configuredFireteamActivityFeedEnabled, FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
 import { equippedCharacterPower, guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
 import {
@@ -2338,7 +2338,7 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
 }
 
 async function fireteamRecentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const data = await readRecentItems(row.membership_id, env);
+  const data = await readRecentItems(row.membership_id, env, undefined, FIRETEAM_RECENT_ITEM_LIMIT);
   const ageMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
   // Fireteam's canonical five-minute snapshot already observes Recent Loot.
   // This frequently-polled endpoint must remain a saved-data read and never

@@ -26,6 +26,7 @@ const COALESCE_MS = 10 * 60_000;
 const RETENTION_DAYS = 30;
 const MAX_EVENTS = 200;
 const RAW_EVENT_SCAN_LIMIT = MAX_EVENTS * 5;
+export const FIRETEAM_RECENT_ITEM_LIMIT = 48;
 export const RECENT_ITEM_REFRESH_INTERVAL_MS = 5 * 60_000;
 
 export function recentItemObservationDue(data: Pick<RecentItemTimelineData, "firstObservationEstablished" | "observedAt">, now = Date.now()): boolean {
@@ -34,7 +35,9 @@ export function recentItemObservationDue(data: Pick<RecentItemTimelineData, "fir
   return !Number.isFinite(refreshedAt) || now - refreshedAt >= RECENT_ITEM_REFRESH_INTERVAL_MS;
 }
 
-export async function readRecentItems(membershipId: string, env: Env, now = new Date().toISOString()): Promise<RecentItemTimelineData> {
+export async function readRecentItems(membershipId: string, env: Env, now = new Date().toISOString(), requestedMaxEvents = MAX_EVENTS): Promise<RecentItemTimelineData> {
+  const maxEvents = Math.max(1, Math.min(MAX_EVENTS, Math.floor(requestedMaxEvents)));
+  const rawEventScanLimit = Math.min(RAW_EVENT_SCAN_LIMIT, maxEvents * 5);
   const [observationSummary, rows] = await Promise.all([
     env.DB.prepare(`
       SELECT COUNT(*) AS observation_count, MAX(updated_at) AS observed_at,
@@ -47,16 +50,14 @@ export async function readRecentItems(membershipId: string, env: Env, now = new 
     env.DB.prepare(`
       SELECT id, event_kind, source_key, item_hash, instance_id, record_hash,
         name, description, icon, quantity, observed_at, last_observed_at,
-        json_extract(metadata_json, '$.itemType') AS event_item_type,
-        json_extract(metadata_json, '$.rarity') AS event_rarity,
-        json_extract(metadata_json, '$.percent') AS event_percent
+        CASE WHEN event_kind IN ('weapon-found', 'armor-found') THEN NULL ELSE metadata_json END AS metadata_json
       FROM recent_item_events
       WHERE membership_id = ?
       ORDER BY last_observed_at DESC, id DESC LIMIT ?
     `)
-      .bind(membershipId, RAW_EVENT_SCAN_LIMIT).all<any>()
+      .bind(membershipId, rawEventScanLimit).all<any>()
   ]);
-  const events = coalesceTimelineEvents((rows.results || []).map(recentItemEventFromRow)).slice(0, MAX_EVENTS);
+  const events = coalesceTimelineEvents((rows.results || []).map(recentItemEventFromRow)).slice(0, maxEvents);
   const instanceIds = [...new Set(events.flatMap((event) => event.instanceId ? [event.instanceId] : []))];
   const currentGear = new Map<string, GearLoot>();
   for (let offset = 0; offset < instanceIds.length; offset += 80) {
