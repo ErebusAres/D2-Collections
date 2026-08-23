@@ -97,6 +97,19 @@ export function fireteamSnapshotAdvanced(previousVersion: number | undefined, ne
   return Number.isFinite(nextVersion) && Number(nextVersion) > Number(previousVersion || 0);
 }
 
+export function fireteamMemberDisplayName(input: {
+  observedDisplayName?: string;
+  sharedDisplayName?: string;
+  selfDisplayName?: string;
+  isSelf: boolean;
+}): string {
+  return [
+    input.observedDisplayName,
+    input.sharedDisplayName,
+    input.isSelf ? input.selfDisplayName : undefined
+  ].find((value) => typeof value === "string" && value.trim())?.trim() || "Unknown Guardian";
+}
+
 /**
  * The Fireteam rail owns Seasonal Hub Order visibility, so every order in the
  * current pursuit inventory must be present in the committed snapshot. Other

@@ -91,6 +91,7 @@ import {
   FIRETEAM_ACTIVE_WINDOW_MS,
   FIRETEAM_REFRESH_LEASE_MS,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
+  fireteamMemberDisplayName,
   fireteamRefreshDue,
   fireteamRefreshState,
   fireteamRetryAfter,
@@ -2217,7 +2218,12 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     const onlineState: FireteamMember["onlineState"] = isSelf
       ? ownPayload?.onlineState === "offline" ? "offline" : usable && ownPayload?.onlineState === "online" ? "online" : "unknown"
       : usable && member.observedInParty ? "online" : "unknown";
-    const displayName = String(member.displayName || (isSelf ? row.bungie_name || row.display_name : "") || "Unknown Guardian");
+    const displayName = fireteamMemberDisplayName({
+      observedDisplayName: member.displayName,
+      sharedDisplayName: snapshot?.display_name,
+      selfDisplayName: row.bungie_name || row.display_name,
+      isSelf
+    });
     return {
       membershipId,
       displayName,
