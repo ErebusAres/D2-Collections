@@ -1,7 +1,7 @@
 import type { WeaponItem } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
 import database from "../../../public/data/weapon-value.v4.json";
-import { evaluateWeapon, evaluateWeaponPerk, qualityFor, type WeaponRatingDatabase } from "./weaponEvaluator";
+import { evaluateWeapon, evaluateWeaponPerk, parseWeaponRatingSource, qualityFor, type WeaponRatingDatabase } from "./weaponEvaluator";
 
 const ratings = database as unknown as WeaponRatingDatabase;
 
@@ -92,6 +92,17 @@ describe("weapon evaluator", () => {
     const result = evaluateWeapon(weapon("999999999", ["900000001", "900000002", "900000003", "900000004"], "Unknown weapon"), ratings);
     expect(result.state).toBe("unavailable");
     expect(result.overall).toBeUndefined();
+  });
+
+  it("reserves a dislike for an explicit source verdict and defaults unknown source preferences safely", () => {
+    const negative: WeaponRatingDatabase = {
+      schemaVersion: 4, reviewedAt: "2026-08-22", source: { name: "Choosy Voltron" }, method: { columnWeights: [1, 1, 1, 1] },
+      coverage: { manifestWeapons: 1, reviewedWeapons: 1, supportedTypes: 1, reviewedTypes: 0 }, types: {},
+      items: { "42": { itemType: "Pulse Rifle", disliked: true, pve: { recommendations: 0, columns: [[], [], [], []], traitPairs: [] }, pvp: { recommendations: 0, columns: [[], [], [], []], traitPairs: [] } } }
+    };
+    expect(evaluateWeapon(weapon("42", ["a", "b", "c", "d"]), negative)).toMatchObject({ state: "scored", pve: 0, pvp: 0, overall: 0, quality: "poor", confidence: "high" });
+    expect(evaluateWeaponPerk(weapon("42", ["a", "b", "c", "d"]), 2, "c", negative)).toMatchObject({ state: "unavailable", recommended: false });
+    expect(parseWeaponRatingSource("not-a-source")).toBe("voltron");
   });
 
   it("maps stable score thresholds to player-facing quality tiers", () => {

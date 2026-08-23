@@ -1,26 +1,32 @@
 import type { ArmorPerk, WeaponItem, WeaponPerkColumn } from "@guardian-nexus/contracts";
 import { Columns3, Minus, ThumbsDown, ThumbsUp } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { evaluateWeapon, evaluateWeaponPerk, loadWeaponRatings, qualityLabel, type WeaponRatingDatabase, type WeaponTraitValue } from "../../modules/loot/weaponEvaluator";
+import { evaluateWeapon, evaluateWeaponPerk, qualityLabel, WEAPON_RATING_SOURCES, type WeaponRatingDatabase, type WeaponTraitValue, type WeaponRatingSourceId } from "../../modules/loot/weaponEvaluator";
+import { useResolvedWeaponRatings } from "../../modules/loot/useResolvedWeaponRatings";
 import styles from "./WeaponRatingPanel.module.css";
 
 export function WeaponRatingPanel({ weapon, ratings, compact = false, showTraits = true, onSelectPlug, busy = false }: { weapon: WeaponItem; ratings?: WeaponRatingDatabase; compact?: boolean; showTraits?: boolean; onSelectPlug?: (socketIndex: number, plugItemHash: string) => void; busy?: boolean }) {
-  const [, rerender] = useState(0);
-  useEffect(() => {
-    if (ratings) return;
-    let cancelled = false;
-    void loadWeaponRatings().then(() => { if (!cancelled) rerender((value) => value + 1); });
-    return () => { cancelled = true; };
-  }, [ratings]);
-  const value = evaluateWeapon(weapon, ratings);
+  const ratingContext = useResolvedWeaponRatings();
+  const selectedSource = WEAPON_RATING_SOURCES.find((source) => source.id === ratingContext.sourceId) || WEAPON_RATING_SOURCES[0]!;
+  const database = ratings || ratingContext.database;
+  const value = evaluateWeapon(weapon, database);
   const columns = ratedColumns(weapon);
   return <section className={`${styles.panel} ${compact ? styles.compact : ""}`} data-state={value.state} data-quality={value.quality}>
     <header className={styles.summary}><span><small>Community roll</small><strong>{value.state === "scored" ? `${weapon.rollDataState === "complete" ? "" : "Est. "}${qualityLabel(value.quality)}` : value.state === "incomplete" ? "Pending" : "Unrated"}</strong></span><div className={styles.modeScores}><ModeScore mode="PvE" score={value.pve} /><ModeScore mode="PvP" score={value.pvp} /></div></header>
-    {value.state === "scored" && <p className={styles.evidence}>{basisLabel(value.basis, weapon.itemType)} · {value.confidence} confidence · {value.comparedColumns}/{value.totalColumns} columns</p>}
-    {showTraits && (columns.length ? <div className={styles.columns}>{columns.map((column) => <TraitColumn key={`${column.socketIndex}:${column.ratingColumn ?? column.kind}`} weapon={weapon} column={column} ratings={ratings} onSelectPlug={onSelectPlug} busy={busy} />)}</div> : <p className={styles.pending}>Trait and attachment pool unavailable.</p>)}
+    {!ratings && <label className={styles.ratingSource}><span>Rating source</span><select aria-label="Weapon rating source" value={ratingContext.sourceId} onChange={(event) => ratingContext.setSource(event.target.value as WeaponRatingSourceId)} disabled={ratingContext.loading}>{ratingSources().map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}</select><small><b>Used by:</b> {selectedSource.usedBy}. {selectedSource.note}</small></label>}
+    {value.state === "scored" && <p className={styles.evidence}>{basisLabel(value.basis, weapon.itemType, database?.source.name || selectedSource.label)} · {value.confidence} confidence · {value.comparedColumns}/{value.totalColumns} columns</p>}
+    {showTraits && (columns.length ? <div className={styles.columns}>{columns.map((column) => <TraitColumn key={`${column.socketIndex}:${column.ratingColumn ?? column.kind}`} weapon={weapon} column={column} ratings={database} onSelectPlug={onSelectPlug} busy={busy} />)}</div> : <p className={styles.pending}>Trait and attachment pool unavailable.</p>)}
     {showTraits && columns.length > 0 && <footer className={styles.legend}><span><ThumbsUp /> Recommended</span><span><ThumbsDown /> Not recommended</span><span>Blue = equipped</span></footer>}
   </section>;
+}
+
+function ratingSources() {
+  return [
+    { id: "voltron", label: "Voltron — DIM + Destiny Recipes" },
+    { id: "choosy-voltron", label: "Choosy Voltron — DIM" },
+    { id: "just-another-team", label: "Just Another Team — DIM" }
+  ] as const;
 }
 
 function ModeScore({ mode, score }: { mode: "PvE" | "PvP"; score?: number }) {
@@ -30,7 +36,7 @@ function ModeScore({ mode, score }: { mode: "PvE" | "PvP"; score?: number }) {
 function TraitColumn({ weapon, column, ratings, onSelectPlug, busy }: { weapon: WeaponItem; column: WeaponPerkColumn; ratings?: WeaponRatingDatabase; onSelectPlug?: (socketIndex: number, plugItemHash: string) => void; busy: boolean }) {
   const options = uniqueTraitOptions(column);
   return <section className={styles.column}><header><b>{columnLabel(weapon, column)}</b><small>{options.length}</small></header><div className={styles.perkGrid}>{options.map((perk) => {
-    const rating = column.ratingColumn === undefined ? originRating() : evaluateWeaponPerk(weapon, column.ratingColumn, perk.hash, ratings);
+    const rating = column.ratingColumn === undefined ? originRating(ratings?.source.name) : evaluateWeaponPerk(weapon, column.ratingColumn, perk.hash, ratings);
     const active = perk.hash === column.active?.hash;
     const selectable = !active && column.socketIndex >= 0 && Boolean(column.selectablePlugHashes?.includes(perk.hash));
     return <PerkOption key={perk.hash} perk={perk} rating={rating} active={active} selectable={selectable && Boolean(onSelectPlug)} busy={busy} onSelect={() => onSelectPlug?.(column.socketIndex, perk.hash)} />;
@@ -95,10 +101,10 @@ function ratingColumnLabel(weapon: WeaponItem, column: 0 | 1 | 2 | 3): string {
 }
 
 function columnLabel(weapon: WeaponItem, column: WeaponPerkColumn): string { return column.kind === "origin" ? "Origin Trait" : ratingColumnLabel(weapon, column.ratingColumn ?? 0); }
-function originRating(): WeaponTraitValue { return { state: "unavailable", recommended: false, reasons: ["DIM curator wishlists do not assign PvE or PvP scores to origin traits."] }; }
+function originRating(source = "Community wishlists"): WeaponTraitValue { return { state: "unavailable", recommended: false, reasons: [`${source} does not assign PvE or PvP scores to origin traits.`] }; }
 
-function basisLabel(basis: ReturnType<typeof evaluateWeapon>["basis"], itemType: string): string {
-  return basis === "weapon" ? "Exact DIM weapon" : basis === "weapon-family" ? "Same-name DIM rolls" : `${itemType} evidence`;
+function basisLabel(basis: ReturnType<typeof evaluateWeapon>["basis"], itemType: string, source: string): string {
+  return basis === "weapon" ? `Exact ${source} weapon` : basis === "weapon-family" ? `Same-name ${source} rolls` : `${itemType} evidence`;
 }
 
 function traitTitle(perk: ArmorPerk, rating: WeaponTraitValue, active: boolean): string {

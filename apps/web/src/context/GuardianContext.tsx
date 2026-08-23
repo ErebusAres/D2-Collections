@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, ApiRequestError, configureOfflineApi, mutationHeaders, queuedApi } from "../services/api/client";
 import { HEADER_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
+import { WeaponRatingProvider } from "./WeaponRatingContext";
 
 interface GuardianContextValue {
   session?: SessionData;
@@ -202,7 +203,7 @@ export function GuardianProvider({ children }: { children: ReactNode }) {
     refresh: async () => { await sessionQuery.refetch(); await queryClient.invalidateQueries(); }
   }), [session, sessionQuery.isLoading, sessionQuery.error, sessionQuery.refetch, selectedCharacterId, selectCharacter, autoRefresh, setAutoRefresh, reducedMotion, setReducedMotion, highContrast, setHighContrast, preferences, setPreference, queryClient]);
 
-  return <GuardianContext.Provider value={value}>{children}</GuardianContext.Provider>;
+  return <GuardianContext.Provider value={value}><WeaponRatingProvider value={preferences["weapons.ratingSource.v1"]} onChange={(source) => setPreference("weapons.ratingSource.v1", source)}>{children}</WeaponRatingProvider></GuardianContext.Provider>;
 }
 
 export function useGuardian(): GuardianContextValue {

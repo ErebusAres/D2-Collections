@@ -2,7 +2,8 @@ import type { ArmorItem, GearTag, LootWatcherConfig, RecentItemEvent, WeaponItem
 import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, LockKeyhole, PackageOpen, ShieldCheck, Sparkles, Tags, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { evaluateWeapon, loadWeaponRatings, qualityLabel } from "../../modules/loot/weaponEvaluator";
+import { evaluateWeapon, qualityLabel } from "../../modules/loot/weaponEvaluator";
+import { useResolvedWeaponRatings } from "../../modules/loot/useResolvedWeaponRatings";
 import { GearTagBadge, GearTagPicker } from "./GearTagPicker";
 import { GearTierRail } from "./GearTierRail";
 import { WeaponRatingPanel } from "./WeaponRatingPanel";
@@ -213,19 +214,7 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocket
   const [selected, setSelected] = useState(false);
   const card = useRef<HTMLElement>(null);
   const tooltipId = useId();
-  const [, setRatingsLoaded] = useState(false);
-  const [ratingAttempt, setRatingAttempt] = useState(0);
-  useEffect(() => {
-    if (item.kind !== "weapon") return;
-    let cancelled = false;
-    let retry: number | undefined;
-    void loadWeaponRatings().then((database) => {
-      if (cancelled) return;
-      setRatingsLoaded(Boolean(database));
-      if (!database) retry = window.setTimeout(() => setRatingAttempt((value) => value + 1), 15_000);
-    });
-    return () => { cancelled = true; if (retry !== undefined) window.clearTimeout(retry); };
-  }, [item.kind, ratingAttempt]);
+  const ratingContext = useResolvedWeaponRatings();
   useEffect(() => {
     if (!selected) return;
     const closeOutside = (event: PointerEvent) => {
@@ -235,7 +224,7 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocket
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, [selected, onDeactivate]);
   const close = () => { setSelected(false); onDeactivate(); };
-  const value = item.kind === "weapon" ? evaluateWeapon(item) : undefined;
+  const value = item.kind === "weapon" ? evaluateWeapon(item, ratingContext.database) : undefined;
   return <article ref={card} className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} data-selected={selected} onKeyDown={(key) => { if (key.key === "Escape") close(); }} onFocus={onActivate} onBlur={(event) => { if (!selected && !event.currentTarget.contains(event.relatedTarget)) onDeactivate(); }} onMouseEnter={onActivate} onMouseLeave={() => { if (!selected) onDeactivate(); }}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={selected} aria-controls={selected ? tooltipId : undefined} onClick={() => { if (selected) close(); else { setSelected(true); onActivate(); } }}>
       <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>

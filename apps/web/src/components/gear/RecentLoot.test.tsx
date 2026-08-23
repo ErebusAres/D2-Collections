@@ -75,7 +75,7 @@ describe("RecentItemRow", () => {
     await waitFor(() => expect(screen.getByText("Roll 75%")).toBeTruthy());
     expect(screen.getByText("Strong")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
-    expect(screen.getByRole("dialog").textContent).toContain("Exact DIM weapon");
+    expect(screen.getByRole("dialog").textContent).toContain("Exact Voltron weapon");
     expect(screen.getByRole("dialog").textContent).toContain("high confidence");
     expect(screen.getByRole("dialog").textContent).toContain("PvE100%");
     expect(screen.getByRole("dialog").textContent).toContain("PvP50%");

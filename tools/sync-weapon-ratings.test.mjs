@@ -6,6 +6,7 @@ const manifest = { gearItemDefinitions: {
   "100": { hash: "100", itemType: 3, itemTypeDisplayName: "Test Rifle", displayProperties: { name: "Alpha" } },
   "200": { hash: "200", itemType: 3, itemTypeDisplayName: "Test Rifle", displayProperties: { name: "Beta" } },
   "400": { hash: "400", itemType: 3, itemTypeDisplayName: "Test Rifle", displayProperties: { name: "Alpha" } },
+  "500": { hash: "500", itemType: 3, itemTypeDisplayName: "Test Rifle", displayProperties: { name: "Gamma" } },
   "300": { hash: "300", itemType: 2, itemTypeDisplayName: "Helmet" }
 } };
 const source = `
@@ -16,13 +17,14 @@ dimwishlist:item=100&perks=5,6,7,8
 //notes:Traits-only PvE recommendation |tags:PvE
 dimwishlist:item=200&perks=3,4
 dimwishlist:item=300&perks=1,2,3,4
+dimwishlist:item=-500#notes:Explicit negative weapon verdict
 // divider closes the preceding block notes
 dimwishlist:item=100&perks=9,9,9,9
 `;
 
 test("compiles column-aware item records, DIM perk aliases, and type fallbacks", () => {
   const result = compileWeaponRatings(manifest, source, "2026-08-08", { "3": 33 });
-  assert.deepEqual(result.coverage, { manifestWeapons: 3, reviewedWeapons: 2, supportedTypes: 1, reviewedTypes: 1 });
+  assert.deepEqual(result.coverage, { manifestWeapons: 4, reviewedWeapons: 3, supportedTypes: 1, reviewedTypes: 1 });
   assert.deepEqual(result.items["100"].pve.columns, [["1"], ["2"], ["3"], ["4"]]);
   assert.deepEqual(result.items["100"].pve.traitPairs, ["3,4"]);
   assert.equal(result.items["100"].pve.recommendations, 1);
@@ -32,6 +34,9 @@ test("compiles column-aware item records, DIM perk aliases, and type fallbacks",
   assert.equal(result.families["Test Rifle::alpha"].pve.weapons, 1);
   assert.deepEqual(result.families["Test Rifle::alpha"].pve.columns[3], { "4": 100 });
   assert.equal(result.items["300"], undefined);
+  assert.equal(result.items["500"].disliked, true);
+  assert.equal(result.source.id, "voltron");
+  assert.deepEqual(result.source.usedBy, ["DIM (default)", "Destiny Recipes"]);
   assert.deepEqual(result.perkAliases, { "33": "3" });
   assert.equal(result.schemaVersion, 4);
 });

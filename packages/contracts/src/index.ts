@@ -1135,6 +1135,7 @@ export type UserPreferenceKey =
   | "fireteam.watcher.duplicateFits.v1"
   | "weapons.filters"
   | "weapons.wishlist"
+  | "weapons.ratingSource.v1"
   | "collection.sort"
   | "collection.filters"
   | "collection.tracked"

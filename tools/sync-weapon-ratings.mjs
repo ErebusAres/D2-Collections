@@ -3,11 +3,37 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const SOURCE_URL = "https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt";
+export const RATING_SOURCES = {
+  voltron: {
+    id: "voltron",
+    name: "DIM Voltron community wishlist",
+    url: "https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/voltron.txt",
+    repository: "https://github.com/48klocs/dim-wish-list-sources",
+    usedBy: ["DIM (default)", "Destiny Recipes"],
+    note: "The shared default recommendation catalog used by DIM and loaded by Destiny Recipes."
+  },
+  "choosy-voltron": {
+    id: "choosy-voltron",
+    name: "Choosy Voltron",
+    url: "https://raw.githubusercontent.com/48klocs/dim-wish-list-sources/master/choosy_voltron.txt",
+    repository: "https://github.com/48klocs/dim-wish-list-sources",
+    usedBy: ["DIM (optional)"],
+    note: "Voltron recommendations plus explicit negative weapon verdicts for a more opinionated DIM-style result."
+  },
+  "just-another-team": {
+    id: "just-another-team",
+    name: "Just Another Team (MnK)",
+    url: "https://raw.githubusercontent.com/dsf000z/JAT-wishlists-bundler/main/bundles/DIM/just-another-team-mnk.txt",
+    repository: "https://github.com/dsf000z/JAT-wishlists-bundler",
+    usedBy: ["DIM (suggested option)"],
+    note: "The current Just Another Team mouse-and-keyboard wishlist offered by DIM."
+  }
+};
+export const SOURCE_URL = RATING_SOURCES.voltron.url;
 export const ENHANCED_PERKS_URL = "https://raw.githubusercontent.com/DestinyItemManager/DIM/master/src/data/d2/trait-to-enhanced-trait.json";
 export const COLUMN_WEIGHTS = [1, 1, 1, 1];
 
-export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toISOString().slice(0, 10), enhancedPerks = {}) {
+export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toISOString().slice(0, 10), enhancedPerks = {}, source = RATING_SOURCES.voltron) {
   const definitions = Object.values(manifest.gearItemDefinitions || {}).filter((entry) => Number(entry.itemType) === 3);
   const currentWeapons = new Map(definitions.map((entry) => [String(entry.hash), {
     itemType: String(entry.itemTypeDisplayName || "Unknown weapon"),
@@ -20,21 +46,28 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
     const line = raw.trim();
     if (line.startsWith("//notes:")) { context = line; continue; }
     if (!line.startsWith("dimwishlist:item=")) { if (!line.startsWith("title:") && !line.startsWith("description:")) context = ""; continue; }
-    const match = line.match(/^dimwishlist:item=(\d+)&perks=([\d,]+)/);
-    if (!match || !currentWeapons.has(match[1])) continue;
+    const match = line.match(/^dimwishlist:item=(-?\d+)(?:&perks=([\d,]+))?/);
+    if (!match) continue;
+    const itemHash = match[1].replace(/^-/, "");
+    if (!currentWeapons.has(itemHash)) continue;
+    const item = items.get(itemHash) || { itemType: currentWeapons.get(itemHash).itemType, pve: bucket(), pvp: bucket() };
+    if (match[1].startsWith("-")) {
+      item.disliked = true;
+      items.set(itemHash, item);
+      continue;
+    }
     const modeContext = context.match(/\|tags:(.*)$/i)?.[1] || context;
     const modes = [...new Set([/\bpve\b/i.test(modeContext) ? "pve" : "", /\bpvp\b/i.test(modeContext) ? "pvp" : ""].filter(Boolean))];
     if (!modes.length) continue;
-    const perks = match[2].split(",").filter(Boolean);
+    const perks = (match[2] || "").split(",").filter(Boolean);
     if (perks.length < 2) continue;
     const aligned = alignColumns(perks);
-    const item = items.get(match[1]) || { itemType: currentWeapons.get(match[1]).itemType, pve: bucket(), pvp: bucket() };
     for (const mode of modes) {
       item[mode].recommendations += 1;
       if (aligned[2] || aligned[3]) item[mode].traitPairs.add(`${aligned[2] || ""},${aligned[3] || ""}`);
       aligned.forEach((perk, index) => { if (perk) item[mode].columns[index].add(perk); });
     }
-    items.set(match[1], item);
+    items.set(itemHash, item);
   }
 
   const types = buildTypeProfiles(items);
@@ -42,7 +75,8 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
   const serializedItems = Object.fromEntries([...items].sort(([a], [b]) => Number(a) - Number(b)).map(([hash, item]) => [hash, {
     itemType: item.itemType,
     pve: serializeBucket(item.pve),
-    pvp: serializeBucket(item.pvp)
+    pvp: serializeBucket(item.pvp),
+    ...(item.disliked ? { disliked: true } : {})
   }]));
   const typeNames = [...new Set(definitions.map((entry) => String(entry.itemTypeDisplayName || "Unknown weapon")))].sort();
 
@@ -50,9 +84,12 @@ export function compileWeaponRatings(manifest, text, reviewedAt = new Date().toI
     schemaVersion: 4,
     reviewedAt,
     source: {
-      name: "DIM default community wishlist (Voltron)",
-      url: SOURCE_URL,
-      repository: "https://github.com/48klocs/dim-wish-list-sources",
+      id: source.id,
+      name: source.name,
+      url: source.url,
+      repository: source.repository,
+      usedBy: source.usedBy,
+      note: source.note,
       license: "MIT",
       matchingLogic: "DIM selectable-socket matching with base/enhanced trait equivalence",
       matchingLogicUrl: ENHANCED_PERKS_URL
@@ -144,20 +181,24 @@ function serializeTypeBucket(value) {
 
 export async function main() {
   const inputArg = process.argv.find((value) => value.startsWith("--input="))?.slice(8);
-  const inputPath = inputArg || join(tmpdir(), "guardian-nexus-voltron.txt");
   const enhancedResponse = await fetch(ENHANCED_PERKS_URL, { headers: { "User-Agent": "Guardian-Nexus-rating-sync" } });
   if (!enhancedResponse.ok) throw new Error(`DIM enhanced-perk mapping download failed with HTTP ${enhancedResponse.status}.`);
   const enhancedPerks = await enhancedResponse.json();
-  if (!inputArg) {
-    const response = await fetch(SOURCE_URL, { headers: { "User-Agent": "Guardian-Nexus-rating-sync" } });
-    if (!response.ok) throw new Error(`Wishlist download failed with HTTP ${response.status}.`);
-    await writeFile(inputPath, Buffer.from(await response.arrayBuffer()));
-  }
   const manifest = JSON.parse(await readFile(new URL("../apps/web/public/data/gear-manifest.json", import.meta.url), "utf8"));
-  const text = await readFile(inputPath, "utf8");
-  const output = compileWeaponRatings(manifest, text, new Date().toISOString().slice(0, 10), enhancedPerks);
-  await writeFile(new URL("../apps/web/public/data/weapon-value.v4.json", import.meta.url), `${JSON.stringify(output)}\n`);
-  console.log(`Wrote ${output.coverage.reviewedWeapons}/${output.coverage.manifestWeapons} weapon records and ${output.coverage.reviewedTypes}/${output.coverage.supportedTypes} type profiles from ${SOURCE_URL}.`);
+  const sources = inputArg ? [RATING_SOURCES.voltron] : Object.values(RATING_SOURCES);
+  for (const source of sources) {
+    const inputPath = inputArg || join(tmpdir(), `guardian-nexus-${source.id}.txt`);
+    if (!inputArg) {
+      const response = await fetch(source.url, { headers: { "User-Agent": "Guardian-Nexus-rating-sync" } });
+      if (!response.ok) throw new Error(`${source.name} download failed with HTTP ${response.status}.`);
+      await writeFile(inputPath, Buffer.from(await response.arrayBuffer()));
+    }
+    const text = await readFile(inputPath, "utf8");
+    const output = compileWeaponRatings(manifest, text, new Date().toISOString().slice(0, 10), enhancedPerks, source);
+    const filename = source.id === "voltron" ? "weapon-value.v4.json" : `weapon-value.${source.id}.v4.json`;
+    await writeFile(new URL(`../apps/web/public/data/${filename}`, import.meta.url), `${JSON.stringify(output)}\n`);
+    console.log(`Wrote ${output.coverage.reviewedWeapons}/${output.coverage.manifestWeapons} ${source.name} records to ${filename}.`);
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

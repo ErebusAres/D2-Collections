@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { GearTagBadge, GearTagFilter, GearTagPicker } from "./GearTagPicker";
 import { GearTierRail } from "./GearTierRail";
 import { parseWatchlist } from "../../modules/watchlists/watchlists";
-import { loadWeaponRatings, type WeaponRatingDatabase } from "../../modules/loot/weaponEvaluator";
+import { WEAPON_RATING_SOURCES, type WeaponRatingDatabase, type WeaponRatingSourceId } from "../../modules/loot/weaponEvaluator";
+import { useResolvedWeaponRatings } from "../../modules/loot/useResolvedWeaponRatings";
 import styles from "../../pages/Pages.module.css";
 import { RecentItemRow, recentLoot } from "./RecentLoot";
 import { WeaponRatingPanel } from "./WeaponRatingPanel";
@@ -26,20 +27,10 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
   const [tag, setTag] = useState<"all" | "none" | GearTag>("all");
   const [review, setReview] = useState("all");
   const [compareHash, setCompareHash] = useState("");
-  const [ratings, setRatings] = useState<WeaponRatingDatabase>();
-  const [ratingAttempt, setRatingAttempt] = useState(0);
+  const ratingContext = useResolvedWeaponRatings();
+  const selectedRatingSource = WEAPON_RATING_SOURCES.find((source) => source.id === ratingContext.sourceId) || WEAPON_RATING_SOURCES[0]!;
+  const ratings = ratingContext.database;
   const wishlist = useMemo(() => stringSet(preferences["weapons.wishlist"]), [preferences]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let retry: number | undefined;
-    void loadWeaponRatings().then((database) => {
-      if (cancelled) return;
-      setRatings(database);
-      if (!database) retry = window.setTimeout(() => setRatingAttempt((value) => value + 1), 15_000);
-    });
-    return () => { cancelled = true; if (retry !== undefined) window.clearTimeout(retry); };
-  }, [ratingAttempt]);
 
   useEffect(() => {
     try {
@@ -88,6 +79,7 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
       <select value={location} onChange={(event) => { setLocation(event.target.value); saveFilters({ location: event.target.value }); }}><option value="all">All locations</option><option value="equipped">Equipped</option><option value="inventory">Characters</option><option value="vault">Vault</option></select>
       <GearTagFilter value={tag} onChange={(value) => { setTag(value); saveFilters({ tag: value }); }} />
       <select value={review} onChange={(event) => { setReview(event.target.value); saveFilters({ review: event.target.value }); }}><option value="all">All review states</option><option value="wishlisted">Wishlisted</option><option value="configured">Configured</option><option value="unique">Unique copy</option><option value="duplicate-review">Duplicate review</option><option value="incomplete-data">Incomplete data</option></select>
+      <select aria-label="Weapon rating source" title={`Used by: ${selectedRatingSource.usedBy}. ${selectedRatingSource.note}`} value={ratingContext.sourceId} onChange={(event) => ratingContext.setSource(event.target.value as WeaponRatingSourceId)} disabled={ratingContext.loading}>{WEAPON_RATING_SOURCES.map((source) => <option key={source.id} value={source.id}>{source.label} · Used by: {source.usedBy}</option>)}</select>
     </section>
     <RecentItemRow title="Recently acquired weapons" items={recentLoot([], data.weapons || [], "weapon", 20)} onTag={(item, value) => item.kind === "weapon" && onTag(item, value || "")} onSocketChange={(item, socketIndex, plugItemHash) => onAction({ action: "setWeaponSocket", itemInstanceId: item.instanceId, characterId: selectedCharacterId, socketIndex, plugItemHash })} busy={busy} />
     <section className={styles.weaponGrid}>{weapons.map((weapon) => <WeaponCard key={weapon.instanceId} weapon={{ ...weapon, wishlisted: wishlist.has(weapon.itemHash) }} ratings={ratings} selectedCharacterId={selectedCharacterId} onWishlist={() => toggleWishlist(weapon.itemHash)} onCompare={() => setCompareHash(weapon.itemHash)} onTag={(value) => onTag(weapon, value)} onAction={onAction} busy={busy} />)}</section>

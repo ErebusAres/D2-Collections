@@ -4,6 +4,17 @@ export type WeaponScoreState = "scored" | "unavailable" | "incomplete";
 export type WeaponQuality = "excellent" | "strong" | "mixed" | "weak" | "poor";
 export type WeaponRatingConfidence = "high" | "medium" | "low";
 export type WeaponRatingBasis = "weapon" | "weapon-family" | "weapon-type";
+export type WeaponRatingSourceId = "voltron" | "choosy-voltron" | "just-another-team";
+
+export const WEAPON_RATING_SOURCES: ReadonlyArray<{ id: WeaponRatingSourceId; label: string; usedBy: string; note: string }> = [
+  { id: "voltron", label: "Voltron", usedBy: "DIM (default), Destiny Recipes", note: "The shared community recommendation catalog. Destiny Recipes loads Voltron and applies its own presentation and scoring." },
+  { id: "choosy-voltron", label: "Choosy Voltron", usedBy: "DIM (optional)", note: "Voltron plus explicit negative weapon verdicts, so it can produce genuine dislikes instead of only recommendations." },
+  { id: "just-another-team", label: "Just Another Team (MnK)", usedBy: "DIM (suggested option)", note: "DIM's current suggested alternative wishlist for mouse-and-keyboard recommendations." }
+];
+
+export function parseWeaponRatingSource(value?: string): WeaponRatingSourceId {
+  return WEAPON_RATING_SOURCES.some((source) => source.id === value) ? value as WeaponRatingSourceId : "voltron";
+}
 
 export interface WeaponValue {
   state: WeaponScoreState;
@@ -36,13 +47,13 @@ export interface WeaponTraitValue {
 }
 
 interface RatingBucket { recommendations: number; columns: string[][]; traitPairs: string[] }
-interface RatingRecord { itemType: string; pve: RatingBucket; pvp: RatingBucket }
+interface RatingRecord { itemType: string; pve: RatingBucket; pvp: RatingBucket; disliked?: boolean }
 interface TypeBucket { weapons: number; columns: Array<Record<string, number>> }
 interface TypeRecord { pve: TypeBucket; pvp: TypeBucket }
 export interface WeaponRatingDatabase {
   schemaVersion: 4;
   reviewedAt: string;
-  source: { name: string };
+  source: { id?: WeaponRatingSourceId; name: string; url?: string; repository?: string; usedBy?: string[]; note?: string };
   method: { columnWeights: number[] };
   coverage: { manifestWeapons: number; reviewedWeapons: number; supportedTypes: number; reviewedTypes: number };
   perkAliases?: Record<string, string>;
@@ -52,27 +63,33 @@ export interface WeaponRatingDatabase {
 }
 
 interface ModeScore { score: number; compared: number; matched: number }
-let loadedDatabase: WeaponRatingDatabase | undefined;
-let loadPromise: Promise<WeaponRatingDatabase | undefined> | undefined;
+const loadedDatabases = new Map<WeaponRatingSourceId, WeaponRatingDatabase>();
+const loadPromises = new Map<WeaponRatingSourceId, Promise<WeaponRatingDatabase | undefined>>();
 
-export function loadWeaponRatings(): Promise<WeaponRatingDatabase | undefined> {
-  if (loadedDatabase) return Promise.resolve(loadedDatabase);
-  loadPromise ||= fetch("/data/weapon-value.v4.json", { cache: "no-cache" })
+export function loadWeaponRatings(sourceId: WeaponRatingSourceId = "voltron"): Promise<WeaponRatingDatabase | undefined> {
+  const loaded = loadedDatabases.get(sourceId);
+  if (loaded) return Promise.resolve(loaded);
+  const existing = loadPromises.get(sourceId);
+  if (existing) return existing;
+  const filename = sourceId === "voltron" ? "weapon-value.v4.json" : `weapon-value.${sourceId}.v4.json`;
+  const promise = fetch(`/data/${filename}`, { cache: "no-cache" })
     .then(async (response) => {
       if (!response.ok) throw new Error(`Weapon ratings returned HTTP ${response.status}.`);
       const candidate = await response.json() as Partial<WeaponRatingDatabase>;
       if (candidate.schemaVersion !== 4 || !candidate.reviewedAt || !candidate.source?.name || !candidate.method?.columnWeights || !candidate.items || !candidate.types) throw new Error("Weapon ratings have an unsupported schema.");
-      loadedDatabase = candidate as WeaponRatingDatabase;
-      return loadedDatabase;
+      const database = candidate as WeaponRatingDatabase;
+      loadedDatabases.set(sourceId, database);
+      return database;
     })
     .catch(() => {
-      loadPromise = undefined;
+      loadPromises.delete(sourceId);
       return undefined;
     });
-  return loadPromise;
+  loadPromises.set(sourceId, promise);
+  return promise;
 }
 
-export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): WeaponValue {
+export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabases.get("voltron")): WeaponValue {
   if (!database) return { state: "unavailable", reasons: ["The community rating catalog is still loading or unavailable. This is not a low score."] };
   const equipped = alignEquippedColumns(weapon);
   const equippedCount = equipped.filter((column) => column.length).length;
@@ -83,12 +100,18 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
   if (record) {
     const pveResult = scoreWeaponMode(record.pve, equipped, database.method.columnWeights, database.perkAliases);
     const pvpResult = scoreWeaponMode(record.pvp, equipped, database.method.columnWeights, database.perkAliases);
+    if (!pveResult && !pvpResult && record.disliked) return {
+      state: "scored", pve: 0, pvp: 0, overall: 0, quality: "poor", confidence: "high", basis: "weapon",
+      comparedColumns: 0, totalColumns: 4,
+      reasons: [`${database.source.name} explicitly gives this weapon a negative verdict; this is source evidence, not an inferred penalty for missing data.`],
+      source: database.source.name, reviewedAt: database.reviewedAt
+    };
     return scoredValue(pveResult, pvpResult, {
       basis: "weapon",
       confidence: partial || equippedCount < 4 ? (equippedCount >= 3 ? "medium" : "low") : "high",
       reason: partial
-        ? `Bungie returned only part of the roll, so this provisional score compares the equipped perks in the ${equippedCount} known rating column${equippedCount === 1 ? "" : "s"} with DIM recommendations for this exact weapon. It will update when more socket data arrives.`
-        : "Compared the equipped roll in the four DIM wishlist perk columns for this exact weapon while preserving curated trait pairings. Base and enhanced versions of a trait are treated as equivalent.",
+        ? `Bungie returned only part of the roll, so this provisional score compares the equipped perks in the ${equippedCount} known rating column${equippedCount === 1 ? "" : "s"} with ${database.source.name} recommendations for this exact weapon. It will update when more socket data arrives.`
+        : `Compared the equipped roll in the four ${database.source.name} perk columns for this exact weapon while preserving curated trait pairings. Base and enhanced versions of a trait are treated as equivalent.`,
       source: database.source.name,
       reviewedAt: database.reviewedAt,
       totalColumns: 4
@@ -107,7 +130,7 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
         confidence: !partial && compared >= 3 && reviewedWeapons >= 2 ? "medium" : "low",
         reason: partial
           ? `This provisional score uses the visible equipped perks and recommendations for ${reviewedWeapons} reviewed version${reviewedWeapons === 1 ? "" : "s"} of ${weapon.name}. It will update when Bungie returns more socket data.`
-          : `No exact DIM entry exists for this item hash, so this score uses recommendations for ${reviewedWeapons} reviewed version${reviewedWeapons === 1 ? "" : "s"} of the same named weapon before considering broader ${weapon.itemType} evidence.`,
+          : `No exact ${database.source.name} entry exists for this item hash, so this score uses recommendations for ${reviewedWeapons} reviewed version${reviewedWeapons === 1 ? "" : "s"} of the same named weapon before considering broader ${weapon.itemType} evidence.`,
         source: database.source.name,
         reviewedAt: database.reviewedAt,
         totalColumns: 4
@@ -120,7 +143,7 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
   const pveResult = scoreTypeMode(type.pve, equipped, database.method.columnWeights, database.perkAliases);
   const pvpResult = scoreTypeMode(type.pvp, equipped, database.method.columnWeights, database.perkAliases);
   const compared = Math.max(pveResult?.compared || 0, pvpResult?.compared || 0);
-  if (!compared) return { state: "unavailable", reasons: [`DIM has ${weapon.itemType} recommendations, but none provide comparable evidence for this roll's equipped perks. Unknown is not bad.`], source: database.source.name, reviewedAt: database.reviewedAt };
+  if (!compared) return { state: "unavailable", reasons: [`${database.source.name} has ${weapon.itemType} recommendations, but none provide comparable evidence for this roll's equipped perks. Unknown is not bad.`], source: database.source.name, reviewedAt: database.reviewedAt };
   const reviewedWeapons = Math.max(type.pve.weapons, type.pvp.weapons);
   const confidence: WeaponRatingConfidence = !partial && compared >= 3 && reviewedWeapons >= 20 ? "medium" : "low";
   return scoredValue(pveResult, pvpResult, {
@@ -128,7 +151,7 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
     confidence,
     reason: partial
       ? `This provisional score uses the visible equipped perks and lower-confidence ${weapon.itemType} evidence across ${reviewedWeapons} reviewed weapons. It will update when Bungie returns more socket data.`
-      : `No exact DIM entry exists, so this is a lower-confidence ${weapon.itemType} comparison based on perk endorsement strength across ${reviewedWeapons} reviewed weapons.`,
+      : `No exact ${database.source.name} entry exists, so this is a lower-confidence ${weapon.itemType} comparison based on perk endorsement strength across ${reviewedWeapons} reviewed weapons.`,
     source: database.source.name,
     reviewedAt: database.reviewedAt,
     totalColumns: 4
@@ -140,7 +163,7 @@ export function evaluateWeapon(weapon: WeaponItem, database = loadedDatabase): W
  * The four DIM wishlist columns are accepted; mods, origin traits, and
  * masterworks deliberately remain outside this evaluator.
  */
-export function evaluateWeaponPerk(weapon: WeaponItem, ratingColumn: 0 | 1 | 2 | 3, perkHash: string, database = loadedDatabase): WeaponTraitValue {
+export function evaluateWeaponPerk(weapon: WeaponItem, ratingColumn: 0 | 1 | 2 | 3, perkHash: string, database = loadedDatabases.get("voltron")): WeaponTraitValue {
   if (!database) return { state: "unavailable", recommended: false, reasons: ["The community rating catalog is still loading or unavailable. This is not a negative rating."] };
 
   const record = database.items[weapon.itemHash];
@@ -150,7 +173,7 @@ export function evaluateWeaponPerk(weapon: WeaponItem, ratingColumn: 0 | 1 | 2 |
     return scoredTraitValue(pve, pvp, {
       basis: "weapon",
       confidence: "high",
-      reason: "Compared this selectable perk with DIM curator recommendations for this exact weapon. Base and enhanced versions are treated as equivalent.",
+      reason: `Compared this selectable perk with ${database.source.name} recommendations for this exact weapon. Base and enhanced versions are treated as equivalent.`,
       source: database.source.name,
       reviewedAt: database.reviewedAt
     });
@@ -163,7 +186,7 @@ export function evaluateWeaponPerk(weapon: WeaponItem, ratingColumn: 0 | 1 | 2 |
     if (pve || pvp) return scoredTraitValue(pve, pvp, {
       basis: "weapon-family",
       confidence: "low",
-      reason: "No exact DIM entry exists for this item hash, so this percentage uses curator evidence from reviewed versions of the same named weapon.",
+      reason: `No exact ${database.source.name} entry exists for this item hash, so this percentage uses evidence from reviewed versions of the same named weapon.`,
       source: database.source.name,
       reviewedAt: database.reviewedAt
     });
@@ -175,7 +198,7 @@ export function evaluateWeaponPerk(weapon: WeaponItem, ratingColumn: 0 | 1 | 2 |
   if (pve || pvp) return scoredTraitValue(pve, pvp, {
     basis: "weapon-type",
     confidence: "low",
-    reason: `No item-specific DIM recommendation exists, so this is lower-confidence ${weapon.itemType || "weapon-type"} curator evidence.`,
+    reason: `No item-specific ${database.source.name} recommendation exists, so this is lower-confidence ${weapon.itemType || "weapon-type"} curator evidence.`,
     source: database.source.name,
     reviewedAt: database.reviewedAt
   });

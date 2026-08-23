@@ -3,6 +3,8 @@ import type { GearData, WeaponItem } from "@guardian-nexus/contracts";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WeaponWorkspace } from "./WeaponWorkspace";
+import { useState } from "react";
+import { WeaponRatingProvider } from "../../context/WeaponRatingContext";
 
 const weapon = (instanceId: string, perk: string): WeaponItem => ({
   instanceId, itemHash: "10", name: "Test Rifle", icon: "/rifle.png", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 500,
@@ -31,6 +33,11 @@ const data: GearData = {
   weapons: [weapon("1", "Incandescent"), weapon("2", "Target Lock")], statIcons: {},
   totals: { armor: 0, weapons: 2, vault: 0, equipped: 0, locked: 0, grouped: 0, newItems: 0 }
 };
+
+function RatingSourceHarness({ setPreference }: { setPreference: ReturnType<typeof vi.fn> }) {
+  const [source, setSource] = useState("voltron");
+  return <WeaponRatingProvider value={source} onChange={(next) => { setSource(next); setPreference("weapons.ratingSource.v1", next); }}><WeaponWorkspace data={data} selectedCharacterId="character" preferences={{}} setPreference={setPreference} onTag={vi.fn()} onAction={vi.fn()} busy={false} /></WeaponRatingProvider>;
+}
 
 describe("WeaponWorkspace", () => {
   beforeEach(() => {
@@ -66,6 +73,16 @@ describe("WeaponWorkspace", () => {
     expect(screen.getAllByText("100%").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/high confidence/)).toHaveLength(2);
     expect(vi.mocked(fetch).mock.calls.length).toBeLessThanOrEqual(1);
+  });
+
+  it("persists one rating source for every weapon surface and labels who uses it", async () => {
+    const setPreference = vi.fn();
+    render(<RatingSourceHarness setPreference={setPreference} />);
+    const selector = screen.getAllByLabelText("Weapon rating source").find((entry) => entry.hasAttribute("title"))!;
+    expect(selector.textContent).toContain("Voltron · Used by: DIM (default), Destiny Recipes");
+    await waitFor(() => expect((selector as HTMLSelectElement).disabled).toBe(false));
+    fireEvent.change(selector, { target: { value: "choosy-voltron" } });
+    expect(setPreference).toHaveBeenCalledWith("weapons.ratingSource.v1", "choosy-voltron");
   });
 
   it("shows and rates every selectable trait while leaving non-recommended options visible", async () => {
