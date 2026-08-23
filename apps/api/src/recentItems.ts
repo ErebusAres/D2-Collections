@@ -26,6 +26,13 @@ const COALESCE_MS = 10 * 60_000;
 const RETENTION_DAYS = 30;
 const MAX_EVENTS = 200;
 const RAW_EVENT_SCAN_LIMIT = MAX_EVENTS * 5;
+export const RECENT_ITEM_REFRESH_INTERVAL_MS = 5 * 60_000;
+
+export function recentItemObservationDue(data: Pick<RecentItemTimelineData, "firstObservationEstablished" | "observedAt">, now = Date.now()): boolean {
+  if (!data.firstObservationEstablished) return true;
+  const refreshedAt = Date.parse(data.observedAt);
+  return !Number.isFinite(refreshedAt) || now - refreshedAt >= RECENT_ITEM_REFRESH_INTERVAL_MS;
+}
 
 export async function readRecentItems(membershipId: string, env: Env, now = new Date().toISOString()): Promise<RecentItemTimelineData> {
   const [observationSummary, refreshState, rows] = await Promise.all([

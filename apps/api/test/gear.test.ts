@@ -43,7 +43,8 @@ describe("normalizeGear", () => {
     expect(data.weapons?.[0]).toMatchObject({ name: "Test Rifle", slot: "Energy", damageType: "Arc", gearTier: 4, crafted: true, duplicateCount: 2, reviewState: "configured" });
     const traitColumn = data.weapons?.[0]?.perkColumns.find((column) => column.ratingColumn === 2);
     expect(traitColumn).toMatchObject({ ratingColumn: 2, active: { name: "Incandescent" }, options: expect.arrayContaining([expect.objectContaining({ name: "Target Lock" })]) });
-    expect(traitColumn?.options.map((perk) => perk.name)).toEqual(expect.arrayContaining(["Incandescent", "Target Lock", "Onslaught"]));
+    expect(traitColumn?.options.map((perk) => perk.name)).toEqual(["Incandescent", "Target Lock"]);
+    expect(traitColumn?.options.map((perk) => perk.name)).not.toContain("Onslaught");
     expect(traitColumn?.selectablePlugHashes).toEqual(expect.arrayContaining(["22", "24"]));
     expect(traitColumn?.selectablePlugHashes).not.toContain("25");
     expect(data.weapons?.[0]?.perkColumns.find((column) => column.kind === "origin")).toMatchObject({ socketIndex: 2, active: { name: "Test Origin" }, selectablePlugHashes: ["23"] });

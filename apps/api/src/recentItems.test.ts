@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition, missingGearObservationKeys, observationChanged, readRecentItems } from "./recentItems";
+import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition, missingGearObservationKeys, observationChanged, readRecentItems, recentItemObservationDue } from "./recentItems";
 
 describe("recent item timeline transitions", () => {
   const now = "2026-08-08T12:00:00.000Z";
+
+  it("refreshes an unestablished baseline immediately but throttles established observations to five minutes", () => {
+    const clock = Date.parse(now);
+    expect(recentItemObservationDue({ firstObservationEstablished: false, observedAt: now }, clock)).toBe(true);
+    expect(recentItemObservationDue({ firstObservationEstablished: true, observedAt: now }, clock + 60_000)).toBe(false);
+    expect(recentItemObservationDue({ firstObservationEstablished: true, observedAt: now }, clock + 5 * 60_000)).toBe(true);
+  });
 
   it("rewrites only observations whose relevant values changed", () => {
     const observation = { kind: "inventory" as const, state: "owned", quantity: 10, metadata: { itemHash: "1", name: "Core" } };
