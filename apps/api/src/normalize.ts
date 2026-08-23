@@ -230,6 +230,21 @@ export function addXurCollectionStates(profile: any, manifest: CompactManifest, 
   });
 }
 
+export function addXurOfferCollectionStates(profile: any, offers: XurOffer[]): XurOffer[] {
+  const collectibleState = collectibleStates(profile);
+  const physicalItems = ownedItemHashes(profile);
+  const hasCollectionData = Boolean(profile?.profileCollectibles?.data || Object.keys(profile?.characterCollectibles?.data || {}).length);
+  return offers.map((offer) => {
+    if (offer.category === "other") return { ...offer, collectionState: "not-applicable" };
+    if (physicalItems.has(offer.itemHash)) return { ...offer, collectionState: "owned" };
+    if (offer.collectibleHash && hasCollectionData) {
+      const state = collectibleState.get(offer.collectibleHash);
+      return { ...offer, collectionState: state !== undefined && (state & 1) === 0 ? "owned" : "missing" };
+    }
+    return { ...offer, collectionState: "unknown" };
+  });
+}
+
 function collectionIdentity(name: string, className?: string): string {
   return `${name.trim().toLocaleLowerCase()}|${className || ""}`;
 }

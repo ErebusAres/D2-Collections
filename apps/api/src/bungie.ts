@@ -443,13 +443,15 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export type ProfileMode = "full" | "session" | "collection" | "quests" | "journey" | "fireteam" | "gear" | "gear-action" | "loot-watcher" | "recent-items" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
+export type ProfileMode = "full" | "session" | "collection" | "xur" | "quests" | "journey" | "fireteam" | "gear" | "gear-action" | "loot-watcher" | "recent-items" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
 
 export function profileComponentsFor(mode: ProfileMode): string {
   return mode === "session"
     ? "100,200,201,202,204"
     : mode === "collection"
       ? "100,102,200,201,800,900"
+    : mode === "xur"
+      ? "100,102,200,201,800"
       : mode === "quests"
         ? "100,102,200,201,204,301,310"
       : mode === "journey"
