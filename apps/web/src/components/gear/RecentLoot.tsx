@@ -144,9 +144,9 @@ export function CompactRecentLootBar({ events, items = [], catalysts = [], displ
         : "No item changes have been observed yet.";
   const watcherButtons = [
     ["farmingMode", "Farming Mode", "Keep one inventory slot free in each weapon and armor bucket by moving unprotected gear to the vault.", PackageOpen],
-    ["highestPowerLock", "Highest Power", "Lock the highest-Power weapon and armor item in every equipment slot.", LockKeyhole],
-    ["tier5FitLock", "Tier 5 fits", "Lock newly observed Tier 5 non-Exotic armor when its archetype and bonus-stat combination is new.", ShieldCheck],
-    ["duplicateFitJunk", "Duplicate fits", "Tag inferior duplicate non-Exotic armor fits as junk, grouped by armor name, archetype, and bonus stat.", Tags]
+    ["highestPowerLock", "Highest Power", "Instantly lock newly looted weapons or armor when their Power is higher than every item already owned in that slot.", LockKeyhole],
+    ["tier5FitLock", "Tier 5 fits", "Instantly lock newly looted Tier 5 non-Exotic armor when its piece, archetype, and bonus-stat combination is not already owned at Tier 5.", ShieldCheck],
+    ["duplicateFitJunk", "Duplicate fits", "Tag newly looted inferior duplicate or invalid-fit non-Exotic armor as junk. Equipped, locked, and already tagged pieces are skipped.", Tags]
   ] as const;
   return <section className={styles.compactBar}>
     <header><span className={styles.compactTitle}><Sparkles /><strong>Recent loot</strong></span>{watchers && onWatcherChange && <nav className={styles.lootWatchers} aria-label="Recent Loot watchers">{watcherButtons.map(([key, label, description, Icon]) => <button key={key} type="button" aria-label={`${label} watcher ${watchers[key] ? "on" : "off"}`} aria-pressed={watchers[key]} data-active={watchers[key]} data-tooltip={`${label}: ${description}`} disabled={watcherBusy} onClick={() => onWatcherChange(key, !watchers[key])}><Icon /><span>{label}</span></button>)}</nav>}</header>

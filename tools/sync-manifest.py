@@ -19,6 +19,7 @@ API_ROOT = "https://www.bungie.net/Platform"
 WEB_ROOT = "https://www.bungie.net"
 OUTPUT = Path(__file__).resolve().parents[1] / "apps" / "web" / "public" / "data" / "manifest.json"
 GEAR_OUTPUT = OUTPUT.with_name("gear-manifest.json")
+LOOT_WATCHER_OUTPUT = OUTPUT.with_name("loot-watcher-manifest.json")
 ACTIVITY_OUTPUT = OUTPUT.with_name("activity-manifest.json")
 ACTIVITY_NAMES_OUTPUT = OUTPUT.with_name("activity-names.json")
 FEATURE_OUTPUT = OUTPUT.with_name("collection-features.json")
@@ -556,6 +557,32 @@ def minimal_plug(definition: dict) -> dict:
             "plugCategoryIdentifier": (definition.get("plug") or {}).get("plugCategoryIdentifier", ""),
             "plugCategoryHash": (definition.get("plug") or {}).get("plugCategoryHash"),
         },
+    }
+
+
+def minimal_loot_watcher_item(definition: dict) -> dict:
+    value = minimal_gear_item(definition)
+    value["displayProperties"].pop("icon", None)
+    value.pop("defaultDamageType", None)
+    return value
+
+
+def is_loot_watcher_plug(definition: dict) -> bool:
+    name = str((definition.get("displayProperties") or {}).get("name", "")).strip().lower()
+    category = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).strip().lower()
+    return name in {
+        "paragon", "grenadier", "specialist", "brawler", "bulwark", "gunner",
+        "siegebreaker", "skirmisher", "demolitionist", "colossus", "reaver", "powerhouse",
+    } or category == "core.gear_systems.armor_tiering.plugs.tuning.mods"
+
+
+def loot_watcher_manifest(gear_defs: dict[str, dict], plug_defs: dict[str, dict], stat_definitions: dict[str, dict], version: str, generated_at: str) -> dict:
+    return {
+        "version": version,
+        "generatedAt": generated_at,
+        "gearItemDefinitions": {key: minimal_loot_watcher_item(value) for key, value in gear_defs.items()},
+        "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items() if is_loot_watcher_plug(value)},
+        "statDefinitions": {key: {"hash": key, "displayProperties": display(value)} for key, value in stat_definitions.items() if key in ARMOR_STAT_HASHES},
     }
 
 
@@ -1264,6 +1291,7 @@ def main() -> None:
         }
         OUTPUT.parent.mkdir(parents=True, exist_ok=True)
         GEAR_OUTPUT.write_text(json.dumps(gear_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        LOOT_WATCHER_OUTPUT.write_text(json.dumps(loot_watcher_manifest(gear_defs, plug_defs, stat_definitions, version, generated_at), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         print(f"Wrote {len(gear_defs)} gear definitions and {len(plug_defs)} roll-bearing plug definitions for manifest {version}.")
         return
     build_catalog_compact = build_catalog_manifest(inventory, class_definitions, damage_types, buckets, plug_sets, item_sets, sandbox_perks, stat_definitions, version, generated_at)
@@ -1544,6 +1572,7 @@ def main() -> None:
     }
     OUTPUT.write_text(json.dumps(compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     GEAR_OUTPUT.write_text(json.dumps(gear_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    LOOT_WATCHER_OUTPUT.write_text(json.dumps(loot_watcher_manifest(gear_defs, plug_defs, stat_definitions, version, generated_at), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     BUILD_ADVISOR_OUTPUT.write_text(json.dumps(advisor_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     ACTIVITY_OUTPUT.write_text(json.dumps(activity_compact, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     ACTIVITY_NAMES_OUTPUT.write_text(json.dumps(activity_names, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
