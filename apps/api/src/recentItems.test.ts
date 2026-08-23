@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coalesceTimelineEvents, eventForTransition, eventId, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition, missingGearObservationKeys, observationChanged, readRecentItems, recentItemObservationDue } from "./recentItems";
+import { coalesceTimelineEvents, eventForTransition, eventId, FIRETEAM_RECENT_ITEM_LIMIT, inventoryObservations, inventorySnapshotAvailable, isExoticEngramDefinition, missingGearObservationKeys, observationChanged, readRecentItems, recentItemObservationDue } from "./recentItems";
 
 describe("recent item timeline transitions", () => {
   const now = "2026-08-08T12:00:00.000Z";
@@ -126,22 +126,28 @@ describe("recent item timeline transitions", () => {
 
   it("reads the saved timeline and current gear metadata using bounded D1 queries only", async () => {
     const queries: string[] = [];
-    const env: any = { DB: { prepare: (sql: string) => ({ bind: (..._values: unknown[]) => ({
+    const bindings: unknown[][] = [];
+    const env: any = { DB: { prepare: (sql: string) => ({ bind: (...values: unknown[]) => ({
       first: async () => {
+        bindings.push(values);
         queries.push(sql);
         return { observation_count: 4, observed_at: now, refreshed_at: now };
       },
       all: async () => {
+        bindings.push(values);
         queries.push(sql);
         if (sql.includes("recent_item_events")) return { results: [{ id: "event", membership_id: "member", event_kind: "weapon-found", source_key: "gear:instance", item_hash: "10", instance_id: "instance", record_hash: null, name: "Saved Rifle", description: "", icon: "", quantity: 1, metadata_json: JSON.stringify({ id: "event", kind: "weapon-found", sourceKey: "gear:instance", name: "Saved Rifle", icon: "", quantity: 1, observedAt: now, lastObservedAt: now }), observed_at: now, last_observed_at: now }] };
         return { results: [{ observation_key: "gear:instance", metadata_json: JSON.stringify({ instanceId: "instance", gear: { kind: "weapon", instanceId: "instance", itemHash: "10", name: "Saved Rifle", icon: "", rarity: "Legendary", power: 550, slot: "Kinetic", damageType: "Kinetic", itemType: "Auto Rifle", location: "vault", equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false, perkColumns: [], originTraits: [], stats: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: now, isNew: true } }) }] };
       }
     }) }) } };
 
-    const data = await readRecentItems("member", env, now);
+    const data = await readRecentItems("member", env, now, FIRETEAM_RECENT_ITEM_LIMIT);
     expect(data).toMatchObject({ observedAt: now, firstObservationEstablished: true, events: [{ name: "Saved Rifle", gear: { kind: "weapon", power: 550 } }] });
     expect(queries).toHaveLength(3);
     expect(queries.every((query) => /recent_item_(?:observations|events|refresh_state)/.test(query))).toBe(true);
-    expect(queries.find((query) => query.includes("recent_item_events"))).not.toMatch(/SELECT\s+\*/i);
+    const eventQuery = queries.find((query) => query.includes("recent_item_events")) || "";
+    expect(eventQuery).not.toMatch(/SELECT\s+\*/i);
+    expect(eventQuery).not.toMatch(/json_extract/i);
+    expect(bindings.some((values) => values.at(-1) === FIRETEAM_RECENT_ITEM_LIMIT * 5)).toBe(true);
   });
 });
