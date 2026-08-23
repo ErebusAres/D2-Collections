@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DistortionObservation } from "@guardian-nexus/contracts";
 import type { StoredXurSnapshot } from "./xurSnapshot";
 import type { Env } from "./types";
-import { calculateDistortionPrediction, calculateDistortionStatistics, communityDistortionAt, materializeGeneratedNotifications, xurHappeningCard, xurVisitNotification } from "./notifications";
+import { calculateDistortionPrediction, calculateDistortionStatistics, communityDistortionAt, materializeGeneratedNotifications, readCurrentDistortionForNotifications, xurHappeningCard, xurVisitNotification } from "./notifications";
 
 function observation(destination: string, hour: number): DistortionObservation {
   const start = new Date(Date.UTC(2026, 6, 1, hour)).toISOString();
@@ -97,6 +97,32 @@ describe("Distortion evidence handling", () => {
 });
 
 describe("generated notification persistence", () => {
+  it("reads only the latest distortion row for the notification feed", async () => {
+    const first = vi.fn().mockResolvedValue({
+      id: "distortion:europa",
+      destination: "Europa",
+      observed_start_at: "2026-08-23T03:00:00.000Z",
+      first_detected_at: "2026-08-23T03:00:00.000Z",
+      last_confirmed_at: "2026-08-23T03:10:00.000Z",
+      source: "Manual observation",
+      confidence: "observed",
+      complete: 0
+    });
+    let preparedQuery = "";
+    const prepare = vi.fn((query: string) => {
+      preparedQuery = query;
+      return { first };
+    });
+    const env = { DB: { prepare } } as unknown as Env;
+
+    await expect(readCurrentDistortionForNotifications(env, new Date("2026-08-23T03:12:00.000Z"))).resolves.toMatchObject({
+      current: { destination: "Europa", source: "Manual observation" },
+      sourceConfidence: "observed"
+    });
+    expect(prepare).toHaveBeenCalledOnce();
+    expect(preparedQuery).toMatch(/ORDER BY observed_start_at DESC LIMIT 1/);
+  });
+
   it("keeps the feed available when D1 cannot materialize an occurrence", async () => {
     const bind = vi.fn(() => ({}));
     const env = {
