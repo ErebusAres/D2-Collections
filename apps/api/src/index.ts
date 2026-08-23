@@ -241,6 +241,7 @@ export default {
       env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
     ]);
     if (Math.floor(controller.scheduledTime / 60_000) % 5 === 0) await maintainNotificationStorage(env);
+    await ensureLootWatcherJobs(env);
     await refreshDueLootWatchers(env).catch((error: any) => {
       console.error("loot_watcher_cron_failed", String(error?.code || error?.message || "unknown"));
     });
@@ -1659,6 +1660,24 @@ async function runLootWatchers(request: Request, row: SessionRow, env: Env, cont
 interface LootWatcherJobRow {
   membership_id: string;
   character_id: string;
+}
+
+async function ensureLootWatcherJobs(env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  await env.DB.prepare(`
+    INSERT INTO loot_watcher_jobs (membership_id, character_id, next_run_at, updated_at)
+    SELECT enabled.membership_id, COALESCE(character.preference_value, snapshot.character_id), ?, ?
+    FROM (
+      SELECT DISTINCT membership_id FROM user_preferences
+      WHERE preference_key IN (?, ?, ?, ?) AND preference_value = 'on'
+    ) enabled
+    LEFT JOIN user_preferences character
+      ON character.membership_id = enabled.membership_id AND character.preference_key = 'site.character'
+    LEFT JOIN fireteam_snapshots snapshot ON snapshot.membership_id = enabled.membership_id
+    WHERE COALESCE(character.preference_value, snapshot.character_id) IS NOT NULL
+    ON CONFLICT(membership_id) DO UPDATE SET character_id = excluded.character_id, updated_at = excluded.updated_at
+    WHERE loot_watcher_jobs.character_id <> excluded.character_id
+  `).bind(now, now, ...Object.values(LOOT_WATCHER_PREFERENCE_KEYS)).run();
 }
 
 async function scheduleLootWatcher(membershipId: string, characterId: string, env: Env): Promise<void> {
