@@ -46,11 +46,24 @@ export function fireteamRefreshState(input: {
   return "current";
 }
 
+export function fireteamRefreshDue(input: {
+  nextRefreshAt?: string;
+  retryAfterAt?: string;
+  refreshStartedAt?: string;
+}, now = Date.now()): boolean {
+  const dueMs = Date.parse(input.nextRefreshAt || "");
+  if (!Number.isFinite(dueMs) || dueMs > now) return false;
+  const retryMs = Date.parse(input.retryAfterAt || "");
+  if (Number.isFinite(retryMs) && retryMs > now) return false;
+  const startedMs = Date.parse(input.refreshStartedAt || "");
+  return !Number.isFinite(startedMs) || startedMs <= now - FIRETEAM_REFRESH_LEASE_MS;
+}
+
 /**
  * The roster is produced from one Bungie source snapshot. It never merges a
- * prior roster into a newer player-state observation. If the viewer is not
- * positively in an active Destiny session, teammates are not presented as a
- * current Fireteam.
+ * prior roster into a newer player-state observation. A fresh transitory roster
+ * containing another Guardian is itself direct evidence of an active Fireteam;
+ * otherwise the viewer still needs positive session evidence.
  */
 export function authoritativeFireteamParty(
   observed: SavedPartyMember[],
@@ -60,7 +73,10 @@ export function authoritativeFireteamParty(
 ): SavedPartyMember[] {
   const self = observed.find((member) => member.membershipId === selfMembershipId)
     || { membershipId: selfMembershipId, displayName: "", status: 0, observedInParty: false };
-  if (onlineState !== "online" || !transitoryAvailable) {
+  const hasObservedTeammate = observed.some((member) => member.membershipId !== selfMembershipId && member.observedInParty);
+  // A fresh transitory party roster is direct presence evidence. Do not hide it
+  // merely because the slower character-session heuristic has not advanced yet.
+  if (!transitoryAvailable || onlineState !== "online" && !hasObservedTeammate) {
     return [{ ...self, status: 0, observedInParty: false }];
   }
   const unique = new Map<string, SavedPartyMember>();

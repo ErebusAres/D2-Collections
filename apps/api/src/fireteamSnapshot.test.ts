@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   authoritativeFireteamParty,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
+  fireteamRefreshDue,
   fireteamRefreshState,
   fireteamRetryAfter,
   fireteamSharedQuests,
@@ -62,16 +63,23 @@ describe("Fireteam snapshot contract", () => {
     expect(fireteamRefreshState({ committedAt: "2026-08-20T11:55:00.000Z", nextRefreshAt: "2026-08-20T12:00:00.000Z", lastErrorCode: "worker_resource_limit" }, now)).toBe("delayed");
   });
 
-  it("uses one same-snapshot player state and roster without old-member retention", () => {
+  it("lets an active page start a due refresh while respecting retries and leases", () => {
+    const now = Date.parse("2026-08-20T12:00:00.000Z");
+    expect(fireteamRefreshDue({ nextRefreshAt: "2026-08-20T11:59:00.000Z" }, now)).toBe(true);
+    expect(fireteamRefreshDue({ nextRefreshAt: "2026-08-20T11:59:00.000Z", retryAfterAt: "2026-08-20T12:01:00.000Z" }, now)).toBe(false);
+    expect(fireteamRefreshDue({ nextRefreshAt: "2026-08-20T11:59:00.000Z", refreshStartedAt: "2026-08-20T11:59:30.000Z" }, now)).toBe(false);
+    expect(fireteamRefreshDue({ nextRefreshAt: "2026-08-20T11:59:00.000Z", refreshStartedAt: "2026-08-20T11:57:30.000Z" }, now)).toBe(true);
+  });
+
+  it("uses the fresh transitory roster as direct party evidence without old-member retention", () => {
     const observed = [
       { membershipId: "self", displayName: "Self", status: 9, observedInParty: true },
       { membershipId: "friend", displayName: "Friend", status: 1, observedInParty: true }
     ];
     expect(authoritativeFireteamParty(observed, "self", "online", true)).toEqual(observed);
-    expect(authoritativeFireteamParty(observed, "self", "offline", true)).toEqual([
-      { membershipId: "self", displayName: "Self", status: 0, observedInParty: false }
-    ]);
-    expect(authoritativeFireteamParty(observed, "self", "unknown", true)).toEqual([
+    expect(authoritativeFireteamParty(observed, "self", "offline", true)).toEqual(observed);
+    expect(authoritativeFireteamParty(observed, "self", "unknown", true)).toEqual(observed);
+    expect(authoritativeFireteamParty(observed, "self", "unknown", false)).toEqual([
       { membershipId: "self", displayName: "Self", status: 0, observedInParty: false }
     ]);
   });
