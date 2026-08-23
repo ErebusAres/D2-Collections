@@ -79,6 +79,12 @@ describe("WeaponWorkspace", () => {
     expect(screen.getAllByText("Magazine")).toHaveLength(2);
     expect(screen.getAllByText("Origin Trait")).toHaveLength(2);
     expect(screen.getAllByLabelText(/PvE not recommended for this weapon/).length).toBeGreaterThan(1);
+    const pveMarks = screen.getAllByLabelText(/^PvE:/);
+    const pvpMarks = screen.getAllByLabelText(/^PvP:/);
+    expect(pveMarks.length).toBeGreaterThan(0);
+    expect(pvpMarks.length).toBe(pveMarks.length);
+    expect(pveMarks.every((mark) => mark.getAttribute("data-mode") === "pve" && mark.textContent === "")).toBe(true);
+    expect(pvpMarks.every((mark) => mark.getAttribute("data-mode") === "pvp" && mark.textContent === "")).toBe(true);
   });
 
   it("selects only plugs available on the owned roll across traits and origin traits", () => {
