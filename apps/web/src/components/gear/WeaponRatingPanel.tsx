@@ -63,7 +63,9 @@ function PerkOption({ perk, rating, active, selectable, busy, onSelect }: { perk
 
 function TraitMode({ mode, score, exact }: { mode: "E" | "P"; score?: number; exact: boolean }) {
   const state = score === undefined ? "unknown" : exact ? (score === 100 ? "up" : "down") : score >= 60 ? "up" : score <= 25 ? "down" : "mixed";
-  return <span className={styles.traitMode} data-state={state} title={`${mode === "E" ? "PvE" : "PvP"}: ${traitModeLabel(score, exact)}`}><small>{mode}</small>{state === "up" ? <ThumbsUp /> : state === "down" ? <ThumbsDown /> : <Minus />}</span>;
+  const label = mode === "E" ? "PvE" : "PvP";
+  const description = `${label}: ${traitModeLabel(score, exact)}`;
+  return <span className={styles.traitMode} data-mode={mode === "E" ? "pve" : "pvp"} data-state={state} title={description} aria-label={description}>{state === "up" ? <ThumbsUp /> : state === "down" ? <ThumbsDown /> : <Minus />}</span>;
 }
 
 function traitModeLabel(score: number | undefined, exact: boolean): string {
