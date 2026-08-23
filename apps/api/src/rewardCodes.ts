@@ -3,6 +3,18 @@ import type { RewardCodeManifest } from "./bungie";
 
 const LIMITATION = "Bungie does not expose universal code-redemption history. Guardian Nexus only auto-hides a code when its exact reward is acquired in Destiny Collections.";
 
+export function pendingRewardCodeStatus(checkedAt = new Date().toISOString()): RewardCodeStatusData {
+  return {
+    manifestVersion: "refreshing",
+    source: "bungie-profile-collectibles",
+    checkedAt,
+    manualCodes: [],
+    manualCodesConfigured: false,
+    limitation: LIMITATION,
+    statuses: []
+  };
+}
+
 function collectibleStates(profile: any): Map<string, number> {
   const states = new Map<string, number>();
   const apply = (component: any) => Object.entries(component?.collectibles || {}).forEach(([hash, row]: [string, any]) => {
