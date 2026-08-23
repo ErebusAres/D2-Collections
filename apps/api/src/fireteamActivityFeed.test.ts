@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { combineFireteamActivityEntries, configuredFireteamActivityFeedEnabled, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, sanitizeSharedRecentEvent, sharedActivityFeedEnabled, sharedRecentEventFromRow } from "./fireteamActivityFeed";
+import { combineFireteamActivityEntries, configuredFireteamActivityFeedEnabled, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed, sanitizeSharedRecentEvent, sharedActivityFeedEnabled, sharedRecentEventFromRow } from "./fireteamActivityFeed";
 
 describe("Fireteam activity feed", () => {
   it("uses one stable channel key for the same party regardless of order", async () => {
@@ -29,6 +29,25 @@ describe("Fireteam activity feed", () => {
       observation_metadata_json: JSON.stringify({ gear: { kind: "weapon", instanceId: "1", gearTier: 4, tag: "favorite", ownerCharacterId: "private" } })
     };
     expect(sharedRecentEventFromRow(row).gear).toEqual({ kind: "weapon", instanceId: "1", gearTier: 4 });
+  });
+
+  it("does not select the duplicate full event metadata blob for activity rows", async () => {
+    const queries: string[] = [];
+    const now = "2026-08-08T12:00:00Z";
+    const env = { DB: { prepare: (sql: string) => {
+      queries.push(sql);
+      return { bind: () => ({ all: async () => sql.includes("recent_item_events") ? { results: [{
+        id: "loot", membership_id: "1", event_kind: "weapon-found", source_key: "gear:instance", item_hash: "10", instance_id: "instance", record_hash: null,
+        name: "Saved Rifle", description: "", icon: "", quantity: 1, observed_at: now, last_observed_at: now, event_item_type: "Auto Rifle", event_rarity: "Legendary",
+        observation_metadata_json: JSON.stringify({ gear: { kind: "weapon", instanceId: "instance", gearTier: 5, tag: "favorite" } })
+      }] } : { results: [] } }) };
+    } } } as any;
+    const feed = await readFireteamActivityFeed({ env, viewerMembershipId: "1", partyMembershipIds: ["1", "2"], enabledMembershipIds: ["1", "2"], displayNames: new Map([["1", "Guardian"]]), enabled: true, now });
+    const eventQuery = queries.find((query) => query.includes("recent_item_events")) || "";
+    expect(eventQuery).not.toMatch(/events\.\*/i);
+    expect(eventQuery).toContain("observations.metadata_json AS observation_metadata_json");
+    expect((feed.entries[0] as any).event).toMatchObject({ itemType: "Auto Rifle", rarity: "Legendary", gear: { gearTier: 5 } });
+    expect((feed.entries[0] as any).event.gear.tag).toBeUndefined();
   });
 
   it("migrates legacy opt-in false values to enabled while preserving an explicit disable", () => {
