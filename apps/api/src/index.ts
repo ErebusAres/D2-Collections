@@ -85,7 +85,7 @@ import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems, recentItemObservationDue, removeRecentGearItem } from "./recentItems";
 import { configuredFireteamActivityFeedEnabled, FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
-import { guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
+import { equippedCharacterPower, guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
 import {
   authoritativeFireteamParty,
   FIRETEAM_ACTIVE_WINDOW_MS,
@@ -1944,8 +1944,12 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   const requestedCharacter = selectedCharacter(profileCharacters, refresh.character_id);
   if (!requestedCharacter) throw httpError(404, "character_missing", "No Destiny character is available for this Fireteam snapshot.");
   const sessionObservation = observeGuardianSession(profileCharacters, previousPayload?.sessionPresenceEvidence, sourceObservedAt);
-  const snapshotCharacter = profileCharacters.find((entry) => entry.characterId === sessionObservation.activeCharacterId)
+  const observedCharacter = profileCharacters.find((entry) => entry.characterId === sessionObservation.activeCharacterId)
     || requestedCharacter;
+  const snapshotCharacter = {
+    ...observedCharacter,
+    power: equippedCharacterPower(profile, observedCharacter.characterId, observedCharacter.power)
+  };
   // Fireteam presence follows the observed active character, but the order rail
   // belongs to the character the player selected in Guardian Nexus.
   const allQuests = normalizeQuests(profile, questManifest, requestedCharacter.characterId, new Set(pinnedIds));
