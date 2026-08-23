@@ -149,7 +149,7 @@ export function CompactRecentLootBar({ events, items = [], catalysts = [], displ
     ["duplicateFitJunk", "Duplicate fits", "Tag inferior duplicate non-Exotic armor fits as junk, grouped by armor name, archetype, and bonus stat.", Tags]
   ] as const;
   return <section className={styles.compactBar}>
-    <header><span className={styles.compactTitle}><Sparkles /><strong>Recent loot</strong></span></header>
+    <header><span className={styles.compactTitle}><Sparkles /><strong>Recent loot</strong></span>{watchers && onWatcherChange && <nav className={styles.lootWatchers} aria-label="Recent Loot watchers">{watcherButtons.map(([key, label, description, Icon]) => <button key={key} type="button" aria-label={`${label} watcher ${watchers[key] ? "on" : "off"}`} aria-pressed={watchers[key]} data-active={watchers[key]} data-tooltip={`${label}: ${description}`} disabled={watcherBusy} onClick={() => onWatcherChange(key, !watchers[key])}><Icon /><span>{label}</span></button>)}</nav>}</header>
     <div className={styles.timelineBody}>
       <header className={styles.timelineHeader}>
         <small>{events ? <>Private observed timeline · newest to oldest · {visible.length} events{retentionDays ? ` · ${retentionDays} days` : ""}</> : <>Private · {visible.length} of {entries.length} first observed</>}</small>
@@ -157,9 +157,8 @@ export function CompactRecentLootBar({ events, items = [], catalysts = [], displ
         <button type="button" onClick={onHide}>Hide</button>
       </header>
       <div className={styles.carousel}><button type="button" aria-label="Previous recent loot page" onClick={() => setPage((value) => Math.max(0, value - 1))} disabled={currentPage === 0}><ChevronLeft /></button><div className={styles.carouselViewport} ref={viewport}><div className={styles.carouselPage}>{pageEntries.length ? pageEntries.map(renderEntry) : <p role={error ? "alert" : undefined}>{emptyMessage}{error && onRetry && <button type="button" onClick={onRetry}>Retry</button>}</p>}</div></div><span className={styles.pageCount}>{currentPage + 1} / {pageCount}</span><button type="button" aria-label="Next recent loot page" onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} disabled={currentPage >= pageCount - 1}><ChevronRight /></button></div>
-      {(observedAt || warnings.length > 0) && <footer className={styles.timelineFooter}>{observedAt && <small>Checked {new Date(observedAt).toLocaleTimeString()}</small>}{warnings.map((warning) => <small className={styles.timelineWarning} key={warning}>{warning}</small>)}</footer>}
+      {(observedAt || warnings.length > 0 || watcherStatus) && <footer className={styles.timelineFooter}>{observedAt && <small>Checked {new Date(observedAt).toLocaleTimeString()}</small>}{watcherStatus && <small className={styles.watcherStatus}>{watcherStatus}</small>}{warnings.map((warning) => <small className={styles.timelineWarning} key={warning}>{warning}</small>)}</footer>}
     </div>
-    {watchers && onWatcherChange && <footer className={styles.watcherStrip}><span><strong>Loot watchers</strong><small>Off until enabled</small>{watcherStatus && <em>{watcherStatus}</em>}</span><nav className={styles.lootWatchers} aria-label="Recent Loot watchers">{watcherButtons.map(([key, label, description, Icon]) => <button key={key} type="button" aria-label={`${label} watcher ${watchers[key] ? "on" : "off"}`} aria-pressed={watchers[key]} data-active={watchers[key]} data-tooltip={`${label}: ${description}`} disabled={watcherBusy} onClick={() => onWatcherChange(key, !watchers[key])}><Icon /><span>{label}</span></button>)}</nav></footer>}
   </section>;
 }
 

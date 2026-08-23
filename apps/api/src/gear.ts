@@ -105,7 +105,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
     const itemState = Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0);
     if (Number(definition.itemType) === 3) {
       const observedPerkColumns = weaponPerkColumns(itemSockets, reusablePlugs[instanceId]?.plugs || {}, plugs);
-      const perkColumns = weaponPerkColumns(itemSockets, reusablePlugs[instanceId]?.plugs || {}, plugs, manifest.weaponPerkColumns?.[itemHash]);
+      const perkColumns = weaponPerkColumns(itemSockets, reusablePlugs[instanceId]?.plugs || {}, plugs);
       const originTraits = activePlugs.filter((plug) => weaponPlugKind(plug) === "origin").map(perk).filter((value) => value.name);
       const masterwork = activePlugs.find((plug) => weaponPlugKind(plug) === "masterwork");
       const rollDataState: WeaponItem["rollDataState"] = observedPerkColumns.length >= 2 && observedPerkColumns.every((column) => column.active) ? "complete" : activePlugs.length || observedPerkColumns.length ? "partial" : "unavailable";
@@ -162,7 +162,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
   return { gearSchemaVersion: 2, manifestVersion: manifest.version, selectedCharacterId, selectedClass, items, weapons, statIcons, totals: { armor: items.length, weapons: weapons.length, vault: items.filter((item) => item.location === "vault").length, equipped: items.filter((item) => item.equipped).length, locked: items.filter((item) => item.locked).length, grouped: 0, newItems: items.filter((item) => item.isNew).length } };
 }
 
-function weaponPerkColumns(itemSockets: any[], reusableBySocket: Record<string, any[]>, plugs: Record<string, any>, fullPool: string[][] = []): WeaponPerkColumn[] {
+function weaponPerkColumns(itemSockets: any[], reusableBySocket: Record<string, any[]>, plugs: Record<string, any>): WeaponPerkColumn[] {
   const columns = itemSockets.map((socket, socketIndex): (WeaponPerkColumn & { ratingKind?: "first" | "second" | "trait" }) | undefined => {
     const activeHash = hashOf(socket?.plugHash || socket?.plugItemHash);
     const activeDefinition = activeHash !== "0" ? plugs[activeHash] : undefined;
@@ -181,7 +181,7 @@ function weaponPerkColumns(itemSockets: any[], reusableBySocket: Record<string, 
     return { socketIndex, ...(kind ? { kind } : {}), ...(ratingKind ? { ratingKind } : {}), ...(activeDefinition ? { active: perk(activeDefinition) } : {}), options, selectablePlugHashes };
   }).filter((value): value is WeaponPerkColumn & { ratingKind?: "first" | "second" | "trait" } => Boolean(value));
   let traitColumn = 2;
-  const mapped: WeaponPerkColumn[] = columns.map(({ ratingKind, ...column }): WeaponPerkColumn => {
+  return columns.map(({ ratingKind, ...column }): WeaponPerkColumn => {
     if (ratingKind === "first") return { ...column, ratingColumn: 0 as const };
     if (ratingKind === "second") return { ...column, ratingColumn: 1 as const };
     if (ratingKind === "trait" && traitColumn <= 3) {
@@ -191,15 +191,6 @@ function weaponPerkColumns(itemSockets: any[], reusableBySocket: Record<string, 
     }
     return column;
   });
-  if (!fullPool.some((column) => column?.length)) return mapped;
-  const rated = ([0, 1, 2, 3] as const).flatMap((ratingColumn) => {
-    const current = mapped.find((column) => column.ratingColumn === ratingColumn);
-    const poolOptions = (fullPool[ratingColumn] || []).map((hash) => plugs[hash]).filter(Boolean).map(perk).filter((value) => value.name);
-    const options = [...new Map([...(current?.options || []), ...poolOptions].map((option) => [option.hash, option])).values()];
-    if (!current && !options.length) return [];
-    return [{ socketIndex: current?.socketIndex ?? -(ratingColumn + 1), ratingColumn, ...(current?.kind ? { kind: current.kind } : {}), ...(current?.active ? { active: current.active } : {}), ...(current?.selectablePlugHashes ? { selectablePlugHashes: current.selectablePlugHashes } : {}), options }];
-  });
-  return [...rated, ...mapped.filter((column) => column.kind === "origin")];
 }
 
 function weaponRatingKind(plug: any): "first" | "second" | "trait" | undefined {

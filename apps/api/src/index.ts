@@ -82,7 +82,7 @@ import {
 import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
-import { observeRecentItems, readRecentItems, removeRecentGearItem } from "./recentItems";
+import { observeRecentItems, readRecentItems, recentItemObservationDue, removeRecentGearItem } from "./recentItems";
 import { configuredFireteamActivityFeedEnabled, FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
 import { guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
 import {
@@ -1204,7 +1204,7 @@ async function gear(row: SessionRow, env: Env, context: RequestContext): Promise
 async function recentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const data = await readRecentItems(row.membership_id, env);
   const observationAgeMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
-  if (!Number.isFinite(observationAgeMs) || observationAgeMs >= 45_000) {
+  if (recentItemObservationDue(data)) {
     context.waitUntil?.(refreshRecentItemObservationsWithLease(row, env, context.url.searchParams.get("characterId") || undefined).catch((error: any) => {
       console.log(JSON.stringify({ event: "recent_items_observation_failed", category: String(error?.code || error?.name || "unknown").slice(0, 80) }));
     }));
@@ -2137,7 +2137,7 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
 async function fireteamRecentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const data = await readRecentItems(row.membership_id, env);
   const ageMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
-  if (!Number.isFinite(ageMs) || ageMs >= 45_000) {
+  if (recentItemObservationDue(data)) {
     context.waitUntil?.(refreshRecentItemObservationsWithLease(row, env, context.url.searchParams.get("characterId") || undefined).catch((error: any) => {
       console.log(JSON.stringify({ event: "fireteam_recent_items_observation_failed", category: String(error?.code || error?.name || "unknown").slice(0, 80) }));
     }));

@@ -78,7 +78,10 @@ function ratedColumns(weapon: WeaponItem): WeaponPerkColumn[] {
 
 function uniqueTraitOptions(column: WeaponPerkColumn): ArmorPerk[] {
   const options = column.active ? [column.active, ...column.options] : column.options;
-  return [...new Map(options.filter((perk) => perk.hash && perk.name).map((perk) => [perk.hash, perk])).values()];
+  const available = new Set(column.selectablePlugHashes || []);
+  return [...new Map(options
+    .filter((perk) => perk.hash && perk.name && (perk.hash === column.active?.hash || available.has(perk.hash)))
+    .map((perk) => [perk.hash, perk])).values()];
 }
 
 function ratingColumnLabel(weapon: WeaponItem, column: 0 | 1 | 2 | 3): string {

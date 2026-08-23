@@ -17,7 +17,8 @@ const weapon = (instanceId: string, perk: string): WeaponItem => ({
     { socketIndex: 3, ratingColumn: 3, selectablePlugHashes: [perk, "Backup Plan"], active: { hash: perk, name: perk, description: "" }, options: [
       { hash: "Incandescent", name: "Incandescent", description: "Spreads scorch." },
       { hash: "Target Lock", name: "Target Lock", description: "Builds damage on one target." },
-      { hash: "Backup Plan", name: "Backup Plan", description: "Readies faster after swapping." }
+      { hash: "Backup Plan", name: "Backup Plan", description: "Readies faster after swapping." },
+      { hash: "Potential Only", name: "Potential Only", description: "Definition pool only." }
     ] },
     { socketIndex: 4, kind: "origin", selectablePlugHashes: ["Origin A", "Origin B"], active: { hash: "Origin A", name: "Origin A", description: "Foundry origin." }, options: [{ hash: "Origin A", name: "Origin A", description: "Foundry origin." }, { hash: "Origin B", name: "Origin B", description: "Seasonal origin." }] }
   ],
@@ -73,6 +74,7 @@ describe("WeaponWorkspace", () => {
     fireEvent.mouseEnter(screen.getAllByRole("button", { name: /Keep Away/ })[0]!);
     expect(screen.getByRole("tooltip").parentElement).toBe(document.body);
     expect(screen.getAllByLabelText(/Backup Plan/)).toHaveLength(2);
+    expect(screen.queryByLabelText(/Potential Only/)).toBeNull();
     expect(screen.getAllByText("Barrel")).toHaveLength(2);
     expect(screen.getAllByText("Magazine")).toHaveLength(2);
     expect(screen.getAllByText("Origin Trait")).toHaveLength(2);
@@ -86,6 +88,6 @@ describe("WeaponWorkspace", () => {
     expect(onAction).toHaveBeenCalledWith({ action: "setWeaponSocket", itemInstanceId: "1", characterId: "character", socketIndex: 2, plugItemHash: "Keep Away" });
     fireEvent.click(screen.getAllByRole("button", { name: /Origin B.*Select this option/ })[0]!);
     expect(onAction).toHaveBeenCalledWith({ action: "setWeaponSocket", itemInstanceId: "1", characterId: "character", socketIndex: 4, plugItemHash: "Origin B" });
-    expect(screen.getAllByRole("button", { name: /Target Lock/ })[0]?.getAttribute("data-selectable")).toBe("false");
+    expect(screen.getAllByRole("button", { name: /Target Lock/ })).toHaveLength(1);
   });
 });
