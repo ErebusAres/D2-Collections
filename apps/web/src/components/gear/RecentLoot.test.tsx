@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import type { WeaponItem } from "@guardian-nexus/contracts";
+import type { ArmorItem, WeaponItem } from "@guardian-nexus/contracts";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { CompactRecentLootBar, RecentItemRow, observedLootWithin, parseRecentLootDisplayLimit, recentLoot, recentLootPageSize } from "./RecentLoot";
 
 const weapon = { instanceId: "1", itemHash: "2", name: "Recent Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, gearTier: 3, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-06T12:00:00Z", isNew: true } as WeaponItem;
+const armor = { instanceId: "armor-1", itemHash: "armor-2", name: "Recent Grips", icon: "", className: "Hunter", slot: "Arms", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, gearTier: 5, archetype: { hash: "paragon", name: "Paragon", description: "Improves class ability-focused stat potential.", icon: "/paragon.png" }, setBonuses: [], perks: [], baseStats: { health: 10, melee: 10, grenade: 10, super: 10, class: 10, weapons: 10 }, currentStats: { health: 10, melee: 10, grenade: 10, super: 10, class: 10, weapons: 10 }, adjustments: [], baseTotal: 60, currentTotal: 60, grade: { letter: "A", score: 90 }, firstSeenAt: "2026-08-06T12:00:00Z", isNew: true } as ArmorItem;
 
 describe("RecentItemRow", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -35,6 +36,15 @@ describe("RecentItemRow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
     fireEvent.click(screen.getByRole("button", { name: "Close Recent Rifle details" }));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("shows an armor archetype on the loot tile and selected detail card", () => {
+    render(<MemoryRouter><CompactRecentLootBar items={[{ ...armor, kind: "armor" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
+    expect(screen.getByText("Paragon")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Grips" }));
+    const dialog = screen.getByRole("dialog", { name: "Recent Grips details" });
+    expect(dialog.textContent).toContain("Arms · Paragon");
+    expect(dialog.textContent).toContain("Improves class ability-focused stat potential.");
   });
 
   it("labels a roll with no visible rating perks as pending instead of generic Bungie data", async () => {

@@ -198,6 +198,7 @@
 .score[data-quality="mixed"] { color: var(--gold); }
 .score[data-quality="weak"] { color: #ef9c5c; }
 .score[data-quality="poor"] { color: var(--danger); }
+.armorArchetype { min-width: 0; overflow: hidden; color: var(--cyan); font: 600 9px "Barlow Condensed"; letter-spacing: .025em; text-align: right; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .cardName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; text-align: center; }
 .cardActions { min-height: 29px; display: flex; justify-content: center; gap: 3px; }
 .cardActions > * { min-width: 0; }

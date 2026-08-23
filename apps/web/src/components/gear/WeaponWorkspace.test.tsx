@@ -102,6 +102,8 @@ describe("WeaponWorkspace", () => {
     expect(pvpMarks.length).toBe(pveMarks.length);
     expect(pveMarks.every((mark) => mark.getAttribute("data-mode") === "pve" && mark.textContent === "")).toBe(true);
     expect(pvpMarks.every((mark) => mark.getAttribute("data-mode") === "pvp" && mark.textContent === "")).toBe(true);
+    expect(pveMarks.some((mark) => mark.querySelector('[data-thumb="up"]'))).toBe(true);
+    expect(pveMarks.some((mark) => mark.querySelector('[data-thumb="down"]'))).toBe(true);
   });
 
   it("selects only plugs available on the owned roll across traits and origin traits", () => {

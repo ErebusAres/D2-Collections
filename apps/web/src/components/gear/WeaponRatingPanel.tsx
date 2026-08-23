@@ -1,5 +1,5 @@
 import type { ArmorPerk, WeaponItem, WeaponPerkColumn } from "@guardian-nexus/contracts";
-import { Columns3, Minus, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Columns3, Minus } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { evaluateWeapon, evaluateWeaponPerk, qualityLabel, WEAPON_RATING_SOURCES, type WeaponRatingDatabase, type WeaponTraitValue, type WeaponRatingSourceId } from "../../modules/loot/weaponEvaluator";
@@ -17,7 +17,7 @@ export function WeaponRatingPanel({ weapon, ratings, compact = false, showTraits
     {!ratings && <label className={styles.ratingSource}><span>Rating source</span><select aria-label="Weapon rating source" value={ratingContext.sourceId} onChange={(event) => ratingContext.setSource(event.target.value as WeaponRatingSourceId)} disabled={ratingContext.loading}>{ratingSources().map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}</select><small><b>Used by:</b> {selectedSource.usedBy}. {selectedSource.note}</small></label>}
     {value.state === "scored" && <p className={styles.evidence}>{basisLabel(value.basis, weapon.itemType, database?.source.name || selectedSource.label)} · {value.confidence} confidence · {value.comparedColumns}/{value.totalColumns} columns</p>}
     {showTraits && (columns.length ? <div className={styles.columns}>{columns.map((column) => <TraitColumn key={`${column.socketIndex}:${column.ratingColumn ?? column.kind}`} weapon={weapon} column={column} ratings={database} onSelectPlug={onSelectPlug} busy={busy} />)}</div> : <p className={styles.pending}>Trait and attachment pool unavailable.</p>)}
-    {showTraits && columns.length > 0 && <footer className={styles.legend}><span><ThumbsUp /> Recommended</span><span><ThumbsDown /> Not recommended</span><span>Blue = equipped</span></footer>}
+    {showTraits && columns.length > 0 && <footer className={styles.legend}><span><ThumbMark direction="up" /> Recommended</span><span><ThumbMark direction="down" /> Not recommended</span><span>Blue = equipped</span></footer>}
   </section>;
 }
 
@@ -71,7 +71,11 @@ function TraitMode({ mode, score, exact }: { mode: "E" | "P"; score?: number; ex
   const state = score === undefined ? "unknown" : exact ? (score === 100 ? "up" : "down") : score >= 60 ? "up" : score <= 25 ? "down" : "mixed";
   const label = mode === "E" ? "PvE" : "PvP";
   const description = `${label}: ${traitModeLabel(score, exact)}`;
-  return <span className={styles.traitMode} data-mode={mode === "E" ? "pve" : "pvp"} data-state={state} title={description} aria-label={description}>{state === "up" ? <ThumbsUp /> : state === "down" ? <ThumbsDown /> : <Minus />}</span>;
+  return <span className={styles.traitMode} data-mode={mode === "E" ? "pve" : "pvp"} data-state={state} title={description} aria-label={description}>{state === "up" || state === "down" ? <ThumbMark direction={state} /> : <Minus />}</span>;
+}
+
+function ThumbMark({ direction }: { direction: "up" | "down" }) {
+  return <svg className={styles.thumbMark} data-thumb={direction} viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.5 10.2h4.2v10.3H2.5zM8.2 20.5V10.2l4.4-7.4c.4-.7 1.3-1 2-.6.6.3.9.9.8 1.6l-.8 4.4h5c1.2 0 2.1 1.1 1.9 2.3l-1.3 8.3c-.2 1-1 1.7-2 1.7z" /></svg>;
 }
 
 function traitModeLabel(score: number | undefined, exact: boolean): string {
