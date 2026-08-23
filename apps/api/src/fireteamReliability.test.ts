@@ -1,7 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
+import { equippedCharacterPower, guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
 
 describe("Fireteam reliability helpers", () => {
+  it("uses the active character's eight equipped item powers instead of an inflated character light value", () => {
+    const powers = [493, 493, 493, 493, 493, 493, 493, 493];
+    const profile = {
+      characterEquipment: { data: { active: { items: powers.map((_, index) => ({ itemInstanceId: `item-${index}` })) } } },
+      itemComponents: { instances: { data: Object.fromEntries(powers.map((power, index) => [`item-${index}`, { primaryStat: { value: power } }])) } }
+    };
+    expect(equippedCharacterPower(profile, "active", 545)).toBe(493);
+  });
+
+  it("falls back to Bungie's character value when all eight equipped power slots are not available", () => {
+    const profile = {
+      characterEquipment: { data: { active: { items: [{ itemInstanceId: "weapon" }] } } },
+      itemComponents: { instances: { data: { weapon: { primaryStat: { value: 472 } } } } }
+    };
+    expect(equippedCharacterPower(profile, "active", 545)).toBe(545);
+  });
+
   it("classifies account snapshot freshness", () => {
     const now = Date.parse("2026-08-09T06:00:00.000Z");
     expect(guardianSessionCacheState(undefined, now)).toBe("missing");

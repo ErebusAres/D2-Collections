@@ -23,6 +23,29 @@ export interface GuardianSessionObservation {
   activeCharacterId?: string;
 }
 
+/**
+ * CharacterComponent.light can include a broader account/current Power value.
+ * Fireteam cards describe the character being played, so prefer the exact
+ * average of its eight equipped weapon and armor instance Power values.
+ */
+export function equippedCharacterPower(profile: any, characterId: string, fallback: number): number {
+  const equipment = profile?.characterEquipment?.data?.[characterId]?.items;
+  const instances = profile?.itemComponents?.instances?.data || {};
+  if (!Array.isArray(equipment)) return normalizedPower(fallback);
+  const powered = equipment.map((item: any) => {
+    const instanceId = String(item?.itemInstanceId || "");
+    return normalizedPower(instances[instanceId]?.primaryStat?.value ?? item?.primaryStat?.value);
+  }).filter((power: number) => power > 0);
+  return powered.length === 8
+    ? Math.floor(powered.reduce((total: number, power: number) => total + power, 0) / powered.length)
+    : normalizedPower(fallback);
+}
+
+function normalizedPower(value: unknown): number {
+  const power = Number(value ?? 0);
+  return Number.isFinite(power) ? Math.max(0, Math.floor(power)) : 0;
+}
+
 // Bungie's profile response can repeat the same source snapshot for several
 // presence refreshes. Keep the activity proof aligned with the existing
 // ten-minute party-snapshot usability window so repeated snapshots cannot
