@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeRewardCodeStatus } from "../src/rewardCodes";
+import { normalizeRewardCodeStatus, pendingRewardCodeStatus } from "../src/rewardCodes";
 
 const manifest = {
   version: "test",
@@ -12,6 +12,18 @@ const manifest = {
 };
 
 describe("normalizeRewardCodeStatus", () => {
+  it("returns a safe non-blocking status while ownership refreshes", () => {
+    expect(pendingRewardCodeStatus("now")).toEqual({
+      manifestVersion: "refreshing",
+      source: "bungie-profile-collectibles",
+      checkedAt: "now",
+      manualCodes: [],
+      manualCodesConfigured: false,
+      limitation: expect.stringContaining("Bungie does not expose"),
+      statuses: []
+    });
+  });
+
   it("detects acquired rewards from real profile collectible state", () => {
     const result = normalizeRewardCodeStatus({ profileCollectibles: { data: { collectibles: { "11": { state: 0 }, "22": { state: 1 } } } } }, manifest, "now");
     expect(result.statuses.find((entry) => entry.code === "OWN-ED1-COD")?.state).toBe("reward-owned");

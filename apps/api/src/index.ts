@@ -56,7 +56,7 @@ import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
 import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
 import { normalizeLoadouts } from "./loadouts";
-import { normalizeRewardCodeStatus } from "./rewardCodes";
+import { normalizeRewardCodeStatus, pendingRewardCodeStatus } from "./rewardCodes";
 import { buildsRoute, publishedBuildsForAdvisor } from "./builds";
 import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
 import { ironBannerHistoryResponse, normalizePvpData, normalizePvpProgressions } from "./pvp";
@@ -1142,22 +1142,70 @@ async function refreshRewardsCacheWithLease(row: SessionRow, env: Env, character
 }
 
 async function rewardCodeStatus(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile } = await profileFor(row, env, "collectibles");
-  const manifest = await loadRewardCodeManifest(env);
-  const data = normalizeRewardCodeStatus(profile, manifest);
-  const manual = await manualRewardCodes(row.membership_id, env);
+  const [cached, manual] = await Promise.all([
+    env.DB.prepare("SELECT status_json, source_minted_at, refreshed_at, expires_at, last_error FROM guardian_reward_code_status_cache WHERE membership_id = ?")
+      .bind(row.membership_id).first<any>(),
+    manualRewardCodes(row.membership_id, env)
+  ]);
+  let data: RewardCodeStatusData | undefined;
+  try { data = cached?.status_json ? JSON.parse(cached.status_json) : undefined; } catch { data = undefined; }
+  const cachedDataMissing = !data;
+  const expiresAt = Date.parse(cached?.expires_at || "");
+  const expired = !Number.isFinite(expiresAt) || expiresAt <= Date.now();
+  if (!data) {
+    data = pendingRewardCodeStatus();
+    const now = new Date().toISOString();
+    const pendingJson = JSON.stringify(data);
+    if (cached) {
+      await env.DB.prepare("UPDATE guardian_reward_code_status_cache SET status_json = ?, refreshed_at = ?, expires_at = ? WHERE membership_id = ? AND status_json = ?")
+        .bind(pendingJson, now, now, row.membership_id, cached.status_json).run();
+    } else {
+      await env.DB.prepare("INSERT OR IGNORE INTO guardian_reward_code_status_cache (membership_id, status_json, source_minted_at, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, NULL, ?, ?, NULL, NULL)")
+        .bind(row.membership_id, pendingJson, now, now).run();
+    }
+  }
   data.manualCodes = manual.codes;
   data.manualCodesConfigured = manual.configured;
+  if (!cached || cachedDataMissing || expired) context.waitUntil?.(refreshRewardCodeStatusCacheWithLease(row, env));
   const unavailable = data.statuses.filter((entry) => entry.state === "unavailable").length;
-  const warnings = manifest.version === "unavailable"
+  const warnings = data.manifestVersion === "refreshing"
+    ? ["Reward-code ownership is refreshing in the background; manual code controls remain available."]
+    : data.manifestVersion === "unavailable"
     ? ["Reward-code collectible mappings are unavailable; automatic ownership detection is temporarily disabled."]
     : unavailable
       ? [`${unavailable} code rewards could not be mapped to an exact current Destiny collectible and remain manually controllable.`]
       : [];
+  if (expired && cached?.last_error) warnings.push(String(cached.last_error));
   return envelope<RewardCodeStatusData>(data, env, context, {
-    sourceMintedAt: profile?.responseMintedTimestamp,
+    sourceMintedAt: cached?.source_minted_at || cached?.refreshed_at,
+    state: !cached || cachedDataMissing || expired ? "stale" : "fresh",
     warnings
   });
+}
+
+async function refreshRewardCodeStatusCache(row: SessionRow, env: Env): Promise<void> {
+  const [{ profile }, manifest] = await Promise.all([
+    profileFor(row, env, "collectibles"),
+    loadRewardCodeManifest(env)
+  ]);
+  const data = normalizeRewardCodeStatus(profile, manifest);
+  const refreshedAt = new Date().toISOString();
+  await env.DB.prepare("INSERT INTO guardian_reward_code_status_cache (membership_id, status_json, source_minted_at, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT(membership_id) DO UPDATE SET status_json = excluded.status_json, source_minted_at = excluded.source_minted_at, refreshed_at = excluded.refreshed_at, expires_at = excluded.expires_at, refresh_started_at = NULL, last_error = NULL")
+    .bind(row.membership_id, JSON.stringify(data), profile?.responseMintedTimestamp || null, refreshedAt, new Date(Date.now() + 60 * 60_000).toISOString()).run();
+}
+
+async function refreshRewardCodeStatusCacheWithLease(row: SessionRow, env: Env): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const staleLease = new Date(Date.now() - 2 * 60_000).toISOString();
+  const claim = await env.DB.prepare("UPDATE guardian_reward_code_status_cache SET refresh_started_at = ? WHERE membership_id = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
+    .bind(startedAt, row.membership_id, staleLease).run().catch(() => undefined);
+  if (!claim || Number(claim.meta?.changes || 0) < 1) return;
+  try {
+    await refreshRewardCodeStatusCache(row, env);
+  } catch (error: any) {
+    await env.DB.prepare("UPDATE guardian_reward_code_status_cache SET refresh_started_at = NULL, last_error = ? WHERE membership_id = ?")
+      .bind(String(error?.code || error?.message || "Reward-code ownership refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
+  }
 }
 
 async function updateRewardCodePreference(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
