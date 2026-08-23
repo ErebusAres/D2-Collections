@@ -1,5 +1,5 @@
-import type { QuestProgress } from "@guardian-nexus/contracts";
-import { useQueryClient } from "@tanstack/react-query";
+import type { QuestData, QuestProgress } from "@guardian-nexus/contracts";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Timer } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
@@ -9,10 +9,12 @@ import { useGuardian } from "../context/GuardianContext";
 import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
 import { completionTransition, isQuestComplete } from "../modules/tracking/completionTracking";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
+import { api } from "../services/api/client";
 import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
-const SNAPSHOT_READ_RETRY_MS = 5_000;
+const SNAPSHOT_READ_RETRY_MS = 60_000;
+const EMPTY_QUESTS: QuestProgress[] = [];
 
 export function FireteamRoute() {
   return <div className={styles.fireteamRoute}>
@@ -27,10 +29,17 @@ function FireteamRefreshCountdown() {
   const membershipId = session?.guardian?.membershipId || "";
   const result = useFireteamQuery(membershipId, selectedCharacterId, Boolean(session?.authenticated));
   const data = result.data?.data;
-  const self = data?.members.find((member) => member.isSelf);
+  const ordersResult = useQuery({
+    queryKey: ["quests", selectedCharacterId, ""],
+    queryFn: () => api<QuestData>(`/api/v1/me/quests?characterId=${encodeURIComponent(selectedCharacterId)}&pinned=`),
+    enabled: Boolean(session?.authenticated && selectedCharacterId),
+    staleTime: 60_000,
+    refetchInterval: false
+  });
+  const allOrders = ordersResult.data?.data.quests || EMPTY_QUESTS;
   const orders = useMemo(
-    () => (self?.quests || []).filter((quest) => quest.category === "order" && !isQuestComplete(quest)),
-    [self?.quests]
+    () => allOrders.filter((quest) => quest.category === "order" && !isQuestComplete(quest)),
+    [allOrders]
   );
   const [now, setNow] = useState(() => Date.now());
   const [refreshing, setRefreshing] = useState(false);
@@ -71,7 +80,7 @@ function FireteamRefreshCountdown() {
       completionState.current = null;
       clearCompletions();
     }
-    const candidates = (self?.quests || []).filter((quest) => quest.category === "order").map((quest) => ({
+    const candidates = allOrders.filter((quest) => quest.category === "order").map((quest) => ({
       id: quest.instanceId,
       name: quest.name,
       kind: "order" as const,
@@ -81,10 +90,10 @@ function FireteamRefreshCountdown() {
     const transition = completionTransition(completionState.current, candidates);
     completionState.current = transition.state;
     announceCompletion(transition.newlyCompleted);
-  }, [announceCompletion, clearCompletions, membershipId, selectedCharacterId, self?.quests]);
+  }, [allOrders, announceCompletion, clearCompletions, membershipId, selectedCharacterId]);
 
   useEffect(() => {
-    if (!autoRefresh || !session?.authenticated || !selectedCharacterId) {
+    if (!autoRefresh || !session?.authenticated || !selectedCharacterId || !data?.sharingEnabled) {
       setRefreshing(false);
       return;
     }
@@ -104,7 +113,8 @@ function FireteamRefreshCountdown() {
         if (nextVersion > previousVersion) {
           await Promise.allSettled([
             queryClient.refetchQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId], exact: true, type: "active" }),
-            queryClient.refetchQueries({ queryKey: ["fireteam-activity", membershipId, selectedCharacterId], exact: true, type: "active" })
+            queryClient.refetchQueries({ queryKey: ["fireteam-activity", membershipId, selectedCharacterId], exact: true, type: "active" }),
+            queryClient.refetchQueries({ queryKey: ["quests", selectedCharacterId, ""], exact: true, type: "active" })
           ]);
           if (!stopped) setRefreshing(false);
           return;
@@ -120,11 +130,12 @@ function FireteamRefreshCountdown() {
       stopped = true;
       window.clearTimeout(timer);
     };
-  }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.snapshotVersion, membershipId, queryClient, result.isLoading, result.refetch, selectedCharacterId, session?.authenticated]);
+  }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.sharingEnabled, data?.snapshotVersion, membershipId, queryClient, result.isLoading, result.refetch, selectedCharacterId, session?.authenticated]);
 
   const label = useMemo(() => {
     if (!autoRefresh) return "Fireteam refresh off";
     if (!session?.authenticated || !selectedCharacterId) return "Fireteam refresh unavailable";
+    if (!data?.sharingEnabled) return "Share to enable Fireteam sync";
     if (Number(data?.snapshotVersion || 0) <= 0) return "Preparing Fireteam snapshot";
     const retryMs = Date.parse(data?.refreshRetryAt || "");
     if (data?.refreshState === "delayed" && Number.isFinite(retryMs) && retryMs > now) {
@@ -137,7 +148,7 @@ function FireteamRefreshCountdown() {
     const remainingMs = Math.min(LIVE_REFRESH_INTERVAL_MS, dueMs - now);
     const seconds = Math.max(0, Math.ceil(remainingMs / 1_000));
     return `Fireteam refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-  }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.snapshotVersion, now, refreshing, selectedCharacterId, session?.authenticated]);
+  }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.sharingEnabled, data?.snapshotVersion, now, refreshing, selectedCharacterId, session?.authenticated]);
 
   return <><CompletionPing notice={completionNotice} onDismiss={dismissCompletion} /><aside ref={timerRail} className={styles.fireteamRefreshRail}>
     <div className={`${styles.fireteamRefreshDock} ${timerPinned ? styles.fireteamRefreshDockPinned : ""}`}>
@@ -149,9 +160,11 @@ function FireteamRefreshCountdown() {
         </header>
         {orders.length
           ? orders.map((order) => <SeasonalHubOrder key={order.instanceId} order={order} />)
-          : result.isLoading
+          : ordersResult.isLoading
             ? <p>Loading active Hub orders…</p>
-            : <p>No active Seasonal Hub orders.</p>}
+            : ordersResult.error
+              ? <p>Seasonal Hub orders are unavailable. <button type="button" onClick={() => void ordersResult.refetch()}>Retry</button></p>
+              : <p>No active Seasonal Hub orders.</p>}
       </section>
     </div>
   </aside></>;

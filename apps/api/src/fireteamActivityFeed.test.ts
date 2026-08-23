@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { combineFireteamActivityEntries, configuredFireteamActivityFeedEnabled, fireteamChannelKey, normalizeFireteamMessage, sanitizeSharedRecentEvent, sharedActivityFeedEnabled, sharedRecentEventFromRow } from "./fireteamActivityFeed";
+import { combineFireteamActivityEntries, configuredFireteamActivityFeedEnabled, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, sanitizeSharedRecentEvent, sharedActivityFeedEnabled, sharedRecentEventFromRow } from "./fireteamActivityFeed";
 
 describe("Fireteam activity feed", () => {
   it("uses one stable channel key for the same party regardless of order", async () => {
@@ -42,5 +42,12 @@ describe("Fireteam activity feed", () => {
     expect(configuredFireteamActivityFeedEnabled('{"activityFeedEnabled":false}', { activityFeedEnabled: true, activityFeedPreferenceSet: true })).toBe(false);
     expect(configuredFireteamActivityFeedEnabled('{"activityFeedEnabled":true}', { activityFeedEnabled: false, activityFeedPreferenceSet: true })).toBe(true);
     expect(configuredFireteamActivityFeedEnabled("malformed", { activityFeedEnabled: false, activityFeedPreferenceSet: true })).toBe(false);
+  });
+
+  it("keeps the viewer's saved feed available while stale teammate feeds remain private", () => {
+    expect(fireteamActivitySnapshotEnabled(true, false, true)).toBe(true);
+    expect(fireteamActivitySnapshotEnabled(false, false, true)).toBe(false);
+    expect(fireteamActivitySnapshotEnabled(false, true, true)).toBe(true);
+    expect(fireteamActivitySnapshotEnabled(true, true, false)).toBe(false);
   });
 });
