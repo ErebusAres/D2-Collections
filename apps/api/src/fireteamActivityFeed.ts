@@ -75,7 +75,16 @@ export async function readFireteamActivityFeed(input: {
   const now = input.now || new Date().toISOString();
   const cutoff = new Date(Date.parse(now) - FIRETEAM_FEED_RETENTION_DAYS * 86_400_000).toISOString();
   const placeholders = enabledIds.map(() => "?").join(",");
-  const loot = await input.env.DB.prepare(`SELECT events.*, observations.metadata_json AS observation_metadata_json
+  // Event metadata historically embeds the same complete gear object as the
+  // current observation. Avoid returning both multi-KB JSON blobs for every
+  // feed row; keep the small timeline columns and hydrate current gear once.
+  const loot = await input.env.DB.prepare(`SELECT events.id, events.membership_id, events.event_kind,
+      events.source_key, events.item_hash, events.instance_id, events.record_hash, events.name,
+      events.description, events.icon, events.quantity, events.observed_at, events.last_observed_at,
+      json_extract(events.metadata_json, '$.itemType') AS event_item_type,
+      json_extract(events.metadata_json, '$.rarity') AS event_rarity,
+      json_extract(events.metadata_json, '$.percent') AS event_percent,
+      observations.metadata_json AS observation_metadata_json
     FROM recent_item_events events
     LEFT JOIN recent_item_observations observations
       ON observations.membership_id = events.membership_id AND observations.observation_key = events.source_key
