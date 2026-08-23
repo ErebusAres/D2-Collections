@@ -13,6 +13,19 @@ export type StoredXurSnapshot = {
   offers: XurOffer[];
 };
 
+export function xurDataFromStoredShipment(snapshot: StoredXurSnapshot | undefined, checkedAt = new Date().toISOString()): XurData {
+  return snapshot
+    ? {
+        state: "unavailable",
+        inventoryStatus: "last-shipment",
+        checkedAt,
+        inventoryCapturedAt: snapshot.capturedAt,
+        ...(snapshot.nextRefreshAt ? { nextRefreshAt: snapshot.nextRefreshAt } : {}),
+        offers: snapshot.offers
+      }
+    : { state: "unavailable", checkedAt, offers: [] };
+}
+
 export function parseStoredXurSnapshot(row: StoredXurSnapshotRow | null | undefined): StoredXurSnapshot | undefined {
   if (!row || typeof row.captured_at !== "string" || !Number.isFinite(Date.parse(row.captured_at)) || typeof row.offers_json !== "string") return undefined;
   try {

@@ -46,7 +46,7 @@ import type {
 import { z } from "zod";
 import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifestForHashes, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadLootWatcherManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
-import { addXurCollectionStates, applyQuestPins, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
+import { addXurOfferCollectionStates, applyQuestPins, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { gearActionItemsFromProfile, normalizeGear, type GearStateRow } from "./gear";
@@ -64,7 +64,7 @@ import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizeJourneyProgress, trackedJourneyItemsFromProfile } from "./journeyProgress";
 import { normalizePower, powerItemHashes } from "./power";
 import { normalizeActivityHistory } from "./activityHistory";
-import { readLatestXurShipment, saveLatestXurShipment } from "./xurSnapshot";
+import { readLatestXurShipment, saveLatestXurShipment, xurDataFromStoredShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
 import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, reconcileDestinyTrackedQuests, trackedItemKey, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 import { buildAdvisorRecommendationItems, normalizeBuildAdvisorData } from "./buildAdvisor";
@@ -866,24 +866,75 @@ async function collection(row: SessionRow, env: Env, context: RequestContext): P
 }
 
 async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const [{ profile, accessToken }, manifest] = await Promise.all([profileFor(row, env, "collection"), loadManifest(env)]);
-  const characters = uniqueXurCharacters(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
-  if (!characters.length) return envelope<XurData>({ state: "unavailable", checkedAt: new Date().toISOString(), strangeCoins: xurStrangeCoinBalance(profile), offers: [] }, env, context, { warnings: ["Xûr inventory requires a selected character."] });
-  const inventory = mergeXurInventories(await xurInventoriesForCharacters(row, characters.map((character) => character.characterId), env, accessToken, true));
-  const observedOffers = inventory.offers || [];
-  if (observedOffers.length > 0) {
-    const observedData: XurData = inventory.state === "available"
-      ? { state: "available", inventoryStatus: "live", checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers }
-      : { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers };
-    await saveLatestXurShipment(env, observedData);
-    return envelope<XurData>({ ...observedData, strangeCoins: xurStrangeCoinBalance(profile, observedData.offers), offers: addXurCollectionStates(profile, manifest, observedData.offers) }, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
+  const cached = await env.DB.prepare("SELECT xur_json, source_minted_at, refreshed_at, expires_at, last_error FROM guardian_xur_cache WHERE membership_id = ?")
+    .bind(row.membership_id).first<any>();
+  let cachedData: XurData | undefined;
+  try { cachedData = cached?.xur_json ? JSON.parse(cached.xur_json) : undefined; } catch { cachedData = undefined; }
+  const expiresAt = Date.parse(cached?.expires_at || "");
+  const fresh = Boolean(cachedData) && Number.isFinite(expiresAt) && expiresAt > Date.now();
+  if (cachedData) {
+    if (!fresh) context.waitUntil?.(refreshXurCacheWithLease(row, env, context.url.searchParams.get("characterId") || undefined));
+    return envelope<XurData>(cachedData, env, context, {
+      sourceMintedAt: cached?.source_minted_at || cached?.refreshed_at,
+      state: fresh ? "fresh" : "stale",
+      warnings: fresh
+        ? cachedData.state === "unavailable" ? ["Xûr's live inventory could not be verified; showing the last verified shipment when available."] : []
+        : ["Xûr is refreshing in the background; showing the last saved storefront.", ...(cached?.last_error ? [String(cached.last_error)] : [])]
+    });
   }
-  const previous = await readLatestXurShipment(env);
-  const liveData: XurData = { state: inventory.state, checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: [] };
-  const data: XurData = previous
-    ? { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: previous.capturedAt, nextRefreshAt: inventory.nextRefreshAt, offers: previous.offers }
-    : liveData;
-  return envelope<XurData>({ ...data, strangeCoins: xurStrangeCoinBalance(profile, data.offers), offers: addXurCollectionStates(profile, manifest, data.offers) }, env, context, { warnings: inventory.warning ? [inventory.warning] : [] });
+  const fallback = xurDataFromStoredShipment(await readLatestXurShipment(env));
+  const now = new Date().toISOString();
+  await env.DB.prepare("INSERT OR IGNORE INTO guardian_xur_cache (membership_id, xur_json, source_minted_at, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, NULL, ?, ?, NULL, NULL)")
+    .bind(row.membership_id, JSON.stringify(fallback), now, now).run();
+  context.waitUntil?.(refreshXurCacheWithLease(row, env, context.url.searchParams.get("characterId") || undefined));
+  return envelope<XurData>(fallback, env, context, {
+    observedAt: fallback.inventoryCapturedAt || fallback.checkedAt,
+    state: "stale",
+    warnings: ["Xûr is refreshing in the background; showing the last verified storefront."]
+  });
+}
+
+async function refreshXurCache(row: SessionRow, env: Env, requestedCharacterId?: string): Promise<void> {
+  const { profile, accessToken } = await profileFor(row, env, "xur");
+  const characters = uniqueXurCharacters(charactersFromProfile(profile), requestedCharacterId);
+  let data: XurData;
+  if (!characters.length) {
+    data = { state: "unavailable", checkedAt: new Date().toISOString(), strangeCoins: xurStrangeCoinBalance(profile), offers: [] };
+  } else {
+    const inventory = mergeXurInventories(await xurInventoriesForCharacters(row, characters.map((character) => character.characterId), env, accessToken, true));
+    const observedOffers = inventory.offers || [];
+    if (observedOffers.length > 0) {
+      const observedData: XurData = inventory.state === "available"
+        ? { state: "available", inventoryStatus: "live", checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers }
+        : { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers };
+      await saveLatestXurShipment(env, observedData);
+      data = { ...observedData, strangeCoins: xurStrangeCoinBalance(profile, observedData.offers), offers: addXurOfferCollectionStates(profile, observedData.offers) };
+    } else {
+      const previous = await readLatestXurShipment(env);
+      const liveData: XurData = { state: inventory.state, checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: [] };
+      const storefront: XurData = previous
+        ? { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: previous.capturedAt, nextRefreshAt: inventory.nextRefreshAt, offers: previous.offers }
+        : liveData;
+      data = { ...storefront, strangeCoins: xurStrangeCoinBalance(profile, storefront.offers), offers: addXurOfferCollectionStates(profile, storefront.offers) };
+    }
+  }
+  const refreshedAt = new Date().toISOString();
+  await env.DB.prepare("INSERT INTO guardian_xur_cache (membership_id, xur_json, source_minted_at, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, ?, ?, ?, NULL, NULL) ON CONFLICT(membership_id) DO UPDATE SET xur_json = excluded.xur_json, source_minted_at = excluded.source_minted_at, refreshed_at = excluded.refreshed_at, expires_at = excluded.expires_at, refresh_started_at = NULL, last_error = NULL")
+    .bind(row.membership_id, JSON.stringify(data), profile?.responseMintedTimestamp || null, refreshedAt, new Date(Date.now() + 5 * 60_000).toISOString()).run();
+}
+
+async function refreshXurCacheWithLease(row: SessionRow, env: Env, requestedCharacterId?: string): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const staleLease = new Date(Date.now() - 2 * 60_000).toISOString();
+  const claim = await env.DB.prepare("UPDATE guardian_xur_cache SET refresh_started_at = ? WHERE membership_id = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
+    .bind(startedAt, row.membership_id, staleLease).run().catch(() => undefined);
+  if (!claim || Number(claim.meta?.changes || 0) < 1) return;
+  try {
+    await refreshXurCache(row, env, requestedCharacterId);
+  } catch (error: any) {
+    await env.DB.prepare("UPDATE guardian_xur_cache SET refresh_started_at = NULL, last_error = ? WHERE membership_id = ?")
+      .bind(String(error?.code || error?.message || "Xûr refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
+  }
 }
 
 function uniqueXurCharacters(characters: ReturnType<typeof charactersFromProfile>, requestedCharacterId?: string) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CompactManifest } from "@guardian-nexus/contracts";
-import { activityName, addXurCollectionStates, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, STRANGE_COIN_ITEM_HASH, xurStrangeCoinBalance } from "../src/normalize";
+import { activityName, addXurCollectionStates, addXurOfferCollectionStates, guardianLocation, guardianOnlineState, normalizeCollection, normalizeGuardian, normalizeQuests, STRANGE_COIN_ITEM_HASH, xurStrangeCoinBalance } from "../src/normalize";
 
 const manifest = {
   version: "test",
@@ -151,6 +151,20 @@ describe("Xûr collection ownership", () => {
 });
 
 describe("Xûr Strange Coin balance", () => {
+  it("rates storefront ownership from exact offer evidence without rebuilding Collections", () => {
+    const profile = {
+      profileCollectibles: { data: { collectibles: { owned: { state: 0 }, missing: { state: 1 } } } },
+      profileInventory: { data: { items: [{ itemHash: "physical", quantity: 1 }] } }
+    };
+    const offer = (itemHash: string, collectibleHash?: string, category: "exotic-weapon" | "other" = "exotic-weapon") => ({
+      saleIndex: itemHash, itemHash, collectibleHash, name: itemHash, description: "", icon: "", rarity: "Exotic", itemType: "Weapon",
+      slot: "Kinetic Weapons", category, quantity: 1, costs: [], stats: [], perks: []
+    });
+    expect(addXurOfferCollectionStates(profile, [
+      offer("one", "owned"), offer("two", "missing"), offer("physical"), offer("unknown"), offer("quest", undefined, "other")
+    ]).map((entry) => entry.collectionState)).toEqual(["owned", "missing", "owned", "unknown", "not-applicable"]);
+  });
+
   it("reads the account-wide current currency quantity and uses the storefront icon", () => {
     const profile = {
       profileInventory: { data: { items: [{ itemHash: STRANGE_COIN_ITEM_HASH, quantity: 83 }] } },
