@@ -107,6 +107,7 @@ describe("Fireteam page", () => {
     expect(fireteamCalls()).toBe(1);
     await act(async () => { vi.advanceTimersByTime(1_000); });
     await waitFor(() => expect(fireteamCalls()).toBe(2));
+    expect(screen.getByText("Fireteam refresh delayed")).toBeTruthy();
   });
 
   it("honors the global auto-refresh setting without hiding committed data", async () => {

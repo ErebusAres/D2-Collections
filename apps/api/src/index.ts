@@ -91,6 +91,7 @@ import {
   FIRETEAM_ACTIVE_WINDOW_MS,
   FIRETEAM_REFRESH_LEASE_MS,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
+  fireteamRefreshDue,
   fireteamRefreshState,
   fireteamRetryAfter,
   fireteamSharedQuests,
@@ -1998,13 +1999,14 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
 
   const transitory = profile?.profileTransitoryData?.data || profile?.profileTransitory?.data;
   const observedPartyMembers = savedPartyMembers(transitory || {}, row);
+  const livePartyObserved = observedPartyMembers.some((member) => member.membershipId !== row.membership_id && member.observedInParty);
+  const onlineState = livePartyObserved ? "online" : sessionObservation.onlineState;
   const activityPartyMembers = authoritativeFireteamParty(
     observedPartyMembers,
     row.membership_id,
-    sessionObservation.onlineState,
+    onlineState,
     Boolean(transitory)
   );
-  const onlineState = sessionObservation.onlineState;
   const activity = onlineState === "online"
     ? guardianLocation(profile, questManifest, snapshotCharacter.characterId, onlineState)
     : undefined;
@@ -2081,9 +2083,13 @@ async function refreshDueFireteamSnapshots(env: Env): Promise<void> {
     LIMIT ?
   `).bind(activeSince, now, now, staleLease, now, activeSince, FIRETEAM_MAX_REFRESHES_PER_CRON).all<FireteamRefreshRow>();
 
-  for (const refresh of results) {
-    const startedAt = new Date().toISOString();
-    const claim = await env.DB.prepare(`
+  for (const refresh of results) await refreshFireteamSnapshot(refresh, env);
+}
+
+async function refreshFireteamSnapshot(refresh: FireteamRefreshRow, env: Env): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const staleLease = new Date(Date.now() - FIRETEAM_REFRESH_LEASE_MS).toISOString();
+  const claim = await env.DB.prepare(`
       UPDATE fireteam_snapshots
       SET refresh_started_at = ?, last_attempt_at = ?, last_error_code = NULL, last_error_message = NULL
       WHERE membership_id = ?
@@ -2091,21 +2097,21 @@ async function refreshDueFireteamSnapshots(env: Env): Promise<void> {
         AND (retry_after_at IS NULL OR retry_after_at <= ?)
         AND (refresh_started_at IS NULL OR refresh_started_at < ?)
     `).bind(startedAt, startedAt, refresh.membership_id, startedAt, startedAt, staleLease).run();
-    if (Number(claim.meta?.changes || 0) < 1) continue;
-    const sessionRow = await fireteamSessionFor(String(refresh.membership_id), env);
-    if (!sessionRow) {
-      await env.DB.prepare(`
+  if (Number(claim.meta?.changes || 0) < 1) return;
+  const sessionRow = await fireteamSessionFor(String(refresh.membership_id), env);
+  if (!sessionRow) {
+    await env.DB.prepare(`
         UPDATE fireteam_snapshots
         SET refresh_started_at = NULL, retry_after_at = ?, last_error_code = 'authorization_required', last_error_message = ?
         WHERE membership_id = ? AND refresh_started_at = ?
       `).bind(new Date(Date.now() + 5 * 60_000).toISOString(), "Bungie authorization must be renewed.", refresh.membership_id, startedAt).run();
-      continue;
-    }
-    try {
-      const snapshot = await buildFireteamSnapshot(sessionRow, refresh, env);
-      const committedAt = new Date().toISOString();
-      const nextRefreshAt = nextFireteamRefreshAt(committedAt)!;
-      const commit = await env.DB.prepare(`
+    return;
+  }
+  try {
+    const snapshot = await buildFireteamSnapshot(sessionRow, refresh, env);
+    const committedAt = new Date().toISOString();
+    const nextRefreshAt = nextFireteamRefreshAt(committedAt)!;
+    const commit = await env.DB.prepare(`
         UPDATE fireteam_snapshots
         SET snapshot_version = snapshot_version + 1,
           payload_json = ?, source_observed_at = ?, committed_at = ?, next_refresh_at = ?,
@@ -2116,11 +2122,11 @@ async function refreshDueFireteamSnapshots(env: Env): Promise<void> {
           refresh_started_at = NULL, retry_after_at = NULL, last_error_code = NULL, last_error_message = NULL
         WHERE membership_id = ? AND refresh_started_at = ?
       `).bind(JSON.stringify(snapshot.payload), snapshot.sourceObservedAt, committedAt, nextRefreshAt, new Date(Date.now() + 15 * 60_000).toISOString(), refresh.membership_id, startedAt).run();
-      if (Number(commit.meta?.changes || 0) < 1) {
-        console.log(JSON.stringify({ event: "fireteam_snapshot_commit_superseded" }));
-      }
-    } catch (error: any) {
-      await env.DB.prepare(`
+    if (Number(commit.meta?.changes || 0) < 1) {
+      console.log(JSON.stringify({ event: "fireteam_snapshot_commit_superseded" }));
+    }
+  } catch (error: any) {
+    await env.DB.prepare(`
         UPDATE fireteam_snapshots
         SET refresh_started_at = NULL, retry_after_at = ?, last_error_code = ?, last_error_message = ?
         WHERE membership_id = ? AND refresh_started_at = ?
@@ -2130,9 +2136,25 @@ async function refreshDueFireteamSnapshots(env: Env): Promise<void> {
         String(error?.message || "Fireteam refresh failed.").slice(0, 240),
         refresh.membership_id,
         startedAt
-      ).run().catch(() => undefined);
-    }
+    ).run().catch(() => undefined);
   }
+}
+
+async function refreshRequestedFireteamSnapshot(membershipId: string, env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  const staleLease = new Date(Date.now() - FIRETEAM_REFRESH_LEASE_MS).toISOString();
+  const refresh = await env.DB.prepare(`
+    SELECT membership_id, display_name, character_id, site_pinned_quest_ids_json,
+      sharing_mode, expires_at, settings_json, payload_json AS snapshot_payload_json,
+      refresh_started_at
+    FROM fireteam_snapshots
+    WHERE membership_id = ?
+      AND (sharing_mode = 'persistent' OR expires_at > ?)
+      AND next_refresh_at <= ?
+      AND (retry_after_at IS NULL OR retry_after_at <= ?)
+      AND (refresh_started_at IS NULL OR refresh_started_at < ?)
+  `).bind(membershipId, now, now, now, staleLease).first<FireteamRefreshRow>();
+  if (refresh) await refreshFireteamSnapshot(refresh, env);
 }
 
 async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -2141,6 +2163,15 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     SELECT * FROM fireteam_snapshots
     WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)
   `).bind(row.membership_id, now).first<FireteamSnapshotRow>();
+  if (ownSnapshot && fireteamRefreshDue({
+    nextRefreshAt: ownSnapshot.next_refresh_at,
+    retryAfterAt: ownSnapshot.retry_after_at,
+    refreshStartedAt: ownSnapshot.refresh_started_at
+  })) {
+    context.waitUntil?.(refreshRequestedFireteamSnapshot(row.membership_id, env).catch((error: any) => {
+      console.error("fireteam_requested_refresh_failed", String(error?.code || error?.message || "unknown"));
+    }));
+  }
   let ownPayload: any = null;
   try { ownPayload = ownSnapshot?.payload_json ? JSON.parse(ownSnapshot.payload_json) : null; } catch { ownPayload = null; }
   const usable = fireteamSnapshotUsable(ownSnapshot?.committed_at);
