@@ -35,11 +35,25 @@ export function recentItemObservationDue(data: Pick<RecentItemTimelineData, "fir
 }
 
 export async function readRecentItems(membershipId: string, env: Env, now = new Date().toISOString()): Promise<RecentItemTimelineData> {
-  const [observationSummary, refreshState, rows] = await Promise.all([
-    env.DB.prepare("SELECT COUNT(*) AS observation_count, MAX(updated_at) AS observed_at FROM recent_item_observations WHERE membership_id = ?")
-      .bind(membershipId).first<{ observation_count: number; observed_at: string | null }>(),
-    env.DB.prepare("SELECT refreshed_at FROM recent_item_refresh_state WHERE membership_id = ?").bind(membershipId).first<{ refreshed_at: string }>(),
-    env.DB.prepare("SELECT * FROM recent_item_events WHERE membership_id = ? ORDER BY last_observed_at DESC, id DESC LIMIT ?")
+  const [observationSummary, rows] = await Promise.all([
+    env.DB.prepare(`
+      SELECT COUNT(*) AS observation_count, MAX(updated_at) AS observed_at,
+        (SELECT refreshed_at FROM recent_item_refresh_state WHERE membership_id = ?) AS refreshed_at
+      FROM recent_item_observations WHERE membership_id = ?
+    `).bind(membershipId, membershipId).first<{ observation_count: number; observed_at: string | null; refreshed_at: string | null }>(),
+    // Event rows historically embedded the complete gear object in metadata_json.
+    // Select only the small timeline fields here; current gear is loaded once
+    // from its observation after coalescing and limiting the timeline.
+    env.DB.prepare(`
+      SELECT id, event_kind, source_key, item_hash, instance_id, record_hash,
+        name, description, icon, quantity, observed_at, last_observed_at,
+        json_extract(metadata_json, '$.itemType') AS event_item_type,
+        json_extract(metadata_json, '$.rarity') AS event_rarity,
+        json_extract(metadata_json, '$.percent') AS event_percent
+      FROM recent_item_events
+      WHERE membership_id = ?
+      ORDER BY last_observed_at DESC, id DESC LIMIT ?
+    `)
       .bind(membershipId, RAW_EVENT_SCAN_LIMIT).all<any>()
   ]);
   const events = coalesceTimelineEvents((rows.results || []).map(recentItemEventFromRow)).slice(0, MAX_EVENTS);
@@ -64,7 +78,7 @@ export async function readRecentItems(membershipId: string, env: Env, now = new 
     events: events.map((event) => event.instanceId && currentGear.has(event.instanceId) ? { ...event, gear: currentGear.get(event.instanceId) } : event),
     retentionDays: RETENTION_DAYS,
     firstObservationEstablished: Number(observationSummary?.observation_count || 0) > 0,
-    observedAt: refreshState?.refreshed_at || observationSummary?.observed_at || now
+    observedAt: observationSummary?.refreshed_at || observationSummary?.observed_at || now
   };
 }
 
@@ -314,7 +328,24 @@ function eventPriority(kind: RecentItemEvent["kind"]): number {
 export function recentItemEventFromRow(row: any): RecentItemEvent {
   let metadata: any = {};
   try { metadata = JSON.parse(row.metadata_json || "{}"); } catch { metadata = {}; }
-  return { ...metadata, id: String(row.id), kind: row.event_kind, sourceKey: row.source_key, itemHash: row.item_hash || undefined, instanceId: row.instance_id || undefined, recordHash: row.record_hash || undefined, name: row.name, description: row.description, icon: row.icon, quantity: Number(row.quantity || 1), observedAt: row.observed_at, lastObservedAt: row.last_observed_at };
+  return {
+    ...metadata,
+    id: String(row.id),
+    kind: row.event_kind,
+    sourceKey: row.source_key,
+    itemHash: row.item_hash || undefined,
+    instanceId: row.instance_id || undefined,
+    recordHash: row.record_hash || undefined,
+    name: row.name,
+    description: row.description,
+    icon: row.icon,
+    quantity: Number(row.quantity || 1),
+    observedAt: row.observed_at,
+    lastObservedAt: row.last_observed_at,
+    itemType: metadata.itemType || row.event_item_type || undefined,
+    rarity: metadata.rarity || row.event_rarity || undefined,
+    percent: metadata.percent ?? (row.event_percent === null || row.event_percent === undefined ? undefined : Number(row.event_percent))
+  };
 }
 
 function priorObservedAt(prior: ObservationRow | undefined, now: string): string { return prior?.observed_at || now; }

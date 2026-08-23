@@ -129,8 +129,7 @@ describe("recent item timeline transitions", () => {
     const env: any = { DB: { prepare: (sql: string) => ({ bind: (..._values: unknown[]) => ({
       first: async () => {
         queries.push(sql);
-        if (sql.includes("recent_item_refresh_state")) return { refreshed_at: now };
-        return { observation_count: 4, observed_at: now };
+        return { observation_count: 4, observed_at: now, refreshed_at: now };
       },
       all: async () => {
         queries.push(sql);
@@ -141,7 +140,8 @@ describe("recent item timeline transitions", () => {
 
     const data = await readRecentItems("member", env, now);
     expect(data).toMatchObject({ observedAt: now, firstObservationEstablished: true, events: [{ name: "Saved Rifle", gear: { kind: "weapon", power: 550 } }] });
-    expect(queries).toHaveLength(4);
+    expect(queries).toHaveLength(3);
     expect(queries.every((query) => /recent_item_(?:observations|events|refresh_state)/.test(query))).toBe(true);
+    expect(queries.find((query) => query.includes("recent_item_events"))).not.toMatch(/SELECT\s+\*/i);
   });
 });

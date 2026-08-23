@@ -2288,11 +2288,9 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
 async function fireteamRecentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const data = await readRecentItems(row.membership_id, env);
   const ageMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
-  if (recentItemObservationDue(data)) {
-    context.waitUntil?.(refreshRecentItemObservationsWithLease(row, env, context.url.searchParams.get("characterId") || undefined).catch((error: any) => {
-      console.log(JSON.stringify({ event: "fireteam_recent_items_observation_failed", category: String(error?.code || error?.name || "unknown").slice(0, 80) }));
-    }));
-  }
+  // Fireteam's canonical five-minute snapshot already observes Recent Loot.
+  // This frequently-polled endpoint must remain a saved-data read and never
+  // launch a second Bungie inventory/manifest refresh in the request lifecycle.
   return envelope<RecentItemTimelineData>(data, env, context, {
     observedAt: data.observedAt,
     state: ageMs <= 5 * 60_000 ? "fresh" : "stale",
