@@ -83,7 +83,7 @@ import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
 import { observeRecentItems, readRecentItems, removeRecentGearItem } from "./recentItems";
-import { configuredFireteamActivityFeedEnabled, FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
+import { configuredFireteamActivityFeedEnabled, FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
 import { guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
 import {
   authoritativeFireteamParty,
@@ -2033,9 +2033,7 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
   const storedParty = usable && Array.isArray(ownPayload?.activityPartyMembers) ? ownPayload.activityPartyMembers : [];
   const party = storedParty.length
     ? storedParty
-    : ownPayload?.character
-      ? [{ membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.bungie_name || row.display_name, status: 0, observedInParty: false }]
-      : [];
+    : [{ membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.bungie_name || row.display_name, status: 0, observedInParty: false }];
   const partyIds = [...new Set([row.membership_id, ...party.map((member: any) => String(member?.membershipId || "")).filter(Boolean)])].slice(0, 12);
   const snapshots = new Map<string, FireteamSnapshotRow>();
   if (partyIds.length) {
@@ -2068,7 +2066,9 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     if (membershipId === row.membership_id) payload = ownPayload;
     const isSelf = membershipId === row.membership_id;
     const memberSnapshotUsable = fireteamSnapshotUsable(snapshot?.committed_at);
-    const trackedItems = memberSnapshotUsable ? sharedTrackedItems(payload) : [];
+    const savedSelfDetailsAvailable = isSelf && Boolean(payload);
+    const detailsAvailable = memberSnapshotUsable || savedSelfDetailsAvailable;
+    const trackedItems = detailsAvailable ? sharedTrackedItems(payload) : [];
     const onlineState: FireteamMember["onlineState"] = isSelf
       ? ownPayload?.onlineState === "offline" ? "offline" : usable && ownPayload?.onlineState === "online" ? "online" : "unknown"
       : usable && member.observedInParty ? "online" : "unknown";
@@ -2090,8 +2090,8 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
       sharingMode: snapshot?.sharing_mode === "temporary" || snapshot?.sharing_mode === "persistent" ? snapshot.sharing_mode : undefined,
       expiresAt: snapshot?.sharing_mode === "temporary" ? snapshot.expires_at : undefined,
       trackedItems,
-      recentlyCompletedItems: memberSnapshotUsable ? sharedRecentlyCompletedItems(payload) : [],
-      quests: memberSnapshotUsable && Array.isArray(payload?.quests) ? payload.quests : [],
+      recentlyCompletedItems: detailsAvailable ? sharedRecentlyCompletedItems(payload) : [],
+      quests: detailsAvailable && Array.isArray(payload?.quests) ? payload.quests : [],
       overlaps: trackedItems.filter((item) => (trackedItemCounts.get(`${item.kind}:${item.definitionHash}`) || 0) > 1).map((item) => item.name),
       freshness: {
         state: memberSnapshotUsable ? "fresh" : "stale",
@@ -2137,10 +2137,15 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
 async function fireteamRecentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const data = await readRecentItems(row.membership_id, env);
   const ageMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
+  if (!Number.isFinite(ageMs) || ageMs >= 45_000) {
+    context.waitUntil?.(refreshRecentItemObservationsWithLease(row, env, context.url.searchParams.get("characterId") || undefined).catch((error: any) => {
+      console.log(JSON.stringify({ event: "fireteam_recent_items_observation_failed", category: String(error?.code || error?.name || "unknown").slice(0, 80) }));
+    }));
+  }
   return envelope<RecentItemTimelineData>(data, env, context, {
     observedAt: data.observedAt,
     state: ageMs <= 5 * 60_000 ? "fresh" : "stale",
-    warnings: ageMs <= 5 * 60_000 ? [] : ["Recent Loot is showing its last saved observation while the next Fireteam snapshot is pending."]
+    warnings: ageMs <= 5 * 60_000 ? [] : ["Recent Loot is showing its last saved observation while the next observation refresh is pending."]
   });
 }
 
@@ -2186,8 +2191,13 @@ async function fireteamActivity(row: SessionRow, env: Env, context: RequestConte
       AND (v.sharing_mode = 'persistent' OR v.expires_at > ?)
   `).bind(...partyIds, now).all<any>();
   const enabledRows = (snapshots.results || []).filter((snapshot: any) => {
-    if (!fireteamSnapshotUsable(snapshot.committed_at)) return false;
-    try { return configuredFireteamActivityFeedEnabled(snapshot.settings_json, JSON.parse(snapshot.payload_json || "{}")); } catch { return false; }
+    try {
+      return fireteamActivitySnapshotEnabled(
+        String(snapshot.membership_id) === row.membership_id,
+        fireteamSnapshotUsable(snapshot.committed_at),
+        configuredFireteamActivityFeedEnabled(snapshot.settings_json, JSON.parse(snapshot.payload_json || "{}"))
+      );
+    } catch { return false; }
   });
   const displayNames = new Map(enabledRows.map((snapshot: any) => [
     String(snapshot.membership_id),
@@ -2199,7 +2209,7 @@ async function fireteamActivity(row: SessionRow, env: Env, context: RequestConte
     partyMembershipIds: partyIds,
     enabledMembershipIds: enabledRows.map((snapshot: any) => String(snapshot.membership_id)),
     displayNames,
-    enabled: usable && configuredFireteamActivityFeedEnabled(ownSnapshot?.settings_json, ownPayload),
+    enabled: Boolean(ownSnapshot) && configuredFireteamActivityFeedEnabled(ownSnapshot?.settings_json, ownPayload),
     now
   });
   return envelope(feed, env, context);

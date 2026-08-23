@@ -66,17 +66,18 @@ describe("Fireteam tracked items", () => {
     expect(primaryCalls()).toBe(1);
   });
 
-  it("leaves activity-feed scheduling to the route's single five-minute coordinator", async () => {
+  it("refreshes the activity feed independently every minute", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
+    guardianSettings.autoRefresh = true;
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
 
     await screen.findByText("Shared tracked items");
     const activityCalls = () => vi.mocked(api).mock.calls.filter(([path]) => path === "/api/v2/fireteam/activity").length;
     expect(activityCalls()).toBe(1);
-    await act(async () => { vi.advanceTimersByTime(10_000); });
+    await act(async () => { vi.advanceTimersByTime(59_000); });
     expect(activityCalls()).toBe(1);
-    await act(async () => { vi.advanceTimersByTime(4 * 60_000 + 50_000); });
-    expect(activityCalls()).toBe(1);
+    await act(async () => { vi.advanceTimersByTime(1_000); });
+    expect(activityCalls()).toBe(2);
   });
 
   it("uses the canonical snapshot API and saved Recent Loot paths", async () => {

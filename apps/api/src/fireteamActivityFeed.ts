@@ -21,6 +21,10 @@ export function configuredFireteamActivityFeedEnabled(settingsJson: string | und
   return sharedActivityFeedEnabled(payload);
 }
 
+export function fireteamActivitySnapshotEnabled(isViewer: boolean, snapshotUsable: boolean, configured: boolean): boolean {
+  return configured && (isViewer || snapshotUsable);
+}
+
 export function normalizeFireteamMessage(value: unknown): string {
   const printable = [...String(value ?? "")].map((character) => {
     const code = character.charCodeAt(0);

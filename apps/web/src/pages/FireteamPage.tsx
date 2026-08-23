@@ -53,7 +53,7 @@ function watcherResultLabel(result: LootWatcherRunResult): string {
   return actions.length ? actions.join(" · ") : "Watcher settings saved.";
 }
 export function FireteamPage() {
-  const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
+  const { session, selectedCharacterId, preferences, setPreference, autoRefresh } = useGuardian();
   const queryClient = useQueryClient();
   const result = useFireteamQuery(session?.guardian?.membershipId || "", selectedCharacterId, Boolean(session?.authenticated));
   useEffect(() => {
@@ -93,14 +93,15 @@ export function FireteamPage() {
     queryFn: () => api<RecentItemTimelineData>(`/api/v2/fireteam/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId),
     staleTime: 30_000,
-    refetchInterval: false
+    refetchInterval: autoRefresh ? FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS : false,
+    refetchIntervalInBackground: false
   });
   const activityFeed = useQuery({
     queryKey: ["fireteam-activity", session?.guardian?.membershipId, selectedCharacterId],
     queryFn: () => api<NonNullable<FireteamData["activityFeed"]>>("/api/v2/fireteam/activity"),
     enabled: Boolean(session?.authenticated && activityFeedView !== "hidden"),
     staleTime: FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS,
-    refetchInterval: false,
+    refetchInterval: autoRefresh ? FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS : false,
     refetchIntervalInBackground: false
   });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onMutate: async (input) => { const queryKey = ["fireteam-recent-items", selectedCharacterId] as const; await queryClient.cancelQueries({ queryKey }); const previous = queryClient.getQueryData(queryKey); queryClient.setQueryData(queryKey, (value: unknown) => updateFireteamCachedTag(value, input.itemInstanceId, input.tag || undefined)); return { queryKey, previous }; }, onError: (_error, _input, context) => queryClient.setQueryData(context?.queryKey || ["fireteam-recent-items", selectedCharacterId], context?.previous), onSettled: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }) });
