@@ -1,6 +1,7 @@
-import type { ArmorItem, GearTag, LootWatcherConfig, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
+import type { ArmorItem, ArmorPerk, GearTag, LootWatcherConfig, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
 import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, LockKeyhole, PackageOpen, ShieldCheck, Sparkles, Tags, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, qualityLabel } from "../../modules/loot/weaponEvaluator";
 import { useResolvedWeaponRatings } from "../../modules/loot/useResolvedWeaponRatings";
@@ -228,7 +229,7 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocket
   return <article ref={card} className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} data-selected={selected} onKeyDown={(key) => { if (key.key === "Escape") close(); }} onFocus={onActivate} onBlur={(event) => { if (!selected && !event.currentTarget.contains(event.relatedTarget)) onDeactivate(); }} onMouseEnter={onActivate} onMouseLeave={() => { if (!selected) onDeactivate(); }}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={selected} aria-controls={selected ? tooltipId : undefined} onClick={() => { if (selected) close(); else { setSelected(true); onActivate(); } }}>
       <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
-      <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" ? <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong> : item.archetype && <strong className={styles.armorArchetype} title={item.archetype.description || `${item.archetype.name} armor archetype`}>{item.archetype.name}</strong>}</span>
+      <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>
     <div className={styles.cardActions}>{!selected && <GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />}{actions}</div>
@@ -237,18 +238,33 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocket
 }
 
 export function ItemTooltip({ item, id, utility = false, onClose, onTag, onSocketChange, busy = false }: { item: LootItem; id?: string; utility?: boolean; onClose?: () => void; onTag?: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean }) {
-  return <aside id={id} className={`${styles.tooltip} ${utility ? styles.utilityCard : ""}`} role={utility ? "dialog" : "tooltip"} aria-label={utility ? `${item.name} details` : undefined}><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : `${item.slot}${item.archetype ? ` · ${item.archetype.name}` : ""}`}</em></span>{utility && <button className={styles.utilityClose} type="button" aria-label={`Close ${item.name} details`} onClick={onClose}><X /></button>}</header>
-    <div className={styles.identity}><b>{item.power || "—"} Power</b><span>{item.kind === "weapon" ? item.slot : item.className}</span><span>{item.inPostmaster ? "Postmaster" : item.location}{item.equipped ? " · Equipped" : ""}</span></div>
+  return <aside id={id} className={`${styles.tooltip} ${utility ? styles.utilityCard : ""}`} role={utility ? "dialog" : "tooltip"} aria-label={utility ? `${item.name} details` : undefined}><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span>{utility && <button className={styles.utilityClose} type="button" aria-label={`Close ${item.name} details`} onClick={onClose}><X /></button>}</header>
+    <div className={styles.identity}><b>{item.power || "—"} Power</b><span>{item.kind === "weapon" ? item.slot : item.className}</span>{item.kind === "armor" && item.archetype && <ArmorArchetypeBadge archetype={item.archetype} />}<span>{item.inPostmaster ? "Postmaster" : item.location}{item.equipped ? " · Equipped" : ""}</span></div>
     <nav className={styles.sourceLinks}><a href={`https://www.light.gg/db/items/${item.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a><span><Clock3 /> First observed {new Date(item.firstSeenAt).toLocaleString()}</span></nav>
     {item.kind === "weapon" ? <>
       {item.trackerValue !== undefined && <p className={styles.tracker}><BarChart3 /> Enemies defeated <b>{item.trackerValue.toLocaleString()}</b></p>}
       <div className={styles.weaponStats}>{(item.stats || []).map((stat) => <span key={stat.hash}><small>{stat.name}</small>{stat.displayAsNumeric ? <i /> : <i><em style={{ width: `${Math.min(100, Math.max(0, stat.value / Math.max(1, stat.maximumValue) * 100))}%` }} /></i>}<b>{stat.value}</b></span>)}</div>
       {item.masterwork && <div className={styles.intrinsic}>{item.masterwork.icon && <img src={item.masterwork.icon} alt="" />}<span><b>{item.masterwork.name}</b><small>{item.masterwork.description || "Weapon masterwork"}</small></span></div>}
       <WeaponRatingPanel weapon={item} compact busy={busy} onSelectPlug={onSocketChange ? (socketIndex, plugItemHash) => onSocketChange(item, socketIndex, plugItemHash) : undefined} />
-    </> : <>{item.archetype && <div className={styles.intrinsic}>{item.archetype.icon && <img src={item.archetype.icon} alt="" />}<span><b>{item.archetype.name}</b><small>{item.archetype.description || "Armor archetype"}</small></span></div>}<div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal}</strong></div></>}
+    </> : <div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal}</strong></div>}
     {utility && onTag && <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} /></div>}
     <footer>First observed time is Guardian Nexus history, not an exact Bungie drop timestamp. Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse</footer>
   </aside>;
+}
+
+function ArmorArchetypeBadge({ archetype }: { archetype: ArmorPerk }) {
+  const trigger = useRef<HTMLSpanElement>(null);
+  const tooltipId = useId();
+  const [position, setPosition] = useState<{ top: number; left: number }>();
+  const show = () => {
+    const bounds = trigger.current?.getBoundingClientRect();
+    if (!bounds) return;
+    setPosition({ top: bounds.top - 7, left: Math.max(118, Math.min(window.innerWidth - 118, bounds.left + bounds.width / 2)) });
+  };
+  return <>
+    <span ref={trigger} className={styles.archetypeBadge} tabIndex={0} aria-label={`Armor archetype: ${archetype.name}`} aria-describedby={position ? tooltipId : undefined} onMouseEnter={show} onMouseLeave={() => setPosition(undefined)} onFocus={show} onBlur={() => setPosition(undefined)}>{archetype.icon ? <img src={archetype.icon} alt="" /> : <Sparkles />}</span>
+    {position && createPortal(<span id={tooltipId} className={styles.archetypeTooltip} role="tooltip" style={{ top: position.top, left: position.left }}><b>{archetype.name}</b>{archetype.description && <small>{archetype.description}</small>}</span>, document.body)}
+  </>;
 }
 
 function isTyping(target: EventTarget | null): boolean { return target instanceof Element && Boolean(target.closest("input, textarea, select, [contenteditable='true']")); }
