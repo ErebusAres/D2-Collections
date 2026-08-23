@@ -173,6 +173,7 @@ const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("gear.sort"), value: z.enum(["analyzer", "base", "current", "rank", "tier", "power", "grouped", "untagged", "slot", "new", "name"]) }),
   z.object({ key: z.literal("collection.sort"), value: z.enum(["position", "type", "alpha", "missing", "owned", "source"]) }),
   z.object({ key: z.enum(["gear.filters", "weapons.filters", "weapons.wishlist", "collection.filters", "collection.tracked", "fireteam.trackedOrder", "quests.filters", "guardianRank.tracked", "journey.tracked", "rewardCodes.filters", "builds.filters", "watchlists.buildAcquisitions", "watchlists.v1", "buildAdvisor.trackedBuilds.v1"]), value: z.string().max(12_000) }),
+  z.object({ key: z.literal("weapons.ratingSource.v1"), value: z.enum(["voltron", "choosy-voltron", "just-another-team"]) }),
   z.object({ key: z.literal("projects.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("fashion.looks.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("challenges.v1"), value: z.string().max(40_000) }),
