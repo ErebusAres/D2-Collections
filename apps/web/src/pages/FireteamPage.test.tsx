@@ -147,6 +147,9 @@ describe("Fireteam tracked items", () => {
     expect(screen.getByText("Weekly order")).toBeTruthy();
     expect(screen.getByText("Order · Vanguard")).toBeTruthy();
     expect(screen.getByText("Current-step guide")).toBeTruthy();
+    const guide = screen.getByText("Current-step guide").closest("details")!;
+    expect(guide.parentElement?.classList.contains(styles.sharedQuestProgress!)).toBe(true);
+    expect(guide.parentElement?.parentElement?.getAttribute("data-tracking-state")).toBe("active");
     expect(screen.getByText("Rank service")).toBeTruthy();
     expect(screen.getByText("Guardian Rank · Journey · Progress to rank 8")).toBeTruthy();
 

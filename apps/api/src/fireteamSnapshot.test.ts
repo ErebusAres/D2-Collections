@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   authoritativeFireteamParty,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
+  fireteamMemberDisplayName,
   fireteamRefreshDue,
   fireteamRefreshState,
   fireteamRetryAfter,
@@ -35,6 +36,15 @@ describe("Fireteam snapshot contract", () => {
   it("does not claim a new cycle until a newer snapshot version commits", () => {
     expect(fireteamSnapshotAdvanced(7, 7)).toBe(false);
     expect(fireteamSnapshotAdvanced(7, 8)).toBe(true);
+  });
+
+  it("uses a shared Guardian name when Bungie's transitory roster omits it", () => {
+    expect(fireteamMemberDisplayName({
+      observedDisplayName: "",
+      sharedDisplayName: "Brother#1234",
+      isSelf: false
+    })).toBe("Brother#1234");
+    expect(fireteamMemberDisplayName({ observedDisplayName: "Live name", sharedDisplayName: "Saved name", isSelf: false })).toBe("Live name");
   });
 
   it("commits every active Seasonal Hub Order while keeping other pursuits opt-in", () => {

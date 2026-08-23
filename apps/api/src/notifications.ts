@@ -133,20 +133,20 @@ export async function readNotificationFeed(request: Request, env: Env): Promise<
         ORDER BY CASE n.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, n.created_at DESC
         LIMIT ?
       `).bind(history ? 1 : 0, now, now, cursor, cursor, limit + 1).all<NotificationRow>();
-  const generatedPromise: Promise<GuardianNotification[]> = history || cursor
-    ? Promise.resolve([])
-    : generatedWorldNotifications(env);
   const preferencesPromise: Promise<NotificationPreferences> = membershipId
     ? readNotificationPreferences(env, membershipId)
     : Promise.resolve(DEFAULT_NOTIFICATION_PREFERENCES);
-  const [rows, generated, preferences] = await Promise.all([rowsPromise, generatedPromise, preferencesPromise]);
+  const [rows, preferences] = await Promise.all([rowsPromise, preferencesPromise]);
   const stored = (rows.results || []).slice(0, limit).map(notificationFromRow);
   // Older shipment records used the vendor capture timestamp as their identity,
   // which could put several copies of one Xûr visit in the live feed.
   const visibleStored = history
     ? stored
     : stored.filter((entry) => entry.eventKey !== "xur-shipment");
-  const notifications = deduplicateNotifications([...visibleStored, ...generated]);
+  // Generated world-state notices are materialized by the five-minute
+  // maintenance job. Keep this frequently-polled route to its personalized
+  // feed and preference reads so it remains safe under Cloudflare limits.
+  const notifications = deduplicateNotifications(visibleStored);
   return {
     notifications,
     unreadCount: notifications.filter((entry) => !entry.readAt && !entry.dismissedAt && entry.status === "active").length,
