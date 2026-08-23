@@ -112,8 +112,8 @@ export async function readNotificationFeed(request: Request, env: Env): Promise<
   const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") || (history ? 50 : 24))));
   const cursor = url.searchParams.get("cursor");
   const now = new Date().toISOString();
-  const rows = membershipId
-    ? await env.DB.prepare(`
+  const rowsPromise = membershipId
+    ? env.DB.prepare(`
         SELECT n.*, s.read_at, s.dismissed_at, s.archived_at, s.deleted_at
         FROM guardian_notifications n
         LEFT JOIN notification_user_state s ON s.notification_id = n.id AND s.membership_id = ?
@@ -124,7 +124,7 @@ export async function readNotificationFeed(request: Request, env: Env): Promise<
         ORDER BY CASE n.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, n.created_at DESC
         LIMIT ?
       `).bind(membershipId, membershipId, history ? 1 : 0, now, now, cursor, cursor, limit + 1).all<NotificationRow>()
-    : await env.DB.prepare(`
+    : env.DB.prepare(`
         SELECT n.*
         FROM guardian_notifications n
         WHERE n.scope = 'global'
@@ -133,17 +133,20 @@ export async function readNotificationFeed(request: Request, env: Env): Promise<
         ORDER BY CASE n.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, n.created_at DESC
         LIMIT ?
       `).bind(history ? 1 : 0, now, now, cursor, cursor, limit + 1).all<NotificationRow>();
+  const generatedPromise: Promise<GuardianNotification[]> = history || cursor
+    ? Promise.resolve([])
+    : generatedWorldNotifications(env);
+  const preferencesPromise: Promise<NotificationPreferences> = membershipId
+    ? readNotificationPreferences(env, membershipId)
+    : Promise.resolve(DEFAULT_NOTIFICATION_PREFERENCES);
+  const [rows, generated, preferences] = await Promise.all([rowsPromise, generatedPromise, preferencesPromise]);
   const stored = (rows.results || []).slice(0, limit).map(notificationFromRow);
   // Older shipment records used the vendor capture timestamp as their identity,
   // which could put several copies of one Xûr visit in the live feed.
   const visibleStored = history
     ? stored
     : stored.filter((entry) => entry.eventKey !== "xur-shipment");
-  const generated = history || cursor ? [] : await generatedWorldNotifications(env);
-  const missingGenerated = generated.filter((entry) => !visibleStored.some((storedEntry) => storedEntry.id === entry.id));
-  if (missingGenerated.length) await materializeGeneratedNotifications(env, missingGenerated);
   const notifications = deduplicateNotifications([...visibleStored, ...generated]);
-  const preferences = membershipId ? await readNotificationPreferences(env, membershipId) : DEFAULT_NOTIFICATION_PREFERENCES;
   return {
     notifications,
     unreadCount: notifications.filter((entry) => !entry.readAt && !entry.dismissedAt && entry.status === "active").length,
@@ -411,6 +414,7 @@ export async function maintainNotificationStorage(env: Env): Promise<void> {
   const retention = new Date(nowDate.getTime() - 180 * 86_400_000).toISOString();
   await syncCommunityDistortionObservation(env, nowDate);
   await refreshPublicWorldState(env);
+  await materializeGeneratedNotifications(env, await generatedWorldNotifications(env));
   await env.DB.batch([
     env.DB.prepare("DELETE FROM notification_user_state WHERE updated_at < ?").bind(retention),
     env.DB.prepare("DELETE FROM guardian_notifications WHERE expires_at IS NOT NULL AND expires_at < ? AND created_at < ?").bind(now, retention),
@@ -481,10 +485,13 @@ async function generatedWorldNotifications(env: Env): Promise<GuardianNotificati
     notificationForReset("daily", nextDailyReset(now)),
     notificationForReset("weekly", nextWeeklyReset(now))
   ];
-  const xur = await readLatestXurShipment(env);
+  const [xur, distortion, publicWorldCards] = await Promise.all([
+    readLatestXurShipment(env),
+    readCurrentDistortionForNotifications(env, now),
+    readPublicWorldCards(env)
+  ]);
   const xurNotification = xurVisitNotification(xur, now);
   if (xurNotification) generated.push(xurNotification);
-  const distortion = await readDistortions(env, "24h");
   if (distortion.current) {
     generated.push({
       id: `distortion-active:${distortion.current.id}`,
@@ -506,8 +513,34 @@ async function generatedWorldNotifications(env: Env): Promise<GuardianNotificati
       sourceConfidence: distortion.sourceConfidence
     });
   }
-  generated.push(...notificationsFromWorldCards(await readPublicWorldCards(env), now));
+  generated.push(...notificationsFromWorldCards(publicWorldCards, now));
   return generated;
+}
+
+export async function readCurrentDistortionForNotifications(env: Env, now: Date): Promise<{
+  current: DistortionObservation;
+  nextHourlyChangeAt: string;
+  sourceLabel: string;
+  sourceConfidence: NotificationSourceConfidence;
+}> {
+  let observedCurrent: DistortionObservation | undefined;
+  try {
+    const row = await env.DB.prepare(`
+      SELECT * FROM distortion_observations ORDER BY observed_start_at DESC LIMIT 1
+    `).first<Record<string, unknown>>();
+    const latest = row ? distortionFromRow(row) : undefined;
+    const age = latest ? now.getTime() - Date.parse(latest.lastConfirmedAt) : Number.POSITIVE_INFINITY;
+    observedCurrent = latest && !latest.observedEndAt && age <= 75 * 60_000 ? latest : undefined;
+  } catch {
+    // The verified community rotation keeps notifications available during a transient D1 read failure.
+  }
+  const current = observedCurrent || communityDistortionAt(now);
+  return {
+    current,
+    nextHourlyChangeAt: nextUtcHour(now),
+    sourceLabel: current.source,
+    sourceConfidence: current.confidence
+  };
 }
 
 export function xurHappeningCard(xur: StoredXurSnapshot, now = new Date()): HappeningCard {
