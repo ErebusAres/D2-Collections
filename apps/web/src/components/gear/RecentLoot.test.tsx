@@ -38,13 +38,19 @@ describe("RecentItemRow", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("shows an armor archetype on the loot tile and selected detail card", () => {
+  it("keeps archetypes off loot tiles and shows an icon tooltip on the selected detail card", () => {
     render(<MemoryRouter><CompactRecentLootBar items={[{ ...armor, kind: "armor" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
-    expect(screen.getByText("Paragon")).toBeTruthy();
+    expect(screen.queryByText("Paragon")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Grips" }));
     const dialog = screen.getByRole("dialog", { name: "Recent Grips details" });
-    expect(dialog.textContent).toContain("Arms · Paragon");
-    expect(dialog.textContent).toContain("Improves class ability-focused stat potential.");
+    expect(dialog.textContent).not.toContain("Paragon");
+    const archetype = screen.getByLabelText("Armor archetype: Paragon");
+    expect(archetype.querySelector("img")?.getAttribute("src")).toBe("/paragon.png");
+    fireEvent.mouseEnter(archetype);
+    expect(screen.getByRole("tooltip").textContent).toContain("Paragon");
+    expect(screen.getByRole("tooltip").textContent).toContain("Improves class ability-focused stat potential.");
+    fireEvent.mouseLeave(archetype);
+    expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
   it("labels a roll with no visible rating perks as pending instead of generic Bungie data", async () => {
