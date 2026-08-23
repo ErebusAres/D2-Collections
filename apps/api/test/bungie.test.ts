@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, profileFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadLootWatcherManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, profileFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -18,6 +18,7 @@ describe("profileComponentsFor", () => {
     expect(profileComponentsFor("quests")).toBe("100,102,200,201,204,301,310");
     expect(profileComponentsFor("fireteam")).toBe("100,102,200,201,202,204,205,300,301,304,305,307,310,800,900,1000");
     expect(profileComponentsFor("recent-items")).toBe("100,102,200,201,205,300,301,304,305,307,310,800,900");
+    expect(profileComponentsFor("loot-watcher")).toBe("100,102,200,201,205,300,304,305,307,310");
   });
 
   it("retains item sockets and stats for gear", () => {
@@ -331,6 +332,22 @@ describe("seasonPassProgress", () => {
 });
 
 describe("manifest overlays", () => {
+  it("loads the dedicated bounded loot watcher artifact", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      version: "watcher-test",
+      generatedAt: "now",
+      gearItemDefinitions: { armor: { itemType: 2 } },
+      plugDefinitions: { paragon: { displayProperties: { name: "Paragon" } } },
+      statDefinitions: {}
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loadLootWatcherManifest({ GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env);
+
+    expect(result.gearItemDefinitions).toHaveProperty("armor");
+    expect(fetchMock).toHaveBeenCalledWith("https://example.test/data/loot-watcher-manifest.json", expect.any(Object));
+  });
+
   it("loads the bounded Build Advisor artifact without the full companion or collection manifests", async () => {
     const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
       const url = String(input);

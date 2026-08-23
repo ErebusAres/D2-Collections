@@ -443,7 +443,7 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export type ProfileMode = "full" | "session" | "collection" | "quests" | "journey" | "fireteam" | "gear" | "gear-action" | "recent-items" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
+export type ProfileMode = "full" | "session" | "collection" | "quests" | "journey" | "fireteam" | "gear" | "gear-action" | "loot-watcher" | "recent-items" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
 
 export function profileComponentsFor(mode: ProfileMode): string {
   return mode === "session"
@@ -460,6 +460,8 @@ export function profileComponentsFor(mode: ProfileMode): string {
           ? "100,102,200,201,205,300,301,304,305,307,310,800,900"
         : mode === "gear-action"
           ? "100,102,200,201,205,305,307,310"
+        : mode === "loot-watcher"
+          ? "100,102,200,201,205,300,304,305,307,310"
     : mode === "mailbox"
       ? "100,200,201"
         : mode === "loadouts"
@@ -719,6 +721,19 @@ export async function loadGearManifest(env: Env): Promise<GearManifest> {
     if (!response.ok) throw new Error(`Gear manifest request returned ${response.status}.`);
     const value = await response.json() as GearManifest;
     if (!value?.version || !value.gearItemDefinitions || !value.plugDefinitions) throw new Error("Gear manifest artifact is invalid.");
+    return value;
+  } catch {
+    return { version: "unavailable", generatedAt: new Date().toISOString(), gearItemDefinitions: {}, plugDefinitions: {}, statDefinitions: {} };
+  }
+}
+
+export async function loadLootWatcherManifest(env: Env): Promise<GearManifest> {
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "loot-watcher-manifest.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Loot watcher manifest request returned ${response.status}.`);
+    const value = await response.json() as GearManifest;
+    if (!value?.version || !value.gearItemDefinitions || !value.plugDefinitions) throw new Error("Loot watcher manifest artifact is invalid.");
     return value;
   } catch {
     return { version: "unavailable", generatedAt: new Date().toISOString(), gearItemDefinitions: {}, plugDefinitions: {}, statDefinitions: {} };

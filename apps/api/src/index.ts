@@ -44,13 +44,14 @@ import type {
   XurData
 } from "@guardian-nexus/contracts";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifestForHashes, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifestForHashes, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadLootWatcherManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { addXurCollectionStates, applyQuestPins, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { gearActionItemsFromProfile, normalizeGear, type GearStateRow } from "./gear";
 import { planLootWatchers } from "./lootWatchers";
+import { LOOT_WATCHER_LEASE_MS, LOOT_WATCHER_MAX_RUNS_PER_CRON, lootWatcherRetryAt, nextLootWatcherRunAt } from "./lootWatcherSchedule";
 import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
 import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
@@ -240,6 +241,9 @@ export default {
       env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
     ]);
     if (Math.floor(controller.scheduledTime / 60_000) % 5 === 0) await maintainNotificationStorage(env);
+    await refreshDueLootWatchers(env).catch((error: any) => {
+      console.error("loot_watcher_cron_failed", String(error?.code || error?.message || "unknown"));
+    });
     await refreshDueFireteamSnapshots(env).catch((error: any) => {
       console.error("fireteam_snapshot_cron_failed", String(error?.code || error?.message || "unknown"));
     });
@@ -1235,8 +1239,8 @@ async function refreshRecentItemObservationsWithLease(row: SessionRow, env: Env,
 }
 
 async function refreshRecentItemObservations(row: SessionRow, env: Env, characterId?: string): Promise<void> {
-  const { profile, accessToken } = await profileFor(row, env, "recent-items");
-  await observeRecentItemsFromProfile(row, env, profile, characterId, undefined, accessToken);
+  const { profile } = await profileFor(row, env, "recent-items");
+  await observeRecentItemsFromProfile(row, env, profile, characterId);
 }
 
 async function observeRecentItemsFromProfile(
@@ -1244,8 +1248,7 @@ async function observeRecentItemsFromProfile(
   env: Env,
   profile: any,
   characterId?: string,
-  observedAt = new Date().toISOString(),
-  accessToken?: string
+  observedAt = new Date().toISOString()
 ): Promise<void> {
   const [gearManifest, collectionManifest] = await Promise.all([loadGearManifest(env), loadManifest(env)]);
   const companionManifest = await loadCompanionManifestForHashes(env, uninstancedInventoryItemHashes(profile));
@@ -1264,13 +1267,6 @@ async function observeRecentItemsFromProfile(
     VALUES (?, ?, NULL, NULL)
     ON CONFLICT(membership_id) DO UPDATE SET refreshed_at = excluded.refreshed_at, refresh_started_at = NULL, last_error = NULL
   `).bind(row.membership_id, observedAt).run();
-  if (accessToken) {
-    const config = await lootWatcherConfigFor(row.membership_id, env);
-    if (Object.values(config).some(Boolean)) {
-      const result = await applyLootWatcherActions(row, env, profile, accessToken, gearData, config, new Set(missing.map((item) => item.instanceId)), states.size > 0);
-      if (result.warnings.length) console.log(JSON.stringify({ event: "loot_watchers_partial", membershipId: row.membership_id, warnings: result.warnings.slice(0, 4) }));
-    }
-  }
 }
 
 function uninstancedInventoryItemHashes(profile: any): string[] {
@@ -1647,18 +1643,116 @@ async function saveLootWatcherConfig(membershipId: string, config: LootWatcherCo
 async function runLootWatchers(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const input = runLootWatchersSchema.parse(await request.json()) as RunLootWatchersRequest;
   await saveLootWatcherConfig(row.membership_id, input.config, env);
-  const { profile, accessToken } = await profileFor(row, env, "recent-items", true);
-  const character = charactersFromProfile(profile).find((entry) => entry.characterId === input.characterId);
+  if (!Object.values(input.config).some(Boolean)) {
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM loot_watcher_jobs WHERE membership_id = ?").bind(row.membership_id),
+      env.DB.prepare("DELETE FROM loot_watcher_seen_items WHERE membership_id = ?").bind(row.membership_id)
+    ]);
+    return envelope<LootWatcherRunResult>({ movedToVault: [], locked: [], taggedJunk: [], skipped: [], warnings: [] }, env, context);
+  }
+  await scheduleLootWatcher(row.membership_id, input.characterId, env);
+  const result = await executeLootWatcherPass(row, input.characterId, input.config, env);
+  await completeLootWatcherJob(row.membership_id, result, env);
+  return envelope<LootWatcherRunResult>(result, env, context, { warnings: result.warnings });
+}
+
+interface LootWatcherJobRow {
+  membership_id: string;
+  character_id: string;
+}
+
+async function scheduleLootWatcher(membershipId: string, characterId: string, env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  await env.DB.prepare(`
+    INSERT INTO loot_watcher_jobs (membership_id, character_id, next_run_at, run_started_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(membership_id) DO UPDATE SET character_id = excluded.character_id,
+      next_run_at = MIN(loot_watcher_jobs.next_run_at, excluded.next_run_at), updated_at = excluded.updated_at,
+      run_started_at = excluded.run_started_at, last_error_code = NULL, last_error_message = NULL
+  `).bind(membershipId, characterId, now, now, now).run();
+}
+
+async function executeLootWatcherPass(row: SessionRow, characterId: string, config: LootWatcherConfig, env: Env): Promise<LootWatcherRunResult> {
+  const { profile, accessToken } = await profileFor(row, env, "loot-watcher", true);
+  const character = charactersFromProfile(profile).find((entry) => entry.characterId === characterId);
   if (!character) throw httpError(403, "character_invalid", "That character does not belong to this Guardian.");
-  const [manifest, states] = await Promise.all([loadGearManifest(env), gearStates(row.membership_id, env)]);
+  const [manifest, states, seenResult] = await Promise.all([
+    loadLootWatcherManifest(env),
+    gearStates(row.membership_id, env),
+    env.DB.prepare("SELECT item_instance_id FROM loot_watcher_seen_items WHERE membership_id = ?").bind(row.membership_id).all<{ item_instance_id: string }>()
+  ]);
+  if (manifest.version === "unavailable") throw httpError(503, "loot_watcher_manifest_unavailable", "Loot watcher item definitions are temporarily unavailable.", 60);
   const now = new Date().toISOString();
   const data = normalizeGear(profile, manifest, character.characterId, character.className, states, now);
-  const missing = [...data.items, ...(data.weapons || [])].filter((item) => !states.has(item.instanceId));
-  for (let offset = 0; offset < missing.length; offset += 80) {
-    await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
+  const physicalItems = [...data.items, ...(data.weapons || [])];
+  if (gearActionItemsFromProfile(profile).size > 0 && !physicalItems.length) throw httpError(503, "loot_watcher_inventory_unavailable", "Bungie inventory data could not be classified safely.", 60);
+  const seen = new Set((seenResult.results || []).map((item) => String(item.item_instance_id)));
+  const newInstanceIds = new Set(physicalItems.filter((item) => !seen.has(item.instanceId)).map((item) => item.instanceId));
+  const missingStates = physicalItems.filter((item) => !states.has(item.instanceId));
+  for (let offset = 0; offset < missingStates.length; offset += 80) {
+    await env.DB.batch(missingStates.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
   }
-  const result = await applyLootWatcherActions(row, env, profile, accessToken, data, input.config, new Set(), states.size > 0);
-  return envelope<LootWatcherRunResult>(result, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: result.warnings });
+  const result = await applyLootWatcherActions(row, env, profile, accessToken, data, config, newInstanceIds, seen.size > 0);
+  if (!result.warnings.length) {
+    for (let offset = 0; offset < physicalItems.length; offset += 80) {
+      await env.DB.batch(physicalItems.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO loot_watcher_seen_items (membership_id, item_instance_id, first_seen_at) VALUES (?, ?, ?)").bind(row.membership_id, item.instanceId, now)));
+    }
+  }
+  return result;
+}
+
+async function completeLootWatcherJob(membershipId: string, result: LootWatcherRunResult, env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  const nextRunAt = nextLootWatcherRunAt();
+  const warning = result.warnings[0];
+  await env.DB.prepare(`
+    UPDATE loot_watcher_jobs SET run_started_at = NULL, last_run_at = ?, next_run_at = ?, updated_at = ?,
+      last_success_at = CASE WHEN ? IS NULL THEN ? ELSE last_success_at END,
+      last_error_code = CASE WHEN ? IS NULL THEN NULL ELSE 'action_partial' END,
+      last_error_message = ?
+    WHERE membership_id = ?
+  `).bind(now, nextRunAt, now, warning || null, now, warning || null, warning || null, membershipId).run();
+}
+
+async function refreshDueLootWatchers(env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  const staleLease = new Date(Date.now() - LOOT_WATCHER_LEASE_MS).toISOString();
+  const { results = [] } = await env.DB.prepare(`
+    SELECT membership_id, character_id FROM loot_watcher_jobs
+    WHERE next_run_at <= ? AND (run_started_at IS NULL OR run_started_at < ?)
+    ORDER BY next_run_at ASC LIMIT ?
+  `).bind(now, staleLease, LOOT_WATCHER_MAX_RUNS_PER_CRON).all<LootWatcherJobRow>();
+  for (const job of results) {
+    const startedAt = new Date().toISOString();
+    const claim = await env.DB.prepare(`
+      UPDATE loot_watcher_jobs SET run_started_at = ?, last_run_at = ?, updated_at = ?
+      WHERE membership_id = ? AND next_run_at <= ? AND (run_started_at IS NULL OR run_started_at < ?)
+    `).bind(startedAt, startedAt, startedAt, job.membership_id, startedAt, staleLease).run();
+    if (Number(claim.meta?.changes || 0) < 1) continue;
+    try {
+      const row = await fireteamSessionFor(job.membership_id, env);
+      if (!row) throw httpError(401, "authorization_required", "Bungie authorization must be renewed.");
+      const config = await lootWatcherConfigFor(job.membership_id, env);
+      if (!Object.values(config).some(Boolean)) {
+        await env.DB.prepare("DELETE FROM loot_watcher_jobs WHERE membership_id = ?").bind(job.membership_id).run();
+        continue;
+      }
+      const result = await executeLootWatcherPass(row, job.character_id, config, env);
+      await completeLootWatcherJob(job.membership_id, result, env);
+    } catch (error: any) {
+      await env.DB.prepare(`
+        UPDATE loot_watcher_jobs SET run_started_at = NULL, next_run_at = ?, updated_at = ?,
+          last_error_code = ?, last_error_message = ? WHERE membership_id = ? AND run_started_at = ?
+      `).bind(
+        lootWatcherRetryAt(error),
+        new Date().toISOString(),
+        String(error?.code || "watcher_run_failed").slice(0, 80),
+        String(error?.message || "Loot watcher run failed.").slice(0, 240),
+        job.membership_id,
+        startedAt
+      ).run().catch(() => undefined);
+    }
+  }
 }
 
 async function applyLootWatcherActions(row: SessionRow, env: Env, profile: any, accessToken: string, data: GearData, config: LootWatcherConfig, newInstanceIds: Set<string>, baselineEstablished: boolean): Promise<LootWatcherRunResult> {
@@ -1813,7 +1907,7 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   const previousTrackedKeys = new Set(previousTrackedItems.map(trackedItemKey));
   const configuredCollectionIds = new Set<string>(Array.isArray(settings?.siteTrackedCollectionIds) ? settings.siteTrackedCollectionIds : []);
 
-  const [{ profile, accessToken }, questManifest, guardianRankManifest] = await Promise.all([
+  const [{ profile }, questManifest, guardianRankManifest] = await Promise.all([
     profileFor(row, env, "fireteam"),
     loadQuestManifest(env),
     loadGuardianRankManifest(env)
@@ -1895,7 +1989,7 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
     ? guardianLocation(profile, questManifest, snapshotCharacter.characterId, onlineState)
     : undefined;
   try {
-    await observeRecentItemsFromProfile(row, env, profile, snapshotCharacter.characterId, committedAt, accessToken);
+    await observeRecentItemsFromProfile(row, env, profile, snapshotCharacter.characterId, committedAt);
   } catch (error: any) {
     await env.DB.prepare(`
       INSERT INTO recent_item_refresh_state (membership_id, refreshed_at, refresh_started_at, last_error)

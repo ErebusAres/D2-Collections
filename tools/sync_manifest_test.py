@@ -72,6 +72,29 @@ class BuildCatalogClassificationTests(unittest.TestCase):
         self.assertEqual(value["defaultDamageType"], 2)
         self.assertEqual(value["inventory"]["bucketTypeHash"], "2465295065")
 
+    def test_loot_watcher_manifest_keeps_only_identity_and_fit_plugs(self) -> None:
+        gear = {
+            "10": {
+                "hash": 10,
+                "itemType": 2,
+                "itemTypeDisplayName": "Helmet",
+                "classType": 2,
+                "defaultDamageType": 0,
+                "displayProperties": {"name": "Test Helm", "icon": "/helm.png"},
+                "inventory": {"tierTypeName": "Legendary", "bucketTypeHash": 3448274439},
+            }
+        }
+        plugs = {
+            "20": item_definition(name="Paragon", item_type="Intrinsic", plug="armor.archetype"),
+            "21": item_definition(name="Grenade Tuning", item_type="Armor Mod", plug="core.gear_systems.armor_tiering.plugs.tuning.mods"),
+            "22": item_definition(name="Incandescent", item_type="Trait", plug="weapon.traits"),
+        }
+        artifact = SYNC_MANIFEST.loot_watcher_manifest(gear, plugs, {}, "test", "now")
+
+        self.assertEqual(set(artifact["plugDefinitions"]), {"20", "21"})
+        self.assertNotIn("icon", artifact["gearItemDefinitions"]["10"]["displayProperties"])
+        self.assertNotIn("defaultDamageType", artifact["gearItemDefinitions"]["10"])
+
     def test_weapon_perk_columns_keep_the_complete_four_column_pool(self) -> None:
         inventory = {
             "10": item_definition(name="Arrowhead Brake", item_type="Barrel", plug="weapon.barrels"),
