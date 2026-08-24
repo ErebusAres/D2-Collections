@@ -58,4 +58,15 @@ describe("LootWorkspace", () => {
     expect(within(weaponRow).getByRole("button", { name: "Inspect Rifle 12" })).toBeTruthy();
     expect(within(weaponRow).getByText("2 / 2")).toBeTruthy();
   });
+
+  it("passes the P shortcut from a selected gear item to the page transfer action", () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    const onPull = vi.fn();
+    const timeline: RecentItemTimelineData = { timelineSchemaVersion: 1, retentionDays: 30, firstObservationEstablished: true, observedAt: "2026-08-08T12:00:00Z", events: [event("weapon-new", "weapon-found", "Newest Rifle", "2026-08-08T12:00:00Z", weaponGear)] };
+    render(<MemoryRouter><LootWorkspace timeline={timeline} onTag={vi.fn()} onPull={onPull} busy={false} /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Newest Rifle" }));
+    fireEvent.keyDown(window, { key: "p" });
+    expect(onPull).toHaveBeenCalledWith(expect.objectContaining({ instanceId: "weapon-0" }));
+  });
 });

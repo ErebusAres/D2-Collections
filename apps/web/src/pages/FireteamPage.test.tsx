@@ -106,6 +106,7 @@ describe("Fireteam tracked items", () => {
   it("keeps recent tagged loot interactive before the tracked-item segment", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
       if (String(path).startsWith("/api/v2/fireteam/recent-items")) return recentItemsEnvelope() as never;
+      if (path === "/api/v1/me/gear/action") return { data: { action: "transfer", succeeded: ["loot-1"], skipped: [], failed: [] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "gear-action" } as never;
       return envelope() as never;
     });
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
@@ -121,6 +122,10 @@ describe("Fireteam tracked items", () => {
     fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
     expect((await screen.findByRole("dialog")).textContent).toContain("Recent Rifle");
     expect(vi.mocked(queuedApi)).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "p" });
+    await waitFor(() => expect(vi.mocked(api).mock.calls.some(([path]) => path === "/api/v1/me/gear/action")).toBe(true));
+    const [, actionInit] = vi.mocked(api).mock.calls.find(([path]) => path === "/api/v1/me/gear/action")!;
+    expect(JSON.parse(String(actionInit?.body))).toEqual({ action: "transfer", itemInstanceId: "loot-1", target: "character", targetCharacterId: "c1" });
     fireEvent.click(screen.getByRole("button", { name: "Favorite" }));
     fireEvent.click(screen.getByRole("menuitemradio", { name: "Keep" }));
     await waitFor(() => expect(vi.mocked(queuedApi).mock.calls.some(([path]) => path === "/api/v1/me/gear/item-state")).toBe(true));

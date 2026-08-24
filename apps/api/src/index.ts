@@ -1926,6 +1926,13 @@ async function transfer(item: any, toVault: boolean, characterId: string, row: S
 }
 async function moveToCharacter(item: any, characterId: string, row: SessionRow, env: Env, accessToken: string): Promise<void> {
   if (item.location === "vault") return transfer(item, false, characterId, row, env, accessToken);
+  if (item.inPostmaster) {
+    if (Number(item.transferStatus || 0) !== 0) throw httpError(409, "postmaster_item_not_transferable", "Bungie has marked that Postmaster item as non-transferable.");
+    await bungiePost("/Destiny2/Actions/Items/PullFromPostmaster/", { itemReferenceHash: Number(item.itemHash), stackSize: 1, itemId: item.instanceId, characterId: item.ownerCharacterId, membershipType: row.membership_type }, env, accessToken);
+    if (item.ownerCharacterId === characterId) return;
+    await transfer(item, true, item.ownerCharacterId, row, env, accessToken);
+    return transfer(item, false, characterId, row, env, accessToken);
+  }
   if (item.ownerCharacterId === characterId) return;
   if (item.equipped) throw httpError(409, "item_equipped", "Equip another item before moving this equipped gear item.");
   await transfer(item, true, item.ownerCharacterId, row, env, accessToken);

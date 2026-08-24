@@ -133,6 +133,29 @@ describe("RecentItemRow", () => {
     expect(screen.getByRole("button", { name: /tag/i })).toBeTruthy();
   });
 
+  it("pulls the selected physical item with P and shows its account location beside the tag", () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    const onPull = vi.fn();
+    const items = [
+      { ...weapon, kind: "weapon" as const },
+      { ...weapon, kind: "weapon" as const, instanceId: "character", name: "Character Rifle", location: "inventory" as const },
+      { ...weapon, kind: "weapon" as const, instanceId: "equipped", name: "Equipped Rifle", location: "equipped" as const, equipped: true },
+      { ...weapon, kind: "weapon" as const, instanceId: "postmaster", name: "Postmaster Rifle", location: "inventory" as const, inPostmaster: true }
+    ];
+    render(<MemoryRouter><CompactRecentLootBar items={items} onTag={vi.fn()} onPull={onPull} onHide={vi.fn()} /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
+    fireEvent.keyDown(window, { key: "p" });
+    expect(onPull).toHaveBeenCalledWith(expect.objectContaining({ instanceId: "1" }));
+    expect(document.querySelector('[title="Vault"]')).toBeTruthy();
+    expect(document.querySelector('[title="On a character"]')).toBeTruthy();
+    expect(document.querySelector('[title="Equipped"]')).toBeTruthy();
+    expect(document.querySelector('[title="Postmaster"]')).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "p", ctrlKey: true });
+    expect(onPull).toHaveBeenCalledTimes(1);
+  });
+
   it("renders catalyst observations as icon cards with progress details", () => {
     render(<MemoryRouter><CompactRecentLootBar items={[]} catalysts={[{ recordHash: "cat-1", name: "Sunshot Catalyst", icon: "/sunshot.jpg", state: "obtained", percent: 63, observedAt: "2026-08-06T12:00:00Z" }]} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
 
