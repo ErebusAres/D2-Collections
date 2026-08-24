@@ -1,5 +1,5 @@
 import type { ArmorItem, ArmorPerk, GearTag, LootWatcherConfig, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
-import { BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, LockKeyhole, PackageOpen, ShieldCheck, Sparkles, Tags, X } from "lucide-react";
+import { Archive, BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, Inbox, LockKeyhole, PackageOpen, Shield, ShieldCheck, Sparkles, Tags, UserRound, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
@@ -15,6 +15,7 @@ export type RecentLootDisplayLimit = 12 | 24 | 48;
 export interface RecentCatalystObservation { recordHash: string; name: string; icon: string; state: "obtained" | "complete"; percent: number; observedAt: string }
 type LegacyRecentEntry = { kind: "gear"; observedAt: string; item: LootItem } | { kind: "catalyst"; observedAt: string; catalyst: RecentCatalystObservation };
 export type WeaponSocketChange = (item: WeaponItem, socketIndex: number, plugItemHash: string) => void;
+export type LootPull = (item: LootItem) => void;
 const SHORTCUT_TAGS: Record<string, GearTag> = { "1": "favorite", "2": "keep", "3": "junk", "4": "archive", "5": "infuse" };
 const DISPLAY_LIMITS: RecentLootDisplayLimit[] = [12, 24, 48];
 
@@ -52,10 +53,10 @@ export function RecentItemRow({ title, items, onTag, onSocketChange, busy = fals
   return <section className={styles.row}><header><Sparkles /><span><strong>{title}</strong><small>{items.length} new · first observed by Guardian Nexus</small></span></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} onSocketChange={onSocketChange} busy={busy} />)}</div> : <p>{empty}</p>}</section>;
 }
 
-export function LootHistoryGrid({ title, subtitle, items, onTag, onSocketChange, busy = false, empty, itemActions }: { title: string; subtitle: string; items: LootItem[]; onTag: (item: LootItem, tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean; empty: string; itemActions?: (item: LootItem) => ReactNode }) {
+export function LootHistoryGrid({ title, subtitle, items, onTag, onPull, onSocketChange, busy = false, empty, itemActions }: { title: string; subtitle: string; items: LootItem[]; onTag: (item: LootItem, tag?: GearTag) => void; onPull?: LootPull; onSocketChange?: WeaponSocketChange; busy?: boolean; empty: string; itemActions?: (item: LootItem) => ReactNode }) {
   const active = useRef<LootItem | undefined>(undefined);
-  useLootShortcuts(active, onTag);
-  return <section className={styles.history}><header><span><strong>{title}</strong><small>{subtitle}</small></span><b>{items.length}</b></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} onSocketChange={onSocketChange} busy={busy} actions={itemActions?.(item)} />)}</div> : <p>{empty}</p>}</section>;
+  useLootShortcuts(active, onTag, onPull, busy);
+  return <section className={styles.history}><header><span><strong>{title}</strong><small>{subtitle}</small></span><b>{items.length}</b></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} onSocketChange={onSocketChange} busy={busy} pullShortcut={Boolean(onPull)} actions={itemActions?.(item)} />)}</div> : <p>{empty}</p>}</section>;
 }
 
 export function parseRecentLootDisplayLimit(value?: string): RecentLootDisplayLimit {
@@ -67,12 +68,12 @@ export function recentLootPageSize(width: number): number {
   return Math.max(1, Math.floor(Math.max(0, width) / 89));
 }
 
-export function RecentEventRow({ title, subtitle, events, onTag, onSocketChange, busy = false, empty = "No observed items in this period." }: { title: string; subtitle: string; events: RecentItemEvent[]; onTag: (item: LootItem, tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean; empty?: string }) {
+export function RecentEventRow({ title, subtitle, events, onTag, onPull, onSocketChange, busy = false, empty = "No observed items in this period." }: { title: string; subtitle: string; events: RecentItemEvent[]; onTag: (item: LootItem, tag?: GearTag) => void; onPull?: LootPull; onSocketChange?: WeaponSocketChange; busy?: boolean; empty?: string }) {
   const active = useRef<LootItem | undefined>(undefined);
   const viewport = useRef<HTMLDivElement | null>(null);
   const [pageSize, setPageSize] = useState(12);
   const [page, setPage] = useState(0);
-  useLootShortcuts(active, onTag);
+  useLootShortcuts(active, onTag, onPull, busy);
   const visible = [...events].sort((left, right) => Date.parse(right.lastObservedAt) - Date.parse(left.lastObservedAt));
   const pageCount = Math.max(1, Math.ceil(visible.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
@@ -93,16 +94,16 @@ export function RecentEventRow({ title, subtitle, events, onTag, onSocketChange,
   useEffect(() => setPage(0), [newestMarker]);
   return <section className={styles.eventRow} data-event-row={title}>
     <header><span><strong>{title}</strong><small>{subtitle}</small></span><b>{visible.length}</b></header>
-    <div className={styles.carousel}><button type="button" aria-label={`Previous ${title} page`} onClick={() => setPage((value) => Math.max(0, value - 1))} disabled={currentPage === 0}><ChevronLeft /></button><div className={styles.carouselViewport} ref={viewport}><div className={styles.carouselPage}>{pageEntries.length ? pageEntries.map((event) => <TimelineEventCard key={event.id} event={event} active={active} onTag={onTag} onSocketChange={onSocketChange} busy={busy} />) : <p>{empty}</p>}</div></div><span className={styles.pageCount}>{currentPage + 1} / {pageCount}</span><button type="button" aria-label={`Next ${title} page`} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} disabled={currentPage >= pageCount - 1}><ChevronRight /></button></div>
+    <div className={styles.carousel}><button type="button" aria-label={`Previous ${title} page`} onClick={() => setPage((value) => Math.max(0, value - 1))} disabled={currentPage === 0}><ChevronLeft /></button><div className={styles.carouselViewport} ref={viewport}><div className={styles.carouselPage}>{pageEntries.length ? pageEntries.map((event) => <TimelineEventCard key={event.id} event={event} active={active} onTag={onTag} onSocketChange={onSocketChange} busy={busy} pullShortcut={Boolean(onPull)} />) : <p>{empty}</p>}</div></div><span className={styles.pageCount}>{currentPage + 1} / {pageCount}</span><button type="button" aria-label={`Next ${title} page`} onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))} disabled={currentPage >= pageCount - 1}><ChevronRight /></button></div>
   </section>;
 }
 
-export function CompactRecentLootBar({ events, items = [], catalysts = [], displayLimit = 24, onDisplayLimitChange, onTag, onSocketChange, busy = false, onHide, loading = false, error, warnings = [], retentionDays, observedAt, firstObservationEstablished = false, onRetry, watchers, onWatcherChange, watcherBusy = false, watcherStatus }: { events?: RecentItemEvent[]; items?: LootItem[]; catalysts?: RecentCatalystObservation[]; displayLimit?: RecentLootDisplayLimit; onDisplayLimitChange?: (limit: RecentLootDisplayLimit) => void; onTag: (item: LootItem, tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean; onHide: () => void; loading?: boolean; error?: Error | null; warnings?: string[]; retentionDays?: number; observedAt?: string; firstObservationEstablished?: boolean; onRetry?: () => void; watchers?: LootWatcherConfig; onWatcherChange?: (key: keyof LootWatcherConfig, enabled: boolean) => void; watcherBusy?: boolean; watcherStatus?: string }) {
+export function CompactRecentLootBar({ events, items = [], catalysts = [], displayLimit = 24, onDisplayLimitChange, onTag, onPull, onSocketChange, busy = false, onHide, loading = false, error, warnings = [], retentionDays, observedAt, firstObservationEstablished = false, onRetry, watchers, onWatcherChange, watcherBusy = false, watcherStatus }: { events?: RecentItemEvent[]; items?: LootItem[]; catalysts?: RecentCatalystObservation[]; displayLimit?: RecentLootDisplayLimit; onDisplayLimitChange?: (limit: RecentLootDisplayLimit) => void; onTag: (item: LootItem, tag?: GearTag) => void; onPull?: LootPull; onSocketChange?: WeaponSocketChange; busy?: boolean; onHide: () => void; loading?: boolean; error?: Error | null; warnings?: string[]; retentionDays?: number; observedAt?: string; firstObservationEstablished?: boolean; onRetry?: () => void; watchers?: LootWatcherConfig; onWatcherChange?: (key: keyof LootWatcherConfig, enabled: boolean) => void; watcherBusy?: boolean; watcherStatus?: string }) {
   const active = useRef<LootItem | undefined>(undefined);
   const viewport = useRef<HTMLDivElement | null>(null);
   const [pageSize, setPageSize] = useState(12);
   const [page, setPage] = useState(0);
-  useLootShortcuts(active, onTag);
+  useLootShortcuts(active, onTag, onPull, busy);
   const gearEntries = items.map((item) => ({ kind: "gear" as const, observedAt: item.firstSeenAt, item }));
   const catalystEntries = catalysts.map((catalyst) => ({ kind: "catalyst" as const, observedAt: catalyst.observedAt, catalyst }));
   const entries = [...gearEntries, ...catalystEntries];
@@ -116,11 +117,11 @@ export function CompactRecentLootBar({ events, items = [], catalysts = [], displ
   const renderEntry = (entry: unknown) => {
     if (events) {
       const event = entry as RecentItemEvent;
-      return <TimelineEventCard key={event.id} event={event} active={active} onTag={onTag} onSocketChange={onSocketChange} busy={busy} />;
+      return <TimelineEventCard key={event.id} event={event} active={active} onTag={onTag} onSocketChange={onSocketChange} busy={busy} pullShortcut={Boolean(onPull)} />;
     }
     const legacy = entry as LegacyRecentEntry;
     return legacy.kind === "gear"
-      ? <RecentItemCard compact key={`gear-${legacy.item.instanceId}`} item={legacy.item} onActivate={() => { active.current = legacy.item; }} onDeactivate={() => { if (active.current?.instanceId === legacy.item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(legacy.item, tag)} onSocketChange={onSocketChange} busy={busy} />
+      ? <RecentItemCard compact key={`gear-${legacy.item.instanceId}`} item={legacy.item} onActivate={() => { active.current = legacy.item; }} onDeactivate={() => { if (active.current?.instanceId === legacy.item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(legacy.item, tag)} onSocketChange={onSocketChange} busy={busy} pullShortcut={Boolean(onPull)} />
       : <RecentCatalystCard key={`catalyst-${legacy.catalyst.recordHash}`} catalyst={legacy.catalyst} />;
   };
   useEffect(() => {
@@ -164,8 +165,8 @@ export function CompactRecentLootBar({ events, items = [], catalysts = [], displ
   </section>;
 }
 
-function TimelineEventCard({ event, active, onTag, onSocketChange, busy }: { event: RecentItemEvent; active: React.RefObject<LootItem | undefined>; onTag: (item: LootItem, tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy: boolean }) {
-  if (event.gear) return <RecentItemCard compact item={event.gear} onActivate={() => { active.current = event.gear; }} onDeactivate={() => { if (active.current?.instanceId === event.gear?.instanceId) active.current = undefined; }} onTag={(tag) => onTag(event.gear!, tag)} onSocketChange={onSocketChange} busy={busy} />;
+function TimelineEventCard({ event, active, onTag, onSocketChange, busy, pullShortcut = false }: { event: RecentItemEvent; active: React.RefObject<LootItem | undefined>; onTag: (item: LootItem, tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy: boolean; pullShortcut?: boolean }) {
+  if (event.gear) return <RecentItemCard compact item={event.gear} onActivate={() => { active.current = event.gear; }} onDeactivate={() => { if (active.current?.instanceId === event.gear?.instanceId) active.current = undefined; }} onTag={(tag) => onTag(event.gear!, tag)} onSocketChange={onSocketChange} busy={busy} pullShortcut={pullShortcut} />;
   return <RecentTimelineCard event={event} />;
 }
 
@@ -211,7 +212,7 @@ export function TimelineEventTooltip({ event, id }: { event: RecentItemEvent; id
   return <aside id={id} className={styles.tooltip} role="tooltip"><header>{event.icon && <img src={event.icon} alt="" />}<span><small>{type}</small><strong>{event.name}</strong><em>{event.rarity || (inventory ? "Inventory" : "Exotic")}</em></span></header><div className={styles.identity}><b>{label}</b><span>{type}</span></div>{event.description && <p>{event.description}</p>}<nav className={styles.sourceLinks}>{event.itemHash ? <a href={`https://www.light.gg/db/items/${event.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a> : <Link to="/collection?view=catalysts">Open catalyst details</Link>}<span><Clock3 /> Observed {observationLabel}</span></nav><footer>Guardian Nexus detected this change between Bungie profile snapshots; the exact in-game pickup time may be earlier.</footer></aside>;
 }
 
-export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocketChange, busy, compact = false, actions }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy: boolean; compact?: boolean; actions?: ReactNode }) {
+export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocketChange, busy, compact = false, pullShortcut = false, actions }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy: boolean; compact?: boolean; pullShortcut?: boolean; actions?: ReactNode }) {
   const [selected, setSelected] = useState(false);
   const card = useRef<HTMLElement>(null);
   const tooltipId = useId();
@@ -228,16 +229,16 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocket
   const value = item.kind === "weapon" ? evaluateWeapon(item, ratingContext.database) : undefined;
   return <article ref={card} className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} data-selected={selected} onKeyDown={(key) => { if (key.key === "Escape") close(); }} onFocus={onActivate} onBlur={(event) => { if (!selected && !event.currentTarget.contains(event.relatedTarget)) onDeactivate(); }} onMouseEnter={onActivate} onMouseLeave={() => { if (!selected) onDeactivate(); }}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={selected} aria-controls={selected ? tooltipId : undefined} onClick={() => { if (selected) close(); else { setSelected(true); onActivate(); } }}>
-      <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /></span>
+      <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /><ItemLocationBadge item={item} /></span>
       <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>
     <div className={styles.cardActions}>{!selected && <GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />}{actions}</div>
-    {selected && <ItemTooltip id={tooltipId} item={item} utility onClose={close} onTag={onTag} onSocketChange={onSocketChange} busy={busy} />}
+    {selected && <ItemTooltip id={tooltipId} item={item} utility onClose={close} onTag={onTag} onSocketChange={onSocketChange} busy={busy} pullShortcut={pullShortcut} />}
   </article>;
 }
 
-export function ItemTooltip({ item, id, utility = false, onClose, onTag, onSocketChange, busy = false }: { item: LootItem; id?: string; utility?: boolean; onClose?: () => void; onTag?: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean }) {
+export function ItemTooltip({ item, id, utility = false, onClose, onTag, onSocketChange, busy = false, pullShortcut = false }: { item: LootItem; id?: string; utility?: boolean; onClose?: () => void; onTag?: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean; pullShortcut?: boolean }) {
   return <aside id={id} className={`${styles.tooltip} ${utility ? styles.utilityCard : ""}`} role={utility ? "dialog" : "tooltip"} aria-label={utility ? `${item.name} details` : undefined}><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span>{utility && <button className={styles.utilityClose} type="button" aria-label={`Close ${item.name} details`} onClick={onClose}><X /></button>}</header>
     <div className={styles.identity}><b>{item.power || "—"} Power</b><span>{item.kind === "weapon" ? item.slot : item.className}</span>{item.kind === "armor" && item.archetype && <ArmorArchetypeBadge archetype={item.archetype} />}<span>{item.inPostmaster ? "Postmaster" : item.location}{item.equipped ? " · Equipped" : ""}</span></div>
     <nav className={styles.sourceLinks}><a href={`https://www.light.gg/db/items/${item.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a><span><Clock3 /> First observed {new Date(item.firstSeenAt).toLocaleString()}</span></nav>
@@ -248,7 +249,7 @@ export function ItemTooltip({ item, id, utility = false, onClose, onTag, onSocke
       <WeaponRatingPanel weapon={item} compact busy={busy} onSelectPlug={onSocketChange ? (socketIndex, plugItemHash) => onSocketChange(item, socketIndex, plugItemHash) : undefined} />
     </> : <div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal}</strong></div>}
     {utility && onTag && <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} /></div>}
-    <footer>First observed time is Guardian Nexus history, not an exact Bungie drop timestamp. Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse</footer>
+    <footer>First observed time is Guardian Nexus history, not an exact Bungie drop timestamp. Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse{pullShortcut ? " · P Pull to selected character" : ""}</footer>
   </aside>;
 }
 
@@ -267,12 +268,29 @@ function ArmorArchetypeBadge({ archetype }: { archetype: ArmorPerk }) {
   </>;
 }
 
+function ItemLocationBadge({ item }: { item: LootItem }) {
+  const state = itemLocationLabel(item);
+  const Icon = item.inPostmaster ? Inbox : item.equipped || item.location === "equipped" ? Shield : item.location === "vault" ? Archive : UserRound;
+  return <span className={styles.locationBadge} title={state} aria-hidden="true" data-tooltip={state}><Icon /></span>;
+}
+
+function itemLocationLabel(item: LootItem): string { return item.inPostmaster ? "Postmaster" : item.equipped || item.location === "equipped" ? "Equipped" : item.location === "vault" ? "Vault" : "On a character"; }
+
 function isTyping(target: EventTarget | null): boolean { return target instanceof Element && Boolean(target.closest("input, textarea, select, [contenteditable='true']")); }
 function byNewest(left: LootItem, right: LootItem): number { return Date.parse(right.firstSeenAt) - Date.parse(left.firstSeenAt); }
-function useLootShortcuts(active: React.RefObject<LootItem | undefined>, onTag: (item: LootItem, tag?: GearTag) => void): void {
+function useLootShortcuts(active: React.RefObject<LootItem | undefined>, onTag: (item: LootItem, tag?: GearTag) => void, onPull?: LootPull, busy = false): void {
   useEffect(() => {
-    const shortcut = (event: KeyboardEvent) => { const tag = event.shiftKey ? SHORTCUT_TAGS[event.key] : undefined; if (!tag || !active.current || isTyping(event.target)) return; event.preventDefault(); onTag(active.current, tag); };
+    const shortcut = (event: KeyboardEvent) => {
+      const item = active.current;
+      if (!item || isTyping(event.target)) return;
+      if (event.key.toLocaleLowerCase() === "p" && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && onPull && !busy) {
+        event.preventDefault(); onPull(item); return;
+      }
+      const tag = event.shiftKey ? SHORTCUT_TAGS[event.key] : undefined;
+      if (!tag) return;
+      event.preventDefault(); onTag(item, tag);
+    };
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);
-  }, [active, onTag]);
+  }, [active, busy, onPull, onTag]);
 }

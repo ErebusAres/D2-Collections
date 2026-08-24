@@ -45,6 +45,8 @@ export interface GearActionItem {
   equipped: boolean;
   locked: boolean;
   bucketHash?: string;
+  inPostmaster?: boolean;
+  transferStatus?: number;
 }
 
 export function gearActionItemsFromProfile(profile: any): Map<string, GearActionItem> {
@@ -68,7 +70,9 @@ export function gearActionItemsFromProfile(profile: any): Map<string, GearAction
       location: row.location,
       equipped: row.equipped,
       locked: Boolean(Number(state[instanceId]?.state ?? row.item?.state ?? 0) & 1),
-      bucketHash: row.item?.bucketHash ? String(Number(row.item.bucketHash) >>> 0) : undefined
+      bucketHash: row.item?.bucketHash ? String(Number(row.item.bucketHash) >>> 0) : undefined,
+      ...(row.location === "inventory" && String(Number(row.item?.bucketHash || 0) >>> 0) === POSTMASTER_BUCKET_HASH ? { inPostmaster: true } : {}),
+      ...(row.item?.transferStatus !== undefined ? { transferStatus: Number(row.item.transferStatus) } : {})
     });
   }
   return items;

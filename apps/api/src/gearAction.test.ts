@@ -10,7 +10,7 @@ describe("gear action inventory", () => {
   it("finds action targets without loading or normalizing the Gear manifest", () => {
     const items = gearActionItemsFromProfile({
       profileInventory: { data: { items: [{ itemInstanceId: "vault-1", itemHash: 11 }] } },
-      characterInventories: { data: { c1: { items: [{ itemInstanceId: "held-1", itemHash: 22 }] } } },
+      characterInventories: { data: { c1: { items: [{ itemInstanceId: "held-1", itemHash: 22 }, { itemInstanceId: "postmaster-1", itemHash: 44, bucketHash: 215593132, transferStatus: 0 }] } } },
       characterEquipment: { data: { c1: { items: [{ itemInstanceId: "equipped-1", itemHash: 33 }] } } },
       itemComponents: { state: { data: { "vault-1": { state: 1 } } } }
     });
@@ -18,5 +18,6 @@ describe("gear action inventory", () => {
     expect(items.get("vault-1")).toMatchObject({ itemHash: "11", location: "vault", equipped: false, locked: true });
     expect(items.get("held-1")).toMatchObject({ ownerCharacterId: "c1", location: "inventory", equipped: false });
     expect(items.get("equipped-1")).toMatchObject({ ownerCharacterId: "c1", location: "equipped", equipped: true });
+    expect(items.get("postmaster-1")).toMatchObject({ ownerCharacterId: "c1", location: "inventory", inPostmaster: true, transferStatus: 0 });
   });
 });
