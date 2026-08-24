@@ -127,10 +127,11 @@ describe("RecentItemRow", () => {
 
   it("uses the explicit tag menu instead of thumbs-up and thumbs-down review actions", () => {
     const onTag = vi.fn();
-    render(<MemoryRouter><CompactRecentLootBar items={[{ ...weapon, kind: "weapon" }]} onTag={onTag} onHide={vi.fn()} /></MemoryRouter>);
+    render(<MemoryRouter><CompactRecentLootBar items={[{ ...weapon, kind: "weapon", tag: "keep" }]} onTag={onTag} onHide={vi.fn()} /></MemoryRouter>);
     expect(screen.queryByRole("button", { name: "Keep Recent Rifle" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Mark Recent Rifle as junk" })).toBeNull();
-    expect(screen.getByRole("button", { name: /tag/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Keep" })).toBeTruthy();
+    expect(screen.queryByLabelText("Keep tag")).toBeNull();
   });
 
   it("pulls the selected physical item with P and shows its account location beside the tag", () => {
@@ -144,14 +145,14 @@ describe("RecentItemRow", () => {
     ];
     render(<MemoryRouter><CompactRecentLootBar items={items} onTag={vi.fn()} onPull={onPull} onHide={vi.fn()} /></MemoryRouter>);
 
-    fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
-    fireEvent.keyDown(window, { key: "p" });
-    expect(onPull).toHaveBeenCalledWith(expect.objectContaining({ instanceId: "1" }));
     expect(document.querySelector('[title="Vault"]')).toBeTruthy();
     expect(document.querySelector('[title="On a character"]')).toBeTruthy();
     expect(document.querySelector('[title="Equipped"]')).toBeTruthy();
     expect(document.querySelector('[title="Postmaster"]')).toBeTruthy();
 
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
+    fireEvent.keyDown(window, { key: "p" });
+    expect(onPull).toHaveBeenCalledWith(expect.objectContaining({ instanceId: "1" }));
     fireEvent.keyDown(window, { key: "p", ctrlKey: true });
     expect(onPull).toHaveBeenCalledTimes(1);
   });

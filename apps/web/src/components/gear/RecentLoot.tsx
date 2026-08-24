@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, qualityLabel } from "../../modules/loot/weaponEvaluator";
 import { useResolvedWeaponRatings } from "../../modules/loot/useResolvedWeaponRatings";
-import { GearTagBadge, GearTagPicker } from "./GearTagPicker";
+import { GearTagPicker } from "./GearTagPicker";
 import { GearTierRail } from "./GearTierRail";
 import { WeaponRatingPanel } from "./WeaponRatingPanel";
 import styles from "./RecentLoot.module.css";
@@ -229,11 +229,11 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocket
   const value = item.kind === "weapon" ? evaluateWeapon(item, ratingContext.database) : undefined;
   return <article ref={card} className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} data-selected={selected} onKeyDown={(key) => { if (key.key === "Escape") close(); }} onFocus={onActivate} onBlur={(event) => { if (!selected && !event.currentTarget.contains(event.relatedTarget)) onDeactivate(); }} onMouseEnter={onActivate} onMouseLeave={() => { if (!selected) onDeactivate(); }}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={selected} aria-controls={selected ? tooltipId : undefined} onClick={() => { if (selected) close(); else { setSelected(true); onActivate(); } }}>
-      <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}<GearTagBadge tag={item.tag} /><ItemLocationBadge item={item} /></span>
+      <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}</span>
       <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong>}</span>
     </button>
     <span className={styles.cardName}>{item.name}</span>
-    <div className={styles.cardActions}>{!selected && <GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} />}{actions}</div>
+    <div className={styles.cardActions}>{!selected && <><ItemLocationBadge item={item} /><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} /></>}{actions}</div>
     {selected && <ItemTooltip id={tooltipId} item={item} utility onClose={close} onTag={onTag} onSocketChange={onSocketChange} busy={busy} pullShortcut={pullShortcut} />}
   </article>;
 }
@@ -271,7 +271,7 @@ function ArmorArchetypeBadge({ archetype }: { archetype: ArmorPerk }) {
 function ItemLocationBadge({ item }: { item: LootItem }) {
   const state = itemLocationLabel(item);
   const Icon = item.inPostmaster ? Inbox : item.equipped || item.location === "equipped" ? Shield : item.location === "vault" ? Archive : UserRound;
-  return <span className={styles.locationBadge} title={state} aria-hidden="true" data-tooltip={state}><Icon /></span>;
+  return <span className={styles.locationBadge} title={state} role="img" tabIndex={0} aria-label={state} data-tooltip={state}><Icon aria-hidden="true" /></span>;
 }
 
 function itemLocationLabel(item: LootItem): string { return item.inPostmaster ? "Postmaster" : item.equipped || item.location === "equipped" ? "Equipped" : item.location === "vault" ? "Vault" : "On a character"; }
