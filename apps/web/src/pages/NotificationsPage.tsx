@@ -24,7 +24,7 @@ export function NotificationsPage() {
   return <>
     <PageHeader eyebrow="Guardian Feed · Persistent record" title="Notification Center" description="Review world, account, discovery, vendor, and system updates even when the scrolling feed is disabled." />
     <section className={styles.notificationToolbar}>
-      <label><Search /><input type="search" data-page-search value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notification history" /></label>
+      <label><Search /><input type="search" data-page-search aria-label="Search notification history" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search notification history" /></label>
       <select value={category} onChange={(event) => setCategory(event.target.value as NotificationCategory | "all")}><option value="all">All categories</option>{Object.entries(notificationCategoryConfig).map(([value, config]) => <option key={value} value={value}>{config.label}</option>)}</select>
       <select value={scope} onChange={(event) => setScope(event.target.value as ScopeFilter)}><option value="all">Global + account</option><option value="global">Global</option><option value="account">Account</option></select>
       <strong>{filtered.length} records · {controller.unreadCount} unread</strong>

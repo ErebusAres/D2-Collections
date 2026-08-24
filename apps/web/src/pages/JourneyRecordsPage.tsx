@@ -52,7 +52,7 @@ export function JourneyRecordsPage({ kind }: { kind: "titles" | "triumphs" }) {
         {!titles && <span><small>Active score</small><strong>{result.data.data.triumphScore.active.toLocaleString()}</strong></span>}
       </section>
       <section className={styles.command}>
-        <label><Search /><input type="search" data-page-search value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${titles ? "titles and seals" : "Triumphs"}…`} /></label>
+        <label><Search /><input type="search" data-page-search aria-label={`Search ${titles ? "titles and seals" : "Triumphs"}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Search ${titles ? "titles and seals" : "Triumphs"}…`} /></label>
         <div>{(["all", "tracked", "near", "complete"] as const).map((value) => <button key={value} className={filter === value ? styles.active : ""} onClick={() => setFilter(value)}>{value}</button>)}</div>
         <output>{rows.length} shown</output>
       </section>

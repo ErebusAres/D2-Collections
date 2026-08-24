@@ -24,14 +24,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
 }
 
 export function QueryState({ loading, error, empty, hasData = false, onRetry }: { loading: boolean; error?: Error | null; empty?: boolean; hasData?: boolean; onRetry?: () => void }) {
-  if (loading) return <StatePanel icon={<LoaderCircle className={styles.spin} />} title="Synchronizing" text="Reading fresh Guardian data…" />;
+  if (loading) return <StatePanel loading icon={<LoaderCircle className={styles.spin} />} title="Synchronizing" text="Reading fresh Guardian data…" />;
   if (error && !hasData) return <StatePanel icon={<AlertTriangle />} title="Signal interrupted" text={describeApiError(error)} action={onRetry && <button onClick={onRetry}><RefreshCcw size={16} /> Try again</button>} />;
   if (empty) return <StatePanel icon={<AlertTriangle />} title="Data unavailable" text="Refresh to try again." />;
   return null;
 }
 
-function StatePanel({ icon, title, text, action }: { icon: ReactNode; title: string; text: string; action?: ReactNode }) {
-  return <section className={styles.state}><div>{icon}</div><span>Guardian Nexus</span><h2>{title}</h2><p>{text}</p>{action}</section>;
+function StatePanel({ icon, title, text, action, loading = false }: { icon: ReactNode; title: string; text: string; action?: ReactNode; loading?: boolean }) {
+  return <section className={`${styles.state} ${loading ? styles.stateLoading : ""}`} aria-busy={loading || undefined}><div>{icon}</div><span>Guardian Nexus</span><h2>{title}</h2><p>{text}</p>{loading && <i className={styles.loadingRail} aria-hidden="true"><b /><b /><b /></i>}{action}</section>;
 }
 
 export function Freshness({ observedAt, warning, label = "Updated" }: { observedAt?: string; warning?: string; label?: string }) {

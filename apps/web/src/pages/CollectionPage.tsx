@@ -2,12 +2,13 @@ import type { CatalystState, CollectionData, ExoticCollectionEntry, QuestObjecti
 import { catalystTrackingId, sortCollectionEntries, xurSchedule, type CollectionSortMode } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Bookmark, Check, ChevronRight, Coins, Palette, Search, Shield, Sparkles, Swords, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import { collectionClassScope, collectionItemLabel, groupCollectionEntries, scopeCollectionEntries, type CollectionClassScope } from "../modules/collection/collectionGroups";
+import { trapFocusWithin } from "../components/common/focusTrap";
 import styles from "./Pages.module.css";
 
 type KindFilter = "all" | "weapon" | "armor";
@@ -131,7 +132,7 @@ export function CollectionPage() {
       {view === "exotics" ? <>
         <section className={`${styles.commandBar} ${styles.collectionCommandBar}`} aria-label="Exotic collection search and filters">
           <FilterGroup label="Class" value={classScope} values={["hunter", "titan", "warlock", "all"]} onChange={(value) => { const next = value as CollectionClassScope; setClassScope(next); saveFilters({ classScope: next }); }} />
-          <label className={styles.search}><Search size={16} /><input type="search" data-page-search value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Exotics, slots, sources…" /></label>
+          <label className={styles.search}><Search size={16} /><input type="search" data-page-search aria-label="Search Exotic collection" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search Exotics, slots, sources…" /></label>
           <FilterGroup label="Type" value={kind} values={["all", "weapon", "armor"]} onChange={(value) => { const next = value as KindFilter; setKind(next); saveFilters({ kind: next }); }} />
           <FilterGroup label="Collection" value={owned} values={["all", "owned", "missing"]} onChange={(value) => { const next = value as OwnedFilter; setOwned(next); saveFilters({ owned: next }); }} />
           {xurSellingLive && <FilterGroup label="Availability" value={availability} values={["all", "xur"]} labels={{ xur: "Xûr" }} onChange={(value) => { const next = value as AvailabilityFilter; setAvailability(next); saveFilters({ availability: next }); }} />}
@@ -147,7 +148,7 @@ export function CollectionPage() {
         </div> : <div className={styles.inlineEmpty}><Sparkles /><h2>No Exotics match this view</h2><p>Adjust filters, or run the manifest sync if the catalog reports Offline.</p></div>}
       </> : <>
         <section className={`${styles.commandBar} ${styles.collectionCommandBar}`} aria-label="Catalyst collection search and filters">
-          <label className={styles.search}><Search size={16} /><input type="search" data-page-search value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search catalysts or Exotic weapons…" /></label>
+          <label className={styles.search}><Search size={16} /><input type="search" data-page-search aria-label="Search catalyst collection" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search catalysts or Exotic weapons…" /></label>
           <FilterGroup label="Status" value={catalystState} values={["all", "missing", "obtained", "complete"]} labels={{ obtained: "Acquired", complete: "Masterworked" }} onChange={(value) => setCatalystState(value as CatalystFilter)} />
           <label className={styles.selectFilter}><span>Weapon slot</span><select value={catalystSlot} onChange={(event) => setCatalystSlot(event.target.value)}><option value="all">All slots</option>{catalystSlots.map((slot) => <option value={slot} key={slot}>{slot}</option>)}</select></label>
           <label className={styles.selectFilter}><span>Weapon type</span><select value={catalystType} onChange={(event) => setCatalystType(event.target.value)}><option value="all">All types</option>{catalystTypes.map((type) => <option value={type} key={type}>{type}</option>)}</select></label>
@@ -216,8 +217,28 @@ function catalystViewLabel(state: CatalystCollectionItem["state"]): string {
 }
 
 function GuideDrawer({ entry, focusedCatalyst, xurSellingLive, tracked, onToggleTracked, onClose }: { entry: ExoticCollectionEntry | null; focusedCatalyst: CatalystCollectionItem | null; xurSellingLive: boolean; tracked: boolean; onToggleTracked: () => void; onClose: () => void }) {
-  return <><button className={`${styles.drawerScrim} ${entry ? styles.drawerOpen : ""}`} onClick={onClose} aria-label="Close guide" /><aside className={`${styles.guideDrawer} ${entry ? styles.drawerOpen : ""}`} aria-hidden={!entry}>
-    {entry && <><header><div><span>{focusedCatalyst ? "Catalyst details" : "Acquisition guide"}</span><h2>{focusedCatalyst?.name || entry.name}</h2></div><button onClick={onClose}><X /></button></header>
+  const open = Boolean(entry);
+  const panelRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const closeHandlerRef = useRef(onClose);
+  closeHandlerRef.current = onClose;
+  useEffect(() => {
+    if (!open) return;
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      trapFocusWithin(event, panelRef.current);
+      if (event.key === "Escape") closeHandlerRef.current();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
+    };
+  }, [open]);
+  return <><button className={`${styles.drawerScrim} ${open ? styles.drawerOpen : ""}`} onClick={onClose} aria-label="Close guide" tabIndex={open ? 0 : -1} /><aside ref={panelRef} className={`${styles.guideDrawer} ${open ? styles.drawerOpen : ""}`} aria-hidden={!open} inert={!open} role="dialog" aria-modal={open ? "true" : undefined} aria-label={focusedCatalyst ? "Catalyst details" : "Exotic acquisition guide"}>
+    {entry && <><header><div><span>{focusedCatalyst ? "Catalyst details" : "Acquisition guide"}</span><h2>{focusedCatalyst?.name || entry.name}</h2></div><button ref={closeRef} onClick={onClose} aria-label="Close guide"><X /></button></header>
       <div className={styles.guideHero}>{(focusedCatalyst?.icon || entry.icon) && <img src={focusedCatalyst?.icon || entry.icon} alt="" />}<div><span>{focusedCatalyst ? `${entry.name} · ${catalystViewLabel(focusedCatalyst.state)}` : `${entry.kind} · ${entry.slot}`}</span><p>{focusedCatalyst?.description || entry.description || "Description unavailable."}</p>{!focusedCatalyst && <b className={`${styles.confidence} ${styles[entry.guide.confidence]}`}>{entry.guide.confidence}</b>}</div></div>
       {((focusedCatalyst && focusedCatalyst.state === "obtained") || (!focusedCatalyst && !entry.owned)) && <button type="button" className={`${styles.guideTrackAction} ${tracked ? styles.guideTrackActionActive : ""}`} onClick={onToggleTracked} aria-pressed={tracked}><Bookmark fill={tracked ? "currentColor" : "none"} />{tracked ? "Tracked on Fireteam" : "Track on Fireteam"}</button>}
       <div className={styles.guideFacts}>{focusedCatalyst ? <><div><span>Status</span><strong>{catalystViewLabel(focusedCatalyst.state)}</strong></div><div><span>Weapon</span><strong>{entry.name}</strong></div><div><span>Type</span><strong>{entry.itemType}</strong></div><div><span>Slot</span><strong>{entry.slot}</strong></div></> : <><div><span>Collection</span><strong>{entry.owned ? "Owned" : "Missing"}</strong></div><div><span>Type</span><strong>{entry.itemType}</strong></div><div><span>Slot</span><strong>{entry.slot}</strong></div>{entry.damageType && <div><span>Damage</span><strong>{entry.damageType}</strong></div>}</>}</div>

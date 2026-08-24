@@ -54,9 +54,15 @@ describe("WeaponWorkspace", () => {
     expect(screen.getAllByText("Test Rifle")).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: /Incandescent/ }).length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Weapon tier 4")).toHaveLength(2);
-    fireEvent.click(screen.getAllByRole("button", { name: "Compare 2" })[0]!);
+    const compareButton = screen.getAllByRole("button", { name: "Compare 2" })[0]!;
+    compareButton.focus();
+    fireEvent.click(compareButton);
     expect(screen.getByText("Weapon roll comparison")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Compare Test Rifle rolls" })).toBeTruthy();
     expect(screen.getAllByRole("button", { name: /Target Lock/ }).length).toBeGreaterThan(0);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Compare Test Rifle rolls" })).toBeNull();
+    expect(document.activeElement).toBe(compareButton);
   });
 
   it("persists a weapon-name wishlist without exposing inventory publicly", () => {
