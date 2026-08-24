@@ -132,6 +132,21 @@ describe("Build Advisor page", () => {
     expect(screen.getByRole("region", { name: "Build recommendation scores" }).textContent).toContain("Overall match91");
   });
 
+  it("opens a Builds-library handoff on its exact account-aware recommendation", async () => {
+    const data = advisorData("Different build");
+    data.recommendations[0]!.templateId = "hunter-arc-liars";
+    const requested = recommendation("Invisible Volatile Hunter");
+    requested.templateId = "hunter-void-gyrfalcon";
+    requested.readinessScore = 42;
+    requested.missingItems = ["Gyrfalcon's Hauberk"];
+    data.recommendations = [data.recommendations[0]!, requested];
+    vi.mocked(api).mockResolvedValue(envelope(data));
+    renderPage("/build-advisor?template=hunter-void-gyrfalcon");
+    expect(await screen.findByText("Planning from the Builds library")).toBeTruthy();
+    expect(screen.getByText(/42% ready · 1 missing/i)).toBeTruthy();
+    expect((await screen.findByRole("complementary", { name: "Selected build details" })).textContent).toContain("Invisible Volatile Hunter");
+  });
+
   it("exposes the selected build as a keyboard-scrollable detail panel", async () => {
     vi.mocked(api).mockResolvedValue(envelope(advisorData("Scrollable Build")));
     renderPage();
@@ -172,9 +187,9 @@ describe("Build Advisor page", () => {
   });
 });
 
-function renderPage() {
+function renderPage(initialEntry = "/build-advisor") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Number.POSITIVE_INFINITY } } });
-  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/build-advisor"]}><Routes>
+  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[initialEntry]}><Routes>
     <Route path="/build-advisor" element={<BuildAdvisorPage />} />
     <Route path="/builds/new" element={<LocationProbe />} />
   </Routes></MemoryRouter></QueryClientProvider>);

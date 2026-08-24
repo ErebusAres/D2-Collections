@@ -78,8 +78,8 @@ export interface BuildAdvisorTemplate {
   upgrades: string[];
 }
 
-export const BUILD_ADVISOR_TEMPLATE_SET_VERSION = 7;
-export const BUILD_ADVISOR_TEMPLATE_REVIEWED_AT = "2026-08-03";
+export const BUILD_ADVISOR_TEMPLATE_SET_VERSION = 8;
+export const BUILD_ADVISOR_TEMPLATE_REVIEWED_AT = "2026-08-24";
 export const BUILD_ADVISOR_CURRENT_SANDBOX = "Monument of Triumph · Update 9.7.0";
 export const BUILD_ADVISOR_CURRENT_SANDBOX_RELEASED_AT = "2026-06-09";
 export const BUILD_ADVISOR_CURATED_VERIFICATION: BuildAdvisorVerification = {
@@ -110,7 +110,7 @@ function stats(...entries: Array<[BuildStatName, number, string]>): BuildAdvisor
   return entries.map(([stat, target, notes], index) => ({ stat, priority: index + 1, target, notes }));
 }
 
-const BASE_BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
+export const BUILD_ADVISOR_LIBRARY_TEMPLATES: BuildAdvisorTemplate[] = [
   {
     id: "hunter-void-gyrfalcon",
     version: 1,
@@ -907,7 +907,7 @@ const ALTERNATE_EXOTIC_WEAPON_PROFILES: Record<string, Pick<BuildAdvisorWeaponRe
 };
 
 function alternateTemplate(definition: AlternateBuildDefinition): BuildAdvisorTemplate {
-  const base = BASE_BUILD_ADVISOR_TEMPLATES.find((entry) => entry.id === definition.baseId);
+  const base = BUILD_ADVISOR_LIBRARY_TEMPLATES.find((entry) => entry.id === definition.baseId);
   if (!base) throw new Error(`Unknown Build Advisor base template ${definition.baseId}.`);
   const exoticProfile = ALTERNATE_EXOTIC_WEAPON_PROFILES[definition.exoticWeapon];
   if (!exoticProfile) throw new Error(`Missing weapon profile for alternate Exotic ${definition.exoticWeapon}.`);
@@ -934,7 +934,7 @@ function alternateTemplate(definition: AlternateBuildDefinition): BuildAdvisorTe
 }
 
 export const BUILD_ADVISOR_TEMPLATES: BuildAdvisorTemplate[] = [
-  ...BASE_BUILD_ADVISOR_TEMPLATES,
+  ...BUILD_ADVISOR_LIBRARY_TEMPLATES,
   ...ALTERNATE_BUILD_DEFINITIONS.map(alternateTemplate)
 ];
 

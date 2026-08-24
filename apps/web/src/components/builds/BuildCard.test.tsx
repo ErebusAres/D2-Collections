@@ -12,6 +12,11 @@ vi.mock("./BuildRating", () => ({ BuildRating: () => null }));
 afterEach(cleanup);
 
 describe("BuildCard equipment summary", () => {
+  it("offers a direct account-aware planning action", () => {
+    render(<MemoryRouter><BuildCard build={makeBuild([])} onRatingChange={() => undefined} /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "Plan" }).getAttribute("href")).toBe("/build-advisor?build=build-1");
+  });
+
   it("shows the selected Exotic weapon art in the Weapons field", () => {
     const build = makeBuild([{ name: "Sunshot", slot: "Energy", exotic: true, icon: "https://www.bungie.net/sunshot.png" }]);
     render(<MemoryRouter><BuildCard build={build} onRatingChange={() => undefined} /></MemoryRouter>);

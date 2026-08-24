@@ -1553,6 +1553,8 @@ export interface GuardianBuild extends BuildDocument {
   rating: BuildRating;
   viewerVote?: BuildVoteValue;
   canEdit: boolean;
+  /** False for reviewed read-only field guides that are not backed by a voteable database row. */
+  canVote?: boolean;
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
