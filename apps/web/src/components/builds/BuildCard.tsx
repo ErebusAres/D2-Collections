@@ -1,11 +1,12 @@
 import type { BuildVoteResult, GuardianBuild } from "@guardian-nexus/contracts";
-import { CalendarClock, FilePenLine, Shield, Swords } from "lucide-react";
+import { CalendarClock, Compass, FilePenLine, Shield, Swords } from "lucide-react";
 import { Link } from "react-router-dom";
 import { titleCase } from "../../modules/builds/builds";
 import { BuildRating } from "./BuildRating";
 import { ClassIcon, SubclassIcon } from "./BuildIcon";
 import { BuildServiceIcon } from "./BuildLinkActions";
 import styles from "../../pages/Builds.module.css";
+import { buildPlannerLink } from "../../modules/builds/buildPlannerLink";
 
 export function BuildCard({ build, onRatingChange }: { build: GuardianBuild; onRatingChange: (result: BuildVoteResult) => void }) {
   const exotic = build.equipment.armor.find((item) => item.exotic) || build.equipment.armor.find((item) => /exotic/i.test(item.slot));
@@ -22,8 +23,8 @@ export function BuildCard({ build, onRatingChange }: { build: GuardianBuild; onR
     </section>
     <footer>
       <div><span>By {build.authorDisplayName}</span>{build.originalCreatorName && <small>Source: {build.originalCreatorName}</small>}<time><CalendarClock /> {new Date(build.updatedAt).toLocaleDateString()}</time></div>
-      <nav>{quickLinks.map((link) => <a key={`${link.kind}-${link.url}`} href={link.url} target="_blank" rel="noreferrer" title={link.label} aria-label={`Open ${link.label}`}><BuildServiceIcon link={link} /><span>{link.label}</span></a>)}{build.canEdit && <Link to={`/builds/${build.slug}/edit`} title="Edit build"><FilePenLine /><span>Edit</span></Link>}</nav>
-      <BuildRating buildId={build.id} rating={build.rating} viewerVote={build.viewerVote} compact disabled={build.status !== "published"} onChange={onRatingChange} />
+      <nav><Link className={styles.buildPlanLink} to={buildPlannerLink(build)} title="Check this build against your account"><Compass /><span>Plan</span></Link>{quickLinks.map((link) => <a key={`${link.kind}-${link.url}`} href={link.url} target="_blank" rel="noreferrer" title={link.label} aria-label={`Open ${link.label}`}><BuildServiceIcon link={link} /><span>{link.label}</span></a>)}{build.canEdit && <Link to={`/builds/${build.slug}/edit`} title="Edit build"><FilePenLine /><span>Edit</span></Link>}</nav>
+      <BuildRating buildId={build.id} rating={build.rating} viewerVote={build.viewerVote} compact disabled={build.status !== "published" || build.canVote === false} onChange={onRatingChange} />
     </footer>
   </article>;
 }

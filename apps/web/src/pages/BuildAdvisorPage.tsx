@@ -26,6 +26,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CircleHelp,
+  Compass,
   Crosshair,
   ExternalLink,
   Gauge,
@@ -41,7 +42,7 @@ import {
   Vault
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
 import { parseWatchlist } from "../modules/watchlists/watchlists";
@@ -77,8 +78,10 @@ export function BuildAdvisorPage() {
 function BuildAdvisor() {
   const { session, selectedCharacterId, selectCharacter, preferences = {}, setPreference = () => undefined } = useGuardian();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const forceNext = useRef(false);
+  const appliedPlanningRequest = useRef("");
   const [category, setCategory] = useState<BuildAdvisorCategory | "All">("All");
   const [subclass, setSubclass] = useState<BuildSubclass | "All">("All");
   const [focus, setFocus] = useState<BuildAdvisorFocus | "All">("All");
@@ -116,6 +119,12 @@ function BuildAdvisor() {
     onError: (error: Error) => setEquipMessage(error.message)
   });
   const data = result.data?.data;
+  const requestedTemplateId = searchParams.get("template") || "";
+  const requestedBuildSlug = searchParams.get("build") || "";
+  const planningRequest = requestedTemplateId ? `template:${requestedTemplateId}` : requestedBuildSlug ? `build:${requestedBuildSlug}` : "";
+  const requestedRecommendation = useMemo(() => data?.recommendations.find((recommendation) =>
+    requestedTemplateId ? recommendation.templateId === requestedTemplateId : requestedBuildSlug ? recommendation.source.buildSlug === requestedBuildSlug : false
+  ), [data?.recommendations, requestedBuildSlug, requestedTemplateId]);
   const categories = useMemo(() => [...new Set(data?.recommendations.flatMap((recommendation) => recommendation.categories) || [])], [data?.recommendations]);
   const subclasses = useMemo(() => [...new Set(data?.recommendations.map((recommendation) => recommendation.subclass) || [])], [data?.recommendations]);
   const focuses = useMemo(() => [...new Set(data?.recommendations.flatMap((recommendation) => recommendation.focuses) || [])], [data?.recommendations]);
@@ -142,6 +151,17 @@ function BuildAdvisor() {
   const warning = result.data?.warnings[0] || data?.analysis.warnings[0];
   const trackedAcquisitions = useMemo(() => stringSetPreference(preferences["watchlists.buildAcquisitions"]), [preferences]);
   const trackedBuilds = useMemo(() => parseTrackedBuilds(preferences["buildAdvisor.trackedBuilds.v1"]), [preferences]);
+  useEffect(() => {
+    if (!planningRequest || !requestedRecommendation || appliedPlanningRequest.current === planningRequest) return;
+    appliedPlanningRequest.current = planningRequest;
+    setCategory("All");
+    setSubclass("All");
+    setFocus("All");
+    setActivity("All");
+    setComplexity("All");
+    setAssembly("All");
+    setSelectedId(requestedRecommendation.id);
+  }, [planningRequest, requestedRecommendation]);
   useEffect(() => {
     if (!data?.recommendations.length || !trackedBuilds.length) return;
     let changed = false;
@@ -222,6 +242,13 @@ function BuildAdvisor() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       {data.state !== "current" && <section className={styles.dataWarning} role="status"><AlertTriangle /><div><strong>{stateLabel(data.state)}</strong><p>{warning || "Refresh inventory before relying on these recommendations."}</p></div></section>}
+      {planningRequest && <section className={styles.planningBanner} data-found={Boolean(requestedRecommendation)} role="status">
+        <Compass />
+        <div>{requestedRecommendation
+          ? <><span>Planning from the Builds library</span><strong>{requestedRecommendation.name}</strong><p>{requestedRecommendation.readinessScore}% ready · {requestedRecommendation.missingItems.length} missing · {requestedRecommendation.alternatives?.length || 0} owned alternatives</p></>
+          : <><span>Build library handoff</span><strong>This guide is not ready for account analysis</strong><p>Its public page remains available, but it needs a current complete subclass, armor, weapon, stat, and mod plan before Build Advisor can verify it safely.</p></>}</div>
+        {requestedBuildSlug && <Link to={`/builds/${encodeURIComponent(requestedBuildSlug)}`}>Back to build</Link>}
+      </section>}
       {data.recommendations.length ? <>
         <section className={styles.catalogBanner}><Sparkles /><div><span>Build Advisor 2.0 · Template set v{data.templateSetVersion}</span><strong>{data.recommendations.length} visible {data.characterClass} build paths across {subclasses.length} subclasses</strong><p>Every subclass has at least {minimumPathsPerSubclass} distinct core-Exotic approaches. Missing equipment lowers readiness and adds acquisition steps; it never hides the build.</p></div></section>
         <section className={styles.buildFilters} aria-label="Build recommendation filters">
@@ -261,8 +288,8 @@ function BuildAdvisor() {
             buildTracked={trackedBuilds.some((item) => item.id === selected.templateId)}
             onToggleBuildTracking={() => toggleBuildTracking(selected)}
           />}
-        </div> : <section className={styles.empty}><ScanSearch /><h2>No owned-gear match for these filters</h2><p>Choose another subclass, focus, or recommendation category.</p></section>}
-      </> : <section className={styles.empty}><ScanSearch /><h2>No strong near-complete build found</h2><p>Open inventory analysis to see which core pieces are missing, then refresh after your inventory changes.</p></section>}
+        </div> : <section className={styles.empty}><ScanSearch /><h2>No builds match these filters</h2><p>Missing gear does not hide a build. Clear the filters to see every plan, including builds that need farming.</p><button type="button" onClick={showAllBuilds}>Show all builds</button></section>}
+      </> : <section className={styles.empty}><ScanSearch /><h2>No build plans are available</h2><p>The reviewed template catalog could not be loaded. Refresh Build Advisor to try again.</p></section>}
       <InventoryAnalysis data={data} />
     </>}
   </>;
@@ -323,6 +350,10 @@ function RecommendationDetail({
   const readinessScore = recommendation.readinessScore ?? recommendation.score;
   const missingItemGuides = recommendation.missingItemGuides || [];
   const equipPlan = recommendation.equipPlan;
+  const verifiedComponents = recommendation.componentVerifications || [];
+  const usableComponentCount = verifiedComponents.length
+    ? verifiedComponents.filter((component) => !["missing", "unavailable", "unknown", "collection-only"].includes(component.state)).length
+    : equipPlan.itemCount;
   const abilities: Array<[string, BuildNamedEntry | undefined]> = [
     ["Super", build.subclassConfig.super],
     ...(build.subclass === "prismatic" ? [["Transcendence", build.subclassConfig.transcendence] as [string, BuildNamedEntry | undefined]] : []),
@@ -351,6 +382,18 @@ function RecommendationDetail({
       <article><span>Build viability</span><strong>{viabilityScore}</strong><small>Template strength independent of your inventory</small></article>
       <article><span>Your readiness</span><strong>{readinessScore}%</strong><small>Owned gear, compatible rolls, and substitutions</small></article>
       <article><span>Overall match</span><strong>{recommendation.score}</strong><small>Used to order recommendations for this Guardian</small></article>
+    </section>
+    <section className={styles.planAtGlance} aria-label="Build plan next steps">
+      <h3><Compass /> Your path to this build</h3>
+      <div>
+        <span><small>Usable now</small><strong>{usableComponentCount}/{verifiedComponents.length || 8}</strong><em>verified components</em></span>
+        <span><small>Need to obtain</small><strong>{recommendation.missingItems.length}</strong><em>with acquisition guidance</em></span>
+        <span><small>Owned fallbacks</small><strong>{recommendation.alternatives?.length || 0}</strong><em>ranked by role fit</em></span>
+      </div>
+      <p>{recommendation.missingItems.length
+        ? "You can use the plan now with the owned pieces shown below, then replace gaps in the order listed under Build progression."
+        : equipPlan.canEquip || equipPlan.state === "already-equipped" ? "Every physical gear slot is ready. Review sockets and mods, then equip the gear from the action bar." : "The core plan is available; review configuration notes and owned substitutions below."}</p>
+      <nav>{recommendation.missingItems.length > 0 && <a href="#advisor-acquisition">How to get missing gear</a>}{(recommendation.alternatives?.length || 0) > 0 && <a href="#advisor-alternatives">Use owned alternatives</a>}<a href="#advisor-gameplay">Learn the gameplay loop</a></nav>
     </section>
     <section className={styles.factorList}><h3><Gauge /> Score factors</h3>{recommendation.factors.map((factor) => <div key={factor.id}><span><b>{factor.label}</b><small>{factor.detail}</small></span><em>{factor.earned}/{factor.available}</em><i><span style={{ width: `${factor.available ? factor.earned / factor.available * 100 : 0}%` }} /></i></div>)}</section>
     <section><h3><Shield /> Five-piece armor plan</h3><div className={styles.armorList}>{recommendation.armor.map((entry) => <ArmorMatch key={entry.slot} armor={entry} />)}</div></section>
@@ -384,7 +427,7 @@ function RecommendationDetail({
       <h3><Puzzle /> Armor sockets</h3>
       <div>{(Object.entries(build.armorMods) as Array<[keyof BuildArmorMods, BuildNamedEntry[]]>).map(([slot, entries]) => <article key={slot}><b>{armorSlotLabel(slot)}</b><span>{entries.map((entry, index) => <em key={`${entry.name}-${index}`}>{index + 1}. {entry.name}</em>)}</span></article>)}</div>
     </section>
-    {(recommendation.missingItems.length > 0 || recommendation.substitutions.length > 0) && <section className={styles.assemblyIssues}>
+    {(recommendation.missingItems.length > 0 || recommendation.substitutions.length > 0) && <section className={styles.assemblyIssues} id="advisor-acquisition">
       <h3><AlertTriangle /> Assembly changes</h3>
       {missingItemGuides.length > 0
         ? <div className={styles.acquisitionGuides}>{missingItemGuides.map((guide) => <AcquisitionGuide key={guide.id} guide={guide} />)}</div>
@@ -396,7 +439,7 @@ function RecommendationDetail({
       <p>Physical ownership, Collections unlocks, substitutions, and unavailable Bungie data remain separate states.</p>
       <div>{recommendation.componentVerifications.map((component) => <ComponentVerification key={component.id} component={component} />)}</div>
     </section> : null}
-    {recommendation.alternatives?.length ? <section className={styles.alternativePlan}>
+    {recommendation.alternatives?.length ? <section className={styles.alternativePlan} id="advisor-alternatives">
       <h3><RefreshCw /> Owned alternatives</h3>
       <p>Ranked fallbacks preserve the build role and show what changes.</p>
       <div>{recommendation.alternatives.map((alternative) => <AlternativeSuggestion key={alternative.id} alternative={alternative} />)}</div>
@@ -409,7 +452,7 @@ function RecommendationDetail({
       <h3><Gauge /> Build progression</h3>
       <div>{recommendation.upgradePath.map((stage, index) => <article key={stage.id} data-kind={stage.kind}><i>{index + 1}</i><span><small>{stage.kind.replace(/-/g, " ")}</small><b>{stage.title}</b><p>{stage.description}</p></span><strong>{stage.readinessTarget}%</strong></article>)}</div>
     </section> : null}
-    <div className={styles.detailColumns}>
+    <div className={styles.detailColumns} id="advisor-gameplay">
       <section><h3><Sparkles /> Gameplay loop</h3><ol>{recommendation.gameplayLoop.map((step) => <li key={step}>{step}</li>)}</ol></section>
       <section><h3><Swords /> Damage rotation</h3><ol>{recommendation.damageRotation.map((step) => <li key={step}>{step}</li>)}</ol></section>
     </div>

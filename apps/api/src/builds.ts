@@ -15,6 +15,7 @@ import { z } from "zod";
 import { loadBuildCatalog } from "./buildCatalog";
 import { allowlist, httpError, requireCsrf, sessionFromRequest } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
+import { curatedBuildByIdentifier, curatedBuilds } from "./curatedBuilds";
 
 const optionalText = z.string().trim().max(5_000).optional();
 const httpsUrl = z.string().trim().url().max(2_000).refine((value) => value.startsWith("https://"), "Build links must use HTTPS.");
@@ -249,6 +250,9 @@ async function listBuilds(viewer: SessionRow | undefined, editor: boolean, env: 
     try { builds.push(buildFromRow(row, editor)); }
     catch (error) { invalidCount += 1; logStoredBuildIssue(row, error); }
   }
+  const savedIds = new Set(builds.map((build) => build.id));
+  for (const build of curatedBuilds()) if (!savedIds.has(build.id)) builds.push(build);
+  builds.sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt) || left.title.localeCompare(right.title));
   return buildEnvelope<BuildsData>({ builds, canCreate: editor }, env, context, invalidCount
     ? [`${invalidCount} saved build${invalidCount === 1 ? " was" : "s were"} omitted because stored data could not be normalized safely.`]
     : []);
@@ -269,6 +273,8 @@ export async function publishedBuildsForAdvisor(env: Env): Promise<GuardianBuild
 interface WorkingDraftRow { build_id: string; build_json: string; base_updated_at: string; saved_at: string }
 
 async function readBuild(identifier: string, viewer: SessionRow | undefined, editor: boolean, env: Env, context: RequestContext): Promise<Response> {
+  const curated = curatedBuildByIdentifier(identifier);
+  if (curated) return buildEnvelope<BuildData>({ build: curated }, env, context);
   const row = await findBuild(identifier, viewer?.membership_id || "", env);
   if (!row || (!editor && !isLinkAccessible(row))) throw httpError(404, "build_not_found", "This build is unavailable or has not been published.");
   try { return buildEnvelope<BuildData>({ build: buildFromRow(row, editor) }, env, context); }
