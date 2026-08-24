@@ -136,7 +136,7 @@ export function GuardianRankPage() {
         </header>
 
         <div className={styles.commandBar}>
-          <label><Search /><input type="search" data-page-search value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search rank objectives…" /></label>
+          <label><Search /><input type="search" data-page-search aria-label="Search Guardian Rank objectives" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search rank objectives…" /></label>
           <div>{([[
             "all", "All", Compass
           ], ["tracked", "Tracked", Bookmark], ["incomplete", "Incomplete", CircleDashed], ["complete", "Complete", CheckCircle2]] as const).map(([value, label, Icon]) => <button key={value} className={filter === value ? styles.activeFilter : ""} onClick={() => setFilter(value)}><Icon />{label}</button>)}</div>

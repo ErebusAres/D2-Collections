@@ -1,6 +1,6 @@
 import type { GearActionRequest, GearData, GearTag, UserPreferenceKey, WeaponItem } from "@guardian-nexus/contracts";
 import { ArrowDownToLine, ArrowUpFromLine, CheckCircle2, Columns3, Hammer, Lock, LockOpen, Search, Shield, Sparkles, Star, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GearTagBadge, GearTagFilter, GearTagPicker } from "./GearTagPicker";
 import { GearTierRail } from "./GearTierRail";
 import { parseWatchlist } from "../../modules/watchlists/watchlists";
@@ -9,6 +9,7 @@ import { useResolvedWeaponRatings } from "../../modules/loot/useResolvedWeaponRa
 import styles from "../../pages/Pages.module.css";
 import { RecentItemRow, recentLoot } from "./RecentLoot";
 import { WeaponRatingPanel } from "./WeaponRatingPanel";
+import { trapFocusWithin } from "../common/focusTrap";
 
 interface Props {
   data: GearData;
@@ -74,7 +75,7 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
       ["Enhanced", (data.weapons || []).filter((weapon) => weapon.enhanced).length], ["Wishlisted", (data.weapons || []).filter((weapon) => wishlist.has(weapon.itemHash)).length], ["Needs review", (data.weapons || []).filter((weapon) => weapon.reviewState === "duplicate-review" || weapon.reviewState === "incomplete-data").length]
     ].map(([label, value]) => <div key={label}><span>{label}</span><strong>{value}</strong></div>)}</section>
     <section className={styles.weaponControls}>
-      <label><Search /><input data-page-search value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search weapon, type, damage, or perk" /></label>
+      <label><Search /><input data-page-search aria-label="Search weapons" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search weapon, type, damage, or perk" /></label>
       <select value={slot} onChange={(event) => { setSlot(event.target.value); saveFilters({ slot: event.target.value }); }}><option value="all">All slots</option><option>Kinetic</option><option>Energy</option><option>Power</option><option>Unknown</option></select>
       <select value={location} onChange={(event) => { setLocation(event.target.value); saveFilters({ location: event.target.value }); }}><option value="all">All locations</option><option value="equipped">Equipped</option><option value="inventory">Characters</option><option value="vault">Vault</option></select>
       <GearTagFilter value={tag} onChange={(value) => { setTag(value); saveFilters({ tag: value }); }} />
@@ -100,7 +101,25 @@ function WeaponCard({ weapon, ratings, selectedCharacterId, onWishlist, onCompar
 
 function WeaponComparison({ items, onClose }: { items: WeaponItem[]; onClose: () => void }) {
   const maxColumns = Math.max(...items.map((item) => item.perkColumns.length));
-  return <div className={styles.compareOverlay}><button aria-label="Close weapon comparison" onClick={onClose} /><section><header><div><span>Weapon roll comparison</span><h2>{items[0]?.name}</h2><p>{items.length} physical copies · separate PvE and PvP evidence</p></div><button onClick={onClose}><X /></button></header><div className={styles.weaponCompareGrid}>{items.map((item) => <article key={item.instanceId}><header>{item.icon && <img src={item.icon} alt="" />}<span><b>{item.location}{item.equipped ? " · Equipped" : ""}</b><small>{item.power} Power · {item.damageType}</small></span>{item.wishlisted && <Star />}</header><WeaponRatingPanel weapon={item} compact />{Array.from({ length: maxColumns }, (_, index) => { const column = item.perkColumns[index]; return <div key={index}>{column?.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<span><b>{column?.active?.name || "No verified perk"}</b><small>{column?.options.map((perk) => perk.name).join(" · ") || "Bungie data unavailable"}</small></span></div>; })}<footer><strong>{reviewLabel(item.reviewState)}</strong><p>{item.reviewReasons[0]}</p></footer></article>)}</div></section></div>;
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const closeHandlerRef = useRef(onClose);
+  closeHandlerRef.current = onClose;
+  useEffect(() => {
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      trapFocusWithin(event, dialogRef.current);
+      if (event.key === "Escape") closeHandlerRef.current();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
+    };
+  }, []);
+  return <div className={styles.compareOverlay}><button aria-label="Close weapon comparison" tabIndex={-1} onClick={onClose} /><section ref={dialogRef} role="dialog" aria-modal="true" aria-label={`Compare ${items[0]?.name || "weapon"} rolls`}><header><div><span>Weapon roll comparison</span><h2>{items[0]?.name}</h2><p>{items.length} physical copies · separate PvE and PvP evidence</p></div><button ref={closeRef} onClick={onClose} aria-label="Close weapon comparison"><X /></button></header><div className={styles.weaponCompareGrid}>{items.map((item) => <article key={item.instanceId}><header>{item.icon && <img src={item.icon} alt="" />}<span><b>{item.location}{item.equipped ? " · Equipped" : ""}</b><small>{item.power} Power · {item.damageType}</small></span>{item.wishlisted && <Star />}</header><WeaponRatingPanel weapon={item} compact />{Array.from({ length: maxColumns }, (_, index) => { const column = item.perkColumns[index]; return <div key={index}>{column?.active?.icon ? <img src={column.active.icon} alt="" /> : <Columns3 />}<span><b>{column?.active?.name || "No verified perk"}</b><small>{column?.options.map((perk) => perk.name).join(" · ") || "Bungie data unavailable"}</small></span></div>; })}<footer><strong>{reviewLabel(item.reviewState)}</strong><p>{item.reviewReasons[0]}</p></footer></article>)}</div></section></div>;
 }
 
 function duplicateGroups(items: WeaponItem[]): string[] { const counts = new Map<string, number>(); for (const item of items) counts.set(item.itemHash, (counts.get(item.itemHash) || 0) + 1); return [...counts].filter(([, count]) => count > 1).map(([hash]) => hash); }

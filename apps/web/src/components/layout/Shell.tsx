@@ -28,6 +28,7 @@ export function Shell() {
   const location = useLocation();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [copiedIncident, setCopiedIncident] = useState("");
+  const [dismissedIncident, setDismissedIncident] = useState("");
   const optionsTriggerRef = useRef<HTMLButtonElement>(null);
   const connection = useSyncExternalStore(subscribeConnection, getConnectionSnapshot, getConnectionSnapshot);
   const guardian = session?.guardian;
@@ -105,7 +106,7 @@ export function Shell() {
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>
-      {connection.activeFailure && <Suspense fallback={null}><ServiceIncidentBanner failure={connection.activeFailure} copied={copiedIncident === connection.activeFailure.requestId} onCopy={async () => {
+      {connection.activeFailure && dismissedIncident !== incidentKey(connection.activeFailure) && <Suspense fallback={null}><ServiceIncidentBanner failure={connection.activeFailure} copied={copiedIncident === connection.activeFailure.requestId} onDismiss={() => setDismissedIncident(incidentKey(connection.activeFailure!))} onCopy={async () => {
           const { connectionFailureReport } = await import("../../services/api/incidentReport");
           await navigator.clipboard.writeText(connectionFailureReport(connection.activeFailure!));
           setCopiedIncident(connection.activeFailure?.requestId || connection.activeFailure?.occurredAt || "copied");
@@ -117,6 +118,10 @@ export function Shell() {
       </Suspense>
     </div>
   );
+}
+
+function incidentKey(failure: { requestId?: string; occurredAt: string }): string {
+  return failure.requestId || failure.occurredAt;
 }
 
 function usePageUtilities(): boolean {

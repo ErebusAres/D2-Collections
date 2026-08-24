@@ -202,17 +202,20 @@ describe("Shell guardian identity", () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
   });
 
-  it("pins a detailed copyable service incident to the window", async () => {
+  it("keeps service incidents compact, copyable, and dismissible", async () => {
     connectionMock.snapshot.activeFailure = { code: "worker_resource_limit", message: "Guardian services are temporarily over capacity.", route: "/api/v2/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", requestId: "ray-123", status: 500 };
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     renderShell(<div>Page</div>);
 
     const banner = await screen.findByRole("alert", { name: "Guardian services incident" });
+    expect(within(banner).getByText("Details")).toBeTruthy();
     expect(within(banner).getByText("worker_resource_limit")).toBeTruthy();
     expect(within(banner).getByText("ray-123")).toBeTruthy();
-    fireEvent.click(within(banner).getByRole("button", { name: "Copy incident details" }));
+    fireEvent.click(within(banner).getByRole("button", { name: "Copy report" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("copyable incident"));
+    fireEvent.click(within(banner).getByRole("button", { name: "Dismiss service incident" }));
+    expect(screen.queryByRole("alert", { name: "Guardian services incident" })).toBeNull();
   });
 });
 
