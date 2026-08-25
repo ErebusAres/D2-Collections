@@ -11,7 +11,7 @@ vi.mock("../context/GuardianContext", () => ({ useGuardian: () => ({ session: { 
 describe("Community challenges page", () => {
   it("keeps progress player-recorded and can adapt a challenge into private Projects", () => {
     render(<MemoryRouter><ChallengesPage /></MemoryRouter>);
-    expect(screen.getByText(/Scores and completion are player-recorded/i)).toBeTruthy();
+    expect(screen.getByText(/Players enter their own scores and completion/i)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Cycle Try a build status" }));
     expect(setPreference).toHaveBeenCalledWith("challenges.v1", expect.stringContaining('"state":"done"'));
     fireEvent.click(screen.getByRole("button", { name: /Project/i }));
