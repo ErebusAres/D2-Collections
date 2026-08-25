@@ -15,7 +15,7 @@ import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLo
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
 import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
-import { FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
+import { FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS, LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -91,9 +91,12 @@ export function FireteamPage() {
   const recentItems = useQuery({
     queryKey: ["fireteam-recent-items", selectedCharacterId],
     queryFn: () => api<RecentItemTimelineData>(`/api/v2/fireteam/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled: Boolean(session?.authenticated && selectedCharacterId),
-    staleTime: 30_000,
-    refetchInterval: autoRefresh ? FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS : false,
+    enabled: Boolean(session?.authenticated && selectedCharacterId && showRecentLoot),
+    staleTime: LIVE_REFRESH_INTERVAL_MS,
+    // Recent Loot is written by the canonical five-minute Fireteam snapshot.
+    // FireteamRoute refetches this active query only after a newer snapshot
+    // commits, so minute polling cannot discover additional saved data.
+    refetchInterval: false,
     refetchIntervalInBackground: false
   });
   const activityFeed = useQuery({
