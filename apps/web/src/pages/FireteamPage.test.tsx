@@ -429,7 +429,7 @@ describe("Fireteam tracked items", () => {
 
     const card = (await screen.findByText("DelayedGuardian#5678")).closest("article")!;
     expect(card.textContent).toContain("Sync delayed");
-    expect(card.textContent).toContain("Shared progress is refreshing.");
+    expect(card.textContent).toContain("Updating shared progress…");
     expect(card.textContent).not.toContain("Weekly order");
   });
 

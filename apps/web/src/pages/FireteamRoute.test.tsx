@@ -73,7 +73,7 @@ describe("Fireteam page", () => {
   it("waits for the backend when no snapshot has committed", async () => {
     vi.mocked(api).mockImplementation(async (path) => String(path).startsWith("/api/v1/me/quests") ? questEnvelope() as never : fireteamEnvelope(0));
     renderFireteam();
-    expect(await screen.findByText("Preparing Fireteam snapshot")).toBeTruthy();
+    expect(await screen.findByText("Preparing Fireteam")).toBeTruthy();
     const fireteamCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam?")).length;
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(2));

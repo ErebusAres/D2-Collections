@@ -213,7 +213,7 @@ describe("RecentItemRow", () => {
 
   it("distinguishes loading, baseline, and request errors instead of reporting each as empty history", () => {
     const { rerender } = render(<MemoryRouter><CompactRecentLootBar events={[]} loading onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
-    expect(screen.getByText(/Checking your latest Bungie profile snapshot/)).toBeTruthy();
+    expect(screen.getByText(/Checking for new loot/)).toBeTruthy();
     const retry = vi.fn();
     rerender(<MemoryRouter><CompactRecentLootBar events={[]} error={new Error("Bungie profile refresh failed")} onRetry={retry} onTag={vi.fn()} onHide={vi.fn()} /></MemoryRouter>);
     expect(screen.getByRole("alert").textContent).toContain("Bungie profile refresh failed");

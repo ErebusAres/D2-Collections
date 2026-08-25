@@ -41,7 +41,7 @@ export function BuildsPage() {
   const activeFilters = activeBuildFilters(filters);
 
   return <>
-    <PageHeader eyebrow="Guardian-authored combat library" title="Builds" description="Published builds are public; authoring is limited to approved editors." actions={result.data?.data.canCreate && <Link className={styles.primaryAction} to="/builds/new"><CirclePlus /> Create build</Link>} />
+    <PageHeader eyebrow="Community build guides" title="Builds" description="Browse complete builds, then check each one against the gear you own." actions={result.data?.data.canCreate && <Link className={styles.primaryAction} to="/builds/new"><CirclePlus /> Create build</Link>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>
       <section className={styles.buildFilterPanel}>

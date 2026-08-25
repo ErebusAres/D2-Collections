@@ -45,11 +45,11 @@ export function ChallengesPage() {
   };
   const exportFile = (challenge: CommunityChallenge) => {
     const href = URL.createObjectURL(new Blob([JSON.stringify(portableChallenge(challenge), null, 2)], { type: "application/json" }));
-    const anchor = globalThis.document.createElement("a"); anchor.href = href; anchor.download = `${challenge.title.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "guardian-challenge"}.json`; anchor.click(); URL.revokeObjectURL(href); setMessage("Exported an account-neutral challenge without scores, identities, or completion history.");
+    const anchor = globalThis.document.createElement("a"); anchor.href = href; anchor.download = `${challenge.title.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "guardian-challenge"}.json`; anchor.click(); URL.revokeObjectURL(href); setMessage("Exported a clean challenge template without player names, scores, or completion history.");
   };
   const copyInvite = async (challenge: CommunityChallenge) => {
     const body = [`# ${challenge.title}`, challenge.description || "", `Mode: ${challenge.mode}`, "", ...challenge.tasks.map((task) => `- ${task.label} (${task.points} pt${task.points === 1 ? "" : "s"})`), "", "Progress is player-recorded; import the JSON invite to start a fresh private copy."].filter(Boolean).join("\n");
-    try { await navigator.clipboard.writeText(body); setMessage("Copied an account-neutral Markdown invitation. No score or Guardian identity was included."); } catch { setMessage("Clipboard access is unavailable. Export JSON instead."); }
+    try { await navigator.clipboard.writeText(body); setMessage("Copied an invitation without player names or scores."); } catch { setMessage("Clipboard access is unavailable. Export the challenge instead."); }
   };
   const sendToProjects = (challenge: CommunityChallenge) => {
     const projects = parseProjects(preferences["projects.v1"]);
@@ -58,9 +58,9 @@ export function ChallengesPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Player-created goals" title="Community challenges" description="Create reusable point challenges, exchange account-neutral invitations, and record progress without pretending it came from Bungie." />
+    <PageHeader eyebrow="Player-created goals" title="Community challenges" description="Create or join custom challenges and track progress with friends. Challenge progress is entered by players." />
     <JourneyNav />
-    <section className={styles.privacy}><ShieldCheck /><div><strong>Private board, explicit sharing</strong><p>Scores and completion are player-recorded. Nothing is posted publicly or shared with Fireteams or clans unless you deliberately copy or export an invitation.</p></div><span>Templates v{templates.schemaVersion} · reviewed {new Date(templates.reviewedAt).toLocaleDateString()}</span></section>
+    <section className={styles.privacy}><ShieldCheck /><div><strong>Private until you share it</strong><p>Players enter their own scores and completion. Nothing is shared with your fireteam or clan unless you copy or export an invitation.</p></div><span>Challenges reviewed {new Date(templates.reviewedAt).toLocaleDateString()}</span></section>
     <section className={styles.templates}><header><div><span>Evergreen starters</span><h2>Challenge templates</h2></div><strong>{templates.templates.length} available</strong></header><div>{templates.templates.map((template) => <article key={template.id}><Flag /><span><small>{template.mode}</small><strong>{template.title}</strong><p>{template.description}</p></span><button type="button" disabled={document.challenges.length >= 20} onClick={() => add({ title: template.title, description: template.description, mode: template.mode as CommunityChallengeMode, tasks: template.tasks.map((task, index) => ({ id: `template-${index}`, label: task.label, points: task.points, state: "todo" })) })}><Plus /> Add</button></article>)}</div></section>
     <section className={styles.layout}>
       <form className={styles.creator} onSubmit={create}><header><Users /><div><span>Custom challenge</span><h2>Set the rules</h2></div></header>

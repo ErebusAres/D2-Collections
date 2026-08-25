@@ -25,12 +25,12 @@ export function ActivityHistoryPage() {
 
   return <AuthGate>
     <JourneyNav />
-    <PageHeader eyebrow="Private account timeline" title="Activity history" description="Recent activities returned by Bungie across your current characters, with missing or partial history called out instead of estimated." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Recent activity" title="Activity history" description="Review activities across all your characters. If Bungie does not provide part of the history, the gap is shown clearly." actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.summary} data-state={data.state}><History /><div><span>Bungie activity result</span><h2>{data.activities.length} recent activities</h2><p>{historyState(data)}</p></div><dl><div><dt>Completed</dt><dd>{completed}</dd></div><div><dt>Characters</dt><dd>{data.returnedCharacters}/{data.totalCharacters}</dd></div></dl></section>
       <section className={styles.filters} aria-label="Activity history filters">{(["all", "pve", "pvp", "gambit", "other"] as HistoryFilter[]).map((value) => <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{value === "all" ? "All activity" : value.toUpperCase()}</button>)}</section>
-      {!rows.length ? <section className={styles.empty}><ShieldQuestion /><h2>No matching activity returned</h2><p>{data.state === "unavailable" ? "Bungie did not return activity history for any current character. The data may be private, throttled, or temporarily unavailable." : "Try another filter or play an activity and refresh later. Guardian Nexus does not manufacture missing history."}</p></section> : <section className={styles.timeline}>{rows.map((entry) => <ActivityRow key={entry.instanceId} entry={entry} />)}</section>}
+      {!rows.length ? <section className={styles.empty}><ShieldQuestion /><h2>No matching activity found</h2><p>{data.state === "unavailable" ? "Bungie did not return activity history for any current character. The data may be private or temporarily unavailable." : "Try another filter or check again after you complete an activity. Some older or private activities may not appear."}</p></section> : <section className={styles.timeline}>{rows.map((entry) => <ActivityRow key={entry.instanceId} entry={entry} />)}</section>}
     </>}
     <section className={styles.guide}>
       <header><BookOpen /><div><span>New Guardian guide · v{guide.schemaVersion}</span><h2>{guide.title}</h2><p>{guide.summary}</p></div><small>Reviewed {new Date(`${guide.reviewedAt}T00:00:00Z`).toLocaleDateString()}</small></header>

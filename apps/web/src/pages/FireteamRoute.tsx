@@ -136,7 +136,7 @@ function FireteamRefreshCountdown() {
     if (!autoRefresh) return "Fireteam refresh off";
     if (!session?.authenticated || !selectedCharacterId) return "Fireteam refresh unavailable";
     if (!data?.sharingEnabled) return "Share to enable Fireteam sync";
-    if (Number(data?.snapshotVersion || 0) <= 0) return "Preparing Fireteam snapshot";
+    if (Number(data?.snapshotVersion || 0) <= 0) return "Preparing Fireteam";
     const retryMs = Date.parse(data?.refreshRetryAt || "");
     if (data?.refreshState === "delayed" && Number.isFinite(retryMs) && retryMs > now) {
       const retrySeconds = Math.max(0, Math.ceil((retryMs - now) / 1_000));
@@ -145,7 +145,7 @@ function FireteamRefreshCountdown() {
     if (data?.refreshState === "delayed") return "Fireteam refresh delayed";
     if (refreshing || data?.refreshState === "refreshing") return "Refreshing Fireteam";
     const dueMs = Date.parse(data?.pageRefreshDueAt || "");
-    if (!Number.isFinite(dueMs)) return "Preparing Fireteam snapshot";
+    if (!Number.isFinite(dueMs)) return "Preparing Fireteam";
     const remainingMs = Math.min(LIVE_REFRESH_INTERVAL_MS, dueMs - now);
     const seconds = Math.max(0, Math.ceil(remainingMs / 1_000));
     return `Fireteam refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;

@@ -27,9 +27,9 @@ export function PowerPage() {
 
   return <AuthGate>
     <PageHeader
-      eyebrow="Account-wide Power analysis"
+      eyebrow="Your Power"
       title="Power"
-      description="Gear Power excludes Artifact bonuses and stops at the hard cap of 550."
+      description="See the gear raising or limiting each character's Power. Artifact bonuses are shown separately."
       actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />}
     />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />

@@ -93,7 +93,7 @@ export function GuardianRankPage() {
     <PageHeader
       eyebrow="Guardian journey"
       title="Guardian Rank"
-      description="Current and renewed progress stays separate from highest-achieved rank."
+      description="See your current objectives, completed ranks, and what you need for the next rank."
       actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />}
     />
     <JourneyNav />

@@ -167,7 +167,7 @@ export function QuestsPage() {
 
   return <AuthGate>
     <CompletionPing notice={completionNotice} onDismiss={dismissCompletion} />
-    <PageHeader eyebrow="Journey · Pursuit intelligence" title="Quest Tracker" description="Site pins and Destiny tracking stay separate; completed tracked items clear automatically." actions={<Freshness observedAt={result.data?.freshness.observedAt} />} />
+    <PageHeader eyebrow="Active pursuits" title="Quest Tracker" description="Review quest steps, pin goals for Guardian Nexus, and see which quests Destiny is tracking." actions={<Freshness observedAt={result.data?.freshness.observedAt} />} />
     <JourneyNav />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data && <>

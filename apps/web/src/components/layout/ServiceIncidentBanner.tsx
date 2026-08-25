@@ -6,11 +6,11 @@ export function ServiceIncidentBanner({ failure, copied, onCopy, onDismiss }: { 
   const cause = failure.code === "worker_resource_limit"
     ? "The server reached its processing limit. Automatic requests are paused briefly before retrying."
     : failure.code === "network_error"
-      ? "The browser could not reach the server. This request may not appear in backend logs."
-      : "The server could not complete this request. The reference below identifies the matching backend log entry.";
+      ? "Guardian Nexus could not be reached. Check your connection and try again."
+      : "Guardian Nexus could not finish this request. Copy the report if the problem continues.";
   return <aside className={styles.serviceIncident} role="alert" aria-label="Guardian services incident">
     <AlertTriangle />
-    <div className={styles.incidentSummary}><strong>Guardian services interrupted</strong><span>{cause}</span><small>{failure.message}</small></div>
+    <div className={styles.incidentSummary}><strong>Guardian Nexus is having trouble</strong><span>{cause}</span><small>{failure.message}</small></div>
     <details className={styles.incidentDetails}>
       <summary>Details</summary>
       <dl><div><dt>Route</dt><dd>{failure.route}</dd></div><div><dt>Error</dt><dd>{failure.code}</dd></div><div><dt>Status</dt><dd>{failure.status || "No response"}</dd></div><div><dt>Reference</dt><dd>{failure.requestId || "Unavailable"}</dd></div><div><dt>Occurred</dt><dd>{new Date(failure.occurredAt).toLocaleTimeString()}</dd></div></dl>
