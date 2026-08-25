@@ -80,6 +80,18 @@ describe("Fireteam tracked items", () => {
     expect(activityCalls()).toBe(2);
   });
 
+  it("does not poll saved Recent Loot between Fireteam snapshot commits", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    guardianSettings.autoRefresh = true;
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    await screen.findByText("Shared tracked items");
+    const recentItemCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam/recent-items?")).length;
+    expect(recentItemCalls()).toBe(1);
+    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
+    expect(recentItemCalls()).toBe(1);
+  });
+
   it("uses the canonical snapshot API and saved Recent Loot paths", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
       if (String(path).startsWith("/api/v2/fireteam/recent-items")) return recentItemsEnvelope() as never;
