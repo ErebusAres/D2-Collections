@@ -1,5 +1,5 @@
 import type { BuildLink, BuildNamedEntry, GuardianBuild } from "@guardian-nexus/contracts";
-import { BUILD_ADVISOR_LIBRARY_TEMPLATES, type BuildAdvisorTemplate, type BuildAdvisorWeaponRequirement } from "./buildAdvisorTemplates";
+import { BUILD_ADVISOR_CURATED_VERIFICATION, BUILD_ADVISOR_LIBRARY_TEMPLATES, type BuildAdvisorTemplate, type BuildAdvisorWeaponRequirement } from "./buildAdvisorTemplates";
 
 const AUTHOR = "Guardian Nexus research desk";
 const AUTHOR_ID = "guardian-nexus-curated";
@@ -14,7 +14,7 @@ export function curatedBuildByIdentifier(identifier: string): GuardianBuild | un
 
 function curatedBuildFromTemplate(template: BuildAdvisorTemplate): GuardianBuild {
   const reviewedAt = `${template.reviewedAt}T12:00:00.000Z`;
-  const verification = template.verification?.sources || [];
+  const verification = template.verification?.sources || BUILD_ADVISOR_CURATED_VERIFICATION.sources;
   const sourceLinks = verification.map((source): BuildLink => ({
     kind: source.url.includes("mobalytics.gg") ? "mobalytics" : "source",
     label: source.label,

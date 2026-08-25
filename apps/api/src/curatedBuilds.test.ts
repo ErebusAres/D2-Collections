@@ -13,6 +13,7 @@ describe("curated build library", () => {
       expect(build.canVote).toBe(false);
       expect(build.notes).toContain("How this build works");
       expect(build.gameplayLoop.length).toBeGreaterThan(0);
+      expect(build.links.length).toBeGreaterThan(0);
       expect(build.equipment.weapons).toHaveLength(3);
       expect(build.subclassConfig.aspects.length).toBeGreaterThan(0);
       expect(build.statPriorities).toHaveLength(6);
