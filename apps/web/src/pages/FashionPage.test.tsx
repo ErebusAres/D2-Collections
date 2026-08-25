@@ -13,7 +13,7 @@ vi.mock("../components/builds/ManifestPicker", () => ({ ManifestSingleEditor: ({
 describe("Fashion workspace", () => {
   it("labels ownership honestly and saves a five-slot private look", () => {
     render(<FashionPage />);
-    expect(screen.getByText("Manifest-referenced, ownership unknown")).toBeTruthy();
+    expect(screen.getByText("Preview only")).toBeTruthy();
     expect(screen.getAllByText("Armor ornament")).toHaveLength(5);
     fireEvent.change(screen.getByLabelText("Look name"), { target: { value: "Void Regent" } });
     fireEvent.click(screen.getByRole("button", { name: "Save private look" }));

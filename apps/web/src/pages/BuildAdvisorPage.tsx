@@ -143,9 +143,6 @@ function BuildAdvisor() {
   const recommendationGroups = useMemo(() => subclasses
     .map((entry) => ({ subclass: entry, recommendations: recommendations.filter((recommendation) => recommendation.subclass === entry) }))
     .filter((group) => group.recommendations.length > 0), [recommendations, subclasses]);
-  const minimumPathsPerSubclass = data?.recommendations.length && subclasses.length
-    ? Math.min(...subclasses.map((entry) => data.recommendations.filter((recommendation) => recommendation.subclass === entry).length))
-    : 0;
   const filtersActive = Boolean(data && recommendations.length !== data.recommendations.length);
   const selected = recommendations.find((recommendation) => recommendation.id === selectedId) || recommendations[0];
   const warning = result.data?.warnings[0] || data?.analysis.warnings[0];
@@ -224,9 +221,9 @@ function BuildAdvisor() {
 
   return <>
     <PageHeader
-      eyebrow="Owned gear intelligence"
+      eyebrow="Builds for your gear"
       title="Build Advisor"
-      description="Builds assembled from this Guardian's Vault and all character inventories."
+      description="Compare recommended builds with gear across your characters and Vault. Missing items include owned alternatives and ways to get them."
       actions={<>
         <Freshness observedAt={result.data?.freshness.sourceMintedAt || data?.analysis.syncTimestamp} warning={warning} />
         <button type="button" className={styles.refresh} disabled={result.isFetching} onClick={() => void refreshInventory()}><RefreshCw className={result.isFetching ? styles.spin : ""} /> {result.isFetching ? "Refreshing…" : "Refresh inventory"}</button>
@@ -236,8 +233,8 @@ function BuildAdvisor() {
       <label><span>Character</span><select value={selectedCharacterId} onChange={(event) => selectCharacter(event.target.value)}>
         {session?.guardian?.characters.map((character) => <option key={character.characterId} value={character.characterId}>{character.className} · {character.power} Power</option>)}
       </select></label>
-      {data && <div className={styles.syncState} data-state={data.state}><i /> <span><b>{stateLabel(data.state)}</b><small>{data.characterClass} · {data.characterPower} Power · Template set v{data.templateSetVersion}</small></span></div>}
-      {data && <div className={styles.reviewDate}><CircleHelp /><span><b>Templates reviewed {new Date(`${data.templateReviewedAt}T00:00:00`).toLocaleDateString()}</b><small>Recheck after sandbox or Artifact changes.</small></span></div>}
+      {data && <div className={styles.syncState} data-state={data.state}><i /> <span><b>{stateLabel(data.state)}</b><small>{data.characterClass} · {data.characterPower} Power</small></span></div>}
+      {data && <div className={styles.reviewDate}><CircleHelp /><span><b>Builds reviewed {new Date(`${data.templateReviewedAt}T00:00:00`).toLocaleDateString()}</b><small>Ratings may change after major balance updates.</small></span></div>}
     </section>
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
@@ -246,11 +243,11 @@ function BuildAdvisor() {
         <Compass />
         <div>{requestedRecommendation
           ? <><span>Planning from the Builds library</span><strong>{requestedRecommendation.name}</strong><p>{requestedRecommendation.readinessScore}% ready · {requestedRecommendation.missingItems.length} missing · {requestedRecommendation.alternatives?.length || 0} owned alternatives</p></>
-          : <><span>Build library handoff</span><strong>This guide is not ready for account analysis</strong><p>Its public page remains available, but it needs a current complete subclass, armor, weapon, stat, and mod plan before Build Advisor can verify it safely.</p></>}</div>
+          : <><span>Builds library</span><strong>This guide cannot be checked against your gear yet</strong><p>You can still read the build guide, but its subclass, armor, weapons, stats, or mods need to be completed before Build Advisor can find matches and alternatives.</p></>}</div>
         {requestedBuildSlug && <Link to={`/builds/${encodeURIComponent(requestedBuildSlug)}`}>Back to build</Link>}
       </section>}
       {data.recommendations.length ? <>
-        <section className={styles.catalogBanner}><Sparkles /><div><span>Build Advisor 2.0 · Template set v{data.templateSetVersion}</span><strong>{data.recommendations.length} visible {data.characterClass} build paths across {subclasses.length} subclasses</strong><p>Every subclass has at least {minimumPathsPerSubclass} distinct core-Exotic approaches. Missing equipment lowers readiness and adds acquisition steps; it never hides the build.</p></div></section>
+        <section className={styles.catalogBanner}><Sparkles /><div><span>Builds for {data.characterClass}</span><strong>{data.recommendations.length} builds across {subclasses.length} subclasses</strong><p>Builds stay visible even when gear is missing. Open one to see owned alternatives and where to get missing items.</p></div></section>
         <section className={styles.buildFilters} aria-label="Build recommendation filters">
           <label><span>Subclass</span><select aria-label="Subclass" value={subclass} onChange={(event) => setSubclass(event.target.value as BuildSubclass | "All")}>
             <option value="All">All subclasses</option>
@@ -379,9 +376,9 @@ function RecommendationDetail({
       </div>}
     </header>
     <section className={styles.scoreSummary} aria-label="Build recommendation scores">
-      <article><span>Build viability</span><strong>{viabilityScore}</strong><small>Template strength independent of your inventory</small></article>
-      <article><span>Your readiness</span><strong>{readinessScore}%</strong><small>Owned gear, compatible rolls, and substitutions</small></article>
-      <article><span>Overall match</span><strong>{recommendation.score}</strong><small>Used to order recommendations for this Guardian</small></article>
+      <article><span>Build strength</span><strong>{viabilityScore}</strong><small>How strong the build is for its intended activities</small></article>
+      <article><span>Your readiness</span><strong>{readinessScore}%</strong><small>How much of the recommended gear you can use now</small></article>
+      <article><span>Overall match</span><strong>{recommendation.score}</strong><small>Combined build strength and readiness</small></article>
     </section>
     <section className={styles.planAtGlance} aria-label="Build plan next steps">
       <h3><Compass /> Your path to this build</h3>
@@ -398,8 +395,8 @@ function RecommendationDetail({
     <section className={styles.factorList}><h3><Gauge /> Score factors</h3>{recommendation.factors.map((factor) => <div key={factor.id}><span><b>{factor.label}</b><small>{factor.detail}</small></span><em>{factor.earned}/{factor.available}</em><i><span style={{ width: `${factor.available ? factor.earned / factor.available * 100 : 0}%` }} /></i></div>)}</section>
     <section><h3><Shield /> Five-piece armor plan</h3><div className={styles.armorList}>{recommendation.armor.map((entry) => <ArmorMatch key={entry.slot} armor={entry} />)}</div></section>
     {recommendation.armorOptimization && <section className={styles.optimizerSummary}>
-      <h3><Gauge /> Account-wide armor optimizer</h3>
-      <div className={styles.optimizerMetrics}><span><small>Combinations checked</small><strong>{recommendation.armorOptimization.candidatesEvaluated.toLocaleString()}</strong></span><span><small>Selected score</small><strong>{recommendation.armorOptimization.selected.score}</strong></span><span><small>Alternatives retained</small><strong>{recommendation.armorOptimization.alternatives.length}</strong></span></div>
+      <h3><Gauge /> Best armor from your account</h3>
+      <div className={styles.optimizerMetrics}><span><small>Armor sets checked</small><strong>{recommendation.armorOptimization.candidatesEvaluated.toLocaleString()}</strong></span><span><small>Best fit</small><strong>{recommendation.armorOptimization.selected.score}</strong></span><span><small>Other options</small><strong>{recommendation.armorOptimization.alternatives.length}</strong></span></div>
       <div className={styles.optimizerTargets}>{recommendation.armorOptimization.selected.targets.map((target) => <span key={target.stat} data-met={target.met}><b>{target.stat}</b><strong>{target.actual}{target.target !== undefined ? ` / ${target.target}` : ""}</strong></span>)}</div>
       {recommendation.armorOptimization.selected.setBonuses.length > 0 && <p>{recommendation.armorOptimization.selected.setBonuses.map((set) => `${set.name} ${set.pieces}-piece`).join(" · ")}</p>}
     </section>}
@@ -428,15 +425,15 @@ function RecommendationDetail({
       <div>{(Object.entries(build.armorMods) as Array<[keyof BuildArmorMods, BuildNamedEntry[]]>).map(([slot, entries]) => <article key={slot}><b>{armorSlotLabel(slot)}</b><span>{entries.map((entry, index) => <em key={`${entry.name}-${index}`}>{index + 1}. {entry.name}</em>)}</span></article>)}</div>
     </section>
     {(recommendation.missingItems.length > 0 || recommendation.substitutions.length > 0) && <section className={styles.assemblyIssues} id="advisor-acquisition">
-      <h3><AlertTriangle /> Assembly changes</h3>
+      <h3><AlertTriangle /> Missing gear and substitutions</h3>
       {missingItemGuides.length > 0
         ? <div className={styles.acquisitionGuides}>{missingItemGuides.map((guide) => <AcquisitionGuide key={guide.id} guide={guide} />)}</div>
         : recommendation.missingItems.map((item) => <p key={`missing-${item}`}><b>Missing</b> {item}</p>)}
       {recommendation.substitutions.length > 0 && <div className={styles.substitutions}>{recommendation.substitutions.map((item) => <p key={`sub-${item}`}><b>Substitute</b> {item}</p>)}</div>}
     </section>}
     {recommendation.componentVerifications?.length ? <section className={styles.componentTruth}>
-      <h3><CheckCircle2 /> Account verification</h3>
-      <p>Physical ownership, Collections unlocks, substitutions, and unavailable Bungie data remain separate states.</p>
+      <h3><CheckCircle2 /> What you own</h3>
+      <p>See whether each item is on this character, another character, in the Vault, unlocked in Collections, or still missing.</p>
       <div>{recommendation.componentVerifications.map((component) => <ComponentVerification key={component.id} component={component} />)}</div>
     </section> : null}
     {recommendation.alternatives?.length ? <section className={styles.alternativePlan} id="advisor-alternatives">

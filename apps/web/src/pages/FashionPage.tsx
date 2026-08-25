@@ -37,7 +37,7 @@ export function FashionPage() {
   const exportLook = (look: FashionLook) => {
     const href = URL.createObjectURL(new Blob([JSON.stringify(portableFashionLook(look), null, 2)], { type: "application/json" }));
     const anchor = globalThis.document.createElement("a"); anchor.href = href; anchor.download = `${look.name.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "guardian-look"}.json`; anchor.click(); URL.revokeObjectURL(href);
-    setMessage("Exported account-neutral fashion JSON without Guardian identifiers or timestamps.");
+    setMessage("Exported this look without your Guardian name or account details.");
   };
   const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; event.target.value = ""; if (!file || document.looks.length >= 20) return;
@@ -46,8 +46,8 @@ export function FashionPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Guardian expression" title="Fashion workspace" description="Compose armor ornament and shader references into private, portable looks without changing equipped gear." actions={<button className={styles.newLook} type="button" onClick={fresh}><Plus /> New look</button>} />
-    <section className={styles.honesty}><ShieldQuestion /><div><strong>Manifest-referenced, ownership unknown</strong><p>Selections use the current cached Bungie manifest. Guardian Nexus does not claim that an ornament or shader is unlocked, and this workspace never equips or publishes anything.</p></div></section>
+    <PageHeader eyebrow="Guardian style" title="Fashion workspace" description="Plan armor ornaments and shaders, save private looks, and share them without changing your equipped gear." actions={<button className={styles.newLook} type="button" onClick={fresh}><Plus /> New look</button>} />
+    <section className={styles.honesty}><ShieldQuestion /><div><strong>Preview only</strong><p>This workspace does not yet check whether you own each ornament or shader. Saving a look will not equip it or make it public.</p></div></section>
     <section className={styles.layout}>
       <section className={styles.editor}>
         <header><Palette /><div><span>{editingId ? "Editing private look" : "New private look"}</span><h2>{draft.name || "Untitled look"}</h2></div></header>

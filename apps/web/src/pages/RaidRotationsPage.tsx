@@ -24,9 +24,9 @@ export function RaidRotationsPage() {
 
   return <>
     <PageHeader
-      eyebrow="Activities · Weekly intelligence"
+      eyebrow="This week's raids"
       title="Raid Rotations"
-      description="Current raid challenge entries reported by Bungie, separated from the concise Director overview."
+      description="See this week's raid challenges and active rotation details."
       actions={<button className={styles.refresh} onClick={() => void result.refetch()}><RefreshCcw /> Refresh rotations</button>}
     />
     <QueryState loading={result.isLoading} error={result.error as Error | null} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
@@ -39,7 +39,7 @@ export function RaidRotationsPage() {
       </section>
       {result.data.data.cards.length
         ? <section className={styles.raidGrid}>{result.data.data.cards.map((card) => <WorldCard key={card.id} card={card} now={now} />)}</section>
-        : <section className={styles.emptyHistory}><Swords /><h3>No raid rotations returned</h3><p>Bungie is not currently reporting raid challenge entries through public milestones. The page will retain this honest unavailable state until the source changes.</p></section>}
+        : <section className={styles.emptyHistory}><Swords /><h3>Raid rotations unavailable</h3><p>Bungie is not currently providing raid challenge details. Check again after the next weekly reset or data refresh.</p></section>}
     </>}
   </>;
 }

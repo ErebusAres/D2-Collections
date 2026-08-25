@@ -28,9 +28,9 @@ export function PvpPage() {
 
   return <AuthGate>
     <PageHeader
-      eyebrow="Account-wide combat record"
+      eyebrow="Crucible progress"
       title="Crucible"
-      description="Rank progression is live; career performance is account-wide."
+      description="Track your current Crucible rank and review career performance across your account."
       actions={<Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />}
     />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />

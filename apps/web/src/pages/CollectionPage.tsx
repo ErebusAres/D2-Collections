@@ -116,7 +116,7 @@ export function CollectionPage() {
   }), [scopedEntries, catalystItems]);
 
   return <AuthGate>
-    <PageHeader eyebrow="Personal archive" title="Collection" description="Ownership is account-wide; Exotic armor remains class-filterable." actions={<><Link to="/fashion" style={{ minHeight: 34, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 9px", border: "1px solid var(--line)", color: "var(--ink)", textDecoration: "none" }}><Palette size={15} /> Fashion</Link><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /></>} />
+    <PageHeader eyebrow="Your collection" title="Collection" description="Review account-wide collections and filter Exotic armor by class." actions={<><Link to="/fashion" style={{ minHeight: 34, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 9px", border: "1px solid var(--line)", color: "var(--ink)", textDecoration: "none" }}><Palette size={15} /> Fashion</Link><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /></>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && <>
       <section className={styles.summaryGrid}>

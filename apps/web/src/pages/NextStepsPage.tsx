@@ -73,7 +73,7 @@ function SessionPlannerPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Personalized Director" title="Next Steps" description="Game objectives selected from this Guardian's current pursuits, Journey progress, and missing Exotics." actions={<Link to="/next/projects" style={{ minHeight: 36, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 10px", border: "1px solid var(--line)", color: "var(--ink)", textDecoration: "none" }}><Compass size={16} /> Guardian projects</Link>} />
+    <PageHeader eyebrow="Recommended goals" title="Next Steps" description="Choose what to work on next from your active quests, Journey progress, weekly goals, and missing Exotics." actions={<Link to="/next/projects" style={{ minHeight: 36, display: "inline-flex", alignItems: "center", gap: 6, padding: "0 10px", border: "1px solid var(--line)", color: "var(--ink)", textDecoration: "none" }}><Compass size={16} /> Guardian projects</Link>} />
     <QueryState loading={loading} error={error as Error} hasData={hasData} onRetry={() => void Promise.all([quests.refetch(), ranks.refetch(), collection.refetch()])} />
     {hasData && <>
       <section className={styles.hero}><Compass /><div><span>Not sure what to do?</span><h2>Pick a route and keep Fireteam open</h2><p>Tracking a live pursuit adds it to the same shared Fireteam feed used by Destiny-tracked quests, Orders, and Guardian Rank objectives.</p></div></section>

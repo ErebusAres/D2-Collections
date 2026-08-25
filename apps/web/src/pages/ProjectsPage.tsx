@@ -52,10 +52,10 @@ export function ProjectsPage() {
   const exportFile = (project: GuardianProject) => {
     const blob = new Blob([JSON.stringify(portableProject(project), null, 2)], { type: "application/json" }); const href = URL.createObjectURL(blob);
     const anchor = globalThis.document.createElement("a"); anchor.href = href; anchor.download = `${project.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "guardian-project"}.json`; anchor.click(); URL.revokeObjectURL(href);
-    setAdapterMessage("Exported account-neutral JSON without assignee labels. Copy brief includes labels only when you choose it.");
+    setAdapterMessage("Exported the project without player names. Use Copy brief if you want a version that includes the assignee labels you entered.");
   };
   const copyBrief = async (project: GuardianProject) => {
-    try { if (!navigator.clipboard) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(projectBrief(project)); setAdapterMessage("Copied a Markdown brief with the project’s player-entered assignee labels."); }
+    try { if (!navigator.clipboard) throw new Error("Clipboard unavailable"); await navigator.clipboard.writeText(projectBrief(project)); setAdapterMessage("Copied the project brief with its assignee labels."); }
     catch { setAdapterMessage("Clipboard access is unavailable. Export JSON instead."); }
   };
 

@@ -49,9 +49,9 @@ export function SeasonalPage() {
 
   return <AuthGate>
     <PageHeader
-      eyebrow="Journey · Current progression"
+      eyebrow="Current season"
       title="Seasonal Hub"
-      description="Artifact progress, seasonal challenges, and current Hub orders from your selected Guardian."
+      description="Review Artifact progress, seasonal challenges, and Hub orders for your selected character."
       actions={<Freshness observedAt={journey.data?.freshness.observedAt || quests.data?.freshness.observedAt} warning={journey.data?.warnings[0] || quests.data?.warnings[0]} />}
     />
     <JourneyNav />

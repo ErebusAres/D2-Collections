@@ -76,7 +76,7 @@ export function MatrixPage() {
   };
 
   return <AuthGate>
-    <PageHeader eyebrow="Guardian comparison" title="Guardian Matrix" description="Each Guardian's snapshot changes only when they sync it." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />{result.data?.data.canSync && <button className={styles.primaryAction} onClick={() => sync.mutate()} disabled={sync.isPending}><RefreshCcw size={15} />{sync.isPending ? "Synchronizing…" : "Sync my Matrix"}</button>}</>} />
+    <PageHeader eyebrow="Guardian comparison" title="Guardian Matrix" description="Compare collection and catalyst progress with Guardians who choose to share it." actions={<><Freshness observedAt={result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />{result.data?.data.canSync && <button className={styles.primaryAction} onClick={() => sync.mutate()} disabled={sync.isPending}><RefreshCcw size={15} />{sync.isPending ? "Synchronizing…" : "Sync my Matrix"}</button>}</>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(result.data)} onRetry={() => void result.refetch()} />
     {result.data?.data.audience && <section className={styles.audiencePulse} aria-label="Private Guardian Nexus audience counters" title="Private to the three approved site maintainers. Visitors use an anonymous first-party browser identifier; no IP address or browsing history is stored.">
       <span><Eye /><small>Unique visitors</small><strong>{result.data.data.audience.uniqueVisitors.toLocaleString()}</strong></span>

@@ -10,7 +10,7 @@ import { playCompletionChime, primeCompletionAudio } from "../services/completio
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
 
-const BUNGIE_PRESENCE_DISCLAIMER = "Bungie marks party and current-activity data as non-authoritative and potentially stale.";
+const BUNGIE_PRESENCE_DISCLAIMER = "Fireteam membership and activity come from Bungie and may take a few minutes to catch up.";
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
@@ -250,7 +250,7 @@ export function FireteamPage() {
 
   return <AuthGate>
     <div className={styles.fireteamUpper}>
-    <PageHeader eyebrow="Cooperative intelligence" title="Fireteam" description="One backend-owned snapshot refreshes roster, shared progress, and Recent Loot together every 5 minutes. Page reloads read only committed data." actions={<>
+    <PageHeader eyebrow="Your current team" title="Fireteam" description="See who is in your fireteam, the goals they share, and your recent loot. Updates automatically every five minutes." actions={<>
       <Freshness observedAt={data?.pageUpdatedAt} label="Last updated" warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
       {data && !data.sharingEnabled && <>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "temporary" })} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>
@@ -262,7 +262,7 @@ export function FireteamPage() {
       </>}
     </>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
-    {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} onPull={(item) => gearAction.mutate({ action: "transfer", itemInstanceId: item.instanceId, target: "character", targetCharacterId: selectedCharacterId })} onSocketChange={(item, socketIndex, plugItemHash) => gearAction.mutate({ action: "setWeaponSocket", itemInstanceId: item.instanceId, characterId: selectedCharacterId, socketIndex, plugItemHash })} busy={gearState.isPending || gearAction.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} watchers={lootWatchers} onWatcherChange={toggleLootWatcher} watcherBusy={watcherRun.isPending} watcherStatus={watcherStatus} /> : <section className={styles.fireteamLootControl}><div><strong>Recent account items hidden</strong><small>Private observation continues with Fireteam snapshots</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show timeline</button></section>}
+    {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} onPull={(item) => gearAction.mutate({ action: "transfer", itemInstanceId: item.instanceId, target: "character", targetCharacterId: selectedCharacterId })} onSocketChange={(item, socketIndex, plugItemHash) => gearAction.mutate({ action: "setWeaponSocket", itemInstanceId: item.instanceId, characterId: selectedCharacterId, socketIndex, plugItemHash })} busy={gearState.isPending || gearAction.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} watchers={lootWatchers} onWatcherChange={toggleLootWatcher} watcherBusy={watcherRun.isPending} watcherStatus={watcherStatus} /> : <section className={styles.fireteamLootControl}><div><strong>Recent Loot hidden</strong><small>Loot tracking stays active while this section is hidden.</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show Recent Loot</button></section>}
     {(gearState.error || gearAction.error) && <div className={styles.gearError}>{(gearState.error || gearAction.error)?.message}</div>}
     </div>
     {data && <>
@@ -389,7 +389,7 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
   const untrackingIsCompletion = Boolean(untrackingKey && completedItemKeys.has(untrackingKey));
   const cardEvent = visibleCompletions.length ? "completed" : (!untrackingIsCompletion && untrackingKey) || visibleRemovedItems.length ? "removed" : enteringKeys.size ? "added" : "idle";
   return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""} ${cardEvent === "completed" ? styles.memberCardCompleted : cardEvent === "removed" ? styles.memberCardRemoved : cardEvent === "added" ? styles.memberCardAdded : ""}`} data-tracking-event={cardEvent}>
-    <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>IGN / {member.isSelf ? `You / ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} / {syncLabel}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} / ${member.character.power} Power` : "Public Bungie fireteam profile"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
+    <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>{member.isSelf ? `You · ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} · {syncLabel}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} · ${member.character.power} Power` : "Character details unavailable"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
     {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => {
       const key = trackedItemKey(item);
@@ -405,9 +405,9 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
         const target = edge === "top" ? activeItems[0] : activeItems[activeItems.length - 1];
         if (target && trackedItemKey(target) !== key) onReorder?.(key, trackedItemKey(target));
       }} atTop={activeIndex === 0} atBottom={activeIndex === activeItems.length - 1} />;
-    }) : <p>{member.syncState === "delayed" ? "Shared progress is refreshing." : "Nothing is currently tracked."}</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked details not shared</strong><p>This Guardian must opt into temporary or automatic sharing.</p></div>}
+    }) : <p>{member.syncState === "delayed" ? "Updating shared progress…" : "Nothing is currently tracked."}</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked goals are private</strong><p>This Guardian has not shared their tracked goals.</p></div>}
     {!member.isSelf && <div className={styles.memberCommands}><button onClick={() => void onCopy(`whisper-${member.membershipId}`, `/whisper ${member.inGameName} `)} title="Copies a Destiny 2 text-chat command"><MessageSquare size={13} />{copied === `whisper-${member.membershipId}` ? "Copied" : "Whisper"}</button>{canManage && <button className={styles.managementCommand} onClick={() => void onCopy(`kick-${member.membershipId}`, `/kick ${member.inGameName}`)} title="Copies a Destiny 2 text-chat command; Guardian Nexus cannot kick through the Bungie API"><UserMinus size={13} />{copied === `kick-${member.membershipId}` ? "Copied" : "Kick command"}</button>}</div>}
-    {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>Shared progress opportunity:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
+    {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>You can work on this together:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
   </article>;
 }
 
