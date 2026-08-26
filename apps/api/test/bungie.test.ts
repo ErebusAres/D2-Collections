@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadLootWatcherManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, profileFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
+import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadGearManifest, loadLootWatcherManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, profileFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -57,6 +57,33 @@ describe("Worker cache bounds", () => {
     fetchMock.mockImplementation(async () => new Response(JSON.stringify({ ErrorCode: 1, Response: { profile: { data: {} } } }), { status: 200 }));
     await profileFor(row, env, "fireteam", false, "access");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares one parsed Gear manifest across overlapping account tools", async () => {
+    let release!: () => void;
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      await new Promise<void>((resolve) => { release = resolve; });
+      return new Response(JSON.stringify({
+        version: "gear-cache-test",
+        generatedAt: "2026-08-25T00:00:00.000Z",
+        gearItemDefinitions: { "1": { displayProperties: { name: "Test Gear" } } },
+        plugDefinitions: {},
+        statDefinitions: {}
+      }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const env = { GAME_DATA_URL: `https://gear-cache-${Date.now()}.test/data/manifest.json` } as Env;
+
+    const first = loadGearManifest(env);
+    const second = loadGearManifest(env);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    release();
+    const [firstValue, secondValue] = await Promise.all([first, second]);
+    const immediatelyReused = await loadGearManifest(env);
+
+    expect(firstValue).toBe(secondValue);
+    expect(immediatelyReused).toBe(firstValue);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

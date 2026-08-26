@@ -183,6 +183,14 @@ describe("Shell guardian identity", () => {
     expect(screen.getByText("439,174 / 500,000 XP (87%)")).toBeTruthy();
   });
 
+  it("does not overlap Build Advisor with passive Recent Loot observation", async () => {
+    renderShell(<div>Build Advisor page</div>, "/build-advisor");
+
+    expect(await screen.findByText("Build Advisor page")).toBeTruthy();
+    await waitFor(() => expect(api).toHaveBeenCalled());
+    expect(vi.mocked(api).mock.calls.some(([url]) => String(url).startsWith("/api/v1/me/recent-items"))).toBe(false);
+  });
+
   it("focuses the page search for Ctrl+F and reveals a scroll-to-top control on long pages", async () => {
     Object.defineProperty(window, "scrollY", { configurable: true, value: 900 });
     Object.defineProperty(window, "innerHeight", { configurable: true, value: 800 });
@@ -219,6 +227,6 @@ describe("Shell guardian identity", () => {
   });
 });
 
-function renderShell(page: React.ReactNode) {
-  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><Routes><Route element={<Shell />}><Route index element={page} /></Route></Routes></MemoryRouter></QueryClientProvider>);
+function renderShell(page: React.ReactNode, path = "/") {
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[path]}><Routes><Route element={<Shell />}><Route path="*" element={page} /></Route></Routes></MemoryRouter></QueryClientProvider>);
 }
