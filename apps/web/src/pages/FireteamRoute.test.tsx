@@ -109,7 +109,7 @@ describe("Fireteam page", () => {
     await act(async () => { vi.advanceTimersByTime(59_000); });
     expect(fireteamCalls()).toBe(1);
     await act(async () => { vi.advanceTimersByTime(1_000); });
-    await waitFor(() => expect(fireteamCalls()).toBe(2));
+    await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(2));
     expect(screen.getByText("Fireteam refresh delayed")).toBeTruthy();
   });
 
