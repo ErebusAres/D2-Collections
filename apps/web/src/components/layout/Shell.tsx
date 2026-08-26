@@ -43,7 +43,7 @@ export function Shell() {
   useQuery({
     queryKey: ["recent-items", selectedCharacterId],
     queryFn: () => api<RecentItemTimelineData>(`/api/v1/me/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled: Boolean(session?.authenticated && selectedCharacterId && !["/fireteam", "/build-advisor"].includes(location.pathname.replace(/\/+$/, ""))),
+    enabled: Boolean(session?.authenticated && selectedCharacterId && !/^\/(fireteam|build-advisor)\/?$/.test(location.pathname)),
     staleTime: 30_000,
     refetchInterval: autoRefresh ? HEADER_REFRESH_INTERVAL_MS : false
   });
