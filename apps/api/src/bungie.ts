@@ -9,6 +9,9 @@ let activityNameManifestCache: { value: ActivityNameManifest; expiresAt: number 
 let guardianRankManifestCache: { value: GuardianRankManifest; expiresAt: number } | null = null;
 let rewardCodeManifestCache: { value: RewardCodeManifest; expiresAt: number } | null = null;
 let companionManifestIndexCache: { url: string; value: CompanionManifest; expiresAt: number } | null = null;
+let gearManifestCache: { url: string; value: GearManifest; expiresAt: number } | null = null;
+let inFlightGearManifest: { url: string; promise: Promise<GearManifest> } | null = null;
+const GEAR_MANIFEST_REUSE_MS = 15_000;
 const emblemCache = new Map<string, { path?: string; expiresAt: number }>();
 const publicMembershipTypeCache = new Map<string, number>();
 const xurInventoryCache = new Map<string, { state: "available" | "away" | "unavailable"; itemHashes: string[]; offers?: any[]; checkedAt: string; nextRefreshAt?: string; warning?: string; expiresAt: number }>();
@@ -39,6 +42,14 @@ function setBoundedValue<K, V>(cache: Map<K, V>, key: K, value: V, maxEntries: n
     if (oldest !== undefined) cache.delete(oldest);
   }
   cache.set(key, value);
+}
+
+function brieflyReuseGearManifest(url: string, value: GearManifest): void {
+  gearManifestCache = { url, value, expiresAt: Date.now() + GEAR_MANIFEST_REUSE_MS };
+  const releaseTimer = setTimeout(() => {
+    if (gearManifestCache?.url === url && gearManifestCache.value === value) gearManifestCache = null;
+  }, GEAR_MANIFEST_REUSE_MS);
+  (releaseTimer as unknown as { unref?: () => void }).unref?.();
 }
 
 interface BuildAdvisorManifestArtifact {
@@ -718,14 +729,28 @@ export async function loadQuestManifest(env: Env): Promise<CompactManifest> {
 
 export async function loadGearManifest(env: Env): Promise<GearManifest> {
   const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "gear-manifest.json");
+  const now = Date.now();
+  if (gearManifestCache?.url === url && gearManifestCache.expiresAt > now) return gearManifestCache.value;
+  if (gearManifestCache && gearManifestCache.expiresAt <= now) gearManifestCache = null;
+  if (inFlightGearManifest?.url === url) return inFlightGearManifest.promise;
+
+  const promise = (async (): Promise<GearManifest> => {
+    try {
+      const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+      if (!response.ok) throw new Error(`Gear manifest request returned ${response.status}.`);
+      const value = await response.json() as GearManifest;
+      if (!value?.version || !value.gearItemDefinitions || !value.plugDefinitions) throw new Error("Gear manifest artifact is invalid.");
+      brieflyReuseGearManifest(url, value);
+      return value;
+    } catch {
+      return { version: "unavailable", generatedAt: new Date().toISOString(), gearItemDefinitions: {}, plugDefinitions: {}, statDefinitions: {} };
+    }
+  })();
+  inFlightGearManifest = { url, promise };
   try {
-    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
-    if (!response.ok) throw new Error(`Gear manifest request returned ${response.status}.`);
-    const value = await response.json() as GearManifest;
-    if (!value?.version || !value.gearItemDefinitions || !value.plugDefinitions) throw new Error("Gear manifest artifact is invalid.");
-    return value;
-  } catch {
-    return { version: "unavailable", generatedAt: new Date().toISOString(), gearItemDefinitions: {}, plugDefinitions: {}, statDefinitions: {} };
+    return await promise;
+  } finally {
+    if (inFlightGearManifest?.promise === promise) inFlightGearManifest = null;
   }
 }
 
