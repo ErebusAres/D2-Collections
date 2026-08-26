@@ -45,12 +45,15 @@ describe("Fireteam page", () => {
     const fireteamCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam?")).length;
     expect(fireteamCalls()).toBe(1);
 
-    await act(async () => { vi.advanceTimersByTime(3 * 60_000); });
-    await waitFor(() => expect(fireteamCalls()).toBe(2));
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(2));
+    expect(screen.getByText(/Fireteam refresh in 2:00|Fireteam refresh in 1:59/)).toBeTruthy();
+
+    await act(async () => { vi.advanceTimersByTime(2 * 60_000); });
     expect(screen.getByText("Refreshing Fireteam")).toBeTruthy();
 
     await act(async () => { vi.advanceTimersByTime(60_000); });
-    await waitFor(() => expect(fireteamCalls()).toBe(3));
+    await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(4));
     expect(screen.getByText("Refreshing Fireteam")).toBeTruthy();
 
     version = 5;

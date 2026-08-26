@@ -3,6 +3,8 @@ import {
   authoritativeFireteamParty,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
   fireteamMemberDisplayName,
+  fireteamPresenceRefreshDue,
+  fireteamPresenceUsable,
   fireteamRefreshDue,
   fireteamRefreshState,
   fireteamRetryAfter,
@@ -19,6 +21,10 @@ describe("Fireteam snapshot contract", () => {
     expect(profileComponentsFor("fireteam").split(",")).toEqual(expect.arrayContaining(["100", "102", "200", "201", "202", "204", "205", "300", "301", "304", "305", "307", "310", "800", "900", "1000"]));
   });
 
+  it("keeps roster refreshes manifest-light while retaining Bungie's party component", () => {
+    expect(profileComponentsFor("fireteam-presence")).toBe("100,200,201,202,204,1000");
+  });
+
   it("keeps enough bounded cron capacity for a normal multi-member Fireteam", () => {
     expect(FIRETEAM_MAX_REFRESHES_PER_CRON).toBeGreaterThanOrEqual(6);
     expect(FIRETEAM_MAX_REFRESHES_PER_CRON).toBeLessThanOrEqual(12);
@@ -31,6 +37,14 @@ describe("Fireteam snapshot contract", () => {
     const committed = "2026-08-20T11:55:00.000Z";
     expect(fireteamSnapshotUsable(committed, Date.parse("2026-08-20T12:01:14.000Z"))).toBe(true);
     expect(fireteamSnapshotUsable(committed, Date.parse("2026-08-20T12:01:16.000Z"))).toBe(false);
+  });
+
+  it("refreshes roster presence independently and retains it through brief progress delays", () => {
+    const observedAt = "2026-08-20T12:00:00.000Z";
+    expect(fireteamPresenceRefreshDue(observedAt, Date.parse("2026-08-20T12:00:59.000Z"))).toBe(false);
+    expect(fireteamPresenceRefreshDue(observedAt, Date.parse("2026-08-20T12:01:00.000Z"))).toBe(true);
+    expect(fireteamPresenceUsable(observedAt, Date.parse("2026-08-20T12:09:59.000Z"))).toBe(true);
+    expect(fireteamPresenceUsable(observedAt, Date.parse("2026-08-20T12:10:01.000Z"))).toBe(false);
   });
 
   it("does not claim a new cycle until a newer snapshot version commits", () => {

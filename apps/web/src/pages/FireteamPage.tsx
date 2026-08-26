@@ -55,7 +55,7 @@ function watcherResultLabel(result: LootWatcherRunResult): string {
 export function FireteamPage() {
   const { session, selectedCharacterId, preferences, setPreference, autoRefresh } = useGuardian();
   const queryClient = useQueryClient();
-  const result = useFireteamQuery(session?.guardian?.membershipId || "", selectedCharacterId, Boolean(session?.authenticated));
+  const result = useFireteamQuery(session?.guardian?.membershipId || "", selectedCharacterId, Boolean(session?.authenticated), autoRefresh);
   useEffect(() => {
     const prime = () => {
       primeCompletionAudio();

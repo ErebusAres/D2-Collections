@@ -91,7 +91,10 @@ import {
   FIRETEAM_ACTIVE_WINDOW_MS,
   FIRETEAM_REFRESH_LEASE_MS,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
+  FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS,
   fireteamMemberDisplayName,
+  fireteamPresenceRefreshDue,
+  fireteamPresenceUsable,
   fireteamRefreshDue,
   fireteamRefreshState,
   fireteamRetryAfter,
@@ -245,6 +248,9 @@ export default {
     ]);
     if (Math.floor(controller.scheduledTime / 60_000) % 5 === 0) await maintainNotificationStorage(env);
     await ensureLootWatcherJobs(env);
+    await refreshDueFireteamPresenceSnapshots(env).catch((error: any) => {
+      console.error("fireteam_presence_cron_failed", String(error?.code || error?.message || "unknown"));
+    });
     await refreshDueLootWatchers(env).catch((error: any) => {
       console.error("loot_watcher_cron_failed", String(error?.code || error?.message || "unknown"));
     });
@@ -1974,6 +1980,9 @@ interface FireteamSnapshotRow {
   retry_after_at?: string;
   last_error_code?: string;
   last_error_message?: string;
+  presence_refreshed_at?: string;
+  presence_refresh_started_at?: string;
+  presence_error?: string;
 }
 
 async function upsertFireteamShare(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -2008,6 +2017,9 @@ async function upsertFireteamShare(request: Request, row: SessionRow, env: Env, 
       payload_json = CASE WHEN fireteam_snapshots.character_id <> excluded.character_id THEN NULL ELSE fireteam_snapshots.payload_json END,
       source_observed_at = CASE WHEN fireteam_snapshots.character_id <> excluded.character_id THEN NULL ELSE fireteam_snapshots.source_observed_at END,
       committed_at = CASE WHEN fireteam_snapshots.character_id <> excluded.character_id THEN NULL ELSE fireteam_snapshots.committed_at END,
+      presence_refreshed_at = CASE WHEN fireteam_snapshots.character_id <> excluded.character_id THEN NULL ELSE fireteam_snapshots.presence_refreshed_at END,
+      presence_refresh_started_at = NULL,
+      presence_error = NULL,
       next_refresh_at = '1970-01-01T00:00:00.000Z',
       retry_after_at = NULL,
       last_requested_at = excluded.last_requested_at
@@ -2042,7 +2054,7 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   ]);
   const committedAt = new Date().toISOString();
   const rawSourceObservedAt = typeof profile?.responseMintedTimestamp === "string" ? profile.responseMintedTimestamp : undefined;
-  if (!fireteamSourceAdvanced(previousPayload?.sessionPresenceEvidence?.sourceObservedAt, rawSourceObservedAt, Date.parse(committedAt))) {
+  if (!fireteamSourceAdvanced(previousPayload?.progressSourceObservedAt, rawSourceObservedAt, Date.parse(committedAt))) {
     throw httpError(503, "fireteam_source_not_advanced", "Bungie has not produced a newer Fireteam source snapshot yet.", 60);
   }
   const sourceObservedAt = new Date(Date.parse(rawSourceObservedAt!)).toISOString();
@@ -2146,7 +2158,8 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
       activityFeedPreferenceSet: typeof settings?.activityFeedEnabled === "boolean",
       activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId),
       activityPartyMembers,
-      activityPartySourceObservedAt: sourceObservedAt
+      activityPartySourceObservedAt: sourceObservedAt,
+      progressSourceObservedAt: sourceObservedAt
     }
   };
 }
@@ -2159,6 +2172,96 @@ async function fireteamSessionFor(membershipId: string, env: Env): Promise<Sessi
     WHERE s.membership_id = ? AND s.refresh_expires_at > ?
     ORDER BY s.updated_at DESC LIMIT 1
   `).bind(membershipId, Math.floor(Date.now() / 1000)).first<SessionRow>();
+}
+
+async function refreshFireteamPresenceSnapshot(membershipId: string, env: Env): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const staleLease = new Date(Date.now() - FIRETEAM_REFRESH_LEASE_MS).toISOString();
+  const dueBefore = new Date(Date.now() - FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS).toISOString();
+  const claim = await env.DB.prepare(`
+    UPDATE fireteam_snapshots
+    SET presence_refresh_started_at = ?
+    WHERE membership_id = ?
+      AND payload_json IS NOT NULL
+      AND next_refresh_at > ?
+      AND (presence_refreshed_at IS NULL OR presence_refreshed_at <= ?)
+      AND (presence_refresh_started_at IS NULL OR presence_refresh_started_at < ?)
+  `).bind(startedAt, membershipId, startedAt, dueBefore, staleLease).run();
+  if (Number(claim.meta?.changes || 0) < 1) return;
+
+  try {
+    const sessionRow = await fireteamSessionFor(membershipId, env);
+    if (!sessionRow) throw httpError(401, "authorization_required", "Bungie authorization must be renewed.");
+    const stored = await env.DB.prepare("SELECT payload_json FROM fireteam_snapshots WHERE membership_id = ? AND presence_refresh_started_at = ?")
+      .bind(membershipId, startedAt).first<{ payload_json: string }>();
+    if (!stored?.payload_json) return;
+    let previousPayload: any;
+    try { previousPayload = JSON.parse(stored.payload_json); } catch { return; }
+
+    const [{ profile }, activityManifest] = await Promise.all([
+      profileFor(sessionRow, env, "fireteam-presence"),
+      loadActivityNames(env)
+    ]);
+    const refreshedAt = new Date().toISOString();
+    const rawSourceObservedAt = typeof profile?.responseMintedTimestamp === "string" ? profile.responseMintedTimestamp : undefined;
+    if (!fireteamSourceAdvanced(undefined, rawSourceObservedAt, Date.parse(refreshedAt))) {
+      throw httpError(503, "fireteam_presence_source_stale", "Bungie has not produced a current Fireteam roster yet.", 60);
+    }
+    const sourceObservedAt = new Date(Date.parse(rawSourceObservedAt!)).toISOString();
+    const characters = charactersFromProfile(profile);
+    const sessionObservation = observeGuardianSession(characters, previousPayload?.sessionPresenceEvidence, sourceObservedAt);
+    const observedPartyMembers = savedPartyMembers(profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {}, sessionRow);
+    const livePartyObserved = observedPartyMembers.some((member) => member.membershipId !== membershipId && member.observedInParty);
+    const onlineState = livePartyObserved ? "online" : sessionObservation.onlineState;
+    const activityPartyMembers = authoritativeFireteamParty(observedPartyMembers, membershipId, onlineState, Boolean(profile?.profileTransitoryData?.data || profile?.profileTransitory?.data));
+    const activeCharacterId = sessionObservation.activeCharacterId || previousPayload?.character?.characterId;
+    const activity = onlineState === "online" ? guardianLocation(profile, activityManifest, activeCharacterId, onlineState) : undefined;
+    const nextPayload = {
+      ...previousPayload,
+      onlineState,
+      activity,
+      sessionPresenceEvidence: sessionObservation.evidence,
+      activityPartyMembers,
+      activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId),
+      activityPartySourceObservedAt: sourceObservedAt
+    };
+    await env.DB.prepare(`
+      UPDATE fireteam_snapshots
+      SET payload_json = ?, source_observed_at = ?, presence_refreshed_at = ?,
+        presence_refresh_started_at = NULL, presence_error = NULL
+      WHERE membership_id = ? AND presence_refresh_started_at = ? AND payload_json = ?
+    `).bind(JSON.stringify(nextPayload), sourceObservedAt, refreshedAt, membershipId, startedAt, stored.payload_json).run();
+  } catch (error: any) {
+    await env.DB.prepare(`
+      UPDATE fireteam_snapshots
+      SET presence_refresh_started_at = NULL, presence_error = ?
+      WHERE membership_id = ? AND presence_refresh_started_at = ?
+    `).bind(String(error?.code || error?.message || "Fireteam roster refresh failed.").slice(0, 240), membershipId, startedAt).run().catch(() => undefined);
+    throw error;
+  } finally {
+    await env.DB.prepare("UPDATE fireteam_snapshots SET presence_refresh_started_at = NULL WHERE membership_id = ? AND presence_refresh_started_at = ?")
+      .bind(membershipId, startedAt).run().catch(() => undefined);
+  }
+}
+
+async function refreshDueFireteamPresenceSnapshots(env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  const activeSince = new Date(Date.now() - FIRETEAM_ACTIVE_WINDOW_MS).toISOString();
+  const dueBefore = new Date(Date.now() - FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS).toISOString();
+  const staleLease = new Date(Date.now() - FIRETEAM_REFRESH_LEASE_MS).toISOString();
+  const { results = [] } = await env.DB.prepare(`
+    SELECT membership_id FROM fireteam_snapshots
+    WHERE payload_json IS NOT NULL
+      AND (sharing_mode = 'persistent' OR expires_at > ?)
+      AND last_requested_at >= ?
+      AND next_refresh_at > ?
+      AND (presence_refreshed_at IS NULL OR presence_refreshed_at <= ?)
+      AND (presence_refresh_started_at IS NULL OR presence_refresh_started_at < ?)
+    ORDER BY CASE WHEN last_requested_at >= ? THEN 0 ELSE 1 END,
+      presence_refreshed_at ASC, last_requested_at DESC
+    LIMIT ?
+  `).bind(now, activeSince, now, dueBefore, staleLease, activeSince, FIRETEAM_MAX_REFRESHES_PER_CRON).all<{ membership_id: string }>();
+  for (const entry of results) await refreshFireteamPresenceSnapshot(String(entry.membership_id), env).catch(() => undefined);
 }
 
 function savedPartyMembers(transitory: any, row: SessionRow): Array<{ membershipId: string; membershipType?: number; displayName: string; status: number; observedInParty: boolean }> {
@@ -2226,13 +2329,14 @@ async function refreshFireteamSnapshot(refresh: FireteamRefreshRow, env: Env): P
         UPDATE fireteam_snapshots
         SET snapshot_version = snapshot_version + 1,
           payload_json = ?, source_observed_at = ?, committed_at = ?, next_refresh_at = ?,
+          presence_refreshed_at = ?, presence_refresh_started_at = NULL, presence_error = NULL,
           expires_at = CASE
             WHEN sharing_mode = 'temporary' AND last_requested_at > COALESCE(committed_at, '1970-01-01T00:00:00.000Z') THEN ?
             ELSE expires_at
           END,
           refresh_started_at = NULL, retry_after_at = NULL, last_error_code = NULL, last_error_message = NULL
         WHERE membership_id = ? AND refresh_started_at = ?
-      `).bind(JSON.stringify(snapshot.payload), snapshot.sourceObservedAt, committedAt, nextRefreshAt, new Date(Date.now() + 15 * 60_000).toISOString(), refresh.membership_id, startedAt).run();
+      `).bind(JSON.stringify(snapshot.payload), snapshot.sourceObservedAt, committedAt, nextRefreshAt, committedAt, new Date(Date.now() + 15 * 60_000).toISOString(), refresh.membership_id, startedAt).run();
     if (Number(commit.meta?.changes || 0) < 1) {
       console.log(JSON.stringify({ event: "fireteam_snapshot_commit_superseded" }));
     }
@@ -2283,10 +2387,17 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
       console.error("fireteam_requested_refresh_failed", String(error?.code || error?.message || "unknown"));
     }));
   }
+  if (ownSnapshot && fireteamPresenceRefreshDue(ownSnapshot.presence_refreshed_at || ownSnapshot.committed_at)) {
+    context.waitUntil?.(refreshFireteamPresenceSnapshot(row.membership_id, env).catch((error: any) => {
+      console.error("fireteam_requested_presence_failed", String(error?.code || error?.message || "unknown"));
+    }));
+  }
   let ownPayload: any = null;
   try { ownPayload = ownSnapshot?.payload_json ? JSON.parse(ownSnapshot.payload_json) : null; } catch { ownPayload = null; }
   const usable = fireteamSnapshotUsable(ownSnapshot?.committed_at);
-  const storedParty = usable && Array.isArray(ownPayload?.activityPartyMembers) ? ownPayload.activityPartyMembers : [];
+  const presenceObservedAt = ownSnapshot?.presence_refreshed_at || ownSnapshot?.committed_at;
+  const presenceUsable = fireteamPresenceUsable(presenceObservedAt);
+  const storedParty = presenceUsable && Array.isArray(ownPayload?.activityPartyMembers) ? ownPayload.activityPartyMembers : [];
   const party = storedParty.length
     ? storedParty
     : [{ membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.bungie_name || row.display_name, status: 0, observedInParty: false }];
@@ -2326,8 +2437,8 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     const detailsAvailable = memberSnapshotUsable || savedSelfDetailsAvailable;
     const trackedItems = detailsAvailable ? sharedTrackedItems(payload) : [];
     const onlineState: FireteamMember["onlineState"] = isSelf
-      ? ownPayload?.onlineState === "offline" ? "offline" : usable && ownPayload?.onlineState === "online" ? "online" : "unknown"
-      : usable && member.observedInParty ? "online" : "unknown";
+      ? ownPayload?.onlineState === "offline" ? "offline" : presenceUsable && ownPayload?.onlineState === "online" ? "online" : "unknown"
+      : presenceUsable && member.observedInParty ? "online" : "unknown";
     const displayName = fireteamMemberDisplayName({
       observedDisplayName: member.displayName,
       sharedDisplayName: snapshot?.display_name,
@@ -2339,7 +2450,7 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
       displayName,
       inGameName: displayName,
       emblemPath: payload?.character?.emblemPath || "",
-      presenceLabel: usable ? partyPresenceLabel(Number(member.status || 0)) : "Presence unknown",
+      presenceLabel: presenceUsable ? partyPresenceLabel(Number(member.status || 0)) : "Presence unknown",
       onlineState,
       character: payload?.character,
       activity: onlineState === "online" ? memberSnapshotUsable && payload?.activity ? payload.activity : "Online · location unavailable" : undefined,
@@ -2375,7 +2486,7 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     activity: usable && ownPayload?.onlineState === "online" ? ownPayload?.activity : undefined,
     pageUpdatedAt: ownSnapshot?.committed_at,
     pageRefreshDueAt: ownSnapshot?.next_refresh_at,
-    presenceObservedAt: ownSnapshot?.source_observed_at,
+    presenceObservedAt: ownPayload?.activityPartySourceObservedAt || ownSnapshot?.source_observed_at,
     snapshotVersion: Number(ownSnapshot?.snapshot_version || 0),
     refreshState,
     refreshAttemptedAt: ownSnapshot?.last_attempt_at,
@@ -2385,8 +2496,10 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     members
   };
   const warnings = [
-    ...(!usable && ownSnapshot?.committed_at ? ["The last Fireteam snapshot is too old to present teammates as current."] : []),
-    ...(ownSnapshot?.last_error_message ? [String(ownSnapshot.last_error_message)] : [])
+    ...(!usable && ownSnapshot?.committed_at ? ["Shared progress is delayed; the Fireteam roster refreshes separately."] : []),
+    ...(!presenceUsable && presenceObservedAt ? ["Fireteam membership is refreshing."] : []),
+    ...(ownSnapshot?.last_error_message ? [String(ownSnapshot.last_error_message)] : []),
+    ...(ownSnapshot?.presence_error ? [String(ownSnapshot.presence_error)] : [])
   ];
   return envelope(data, env, context, {
     observedAt: ownSnapshot?.committed_at || now,
