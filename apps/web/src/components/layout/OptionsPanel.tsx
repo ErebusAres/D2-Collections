@@ -19,7 +19,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
   const location = useLocation();
   const queryClient = useQueryClient();
   const session = guardianState.session;
-  const fireteam = useFireteamQuery(session?.guardian?.membershipId || "", guardianState.selectedCharacterId, Boolean(open && session?.authenticated), guardianState.autoRefresh);
+  const fireteam = useFireteamQuery(session?.guardian?.membershipId || "", guardianState.selectedCharacterId, Boolean(open && session?.authenticated));
   const setPersistentSharing = useMutation({
     mutationFn: (enabled: boolean) => {
       if (!enabled) return queuedApi("/api/v2/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) });

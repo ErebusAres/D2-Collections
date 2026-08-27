@@ -4,13 +4,12 @@ import { api } from "../../services/api/client";
 
 export const fireteamQueryKey = (membershipId: string, characterId: string) => ["fireteam", membershipId, characterId] as const;
 
-export function useFireteamQuery(membershipId: string, characterId: string, enabled: boolean, autoRefresh: boolean) {
+export function useFireteamQuery(membershipId: string, characterId: string, enabled: boolean) {
   return useQuery({
     queryKey: fireteamQueryKey(membershipId, characterId),
     queryFn: () => api<FireteamData>(`/api/v2/fireteam?characterId=${encodeURIComponent(characterId)}`),
-    enabled: !!(enabled && characterId),
+    enabled: Boolean(enabled && characterId),
     staleTime: 60e3,
-    refetchInterval: (query) => autoRefresh && query.state.data?.data.sharingEnabled && 60e3,
     refetchOnWindowFocus: false
   });
 }

@@ -26,7 +26,7 @@ function FireteamRefreshCountdown() {
   const { session, selectedCharacterId, autoRefresh } = useGuardian();
   const queryClient = useQueryClient();
   const membershipId = session?.guardian?.membershipId || "";
-  const result = useFireteamQuery(membershipId, selectedCharacterId, Boolean(session?.authenticated), autoRefresh);
+  const result = useFireteamQuery(membershipId, selectedCharacterId, Boolean(session?.authenticated));
   const data = result.data?.data;
   const ordersResult = useQuery({
     queryKey: ["quests", selectedCharacterId, ""],
@@ -52,6 +52,12 @@ function FireteamRefreshCountdown() {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!autoRefresh || !data?.sharingEnabled) return;
+    const timer = window.setInterval(() => void result.refetch(), 60e3);
+    return () => window.clearInterval(timer);
+  }, [autoRefresh, data?.sharingEnabled, result.refetch]);
 
   useEffect(() => {
     const updatePinnedState = () => {
