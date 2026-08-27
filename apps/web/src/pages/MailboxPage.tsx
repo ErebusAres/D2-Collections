@@ -40,7 +40,7 @@ export function MailboxPage() {
         {character.items.length ? <div className={styles.itemGrid}>{character.items.map((item) => <MailboxItemCard key={item.instanceId || `${item.characterId}-${item.itemHash}`} item={item} busy={pull.isPending} onPull={(input) => pull.mutate(input)} />)}</div>
           : <div className={styles.empty}><PackageOpen /><strong>Postmaster clear</strong><span>No recovered items are waiting for this character.</span></div>}
       </section>)}
-      {pull.data?.data.pulled && <div className={styles.success}><ArchiveRestore /> Item pulled into the character's inventory.</div>}
+      {pull.data?.data.pulled && <div className={styles.success}><ArchiveRestore /> {pull.data.data.movedToVaultItemInstanceId ? "Made room in the character's inventory and pulled the item. The displaced item is in the Vault." : "Item pulled into the character's inventory."}</div>}
       {pull.error && <div className={styles.error}><AlertTriangle /> {pull.error.message}</div>}
     </>}
   </AuthGate>;
@@ -50,6 +50,6 @@ function MailboxItemCard({ item, busy, onPull }: { item: MailboxItem; busy: bool
   return <article className={`${styles.itemCard} ${!item.definitionAvailable ? styles.unavailable : ""}`}>
     <div className={styles.itemArt}>{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <span>Image unavailable</span>}{item.quantity > 1 && <b>×{item.quantity.toLocaleString()}</b>}</div>
     <main><span>{item.rarity} · {item.itemType}</span><h3>{item.name}</h3>{item.description && <p>{item.description}</p>}{!item.definitionAvailable && <em>Manifest definition unavailable</em>}</main>
-    <button disabled={busy || !item.canPull} title={item.canPull ? `Pull ${item.name} to this character` : item.unavailableReason} onClick={() => onPull({ itemInstanceId: item.instanceId, characterId: item.characterId, quantity: item.quantity })}><ArchiveRestore />{item.canPull ? "Pull item" : "Unavailable"}</button>
+    <button disabled={busy || !item.canPull} title={item.canPull ? item.needsSpace ? `Move one safe item to the Vault, then pull ${item.name}` : `Pull ${item.name} to this character` : item.unavailableReason} onClick={() => onPull({ itemInstanceId: item.instanceId, characterId: item.characterId, quantity: item.quantity })}><ArchiveRestore />{item.canPull ? item.needsSpace ? "Make room & pull" : "Pull item" : "Unavailable"}</button>
   </article>;
 }

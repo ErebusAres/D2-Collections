@@ -968,6 +968,7 @@ export interface MailboxItem {
   quantity: number;
   bucketHash: string;
   canPull: boolean;
+  needsSpace?: boolean;
   unavailableReason?: string;
   definitionAvailable: boolean;
 }
@@ -1030,6 +1031,7 @@ export interface MailboxPullResult {
   characterId: string;
   quantity: number;
   pulled: true;
+  movedToVaultItemInstanceId?: string;
 }
 
 export type RewardCodeAccountState = "reward-owned" | "not-owned" | "unavailable";

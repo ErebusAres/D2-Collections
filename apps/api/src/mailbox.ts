@@ -4,6 +4,31 @@ import { charactersFromProfile } from "./normalize";
 
 const POSTMASTER_BUCKET_HASH = "215593132";
 
+export function postmasterPullEligibility(item: any, definition: any): { canPull: boolean; needsSpace?: boolean; unavailableReason?: string } {
+  const instanceId = String(item?.itemInstanceId || "");
+  if (!/^\d+$/.test(instanceId) || instanceId === "0") return { canPull: false, unavailableReason: "Bungie did not provide a transferable item instance." };
+  if (definition?.allowActions === false) return { canPull: false, unavailableReason: "Bungie does not allow API actions for this item." };
+  if (definition?.doesPostmasterPullHaveSideEffects) return { canPull: false, unavailableReason: "Pulling this item may consume or replace rewards, so it must be collected in Destiny." };
+  const transferStatus = Number(item?.transferStatus || 0);
+  if (definition?.nonTransferrable || (transferStatus & 2) !== 0) return { canPull: false, unavailableReason: "Bungie has marked this item as non-transferable." };
+  if ((transferStatus & 1) !== 0) return { canPull: false, unavailableReason: "Bungie reports this item as equipped and will not transfer it." };
+  return { canPull: true, ...((transferStatus & 4) !== 0 ? { needsSpace: true } : {}) };
+}
+
+export function postmasterRoomCandidate(profile: any, characterId: string, destinationBucketHash: string): any | undefined {
+  const states = profile?.itemComponents?.state?.data || {};
+  const instances = profile?.itemComponents?.instances?.data || {};
+  return [...(profile?.characterInventories?.data?.[characterId]?.items || [])]
+    .filter((item: any) => String(item?.bucketHash || "") === destinationBucketHash && String(item?.bucketHash || "") !== POSTMASTER_BUCKET_HASH)
+    .filter((item: any) => /^\d+$/.test(String(item?.itemInstanceId || "")) && Number(item?.transferStatus || 0) === 0)
+    .filter((item: any) => {
+      const instanceId = String(item.itemInstanceId);
+      const state = Number(states[instanceId]?.state || 0);
+      return (state & 5) === 0 && !instances[instanceId]?.isCrafted;
+    })
+    .sort((left: any, right: any) => Number(instances[String(left.itemInstanceId)]?.primaryStat?.value || 0) - Number(instances[String(right.itemInstanceId)]?.primaryStat?.value || 0))[0];
+}
+
 export function postmasterItemsForCharacter(profile: any, characterId: string): any[] {
   return (profile?.characterInventories?.data?.[characterId]?.items || [])
     .filter((item: any) => String(item?.bucketHash || "") === POSTMASTER_BUCKET_HASH);
@@ -20,8 +45,7 @@ export function normalizeMailbox(profile: any, manifest: CompanionManifest): Mai
       const definition = manifest.itemDefinitions[itemHash] as any;
       const properties = definition?.displayProperties || {};
       const definitionAvailable = Boolean(properties.name);
-      const transferStatus = Number(item?.transferStatus || 0);
-      const canPull = /^\d+$/.test(instanceId) && transferStatus === 0;
+      const eligibility = postmasterPullEligibility(item, definition);
       return {
         instanceId,
         itemHash,
@@ -33,8 +57,7 @@ export function normalizeMailbox(profile: any, manifest: CompanionManifest): Mai
         rarity: String(definition?.inventory?.tierTypeName || "Rarity unavailable"),
         quantity: Math.max(1, Number(item?.quantity || 1)),
         bucketHash: String(item?.bucketHash || ""),
-        canPull,
-        ...(!canPull ? { unavailableReason: instanceId ? "Bungie has marked this item as non-transferable." : "Bungie did not provide an item instance ID." } : {}),
+        ...eligibility,
         definitionAvailable
       };
     });

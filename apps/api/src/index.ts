@@ -54,7 +54,7 @@ import { planLootWatchers } from "./lootWatchers";
 import { LOOT_WATCHER_LEASE_MS, LOOT_WATCHER_MAX_RUNS_PER_CRON, lootWatcherRetryAt, nextLootWatcherRunAt } from "./lootWatcherSchedule";
 import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
-import { normalizeMailbox, postmasterItemsForCharacter } from "./mailbox";
+import { normalizeMailbox, postmasterItemsForCharacter, postmasterPullEligibility, postmasterRoomCandidate } from "./mailbox";
 import { normalizeLoadouts } from "./loadouts";
 import { normalizeRewardCodeStatus, pendingRewardCodeStatus } from "./rewardCodes";
 import { buildsRoute, publishedBuildsForAdvisor } from "./builds";
@@ -1447,7 +1447,18 @@ async function pullMailboxItem(request: Request, row: SessionRow, env: Env, cont
   if (!item) throw httpError(404, "postmaster_item_missing", "That item is no longer in this character's Postmaster.");
   const availableQuantity = Math.max(1, Number(item?.quantity || 1));
   if (input.quantity > availableQuantity) throw httpError(409, "postmaster_quantity_changed", `Only ${availableQuantity} of that item remains in the Postmaster.`);
-  if (Number(item?.transferStatus || 0) !== 0) throw httpError(409, "postmaster_item_not_transferable", "Bungie has marked that Postmaster item as non-transferable.");
+  const manifest = await loadCompanionManifestForHashes(env, [String(item.itemHash || "")]);
+  const definition = manifest.itemDefinitions[String(item.itemHash || "")] as any;
+  const eligibility = postmasterPullEligibility(item, definition);
+  if (!eligibility.canPull) throw httpError(409, "postmaster_item_not_transferable", eligibility.unavailableReason || "That Postmaster item cannot be pulled through the API.");
+  let movedToVaultItemInstanceId: string | undefined;
+  if (eligibility.needsSpace) {
+    const destinationBucketHash = String(definition?.inventory?.bucketTypeHash || "");
+    const roomCandidate = destinationBucketHash ? postmasterRoomCandidate(profile, input.characterId, destinationBucketHash) : undefined;
+    if (!roomCandidate) throw httpError(409, "postmaster_destination_full", "That inventory slot is full and no safe unlocked item can be moved to the Vault automatically.");
+    movedToVaultItemInstanceId = String(roomCandidate.itemInstanceId);
+    await transfer({ itemHash: String(roomCandidate.itemHash || ""), instanceId: movedToVaultItemInstanceId }, true, input.characterId, row, env, accessToken);
+  }
   await bungiePost("/Destiny2/Actions/Items/PullFromPostmaster/", {
     itemReferenceHash: Number(item.itemHash),
     stackSize: input.quantity,
@@ -1455,7 +1466,7 @@ async function pullMailboxItem(request: Request, row: SessionRow, env: Env, cont
     characterId: input.characterId,
     membershipType: row.membership_type
   }, env, accessToken);
-  return envelope<MailboxPullResult>({ itemInstanceId: input.itemInstanceId, characterId: input.characterId, quantity: input.quantity, pulled: true }, env, context);
+  return envelope<MailboxPullResult>({ itemInstanceId: input.itemInstanceId, characterId: input.characterId, quantity: input.quantity, pulled: true, ...(movedToVaultItemInstanceId ? { movedToVaultItemInstanceId } : {}) }, env, context);
 }
 
 async function loadouts(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {

@@ -478,7 +478,7 @@ export function profileComponentsFor(mode: ProfileMode): string {
         : mode === "loot-watcher"
           ? "100,102,200,201,205,300,304,305,307,310"
     : mode === "mailbox"
-      ? "100,200,201"
+      ? "100,102,200,201,300,305"
         : mode === "loadouts"
           ? "100,102,200,201,205,206,305"
         : mode === "build-advisor"
