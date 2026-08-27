@@ -54,7 +54,7 @@ describe("Fireteam tracked items", () => {
     expect(screen.getAllByText(/Bungie marks party/)).toHaveLength(1);
   });
 
-  it("refreshes the saved roster every minute without polling Recent Loot", async () => {
+  it("leaves roster polling to the route", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     guardianSettings.autoRefresh = true;
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
@@ -63,7 +63,7 @@ describe("Fireteam tracked items", () => {
     const primaryCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam?characterId=")).length;
     expect(primaryCalls()).toBe(1);
     await act(async () => { vi.advanceTimersByTime(60_000); });
-    expect(primaryCalls()).toBe(2);
+    expect(primaryCalls()).toBe(1);
   });
 
   it("refreshes the activity feed independently every minute", async () => {
