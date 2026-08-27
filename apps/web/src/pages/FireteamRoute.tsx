@@ -54,12 +54,6 @@ function FireteamRefreshCountdown() {
   }, []);
 
   useEffect(() => {
-    if (!autoRefresh || !data?.sharingEnabled) return;
-    const timer = window.setInterval(() => void result.refetch(), 60e3);
-    return () => window.clearInterval(timer);
-  }, [autoRefresh, data?.sharingEnabled, result.refetch]);
-
-  useEffect(() => {
     const updatePinnedState = () => {
       const rail = timerRail.current;
       if (!rail || window.innerWidth <= 1_200) {

@@ -70,6 +70,11 @@ export function FireteamPage() {
     };
   }, []);
   const data = result.data?.data;
+  useEffect(() => {
+    if (!autoRefresh || !data?.sharingEnabled) return;
+    const timer = window.setInterval(() => void result.refetch(), 60e3);
+    return () => window.clearInterval(timer);
+  }, [autoRefresh, data?.sharingEnabled, result.refetch]);
   const membershipId = session?.guardian?.membershipId || "";
   const storageKey = membershipId && selectedCharacterId ? pinsKey(membershipId, selectedCharacterId) : "";
   const [pinnedIds, setPinnedIds] = useState<string[]>(() => readPinnedIds(storageKey));
