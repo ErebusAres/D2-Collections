@@ -10,7 +10,7 @@ export function useFireteamQuery(membershipId: string, characterId: string, enab
     queryFn: () => api<FireteamData>(`/api/v2/fireteam?characterId=${encodeURIComponent(characterId)}`),
     enabled: Boolean(enabled && characterId),
     staleTime: 60e3,
-    refetchInterval: (query) => autoRefresh && query.state.data?.data.sharingEnabled ? 60e3 : false,
+    refetchInterval: (query) => autoRefresh && query.state.data?.data.sharingEnabled && 60e3,
     refetchIntervalInBackground: false,
     refetchOnMount: true,
     refetchOnWindowFocus: false
