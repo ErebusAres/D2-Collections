@@ -8,7 +8,7 @@ export function useFireteamQuery(membershipId: string, characterId: string, enab
   return useQuery({
     queryKey: fireteamQueryKey(membershipId, characterId),
     queryFn: () => api<FireteamData>(`/api/v2/fireteam?characterId=${encodeURIComponent(characterId)}`),
-    enabled: Boolean(enabled && characterId),
+    enabled: !!(enabled && characterId),
     staleTime: 60e3,
     refetchInterval: (query) => autoRefresh && query.state.data?.data.sharingEnabled && 60e3,
     refetchOnWindowFocus: false
