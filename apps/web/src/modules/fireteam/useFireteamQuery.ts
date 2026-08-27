@@ -11,8 +11,6 @@ export function useFireteamQuery(membershipId: string, characterId: string, enab
     enabled: Boolean(enabled && characterId),
     staleTime: 60e3,
     refetchInterval: (query) => autoRefresh && query.state.data?.data.sharingEnabled && 60e3,
-    refetchIntervalInBackground: false,
-    refetchOnMount: true,
     refetchOnWindowFocus: false
   });
 }
