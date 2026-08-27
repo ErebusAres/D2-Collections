@@ -13,7 +13,6 @@ import { api } from "../services/api/client";
 import { FireteamPage } from "./FireteamPage";
 import styles from "./Pages.module.css";
 
-const SNAPSHOT_READ_RETRY_MS = 60_000;
 const EMPTY_QUESTS: QuestProgress[] = [];
 
 export function FireteamRoute() {
@@ -42,9 +41,9 @@ function FireteamRefreshCountdown() {
     [allOrders]
   );
   const [now, setNow] = useState(() => Date.now());
-  const [refreshing, setRefreshing] = useState(false);
   const [timerPinned, setTimerPinned] = useState(false);
   const timerRail = useRef<HTMLElement | null>(null);
+  const previousSnapshotVersion = useRef<number | undefined>(undefined);
   const completionState = useRef<Map<string, boolean> | null>(null);
   const completionContext = useRef("");
   const { notice: completionNotice, announce: announceCompletion, dismiss: dismissCompletion, clear: clearCompletions } = useCompletionPings();
@@ -53,6 +52,12 @@ function FireteamRefreshCountdown() {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!autoRefresh || !data?.sharingEnabled) return;
+    const timer = window.setInterval(() => void result.refetch(), 60e3);
+    return () => window.clearInterval(timer);
+  }, [autoRefresh, data?.sharingEnabled, result.refetch]);
 
   useEffect(() => {
     const updatePinnedState = () => {
@@ -93,44 +98,16 @@ function FireteamRefreshCountdown() {
   }, [allOrders, announceCompletion, clearCompletions, membershipId, selectedCharacterId]);
 
   useEffect(() => {
-    if (!autoRefresh || !session?.authenticated || !selectedCharacterId || !data?.sharingEnabled) {
-      setRefreshing(false);
-      return;
-    }
-    if (result.isLoading || !result.data) return;
-    const previousVersion = Number(data?.snapshotVersion || 0);
-    const committedDueMs = Date.parse(data?.pageRefreshDueAt || "");
-    const retryMs = Date.parse(data?.refreshRetryAt || "");
-    const dueMs = data?.refreshState === "delayed" && Number.isFinite(retryMs) ? retryMs : committedDueMs;
-    const waitingForFirstSnapshot = previousVersion <= 0 || !Number.isFinite(dueMs);
-    let stopped = false;
-    let timer = 0;
-    const readCommittedSnapshot = async () => {
-      setRefreshing(true);
-      try {
-        const response = await result.refetch();
-        const nextVersion = Number(response.data?.data.snapshotVersion || 0);
-        if (nextVersion > previousVersion) {
-          await Promise.allSettled([
-            queryClient.refetchQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId], exact: true, type: "active" }),
-            queryClient.refetchQueries({ queryKey: ["fireteam-activity", membershipId, selectedCharacterId], exact: true, type: "active" }),
-            queryClient.refetchQueries({ queryKey: ["quests", selectedCharacterId, ""], exact: true, type: "active" })
-          ]);
-          if (!stopped) setRefreshing(false);
-          return;
-        }
-        if (stopped) return;
-      } catch { /* Keep the last committed Fireteam snapshot visible. */ }
-      if (!stopped) timer = window.setTimeout(() => void readCommittedSnapshot(), SNAPSHOT_READ_RETRY_MS);
-    };
-    const delay = waitingForFirstSnapshot ? 0 : Math.max(0, dueMs - Date.now());
-    setRefreshing(delay === 0);
-    timer = window.setTimeout(() => void readCommittedSnapshot(), delay);
-    return () => {
-      stopped = true;
-      window.clearTimeout(timer);
-    };
-  }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.sharingEnabled, data?.snapshotVersion, membershipId, queryClient, result.isLoading, result.refetch, selectedCharacterId, session?.authenticated]);
+    const nextVersion = Number(data?.snapshotVersion || 0);
+    const previousVersion = previousSnapshotVersion.current;
+    previousSnapshotVersion.current = nextVersion;
+    if (previousVersion === undefined || nextVersion <= previousVersion) return;
+    void Promise.allSettled([
+      queryClient.refetchQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId], exact: true, type: "active" }),
+      queryClient.refetchQueries({ queryKey: ["fireteam-activity", membershipId, selectedCharacterId], exact: true, type: "active" }),
+      queryClient.refetchQueries({ queryKey: ["quests", selectedCharacterId, ""], exact: true, type: "active" })
+    ]);
+  }, [data?.snapshotVersion, membershipId, queryClient, selectedCharacterId]);
 
   const label = useMemo(() => {
     if (!autoRefresh) return "Fireteam refresh off";
@@ -143,13 +120,14 @@ function FireteamRefreshCountdown() {
       return `Fireteam retry in ${Math.floor(retrySeconds / 60)}:${String(retrySeconds % 60).padStart(2, "0")}`;
     }
     if (data?.refreshState === "delayed") return "Fireteam refresh delayed";
-    if (refreshing || data?.refreshState === "refreshing") return "Refreshing Fireteam";
+    if (data?.refreshState === "refreshing") return "Refreshing Fireteam";
     const dueMs = Date.parse(data?.pageRefreshDueAt || "");
     if (!Number.isFinite(dueMs)) return "Preparing Fireteam";
+    if (dueMs <= now) return "Refreshing Fireteam";
     const remainingMs = Math.min(LIVE_REFRESH_INTERVAL_MS, dueMs - now);
     const seconds = Math.max(0, Math.ceil(remainingMs / 1_000));
     return `Fireteam refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-  }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.sharingEnabled, data?.snapshotVersion, now, refreshing, selectedCharacterId, session?.authenticated]);
+  }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.sharingEnabled, data?.snapshotVersion, now, selectedCharacterId, session?.authenticated]);
 
   return <><CompletionPing notice={completionNotice} onDismiss={dismissCompletion} /><aside ref={timerRail} className={styles.fireteamRefreshRail}>
     <div className={`${styles.fireteamRefreshDock} ${timerPinned ? styles.fireteamRefreshDockPinned : ""}`}>

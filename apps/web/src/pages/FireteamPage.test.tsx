@@ -54,7 +54,7 @@ describe("Fireteam tracked items", () => {
     expect(screen.getAllByText(/Bungie marks party/)).toHaveLength(1);
   });
 
-  it("leaves five-minute refresh scheduling to the route coordinator", async () => {
+  it("leaves roster polling to the route", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     guardianSettings.autoRefresh = true;
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
@@ -62,7 +62,7 @@ describe("Fireteam tracked items", () => {
     await screen.findByText("Shared tracked items");
     const primaryCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam?characterId=")).length;
     expect(primaryCalls()).toBe(1);
-    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
+    await act(async () => { vi.advanceTimersByTime(60_000); });
     expect(primaryCalls()).toBe(1);
   });
 

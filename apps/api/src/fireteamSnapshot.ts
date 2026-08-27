@@ -10,6 +10,8 @@ export const FIRETEAM_RETRY_MS = 60_000;
 // normal multi-member Fireteam on the advertised five-minute cadence.
 export const FIRETEAM_MAX_REFRESHES_PER_CRON = 8;
 export const FIRETEAM_SOURCE_MAX_AGE_MS = 2 * 60_000;
+export const FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS = 60_000;
+export const FIRETEAM_PRESENCE_GRACE_MS = 10 * 60_000;
 
 export type FireteamRefreshState = "waiting" | "current" | "refreshing" | "delayed";
 
@@ -30,6 +32,16 @@ export function fireteamSnapshotUsable(
   return Number.isFinite(committedMs)
     && committedMs <= now
     && now - committedMs <= intervalMs + graceMs;
+}
+
+export function fireteamPresenceRefreshDue(refreshedAt: string | undefined, now = Date.now()): boolean {
+  const refreshedMs = Date.parse(refreshedAt || "");
+  return !Number.isFinite(refreshedMs) || refreshedMs <= now - FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS;
+}
+
+export function fireteamPresenceUsable(refreshedAt: string | undefined, now = Date.now()): boolean {
+  const refreshedMs = Date.parse(refreshedAt || "");
+  return Number.isFinite(refreshedMs) && refreshedMs <= now && now - refreshedMs <= FIRETEAM_PRESENCE_GRACE_MS;
 }
 
 export function fireteamRefreshState(input: {
