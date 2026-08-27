@@ -2,11 +2,9 @@ import type { FireteamData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../services/api/client";
 
-export const fireteamQueryKey = (membershipId: string, characterId: string) => ["fireteam", membershipId, characterId] as const;
-
 export function useFireteamQuery(membershipId: string, characterId: string, enabled: boolean) {
   return useQuery({
-    queryKey: fireteamQueryKey(membershipId, characterId),
+    queryKey: ["fireteam", membershipId, characterId],
     queryFn: () => api<FireteamData>(`/api/v2/fireteam?characterId=${encodeURIComponent(characterId)}`),
     enabled: Boolean(enabled && characterId),
     staleTime: 60e3,
