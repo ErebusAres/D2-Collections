@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { JourneyNav } from "../components/journey/JourneyNav";
 import { useGuardian } from "../context/GuardianContext";
-import guide from "../data/onboarding-guide.v1.json";
+import guide from "../assets/data/onboarding-guide.v1.json";
 import { api } from "../services/api/client";
 import styles from "./ActivityHistoryPage.module.css";
 

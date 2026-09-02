@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "rea
 import { AuthGate, PageHeader } from "../components/common/Page";
 import { JourneyNav } from "../components/journey/JourneyNav";
 import { useGuardian } from "../context/GuardianContext";
-import templates from "../data/challenge-templates.v1.json";
+import templates from "../assets/data/challenge-templates.v1.json";
 import { challengeScore, challengeToProject, importChallenge, parseChallenges, portableChallenge } from "../modules/challenges/challenges";
 import { parseProjects } from "../modules/projects/projects";
 import styles from "./ChallengesPage.module.css";

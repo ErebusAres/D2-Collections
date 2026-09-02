@@ -28,6 +28,33 @@ not contain page behavior, and `main.tsx` must only bootstrap the application.
 If a planned change conflicts with this rule, stop that change, return to this
 document, and restructure the work before editing more code.
 
+## Verified ProdTracker reference
+
+The `FearsRedemption/ProdTracker` `main` tree was re-read directly before the
+external-tree migration began. Its application source is organized as:
+
+```text
+src/
+├── App.tsx
+├── main.tsx
+├── assets/
+├── components/
+├── context/
+├── pages/
+├── theme/
+└── styles.css
+```
+
+Its internal composition is also verified directly: `main.tsx` installs the
+provider and renders `App`; `App.tsx` composes `AppHeader` and
+`ProductSearchPage`; `ProductSearchPage` composes `SearchComponent`; and the
+focused components own their own markup.
+
+Guardian Nexus is larger and may use product-area subdirectories, `services/`,
+and a shared `styles/` directory where their ownership is real. Those additions
+must extend the ProdTracker structure rather than replacing its clear
+application → page → section → component direction.
+
 ## File-tree rules
 
 The web application must continue converging on the same externally visible
@@ -38,6 +65,7 @@ apps/web/src/
 ├── App.tsx
 ├── main.tsx
 ├── assets/
+│   └── data/
 ├── components/
 │   ├── common/
 │   └── <product-area>/
@@ -49,11 +77,16 @@ apps/web/src/
 ```
 
 - `components/` contains focused reusable UI containers and controls.
+- `assets/` contains source-controlled static inputs imported by the
+  application. Static JSON must not live in a competing top-level `data/`
+  directory.
 - `pages/` contains route-level composition only.
 - `context/` contains genuinely application-wide React state.
 - `services/` contains external communication and browser infrastructure, not UI.
 - `styles/` and `theme/` contain shared visual foundations; component-specific
   styles belong beside the component that owns them.
+- `theme/` owns the application-wide theme entry and design tokens. `styles/`
+  remains for genuinely shared behavioral or accessibility styles only.
 - Use `components/<product-area>/` when multiple components share a clear product
   genre and the subdirectory makes the tree easier to scan and understand. For
   example, Fireteam presentation belongs in `components/fireteam/` and build
@@ -110,6 +143,55 @@ Before continuing work:
    next bounded section in the same commit as the code.
 7. Commit and push the section before beginning another one. Do not open or merge
    into `main` until the full migration is complete and verified.
+
+## Current section: external foundation directories — complete
+
+The earlier Fireteam checkpoints correctly improved internal component
+composition, but they did not create a new directory because
+`components/fireteam/` already existed on `main`. They must not be treated as
+completed external-tree migration.
+
+Goal: begin the visible ProdTracker-style source-tree migration with ownership
+that is unambiguous.
+
+Planned moves:
+
+- `data/challenge-templates.v1.json` →
+  `assets/data/challenge-templates.v1.json`
+- `data/onboarding-guide.v1.json` →
+  `assets/data/onboarding-guide.v1.json`
+- `styles/theme.css` → `theme/guardianNexusTheme.css`
+
+The old top-level `data/` directory will disappear after its two static assets
+move. The shared `styles/` directory remains because it still owns accessibility
+and dynamically loaded notification styles. No runtime content, schema, styling,
+or import behavior may change in this section.
+
+Implemented:
+
+- Re-read the actual `ProdTracker` source tree and component chain before making
+  this structural change.
+- Created the visible `assets/data/` and `theme/` ownership boundaries in the web
+  source tree.
+- Moved both imported static JSON files from the competing top-level `data/`
+  directory into `assets/data/` with byte-for-byte identical contents.
+- Moved the global theme entry from `styles/theme.css` to the explicit
+  `theme/guardianNexusTheme.css` path with byte-for-byte identical contents.
+- Updated only the three imports required by those moves. The old `src/data/`
+  directory is now empty and therefore removed from the Git tree.
+- Retained `styles/accessibility.css`, `styles/guardian-fanfare.css`, and
+  `styles/loadStylesheet.ts` because they still have genuinely shared ownership.
+
+Validation completed for this section:
+
+- Direct byte comparisons against the pre-move files passed for all three
+  renames; Git recognizes each move as a 100% rename.
+- Focused Activity History and Challenges page tests passed: 2 files and 2 tests.
+- Complete web test suite passed: 89 files and 331 tests.
+- Workspace lint and every workspace TypeScript check passed, including the web
+  application and Pages Functions.
+- Frontend source-boundary, CSS-module-usage, and staged diff checks passed.
+- Web production build and performance budget passed at 114,990 bytes gzip.
 
 ## Current section: Fireteam tracked-item presentation — complete
 
@@ -311,16 +393,21 @@ Validation completed for this section:
 - Completed the Fireteam member-card presentation extraction.
 - Completed the Fireteam sharing-header presentation extraction.
 - Completed the Fireteam Recent Loot presentation extraction.
+- Completed the external foundation directory migration for static source data
+  and the application theme.
 
 ## Future sections
 
-- Next bounded section: add a `FireteamRoster` container under
-  `components/fireteam/` that composes the extracted `FireteamMemberCard`
-  components. Keep the page as owner of member data, leader permissions,
-  tracked-item preferences, and mutation callbacks.
+- Next bounded section: restore correct dependency direction by moving only the
+  Fireteam-owned selectors used by the extracted Fireteam components out of
+  `pages/Pages.module.css` and beside their owning components under
+  `components/fireteam/`. A small component must not import a page stylesheet.
+- After Fireteam style ownership is corrected, add a `FireteamRoster` container
+  under `components/fireteam/` that composes the extracted
+  `FireteamMemberCard` components. Keep the page as owner of member data, leader
+  permissions, tracked-item preferences, and mutation callbacks.
 - Move Fireteam query/mutation orchestration into clearly named service-facing
   hooks while keeping the page as the composition layer.
-- Move Fireteam component styles out of the shared `Pages.module.css` file.
 - Apply the same page/component separation to Build Advisor, Collection, Gear,
   and other oversized route files.
 - Reduce `Shell.tsx` to application-shell composition.
