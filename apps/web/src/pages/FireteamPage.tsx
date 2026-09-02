@@ -1,21 +1,19 @@
-import type { FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
+import type { FireteamData, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, AlertTriangle, Crown, EyeOff, Link2, MessageSquare, Repeat2, Share2, Timer, UserMinus, Users } from "lucide-react";
+import { AlertTriangle, Repeat2, Share2, Timer } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
-import { FireteamTrackedItem as FireteamTrackedItemComponent } from "../components/fireteam/FireteamTrackedItem";
+import { FireteamMemberCard } from "../components/fireteam/FireteamMemberCard";
 import {
-  fireteamCompletionEventKey,
-  fireteamMemberPresenceLocation,
   fireteamTrackedItemKey,
+  FIRETEAM_TRACKED_ITEM_EXIT_MS,
   legacyQuestToFireteamTrackedItem,
-  orderedFireteamTrackedItemKeys,
-  orderFireteamTrackedItems
+  orderedFireteamTrackedItemKeys
 } from "../components/fireteam/fireteamTrackedItems";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
-import { playCompletionChime, primeCompletionAudio } from "../services/completionAudio";
+import { primeCompletionAudio } from "../services/completionAudio";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
 
@@ -38,7 +36,6 @@ interface ShareVariables {
   untrackingKey?: string;
 }
 
-const TRACKED_ITEM_EXIT_MS = 1_600;
 const LOOT_WATCHER_PREFERENCES: Record<keyof LootWatcherConfig, UserPreferenceKey> = {
   farmingMode: "fireteam.watcher.farming.v1",
   highestPowerLock: "fireteam.watcher.highestPower.v1",
@@ -257,7 +254,7 @@ export function FireteamPage() {
         hiddenTrackedItemKeys: hiddenKeys,
         untrackingKey: key
       }, { onSettled: () => setManualRemovingKey((current) => current === key ? "" : current) });
-    }, TRACKED_ITEM_EXIT_MS);
+    }, FIRETEAM_TRACKED_ITEM_EXIT_MS);
   };
 
   return <AuthGate>
@@ -278,170 +275,29 @@ export function FireteamPage() {
     {(gearState.error || gearAction.error) && <div className={styles.gearError}>{(gearState.error || gearAction.error)?.message}</div>}
     </div>
     {data && <>
-      <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
+      <section className={styles.fireteamGrid}>
+        {data.members.map((member) => (
+          <FireteamMemberCard
+            key={member.membershipId}
+            member={member}
+            canManageMember={Boolean(self?.isLeader && !member.isSelf)}
+            copiedCommand={copied}
+            onCopyCommand={copyCommand}
+            onUntrackItem={member.isSelf ? untrackItem : undefined}
+            trackedItemOrder={member.isSelf ? trackedItemOrder : undefined}
+            onReorderTrackedItem={member.isSelf ? reorderTrackedItems : undefined}
+            untrackingItemKey={member.isSelf
+              ? manualRemovingKey || (share.isPending
+                ? share.variables?.untrackingKey
+                : undefined)
+              : undefined}
+          />
+        ))}
+      </section>
     </>}
     {session?.authenticated && <FireteamActivityFeed feed={visibleActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : activityFeed.error instanceof Error ? activityFeed.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
     {data && <footer className={styles.fireteamDataNote}><AlertTriangle /><span>{BUNGIE_PRESENCE_DISCLAIMER}</span></footer>}
   </AuthGate>;
-}
-
-function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, onReorder, untrackingKey }: { member: FireteamMember; canManage: boolean; copied: string; onCopy: (label: string, command: string) => Promise<void>; onUntrack?: (item: FireteamTrackedItem) => void; itemOrder?: string[]; onReorder?: (sourceKey: string, targetKey: string) => void; untrackingKey?: string }) {
-  const activity = fireteamMemberPresenceLocation(member);
-  const trackedItems = Array.isArray(member.trackedItems) ? member.trackedItems : member.quests.map(legacyQuestToFireteamTrackedItem);
-  const trackedItemKeys = trackedItems.map(fireteamTrackedItemKey);
-  const trackedItemSignature = [...trackedItemKeys].sort().join("|");
-  const previousTrackedItemKeys = useRef<Set<string> | null>(null);
-  const previousTrackedItems = useRef<Map<string, FireteamTrackedItem>>(new Map());
-  const entryTimers = useRef<Map<string, number>>(new Map());
-  const removalTimers = useRef<Map<string, number>>(new Map());
-  const [enteringKeys, setEnteringKeys] = useState<Set<string>>(() => new Set());
-  const [removedItems, setRemovedItems] = useState<Map<string, FireteamTrackedItem>>(() => new Map());
-  const completedKeys = new Set((member.recentlyCompletedItems || []).map(fireteamTrackedItemKey));
-  useEffect(() => {
-    const currentKeys = new Set(trackedItemKeys);
-    const previousKeys = previousTrackedItemKeys.current;
-    previousTrackedItemKeys.current = currentKeys;
-    const currentItems = new Map(trackedItems.map((item) => [fireteamTrackedItemKey(item), item]));
-    const priorItems = previousTrackedItems.current;
-    previousTrackedItems.current = currentItems;
-    if (!previousKeys) return;
-
-    const addedKeys = [...currentKeys].filter((key) => !previousKeys.has(key));
-    if (addedKeys.length) setEnteringKeys((current) => new Set([...current, ...addedKeys]));
-    for (const key of addedKeys) {
-      const existingTimer = entryTimers.current.get(key);
-      if (existingTimer) window.clearTimeout(existingTimer);
-      const timer = window.setTimeout(() => {
-        setEnteringKeys((current) => {
-          const next = new Set(current);
-          next.delete(key);
-          return next;
-        });
-        entryTimers.current.delete(key);
-      }, 1_400);
-      entryTimers.current.set(key, timer);
-    }
-    const removed = [...previousKeys]
-      .filter((key) => !currentKeys.has(key) && !completedKeys.has(key))
-      .map((key) => [key, priorItems.get(key)] as const)
-      .filter((entry): entry is readonly [string, FireteamTrackedItem] => Boolean(entry[1]));
-    if (removed.length) {
-      setRemovedItems((current) => new Map([...current, ...removed]));
-      for (const [key] of removed) {
-        const existingTimer = removalTimers.current.get(key);
-        if (existingTimer) window.clearTimeout(existingTimer);
-        const timer = window.setTimeout(() => {
-          setRemovedItems((current) => {
-            const next = new Map(current);
-            next.delete(key);
-            return next;
-          });
-          removalTimers.current.delete(key);
-        }, TRACKED_ITEM_EXIT_MS);
-        removalTimers.current.set(key, timer);
-      }
-    }
-  }, [trackedItemSignature, member.recentlyCompletedItems]);
-  useEffect(() => () => {
-    for (const timer of entryTimers.current.values()) window.clearTimeout(timer);
-    entryTimers.current.clear();
-    for (const timer of removalTimers.current.values()) window.clearTimeout(timer);
-    removalTimers.current.clear();
-  }, []);
-  const recentlyCompletedItems = member.recentlyCompletedItems || [];
-  const completedItemKeys = new Set(recentlyCompletedItems.map(fireteamTrackedItemKey));
-  const completedItemSignature = [...completedItemKeys].sort().join("|");
-  useEffect(() => {
-    if (!completedItemKeys.size) return;
-    setRemovedItems((current) => {
-      const next = new Map(current);
-      let changed = false;
-      for (const key of completedItemKeys) {
-        if (next.delete(key)) changed = true;
-        const timer = removalTimers.current.get(key);
-        if (timer) {
-          window.clearTimeout(timer);
-          removalTimers.current.delete(key);
-        }
-      }
-      return changed ? next : current;
-    });
-  }, [completedItemSignature]);
-  const [dismissedCompletions, setDismissedCompletions] = useState<Set<string>>(() => readDismissedCompletionEvents(member.membershipId));
-  const visibleCompletions = recentlyCompletedItems.filter((item) => !dismissedCompletions.has(fireteamCompletionEventKey(item)));
-  const visibleCompletionKeys = visibleCompletions.map(fireteamCompletionEventKey).join("|");
-  useEffect(() => {
-    if (!visibleCompletionKeys) return;
-    const keys = visibleCompletionKeys.split("|");
-    playCompletionChime();
-    const timer = window.setTimeout(() => {
-      setDismissedCompletions((current) => {
-        const next = new Set([...current, ...keys]);
-        writeDismissedCompletionEvents(member.membershipId, next);
-        return next;
-      });
-    }, 1_600);
-    return () => window.clearTimeout(timer);
-  }, [member.membershipId, visibleCompletionKeys]);
-  const completingKeys = new Set(visibleCompletions.map(fireteamTrackedItemKey));
-  const orderedTrackedItems = orderFireteamTrackedItems(trackedItems, itemOrder);
-  const visibleRemovedItems = [...removedItems.values()].filter((item) => !completedItemKeys.has(fireteamTrackedItemKey(item)));
-  const displayedItems = [...orderedTrackedItems.filter((item) => !completingKeys.has(fireteamTrackedItemKey(item))), ...visibleCompletions, ...visibleRemovedItems];
-  const activeItems = displayedItems.filter((item) => !("completedAt" in item) && !removedItems.has(fireteamTrackedItemKey(item)));
-  const [draggingKey, setDraggingKey] = useState("");
-  const [dragOverKey, setDragOverKey] = useState("");
-  const finishDrag = () => {
-    setDraggingKey("");
-    setDragOverKey("");
-  };
-  const onlineLabel = member.onlineState === "unknown" ? "" : ` / ${member.onlineState === "online" ? "Online" : "Offline"}`;
-  const syncLabel = member.syncState === "synced"
-    ? member.sharingMode === "persistent" ? "Auto synced" : "Synced"
-    : member.syncState === "delayed" ? "Sync delayed" : "Not synced";
-  const untrackingIsCompletion = Boolean(untrackingKey && completedItemKeys.has(untrackingKey));
-  const cardEvent = visibleCompletions.length ? "completed" : (!untrackingIsCompletion && untrackingKey) || visibleRemovedItems.length ? "removed" : enteringKeys.size ? "added" : "idle";
-  return <article className={`${styles.memberCard} ${member.isSelf ? styles.selfMember : ""} ${cardEvent === "completed" ? styles.memberCardCompleted : cardEvent === "removed" ? styles.memberCardRemoved : cardEvent === "added" ? styles.memberCardAdded : ""}`} data-tracking-event={cardEvent}>
-    <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>{member.isSelf ? `You · ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} · {syncLabel}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} · ${member.character.power} Power` : "Character details unavailable"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
-    <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
-    {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => {
-      const key = fireteamTrackedItemKey(item);
-      const transient = "completedAt" in item || removedItems.has(key);
-      const activeIndex = activeItems.findIndex((candidate) => fireteamTrackedItemKey(candidate) === key);
-      return <FireteamTrackedItemComponent key={key} trackedItem={item} isEntering={enteringKeys.has(key)} isCompleting={"completedAt" in item} onUntrack={onUntrack} isUntracking={untrackingKey === key || removedItems.has(key)} isReorderable={Boolean(onReorder && !transient)} isDragging={draggingKey === key} isDragTarget={dragOverKey === key && draggingKey !== key} onDragStart={() => setDraggingKey(key)} onDragOver={() => setDragOverKey(key)} onDrop={() => {
-        if (draggingKey && draggingKey !== key) onReorder?.(draggingKey, key);
-        finishDrag();
-      }} onDragEnd={finishDrag} onMove={(direction) => {
-        const target = activeItems[activeIndex + direction];
-        if (target) onReorder?.(key, fireteamTrackedItemKey(target));
-      }} onMoveToEdge={(edge) => {
-        const target = edge === "top" ? activeItems[0] : activeItems[activeItems.length - 1];
-        if (target && fireteamTrackedItemKey(target) !== key) onReorder?.(key, fireteamTrackedItemKey(target));
-      }} isFirst={activeIndex === 0} isLast={activeIndex === activeItems.length - 1} />;
-    }) : <p>{member.syncState === "delayed" ? "Updating shared progress…" : "Nothing is currently tracked."}</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked goals are private</strong><p>This Guardian has not shared their tracked goals.</p></div>}
-    {!member.isSelf && <div className={styles.memberCommands}><button onClick={() => void onCopy(`whisper-${member.membershipId}`, `/whisper ${member.inGameName} `)} title="Copies a Destiny 2 text-chat command"><MessageSquare size={13} />{copied === `whisper-${member.membershipId}` ? "Copied" : "Whisper"}</button>{canManage && <button className={styles.managementCommand} onClick={() => void onCopy(`kick-${member.membershipId}`, `/kick ${member.inGameName}`)} title="Copies a Destiny 2 text-chat command; Guardian Nexus cannot kick through the Bungie API"><UserMinus size={13} />{copied === `kick-${member.membershipId}` ? "Copied" : "Kick command"}</button>}</div>}
-    {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>You can work on this together:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
-  </article>;
-}
-
-function readDismissedCompletionEvents(membershipId: string): Set<string> {
-  try {
-    const parsed = JSON.parse(sessionStorage.getItem(completionDismissalStorageKey(membershipId)) || "[]");
-    return new Set(Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(-100) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function writeDismissedCompletionEvents(membershipId: string, values: ReadonlySet<string>): void {
-  try {
-    sessionStorage.setItem(completionDismissalStorageKey(membershipId), JSON.stringify([...values].slice(-100)));
-  } catch {
-    // The current card still dismisses the event when browser storage is unavailable.
-  }
-}
-
-function completionDismissalStorageKey(membershipId: string): string {
-  return `guardian-nexus:fireteam-completions:${membershipId}`;
 }
 
 function trackedPreference(value?: string): string[] {

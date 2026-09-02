@@ -140,17 +140,66 @@ Validation completed for this section:
   325 web tests, 7 Node tooling tests, 24 manifest tests, API/Web builds, and the
   production performance budget.
 
+## Current section: Fireteam member-card presentation — complete
+
+Goal: continue reducing `FireteamPage.tsx` to route-level composition by moving
+the complete member card into `components/fireteam/`. The component will own its
+local entry, removal, completion, drag, and dismissal presentation state. The
+page will continue to own queries, mutations, saved tracking preferences, and
+the callbacks that change shared Fireteam data.
+
+Planned files:
+
+- `components/fireteam/FireteamMemberCard.tsx`
+- `pages/FireteamPage.tsx`
+- `docs/ARCHITECTURE_REFACTOR.md`
+
+Behavior, storage keys, completion timing, copy commands, ordering callbacks,
+and Fireteam API behavior must remain unchanged. Existing page-level tests will
+continue acting as end-to-end component regression coverage for this extraction.
+
+Implemented:
+
+- Moved the complete member-card presentation from `FireteamPage.tsx` into the
+  focused `FireteamMemberCard` component under `components/fireteam/`.
+- Kept entry, removal, completion, drag, audio, and session-dismissal state inside
+  the card that presents those states.
+- Kept queries, mutations, saved tracked-item order, and data-changing callbacks
+  in `FireteamPage.tsx`, so the page remains the route-level composition owner.
+- Replaced abbreviated component properties with explicit names including
+  `canManageMember`, `copiedCommand`, `onCopyCommand`, `onUntrackItem`,
+  `trackedItemOrder`, `onReorderTrackedItem`, and `untrackingItemKey`.
+- Colocated the shared 1,600 ms tracked-item exit timing with the Fireteam
+  tracked-item helpers used by both the page mutation and member-card transition.
+- Reduced `FireteamPage.tsx` from 464 lines to 320 lines without changing the
+  Fireteam API, browser storage keys, completion timing, copy commands, or
+  user-visible behavior.
+
+Validation completed for this section:
+
+- Web test suite: 87 files and 325 tests passed.
+- Web TypeScript checks passed for the application and Pages Functions.
+- ESLint passed for every changed TypeScript file.
+- Frontend source-boundary and CSS-module-usage checks passed.
+- `git diff --check` passed.
+- The complete `pnpm run audit` workflow passed: archive and source boundaries,
+  CSS usage, linting, every workspace typecheck, 24 domain tests, 257 API tests,
+  325 web tests, 7 Node tooling tests, 24 manifest tests, API/Web builds, and the
+  production performance budget at 114,997 bytes gzip.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
 - Recorded the Plum Creek architecture as the mandatory refactor rule.
 - Completed the Fireteam tracked-item presentation extraction.
+- Completed the Fireteam member-card presentation extraction.
 
 ## Future sections
 
-- Next bounded section: extract the Fireteam member card from
-  `FireteamPage.tsx`, including its transition state, while keeping the page as
-  the owner of page-level query and mutation orchestration.
+- Next bounded section: extract the Fireteam sharing header and its sharing
+  controls into `components/fireteam/FireteamSharingHeader.tsx`. Keep mutations
+  and Fireteam data ownership in `FireteamPage.tsx`; pass explicit state and
+  callbacks into the presentation component.
 - Move Fireteam query/mutation orchestration into clearly named service-facing
   hooks while keeping the page as the composition layer.
 - Move Fireteam component styles out of the shared `Pages.module.css` file.

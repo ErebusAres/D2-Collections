@@ -4,6 +4,8 @@ import type {
   FireteamTrackedItem
 } from "@guardian-nexus/contracts";
 
+export const FIRETEAM_TRACKED_ITEM_EXIT_MS = 1_600;
+
 export function fireteamTrackedItemKey(
   trackedItem: Pick<FireteamTrackedItem, "kind" | "id">
 ): string {
