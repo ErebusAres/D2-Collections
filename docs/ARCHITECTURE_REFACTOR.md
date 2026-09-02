@@ -150,6 +150,57 @@ Validation completed for this section:
 - ESLint passed for every changed TypeScript file.
 - Frontend source-boundary and CSS-module-usage checks passed.
 - `git diff --check` passed.
+
+## Current section: Fireteam Recent Loot presentation — complete
+
+Goal: replace the embedded Recent Loot conditional in `FireteamPage.tsx` with a
+named Fireteam-level section container that composes the existing reusable
+`CompactRecentLootBar` and the hidden-state control.
+
+Planned files:
+
+- `components/fireteam/FireteamRecentLootSection.tsx`
+- `components/fireteam/FireteamRecentLootSection.test.tsx`
+- `pages/FireteamPage.tsx`
+- `docs/ARCHITECTURE_REFACTOR.md`
+
+The page will retain Recent Loot query ownership, gear and watcher mutations,
+selected-character context, and preference updates. The section will receive
+plain display state and explicit callbacks. Existing ordering, labels, warning
+and error behavior, hide/show preference values, gear action payloads, watcher
+behavior, and retry behavior must remain unchanged.
+
+Implemented:
+
+- Added `FireteamRecentLootSection` as the Fireteam-level container that composes
+  the existing gear-level `CompactRecentLootBar`, hidden-state control, and gear
+  action error presentation.
+- Replaced the page's compressed conditional JSX with a named component call and
+  explicit properties such as `recentLootEvents`, `onTagItem`, `onPullItem`,
+  `onChangeWeaponSocket`, `actionsPending`, and `watcherUpdatePending`.
+- Kept the Recent Loot query, selected-character IDs, tag/transfer/socket request
+  payloads, watcher mutation, and `fireteam.recentLoot.v1` preference writes in
+  `FireteamPage.tsx`.
+- Preserved the existing behavior where gear-action errors remain visible even
+  when the Recent Loot timeline is hidden.
+- Added focused coverage for hidden-state recovery, visible timeline composition,
+  and action-error presentation. Existing page tests continue to verify the
+  actual tag and transfer API payloads.
+- `FireteamPage.tsx` changed from 323 to 355 physical lines because the previous
+  one-line prop block is now expanded into human-readable named inputs; the page
+  no longer contains the section's presentation implementation.
+
+Validation completed for this section:
+
+- Web test suite: 89 files and 331 tests passed.
+- ESLint, all workspace TypeScript checks, archive boundaries, frontend source
+  boundaries, CSS-module usage, and `git diff --check` passed.
+- 24 domain tests, 257 API tests, 7 Node tooling tests, and 24 manifest tests
+  passed.
+- Contracts, domain, and Web builds passed. The Web production performance
+  budget passed at 114,990 bytes gzip. The unchanged Cloudflare API deployment
+  dry-run was omitted from this local-only validation after its external wrapper
+  was blocked during the prior section.
 - The first complete repository audit reached the production performance check
   and found the entry JavaScript gzip output 3 bytes over its 115,000-byte
   budget. The equivalent tracked-item ordering helper was simplified and the
@@ -259,13 +310,14 @@ Validation completed for this section:
 - Completed the Fireteam tracked-item presentation extraction.
 - Completed the Fireteam member-card presentation extraction.
 - Completed the Fireteam sharing-header presentation extraction.
+- Completed the Fireteam Recent Loot presentation extraction.
 
 ## Future sections
 
-- Next bounded section: add a `FireteamRecentLootSection` container under
-  `components/fireteam/` that composes the existing `CompactRecentLootBar` and
-  the hidden-state control. Keep gear, watcher, preference, and query mutations
-  in `FireteamPage.tsx` and pass explicit state and callbacks into the section.
+- Next bounded section: add a `FireteamRoster` container under
+  `components/fireteam/` that composes the extracted `FireteamMemberCard`
+  components. Keep the page as owner of member data, leader permissions,
+  tracked-item preferences, and mutation callbacks.
 - Move Fireteam query/mutation orchestration into clearly named service-facing
   hooks while keeping the page as the composition layer.
 - Move Fireteam component styles out of the shared `Pages.module.css` file.

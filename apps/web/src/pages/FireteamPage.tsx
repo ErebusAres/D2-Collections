@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, QueryState } from "../components/common/Page";
 import { FireteamMemberCard } from "../components/fireteam/FireteamMemberCard";
+import { FireteamRecentLootSection } from "../components/fireteam/FireteamRecentLootSection";
 import { FireteamSharingHeader } from "../components/fireteam/FireteamSharingHeader";
 import {
   fireteamTrackedItemKey,
@@ -18,7 +19,7 @@ import { primeCompletionAudio } from "../services/completionAudio";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
 
-import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
+import type { LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
 import { FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS, LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
@@ -274,8 +275,39 @@ export function FireteamPage() {
       onStopSharing={() => stop.mutate()}
     />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
-    {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} onPull={(item) => gearAction.mutate({ action: "transfer", itemInstanceId: item.instanceId, target: "character", targetCharacterId: selectedCharacterId })} onSocketChange={(item, socketIndex, plugItemHash) => gearAction.mutate({ action: "setWeaponSocket", itemInstanceId: item.instanceId, characterId: selectedCharacterId, socketIndex, plugItemHash })} busy={gearState.isPending || gearAction.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} watchers={lootWatchers} onWatcherChange={toggleLootWatcher} watcherBusy={watcherRun.isPending} watcherStatus={watcherStatus} /> : <section className={styles.fireteamLootControl}><div><strong>Recent Loot hidden</strong><small>Loot tracking stays active while this section is hidden.</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show Recent Loot</button></section>}
-    {(gearState.error || gearAction.error) && <div className={styles.gearError}>{(gearState.error || gearAction.error)?.message}</div>}
+    <FireteamRecentLootSection
+      isVisible={showRecentLoot}
+      recentLootEvents={recentItems.data?.data.events || []}
+      isLoading={recentItems.isLoading}
+      loadError={recentItems.error as Error | null}
+      warnings={recentItems.data?.warnings}
+      retentionDays={recentItems.data?.data.retentionDays}
+      observedAt={recentItems.data?.data.observedAt}
+      firstObservationEstablished={recentItems.data?.data.firstObservationEstablished}
+      onRetry={() => void recentItems.refetch()}
+      onTagItem={tagRecent}
+      onPullItem={(item) => gearAction.mutate({
+        action: "transfer",
+        itemInstanceId: item.instanceId,
+        target: "character",
+        targetCharacterId: selectedCharacterId
+      })}
+      onChangeWeaponSocket={(item, socketIndex, plugItemHash) => gearAction.mutate({
+        action: "setWeaponSocket",
+        itemInstanceId: item.instanceId,
+        characterId: selectedCharacterId,
+        socketIndex,
+        plugItemHash
+      })}
+      actionsPending={gearState.isPending || gearAction.isPending}
+      onHide={() => setPreference("fireteam.recentLoot.v1", "off")}
+      onShow={() => setPreference("fireteam.recentLoot.v1", "on")}
+      watchers={lootWatchers}
+      onWatcherChange={toggleLootWatcher}
+      watcherUpdatePending={watcherRun.isPending}
+      watcherStatus={watcherStatus}
+      actionError={gearState.error || gearAction.error}
+    />
     </div>
     {data && <>
       <section className={styles.fireteamGrid}>
