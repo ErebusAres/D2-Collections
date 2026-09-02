@@ -1,11 +1,12 @@
 import type { FireteamData, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Repeat2, Share2, Timer } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
-import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { AuthGate, QueryState } from "../components/common/Page";
 import { FireteamMemberCard } from "../components/fireteam/FireteamMemberCard";
+import { FireteamSharingHeader } from "../components/fireteam/FireteamSharingHeader";
 import {
   fireteamTrackedItemKey,
   FIRETEAM_TRACKED_ITEM_EXIT_MS,
@@ -259,17 +260,19 @@ export function FireteamPage() {
 
   return <AuthGate>
     <div className={styles.fireteamUpper}>
-    <PageHeader eyebrow="Your current team" title="Fireteam" description="See who is in your fireteam, the goals they share, and your recent loot. Updates automatically every five minutes." actions={<>
-      <Freshness observedAt={data?.pageUpdatedAt} label="Last updated" warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
-      {data && !data.sharingEnabled && <>
-        <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "temporary" })} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>
-        <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "persistent" })} disabled={share.isPending}><Repeat2 size={15} />Always share</button>
-      </>}
-      {data?.sharingEnabled && <>
-        {data.sharingMode === "temporary" && <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "persistent" })} disabled={share.isPending}><Repeat2 size={15} />Make automatic</button>}
-        <button className={`${styles.primaryAction} ${styles.sharing}`} onClick={() => stop.mutate()} disabled={stop.isPending}><Share2 size={15} />Stop sharing</button>
-      </>}
-    </>} />
+    <FireteamSharingHeader
+      lastUpdatedAt={data?.pageUpdatedAt}
+      statusWarning={result.data?.warnings.find(
+        (warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER
+      )}
+      sharingEnabled={data?.sharingEnabled}
+      sharingMode={data?.sharingMode}
+      sharingUpdatePending={share.isPending}
+      stopSharingPending={stop.isPending}
+      onShareTemporarily={() => share.mutate({ mode: "temporary" })}
+      onSharePersistently={() => share.mutate({ mode: "persistent" })}
+      onStopSharing={() => stop.mutate()}
+    />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {showRecentLoot ? <CompactRecentLootBar events={recentItems.data?.data.events || []} loading={recentItems.isLoading} error={recentItems.error as Error | null} warnings={recentItems.data?.warnings} retentionDays={recentItems.data?.data.retentionDays} observedAt={recentItems.data?.data.observedAt} firstObservationEstablished={recentItems.data?.data.firstObservationEstablished} onRetry={() => void recentItems.refetch()} onTag={tagRecent} onPull={(item) => gearAction.mutate({ action: "transfer", itemInstanceId: item.instanceId, target: "character", targetCharacterId: selectedCharacterId })} onSocketChange={(item, socketIndex, plugItemHash) => gearAction.mutate({ action: "setWeaponSocket", itemInstanceId: item.instanceId, characterId: selectedCharacterId, socketIndex, plugItemHash })} busy={gearState.isPending || gearAction.isPending} onHide={() => setPreference("fireteam.recentLoot.v1", "off")} watchers={lootWatchers} onWatcherChange={toggleLootWatcher} watcherBusy={watcherRun.isPending} watcherStatus={watcherStatus} /> : <section className={styles.fireteamLootControl}><div><strong>Recent Loot hidden</strong><small>Loot tracking stays active while this section is hidden.</small></div><button onClick={() => setPreference("fireteam.recentLoot.v1", "on")}>Show Recent Loot</button></section>}
     {(gearState.error || gearAction.error) && <div className={styles.gearError}>{(gearState.error || gearAction.error)?.message}</div>}

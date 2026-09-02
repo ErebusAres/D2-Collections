@@ -92,6 +92,25 @@ communication, and persistence live in smaller files with one clear purpose.
 6. Commit and push the completed section before beginning another section.
 7. Do not merge this branch into `main` until the complete migration is verified.
 
+## Cold-start handoff
+
+This file must be committed and pushed with every bounded refactor section so a
+new contributor or chat can continue using only the repository state.
+
+Before continuing work:
+
+1. Check out `refactor/component-workflow`; do not perform this migration on
+   `main`.
+2. Read this complete document before changing code.
+3. Reapply the Master rule and File-tree rules to the planned boundary.
+4. Confirm the latest completed section and select only the next bounded section.
+5. Preserve behavior unless the section explicitly records an approved behavior
+   change.
+6. Update this document with implementation details, validation results, and the
+   next bounded section in the same commit as the code.
+7. Commit and push the section before beginning another one. Do not open or merge
+   into `main` until the full migration is complete and verified.
+
 ## Current section: Fireteam tracked-item presentation — complete
 
 Goal: begin reducing `FireteamPage.tsx` to page-level composition by moving the
@@ -187,19 +206,66 @@ Validation completed for this section:
   325 web tests, 7 Node tooling tests, 24 manifest tests, API/Web builds, and the
   production performance budget at 114,997 bytes gzip.
 
+## Current section: Fireteam sharing-header presentation — complete
+
+Goal: continue reducing `FireteamPage.tsx` to route-level composition by moving
+the Fireteam title, freshness display, and sharing controls into a focused
+`FireteamSharingHeader` container under `components/fireteam/`.
+
+Planned files:
+
+- `components/fireteam/FireteamSharingHeader.tsx`
+- `components/fireteam/FireteamSharingHeader.test.tsx`
+- `pages/FireteamPage.tsx`
+- `docs/ARCHITECTURE_REFACTOR.md`
+
+The page will continue to select the current Fireteam data and warning and own
+all sharing mutations. The header will receive explicit display state and
+callbacks. Existing labels, button order, disabled behavior, freshness source,
+and sharing commands must remain unchanged.
+
+Implemented:
+
+- Added `FireteamSharingHeader` as the Fireteam-level container that composes the
+  shared `PageHeader` and `Freshness` components with Fireteam sharing controls.
+- Replaced the embedded header markup in `FireteamPage.tsx` with one named
+  component boundary and explicit state/callback properties.
+- Kept warning selection, Fireteam response state, temporary/persistent sharing
+  mutations, and stop-sharing mutation ownership in `FireteamPage.tsx`.
+- Used `sharingEnabled: undefined` to preserve the unloaded state without
+  displaying premature sharing actions; `false` and `true` retain the existing
+  inactive and active control sets.
+- Added focused component coverage for unloaded, inactive-sharing, and
+  temporary-sharing states while retaining the page-level mutation regression
+  coverage.
+
+Validation completed for this section:
+
+- Web test suite: 88 files and 328 tests passed.
+- Web TypeScript checks passed for the application and Pages Functions.
+- ESLint passed for every changed TypeScript file.
+- Archive, frontend source-boundary, and CSS-module-usage checks passed.
+- Every workspace typecheck, 24 domain tests, 257 API tests, 7 Node tooling
+  tests, and 24 manifest tests passed.
+- The API dry-run build and direct Web production build passed. The performance
+  budget passed at 114,980 bytes gzip after the environment blocked only the
+  final output poll of the combined audit command.
+- `git diff --check` passed.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
 - Recorded the Plum Creek architecture as the mandatory refactor rule.
 - Completed the Fireteam tracked-item presentation extraction.
 - Completed the Fireteam member-card presentation extraction.
+- Completed the Fireteam sharing-header presentation extraction.
 
 ## Future sections
 
-- Next bounded section: extract the Fireteam sharing header and its sharing
-  controls into `components/fireteam/FireteamSharingHeader.tsx`. Keep mutations
-  and Fireteam data ownership in `FireteamPage.tsx`; pass explicit state and
-  callbacks into the presentation component.
+- Next bounded section: add a `FireteamRecentLootSection` container under
+  `components/fireteam/` that composes the existing `CompactRecentLootBar` and
+  the hidden-state control. Keep gear, watcher, preference, and query mutations
+  in `FireteamPage.tsx` and pass explicit state and callbacks into the section.
 - Move Fireteam query/mutation orchestration into clearly named service-facing
   hooks while keeping the page as the composition layer.
 - Move Fireteam component styles out of the shared `Pages.module.css` file.
