@@ -1,21 +1,30 @@
-import type { FireteamCompletedTrackedItem, FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
+import type { FireteamData, FireteamMember, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, AlertTriangle, ArrowDownToLine, ArrowUpToLine, BookmarkMinus, CheckCircle2, Crown, EyeOff, GripVertical, Link2, MessageSquare, Repeat2, Share2, Timer, UserMinus, Users } from "lucide-react";
+import { Activity, AlertTriangle, Crown, EyeOff, Link2, MessageSquare, Repeat2, Share2, Timer, UserMinus, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
+import { FireteamTrackedItem as FireteamTrackedItemComponent } from "../components/fireteam/FireteamTrackedItem";
+import {
+  fireteamCompletionEventKey,
+  fireteamMemberPresenceLocation,
+  fireteamTrackedItemKey,
+  legacyQuestToFireteamTrackedItem,
+  orderedFireteamTrackedItemKeys,
+  orderFireteamTrackedItems
+} from "../components/fireteam/fireteamTrackedItems";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { playCompletionChime, primeCompletionAudio } from "../services/completionAudio";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
 
-const BUNGIE_PRESENCE_DISCLAIMER = "Fireteam membership and activity come from Bungie and may take a few minutes to catch up.";
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
-import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
 import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
 import { FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS, LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
+
+const BUNGIE_PRESENCE_DISCLAIMER = "Fireteam membership and activity come from Bungie and may take a few minutes to catch up.";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -162,11 +171,11 @@ export function FireteamPage() {
   const self = data?.members.find((member) => member.isSelf);
   const trackedOrderContext = `${membershipId}:${selectedCharacterId}`;
   const previousTrackedOrderKeys = useRef<{ context: string; keys: Set<string> } | undefined>(undefined);
-  const selfTrackedItems = self ? (Array.isArray(self.trackedItems) ? self.trackedItems : self.quests.map(legacyTrackedItem)) : [];
-  const selfTrackedSignature = selfTrackedItems.map(trackedItemKey).sort().join("|");
+  const selfTrackedItems = self ? (Array.isArray(self.trackedItems) ? self.trackedItems : self.quests.map(legacyQuestToFireteamTrackedItem)) : [];
+  const selfTrackedSignature = selfTrackedItems.map(fireteamTrackedItemKey).sort().join("|");
   useEffect(() => {
     if (!self) return;
-    const currentKeys = new Set(selfTrackedItems.map(trackedItemKey));
+    const currentKeys = new Set(selfTrackedItems.map(fireteamTrackedItemKey));
     const previous = previousTrackedOrderKeys.current;
     previousTrackedOrderKeys.current = { context: trackedOrderContext, keys: currentKeys };
     if (!previous || previous.context !== trackedOrderContext) {
@@ -179,14 +188,14 @@ export function FireteamPage() {
     }
     const addedKeys = [...currentKeys].filter((key) => !previous.keys.has(key));
     if (!addedKeys.length) return;
-    const nextOrder = [...addedKeys, ...orderedTrackedItemKeys(selfTrackedItems, trackedItemOrder).filter((key) => !addedKeys.includes(key))];
+    const nextOrder = [...addedKeys, ...orderedFireteamTrackedItemKeys(selfTrackedItems, trackedItemOrder).filter((key) => !addedKeys.includes(key))];
     setTrackedItemOrder(nextOrder);
     setPreference("fireteam.trackedOrder", JSON.stringify(nextOrder));
   }, [selfTrackedSignature, trackedOrderContext]);
   const reorderTrackedItems = (sourceKey: string, targetKey: string) => {
     if (!self || sourceKey === targetKey) return;
-    const sourceItems = Array.isArray(self.trackedItems) ? self.trackedItems : self.quests.map(legacyTrackedItem);
-    const nextOrder = orderedTrackedItemKeys(sourceItems, trackedItemOrder);
+    const sourceItems = Array.isArray(self.trackedItems) ? self.trackedItems : self.quests.map(legacyQuestToFireteamTrackedItem);
+    const nextOrder = orderedFireteamTrackedItemKeys(sourceItems, trackedItemOrder);
     const sourceIndex = nextOrder.indexOf(sourceKey);
     const targetIndex = nextOrder.indexOf(targetKey);
     if (sourceIndex < 0 || targetIndex < 0) return;
@@ -203,7 +212,7 @@ export function FireteamPage() {
   };
   const untrackItem = (item: FireteamTrackedItem) => {
     if (!sharingMode || sharingMode === "off") return;
-    const key = trackedItemKey(item);
+    const key = fireteamTrackedItemKey(item);
     const nextPinnedIds = !["guardian-rank", "build"].includes(item.kind) && item.trackedInGuardianNexus
       ? pinnedIds.filter((id) => id !== item.id)
       : pinnedIds;
@@ -277,9 +286,9 @@ export function FireteamPage() {
 }
 
 function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, onReorder, untrackingKey }: { member: FireteamMember; canManage: boolean; copied: string; onCopy: (label: string, command: string) => Promise<void>; onUntrack?: (item: FireteamTrackedItem) => void; itemOrder?: string[]; onReorder?: (sourceKey: string, targetKey: string) => void; untrackingKey?: string }) {
-  const activity = presenceLocation(member);
-  const trackedItems = Array.isArray(member.trackedItems) ? member.trackedItems : member.quests.map(legacyTrackedItem);
-  const trackedItemKeys = trackedItems.map(trackedItemKey);
+  const activity = fireteamMemberPresenceLocation(member);
+  const trackedItems = Array.isArray(member.trackedItems) ? member.trackedItems : member.quests.map(legacyQuestToFireteamTrackedItem);
+  const trackedItemKeys = trackedItems.map(fireteamTrackedItemKey);
   const trackedItemSignature = [...trackedItemKeys].sort().join("|");
   const previousTrackedItemKeys = useRef<Set<string> | null>(null);
   const previousTrackedItems = useRef<Map<string, FireteamTrackedItem>>(new Map());
@@ -287,12 +296,12 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
   const removalTimers = useRef<Map<string, number>>(new Map());
   const [enteringKeys, setEnteringKeys] = useState<Set<string>>(() => new Set());
   const [removedItems, setRemovedItems] = useState<Map<string, FireteamTrackedItem>>(() => new Map());
-  const completedKeys = new Set((member.recentlyCompletedItems || []).map(trackedItemKey));
+  const completedKeys = new Set((member.recentlyCompletedItems || []).map(fireteamTrackedItemKey));
   useEffect(() => {
     const currentKeys = new Set(trackedItemKeys);
     const previousKeys = previousTrackedItemKeys.current;
     previousTrackedItemKeys.current = currentKeys;
-    const currentItems = new Map(trackedItems.map((item) => [trackedItemKey(item), item]));
+    const currentItems = new Map(trackedItems.map((item) => [fireteamTrackedItemKey(item), item]));
     const priorItems = previousTrackedItems.current;
     previousTrackedItems.current = currentItems;
     if (!previousKeys) return;
@@ -340,7 +349,7 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
     removalTimers.current.clear();
   }, []);
   const recentlyCompletedItems = member.recentlyCompletedItems || [];
-  const completedItemKeys = new Set(recentlyCompletedItems.map(trackedItemKey));
+  const completedItemKeys = new Set(recentlyCompletedItems.map(fireteamTrackedItemKey));
   const completedItemSignature = [...completedItemKeys].sort().join("|");
   useEffect(() => {
     if (!completedItemKeys.size) return;
@@ -359,8 +368,8 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
     });
   }, [completedItemSignature]);
   const [dismissedCompletions, setDismissedCompletions] = useState<Set<string>>(() => readDismissedCompletionEvents(member.membershipId));
-  const visibleCompletions = recentlyCompletedItems.filter((item) => !dismissedCompletions.has(completionEventKey(item)));
-  const visibleCompletionKeys = visibleCompletions.map(completionEventKey).join("|");
+  const visibleCompletions = recentlyCompletedItems.filter((item) => !dismissedCompletions.has(fireteamCompletionEventKey(item)));
+  const visibleCompletionKeys = visibleCompletions.map(fireteamCompletionEventKey).join("|");
   useEffect(() => {
     if (!visibleCompletionKeys) return;
     const keys = visibleCompletionKeys.split("|");
@@ -374,11 +383,11 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
     }, 1_600);
     return () => window.clearTimeout(timer);
   }, [member.membershipId, visibleCompletionKeys]);
-  const completingKeys = new Set(visibleCompletions.map(trackedItemKey));
-  const orderedTrackedItems = orderTrackedItems(trackedItems, itemOrder);
-  const visibleRemovedItems = [...removedItems.values()].filter((item) => !completedItemKeys.has(trackedItemKey(item)));
-  const displayedItems = [...orderedTrackedItems.filter((item) => !completingKeys.has(trackedItemKey(item))), ...visibleCompletions, ...visibleRemovedItems];
-  const activeItems = displayedItems.filter((item) => !("completedAt" in item) && !removedItems.has(trackedItemKey(item)));
+  const completingKeys = new Set(visibleCompletions.map(fireteamTrackedItemKey));
+  const orderedTrackedItems = orderFireteamTrackedItems(trackedItems, itemOrder);
+  const visibleRemovedItems = [...removedItems.values()].filter((item) => !completedItemKeys.has(fireteamTrackedItemKey(item)));
+  const displayedItems = [...orderedTrackedItems.filter((item) => !completingKeys.has(fireteamTrackedItemKey(item))), ...visibleCompletions, ...visibleRemovedItems];
+  const activeItems = displayedItems.filter((item) => !("completedAt" in item) && !removedItems.has(fireteamTrackedItemKey(item)));
   const [draggingKey, setDraggingKey] = useState("");
   const [dragOverKey, setDragOverKey] = useState("");
   const finishDrag = () => {
@@ -395,76 +404,23 @@ function MemberCard({ member, canManage, copied, onCopy, onUntrack, itemOrder, o
     <header>{member.emblemPath ? <img src={member.emblemPath} alt="" /> : <span><Users /></span>}<div><small>{member.isSelf ? `You · ${member.presenceLabel}` : member.presenceLabel}{onlineLabel} · {syncLabel}</small><h2>{member.inGameName}</h2><p>{member.character ? `${member.character.className} · ${member.character.power} Power` : "Character details unavailable"}</p></div><div className={styles.memberSignals}>{member.isLeader && <Crown aria-label="Fireteam leader" />}<i className={member.sharing ? styles.signalLive : ""} /></div></header>
     <div className={styles.memberActivity}><Activity size={15} /><span>{member.onlineState === "offline" ? "Presence" : member.activitySource === "shared" ? "Shared activity" : "Location"}</span><strong>{activity}</strong></div>
     {member.sharing ? <div className={styles.sharedQuests}><h3>{member.sharingMode === "persistent" ? "Automatically shared tracked items" : "Shared tracked items"}</h3>{displayedItems.length ? displayedItems.map((item) => {
-      const key = trackedItemKey(item);
+      const key = fireteamTrackedItemKey(item);
       const transient = "completedAt" in item || removedItems.has(key);
-      const activeIndex = activeItems.findIndex((candidate) => trackedItemKey(candidate) === key);
-      return <TrackedItem key={key} item={item} entering={enteringKeys.has(key)} completing={"completedAt" in item} onUntrack={onUntrack} untracking={untrackingKey === key || removedItems.has(key)} reorderable={Boolean(onReorder && !transient)} dragging={draggingKey === key} dragOver={dragOverKey === key && draggingKey !== key} onDragStart={() => setDraggingKey(key)} onDragOver={() => setDragOverKey(key)} onDrop={() => {
+      const activeIndex = activeItems.findIndex((candidate) => fireteamTrackedItemKey(candidate) === key);
+      return <FireteamTrackedItemComponent key={key} trackedItem={item} isEntering={enteringKeys.has(key)} isCompleting={"completedAt" in item} onUntrack={onUntrack} isUntracking={untrackingKey === key || removedItems.has(key)} isReorderable={Boolean(onReorder && !transient)} isDragging={draggingKey === key} isDragTarget={dragOverKey === key && draggingKey !== key} onDragStart={() => setDraggingKey(key)} onDragOver={() => setDragOverKey(key)} onDrop={() => {
         if (draggingKey && draggingKey !== key) onReorder?.(draggingKey, key);
         finishDrag();
       }} onDragEnd={finishDrag} onMove={(direction) => {
         const target = activeItems[activeIndex + direction];
-        if (target) onReorder?.(key, trackedItemKey(target));
+        if (target) onReorder?.(key, fireteamTrackedItemKey(target));
       }} onMoveToEdge={(edge) => {
         const target = edge === "top" ? activeItems[0] : activeItems[activeItems.length - 1];
-        if (target && trackedItemKey(target) !== key) onReorder?.(key, trackedItemKey(target));
-      }} atTop={activeIndex === 0} atBottom={activeIndex === activeItems.length - 1} />;
+        if (target && fireteamTrackedItemKey(target) !== key) onReorder?.(key, fireteamTrackedItemKey(target));
+      }} isFirst={activeIndex === 0} isLast={activeIndex === activeItems.length - 1} />;
     }) : <p>{member.syncState === "delayed" ? "Updating shared progress…" : "Nothing is currently tracked."}</p>}</div> : <div className={styles.privateMember}><EyeOff /><strong>Tracked goals are private</strong><p>This Guardian has not shared their tracked goals.</p></div>}
     {!member.isSelf && <div className={styles.memberCommands}><button onClick={() => void onCopy(`whisper-${member.membershipId}`, `/whisper ${member.inGameName} `)} title="Copies a Destiny 2 text-chat command"><MessageSquare size={13} />{copied === `whisper-${member.membershipId}` ? "Copied" : "Whisper"}</button>{canManage && <button className={styles.managementCommand} onClick={() => void onCopy(`kick-${member.membershipId}`, `/kick ${member.inGameName}`)} title="Copies a Destiny 2 text-chat command; Guardian Nexus cannot kick through the Bungie API"><UserMinus size={13} />{copied === `kick-${member.membershipId}` ? "Copied" : "Kick command"}</button>}</div>}
     {member.overlaps.length > 0 && <footer><Link2 size={13} /><span>You can work on this together:</span><strong>{member.overlaps.join(", ")}</strong></footer>}
   </article>;
-}
-
-function TrackedItem({ item, entering = false, completing = false, onUntrack, untracking = false, reorderable = false, dragging = false, dragOver = false, onDragStart, onDragOver, onDrop, onDragEnd, onMove, onMoveToEdge, atTop = false, atBottom = false }: { item: FireteamTrackedItem; entering?: boolean; completing?: boolean; onUntrack?: (item: FireteamTrackedItem) => void; untracking?: boolean; reorderable?: boolean; dragging?: boolean; dragOver?: boolean; onDragStart?: () => void; onDragOver?: () => void; onDrop?: () => void; onDragEnd?: () => void; onMove?: (direction: -1 | 1) => void; onMoveToEdge?: (edge: "top" | "bottom") => void; atTop?: boolean; atBottom?: boolean }) {
-  const progressKnown = item.objectives.length === 0 || item.objectives.some((objective) => objective.progressAvailable);
-  const manageable = Boolean(onUntrack && !completing);
-  const untrackTitle = item.trackedInDestiny
-    ? item.trackedInGuardianNexus ? "Untrack in Guardian Nexus and hide while Destiny still tracks it" : "Hide from Fireteam sharing until Destiny stops tracking it"
-    : "Untrack in Guardian Nexus";
-  const trackingState = completing ? "exiting" : entering ? "entering" : "active";
-  const removing = untracking && !completing;
-  return <div className={`${styles.sharedQuest} ${manageable ? styles.sharedQuestManageable : ""} ${reorderable ? styles.sharedQuestReorderable : ""} ${dragging ? styles.sharedQuestDragging : ""} ${dragOver ? styles.sharedQuestDragOver : ""} ${completing ? styles.sharedQuestCompleting : removing ? styles.sharedQuestRemoving : entering ? styles.sharedQuestEntering : ""}`} data-completion-state={completing ? "exiting" : "active"} data-tracking-state={removing ? "removing" : trackingState} onDragOver={reorderable ? (event) => { event.preventDefault(); onDragOver?.(); } : undefined} onDrop={reorderable ? (event) => { event.preventDefault(); onDrop?.(); } : undefined}>
-    {reorderable && <button type="button" draggable className={styles.sharedQuestDragHandle} aria-label={`Reorder ${item.name}`} title="Drag to reorder" onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("text/plain", trackedItemKey(item)); onDragStart?.(); }} onDragEnd={onDragEnd} onKeyDown={(event) => {
-      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-      event.preventDefault();
-      onMove?.(event.key === "ArrowUp" ? -1 : 1);
-    }}><GripVertical /></button>}
-    {completing && <span className={styles.sharedQuestCompletionFx} aria-hidden="true"><i /><b>{Array.from({ length: 12 }, (_, index) => <span key={index} />)}</b><em><CheckCircle2 /></em></span>}
-    <span className={styles.sharedQuestIcon}>{item.icon ? <img src={item.icon} alt="" /> : <CheckCircle2 />}</span>
-    <div className={styles.sharedQuestDetails}>
-      <div className={styles.sharedQuestTitle}><b>{item.name}</b><em>{item.context}</em></div>
-      <small>{item.description}</small>
-    </div>
-    <strong className={styles.sharedQuestPercent}>{progressKnown ? `${item.percent}%` : "—"}</strong>
-    {manageable && <div className={styles.sharedQuestActions}>
-      {reorderable && <><button type="button" className={styles.sharedQuestMoveEdge} onClick={() => onMoveToEdge?.("top")} disabled={atTop || untracking} title="To top" aria-label={`Move ${item.name} to top`}><ArrowUpToLine /></button><button type="button" className={styles.sharedQuestMoveEdge} onClick={() => onMoveToEdge?.("bottom")} disabled={atBottom || untracking} title="To bottom" aria-label={`Move ${item.name} to bottom`}><ArrowDownToLine /></button></>}
-      <button type="button" className={styles.sharedQuestUntrack} onClick={() => onUntrack?.(item)} disabled={untracking} title={untrackTitle} aria-label={`Untrack ${item.name} from Fireteam`}><BookmarkMinus /></button>
-    </div>}
-    <div className={styles.sharedQuestProgress}>
-      {item.objectives.length > 0 && <div className={styles.sharedObjectives}>{item.objectives.map((objective) => <div key={objective.objectiveHash}><span><ObjectiveRequirementText value={objective.name} /></span><strong>{objective.complete ? "Complete" : !objective.progressAvailable ? "Unavailable" : objective.completionValue > 0 ? `${objective.progress.toLocaleString()} / ${objective.completionValue.toLocaleString()}` : `${objective.percent}%`}</strong></div>)}</div>}
-      {item.acquisitionGuide && <div className={styles.sharedAcquisitionGuide}><strong>How to get it</strong><p>{item.acquisitionGuide.summary}</p>{item.acquisitionGuide.steps.length > 0 && <ol>{item.acquisitionGuide.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>}{item.acquisitionGuide.prerequisites.length > 0 && <><strong>Prerequisites</strong><ul>{item.acquisitionGuide.prerequisites.map((step, index) => <li key={index}>{step}</li>)}</ul></>}</div>}
-      {item.questGuide && <details className={styles.sharedQuestGuide}><summary>Current-step guide <span>{item.questGuide.coverage === "curated" ? "Verified" : "Objective-specific"}</span></summary><p>{item.questGuide.summary}</p>{item.questGuide.steps.length > 0 && <ol>{item.questGuide.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>}{item.questGuide.tips.length > 0 && <><strong>Tips</strong><ul>{item.questGuide.tips.map((tip, index) => <li key={index}>{tip}</li>)}</ul></>}{item.questGuide.warnings.length > 0 && <><strong>Watch for</strong><ul>{item.questGuide.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></>}</details>}
-      <i className={styles.sharedQuestBar}><span style={{ width: `${progressKnown ? item.percent : 0}%` }} /></i>
-    </div>
-  </div>;
-}
-
-function trackedItemKey(item: Pick<FireteamTrackedItem, "kind" | "id">): string {
-  return `${item.kind}:${item.id}`;
-}
-
-function orderedTrackedItemKeys(items: FireteamTrackedItem[], order: string[] = []): string[] {
-  const available = new Set(items.map(trackedItemKey));
-  const known = order.filter((key) => available.delete(key));
-  return [...available, ...known];
-}
-
-function orderTrackedItems(items: FireteamTrackedItem[], order: string[] = []): FireteamTrackedItem[] {
-  const byKey = new Map(items.map((item) => [trackedItemKey(item), item]));
-  return orderedTrackedItemKeys(items, order).map((key) => byKey.get(key)!).filter(Boolean);
-}
-
-function completionEventKey(item: FireteamCompletedTrackedItem): string {
-  return `${trackedItemKey(item)}:${item.completedAt}`;
 }
 
 function readDismissedCompletionEvents(membershipId: string): Set<string> {
@@ -488,25 +444,6 @@ function completionDismissalStorageKey(membershipId: string): string {
   return `guardian-nexus:fireteam-completions:${membershipId}`;
 }
 
-function legacyTrackedItem(quest: FireteamMember["quests"][number]): FireteamTrackedItem {
-  const kind = quest.category || "quest";
-  const label = kind === "bounty" ? "Bounty" : kind === "order" ? "Order" : "Quest";
-  return {
-    id: quest.instanceId,
-    definitionHash: quest.itemHash,
-    kind,
-    name: quest.name,
-    description: quest.currentStep || quest.description,
-    icon: quest.icon,
-    context: quest.activityName ? `${label} · ${quest.activityName}` : label,
-    trackedInDestiny: quest.inGameTracked,
-    trackedInGuardianNexus: quest.sitePinned,
-    objectives: quest.objectives.map((objective) => ({ ...objective, progressAvailable: true })),
-    percent: quest.percent,
-    updatedAt: quest.updatedAt
-  };
-}
-
 function trackedPreference(value?: string): string[] {
   try {
     const parsed = JSON.parse(value || "[]");
@@ -524,11 +461,4 @@ function readPinnedIds(storageKey: string): string[] {
     const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]");
     return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 40) : [];
   } catch { return []; }
-}
-
-function presenceLocation(member: Pick<FireteamMember, "onlineState" | "activity"> | undefined, fallback?: string): string {
-  if (member?.onlineState === "offline") return "Offline";
-  if (member?.activity) return member.activity;
-  if (fallback) return fallback;
-  return member?.onlineState === "online" ? "Online · location unavailable" : "Presence unavailable";
 }
