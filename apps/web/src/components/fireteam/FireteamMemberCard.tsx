@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { playCompletionChime } from "../../services/completionAudio";
-import styles from "./FireteamComponents.module.css";
+import styles from "../../styles/fireteam/FireteamComponents.module.css";
 import { FireteamTrackedItem as FireteamTrackedItemComponent } from "./FireteamTrackedItem";
 import {
   fireteamCompletionEventKey,

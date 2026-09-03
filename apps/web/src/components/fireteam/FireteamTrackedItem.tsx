@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { ObjectiveRequirementText } from "../quests/ObjectiveRequirementText";
 import { fireteamTrackedItemKey } from "./fireteamTrackedItems";
-import styles from "./FireteamComponents.module.css";
+import styles from "../../styles/fireteam/FireteamComponents.module.css";
 
 export interface FireteamTrackedItemProps {
   trackedItem: FireteamTrackedItemData;

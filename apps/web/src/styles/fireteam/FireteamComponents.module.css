@@ -1,4 +1,4 @@
-/* FireteamSharingHeader */
+/* Fireteam sharing header */
 .primaryAction {
   min-height: 38px;
   display: inline-flex;
@@ -28,7 +28,7 @@
   background: rgba(239,121,134,.08);
 }
 
-/* FireteamMemberCard */
+/* Fireteam member card */
 .memberCard {
   min-height: 400px;
   position: relative;
@@ -330,7 +330,7 @@
   border-color: rgba(239,121,134,.38);
 }
 
-/* FireteamTrackedItem */
+/* Fireteam tracked item */
 .sharedQuest {
   display: grid;
   grid-template-columns: 42px minmax(0,1fr) 35px;
@@ -956,7 +956,7 @@
   display: none;
 }
 
-/* FireteamRecentLootSection */
+/* Fireteam Recent Loot section */
 .fireteamLootControl {
   display: flex;
   align-items: center;

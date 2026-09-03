@@ -73,27 +73,31 @@ apps/web/src/
 ├── pages/
 ├── services/
 ├── styles/
+│   ├── common/
+│   └── <product-area>/
 └── theme/
 ```
 
-- `components/` contains focused reusable UI containers and controls.
+- `components/` contains focused reusable UI containers, controls, and
+  component helpers. Styling files do not belong in this directory.
 - `assets/` contains source-controlled static inputs imported by the
   application. Static JSON must not live in a competing top-level `data/`
   directory.
 - `pages/` contains route-level composition only.
 - `context/` contains genuinely application-wide React state.
 - `services/` contains external communication and browser infrastructure, not UI.
-- `styles/` and `theme/` contain shared visual foundations; component-specific
-  styles belong beside the component that owns them.
+- `styles/` owns application styling outside the global theme. Organize styles
+  under `styles/<product-area>/` or `styles/common/` rather than placing CSS
+  files inside `components/` or `pages/`.
 - `theme/` owns the application-wide theme entry and design tokens. `styles/`
-  remains for genuinely shared behavioral or accessibility styles only.
+  owns page, component, behavioral, and accessibility styling.
 - Use `components/<product-area>/` when multiple components share a clear product
   genre and the subdirectory makes the tree easier to scan and understand. For
   example, Fireteam presentation belongs in `components/fireteam/` and build
   presentation belongs in `components/builds/`.
-- Component subdirectories may group related components, styles, and focused
-  component helpers, but they may not become alternate application trees or
-  contain route-level pages.
+- Component subdirectories may group related components and focused component
+  helpers, but they may not contain styling, become alternate application
+  trees, or contain route-level pages.
 - Do not introduce a competing `features/` hierarchy.
 - Existing `modules/` code must be evaluated as it is touched. Pure shared domain
   rules should move to `packages/domain`; browser service behavior should move to
@@ -202,14 +206,15 @@ Fireteam page or change its runtime behavior.
 
 Implemented:
 
-- Added the human-readable `components/fireteam/FireteamComponents.module.css`
-  stylesheet beside the Fireteam component genre.
+- Added the human-readable `styles/fireteam/FireteamComponents.module.css`
+  stylesheet under the dedicated styling tree and matched it to the Fireteam
+  component genre.
 - Moved the member-card, tracked-item, sharing-control, Recent Loot control,
   animation, and reduced-motion selectors out of `pages/Pages.module.css`.
 - Updated `FireteamMemberCard`, `FireteamTrackedItem`,
   `FireteamSharingHeader`, and `FireteamRecentLootSection` to import the
-  colocated Fireteam stylesheet. No component under `components/fireteam/` now
-  imports a page stylesheet.
+  Fireteam-owned stylesheet. No component under `components/fireteam/` now
+  imports a page stylesheet or contains a styling file.
 - Kept page-only Fireteam layout selectors in `Pages.module.css`. Shared
   `primaryAction` and `gearError` rules also remain there for unrelated pages;
   the Fireteam stylesheet owns its local sharing action and explicitly named
@@ -227,11 +232,11 @@ Validation completed for this section:
   and all relevant keyframes against the pre-move stylesheet; declarations and
   values are unchanged.
 - Complete web test suite passed: 89 files and 331 tests.
-- CSS-module usage passed across 45 stylesheets, frontend source boundaries
+- CSS-module usage passed across 42 stylesheets, frontend source boundaries
   passed, and no Fireteam component imports `Pages.module.css`.
 - Workspace lint, every workspace TypeScript check, archive boundaries, and
   `git diff --check` passed.
-- Web production build and performance budget passed at 114,996 bytes gzip.
+- Web production build and performance budget passed at 114,992 bytes gzip.
 
 ## Current section: Fireteam tracked-item presentation — complete
 
@@ -247,8 +252,8 @@ Planned files:
 - `pages/FireteamPage.tsx`
 
 Behavior must remain unchanged in this section. The existing Fireteam stylesheet
-dependency will remain temporarily; moving Fireteam-specific selectors beside
-their owning components is a later bounded section.
+dependency will remain temporarily; moving Fireteam-specific selectors into
+`styles/fireteam/` is a later bounded section.
 
 Implemented:
 
@@ -449,10 +454,13 @@ Validation completed for this section:
 - Run a bounded stylesheet-consolidation audit after the owning component
   boundaries are stable. Inventory every TSX consumer before removing or
   merging selectors, extract genuinely shared patterns such as action controls
-  and error notices into common component styles, and update every affected TSX
-  import and regression test in the same checkpoint. Product-area styles may be
-  split into smaller files when ownership remains clear and the production
-  performance budget still passes.
+  and error notices into `styles/common/`, and update every affected TSX import
+  and regression test in the same checkpoint. Product-area styles may be split
+  into smaller files when ownership remains clear and the production performance
+  budget still passes.
+- Move remaining CSS modules out of `pages/` and other source directories into
+  the dedicated `styles/<product-area>/` tree as each owning page area is
+  refactored. Do not leave or add styling files under `components/` or `pages/`.
 - Apply the same page/component separation to Build Advisor, Collection, Gear,
   and other oversized route files.
 - Reduce `Shell.tsx` to application-shell composition.

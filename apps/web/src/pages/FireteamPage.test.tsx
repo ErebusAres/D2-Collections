@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
 import { playCompletionChime } from "../services/completionAudio";
 import { FireteamPage } from "./FireteamPage";
-import fireteamStyles from "../components/fireteam/FireteamComponents.module.css";
+import fireteamStyles from "../styles/fireteam/FireteamComponents.module.css";
 
 const setPreference = vi.fn();
 const guardianSettings = vi.hoisted(() => ({ autoRefresh: false }));

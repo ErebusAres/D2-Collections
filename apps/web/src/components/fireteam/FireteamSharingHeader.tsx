@@ -1,7 +1,7 @@
 import type { FireteamSharingMode } from "@guardian-nexus/contracts";
 import { Repeat2, Share2, Timer } from "lucide-react";
 import { Freshness, PageHeader } from "../common/Page";
-import styles from "./FireteamComponents.module.css";
+import styles from "../../styles/fireteam/FireteamComponents.module.css";
 
 export interface FireteamSharingHeaderProps {
   lastUpdatedAt?: string;

@@ -5,7 +5,7 @@ import {
   type LootPull,
   type WeaponSocketChange
 } from "../gear/RecentLoot";
-import styles from "./FireteamComponents.module.css";
+import styles from "../../styles/fireteam/FireteamComponents.module.css";
 
 export interface FireteamRecentLootSectionProps {
   isVisible: boolean;
