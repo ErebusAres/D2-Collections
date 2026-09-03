@@ -28,6 +28,13 @@
   background: rgba(239,121,134,.08);
 }
 
+/* Fireteam roster */
+.roster {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 10px;
+}
+
 /* Fireteam member card */
 .memberCard {
   min-height: 400px;

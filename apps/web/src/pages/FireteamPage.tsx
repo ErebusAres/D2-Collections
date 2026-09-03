@@ -5,8 +5,8 @@ import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, QueryState } from "../components/common/Page";
-import { FireteamMemberCard } from "../components/fireteam/FireteamMemberCard";
 import { FireteamRecentLootSection } from "../components/fireteam/FireteamRecentLootSection";
+import { FireteamRoster } from "../components/fireteam/FireteamRoster";
 import { FireteamSharingHeader } from "../components/fireteam/FireteamSharingHeader";
 import {
   fireteamTrackedItemKey,
@@ -309,27 +309,18 @@ export function FireteamPage() {
       actionError={gearState.error || gearAction.error}
     />
     </div>
-    {data && <>
-      <section className={styles.fireteamGrid}>
-        {data.members.map((member) => (
-          <FireteamMemberCard
-            key={member.membershipId}
-            member={member}
-            canManageMember={Boolean(self?.isLeader && !member.isSelf)}
-            copiedCommand={copied}
-            onCopyCommand={copyCommand}
-            onUntrackItem={member.isSelf ? untrackItem : undefined}
-            trackedItemOrder={member.isSelf ? trackedItemOrder : undefined}
-            onReorderTrackedItem={member.isSelf ? reorderTrackedItems : undefined}
-            untrackingItemKey={member.isSelf
-              ? manualRemovingKey || (share.isPending
-                ? share.variables?.untrackingKey
-                : undefined)
-              : undefined}
-          />
-        ))}
-      </section>
-    </>}
+    {data && <FireteamRoster
+      members={data.members}
+      currentGuardianIsLeader={Boolean(self?.isLeader)}
+      copiedCommandIdentifier={copied}
+      onCopyCommand={copyCommand}
+      onUntrackCurrentGuardianItem={untrackItem}
+      currentGuardianTrackedItemOrder={trackedItemOrder}
+      onReorderCurrentGuardianTrackedItem={reorderTrackedItems}
+      currentGuardianUntrackingItemKey={manualRemovingKey || (share.isPending
+        ? share.variables?.untrackingKey
+        : undefined)}
+    />}
     {session?.authenticated && <FireteamActivityFeed feed={visibleActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : activityFeed.error instanceof Error ? activityFeed.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
     {data && <footer className={styles.fireteamDataNote}><AlertTriangle /><span>{BUNGIE_PRESENCE_DISCLAIMER}</span></footer>}
   </AuthGate>;

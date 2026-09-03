@@ -129,6 +129,13 @@ communication, and persistence live in smaller files with one clear purpose.
 6. Commit and push the completed section before beginning another section.
 7. Do not merge this branch into `main` until the complete migration is verified.
 
+Component and page restructuring is the primary work. A stylesheet move should
+normally accompany the component or page boundary that owns those selectors;
+do not spend successive checkpoints moving CSS without also advancing the
+application → page → section → component composition. Pure style-tree moves are
+reserved for cases where the owning TSX boundary is already correct and the
+move is the only remaining structural defect.
+
 ## Cold-start handoff
 
 This file must be committed and pushed with every bounded refactor section so a
@@ -660,6 +667,49 @@ Validation completed for this section:
   final output poll of the combined audit command.
 - `git diff --check` passed.
 
+## Current section: Fireteam roster composition — complete
+
+Goal: continue reducing `FireteamPage.tsx` to route-level composition by
+replacing its embedded member loop with a named Fireteam section container. The
+same vertical slice must also move the roster layout selector out of the page
+stylesheet and into the existing Fireteam style tree.
+
+Implemented:
+
+- Added `components/fireteam/FireteamRoster.tsx` as the larger Fireteam section
+  container that composes the smaller `FireteamMemberCard` components.
+- Kept Fireteam response data, current-Guardian selection, leader status,
+  tracked-item preference order, clipboard behavior, and tracking mutations in
+  `FireteamPage.tsx`. The roster receives plain values and explicit callbacks.
+- Replaced the page's member loop with one readable `FireteamRoster` boundary
+  and used complete property names such as `currentGuardianIsLeader`,
+  `copiedCommandIdentifier`, and `onUntrackCurrentGuardianItem`.
+- Centralized the self-versus-teammate routing rule in the roster: only the
+  current Guardian receives untrack, reorder, saved-order, and removal-state
+  inputs; only other members receive leader-management capability.
+- Moved the unchanged three-column grid declarations from the page-owned
+  `fireteamGrid` selector to the human-readable `roster` selector in
+  `styles/fireteam/FireteamComponents.module.css`. No styling file was added to
+  `components/`, and no additional CSS module was introduced.
+- Added focused roster regression coverage for member composition, leader-only
+  commands, current-Guardian-only tracking controls, ordering callbacks, and
+  current-Guardian-only removal presentation.
+- Reduced the embedded roster block in `FireteamPage.tsx` from 25 lines to one
+  named section call while preserving page ownership of workflow behavior.
+
+Validation completed for this section:
+
+- Complete web test suite passed: 90 files and 333 tests, including the two new
+  focused roster tests and all 22 Fireteam page tests.
+- Focused ESLint, web application and Pages Functions TypeScript checks,
+  CSS-module usage, frontend source boundaries, and `git diff --check` passed.
+- The complete `pnpm run audit` workflow passed: archive and source boundaries,
+  CSS usage, workspace lint, every workspace typecheck, 24 domain tests, 257 API
+  tests, 333 web tests, 7 Node tooling tests, 24 manifest tests, and API/Web
+  production builds.
+- The production performance budget passed at exactly 115,000 bytes gzip without
+  raising or changing the budget.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -682,20 +732,22 @@ Validation completed for this section:
   files from `components/notifications/`.
 - Completed quest component stylesheet ownership and removed all CSS files from
   `components/quests/`.
+- Completed the Fireteam roster vertical slice, including the section component,
+  page simplification, focused tests, and Fireteam-owned roster styling.
 
 ## Future sections
 
-- Next bounded section: create `styles/reward-codes/`, move
-  `components/reward-codes/RewardCodeMarquee.module.css` into it, and update
-  its importer and focused tests. Preserve every styling value and verify that
-  `components/reward-codes/` contains no CSS before pushing.
-- After the styling-tree migration reaches the next safe stopping point, add a
-  `FireteamRoster` section container under `components/fireteam/` that composes
-  the extracted `FireteamMemberCard` components. Keep the page as owner of
-  member data, leader permissions, tracked-item preferences, and mutation
-  callbacks.
+- Next bounded vertical slice: extract the Fireteam Bungie-data notice into a
+  focused `FireteamDataNotice` component, move its `fireteamDataNote` selector
+  from `pages/Pages.module.css` into the existing `styles/fireteam/` stylesheet,
+  and remove the icon/presentation implementation from `FireteamPage.tsx`.
+  Preserve the exact disclaimer wording and rendered accessibility.
 - Move Fireteam query/mutation orchestration into clearly named service-facing
   hooks while keeping the page as the composition layer.
+- Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
+  component area is selected as part of a bounded TSX ownership review. Preserve
+  every styling value and verify that `components/reward-codes/` contains no CSS
+  before pushing.
 - Run a bounded stylesheet-consolidation audit after the owning component
   boundaries are stable. Inventory every TSX consumer before removing or
   merging selectors, extract genuinely shared patterns such as action controls
