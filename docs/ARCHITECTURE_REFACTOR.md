@@ -428,6 +428,46 @@ Known styling-tree debt after this checkpoint:
 - Continue by product genre in small, consumer-verified checkpoints; do not
   combine this structural migration with selector consolidation.
 
+## Current section: quest style-tree ownership — complete
+
+Goal: create the quest product-area styling boundary required by the File-tree
+rules and remove styling files from `components/quests/` without changing
+objective requirement presentation.
+
+Implemented:
+
+- Mapped the complete dependency set before moving the stylesheet.
+  `ObjectiveRequirementText.tsx` is its only TypeScript importer; no test or
+  tooling file reads the CSS module path directly.
+- Confirmed the component uses the stylesheet's single `icon` class and that
+  its focused test suite covers recognized and unknown requirement icons.
+- Created `styles/quests/` and moved the stylesheet to
+  `styles/quests/ObjectiveRequirementText.module.css`.
+- Updated only the owning component to import the new style-tree path.
+- Preserved the stylesheet byte-for-byte, including every selector,
+  declaration, value, and attribute rule.
+- Confirmed that `components/quests/` now contains only TypeScript components
+  and the focused objective-requirement test. It contains no styling files.
+
+Validation completed for this section:
+
+- Direct byte comparison against the pre-move stylesheet passed.
+- No stale import references the former component-directory stylesheet.
+- Complete web test suite passed: 89 files and 331 tests, including both
+  focused `ObjectiveRequirementText` tests.
+- CSS-module usage passed across all 42 stylesheets, frontend source boundaries
+  passed, and `components/quests/` contains no CSS files.
+- Workspace lint, every workspace TypeScript check, archive boundaries, and
+  `git diff --check` passed.
+- Web production build and performance budget passed at 114,996 bytes gzip.
+
+Known styling-tree debt after this checkpoint:
+
+- Six legacy CSS files remain under other `components/` genres and 24 remain
+  under `pages/`.
+- Continue by product genre in small, consumer-verified checkpoints; do not
+  combine this structural migration with selector consolidation.
+
 ## Current section: Fireteam tracked-item presentation — complete
 
 Goal: begin reducing `FireteamPage.tsx` to page-level composition by moving the
@@ -640,13 +680,15 @@ Validation completed for this section:
   from `components/journey/`.
 - Completed notification component stylesheet ownership and removed all CSS
   files from `components/notifications/`.
+- Completed quest component stylesheet ownership and removed all CSS files from
+  `components/quests/`.
 
 ## Future sections
 
-- Next bounded section: create `styles/quests/`, move
-  `components/quests/ObjectiveRequirementText.module.css` into it, and update
+- Next bounded section: create `styles/reward-codes/`, move
+  `components/reward-codes/RewardCodeMarquee.module.css` into it, and update
   its importer and focused tests. Preserve every styling value and verify that
-  `components/quests/` contains no CSS before pushing.
+  `components/reward-codes/` contains no CSS before pushing.
 - After the styling-tree migration reaches the next safe stopping point, add a
   `FireteamRoster` section container under `components/fireteam/` that composes
   the extracted `FireteamMemberCard` components. Keep the page as owner of

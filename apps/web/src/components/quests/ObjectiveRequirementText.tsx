@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { destinySymbol } from "../../modules/builds/destinySymbols";
-import styles from "./ObjectiveRequirementText.module.css";
+import styles from "../../styles/quests/ObjectiveRequirementText.module.css";
 
 const TOKEN_PATTERN = /\[\s*([^\]]+?)\s*\]/g;
 const LOCAL_ICON_ROOT = "/icons/destiny/objectives/";
