@@ -193,6 +193,46 @@ Validation completed for this section:
 - Frontend source-boundary, CSS-module-usage, and staged diff checks passed.
 - Web production build and performance budget passed at 114,990 bytes gzip.
 
+## Current section: Fireteam component style ownership — complete
+
+Goal: restore the required dependency direction by removing every import of the
+page-level `Pages.module.css` stylesheet from the focused Fireteam components.
+This section changes stylesheet ownership only; it must not redesign the
+Fireteam page or change its runtime behavior.
+
+Implemented:
+
+- Added the human-readable `components/fireteam/FireteamComponents.module.css`
+  stylesheet beside the Fireteam component genre.
+- Moved the member-card, tracked-item, sharing-control, Recent Loot control,
+  animation, and reduced-motion selectors out of `pages/Pages.module.css`.
+- Updated `FireteamMemberCard`, `FireteamTrackedItem`,
+  `FireteamSharingHeader`, and `FireteamRecentLootSection` to import the
+  colocated Fireteam stylesheet. No component under `components/fireteam/` now
+  imports a page stylesheet.
+- Kept page-only Fireteam layout selectors in `Pages.module.css`. Shared
+  `primaryAction` and `gearError` rules also remain there for unrelated pages;
+  the Fireteam stylesheet owns its local sharing action and explicitly named
+  `actionError` presentation.
+- Organized the new stylesheet into named component sections while retaining a
+  single genre-level CSS module. Four separate CSS modules were evaluated, but
+  their generated module overhead exceeded the production entry budget; the
+  shared Fireteam module preserves the same ownership boundary and passed it.
+- Updated the Fireteam regression test to inspect the class exported by the
+  stylesheet that now owns tracked-item presentation.
+
+Validation completed for this section:
+
+- Compared 142 component selector blocks, all retained page selector blocks,
+  and all relevant keyframes against the pre-move stylesheet; declarations and
+  values are unchanged.
+- Complete web test suite passed: 89 files and 331 tests.
+- CSS-module usage passed across 45 stylesheets, frontend source boundaries
+  passed, and no Fireteam component imports `Pages.module.css`.
+- Workspace lint, every workspace TypeScript check, archive boundaries, and
+  `git diff --check` passed.
+- Web production build and performance budget passed at 114,996 bytes gzip.
+
 ## Current section: Fireteam tracked-item presentation — complete
 
 Goal: begin reducing `FireteamPage.tsx` to page-level composition by moving the
@@ -395,19 +435,24 @@ Validation completed for this section:
 - Completed the Fireteam Recent Loot presentation extraction.
 - Completed the external foundation directory migration for static source data
   and the application theme.
+- Completed Fireteam component stylesheet ownership and removed the reversed
+  component-to-page stylesheet dependency.
 
 ## Future sections
 
-- Next bounded section: restore correct dependency direction by moving only the
-  Fireteam-owned selectors used by the extracted Fireteam components out of
-  `pages/Pages.module.css` and beside their owning components under
-  `components/fireteam/`. A small component must not import a page stylesheet.
-- After Fireteam style ownership is corrected, add a `FireteamRoster` container
-  under `components/fireteam/` that composes the extracted
-  `FireteamMemberCard` components. Keep the page as owner of member data, leader
-  permissions, tracked-item preferences, and mutation callbacks.
+- Next bounded section: add a `FireteamRoster` section container under
+  `components/fireteam/` that composes the extracted `FireteamMemberCard`
+  components. Keep the page as owner of member data, leader permissions,
+  tracked-item preferences, and mutation callbacks.
 - Move Fireteam query/mutation orchestration into clearly named service-facing
   hooks while keeping the page as the composition layer.
+- Run a bounded stylesheet-consolidation audit after the owning component
+  boundaries are stable. Inventory every TSX consumer before removing or
+  merging selectors, extract genuinely shared patterns such as action controls
+  and error notices into common component styles, and update every affected TSX
+  import and regression test in the same checkpoint. Product-area styles may be
+  split into smaller files when ownership remains clear and the production
+  performance budget still passes.
 - Apply the same page/component separation to Build Advisor, Collection, Gear,
   and other oversized route files.
 - Reduce `Shell.tsx` to application-shell composition.

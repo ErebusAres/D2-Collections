@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, queuedApi } from "../services/api/client";
 import { playCompletionChime } from "../services/completionAudio";
 import { FireteamPage } from "./FireteamPage";
-import styles from "./Pages.module.css";
+import fireteamStyles from "../components/fireteam/FireteamComponents.module.css";
 
 const setPreference = vi.fn();
 const guardianSettings = vi.hoisted(() => ({ autoRefresh: false }));
@@ -165,7 +165,7 @@ describe("Fireteam tracked items", () => {
     expect(screen.getByText("Order · Vanguard")).toBeTruthy();
     expect(screen.getByText("Current-step guide")).toBeTruthy();
     const guide = screen.getByText("Current-step guide").closest("details")!;
-    expect(guide.parentElement?.classList.contains(styles.sharedQuestProgress!)).toBe(true);
+    expect(guide.parentElement?.classList.contains(fireteamStyles.sharedQuestProgress!)).toBe(true);
     expect(guide.parentElement?.parentElement?.getAttribute("data-tracking-state")).toBe("active");
     expect(screen.getByText("Rank service")).toBeTruthy();
     expect(screen.getByText("Guardian Rank · Journey · Progress to rank 8")).toBeTruthy();
@@ -188,7 +188,7 @@ describe("Fireteam tracked items", () => {
 
     const item = (await screen.findByText("Weekly order")).closest("[data-completion-state]");
     expect(item?.getAttribute("data-completion-state")).toBe("exiting");
-    expect(item?.querySelectorAll(`.${styles.sharedQuestCompletionFx} b span`)).toHaveLength(12);
+    expect(item?.querySelectorAll(`.${fireteamStyles.sharedQuestCompletionFx} b span`)).toHaveLength(12);
     expect(item?.closest("[data-tracking-event]")?.getAttribute("data-tracking-event")).toBe("completed");
   });
 

@@ -5,7 +5,7 @@ import {
   type LootPull,
   type WeaponSocketChange
 } from "../gear/RecentLoot";
-import styles from "../../pages/Pages.module.css";
+import styles from "./FireteamComponents.module.css";
 
 export interface FireteamRecentLootSectionProps {
   isVisible: boolean;
@@ -83,7 +83,7 @@ export function FireteamRecentLootSection({
           <button onClick={onShow}>Show Recent Loot</button>
         </section>
       )}
-      {actionError && <div className={styles.gearError}>{actionError.message}</div>}
+      {actionError && <div className={styles.actionError}>{actionError.message}</div>}
     </>
   );
 }
