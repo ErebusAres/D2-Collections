@@ -209,6 +209,9 @@ Implemented:
 - Added the human-readable `styles/fireteam/FireteamComponents.module.css`
   stylesheet under the dedicated styling tree and matched it to the Fireteam
   component genre.
+- Moved the pre-existing `FireteamActivityFeed.module.css` out of
+  `components/fireteam/` and into `styles/fireteam/` so the Fireteam component
+  directory contains no styling files.
 - Moved the member-card, tracked-item, sharing-control, Recent Loot control,
   animation, and reduced-motion selectors out of `pages/Pages.module.css`.
 - Updated `FireteamMemberCard`, `FireteamTrackedItem`,
@@ -232,11 +235,14 @@ Validation completed for this section:
   and all relevant keyframes against the pre-move stylesheet; declarations and
   values are unchanged.
 - Complete web test suite passed: 89 files and 331 tests.
+- After the final path correction for the pre-existing Activity Feed stylesheet,
+  focused Fireteam validation passed: 2 files and 30 tests.
 - CSS-module usage passed across 42 stylesheets, frontend source boundaries
-  passed, and no Fireteam component imports `Pages.module.css`.
+  passed, no Fireteam component imports `Pages.module.css`, and
+  `components/fireteam/` contains no CSS files.
 - Workspace lint, every workspace TypeScript check, archive boundaries, and
   `git diff --check` passed.
-- Web production build and performance budget passed at 114,992 bytes gzip.
+- Web production build and performance budget passed at 114,996 bytes gzip.
 
 ## Current section: Fireteam tracked-item presentation — complete
 

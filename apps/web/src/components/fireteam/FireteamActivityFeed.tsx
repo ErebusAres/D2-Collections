@@ -4,7 +4,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, ty
 import { createPortal } from "react-dom";
 import { normalizeGearTier } from "../gear/GearTierRail";
 import { ItemTooltip, TimelineEventTooltip } from "../gear/RecentLoot";
-import styles from "./FireteamActivityFeed.module.css";
+import styles from "../../styles/fireteam/FireteamActivityFeed.module.css";
 
 export type FireteamActivityFeedView = "open" | "minimized" | "hidden";
 export type FireteamActivityWindowMode = "pinned" | "popout";
