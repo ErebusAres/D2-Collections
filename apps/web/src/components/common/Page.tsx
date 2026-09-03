@@ -1,7 +1,7 @@
 import { AlertTriangle, LoaderCircle, LogIn, RefreshCcw } from "lucide-react";
 import { createContext, useContext, type ReactNode } from "react";
 import { useGuardian } from "../../context/GuardianContext";
-import styles from "./Page.module.css";
+import styles from "../../styles/common/Page.module.css";
 import { describeApiError } from "../../services/api/client";
 
 const PageHeaderTrailingActionsContext = createContext<ReactNode>(null);

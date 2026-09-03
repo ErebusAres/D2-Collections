@@ -1,7 +1,7 @@
 import { Check, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { TrackedCompletionCandidate } from "../../modules/tracking/completionTracking";
-import styles from "./CompletionPing.module.css";
+import styles from "../../styles/common/CompletionPing.module.css";
 
 export interface CompletionNotice extends TrackedCompletionCandidate {
   noticeId: string;

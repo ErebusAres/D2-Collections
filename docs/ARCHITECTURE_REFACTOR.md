@@ -253,6 +253,46 @@ Known styling-tree debt after this checkpoint:
 - Do not bulk-move or deduplicate those files without first mapping every TSX
   importer and selector consumer.
 
+## Current section: common style-tree ownership — complete
+
+Goal: create the shared presentation boundary required by the File-tree rules
+and remove styling files from `components/common/` without changing rendered
+behavior.
+
+Implemented:
+
+- Mapped the exact production importers before moving either stylesheet.
+  `CompletionPing.tsx` is the only importer of
+  `CompletionPing.module.css`, and `Page.tsx` is the only importer of
+  `Page.module.css`; no test imports either CSS module directly.
+- Created `styles/common/` and moved the two shared component stylesheets to
+  `styles/common/CompletionPing.module.css` and
+  `styles/common/Page.module.css`.
+- Updated only the two owning components to import the new style-tree paths.
+- Preserved every selector, declaration, value, and keyframe. The only CSS
+  content additions are short ownership comments.
+- Confirmed that `components/common/` now contains only TypeScript components,
+  helpers, and tests. It contains no styling files.
+
+Validation completed for this section:
+
+- Direct comparisons against the pre-move files passed after excluding the new
+  ownership comments.
+- No stale imports reference either former component-directory stylesheet.
+- Complete web test suite passed: 89 files and 331 tests.
+- CSS-module usage passed across 42 stylesheets, frontend source boundaries
+  passed, and `components/common/` contains no CSS files.
+- Workspace lint, every workspace TypeScript check, archive boundaries, and
+  `git diff --check` passed.
+- Web production build and performance budget passed at 114,996 bytes gzip.
+
+Known styling-tree debt after this checkpoint:
+
+- Thirteen legacy CSS files remain under other `components/` genres and 24
+  remain under `pages/`.
+- Each remaining stylesheet must be moved in a bounded section only after its
+  TSX importers and selector-aware tests have been mapped.
+
 ## Current section: Fireteam tracked-item presentation — complete
 
 Goal: begin reducing `FireteamPage.tsx` to page-level composition by moving the
@@ -457,14 +497,16 @@ Validation completed for this section:
   and the application theme.
 - Completed Fireteam component stylesheet ownership and removed the reversed
   component-to-page stylesheet dependency.
+- Completed common component stylesheet ownership and removed all CSS files
+  from `components/common/`.
 
 ## Future sections
 
-- Next bounded section: create `styles/common/`, move
-  `components/common/CompletionPing.module.css` and
-  `components/common/Page.module.css` into it, and update every importer and
+- Next bounded section: create `styles/layout/`, move
+  `components/layout/OptionsPanel.module.css` and
+  `components/layout/Shell.module.css` into it, and update every importer and
   selector-aware test. Preserve every styling value and verify that
-  `components/common/` contains no CSS before pushing.
+  `components/layout/` contains no CSS before pushing.
 - After the styling-tree migration reaches the next safe stopping point, add a
   `FireteamRoster` section container under `components/fireteam/` that composes
   the extracted `FireteamMemberCard` components. Keep the page as owner of
