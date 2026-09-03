@@ -16,7 +16,7 @@ const [
   readFile(new URL("apps/web/src/App.tsx", root), "utf8"),
   readFile(new URL("apps/web/src/components/layout/OptionsPanel.tsx", root), "utf8"),
   readFile(new URL("apps/web/src/components/notifications/GuardianFeed.tsx", root), "utf8"),
-  readFile(new URL("apps/web/src/components/notifications/GuardianFeed.module.css", root), "utf8"),
+  readFile(new URL("apps/web/src/styles/notifications/GuardianFeed.module.css", root), "utf8"),
   readFile(new URL("apps/web/src/styles/guardian-fanfare.css", root), "utf8"),
   readFile(new URL("apps/web/src/pages/FireteamPage.tsx", root), "utf8"),
   readFile(new URL("apps/web/src/main.tsx", root), "utf8"),

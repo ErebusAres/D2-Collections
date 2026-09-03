@@ -5,7 +5,7 @@ import type { GuardianNotificationsController } from "../../modules/notification
 import { categoryFor } from "../../modules/notifications/categoryConfig";
 import { relativeTime, replayNotificationInBanner } from "./GuardianFeed";
 import { trapFocusWithin } from "../common/focusTrap";
-import styles from "./NotificationCenter.module.css";
+import styles from "../../styles/notifications/NotificationCenter.module.css";
 
 export function NotificationCenter({ controller }: { controller: GuardianNotificationsController }) {
   const [open, setOpen] = useState(false);

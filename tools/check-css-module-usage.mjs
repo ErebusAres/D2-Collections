@@ -15,7 +15,7 @@ const dynamicClassValues = new Map([
   ["apps/web/src/styles/journey/ProgressSummaryCard.module.css", new Map([
     ["tone", ["gold", "green", "violet"]],
   ])],
-  ["apps/web/src/components/notifications/GuardianFeed.module.css", new Map([
+  ["apps/web/src/styles/notifications/GuardianFeed.module.css", new Map([
     ["notification.priority", ["critical", "high", "normal", "low"]],
     ["config.animation", [
       "distortion", "crucible", "trials", "ironBanner", "gambit", "vanguard",

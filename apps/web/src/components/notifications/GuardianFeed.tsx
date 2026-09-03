@@ -8,7 +8,7 @@ import { categoryFor } from "../../modules/notifications/categoryConfig";
 import { playCompletionChime } from "../../services/completionAudio";
 import guardianFanfareUrl from "../../styles/guardian-fanfare.css?url";
 import { ensureStylesheet } from "../../styles/loadStylesheet";
-import styles from "./GuardianFeed.module.css";
+import styles from "../../styles/notifications/GuardianFeed.module.css";
 
 const SHOWN_NOTIFICATIONS_KEY = "guardian-nexus:notifications:shown";
 const REPLAY_NOTIFICATION_EVENT = "guardian-nexus:notification-replay";

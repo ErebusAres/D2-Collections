@@ -381,6 +381,53 @@ Known styling-tree debt after this checkpoint:
 - Continue by product genre in small, consumer-verified checkpoints; do not
   combine this structural migration with selector consolidation.
 
+## Current section: notification style-tree ownership — complete
+
+Goal: create the notification product-area styling boundary required by the
+File-tree rules and remove styling files from `components/notifications/`
+without changing banner or notification-center behavior.
+
+Implemented:
+
+- Mapped every production importer before moving either stylesheet.
+  `GuardianFeed.tsx` is the only TypeScript importer of
+  `GuardianFeed.module.css`, and `NotificationCenter.tsx` is the only importer
+  of `NotificationCenter.module.css`.
+- Mapped both non-component path consumers: the CSS-module audit owns the
+  Guardian Feed dynamic priority and animation values, and
+  `notification-visuals.test.mjs` reads the Guardian Feed stylesheet directly
+  for presentation regression assertions.
+- Created `styles/notifications/` and moved the stylesheets to
+  `styles/notifications/GuardianFeed.module.css` and
+  `styles/notifications/NotificationCenter.module.css`.
+- Updated the two owning components, the CSS-module audit mapping, and the
+  visual regression test to use the new canonical paths.
+- Preserved both stylesheets byte-for-byte, including every selector,
+  declaration, value, keyframe, media query, and reduced-motion rule.
+- Confirmed that `components/notifications/` now contains only TypeScript
+  components and their focused tests. It contains no styling files.
+
+Validation completed for this section:
+
+- Direct byte comparisons against the pre-move files passed for both moves.
+- No stale import, audit, or test path references either former
+  component-directory stylesheet.
+- Complete web test suite passed: 89 files and 331 tests, including five
+  Guardian Feed render tests and five Notification Center tests.
+- The direct notification visual-regression suite passed: 3 tests.
+- CSS-module usage passed across all 42 stylesheets, frontend source boundaries
+  passed, and `components/notifications/` contains no CSS files.
+- Workspace lint, every workspace TypeScript check, archive boundaries, and
+  `git diff --check` passed.
+- Web production build and performance budget passed at 114,996 bytes gzip.
+
+Known styling-tree debt after this checkpoint:
+
+- Seven legacy CSS files remain under other `components/` genres and 24 remain
+  under `pages/`.
+- Continue by product genre in small, consumer-verified checkpoints; do not
+  combine this structural migration with selector consolidation.
+
 ## Current section: Fireteam tracked-item presentation — complete
 
 Goal: begin reducing `FireteamPage.tsx` to page-level composition by moving the
@@ -591,14 +638,15 @@ Validation completed for this section:
   from `components/layout/`.
 - Completed Journey component stylesheet ownership and removed all CSS files
   from `components/journey/`.
+- Completed notification component stylesheet ownership and removed all CSS
+  files from `components/notifications/`.
 
 ## Future sections
 
-- Next bounded section: create `styles/notifications/`, move
-  `components/notifications/GuardianFeed.module.css` and
-  `components/notifications/NotificationCenter.module.css` into it, and update
-  every importer and selector-aware test. Preserve every styling value and
-  verify that `components/notifications/` contains no CSS before pushing.
+- Next bounded section: create `styles/quests/`, move
+  `components/quests/ObjectiveRequirementText.module.css` into it, and update
+  its importer and focused tests. Preserve every styling value and verify that
+  `components/quests/` contains no CSS before pushing.
 - After the styling-tree migration reaches the next safe stopping point, add a
   `FireteamRoster` section container under `components/fireteam/` that composes
   the extracted `FireteamMemberCard` components. Keep the page as owner of
