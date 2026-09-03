@@ -1,4 +1,4 @@
-import type { FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
+import type { FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -25,19 +25,8 @@ import type { LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { useFireteamActivityFeed } from "../services/fireteam/useFireteamActivityFeed";
 import { useFireteamQuery } from "../services/fireteam/useFireteamQuery";
+import { useFireteamSharing } from "../services/fireteam/useFireteamSharing";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
-
-interface ShareVariables {
-  mode: FireteamSharingMode;
-  sitePinnedQuestIds?: string[];
-  siteTrackedGuardianRankIds?: string[];
-  siteTrackedJourneyIds?: string[];
-  siteTrackedCollectionIds?: string[];
-  siteTrackedBuilds?: FireteamTrackedItem[];
-  hiddenTrackedItemKeys?: string[];
-  activityFeedEnabled?: boolean;
-  untrackingKey?: string;
-}
 
 const LOOT_WATCHER_PREFERENCES: Record<keyof LootWatcherConfig, UserPreferenceKey> = {
   farmingMode: "fireteam.watcher.farming.v1",
@@ -144,19 +133,21 @@ export function FireteamPage() {
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
   const [manualRemovingKey, setManualRemovingKey] = useState("");
-  const share = useMutation({
-    mutationFn: ({ mode, sitePinnedQuestIds = pinnedIds, siteTrackedGuardianRankIds = guardianRankIds, siteTrackedJourneyIds = journeyIds, siteTrackedCollectionIds = collectionIds, siteTrackedBuilds = trackedBuilds, hiddenTrackedItemKeys: hiddenKeys = hiddenTrackedItemKeys, activityFeedEnabled }: ShareVariables) => queuedApi("/api/v2/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedJourneyIds, siteTrackedCollectionIds, siteTrackedBuilds, hiddenTrackedItemKeys: hiddenKeys, ...(activityFeedEnabled === undefined ? {} : { activityFeedEnabled }), mode }) }),
-    onSuccess: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["fireteam"] }),
-      queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
-    ])
-  });
-  const stop = useMutation({
-    mutationFn: () => queuedApi("/api/v2/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
-    onSuccess: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["fireteam"] }),
-      queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
-    ])
+  const {
+    updateFireteamSharing,
+    stopFireteamSharing,
+    sharingUpdatePending,
+    stopSharingPending,
+    updatingUntrackingItemKey
+  } = useFireteamSharing({
+    characterId: selectedCharacterId,
+    csrfToken: session?.csrfToken,
+    currentPinnedQuestIds: pinnedIds,
+    currentTrackedGuardianRankIds: guardianRankIds,
+    currentTrackedJourneyIds: journeyIds,
+    currentTrackedCollectionIds: collectionIds,
+    currentTrackedBuilds: trackedBuilds,
+    currentHiddenTrackedItemKeys: hiddenTrackedItemKeys
   });
   const sharingMode = data?.sharingMode;
   const self = data?.members.find((member) => member.isSelf);
@@ -211,15 +202,15 @@ export function FireteamPage() {
 
     setManualRemovingKey(key);
     window.setTimeout(() => {
-      share.mutate({
+      updateFireteamSharing({
         mode: sharingMode,
-        sitePinnedQuestIds: nextPinnedIds,
-        siteTrackedGuardianRankIds: nextGuardianRankIds,
-        siteTrackedJourneyIds: nextJourneyIds,
-        siteTrackedCollectionIds: nextCollectionIds,
-        siteTrackedBuilds: nextTrackedBuilds,
+        pinnedQuestIds: nextPinnedIds,
+        trackedGuardianRankIds: nextGuardianRankIds,
+        trackedJourneyIds: nextJourneyIds,
+        trackedCollectionIds: nextCollectionIds,
+        trackedBuilds: nextTrackedBuilds,
         hiddenTrackedItemKeys: hiddenKeys,
-        untrackingKey: key
+        untrackingItemKey: key
       }, { onSettled: () => setManualRemovingKey((current) => current === key ? "" : current) });
     }, FIRETEAM_TRACKED_ITEM_EXIT_MS);
   };
@@ -233,11 +224,11 @@ export function FireteamPage() {
       )}
       sharingEnabled={data?.sharingEnabled}
       sharingMode={data?.sharingMode}
-      sharingUpdatePending={share.isPending}
-      stopSharingPending={stop.isPending}
-      onShareTemporarily={() => share.mutate({ mode: "temporary" })}
-      onSharePersistently={() => share.mutate({ mode: "persistent" })}
-      onStopSharing={() => stop.mutate()}
+      sharingUpdatePending={sharingUpdatePending}
+      stopSharingPending={stopSharingPending}
+      onShareTemporarily={() => updateFireteamSharing({ mode: "temporary" })}
+      onSharePersistently={() => updateFireteamSharing({ mode: "persistent" })}
+      onStopSharing={stopFireteamSharing}
     />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     <FireteamRecentLootSection
@@ -282,9 +273,7 @@ export function FireteamPage() {
       onUntrackCurrentGuardianItem={untrackItem}
       currentGuardianTrackedItemOrder={trackedItemOrder}
       onReorderCurrentGuardianTrackedItem={reorderTrackedItems}
-      currentGuardianUntrackingItemKey={manualRemovingKey || (share.isPending
-        ? share.variables?.untrackingKey
-        : undefined)}
+      currentGuardianUntrackingItemKey={manualRemovingKey || updatingUntrackingItemKey}
     />}
     {session?.authenticated && <FireteamActivityFeed
       feed={displayedActivityFeed}
@@ -294,11 +283,11 @@ export function FireteamPage() {
       onSend={sendActivityMessage}
       sending={activityMessageSending}
       error={activityFeedError}
-      onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({
+      onDisable={() => data?.sharingMode && data.sharingMode !== "off" && updateFireteamSharing({
         mode: data.sharingMode,
         activityFeedEnabled: false
       })}
-      onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({
+      onEnable={() => data?.sharingMode && data.sharingMode !== "off" && updateFireteamSharing({
         mode: data.sharingMode,
         activityFeedEnabled: true
       })}

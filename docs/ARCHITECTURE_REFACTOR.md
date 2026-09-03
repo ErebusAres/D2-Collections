@@ -845,6 +845,51 @@ Validation completed for this section:
   114,974 bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
 - `git diff --check` passed.
 
+## Current section: Fireteam sharing service — complete
+
+Goal: move Fireteam share/update and stop-sharing transport out of
+`FireteamPage.tsx` and into the product-specific service tree. Preserve page
+ownership of user intent, tracked-item calculations, delayed untracking, saved
+preferences, activity-feed enable/disable decisions, and component composition.
+
+Implemented:
+
+- Added `services/fireteam/useFireteamSharing.ts` as the single owner of the
+  `/api/v2/fireteam/share` PUT and DELETE requests, CSRF headers, mutation
+  pending state, and Fireteam plus activity-feed cache invalidation.
+- Replaced API-shaped page names such as `sitePinnedQuestIds` with readable
+  service inputs such as `pinnedQuestIds`, `trackedGuardianRankIds`, and
+  `trackedCollectionIds`. The service translates those names back to the exact
+  existing server contract at the transport boundary.
+- Moved the default share-payload assembly into the hook. Starting temporary or
+  persistent sharing still sends the page's current quest, Guardian Rank,
+  Journey, Collection, build, and hidden-item state without rebuilding a share
+  on mount.
+- Kept `untrackingItemKey` as service-visible UI state while deliberately
+  excluding it from the serialized request. `FireteamPage` still calculates
+  the next tracked state, waits for the removal animation, persists relevant
+  preferences, and clears its manual removal state after the mutation settles.
+- Replaced direct mutation objects in the page with human-readable results:
+  `updateFireteamSharing`, `stopFireteamSharing`, `sharingUpdatePending`,
+  `stopSharingPending`, and `updatingUntrackingItemKey`.
+- Reduced `FireteamPage.tsx` from 327 to 316 lines while retaining its role as
+  the larger workflow/composition container.
+- Added three direct hook tests covering default payload serialization, exact
+  cache invalidation, explicit state overrides, activity-feed disabling,
+  in-flight untracking state, exclusion of UI-only metadata, settlement
+  callbacks, DELETE behavior, and CSRF protection.
+
+Validation completed for this section:
+
+- Focused sharing-hook and Fireteam page suites passed: 2 files and 25 tests.
+- The complete `pnpm run audit` workflow passed: archive and frontend source
+  boundaries, all 42 CSS modules, workspace lint, every workspace typecheck, 24
+  domain tests, 257 API tests, 344 Web tests across 94 files, 7 Node tooling
+  tests, 24 manifest tests, and API/Web production builds.
+- The unchanged production performance budget passed at 372,749 bytes raw and
+  114,958 bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
+- `git diff --check` passed.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -876,19 +921,21 @@ Validation completed for this section:
 - Established `services/fireteam/`, moved the canonical Fireteam query hook out
   of `modules/`, and extracted activity-feed query/message orchestration with
   direct tests.
+- Extracted Fireteam sharing transport, payload serialization, pending state,
+  and cache invalidation into a directly tested service hook.
 
 ## Future sections
 
-- Next bounded code slice: add `services/fireteam/useFireteamSharing.ts` and
-  move the share/update and stop-sharing mutations, request serialization, and
-  Fireteam/activity cache invalidation out of `FireteamPage.tsx`. Give the hook
-  explicit tracked-item inputs and human-readable return names, add direct
-  mutation tests, and keep the page responsible for user intent, untracking
-  calculations, activity-feed enable/disable intent, and composing
-  `FireteamSharingHeader`.
-- Continue moving the remaining Fireteam Recent Loot, gear-action, and watcher
-  orchestration into clearly named service-facing hooks while keeping the page
-  as the composition layer.
+- Next bounded code slice: add `services/fireteam/useFireteamRecentLoot.ts` and
+  move the Recent Loot query, optimistic item-tag cache update, item-state PUT,
+  gear transfer/socket action POST, and their cache invalidation out of
+  `FireteamPage.tsx`. Give the service hook direct query/mutation tests and
+  human-readable actions. Keep the page responsible for the saved visibility
+  preference, composing `FireteamRecentLootSection`, and translating component
+  callbacks into service actions.
+- After Recent Loot transport is isolated, move the remaining loot-watcher
+  preference map, run mutation, result labeling, and toggle workflow into an
+  appropriate Fireteam helper/service boundary with direct tests.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
   component area is selected as part of a bounded TSX ownership review. Preserve
   every styling value and verify that `components/reward-codes/` contains no CSS
