@@ -752,6 +752,52 @@ Validation completed for this section:
   tests, 334 web tests, 7 Node tooling tests, 24 manifest tests, API/Web builds,
   and the unchanged production performance budget.
 
+## Current section: Fireteam tracked-item order workflow — complete
+
+Goal: remove tracked-item ordering mechanics from `FireteamPage.tsx` while
+keeping the page responsible for selecting the current Guardian and composing
+the roster. The extracted workflow must preserve stored-preference parsing,
+initial ordering, newly discovered item priority, context isolation, and manual
+reordering behavior.
+
+Implemented:
+
+- Added `components/fireteam/useFireteamTrackedItemOrder.ts` as a focused
+  Fireteam helper hook beside the components that consume its state.
+- Moved parsing and synchronization of the `fireteam.trackedOrder` preference,
+  initial-order creation, membership/character context history, newly discovered
+  tracked-item detection, ordering, and persistence into the hook.
+- Kept `FireteamPage.tsx` responsible for identifying the current Guardian and
+  supplying explicit membership and character identifiers, the stored
+  preference value, and the application preference writer.
+- Removed the page's ordering ref, two ordering effects, local ordering state,
+  legacy quest conversion, key-ordering implementation, and manual reorder
+  function. The page now receives `trackedItemOrder` and `reorderTrackedItems`
+  from one named workflow boundary and passes them into `FireteamRoster`.
+- Added four direct hook tests covering empty-preference initialization,
+  external preference synchronization without duplicate writes, new-item
+  priority, and persisted manual reordering.
+- Reduced `FireteamPage.tsx` from 347 to 316 lines without changing API paths,
+  preference keys, storage limits, ordering results, or roster properties.
+- The new lazy-route hash initially placed the shared entry five bytes over its
+  fixed gzip limit. Kept the limit unchanged and removed the adjacent repeated
+  runtime object guard from the existing `retryAfterSeconds` read in `main.tsx`;
+  its retry formula and 70-second/10-second caps remain unchanged. Together with
+  the prior status-read simplification, the entry now has measurable headroom.
+
+Validation completed for this section:
+
+- Complete web test suite passed: 92 files and 338 tests, including the four new
+  direct hook tests, both roster tests, and all 22 Fireteam page tests.
+- Focused ESLint, web application and Pages Functions TypeScript checks,
+  CSS-module usage, frontend source boundaries, and `git diff --check` passed.
+- Direct Web production build and the unchanged performance budget passed at
+  372,749 bytes raw and 114,959 bytes gzip.
+- The complete `pnpm run audit` workflow passed: archive and source boundaries,
+  CSS usage, workspace lint, every workspace typecheck, 24 domain tests, 257 API
+  tests, 338 web tests, 7 Node tooling tests, 24 manifest tests, API/Web builds,
+  and the unchanged production performance budget.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -778,16 +824,20 @@ Validation completed for this section:
   page simplification, focused tests, and Fireteam-owned roster styling.
 - Completed the Fireteam Bungie-data notice vertical slice and removed its
   presentation markup and selector from the page layer.
+- Completed the Fireteam tracked-item order workflow extraction and replaced
+  page-owned synchronization mechanics with a directly tested hook boundary.
 
 ## Future sections
 
-- Next bounded code slice: extract Fireteam tracked-item order state, preference
-  synchronization, newly discovered item handling, and the reorder callback
-  from `FireteamPage.tsx` into a focused Fireteam hook/helper with direct tests.
-  Keep the page responsible for selecting the current member and passing the
-  hook's plain order state and callback into `FireteamRoster`.
-- Continue moving Fireteam query/mutation orchestration into clearly named
-  service-facing hooks while keeping the page as the composition layer.
+- Next bounded code slice: establish `services/fireteam/` as the Fireteam API
+  orchestration boundary, move the existing Fireteam query hook out of
+  `modules/fireteam/`, and extract activity-feed query/message orchestration from
+  `FireteamPage.tsx` into a clearly named service-facing hook with direct tests.
+  Keep `FireteamPage` responsible for choosing the displayed feed view and
+  composing `FireteamActivityFeed`.
+- Continue moving the remaining Fireteam sharing, Recent Loot, gear-action, and
+  watcher orchestration into clearly named service-facing hooks while keeping
+  the page as the composition layer.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
   component area is selected as part of a bounded TSX ownership review. Preserve
   every styling value and verify that `components/reward-codes/` contains no CSS

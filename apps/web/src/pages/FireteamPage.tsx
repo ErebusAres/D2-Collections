@@ -1,7 +1,7 @@
 import type { FireteamData, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, QueryState } from "../components/common/Page";
 import {
@@ -13,10 +13,9 @@ import { FireteamRoster } from "../components/fireteam/FireteamRoster";
 import { FireteamSharingHeader } from "../components/fireteam/FireteamSharingHeader";
 import {
   fireteamTrackedItemKey,
-  FIRETEAM_TRACKED_ITEM_EXIT_MS,
-  legacyQuestToFireteamTrackedItem,
-  orderedFireteamTrackedItemKeys
+  FIRETEAM_TRACKED_ITEM_EXIT_MS
 } from "../components/fireteam/fireteamTrackedItems";
+import { useFireteamTrackedItemOrder } from "../components/fireteam/useFireteamTrackedItemOrder";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { primeCompletionAudio } from "../services/completionAudio";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
@@ -135,9 +134,6 @@ export function FireteamPage() {
         ? watcherResultLabel(watcherRun.data.data)
         : undefined;
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
-  const preferenceTrackedItemOrder = useMemo(() => trackedPreference(preferences["fireteam.trackedOrder"]), [preferences]);
-  const [trackedItemOrder, setTrackedItemOrder] = useState(preferenceTrackedItemOrder);
-  useEffect(() => setTrackedItemOrder(preferenceTrackedItemOrder), [preferences["fireteam.trackedOrder"]]);
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
   const [manualRemovingKey, setManualRemovingKey] = useState("");
   const share = useMutation({
@@ -169,40 +165,13 @@ export function FireteamPage() {
   };
   const sharingMode = data?.sharingMode;
   const self = data?.members.find((member) => member.isSelf);
-  const trackedOrderContext = `${membershipId}:${selectedCharacterId}`;
-  const previousTrackedOrderKeys = useRef<{ context: string; keys: Set<string> } | undefined>(undefined);
-  const selfTrackedItems = self ? (Array.isArray(self.trackedItems) ? self.trackedItems : self.quests.map(legacyQuestToFireteamTrackedItem)) : [];
-  const selfTrackedSignature = selfTrackedItems.map(fireteamTrackedItemKey).sort().join("|");
-  useEffect(() => {
-    if (!self) return;
-    const currentKeys = new Set(selfTrackedItems.map(fireteamTrackedItemKey));
-    const previous = previousTrackedOrderKeys.current;
-    previousTrackedOrderKeys.current = { context: trackedOrderContext, keys: currentKeys };
-    if (!previous || previous.context !== trackedOrderContext) {
-      if (!trackedItemOrder.length && currentKeys.size) {
-        const initialOrder = [...currentKeys];
-        setTrackedItemOrder(initialOrder);
-        setPreference("fireteam.trackedOrder", JSON.stringify(initialOrder));
-      }
-      return;
-    }
-    const addedKeys = [...currentKeys].filter((key) => !previous.keys.has(key));
-    if (!addedKeys.length) return;
-    const nextOrder = [...addedKeys, ...orderedFireteamTrackedItemKeys(selfTrackedItems, trackedItemOrder).filter((key) => !addedKeys.includes(key))];
-    setTrackedItemOrder(nextOrder);
-    setPreference("fireteam.trackedOrder", JSON.stringify(nextOrder));
-  }, [selfTrackedSignature, trackedOrderContext]);
-  const reorderTrackedItems = (sourceKey: string, targetKey: string) => {
-    if (!self || sourceKey === targetKey) return;
-    const sourceItems = Array.isArray(self.trackedItems) ? self.trackedItems : self.quests.map(legacyQuestToFireteamTrackedItem);
-    const nextOrder = orderedFireteamTrackedItemKeys(sourceItems, trackedItemOrder);
-    const sourceIndex = nextOrder.indexOf(sourceKey);
-    const targetIndex = nextOrder.indexOf(targetKey);
-    if (sourceIndex < 0 || targetIndex < 0) return;
-    nextOrder.splice(targetIndex, 0, nextOrder.splice(sourceIndex, 1)[0]!);
-    setTrackedItemOrder(nextOrder);
-    setPreference("fireteam.trackedOrder", JSON.stringify(nextOrder));
-  };
+  const { trackedItemOrder, reorderTrackedItems } = useFireteamTrackedItemOrder({
+    currentGuardian: self,
+    membershipId,
+    characterId: selectedCharacterId,
+    savedTrackedItemOrder: preferences["fireteam.trackedOrder"],
+    setPreference
+  });
   const [copied, setCopied] = useState("");
   const copyCommand = async (label: string, command: string) => {
     if (!navigator.clipboard?.writeText) return;

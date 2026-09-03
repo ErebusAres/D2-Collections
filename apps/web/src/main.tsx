@@ -27,9 +27,9 @@ function shouldRetryQuery(attempt: number, error: unknown): boolean {
 }
 
 function queryRetryDelay(attempt: number, error: unknown): number {
-  const retryAfterSeconds = typeof error === "object" && error !== null && "retryAfterSeconds" in error
-    ? Number((error as { retryAfterSeconds?: unknown }).retryAfterSeconds || 0)
-    : 0;
+  const retryAfterSeconds = Number(
+    (error as { retryAfterSeconds?: unknown } | null)?.retryAfterSeconds || 0
+  );
   return retryAfterSeconds > 0 ? Math.min(retryAfterSeconds * 1_000, 70_000) : Math.min(1_000 * 2 ** attempt, 10_000);
 }
 
