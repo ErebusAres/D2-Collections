@@ -336,6 +336,51 @@ Known styling-tree debt after this checkpoint:
 - Continue by product genre in small, consumer-verified checkpoints; do not
   combine this structural migration with selector consolidation.
 
+## Current section: Journey style-tree ownership — complete
+
+Goal: create the Journey product-area styling boundary required by the
+File-tree rules and remove styling files from `components/journey/` without
+changing navigation or progress-summary presentation.
+
+Implemented:
+
+- Mapped every production importer and style token before moving either
+  stylesheet. `JourneyNav.tsx` is the only importer of
+  `JourneyNav.module.css`, and `ProgressSummaryCard.tsx` is the only importer of
+  `ProgressSummaryCard.module.css`; no test imports either CSS module directly.
+- Created `styles/journey/` and moved the stylesheets to
+  `styles/journey/JourneyNav.module.css` and
+  `styles/journey/ProgressSummaryCard.module.css`.
+- Updated only the two owning Journey components to import the new style-tree
+  paths.
+- Updated the CSS-module audit's existing `ProgressSummaryCard` dynamic-tone
+  mapping to the stylesheet's new canonical path. The known `gold`, `green`,
+  and `violet` class values are unchanged.
+- Preserved both stylesheets byte-for-byte, including every selector,
+  declaration, value, media query, and transition.
+- Confirmed that `components/journey/` now contains only the two reusable
+  TypeScript components. It contains no styling files.
+
+Validation completed for this section:
+
+- Direct byte comparisons against the pre-move files passed for both moves.
+- No stale imports reference either former component-directory stylesheet.
+- Complete web test suite passed: 89 files and 331 tests.
+- The CSS-module audit initially exposed its stale dynamic-tone path, then
+  passed across all 42 stylesheets after that canonical path was updated.
+- Frontend source boundaries passed, and `components/journey/` contains no CSS
+  files.
+- Workspace lint, focused lint for the changed audit tool, every workspace
+  TypeScript check, archive boundaries, and `git diff --check` passed.
+- Web production build and performance budget passed at 114,996 bytes gzip.
+
+Known styling-tree debt after this checkpoint:
+
+- Nine legacy CSS files remain under other `components/` genres and 24 remain
+  under `pages/`.
+- Continue by product genre in small, consumer-verified checkpoints; do not
+  combine this structural migration with selector consolidation.
+
 ## Current section: Fireteam tracked-item presentation — complete
 
 Goal: begin reducing `FireteamPage.tsx` to page-level composition by moving the
@@ -544,14 +589,16 @@ Validation completed for this section:
   from `components/common/`.
 - Completed layout component stylesheet ownership and removed all CSS files
   from `components/layout/`.
+- Completed Journey component stylesheet ownership and removed all CSS files
+  from `components/journey/`.
 
 ## Future sections
 
-- Next bounded section: create `styles/journey/`, move
-  `components/journey/JourneyNav.module.css` and
-  `components/journey/ProgressSummaryCard.module.css` into it, and update every
-  importer and selector-aware test. Preserve every styling value and verify
-  that `components/journey/` contains no CSS before pushing.
+- Next bounded section: create `styles/notifications/`, move
+  `components/notifications/GuardianFeed.module.css` and
+  `components/notifications/NotificationCenter.module.css` into it, and update
+  every importer and selector-aware test. Preserve every styling value and
+  verify that `components/notifications/` contains no CSS before pushing.
 - After the styling-tree migration reaches the next safe stopping point, add a
   `FireteamRoster` section container under `components/fireteam/` that composes
   the extracted `FireteamMemberCard` components. Keep the page as owner of

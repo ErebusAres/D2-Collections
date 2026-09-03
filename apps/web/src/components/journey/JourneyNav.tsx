@@ -1,6 +1,6 @@
 import { Badge, CalendarDays, CheckSquare2, Clock3, Compass, Crown, Flag, ListTodo, ScrollText, Sparkles } from "lucide-react";
 import { NavLink } from "react-router-dom";
-import styles from "./JourneyNav.module.css";
+import styles from "../../styles/journey/JourneyNav.module.css";
 
 const destinations = [
   { to: "/journey", label: "Overview", icon: Compass, end: true },

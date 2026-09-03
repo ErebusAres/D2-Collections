@@ -12,7 +12,7 @@ const dynamicClassValues = new Map([
     ["selectedTag || value", ["all", "archive", "favorite", "infuse", "junk", "keep"]],
     ["option.tag || option.value", ["all", "archive", "favorite", "infuse", "junk", "keep"]],
   ])],
-  ["apps/web/src/components/journey/ProgressSummaryCard.module.css", new Map([
+  ["apps/web/src/styles/journey/ProgressSummaryCard.module.css", new Map([
     ["tone", ["gold", "green", "violet"]],
   ])],
   ["apps/web/src/components/notifications/GuardianFeed.module.css", new Map([
