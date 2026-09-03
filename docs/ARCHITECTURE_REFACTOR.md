@@ -244,6 +244,15 @@ Validation completed for this section:
   `git diff --check` passed.
 - Web production build and performance budget passed at 114,996 bytes gzip.
 
+Known styling-tree debt after this checkpoint:
+
+- No CSS files remain under `components/fireteam/`.
+- Fifteen legacy CSS files remain under other `components/` genres and 24 remain
+  under `pages/`. They must move into `styles/common/` or the matching
+  `styles/<product-area>/` directory in bounded, consumer-verified sections.
+- Do not bulk-move or deduplicate those files without first mapping every TSX
+  importer and selector consumer.
+
 ## Current section: Fireteam tracked-item presentation — complete
 
 Goal: begin reducing `FireteamPage.tsx` to page-level composition by moving the
@@ -451,10 +460,16 @@ Validation completed for this section:
 
 ## Future sections
 
-- Next bounded section: add a `FireteamRoster` section container under
-  `components/fireteam/` that composes the extracted `FireteamMemberCard`
-  components. Keep the page as owner of member data, leader permissions,
-  tracked-item preferences, and mutation callbacks.
+- Next bounded section: create `styles/common/`, move
+  `components/common/CompletionPing.module.css` and
+  `components/common/Page.module.css` into it, and update every importer and
+  selector-aware test. Preserve every styling value and verify that
+  `components/common/` contains no CSS before pushing.
+- After the styling-tree migration reaches the next safe stopping point, add a
+  `FireteamRoster` section container under `components/fireteam/` that composes
+  the extracted `FireteamMemberCard` components. Keep the page as owner of
+  member data, leader permissions, tracked-item preferences, and mutation
+  callbacks.
 - Move Fireteam query/mutation orchestration into clearly named service-facing
   hooks while keeping the page as the composition layer.
 - Run a bounded stylesheet-consolidation audit after the owning component
