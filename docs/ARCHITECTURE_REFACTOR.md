@@ -293,6 +293,49 @@ Known styling-tree debt after this checkpoint:
 - Each remaining stylesheet must be moved in a bounded section only after its
   TSX importers and selector-aware tests have been mapped.
 
+## Current section: layout style-tree ownership — complete
+
+Goal: create the application-layout styling boundary required by the File-tree
+rules and remove styling files from `components/layout/` without changing shell
+or options-panel behavior.
+
+Implemented:
+
+- Mapped every production importer before moving either stylesheet.
+  `OptionsPanel.tsx` is the only importer of `OptionsPanel.module.css`;
+  `Shell.tsx` and `ServiceIncidentBanner.tsx` are the complete importer set for
+  `Shell.module.css`. No test imports either CSS module directly.
+- Created `styles/layout/` and moved the stylesheets to
+  `styles/layout/OptionsPanel.module.css` and
+  `styles/layout/Shell.module.css`.
+- Updated only those three owning components to import the new style-tree paths.
+- Preserved both stylesheets byte-for-byte, including every selector,
+  declaration, value, keyframe, media query, and global reduced-motion rule.
+- Confirmed that `components/layout/` now contains only TypeScript components
+  and the shell regression test. It contains no styling files.
+
+Validation completed for this section:
+
+- Direct byte comparisons against the pre-move files passed for both moves.
+- No stale imports reference either former component-directory stylesheet.
+- Complete web test suite passed: 89 files and 331 tests, including all nine
+  shell regression tests.
+- CSS-module usage passed across 42 stylesheets, frontend source boundaries
+  passed, and `components/layout/` contains no CSS files.
+- Workspace lint, every workspace TypeScript check, archive boundaries, and
+  `git diff --check` passed.
+- The first build correctly rejected two non-functional CSS ownership comments
+  at 115,004 bytes gzip. Removing only those comments restored byte-for-byte
+  stylesheet moves; the final production build and performance budget passed at
+  114,996 bytes gzip without changing the budget.
+
+Known styling-tree debt after this checkpoint:
+
+- Eleven legacy CSS files remain under other `components/` genres and 24 remain
+  under `pages/`.
+- Continue by product genre in small, consumer-verified checkpoints; do not
+  combine this structural migration with selector consolidation.
+
 ## Current section: Fireteam tracked-item presentation — complete
 
 Goal: begin reducing `FireteamPage.tsx` to page-level composition by moving the
@@ -499,14 +542,16 @@ Validation completed for this section:
   component-to-page stylesheet dependency.
 - Completed common component stylesheet ownership and removed all CSS files
   from `components/common/`.
+- Completed layout component stylesheet ownership and removed all CSS files
+  from `components/layout/`.
 
 ## Future sections
 
-- Next bounded section: create `styles/layout/`, move
-  `components/layout/OptionsPanel.module.css` and
-  `components/layout/Shell.module.css` into it, and update every importer and
-  selector-aware test. Preserve every styling value and verify that
-  `components/layout/` contains no CSS before pushing.
+- Next bounded section: create `styles/journey/`, move
+  `components/journey/JourneyNav.module.css` and
+  `components/journey/ProgressSummaryCard.module.css` into it, and update every
+  importer and selector-aware test. Preserve every styling value and verify
+  that `components/journey/` contains no CSS before pushing.
 - After the styling-tree migration reaches the next safe stopping point, add a
   `FireteamRoster` section container under `components/fireteam/` that composes
   the extracted `FireteamMemberCard` components. Keep the page as owner of

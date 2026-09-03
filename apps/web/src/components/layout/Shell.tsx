@@ -11,7 +11,7 @@ import { HEADER_REFRESH_INTERVAL_MS } from "../../services/liveRefresh";
 import { GuardianFeed } from "../notifications/GuardianFeed";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { useGuardianNotifications } from "../../modules/notifications/useGuardianNotifications";
-import styles from "./Shell.module.css";
+import styles from "../../styles/layout/Shell.module.css";
 
 const OptionsPanel = lazy(() => import("./OptionsPanel").then((module) => ({ default: module.OptionsPanel })));
 const ServiceIncidentBanner = lazy(() => import("./ServiceIncidentBanner").then((module) => ({ default: module.ServiceIncidentBanner })));

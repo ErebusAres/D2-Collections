@@ -1,6 +1,6 @@
 import { AlertTriangle, Copy, X } from "lucide-react";
 import type { ConnectionFailure } from "../../services/api/client";
-import styles from "./Shell.module.css";
+import styles from "../../styles/layout/Shell.module.css";
 
 export function ServiceIncidentBanner({ failure, copied, onCopy, onDismiss }: { failure: ConnectionFailure; copied: boolean; onCopy: () => Promise<void>; onDismiss: () => void }) {
   const cause = failure.code === "worker_resource_limit"

@@ -8,7 +8,7 @@ import { clearGuardianOfflineData } from "../../services/api/offlineCache";
 import { LIVE_REFRESH_INTERVAL_MINUTES } from "../../services/liveRefresh";
 import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import { trapFocusWithin } from "../common/focusTrap";
-import styles from "./OptionsPanel.module.css";
+import styles from "../../styles/layout/OptionsPanel.module.css";
 import { parseTrackedBuilds } from "../../modules/buildAdvisor/buildTracking";
 import { useFireteamQuery } from "../../modules/fireteam/useFireteamQuery";
 
