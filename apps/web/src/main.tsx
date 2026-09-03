@@ -23,10 +23,7 @@ const queryClient = new QueryClient({
 });
 
 function shouldRetryQuery(attempt: number, error: unknown): boolean {
-  const status = typeof error === "object" && error !== null && "status" in error
-    ? (error as { status?: unknown }).status
-    : undefined;
-  return status !== 401 && attempt < 3;
+  return (error as { status?: unknown } | null)?.status !== 401 && attempt < 3;
 }
 
 function queryRetryDelay(attempt: number, error: unknown): number {

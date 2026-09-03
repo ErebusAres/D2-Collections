@@ -710,6 +710,48 @@ Validation completed for this section:
 - The production performance budget passed at exactly 115,000 bytes gzip without
   raising or changing the budget.
 
+## Current section: Fireteam Bungie-data notice — complete
+
+Goal: remove the final Fireteam-specific footer implementation and selector from
+the page layer by extracting a focused data-source notice component. Preserve
+the exact user-visible wording, warning-filtering behavior, icon semantics, and
+presentation values.
+
+Implemented:
+
+- Added `components/fireteam/FireteamDataNotice.tsx` as the focused owner of the
+  Bungie latency notice markup and `AlertTriangle` icon.
+- Exported the complete `FIRETEAM_BUNGIE_DATA_NOTICE` term from the component so
+  the notice display and `FireteamPage` warning filter continue using one exact
+  source of truth.
+- Replaced the page's embedded footer with `FireteamDataNotice` and removed the
+  page-level Lucide icon import and presentation implementation.
+- Moved the exact existing layout, spacing, border, typography, icon-size, and
+  color declarations from `pages/Pages.module.css` into the existing
+  `styles/fireteam/FireteamComponents.module.css` tree. Renamed the local class
+  from `fireteamDataNote` to the context-appropriate `dataNotice`; no CSS file
+  was added under `components/` or `pages/`.
+- Added focused coverage confirming the complete notice wording remains inside
+  a footer and its supporting icon remains hidden from the accessibility tree.
+- The extraction initially placed the shared entry 12 bytes over its fixed gzip
+  budget because the changed lazy-route hash altered entry compression. Kept the
+  budget unchanged and simplified the existing query retry status read in
+  `main.tsx`; it still retries only while the attempt is below three and the
+  error status is not `401`.
+
+Validation completed for this section:
+
+- Complete web test suite passed: 91 files and 334 tests, including the new
+  notice test and all 22 Fireteam page tests.
+- Focused ESLint, web application and Pages Functions TypeScript checks,
+  CSS-module usage, frontend source boundaries, and `git diff --check` passed.
+- Direct Web production build and the unchanged performance budget passed at
+  372,804 bytes raw and exactly 115,000 bytes gzip.
+- The complete `pnpm run audit` workflow passed: archive and source boundaries,
+  CSS usage, workspace lint, every workspace typecheck, 24 domain tests, 257 API
+  tests, 334 web tests, 7 Node tooling tests, 24 manifest tests, API/Web builds,
+  and the unchanged production performance budget.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -734,16 +776,18 @@ Validation completed for this section:
   `components/quests/`.
 - Completed the Fireteam roster vertical slice, including the section component,
   page simplification, focused tests, and Fireteam-owned roster styling.
+- Completed the Fireteam Bungie-data notice vertical slice and removed its
+  presentation markup and selector from the page layer.
 
 ## Future sections
 
-- Next bounded vertical slice: extract the Fireteam Bungie-data notice into a
-  focused `FireteamDataNotice` component, move its `fireteamDataNote` selector
-  from `pages/Pages.module.css` into the existing `styles/fireteam/` stylesheet,
-  and remove the icon/presentation implementation from `FireteamPage.tsx`.
-  Preserve the exact disclaimer wording and rendered accessibility.
-- Move Fireteam query/mutation orchestration into clearly named service-facing
-  hooks while keeping the page as the composition layer.
+- Next bounded code slice: extract Fireteam tracked-item order state, preference
+  synchronization, newly discovered item handling, and the reorder callback
+  from `FireteamPage.tsx` into a focused Fireteam hook/helper with direct tests.
+  Keep the page responsible for selecting the current member and passing the
+  hook's plain order state and callback into `FireteamRoster`.
+- Continue moving Fireteam query/mutation orchestration into clearly named
+  service-facing hooks while keeping the page as the composition layer.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
   component area is selected as part of a bounded TSX ownership review. Preserve
   every styling value and verify that `components/reward-codes/` contains no CSS

@@ -1,10 +1,13 @@
 import type { FireteamData, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, mutationHeaders, queuedApi } from "../services/api/client";
 import { AuthGate, QueryState } from "../components/common/Page";
+import {
+  FIRETEAM_BUNGIE_DATA_NOTICE,
+  FireteamDataNotice
+} from "../components/fireteam/FireteamDataNotice";
 import { FireteamRecentLootSection } from "../components/fireteam/FireteamRecentLootSection";
 import { FireteamRoster } from "../components/fireteam/FireteamRoster";
 import { FireteamSharingHeader } from "../components/fireteam/FireteamSharingHeader";
@@ -23,8 +26,6 @@ import type { LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
 import { FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS, LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
-
-const BUNGIE_PRESENCE_DISCLAIMER = "Fireteam membership and activity come from Bungie and may take a few minutes to catch up.";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -264,7 +265,7 @@ export function FireteamPage() {
     <FireteamSharingHeader
       lastUpdatedAt={data?.pageUpdatedAt}
       statusWarning={result.data?.warnings.find(
-        (warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER
+        (warning) => warning !== FIRETEAM_BUNGIE_DATA_NOTICE
       )}
       sharingEnabled={data?.sharingEnabled}
       sharingMode={data?.sharingMode}
@@ -322,7 +323,7 @@ export function FireteamPage() {
         : undefined)}
     />}
     {session?.authenticated && <FireteamActivityFeed feed={visibleActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : activityFeed.error instanceof Error ? activityFeed.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
-    {data && <footer className={styles.fireteamDataNote}><AlertTriangle /><span>{BUNGIE_PRESENCE_DISCLAIMER}</span></footer>}
+    {data && <FireteamDataNotice />}
   </AuthGate>;
 }
 

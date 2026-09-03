@@ -35,6 +35,26 @@
   gap: 10px;
 }
 
+/* Fireteam data notice */
+.dataNotice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 18px;
+  padding: 9px 2px 2px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.dataNotice svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
 /* Fireteam member card */
 .memberCard {
   min-height: 400px;

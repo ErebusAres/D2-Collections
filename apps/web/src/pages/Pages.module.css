@@ -36,7 +36,6 @@
 
 .primaryAction { min-height: 38px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--cyan); background: rgba(155,231,226,.1); padding: 0 14px; color: var(--cyan-bright); text-transform: uppercase; letter-spacing: .1em; font-size: 12px; }.primaryAction:hover { background: rgba(155,231,226,.18); }.primaryAction:disabled { opacity: .55; cursor: wait; }
 .transitoryNotice, .devWarning { display: flex; align-items: center; gap: 14px; margin-top: 12px; padding: 13px 16px; border: 1px solid rgba(231,200,119,.24); background: rgba(231,200,119,.055); color: var(--gold); }.transitoryNotice strong, .devWarning strong { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }.transitoryNotice p, .devWarning p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
-.fireteamDataNote{display:flex;align-items:center;gap:7px;margin-top:18px;padding:9px 2px 2px;border-top:1px solid var(--line);color:var(--faint);font-size:10px;line-height:1.4}.fireteamDataNote svg{width:13px;height:13px;flex:0 0 auto;color:var(--muted)}
 @media(max-width:1200px){.fireteamRoute{padding-right:0}.fireteamRefreshRail{position:static;width:auto;margin-bottom:8px;display:flex;justify-content:flex-end}.fireteamRefreshDock{width:min(100%,320px)}.fireteamRefreshDock,.fireteamRefreshDockPinned{position:static}.fireteamRefreshTimer{box-shadow:none}}
 .fireteamRoute{padding-right:0}.fireteamUpper{min-width:0}@media(max-width:1200px){.fireteamUpper{padding-right:0}}
 @media (prefers-reduced-motion:reduce){.masterworkedArmor::after{animation:none}}
