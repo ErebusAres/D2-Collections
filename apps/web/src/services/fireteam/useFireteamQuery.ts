@@ -1,6 +1,6 @@
 import type { FireteamData } from "@guardian-nexus/contracts";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../services/api/client";
+import { api } from "../api/client";
 
 export function useFireteamQuery(membershipId: string, characterId: string, enabled: boolean) {
   return useQuery({

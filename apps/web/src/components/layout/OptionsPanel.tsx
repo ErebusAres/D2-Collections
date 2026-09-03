@@ -10,7 +10,7 @@ import { pinsKey, useGuardian } from "../../context/GuardianContext";
 import { trapFocusWithin } from "../common/focusTrap";
 import styles from "../../styles/layout/OptionsPanel.module.css";
 import { parseTrackedBuilds } from "../../modules/buildAdvisor/buildTracking";
-import { useFireteamQuery } from "../../modules/fireteam/useFireteamQuery";
+import { useFireteamQuery } from "../../services/fireteam/useFireteamQuery";
 
 export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: { open: boolean; onClose: () => void; returnFocusRef?: RefObject<HTMLButtonElement | null>; reportSummary?: ReportAdminSummaryData }) {
   const guardianState = useGuardian();

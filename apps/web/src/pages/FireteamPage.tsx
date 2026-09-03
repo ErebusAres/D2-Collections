@@ -1,4 +1,4 @@
-import type { FireteamData, FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
+import type { FireteamSharingMode, FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -23,8 +23,9 @@ import styles from "./Pages.module.css";
 
 import type { LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
-import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
-import { FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS, LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
+import { useFireteamActivityFeed } from "../services/fireteam/useFireteamActivityFeed";
+import { useFireteamQuery } from "../services/fireteam/useFireteamQuery";
+import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -107,13 +108,20 @@ export function FireteamPage() {
     refetchInterval: false,
     refetchIntervalInBackground: false
   });
-  const activityFeed = useQuery({
-    queryKey: ["fireteam-activity", session?.guardian?.membershipId, selectedCharacterId],
-    queryFn: () => api<NonNullable<FireteamData["activityFeed"]>>("/api/v2/fireteam/activity"),
-    enabled: Boolean(session?.authenticated && activityFeedView !== "hidden"),
-    staleTime: FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS,
-    refetchInterval: autoRefresh ? FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS : false,
-    refetchIntervalInBackground: false
+  const {
+    displayedActivityFeed,
+    sendActivityMessage,
+    activityMessageSending,
+    activityFeedError
+  } = useFireteamActivityFeed({
+    membershipId,
+    characterId: selectedCharacterId,
+    authenticated: Boolean(session?.authenticated),
+    feedIsVisible: activityFeedView !== "hidden",
+    autoRefresh,
+    csrfToken: session?.csrfToken,
+    snapshotActivityFeed: data?.activityFeed,
+    snapshotActivityFeedEnabled: data?.activityFeedEnabled
   });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onMutate: async (input) => { const queryKey = ["fireteam-recent-items", selectedCharacterId] as const; await queryClient.cancelQueries({ queryKey }); const previous = queryClient.getQueryData(queryKey); queryClient.setQueryData(queryKey, (value: unknown) => updateFireteamCachedTag(value, input.itemInstanceId, input.tag || undefined)); return { queryKey, previous }; }, onError: (_error, _input, context) => queryClient.setQueryData(context?.queryKey || ["fireteam-recent-items", selectedCharacterId], context?.previous), onSettled: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }) });
   const gearAction = useMutation({ mutationFn: async (input: GearActionRequest) => { const response = await api<GearActionResult>("/api/v1/me/gear/action", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }); if (response.data.failed[0]) throw new Error(response.data.failed[0].message); return response; }, onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }), queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] })]) });
@@ -150,19 +158,6 @@ export function FireteamPage() {
       queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
     ])
   });
-  const sendMessage = useMutation({
-    mutationFn: (body: string) => queuedApi("/api/v2/fireteam/messages", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ body }) }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
-  });
-  const liveActivityFeed = activityFeed.data?.data && Array.isArray(activityFeed.data.data.entries) ? activityFeed.data.data : data?.activityFeed;
-  const visibleActivityFeed = liveActivityFeed || {
-    enabled: Boolean(data?.activityFeedEnabled),
-    channelAvailable: false,
-    entries: [],
-    historyLimit: 60,
-    retentionDays: 7,
-    messageMaxLength: 240
-  };
   const sharingMode = data?.sharingMode;
   const self = data?.members.find((member) => member.isSelf);
   const { trackedItemOrder, reorderTrackedItems } = useFireteamTrackedItemOrder({
@@ -291,7 +286,23 @@ export function FireteamPage() {
         ? share.variables?.untrackingKey
         : undefined)}
     />}
-    {session?.authenticated && <FireteamActivityFeed feed={visibleActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : activityFeed.error instanceof Error ? activityFeed.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
+    {session?.authenticated && <FireteamActivityFeed
+      feed={displayedActivityFeed}
+      view={activityFeedView}
+      storageKey={`guardian-nexus:fireteam-activity-window:${membershipId || "guest"}`}
+      onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)}
+      onSend={sendActivityMessage}
+      sending={activityMessageSending}
+      error={activityFeedError}
+      onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({
+        mode: data.sharingMode,
+        activityFeedEnabled: false
+      })}
+      onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({
+        mode: data.sharingMode,
+        activityFeedEnabled: true
+      })}
+    />}
     {data && <FireteamDataNotice />}
   </AuthGate>;
 }

@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { CompletionPing, useCompletionPings } from "../components/common/CompletionPing";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
 import { useGuardian } from "../context/GuardianContext";
-import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
+import { useFireteamQuery } from "../services/fireteam/useFireteamQuery";
 import { completionTransition, isQuestComplete } from "../modules/tracking/completionTracking";
 import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 import { api } from "../services/api/client";

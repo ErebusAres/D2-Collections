@@ -798,6 +798,53 @@ Validation completed for this section:
   tests, 338 web tests, 7 Node tooling tests, 24 manifest tests, API/Web builds,
   and the unchanged production performance budget.
 
+## Current section: Fireteam service boundary and activity feed — complete
+
+Goal: establish the product-specific service layer shown by the Plum Creek
+structure, move Fireteam data fetching out of the generic module tree, and
+remove activity-feed transport orchestration from `FireteamPage.tsx`. Keep the
+page responsible for selecting the displayed view and composing the existing
+presentation component.
+
+Implemented:
+
+- Created `services/fireteam/` as the human-readable home for Fireteam API and
+  server-state hooks. This is the first product-specific service directory in
+  the Web application and makes the external tree reflect runtime ownership.
+- Moved `useFireteamQuery.ts` from `modules/fireteam/` into
+  `services/fireteam/` and updated `FireteamPage`, `FireteamRoute`, and
+  `OptionsPanel` to consume the service path. The query key, endpoint,
+  character requirement, cache duration, and focus behavior are unchanged.
+- Added `useFireteamActivityFeed.ts` to own the live activity query, refresh
+  interval, message POST with CSRF headers, activity-cache invalidation, live
+  versus snapshot fallback, pending state, and transport error selection.
+- Kept `FireteamPage.tsx` responsible for reading the saved open/minimized/
+  hidden preference, choosing whether the feed is visible, composing
+  `FireteamActivityFeed`, and connecting sharing enable/disable actions.
+- Replaced the compressed one-line activity component call with readable named
+  properties. The page now receives `displayedActivityFeed`,
+  `sendActivityMessage`, `activityMessageSending`, and `activityFeedError` from
+  the service-facing hook.
+- Added three direct hook tests covering the exact Fireteam activity query key
+  and endpoint, hidden-feed snapshot behavior, message serialization, CSRF
+  protection, and cache invalidation.
+
+Validation completed for this section:
+
+- Complete web test suite passed: 93 files and 341 tests, including the three
+  new service-hook tests, all eight activity-feed component tests, and all 22
+  Fireteam page tests.
+- One repository-wide run exposed an unrelated Shell test timing failure under
+  parallel load; the Shell file passed all nine tests in isolation and the
+  subsequent complete audit passed all 341 Web tests.
+- The complete `pnpm run audit` workflow passed: archive and source boundaries,
+  all 42 CSS modules, workspace lint, every workspace typecheck, 24 domain
+  tests, 257 API tests, 341 Web tests, 7 Node tooling tests, 24 manifest tests,
+  and API/Web production builds.
+- The unchanged production performance budget passed at 372,749 bytes raw and
+  114,974 bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
+- `git diff --check` passed.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -826,18 +873,22 @@ Validation completed for this section:
   presentation markup and selector from the page layer.
 - Completed the Fireteam tracked-item order workflow extraction and replaced
   page-owned synchronization mechanics with a directly tested hook boundary.
+- Established `services/fireteam/`, moved the canonical Fireteam query hook out
+  of `modules/`, and extracted activity-feed query/message orchestration with
+  direct tests.
 
 ## Future sections
 
-- Next bounded code slice: establish `services/fireteam/` as the Fireteam API
-  orchestration boundary, move the existing Fireteam query hook out of
-  `modules/fireteam/`, and extract activity-feed query/message orchestration from
-  `FireteamPage.tsx` into a clearly named service-facing hook with direct tests.
-  Keep `FireteamPage` responsible for choosing the displayed feed view and
-  composing `FireteamActivityFeed`.
-- Continue moving the remaining Fireteam sharing, Recent Loot, gear-action, and
-  watcher orchestration into clearly named service-facing hooks while keeping
-  the page as the composition layer.
+- Next bounded code slice: add `services/fireteam/useFireteamSharing.ts` and
+  move the share/update and stop-sharing mutations, request serialization, and
+  Fireteam/activity cache invalidation out of `FireteamPage.tsx`. Give the hook
+  explicit tracked-item inputs and human-readable return names, add direct
+  mutation tests, and keep the page responsible for user intent, untracking
+  calculations, activity-feed enable/disable intent, and composing
+  `FireteamSharingHeader`.
+- Continue moving the remaining Fireteam Recent Loot, gear-action, and watcher
+  orchestration into clearly named service-facing hooks while keeping the page
+  as the composition layer.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
   component area is selected as part of a bounded TSX ownership review. Preserve
   every styling value and verify that `components/reward-codes/` contains no CSS
