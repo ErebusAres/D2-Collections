@@ -12,7 +12,8 @@ import {
   fireteamSnapshotAdvanced,
   fireteamSourceAdvanced,
   fireteamSnapshotUsable,
-  nextFireteamRefreshAt
+  nextFireteamRefreshAt,
+  reconcileFireteamParty
 } from "./fireteamSnapshot";
 import { profileComponentsFor } from "./bungie";
 
@@ -106,6 +107,25 @@ describe("Fireteam snapshot contract", () => {
     expect(authoritativeFireteamParty(observed, "self", "unknown", false)).toEqual([
       { membershipId: "self", displayName: "Self", status: 0, observedInParty: false }
     ]);
+  });
+
+  it("requires two consecutive missing observations before removing known teammates", () => {
+    const previous = [
+      { membershipId: "self", displayName: "Self", status: 9, observedInParty: true },
+      { membershipId: "friend", displayName: "Friend", status: 1, observedInParty: true }
+    ];
+    const missing = [{ membershipId: "self", displayName: "Self", status: 1, observedInParty: false }];
+
+    const first = reconcileFireteamParty(missing, previous, "self", "unknown", true);
+    expect(first.missingObservations).toBe(1);
+    expect(first.members).toEqual(previous.map((member) => ({ ...member, status: 0, observedInParty: false })));
+
+    const recovered = reconcileFireteamParty(previous, first.members, "self", "unknown", true, first.missingObservations);
+    expect(recovered).toEqual({ members: previous, missingObservations: 0 });
+
+    const second = reconcileFireteamParty(missing, first.members, "self", "unknown", true, first.missingObservations);
+    expect(second.missingObservations).toBe(2);
+    expect(second.members).toEqual([{ ...missing[0], status: 0 }]);
   });
 
   it("honors an upstream retry delay and otherwise waits at least one minute", () => {

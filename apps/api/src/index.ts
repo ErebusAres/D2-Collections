@@ -87,7 +87,6 @@ import { FIRETEAM_RECENT_ITEM_LIMIT, observeRecentItems, readRecentItems, recent
 import { configuredFireteamActivityFeedEnabled, FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
 import { equippedCharacterPower, guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
 import {
-  authoritativeFireteamParty,
   FIRETEAM_ACTIVE_WINDOW_MS,
   FIRETEAM_REFRESH_LEASE_MS,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
@@ -101,6 +100,7 @@ import {
   fireteamSharedQuests,
   fireteamSourceAdvanced,
   fireteamSnapshotUsable,
+  reconcileFireteamParty,
   nextFireteamRefreshAt
 } from "./fireteamSnapshot";
 
@@ -2135,12 +2135,15 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   const observedPartyMembers = savedPartyMembers(transitory || {}, row);
   const livePartyObserved = observedPartyMembers.some((member) => member.membershipId !== row.membership_id && member.observedInParty);
   const onlineState = livePartyObserved ? "online" : sessionObservation.onlineState;
-  const activityPartyMembers = authoritativeFireteamParty(
+  const partyObservation = reconcileFireteamParty(
     observedPartyMembers,
+    Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : [],
     row.membership_id,
     onlineState,
-    Boolean(transitory)
+    Boolean(transitory),
+    Number(previousPayload?.partyMissingObservationCount || 0)
   );
+  const activityPartyMembers = partyObservation.members;
   const activity = onlineState === "online"
     ? guardianLocation(profile, questManifest, snapshotCharacter.characterId, onlineState)
     : undefined;
@@ -2170,6 +2173,7 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
       activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId),
       activityPartyMembers,
       activityPartySourceObservedAt: sourceObservedAt,
+      partyMissingObservationCount: partyObservation.missingObservations,
       progressSourceObservedAt: sourceObservedAt
     }
   };
@@ -2224,7 +2228,15 @@ async function refreshFireteamPresenceSnapshot(membershipId: string, env: Env): 
     const observedPartyMembers = savedPartyMembers(profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {}, sessionRow);
     const livePartyObserved = observedPartyMembers.some((member) => member.membershipId !== membershipId && member.observedInParty);
     const onlineState = livePartyObserved ? "online" : sessionObservation.onlineState;
-    const activityPartyMembers = authoritativeFireteamParty(observedPartyMembers, membershipId, onlineState, Boolean(profile?.profileTransitoryData?.data || profile?.profileTransitory?.data));
+    const partyObservation = reconcileFireteamParty(
+      observedPartyMembers,
+      Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : [],
+      membershipId,
+      onlineState,
+      Boolean(profile?.profileTransitoryData?.data || profile?.profileTransitory?.data),
+      Number(previousPayload?.partyMissingObservationCount || 0)
+    );
+    const activityPartyMembers = partyObservation.members;
     const activeCharacterId = sessionObservation.activeCharacterId || previousPayload?.character?.characterId;
     const activity = onlineState === "online" ? guardianLocation(profile, activityManifest, activeCharacterId, onlineState) : undefined;
     const nextPayload = {
@@ -2234,7 +2246,8 @@ async function refreshFireteamPresenceSnapshot(membershipId: string, env: Env): 
       sessionPresenceEvidence: sessionObservation.evidence,
       activityPartyMembers,
       activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId),
-      activityPartySourceObservedAt: sourceObservedAt
+      activityPartySourceObservedAt: sourceObservedAt,
+      partyMissingObservationCount: partyObservation.missingObservations
     };
     await env.DB.prepare(`
       UPDATE fireteam_snapshots
