@@ -2428,7 +2428,6 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
   const trackedItemCounts = new Map<string, number>();
   for (const member of party) {
     const snapshot = snapshots.get(String(member.membershipId));
-    if (!fireteamSnapshotUsable(snapshot?.committed_at)) continue;
     let payload: any = null;
     try { payload = snapshot?.payload_json ? JSON.parse(snapshot.payload_json) : null; } catch { payload = null; }
     for (const item of sharedTrackedItems(payload)) {
@@ -2444,8 +2443,10 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     if (membershipId === row.membership_id) payload = ownPayload;
     const isSelf = membershipId === row.membership_id;
     const memberSnapshotUsable = fireteamSnapshotUsable(snapshot?.committed_at);
-    const savedSelfDetailsAvailable = isSelf && Boolean(payload);
-    const detailsAvailable = memberSnapshotUsable || savedSelfDetailsAvailable;
+    // The snapshot query has already enforced the member's active sharing
+    // consent. Keep the last shared progress visible during refresh delays;
+    // freshness still controls live presence/activity and the delayed label.
+    const detailsAvailable = Boolean(payload);
     const trackedItems = detailsAvailable ? sharedTrackedItems(payload) : [];
     const onlineState: FireteamMember["onlineState"] = isSelf
       ? ownPayload?.onlineState === "offline" ? "offline" : presenceUsable && ownPayload?.onlineState === "online" ? "online" : "unknown"
