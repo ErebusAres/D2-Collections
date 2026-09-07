@@ -2421,7 +2421,10 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
   const usable = fireteamSnapshotUsable(ownSnapshot?.committed_at);
   const presenceObservedAt = ownSnapshot?.presence_refreshed_at || ownSnapshot?.committed_at;
   const presenceUsable = fireteamPresenceUsable(presenceObservedAt);
-  const storedParty = presenceUsable && Array.isArray(ownPayload?.activityPartyMembers) ? ownPayload.activityPartyMembers : [];
+  // Keep the last committed roster visible when presence becomes delayed. Its
+  // live status is still gated below; confirmed solo/offline observations own
+  // removal, rather than a read-time timestamp making every card disappear.
+  const storedParty = Array.isArray(ownPayload?.activityPartyMembers) ? ownPayload.activityPartyMembers : [];
   const party = storedParty.length
     ? storedParty
     : [{ membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.bungie_name || row.display_name, status: 0, observedInParty: false }];

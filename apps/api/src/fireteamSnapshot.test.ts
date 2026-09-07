@@ -109,7 +109,7 @@ describe("Fireteam snapshot contract", () => {
     ]);
   });
 
-  it("requires two consecutive missing observations before removing known teammates", () => {
+  it("requires three consecutive missing observations before removing known teammates", () => {
     const previous = [
       { membershipId: "self", displayName: "Self", status: 9, observedInParty: true },
       { membershipId: "friend", displayName: "Friend", status: 1, observedInParty: true }
@@ -125,7 +125,14 @@ describe("Fireteam snapshot contract", () => {
 
     const second = reconcileFireteamParty(missing, first.members, "self", "unknown", true, first.missingObservations);
     expect(second.missingObservations).toBe(2);
-    expect(second.members).toEqual([{ ...missing[0], status: 0 }]);
+    expect(second.members).toHaveLength(2);
+
+    const third = reconcileFireteamParty(missing, second.members, "self", "unknown", true, second.missingObservations);
+    expect(third.missingObservations).toBe(3);
+    expect(third.members).toEqual([{ ...missing[0], status: 0 }]);
+
+    const offline = reconcileFireteamParty(missing, previous, "self", "offline", true);
+    expect(offline).toEqual({ members: [{ ...missing[0], status: 0 }], missingObservations: 0 });
   });
 
   it("honors an upstream retry delay and otherwise waits at least one minute", () => {
