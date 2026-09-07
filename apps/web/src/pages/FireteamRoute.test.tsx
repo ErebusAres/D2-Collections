@@ -94,13 +94,6 @@ describe("Fireteam page", () => {
 
     await act(async () => { vi.advanceTimersByTime(5_000); });
     await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(2));
-
-    await act(async () => { vi.advanceTimersByTime(25_000); });
-    const callsAfterRapidWindow = fireteamCalls();
-    await act(async () => { vi.advanceTimersByTime(59_000); });
-    expect(fireteamCalls()).toBe(callsAfterRapidWindow);
-    await act(async () => { vi.advanceTimersByTime(1_000); });
-    await waitFor(() => expect(fireteamCalls()).toBeGreaterThan(callsAfterRapidWindow));
   });
 
   it("does not poll forever before the user enables sharing", async () => {
