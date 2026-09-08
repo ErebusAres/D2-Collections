@@ -938,6 +938,55 @@ Validation completed for this section:
   bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
 - `git diff --check` passed for the merge and deterministic-test adjustment.
 
+## Current section: Fireteam Recent Loot service — complete
+
+Goal: remove Recent Loot transport and server-state mechanics from
+`FireteamPage.tsx` while keeping the page responsible for the saved visibility
+preference, composing `FireteamRecentLootSection`, and translating component
+callbacks into service actions identified by item instance ID.
+
+Implemented:
+
+- Added `services/fireteam/useFireteamRecentLoot.ts` as the focused owner of the
+  selected-character Recent Loot query, its exact cache key and snapshot-aware
+  no-polling policy, the persistent item-state PUT, and gear-action POST.
+- Moved the optimistic item-tag cache update and error rollback into the service
+  boundary. The cached envelope and Recent Loot events now use their contract
+  types instead of the page's former `unknown` and `any` casts.
+- Added human-readable service actions:
+  `updateRecentLootItemTag`, `pullRecentLootItemToCharacter`, and
+  `changeRecentLootWeaponSocket`. The service translates those actions into the
+  existing API request contracts and surfaces the first server action failure.
+- Centralized Recent Loot and character Gear cache invalidation with the
+  mutations that own it. Persistent queued tag updates, CSRF protection,
+  rollback behavior, transfer/socket payloads, and cache keys are unchanged.
+- Kept the UI boundary one-directional: the service imports no page or
+  component. `FireteamPage` converts each component-owned `LootItem` callback
+  into an item instance ID before invoking the service action.
+- Kept `FireteamPage.tsx` responsible for the `fireteam.recentLoot.v1`
+  visibility preference and `FireteamRecentLootSection` composition. The page
+  no longer imports the Recent Loot contracts, query hook, refresh constant,
+  queued API client, or loot-item type solely for transport orchestration.
+- Reduced `FireteamPage.tsx` from 316 to 305 lines while preserving the current
+  Recent Loot presentation and watcher workflow.
+- Added four direct service-hook tests covering query endpoint/key and exposed
+  timeline metadata, optimistic tag updates and failure rollback, persistent
+  item-state serialization, transfer/socket request translation, successful
+  cache invalidation, and failed action error reporting.
+
+Validation completed for this section:
+
+- Focused Recent Loot service and Fireteam page suites passed: 2 files and 26
+  tests.
+- Focused ESLint, Web application and Pages Functions TypeScript checks, and
+  `git diff --check` passed.
+- The complete `pnpm run audit` workflow passed: archive and frontend source
+  boundaries, all 42 CSS modules, workspace lint, every workspace typecheck, 24
+  domain tests, 258 API tests, 349 Web tests across 95 files, 7 Node tooling
+  tests, 24 manifest tests, and API/Web production builds.
+- The production performance budget passed at 372,749 bytes raw and 114,964
+  bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -973,17 +1022,12 @@ Validation completed for this section:
   and cache invalidation into a directly tested service hook.
 - Synchronized all post-branch Fireteam polling and roster-preservation fixes
   from `main` while retaining the migrated Fireteam service directory.
+- Extracted Fireteam Recent Loot querying, optimistic tagging, gear actions,
+  errors, and cache invalidation into a directly tested service hook.
 
 ## Future sections
 
-- Next bounded code slice: add `services/fireteam/useFireteamRecentLoot.ts` and
-  move the Recent Loot query, optimistic item-tag cache update, item-state PUT,
-  gear transfer/socket action POST, and their cache invalidation out of
-  `FireteamPage.tsx`. Give the service hook direct query/mutation tests and
-  human-readable actions. Keep the page responsible for the saved visibility
-  preference, composing `FireteamRecentLootSection`, and translating component
-  callbacks into service actions.
-- After Recent Loot transport is isolated, move the remaining loot-watcher
+- Next bounded code slice: move the remaining loot-watcher
   preference map, run mutation, result labeling, and toggle workflow into an
   appropriate Fireteam helper/service boundary with direct tests.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that

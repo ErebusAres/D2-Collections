@@ -1,8 +1,8 @@
-import type { FireteamTrackedItem, GearActionRequest, GearActionResult, GearTag, LootWatcherConfig, LootWatcherRunResult, RecentItemTimelineData, UserPreferenceKey } from "@guardian-nexus/contracts";
+import type { FireteamTrackedItem, LootWatcherConfig, LootWatcherRunResult, UserPreferenceKey } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { api, mutationHeaders, queuedApi } from "../services/api/client";
+import { api, mutationHeaders } from "../services/api/client";
 import { AuthGate, QueryState } from "../components/common/Page";
 import {
   FIRETEAM_BUNGIE_DATA_NOTICE,
@@ -21,12 +21,11 @@ import { primeCompletionAudio } from "../services/completionAudio";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
 
-import type { LootItem } from "../components/gear/RecentLoot";
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { useFireteamActivityFeed } from "../services/fireteam/useFireteamActivityFeed";
 import { useFireteamQuery } from "../services/fireteam/useFireteamQuery";
+import { useFireteamRecentLoot } from "../services/fireteam/useFireteamRecentLoot";
 import { useFireteamSharing } from "../services/fireteam/useFireteamSharing";
-import { LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
 const LOOT_WATCHER_PREFERENCES: Record<keyof LootWatcherConfig, UserPreferenceKey> = {
   farmingMode: "fireteam.watcher.farming.v1",
@@ -34,12 +33,6 @@ const LOOT_WATCHER_PREFERENCES: Record<keyof LootWatcherConfig, UserPreferenceKe
   tier5FitLock: "fireteam.watcher.tier5Fits.v1",
   duplicateFitJunk: "fireteam.watcher.duplicateFits.v1"
 };
-function updateFireteamCachedTag(value: unknown, itemInstanceId: string, tag?: GearTag): unknown {
-  if (!value || typeof value !== "object") return value;
-  const root = value as any; const data = root.data;
-  if (!data || !Array.isArray(data.events)) return value;
-  return { ...root, data: { ...data, events: data.events.map((event: any) => event.gear?.instanceId === itemInstanceId ? { ...event, gear: { ...event.gear, tag } } : event) } };
-}
 function watcherResultLabel(result: LootWatcherRunResult): string {
   const actions = [
     result.movedToVault.length ? `${result.movedToVault.length} moved` : "",
@@ -86,16 +79,25 @@ export function FireteamPage() {
     tier5FitLock: preferences[LOOT_WATCHER_PREFERENCES.tier5FitLock] === "on",
     duplicateFitJunk: preferences[LOOT_WATCHER_PREFERENCES.duplicateFitJunk] === "on"
   }), [preferences]);
-  const recentItems = useQuery({
-    queryKey: ["fireteam-recent-items", selectedCharacterId],
-    queryFn: () => api<RecentItemTimelineData>(`/api/v2/fireteam/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
-    enabled: Boolean(session?.authenticated && selectedCharacterId && showRecentLoot),
-    staleTime: LIVE_REFRESH_INTERVAL_MS,
-    // Recent Loot is written by the canonical five-minute Fireteam snapshot.
-    // FireteamRoute refetches this active query only after a newer snapshot
-    // commits, so minute polling cannot discover additional saved data.
-    refetchInterval: false,
-    refetchIntervalInBackground: false
+  const {
+    recentLootEvents,
+    recentLootLoading,
+    recentLootLoadError,
+    recentLootWarnings,
+    recentLootRetentionDays,
+    recentLootObservedAt,
+    recentLootFirstObservationEstablished,
+    retryRecentLoot,
+    updateRecentLootItemTag,
+    pullRecentLootItemToCharacter,
+    changeRecentLootWeaponSocket,
+    recentLootActionPending,
+    recentLootActionError
+  } = useFireteamRecentLoot({
+    characterId: selectedCharacterId,
+    authenticated: Boolean(session?.authenticated),
+    recentLootIsVisible: showRecentLoot,
+    csrfToken: session?.csrfToken
   });
   const {
     displayedActivityFeed,
@@ -112,8 +114,6 @@ export function FireteamPage() {
     snapshotActivityFeed: data?.activityFeed,
     snapshotActivityFeedEnabled: data?.activityFeedEnabled
   });
-  const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onMutate: async (input) => { const queryKey = ["fireteam-recent-items", selectedCharacterId] as const; await queryClient.cancelQueries({ queryKey }); const previous = queryClient.getQueryData(queryKey); queryClient.setQueryData(queryKey, (value: unknown) => updateFireteamCachedTag(value, input.itemInstanceId, input.tag || undefined)); return { queryKey, previous }; }, onError: (_error, _input, context) => queryClient.setQueryData(context?.queryKey || ["fireteam-recent-items", selectedCharacterId], context?.previous), onSettled: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }) });
-  const gearAction = useMutation({ mutationFn: async (input: GearActionRequest) => { const response = await api<GearActionResult>("/api/v1/me/gear/action", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }); if (response.data.failed[0]) throw new Error(response.data.failed[0].message); return response; }, onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }), queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] })]) });
   const watcherRun = useMutation({
     mutationFn: (config: LootWatcherConfig) => api<LootWatcherRunResult>("/api/v2/fireteam/loot-watchers/run", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, config }) }),
     onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }), queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] })])
@@ -130,7 +130,6 @@ export function FireteamPage() {
       : watcherRun.data
         ? watcherResultLabel(watcherRun.data.data)
         : undefined;
-  const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
   const [manualRemovingKey, setManualRemovingKey] = useState("");
   const {
@@ -233,36 +232,26 @@ export function FireteamPage() {
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     <FireteamRecentLootSection
       isVisible={showRecentLoot}
-      recentLootEvents={recentItems.data?.data.events || []}
-      isLoading={recentItems.isLoading}
-      loadError={recentItems.error as Error | null}
-      warnings={recentItems.data?.warnings}
-      retentionDays={recentItems.data?.data.retentionDays}
-      observedAt={recentItems.data?.data.observedAt}
-      firstObservationEstablished={recentItems.data?.data.firstObservationEstablished}
-      onRetry={() => void recentItems.refetch()}
-      onTagItem={tagRecent}
-      onPullItem={(item) => gearAction.mutate({
-        action: "transfer",
-        itemInstanceId: item.instanceId,
-        target: "character",
-        targetCharacterId: selectedCharacterId
-      })}
-      onChangeWeaponSocket={(item, socketIndex, plugItemHash) => gearAction.mutate({
-        action: "setWeaponSocket",
-        itemInstanceId: item.instanceId,
-        characterId: selectedCharacterId,
-        socketIndex,
-        plugItemHash
-      })}
-      actionsPending={gearState.isPending || gearAction.isPending}
+      recentLootEvents={recentLootEvents}
+      isLoading={recentLootLoading}
+      loadError={recentLootLoadError}
+      warnings={recentLootWarnings}
+      retentionDays={recentLootRetentionDays}
+      observedAt={recentLootObservedAt}
+      firstObservationEstablished={recentLootFirstObservationEstablished}
+      onRetry={retryRecentLoot}
+      onTagItem={(item, tag) => updateRecentLootItemTag(item.instanceId, tag)}
+      onPullItem={(item) => pullRecentLootItemToCharacter(item.instanceId)}
+      onChangeWeaponSocket={(item, socketIndex, plugItemHash) =>
+        changeRecentLootWeaponSocket(item.instanceId, socketIndex, plugItemHash)}
+      actionsPending={recentLootActionPending}
       onHide={() => setPreference("fireteam.recentLoot.v1", "off")}
       onShow={() => setPreference("fireteam.recentLoot.v1", "on")}
       watchers={lootWatchers}
       onWatcherChange={toggleLootWatcher}
       watcherUpdatePending={watcherRun.isPending}
       watcherStatus={watcherStatus}
-      actionError={gearState.error || gearAction.error}
+      actionError={recentLootActionError}
     />
     </div>
     {data && <FireteamRoster
