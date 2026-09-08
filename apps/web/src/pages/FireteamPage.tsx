@@ -1,5 +1,3 @@
-import type { FireteamTrackedItem } from "@guardian-nexus/contracts";
-import { catalystTrackingId } from "@guardian-nexus/domain";
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate, QueryState } from "../components/common/Page";
 import {
@@ -9,11 +7,8 @@ import {
 import { FireteamRecentLootSection } from "../components/fireteam/FireteamRecentLootSection";
 import { FireteamRoster } from "../components/fireteam/FireteamRoster";
 import { FireteamSharingHeader } from "../components/fireteam/FireteamSharingHeader";
-import {
-  fireteamTrackedItemKey,
-  FIRETEAM_TRACKED_ITEM_EXIT_MS
-} from "../components/fireteam/fireteamTrackedItems";
 import { useFireteamTrackedItemOrder } from "../components/fireteam/useFireteamTrackedItemOrder";
+import { useFireteamTrackedItemRemoval } from "../components/fireteam/useFireteamTrackedItemRemoval";
 import { pinsKey, useGuardian } from "../context/GuardianContext";
 import { primeCompletionAudio } from "../services/completionAudio";
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
@@ -102,7 +97,6 @@ export function FireteamPage() {
     snapshotActivityFeedEnabled: data?.activityFeedEnabled
   });
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
-  const [manualRemovingKey, setManualRemovingKey] = useState("");
   const {
     updateFireteamSharing,
     stopFireteamSharing,
@@ -119,7 +113,23 @@ export function FireteamPage() {
     currentTrackedBuilds: trackedBuilds,
     currentHiddenTrackedItemKeys: hiddenTrackedItemKeys
   });
-  const sharingMode = data?.sharingMode;
+  const {
+    removeTrackedItem,
+    removingTrackedItemKey
+  } = useFireteamTrackedItemRemoval({
+    sharingMode: data?.sharingMode,
+    pinnedQuestStorageKey: storageKey,
+    currentPinnedQuestIds: pinnedIds,
+    setPinnedQuestIds: setPinnedIds,
+    currentTrackedGuardianRankIds: guardianRankIds,
+    setTrackedGuardianRankIds: setGuardianRankIds,
+    currentTrackedJourneyIds: journeyIds,
+    currentTrackedCollectionIds: collectionIds,
+    currentTrackedBuilds: trackedBuilds,
+    currentHiddenTrackedItemKeys: hiddenTrackedItemKeys,
+    savePreference: setPreference,
+    updateSharedTrackedItems: updateFireteamSharing
+  });
   const self = data?.members.find((member) => member.isSelf);
   const { trackedItemOrder, reorderTrackedItems } = useFireteamTrackedItemOrder({
     currentGuardian: self,
@@ -135,56 +145,6 @@ export function FireteamPage() {
     setCopied(label);
     window.setTimeout(() => setCopied((current) => current === label ? "" : current), 1800);
   };
-  const untrackItem = (item: FireteamTrackedItem) => {
-    if (!sharingMode || sharingMode === "off") return;
-    const key = fireteamTrackedItemKey(item);
-    const nextPinnedIds = !["guardian-rank", "build"].includes(item.kind) && item.trackedInGuardianNexus
-      ? pinnedIds.filter((id) => id !== item.id)
-      : pinnedIds;
-    const nextGuardianRankIds = item.kind === "guardian-rank" && item.trackedInGuardianNexus
-      ? guardianRankIds.filter((id) => id !== item.id)
-      : guardianRankIds;
-    const nextJourneyIds = !["quest", "bounty", "order", "guardian-rank", "exotic", "catalyst", "build"].includes(item.kind) && item.trackedInGuardianNexus
-      ? journeyIds.filter((id) => id !== item.id)
-      : journeyIds;
-    const collectionTrackingId = item.kind === "catalyst" ? catalystTrackingId(item.id) : item.id;
-    const nextCollectionIds = ["exotic", "catalyst"].includes(item.kind) && item.trackedInGuardianNexus
-      ? collectionIds.filter((id) => id !== collectionTrackingId)
-      : collectionIds;
-    const nextTrackedBuilds = item.kind === "build" && item.trackedInGuardianNexus
-      ? trackedBuilds.filter((build) => build.id !== item.id)
-      : trackedBuilds;
-    const nextHiddenKeys = new Set(hiddenTrackedItemKeys);
-    if (item.trackedInDestiny) nextHiddenKeys.add(key); else nextHiddenKeys.delete(key);
-    const hiddenKeys = [...nextHiddenKeys];
-
-    if (nextPinnedIds !== pinnedIds) {
-      setPinnedIds(nextPinnedIds);
-      try { localStorage.setItem(storageKey, JSON.stringify(nextPinnedIds)); } catch { /* Keep the in-memory update. */ }
-    }
-    if (nextGuardianRankIds !== guardianRankIds) {
-      setGuardianRankIds(nextGuardianRankIds);
-      setPreference("guardianRank.tracked", JSON.stringify(nextGuardianRankIds));
-    }
-    if (nextJourneyIds !== journeyIds) setPreference("journey.tracked", JSON.stringify(nextJourneyIds));
-    if (nextCollectionIds !== collectionIds) setPreference("collection.tracked", JSON.stringify(nextCollectionIds));
-    if (nextTrackedBuilds !== trackedBuilds) setPreference("buildAdvisor.trackedBuilds.v1", JSON.stringify(nextTrackedBuilds));
-
-    setManualRemovingKey(key);
-    window.setTimeout(() => {
-      updateFireteamSharing({
-        mode: sharingMode,
-        pinnedQuestIds: nextPinnedIds,
-        trackedGuardianRankIds: nextGuardianRankIds,
-        trackedJourneyIds: nextJourneyIds,
-        trackedCollectionIds: nextCollectionIds,
-        trackedBuilds: nextTrackedBuilds,
-        hiddenTrackedItemKeys: hiddenKeys,
-        untrackingItemKey: key
-      }, { onSettled: () => setManualRemovingKey((current) => current === key ? "" : current) });
-    }, FIRETEAM_TRACKED_ITEM_EXIT_MS);
-  };
-
   return <AuthGate>
     <div className={styles.fireteamUpper}>
     <FireteamSharingHeader
@@ -230,10 +190,10 @@ export function FireteamPage() {
       currentGuardianIsLeader={Boolean(self?.isLeader)}
       copiedCommandIdentifier={copied}
       onCopyCommand={copyCommand}
-      onUntrackCurrentGuardianItem={untrackItem}
+      onUntrackCurrentGuardianItem={removeTrackedItem}
       currentGuardianTrackedItemOrder={trackedItemOrder}
       onReorderCurrentGuardianTrackedItem={reorderTrackedItems}
-      currentGuardianUntrackingItemKey={manualRemovingKey || updatingUntrackingItemKey}
+      currentGuardianUntrackingItemKey={removingTrackedItemKey || updatingUntrackingItemKey}
     />}
     {session?.authenticated && <FireteamActivityFeed
       feed={displayedActivityFeed}

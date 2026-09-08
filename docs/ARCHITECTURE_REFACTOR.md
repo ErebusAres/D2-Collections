@@ -1040,6 +1040,59 @@ Validation completed for this section:
 - The production performance budget passed at 372,749 bytes raw and 114,977
   bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
 
+## Current section: Fireteam tracked-item removal workflow — complete
+
+Goal: remove tracked-item dismissal calculations, immediate local persistence,
+the removal-animation delay, and manual removal state from `FireteamPage.tsx`.
+Keep the page responsible for supplying the current tracked collections and
+connecting the focused helper to `FireteamRoster` and the sharing service.
+
+Implemented:
+
+- Added `components/fireteam/useFireteamTrackedItemRemoval.ts` beside the
+  Fireteam roster components that initiate and display dismissal state.
+- Replaced the page's negative item-kind conditions with explicit ownership:
+  quest-like pins, Guardian Rank records, Journey triumph/title/seasonal/weekly
+  records, Collection exotics/catalysts, and tracked builds each update their
+  correct saved collection.
+- Preserved catalyst key translation through `catalystTrackingId`, immediate
+  local pin storage, Guardian Rank local-state synchronization, and the existing
+  preference keys for Journey, Collections, and Build Advisor tracking.
+- Preserved the distinction between Guardian Nexus tracking and Destiny
+  tracking. Dismissal removes site-owned tracking, adds a hidden key for an item
+  still tracked in Destiny, and removes a stale hidden key when Destiny no
+  longer tracks the item.
+- Preserved the exact 1.6-second exit-animation window. The helper sends the
+  complete next tracked state to the injected sharing action only after that
+  delay and clears its manual removal key only when the matching update settles.
+- Kept the Master-rule dependency direction intact: the component helper owns
+  UI workflow state and accepts a sharing callback; it does not import a page or
+  perform transport. `FireteamPage` supplies current collections and passes the
+  returned `removeTrackedItem` action and `removingTrackedItemKey` to the larger
+  roster container.
+- Removed the item contract, catalyst-domain helper, tracked-item key, and exit
+  delay imports from `FireteamPage.tsx`, along with its complete dismissal
+  implementation.
+- Reduced `FireteamPage.tsx` from 276 to 236 lines without changing the roster
+  API, visual timing, saved values, or sharing payload.
+- Added 14 direct helper tests covering all eleven tracked item kinds, each
+  owning collection and preference value, immediate pin persistence, sharing-off
+  behavior, Destiny-only hiding, stale-hidden-key removal, delayed sharing, and
+  settlement cleanup.
+
+Validation completed for this section:
+
+- Focused tracked-item-removal and Fireteam page suites passed: 2 files and 36
+  tests.
+- Focused ESLint, Web application and Pages Functions TypeScript checks, and
+  `git diff --check` passed.
+- The complete `pnpm run audit` workflow passed archive and frontend source
+  boundaries, all 42 CSS modules, workspace lint, every workspace typecheck, 24
+  domain tests, 258 API tests, 367 Web tests across 97 files, 7 Node tooling
+  tests, 24 manifest tests, and API/Web production builds.
+- The production performance budget passed at 372,749 bytes raw and 114,953
+  bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -1079,17 +1132,20 @@ Validation completed for this section:
   errors, and cache invalidation into a directly tested service hook.
 - Extracted Fireteam loot-watcher preferences, request execution, status
   descriptions, and cache invalidation into a directly tested service hook.
+- Extracted every Fireteam tracked-item dismissal path, local persistence,
+  removal timing, hidden-key rule, and sharing handoff into a directly tested
+  component workflow hook.
 
 ## Future sections
 
 - Next bounded code slice: add
-  `components/fireteam/useFireteamTrackedItemRemoval.ts` and move the tracked
-  item dismissal calculation, preference updates, removal delay, local pin
-  persistence, and manual-removal state out of `FireteamPage.tsx`. Give the
-  helper direct tests for each tracked item genre and delayed sharing update.
-  Keep the page responsible for supplying the current tracked collections and
-  connecting the helper's dismissal callback to `FireteamRoster` and the
-  Fireteam sharing service.
+  `components/fireteam/useFireteamTrackedCollections.ts` and move local pin
+  loading/context synchronization, tracked-preference parsing, Guardian Rank
+  local synchronization, and tracked-build parsing out of `FireteamPage.tsx`.
+  Give the helper direct tests for malformed values, collection size limits,
+  membership/character storage isolation, and external preference updates. Keep
+  the page responsible for passing the named collections into sharing, removal,
+  ordering, and presentation workflows.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
   component area is selected as part of a bounded TSX ownership review. Preserve
   every styling value and verify that `components/reward-codes/` contains no CSS
