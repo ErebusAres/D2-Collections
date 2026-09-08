@@ -1145,6 +1145,51 @@ Validation completed for this section:
 - The production performance budget passed at 372,749 bytes raw and 114,964
   bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
 
+## Current section: Fireteam command clipboard workflow — complete
+
+Goal: move copied-command state, Clipboard API access, failure handling, and the
+acknowledgement timer out of `FireteamPage.tsx`. Keep the page responsible for
+connecting the focused helper to the larger `FireteamRoster` container.
+
+Implemented:
+
+- Added `components/fireteam/useFireteamCommandClipboard.ts` beside the roster
+  components that initiate and display `/join` and `/invite` command copying.
+- Moved the copied-command identifier, Clipboard API availability check,
+  asynchronous write, rejected-write handling, and 1.8-second acknowledgement
+  window into the focused component workflow hook.
+- Preserved the existing silent failure behavior: unsupported or rejected
+  clipboard access does not claim that a command was copied.
+- Strengthened rapid successive copying so the newest successful command owns a
+  complete acknowledgement window and an older timer cannot clear its label.
+- Added lifecycle cleanup for the pending timer and guarded asynchronous writes
+  from scheduling state after the owning component unmounts. The mount guard is
+  explicitly compatible with React development-mode effect replay.
+- Kept the Master-rule dependency direction intact: the helper owns local UI
+  interaction state, performs no Fireteam transport, and exposes only the named
+  identifier and action consumed by the page and roster.
+- Removed the clipboard implementation and generic `copied`/`setCopied` names
+  from `FireteamPage.tsx`; the page now passes `copiedCommandIdentifier` and
+  `copyCommand` directly to `FireteamRoster`.
+- Reduced `FireteamPage.tsx` from 229 to 227 lines without changing the roster
+  component contract or command strings.
+- Added 6 direct helper tests covering unsupported Clipboard APIs, rejected
+  writes, successful writes, the exact acknowledgement duration, overlapping
+  copies, unmount cleanup, and React development-mode effect replay.
+
+Validation completed for this section:
+
+- Focused command-clipboard and Fireteam page suites passed: 2 files and 28
+  tests.
+- Focused ESLint, Web application and Pages Functions TypeScript checks, and
+  `git diff --check` passed.
+- The complete `pnpm run audit` workflow passed archive and frontend source
+  boundaries, all 42 CSS modules, workspace lint, every workspace typecheck, 24
+  domain tests, 258 API tests, 379 Web tests across 99 files, 7 Node tooling
+  tests, 24 manifest tests, and API/Web production builds.
+- The production performance budget passed at 372,749 bytes raw and 114,960
+  bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -1189,16 +1234,19 @@ Validation completed for this section:
   component workflow hook.
 - Extracted Fireteam's character-scoped quest pins and preference-backed tracked
   collections into a directly tested component workflow hook.
+- Extracted Fireteam command-copy state, Clipboard API behavior, timing, and
+  lifecycle cleanup into a directly tested component workflow hook.
 
 ## Future sections
 
 - Next bounded code slice: add
-  `components/fireteam/useFireteamCommandClipboard.ts` and move copied-command
-  state, Clipboard API handling, failure behavior, and timed label clearing out
-  of `FireteamPage.tsx`. Give the helper direct tests for unsupported clipboard
-  access, rejected writes, successful copies, timer cleanup, and overlapping
-  copy requests. Keep `FireteamPage` responsible for connecting the helper's
-  copied identifier and copy action to `FireteamRoster`.
+  `components/fireteam/useFireteamViewPreferences.ts` and move activity-feed
+  view parsing, the membership-scoped activity-window storage key, Recent Loot
+  visibility, and their preference-writing actions out of `FireteamPage.tsx`.
+  Give the helper direct tests for invalid values, open/minimized/hidden feed
+  modes, guest/member storage isolation, and Recent Loot show/hide actions. Keep
+  the page responsible for connecting those named view values and actions to
+  the larger activity-feed and Recent Loot section components.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
   component area is selected as part of a bounded TSX ownership review. Preserve
   every styling value and verify that `components/reward-codes/` contains no CSS

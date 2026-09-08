@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { AuthGate, QueryState } from "../components/common/Page";
 import {
   FIRETEAM_BUNGIE_DATA_NOTICE,
@@ -7,6 +7,7 @@ import {
 import { FireteamRecentLootSection } from "../components/fireteam/FireteamRecentLootSection";
 import { FireteamRoster } from "../components/fireteam/FireteamRoster";
 import { FireteamSharingHeader } from "../components/fireteam/FireteamSharingHeader";
+import { useFireteamCommandClipboard } from "../components/fireteam/useFireteamCommandClipboard";
 import { useFireteamTrackedCollections } from "../components/fireteam/useFireteamTrackedCollections";
 import { useFireteamTrackedItemOrder } from "../components/fireteam/useFireteamTrackedItemOrder";
 import { useFireteamTrackedItemRemoval } from "../components/fireteam/useFireteamTrackedItemRemoval";
@@ -146,13 +147,10 @@ export function FireteamPage() {
     savedTrackedItemOrder: preferences["fireteam.trackedOrder"],
     setPreference
   });
-  const [copied, setCopied] = useState("");
-  const copyCommand = async (label: string, command: string) => {
-    if (!navigator.clipboard?.writeText) return;
-    try { await navigator.clipboard.writeText(command); } catch { return; }
-    setCopied(label);
-    window.setTimeout(() => setCopied((current) => current === label ? "" : current), 1800);
-  };
+  const {
+    copiedCommandIdentifier,
+    copyCommand
+  } = useFireteamCommandClipboard();
   return <AuthGate>
     <div className={styles.fireteamUpper}>
     <FireteamSharingHeader
@@ -196,7 +194,7 @@ export function FireteamPage() {
     {data && <FireteamRoster
       members={data.members}
       currentGuardianIsLeader={Boolean(self?.isLeader)}
-      copiedCommandIdentifier={copied}
+      copiedCommandIdentifier={copiedCommandIdentifier}
       onCopyCommand={copyCommand}
       onUntrackCurrentGuardianItem={removeTrackedItem}
       currentGuardianTrackedItemOrder={trackedItemOrder}
