@@ -1,8 +1,6 @@
-import type { FireteamTrackedItem, LootWatcherConfig, LootWatcherRunResult, UserPreferenceKey } from "@guardian-nexus/contracts";
+import type { FireteamTrackedItem } from "@guardian-nexus/contracts";
 import { catalystTrackingId } from "@guardian-nexus/domain";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { api, mutationHeaders } from "../services/api/client";
 import { AuthGate, QueryState } from "../components/common/Page";
 import {
   FIRETEAM_BUNGIE_DATA_NOTICE,
@@ -23,29 +21,13 @@ import styles from "./Pages.module.css";
 
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { useFireteamActivityFeed } from "../services/fireteam/useFireteamActivityFeed";
+import { useFireteamLootWatchers } from "../services/fireteam/useFireteamLootWatchers";
 import { useFireteamQuery } from "../services/fireteam/useFireteamQuery";
 import { useFireteamRecentLoot } from "../services/fireteam/useFireteamRecentLoot";
 import { useFireteamSharing } from "../services/fireteam/useFireteamSharing";
 
-const LOOT_WATCHER_PREFERENCES: Record<keyof LootWatcherConfig, UserPreferenceKey> = {
-  farmingMode: "fireteam.watcher.farming.v1",
-  highestPowerLock: "fireteam.watcher.highestPower.v1",
-  tier5FitLock: "fireteam.watcher.tier5Fits.v1",
-  duplicateFitJunk: "fireteam.watcher.duplicateFits.v1"
-};
-function watcherResultLabel(result: LootWatcherRunResult): string {
-  const actions = [
-    result.movedToVault.length ? `${result.movedToVault.length} moved` : "",
-    result.locked.length ? `${result.locked.length} locked` : "",
-    result.taggedJunk.length ? `${result.taggedJunk.length} tagged junk` : ""
-  ].filter(Boolean);
-  if (result.warnings[0]) return actions.length ? `${actions.join(" · ")} · ${result.warnings[0]}` : result.warnings[0];
-  if (result.skipped[0] && !actions.length) return result.skipped[0];
-  return actions.length ? actions.join(" · ") : "Watcher settings saved.";
-}
 export function FireteamPage() {
   const { session, selectedCharacterId, preferences, setPreference, autoRefresh } = useGuardian();
-  const queryClient = useQueryClient();
   const result = useFireteamQuery(session?.guardian?.membershipId || "", selectedCharacterId, Boolean(session?.authenticated));
   useEffect(() => {
     const prime = () => {
@@ -73,12 +55,17 @@ export function FireteamPage() {
   const trackedBuilds = useMemo(() => parseTrackedBuilds(preferences["buildAdvisor.trackedBuilds.v1"]), [preferences]);
   const activityFeedView = parseActivityFeedView(preferences["fireteam.activityFeedView.v1"]);
   const showRecentLoot = preferences["fireteam.recentLoot.v1"] !== "off";
-  const lootWatchers = useMemo<LootWatcherConfig>(() => ({
-    farmingMode: preferences[LOOT_WATCHER_PREFERENCES.farmingMode] === "on",
-    highestPowerLock: preferences[LOOT_WATCHER_PREFERENCES.highestPowerLock] === "on",
-    tier5FitLock: preferences[LOOT_WATCHER_PREFERENCES.tier5FitLock] === "on",
-    duplicateFitJunk: preferences[LOOT_WATCHER_PREFERENCES.duplicateFitJunk] === "on"
-  }), [preferences]);
+  const {
+    lootWatchers,
+    toggleLootWatcher,
+    lootWatcherUpdatePending,
+    lootWatcherStatus
+  } = useFireteamLootWatchers({
+    characterId: selectedCharacterId,
+    csrfToken: session?.csrfToken,
+    savedPreferences: preferences,
+    savePreference: setPreference
+  });
   const {
     recentLootEvents,
     recentLootLoading,
@@ -114,22 +101,6 @@ export function FireteamPage() {
     snapshotActivityFeed: data?.activityFeed,
     snapshotActivityFeedEnabled: data?.activityFeedEnabled
   });
-  const watcherRun = useMutation({
-    mutationFn: (config: LootWatcherConfig) => api<LootWatcherRunResult>("/api/v2/fireteam/loot-watchers/run", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, config }) }),
-    onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }), queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] })])
-  });
-  const toggleLootWatcher = (key: keyof LootWatcherConfig, enabled: boolean) => {
-    const next = { ...lootWatchers, [key]: enabled };
-    setPreference(LOOT_WATCHER_PREFERENCES[key], enabled ? "on" : "off");
-    watcherRun.mutate(next);
-  };
-  const watcherStatus = watcherRun.isPending
-    ? "Updating watchers…"
-    : watcherRun.error instanceof Error
-      ? watcherRun.error.message
-      : watcherRun.data
-        ? watcherResultLabel(watcherRun.data.data)
-        : undefined;
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
   const [manualRemovingKey, setManualRemovingKey] = useState("");
   const {
@@ -249,8 +220,8 @@ export function FireteamPage() {
       onShow={() => setPreference("fireteam.recentLoot.v1", "on")}
       watchers={lootWatchers}
       onWatcherChange={toggleLootWatcher}
-      watcherUpdatePending={watcherRun.isPending}
-      watcherStatus={watcherStatus}
+      watcherUpdatePending={lootWatcherUpdatePending}
+      watcherStatus={lootWatcherStatus}
       actionError={recentLootActionError}
     />
     </div>

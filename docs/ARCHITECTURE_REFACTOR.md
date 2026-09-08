@@ -987,6 +987,59 @@ Validation completed for this section:
 - The production performance budget passed at 372,749 bytes raw and 114,964
   bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
 
+## Current section: Fireteam loot-watcher service — complete
+
+Goal: remove the remaining loot-watcher preference translation, run request,
+result description, and toggle workflow from `FireteamPage.tsx`. Keep the page
+responsible for composing `FireteamRecentLootSection`, while a focused Fireteam
+service supplies the section's watcher configuration and actions.
+
+Implemented:
+
+- Added `services/fireteam/useFireteamLootWatchers.ts` beside the other
+  Fireteam server-state hooks. It owns the four stable preference-key mappings,
+  converts saved `on`/`off` values into a complete `LootWatcherConfig`, and does
+  not run anything merely because the page mounted.
+- Moved the `/api/v2/fireteam/loot-watchers/run` POST, CSRF headers, selected
+  character payload, and Recent Loot plus Gear cache invalidation into that
+  service boundary.
+- Replaced page-local transport names with the explicit service outputs
+  `lootWatchers`, `toggleLootWatcher`, `lootWatcherUpdatePending`, and
+  `lootWatcherStatus`.
+- Moved pending, failure, completed-action, warning, skipped-run, and saved-only
+  status descriptions into the workflow that owns the request result. Existing
+  user-facing wording and precedence are unchanged.
+- Kept the dependency direction required by the Master rule: the service imports
+  no component or page, while `FireteamPage` passes its application preferences
+  and preference writer into the smaller hook and composes the existing Recent
+  Loot section from the named results.
+- Removed all direct React Query and API-client imports from
+  `FireteamPage.tsx`. Its remaining work is page composition and UI workflows,
+  rather than transport orchestration.
+- Reduced `FireteamPage.tsx` from 305 to 276 lines without changing watcher
+  preference keys, request paths or bodies, visible controls, status text, or
+  cache refresh behavior.
+- Added four direct hook tests covering saved-preference translation, no work on
+  mount, exact preference and request serialization, CSRF protection, both cache
+  invalidations, pending and failure states, and every result-description path.
+
+Validation completed for this section:
+
+- Focused loot-watcher service and Fireteam page suites passed: 2 files and 26
+  tests.
+- Focused ESLint, Web application and Pages Functions TypeScript checks, and
+  `git diff --check` passed.
+- The first complete audit exposed the previously observed Shell lazy-options
+  timing failure under parallel load. All changed-area tests passed in that run;
+  the nine Shell tests passed immediately in isolation, and the subsequent
+  complete audit passed all 96 Web test files.
+- The successful `pnpm run audit` workflow passed archive and frontend source
+  boundaries, all 42 CSS modules, workspace lint, every workspace typecheck, 24
+  domain tests, 258 API tests, 353 Web tests, 7 Node tooling tests, 24 manifest
+  tests, and API/Web production builds.
+- The production performance budget passed at 372,749 bytes raw and 114,977
+  bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -1024,12 +1077,19 @@ Validation completed for this section:
   from `main` while retaining the migrated Fireteam service directory.
 - Extracted Fireteam Recent Loot querying, optimistic tagging, gear actions,
   errors, and cache invalidation into a directly tested service hook.
+- Extracted Fireteam loot-watcher preferences, request execution, status
+  descriptions, and cache invalidation into a directly tested service hook.
 
 ## Future sections
 
-- Next bounded code slice: move the remaining loot-watcher
-  preference map, run mutation, result labeling, and toggle workflow into an
-  appropriate Fireteam helper/service boundary with direct tests.
+- Next bounded code slice: add
+  `components/fireteam/useFireteamTrackedItemRemoval.ts` and move the tracked
+  item dismissal calculation, preference updates, removal delay, local pin
+  persistence, and manual-removal state out of `FireteamPage.tsx`. Give the
+  helper direct tests for each tracked item genre and delayed sharing update.
+  Keep the page responsible for supplying the current tracked collections and
+  connecting the helper's dismissal callback to `FireteamRoster` and the
+  Fireteam sharing service.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
   component area is selected as part of a bounded TSX ownership review. Preserve
   every styling value and verify that `components/reward-codes/` contains no CSS
