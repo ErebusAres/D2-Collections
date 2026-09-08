@@ -10,6 +10,7 @@ export const FIRETEAM_RETRY_MS = 60_000;
 // normal multi-member Fireteam on the advertised five-minute cadence.
 export const FIRETEAM_MAX_REFRESHES_PER_CRON = 8;
 export const FIRETEAM_SOURCE_MAX_AGE_MS = 2 * 60_000;
+export const FIRETEAM_PARTY_MISSING_CONFIRMATIONS = 3;
 export const FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS = 60_000;
 export const FIRETEAM_PRESENCE_GRACE_MS = 10 * 60_000;
 
@@ -98,6 +99,33 @@ export function authoritativeFireteamParty(
   }
   if (!unique.has(selfMembershipId)) unique.set(selfMembershipId, { ...self, observedInParty: false });
   return [...unique.values()].slice(0, 12);
+}
+
+export function reconcileFireteamParty(
+  observed: SavedPartyMember[],
+  previous: SavedPartyMember[],
+  selfMembershipId: string,
+  onlineState: GuardianPresenceState,
+  transitoryAvailable: boolean,
+  previousMissingObservations = 0
+): { members: SavedPartyMember[]; missingObservations: number } {
+  const current = authoritativeFireteamParty(observed, selfMembershipId, onlineState, transitoryAvailable);
+  const observedTeammate = current.some((member) => member.membershipId !== selfMembershipId && member.observedInParty);
+  if (observedTeammate) return { members: current, missingObservations: 0 };
+  if (onlineState === "offline") return { members: current, missingObservations: 0 };
+
+  const previousTeammates = previous.filter((member) => member.membershipId !== selfMembershipId);
+  if (!previousTeammates.length) return { members: current, missingObservations: 0 };
+  const missingObservations = Math.max(0, previousMissingObservations) + 1;
+  if (missingObservations >= FIRETEAM_PARTY_MISSING_CONFIRMATIONS) return { members: current, missingObservations };
+
+  // Bungie's transitory component can omit the party for a single otherwise
+  // successful response. Retain membership once, but do not claim live
+  // presence until Bungie observes those members again.
+  return {
+    members: previous.map((member) => ({ ...member, status: 0, observedInParty: false })).slice(0, 12),
+    missingObservations
+  };
 }
 
 export function fireteamRetryAfter(error: unknown, now = Date.now()): string {

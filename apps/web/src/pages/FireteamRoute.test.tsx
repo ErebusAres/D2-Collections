@@ -83,6 +83,19 @@ describe("Fireteam page", () => {
     expect(queuedApi).not.toHaveBeenCalled();
   });
 
+  it("checks promptly for the committed snapshot while a backend refresh is running", async () => {
+    const response = fireteamEnvelope(4, "2026-08-20T11:55:00.000Z");
+    response.data.refreshState = "refreshing";
+    vi.mocked(api).mockImplementation(async (path) => String(path).startsWith("/api/v1/me/quests") ? questEnvelope() as never : response);
+    renderFireteam();
+    expect(await screen.findByText("Refreshing Fireteam")).toBeTruthy();
+    const fireteamCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam?")).length;
+    expect(fireteamCalls()).toBe(1);
+
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(2));
+  });
+
   it("does not poll forever before the user enables sharing", async () => {
     const response = fireteamEnvelope(0);
     response.data.sharingEnabled = false;

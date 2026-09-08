@@ -87,7 +87,6 @@ import { FIRETEAM_RECENT_ITEM_LIMIT, observeRecentItems, readRecentItems, recent
 import { configuredFireteamActivityFeedEnabled, FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
 import { equippedCharacterPower, guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
 import {
-  authoritativeFireteamParty,
   FIRETEAM_ACTIVE_WINDOW_MS,
   FIRETEAM_REFRESH_LEASE_MS,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
@@ -101,6 +100,7 @@ import {
   fireteamSharedQuests,
   fireteamSourceAdvanced,
   fireteamSnapshotUsable,
+  reconcileFireteamParty,
   nextFireteamRefreshAt
 } from "./fireteamSnapshot";
 
@@ -2135,12 +2135,15 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   const observedPartyMembers = savedPartyMembers(transitory || {}, row);
   const livePartyObserved = observedPartyMembers.some((member) => member.membershipId !== row.membership_id && member.observedInParty);
   const onlineState = livePartyObserved ? "online" : sessionObservation.onlineState;
-  const activityPartyMembers = authoritativeFireteamParty(
+  const partyObservation = reconcileFireteamParty(
     observedPartyMembers,
+    Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : [],
     row.membership_id,
     onlineState,
-    Boolean(transitory)
+    Boolean(transitory),
+    Number(previousPayload?.partyMissingObservationCount || 0)
   );
+  const activityPartyMembers = partyObservation.members;
   const activity = onlineState === "online"
     ? guardianLocation(profile, questManifest, snapshotCharacter.characterId, onlineState)
     : undefined;
@@ -2170,6 +2173,7 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
       activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId),
       activityPartyMembers,
       activityPartySourceObservedAt: sourceObservedAt,
+      partyMissingObservationCount: partyObservation.missingObservations,
       progressSourceObservedAt: sourceObservedAt
     }
   };
@@ -2224,7 +2228,15 @@ async function refreshFireteamPresenceSnapshot(membershipId: string, env: Env): 
     const observedPartyMembers = savedPartyMembers(profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {}, sessionRow);
     const livePartyObserved = observedPartyMembers.some((member) => member.membershipId !== membershipId && member.observedInParty);
     const onlineState = livePartyObserved ? "online" : sessionObservation.onlineState;
-    const activityPartyMembers = authoritativeFireteamParty(observedPartyMembers, membershipId, onlineState, Boolean(profile?.profileTransitoryData?.data || profile?.profileTransitory?.data));
+    const partyObservation = reconcileFireteamParty(
+      observedPartyMembers,
+      Array.isArray(previousPayload?.activityPartyMembers) ? previousPayload.activityPartyMembers : [],
+      membershipId,
+      onlineState,
+      Boolean(profile?.profileTransitoryData?.data || profile?.profileTransitory?.data),
+      Number(previousPayload?.partyMissingObservationCount || 0)
+    );
+    const activityPartyMembers = partyObservation.members;
     const activeCharacterId = sessionObservation.activeCharacterId || previousPayload?.character?.characterId;
     const activity = onlineState === "online" ? guardianLocation(profile, activityManifest, activeCharacterId, onlineState) : undefined;
     const nextPayload = {
@@ -2234,7 +2246,8 @@ async function refreshFireteamPresenceSnapshot(membershipId: string, env: Env): 
       sessionPresenceEvidence: sessionObservation.evidence,
       activityPartyMembers,
       activityPartyMembershipIds: activityPartyMembers.map((member) => member.membershipId),
-      activityPartySourceObservedAt: sourceObservedAt
+      activityPartySourceObservedAt: sourceObservedAt,
+      partyMissingObservationCount: partyObservation.missingObservations
     };
     await env.DB.prepare(`
       UPDATE fireteam_snapshots
@@ -2408,7 +2421,10 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
   const usable = fireteamSnapshotUsable(ownSnapshot?.committed_at);
   const presenceObservedAt = ownSnapshot?.presence_refreshed_at || ownSnapshot?.committed_at;
   const presenceUsable = fireteamPresenceUsable(presenceObservedAt);
-  const storedParty = presenceUsable && Array.isArray(ownPayload?.activityPartyMembers) ? ownPayload.activityPartyMembers : [];
+  // Keep the last committed roster visible when presence becomes delayed. Its
+  // live status is still gated below; confirmed solo/offline observations own
+  // removal, rather than a read-time timestamp making every card disappear.
+  const storedParty = Array.isArray(ownPayload?.activityPartyMembers) ? ownPayload.activityPartyMembers : [];
   const party = storedParty.length
     ? storedParty
     : [{ membershipId: row.membership_id, membershipType: row.membership_type, displayName: row.bungie_name || row.display_name, status: 0, observedInParty: false }];
@@ -2428,7 +2444,6 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
   const trackedItemCounts = new Map<string, number>();
   for (const member of party) {
     const snapshot = snapshots.get(String(member.membershipId));
-    if (!fireteamSnapshotUsable(snapshot?.committed_at)) continue;
     let payload: any = null;
     try { payload = snapshot?.payload_json ? JSON.parse(snapshot.payload_json) : null; } catch { payload = null; }
     for (const item of sharedTrackedItems(payload)) {
@@ -2444,8 +2459,10 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     if (membershipId === row.membership_id) payload = ownPayload;
     const isSelf = membershipId === row.membership_id;
     const memberSnapshotUsable = fireteamSnapshotUsable(snapshot?.committed_at);
-    const savedSelfDetailsAvailable = isSelf && Boolean(payload);
-    const detailsAvailable = memberSnapshotUsable || savedSelfDetailsAvailable;
+    // The snapshot query has already enforced the member's active sharing
+    // consent. Keep the last shared progress visible during refresh delays;
+    // freshness still controls live presence/activity and the delayed label.
+    const detailsAvailable = Boolean(payload);
     const trackedItems = detailsAvailable ? sharedTrackedItems(payload) : [];
     const onlineState: FireteamMember["onlineState"] = isSelf
       ? ownPayload?.onlineState === "offline" ? "offline" : presenceUsable && ownPayload?.onlineState === "online" ? "online" : "unknown"

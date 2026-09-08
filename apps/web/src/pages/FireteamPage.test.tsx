@@ -422,7 +422,7 @@ describe("Fireteam tracked items", () => {
     expect(screen.getAllByRole("button", { name: "Untrack Rank service from Fireteam" })).toHaveLength(1);
   });
 
-  it("labels a stale teammate snapshot as delayed without rendering stale progress", async () => {
+  it("labels a stale teammate snapshot as delayed while retaining its last shared progress", async () => {
     const mixed = envelope();
     mixed.data.members.push({
       ...mixed.data.members[0]!,
@@ -431,8 +431,8 @@ describe("Fireteam tracked items", () => {
       inGameName: "DelayedGuardian#5678",
       isSelf: false,
       syncState: "delayed",
-      trackedItems: [],
-      quests: [],
+      trackedItems: mixed.data.members[0]!.trackedItems.map((item) => ({ ...item })),
+      quests: mixed.data.members[0]!.quests.map((quest) => ({ ...quest })),
       freshness: { state: "stale", observedAt: "2026-08-08T12:20:00.000Z", ageSeconds: 840 }
     });
     vi.mocked(api).mockResolvedValue(mixed);
@@ -441,8 +441,8 @@ describe("Fireteam tracked items", () => {
 
     const card = (await screen.findByText("DelayedGuardian#5678")).closest("article")!;
     expect(card.textContent).toContain("Sync delayed");
-    expect(card.textContent).toContain("Updating shared progress…");
-    expect(card.textContent).not.toContain("Weekly order");
+    expect(card.textContent).toContain("Weekly order");
+    expect(card.textContent).not.toContain("Updating shared progress…");
   });
 
   it("persists a reordered self-card list without changing the Fireteam share payload", async () => {

@@ -890,6 +890,54 @@ Validation completed for this section:
   114,958 bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
 - `git diff --check` passed.
 
+## Current section: post-branch Fireteam correctness synchronization — complete
+
+Goal: bring the Fireteam correctness fixes added to `main` after this refactor
+branch was created into the migration branch before changing more Fireteam
+code. Preserve every fix while retaining the Plum Creek service-tree ownership
+already established on this branch.
+
+Implemented:
+
+- Merged `main` through `788475b` into `refactor/component-workflow` without
+  rewriting or force-pushing the branch history.
+- Preserved the refactor branch's `services/fireteam/useFireteamQuery.ts`
+  location while incorporating `main`'s bounded polling behavior. The hook now
+  polls each minute only when automatic refresh and sharing are enabled, and
+  briefly checks every five seconds while a backend snapshot commit is in
+  progress.
+- Removed the redundant route-owned one-minute interval by accepting `main`'s
+  query-hook orchestration. `FireteamRoute` passes the automatic-refresh choice
+  into the service hook, while `FireteamPage` remains a non-polling observer of
+  the same query.
+- Incorporated the backend roster-reconciliation fixes: transient missing-party
+  observations retain known teammates as not-live, three consecutive missing
+  observations confirm removal, confirmed offline state removes immediately,
+  delayed presence no longer erases the saved roster, and saved shared progress
+  remains visible during refresh delays.
+- Incorporated the new route and API regression coverage plus the adjusted Web
+  performance budget accounting from `main`.
+- Made all three `LootWorkspace` tests time-independent by fixing `Date.now()`
+  to the fixture period. The audit exposed that their August fixtures naturally
+  fell outside the 30-day UI filter in September; no production filtering logic
+  was changed.
+- Verified the obsolete `modules/fireteam/useFireteamQuery.ts` path remains
+  absent after the merge, so the synchronization did not reverse the directory
+  migration.
+
+Validation completed for this section:
+
+- Focused validation passed: 35 Fireteam Web tests, 15 Fireteam snapshot tests,
+  the three corrected Loot Workspace tests, and every workspace TypeScript
+  check.
+- The complete `pnpm run audit` workflow passed: archive and frontend source
+  boundaries, all 42 CSS modules, workspace lint, every workspace typecheck, 24
+  domain tests, 258 API tests, 345 Web tests across 94 files, 7 Node tooling
+  tests, 24 manifest tests, and API/Web production builds.
+- The production performance budget passed at 372,749 bytes raw and 114,961
+  bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
+- `git diff --check` passed for the merge and deterministic-test adjustment.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -923,6 +971,8 @@ Validation completed for this section:
   direct tests.
 - Extracted Fireteam sharing transport, payload serialization, pending state,
   and cache invalidation into a directly tested service hook.
+- Synchronized all post-branch Fireteam polling and roster-preservation fixes
+  from `main` while retaining the migrated Fireteam service directory.
 
 ## Future sections
 
