@@ -1093,6 +1093,58 @@ Validation completed for this section:
 - The production performance budget passed at 372,749 bytes raw and 114,953
   bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
 
+## Current section: Fireteam tracked collections workflow — complete
+
+Goal: move membership/character-scoped quest-pin loading, tracked preference
+parsing, Guardian Rank local synchronization, and Build Advisor tracked-build
+parsing out of `FireteamPage.tsx`. Keep the page responsible for passing the
+resulting named collections into sharing, removal, ordering, and presentation
+workflows.
+
+Implemented:
+
+- Added `components/fireteam/useFireteamTrackedCollections.ts` as the focused
+  component-layer owner of the collections used by Fireteam sharing workflows.
+- Centralized the character-scoped quest-pin storage key and local loading while
+  preserving the requirement that both a membership ID and character ID exist
+  before local storage may be read.
+- Preserved the existing collection limits: 40 locally pinned quests, 200
+  Guardian Rank identifiers, 200 Journey identifiers, 200 Collection
+  identifiers, and 8 Build Advisor records through the existing validated build
+  parser.
+- Preserved defensive parsing for malformed JSON, incorrectly shaped values,
+  empty identifiers, and invalid tracked-build records.
+- Kept quest pins and Guardian Rank identifiers as synchronized local state
+  because tracked-item removal updates those collections immediately. Journey,
+  Collection, and Build Advisor records remain directly derived from their
+  saved preferences and update whenever those external preference values change.
+- Kept membership and character isolation explicit: changing either context
+  reloads only the quest pins belonging to the resulting storage key and an
+  incomplete context returns an empty collection.
+- Reconnected `FireteamPage.tsx` through human-readable collection names and
+  removed its storage-key construction, local-storage reader, generic tracked
+  preference parser, tracked-build parser import, and collection synchronization
+  effects.
+- Reduced `FireteamPage.tsx` from 236 to 229 lines without changing the sharing,
+  removal, ordering, or roster component contracts.
+- Added 6 direct helper tests covering every storage source, malformed and
+  incorrectly shaped values, collection limits, membership/character isolation,
+  incomplete contexts, local Guardian Rank updates, and external preference
+  synchronization.
+
+Validation completed for this section:
+
+- Focused tracked-collection and Fireteam page suites passed: 2 files and 28
+  tests.
+- Focused ESLint, Web application and Pages Functions TypeScript checks, and
+  `git diff --check` passed.
+- The complete `pnpm run audit` workflow passed archive and frontend source
+  boundaries, all 42 CSS modules, workspace lint, every workspace typecheck, 24
+  domain tests, 258 API tests, 373 Web tests across 98 files, 7 Node tooling
+  tests, 24 manifest tests, and API/Web production builds.
+- The production performance budget passed at 372,749 bytes raw and 114,964
+  bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -1135,17 +1187,18 @@ Validation completed for this section:
 - Extracted every Fireteam tracked-item dismissal path, local persistence,
   removal timing, hidden-key rule, and sharing handoff into a directly tested
   component workflow hook.
+- Extracted Fireteam's character-scoped quest pins and preference-backed tracked
+  collections into a directly tested component workflow hook.
 
 ## Future sections
 
 - Next bounded code slice: add
-  `components/fireteam/useFireteamTrackedCollections.ts` and move local pin
-  loading/context synchronization, tracked-preference parsing, Guardian Rank
-  local synchronization, and tracked-build parsing out of `FireteamPage.tsx`.
-  Give the helper direct tests for malformed values, collection size limits,
-  membership/character storage isolation, and external preference updates. Keep
-  the page responsible for passing the named collections into sharing, removal,
-  ordering, and presentation workflows.
+  `components/fireteam/useFireteamCommandClipboard.ts` and move copied-command
+  state, Clipboard API handling, failure behavior, and timed label clearing out
+  of `FireteamPage.tsx`. Give the helper direct tests for unsupported clipboard
+  access, rejected writes, successful copies, timer cleanup, and overlapping
+  copy requests. Keep `FireteamPage` responsible for connecting the helper's
+  copied identifier and copy action to `FireteamRoster`.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
   component area is selected as part of a bounded TSX ownership review. Preserve
   every styling value and verify that `components/reward-codes/` contains no CSS

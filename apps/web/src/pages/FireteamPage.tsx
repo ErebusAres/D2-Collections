@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthGate, QueryState } from "../components/common/Page";
 import {
   FIRETEAM_BUNGIE_DATA_NOTICE,
@@ -7,11 +7,11 @@ import {
 import { FireteamRecentLootSection } from "../components/fireteam/FireteamRecentLootSection";
 import { FireteamRoster } from "../components/fireteam/FireteamRoster";
 import { FireteamSharingHeader } from "../components/fireteam/FireteamSharingHeader";
+import { useFireteamTrackedCollections } from "../components/fireteam/useFireteamTrackedCollections";
 import { useFireteamTrackedItemOrder } from "../components/fireteam/useFireteamTrackedItemOrder";
 import { useFireteamTrackedItemRemoval } from "../components/fireteam/useFireteamTrackedItemRemoval";
-import { pinsKey, useGuardian } from "../context/GuardianContext";
+import { useGuardian } from "../context/GuardianContext";
 import { primeCompletionAudio } from "../services/completionAudio";
-import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
 
 import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
@@ -39,15 +39,23 @@ export function FireteamPage() {
   }, []);
   const data = result.data?.data;
   const membershipId = session?.guardian?.membershipId || "";
-  const storageKey = membershipId && selectedCharacterId ? pinsKey(membershipId, selectedCharacterId) : "";
-  const [pinnedIds, setPinnedIds] = useState<string[]>(() => readPinnedIds(storageKey));
-  useEffect(() => setPinnedIds(readPinnedIds(storageKey)), [storageKey]);
-  const preferenceGuardianRankIds = useMemo(() => trackedPreference(preferences["guardianRank.tracked"]), [preferences]);
-  const [guardianRankIds, setGuardianRankIds] = useState(preferenceGuardianRankIds);
-  useEffect(() => setGuardianRankIds(preferenceGuardianRankIds), [preferences["guardianRank.tracked"]]);
-  const journeyIds = useMemo(() => trackedPreference(preferences["journey.tracked"]), [preferences]);
-  const collectionIds = useMemo(() => trackedPreference(preferences["collection.tracked"]), [preferences]);
-  const trackedBuilds = useMemo(() => parseTrackedBuilds(preferences["buildAdvisor.trackedBuilds.v1"]), [preferences]);
+  const {
+    pinnedQuestStorageKey,
+    pinnedQuestIds,
+    setPinnedQuestIds,
+    trackedGuardianRankIds,
+    setTrackedGuardianRankIds,
+    trackedJourneyIds,
+    trackedCollectionIds,
+    trackedBuilds
+  } = useFireteamTrackedCollections({
+    membershipId,
+    characterId: selectedCharacterId,
+    savedGuardianRankTracking: preferences["guardianRank.tracked"],
+    savedJourneyTracking: preferences["journey.tracked"],
+    savedCollectionTracking: preferences["collection.tracked"],
+    savedBuildTracking: preferences["buildAdvisor.trackedBuilds.v1"]
+  });
   const activityFeedView = parseActivityFeedView(preferences["fireteam.activityFeedView.v1"]);
   const showRecentLoot = preferences["fireteam.recentLoot.v1"] !== "off";
   const {
@@ -106,10 +114,10 @@ export function FireteamPage() {
   } = useFireteamSharing({
     characterId: selectedCharacterId,
     csrfToken: session?.csrfToken,
-    currentPinnedQuestIds: pinnedIds,
-    currentTrackedGuardianRankIds: guardianRankIds,
-    currentTrackedJourneyIds: journeyIds,
-    currentTrackedCollectionIds: collectionIds,
+    currentPinnedQuestIds: pinnedQuestIds,
+    currentTrackedGuardianRankIds: trackedGuardianRankIds,
+    currentTrackedJourneyIds: trackedJourneyIds,
+    currentTrackedCollectionIds: trackedCollectionIds,
     currentTrackedBuilds: trackedBuilds,
     currentHiddenTrackedItemKeys: hiddenTrackedItemKeys
   });
@@ -118,13 +126,13 @@ export function FireteamPage() {
     removingTrackedItemKey
   } = useFireteamTrackedItemRemoval({
     sharingMode: data?.sharingMode,
-    pinnedQuestStorageKey: storageKey,
-    currentPinnedQuestIds: pinnedIds,
-    setPinnedQuestIds: setPinnedIds,
-    currentTrackedGuardianRankIds: guardianRankIds,
-    setTrackedGuardianRankIds: setGuardianRankIds,
-    currentTrackedJourneyIds: journeyIds,
-    currentTrackedCollectionIds: collectionIds,
+    pinnedQuestStorageKey,
+    currentPinnedQuestIds: pinnedQuestIds,
+    setPinnedQuestIds,
+    currentTrackedGuardianRankIds: trackedGuardianRankIds,
+    setTrackedGuardianRankIds,
+    currentTrackedJourneyIds: trackedJourneyIds,
+    currentTrackedCollectionIds: trackedCollectionIds,
     currentTrackedBuilds: trackedBuilds,
     currentHiddenTrackedItemKeys: hiddenTrackedItemKeys,
     savePreference: setPreference,
@@ -216,21 +224,6 @@ export function FireteamPage() {
   </AuthGate>;
 }
 
-function trackedPreference(value?: string): string[] {
-  try {
-    const parsed = JSON.parse(value || "[]");
-    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 200) : [];
-  } catch { return []; }
-}
-
 function parseActivityFeedView(value?: string): FireteamActivityFeedView {
   return value === "minimized" || value === "hidden" ? value : "open";
-}
-
-function readPinnedIds(storageKey: string): string[] {
-  if (!storageKey) return [];
-  try {
-    const parsed = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 40) : [];
-  } catch { return []; }
 }
