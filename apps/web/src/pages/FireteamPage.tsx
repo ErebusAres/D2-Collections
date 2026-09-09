@@ -11,11 +11,12 @@ import { useFireteamCommandClipboard } from "../components/fireteam/useFireteamC
 import { useFireteamTrackedCollections } from "../components/fireteam/useFireteamTrackedCollections";
 import { useFireteamTrackedItemOrder } from "../components/fireteam/useFireteamTrackedItemOrder";
 import { useFireteamTrackedItemRemoval } from "../components/fireteam/useFireteamTrackedItemRemoval";
+import { useFireteamViewPreferences } from "../components/fireteam/useFireteamViewPreferences";
 import { useGuardian } from "../context/GuardianContext";
 import { primeCompletionAudio } from "../services/completionAudio";
 import styles from "./Pages.module.css";
 
-import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
+import { FireteamActivityFeed } from "../components/fireteam/FireteamActivityFeed";
 import { useFireteamActivityFeed } from "../services/fireteam/useFireteamActivityFeed";
 import { useFireteamLootWatchers } from "../services/fireteam/useFireteamLootWatchers";
 import { useFireteamQuery } from "../services/fireteam/useFireteamQuery";
@@ -57,8 +58,20 @@ export function FireteamPage() {
     savedCollectionTracking: preferences["collection.tracked"],
     savedBuildTracking: preferences["buildAdvisor.trackedBuilds.v1"]
   });
-  const activityFeedView = parseActivityFeedView(preferences["fireteam.activityFeedView.v1"]);
-  const showRecentLoot = preferences["fireteam.recentLoot.v1"] !== "off";
+  const {
+    activityFeedView,
+    activityFeedIsVisible,
+    activityFeedStorageKey,
+    recentLootIsVisible,
+    changeActivityFeedView,
+    hideRecentLoot,
+    showRecentLoot
+  } = useFireteamViewPreferences({
+    membershipId,
+    savedActivityFeedView: preferences["fireteam.activityFeedView.v1"],
+    savedRecentLootVisibility: preferences["fireteam.recentLoot.v1"],
+    savePreference: setPreference
+  });
   const {
     lootWatchers,
     toggleLootWatcher,
@@ -87,7 +100,7 @@ export function FireteamPage() {
   } = useFireteamRecentLoot({
     characterId: selectedCharacterId,
     authenticated: Boolean(session?.authenticated),
-    recentLootIsVisible: showRecentLoot,
+    recentLootIsVisible,
     csrfToken: session?.csrfToken
   });
   const {
@@ -99,7 +112,7 @@ export function FireteamPage() {
     membershipId,
     characterId: selectedCharacterId,
     authenticated: Boolean(session?.authenticated),
-    feedIsVisible: activityFeedView !== "hidden",
+    feedIsVisible: activityFeedIsVisible,
     autoRefresh,
     csrfToken: session?.csrfToken,
     snapshotActivityFeed: data?.activityFeed,
@@ -168,7 +181,7 @@ export function FireteamPage() {
     />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     <FireteamRecentLootSection
-      isVisible={showRecentLoot}
+      isVisible={recentLootIsVisible}
       recentLootEvents={recentLootEvents}
       isLoading={recentLootLoading}
       loadError={recentLootLoadError}
@@ -182,8 +195,8 @@ export function FireteamPage() {
       onChangeWeaponSocket={(item, socketIndex, plugItemHash) =>
         changeRecentLootWeaponSocket(item.instanceId, socketIndex, plugItemHash)}
       actionsPending={recentLootActionPending}
-      onHide={() => setPreference("fireteam.recentLoot.v1", "off")}
-      onShow={() => setPreference("fireteam.recentLoot.v1", "on")}
+      onHide={hideRecentLoot}
+      onShow={showRecentLoot}
       watchers={lootWatchers}
       onWatcherChange={toggleLootWatcher}
       watcherUpdatePending={lootWatcherUpdatePending}
@@ -204,8 +217,8 @@ export function FireteamPage() {
     {session?.authenticated && <FireteamActivityFeed
       feed={displayedActivityFeed}
       view={activityFeedView}
-      storageKey={`guardian-nexus:fireteam-activity-window:${membershipId || "guest"}`}
-      onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)}
+      storageKey={activityFeedStorageKey}
+      onViewChange={changeActivityFeedView}
       onSend={sendActivityMessage}
       sending={activityMessageSending}
       error={activityFeedError}
@@ -220,8 +233,4 @@ export function FireteamPage() {
     />}
     {data && <FireteamDataNotice />}
   </AuthGate>;
-}
-
-function parseActivityFeedView(value?: string): FireteamActivityFeedView {
-  return value === "minimized" || value === "hidden" ? value : "open";
 }

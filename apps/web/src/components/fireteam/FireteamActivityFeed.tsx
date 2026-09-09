@@ -4,9 +4,10 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, ty
 import { createPortal } from "react-dom";
 import { normalizeGearTier } from "../gear/GearTierRail";
 import { ItemTooltip, TimelineEventTooltip } from "../gear/RecentLoot";
+import type { FireteamActivityFeedView } from "./useFireteamViewPreferences";
 import styles from "../../styles/fireteam/FireteamActivityFeed.module.css";
 
-export type FireteamActivityFeedView = "open" | "minimized" | "hidden";
+export type { FireteamActivityFeedView } from "./useFireteamViewPreferences";
 export type FireteamActivityWindowMode = "pinned" | "popout";
 
 export interface FireteamActivityWindowState {

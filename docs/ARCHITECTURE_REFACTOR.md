@@ -1190,6 +1190,64 @@ Validation completed for this section:
 - The production performance budget passed at 372,749 bytes raw and 114,960
   bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
 
+## Current section: Fireteam view-preference workflow — complete
+
+Goal: move activity-feed mode parsing, activity-window storage identity, Recent
+Loot visibility, and their preference-writing actions out of
+`FireteamPage.tsx`. Keep the page responsible for connecting the resulting
+named values and actions to the larger Fireteam section components and services.
+
+Implemented:
+
+- Added `components/fireteam/useFireteamViewPreferences.ts` as the focused
+  component-layer owner of Fireteam display preferences.
+- Centralized the three supported activity-feed modes (`open`, `minimized`, and
+  `hidden`) and preserved the safe `open` fallback for missing or invalid saved
+  values.
+- Exposed `activityFeedIsVisible` separately from the exact display mode so the
+  activity service receives an explicit query decision instead of interpreting
+  a presentation value inside the page.
+- Centralized the activity-window storage identity and preserved separate
+  `guest` and membership-specific keys.
+- Preserved the Recent Loot rule that only the exact `off` preference hides the
+  section; missing, `on`, and unrecognized values remain visible.
+- Replaced inline preference lambdas with the human-readable
+  `changeActivityFeedView`, `hideRecentLoot`, and `showRecentLoot` actions while
+  preserving the existing preference keys and stored values.
+- Moved ownership of the `FireteamActivityFeedView` type from the larger
+  activity-feed component into the smaller view-preference helper. The larger
+  component imports that type and re-exports it for backward compatibility,
+  eliminating even a type-only reversed dependency.
+- Removed the view parser, storage-key template, visibility conditions, and
+  preference-writing lambdas from `FireteamPage.tsx`. The page is 236 lines
+  after replacing those compact inline expressions with explicit named wiring;
+  it owns fewer behaviors despite the more readable multiline composition.
+- Added 7 direct helper tests covering invalid defaults, every supported feed
+  mode, feed query visibility, guest/member storage isolation, externally
+  updated Recent Loot values, and every preference-writing action.
+- The first two complete audit attempts exposed the previously documented Shell
+  lazy-component timing flake under full parallel load. The changed-area suites
+  passed in both runs and all 9 Shell tests passed immediately in isolation.
+  `Shell.test.tsx` now gives only the lazy Options panel and service-incident
+  banner assertions an explicit 5-second loading allowance instead of relying
+  on Testing Library's 1-second default; no production Shell behavior changed.
+
+Validation completed for this section:
+
+- Focused view-preference, activity-feed component, and Fireteam page suites
+  passed: 3 files and 37 tests.
+- After the Shell test-only timing allowance was added, the combined focused
+  view-preference, activity-feed component, Shell, and Fireteam page suites
+  passed: 4 files and 46 tests.
+- Focused ESLint, Web application and Pages Functions TypeScript checks, and
+  `git diff --check` passed.
+- The complete `pnpm run audit` workflow passed: archive and source boundaries,
+  all 42 CSS modules, workspace lint, every workspace typecheck, 24 domain
+  tests, 258 API tests, 386 Web tests across 100 files, 7 Node tooling tests, 24
+  manifest tests, and API/Web production builds.
+- The production performance budget passed at 372,749 bytes raw and 114,961
+  bytes gzip for JavaScript, plus 36,256 bytes of entry CSS.
+
 ## Completed sections
 
 - Created `refactor/component-workflow` from `main` at `9e151cc`.
@@ -1236,17 +1294,18 @@ Validation completed for this section:
   collections into a directly tested component workflow hook.
 - Extracted Fireteam command-copy state, Clipboard API behavior, timing, and
   lifecycle cleanup into a directly tested component workflow hook.
+- Extracted Fireteam display preferences, derived visibility, storage identity,
+  and preference actions into a directly tested component workflow hook.
 
 ## Future sections
 
 - Next bounded code slice: add
-  `components/fireteam/useFireteamViewPreferences.ts` and move activity-feed
-  view parsing, the membership-scoped activity-window storage key, Recent Loot
-  visibility, and their preference-writing actions out of `FireteamPage.tsx`.
-  Give the helper direct tests for invalid values, open/minimized/hidden feed
-  modes, guest/member storage isolation, and Recent Loot show/hide actions. Keep
-  the page responsible for connecting those named view values and actions to
-  the larger activity-feed and Recent Loot section components.
+  `components/fireteam/useFireteamCompletionAudioPriming.ts` and move the first
+  pointer/keyboard interaction listeners, one-time completion-audio priming,
+  and listener cleanup out of `FireteamPage.tsx`. Give the helper direct tests
+  for pointer activation, keyboard activation, one-time execution, and unmount
+  cleanup. Keep the sound implementation in `services/completionAudio.ts` and
+  keep the page responsible only for installing the focused workflow hook.
 - Move the reward-code marquee stylesheet into `styles/reward-codes/` when that
   component area is selected as part of a bounded TSX ownership review. Preserve
   every styling value and verify that `components/reward-codes/` contains no CSS

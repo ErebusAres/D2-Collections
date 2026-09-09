@@ -12,6 +12,7 @@ let reportAdminRole = false;
 let editorRole = false;
 const setHighContrast = vi.fn();
 const connectionMock = vi.hoisted(() => ({ snapshot: { queued: 0, retrying: false, activeFailure: undefined as undefined | { code: string; message: string; route: string; occurredAt: string; requestId: string; status: number } } }));
+const LAZY_COMPONENT_TIMEOUT_MS = 5_000;
 
 vi.mock("../../context/GuardianContext", () => ({
   useGuardian: () => ({
@@ -90,7 +91,11 @@ describe("Shell guardian identity", () => {
     expect(screen.queryByText(/Open pass/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
-    const optionsPanel = await screen.findByLabelText("Guardian options", { selector: "aside:not([aria-hidden='true'])" });
+    const optionsPanel = await screen.findByLabelText(
+      "Guardian options",
+      { selector: "aside:not([aria-hidden='true'])" },
+      { timeout: LAZY_COMPONENT_TIMEOUT_MS }
+    );
     expect(optionsPanel.hasAttribute("inert")).toBe(false);
     const feedback = screen.getByRole("link", { name: /Feedback & reports/i });
     expect(feedback.getAttribute("href")).toBe("/reports?from=%2F");
@@ -100,7 +105,11 @@ describe("Shell guardian identity", () => {
   it("keeps closed options out of the tab order and restores focus after Escape", async () => {
     renderShell(<div>Page</div>);
     const trigger = screen.getByRole("button", { name: "Open options" });
-    const panel = await screen.findByLabelText("Guardian options", { selector: "[role='dialog']" });
+    const panel = await screen.findByLabelText(
+      "Guardian options",
+      { selector: "[role='dialog']" },
+      { timeout: LAZY_COMPONENT_TIMEOUT_MS }
+    );
     expect(panel.hasAttribute("inert")).toBe(true);
 
     fireEvent.click(trigger);
@@ -114,7 +123,11 @@ describe("Shell guardian identity", () => {
   it("keeps working accessibility choices and omits retired preview controls", async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={queryClient}><MemoryRouter><Routes><Route element={<Shell />}><Route index element={<div>Page</div>} /></Route></Routes></MemoryRouter></QueryClientProvider>);
-    await screen.findByLabelText("Guardian options", { selector: "[role='dialog']" });
+    await screen.findByLabelText(
+      "Guardian options",
+      { selector: "[role='dialog']" },
+      { timeout: LAZY_COMPONENT_TIMEOUT_MS }
+    );
     fireEvent.click(screen.getByRole("button", { name: "Open options" }));
     fireEvent.click(screen.getByRole("checkbox", { name: /High contrast/i }));
     expect(setHighContrast).toHaveBeenCalledWith(true);
@@ -216,7 +229,11 @@ describe("Shell guardian identity", () => {
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     renderShell(<div>Page</div>);
 
-    const banner = await screen.findByRole("alert", { name: "Guardian services incident" });
+    const banner = await screen.findByRole(
+      "alert",
+      { name: "Guardian services incident" },
+      { timeout: LAZY_COMPONENT_TIMEOUT_MS }
+    );
     expect(within(banner).getByText("Details")).toBeTruthy();
     expect(within(banner).getByText("worker_resource_limit")).toBeTruthy();
     expect(within(banner).getByText("ray-123")).toBeTruthy();
