@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeMailbox, postmasterItemsForCharacter, postmasterPullEligibility, postmasterRoomCandidate } from "../src/mailbox";
+import { normalizeMailbox, postmasterItemForPull, postmasterItemsForCharacter, postmasterPullEligibility, postmasterRoomCandidate } from "../src/mailbox";
 
 describe("normalizeMailbox", () => {
   it("only includes real Postmaster items and reports per-character capacity", () => {
@@ -21,7 +21,7 @@ describe("normalizeMailbox", () => {
       bucketDefinitions: { "215593132": { itemCount: 21 } },
       itemDefinitions: {
         "10": { displayProperties: { name: "Lost Weapon", icon: "/weapon.png" }, itemTypeDisplayName: "Auto Rifle", inventory: { tierTypeName: "Legendary", bucketTypeHash: 1498876634 } },
-        "12": { displayProperties: { name: "Blocked Item", icon: "/blocked.png" }, itemTypeDisplayName: "Material", inventory: { tierTypeName: "Rare" } }
+        "12": { displayProperties: { name: "Blocked Item", icon: "/blocked.png" }, itemTypeDisplayName: "Engram", inventory: { tierTypeName: "Rare" }, doesPostmasterPullHaveSideEffects: true }
       },
       loadoutNameDefinitions: {}, loadoutIconDefinitions: {}, loadoutColorDefinitions: {}
     };
@@ -35,7 +35,8 @@ describe("normalizeMailbox", () => {
 
   it("blocks destructive pulls and selects only a safe same-slot item when room is required", () => {
     expect(postmasterPullEligibility({ itemInstanceId: "200", transferStatus: 0 }, { doesPostmasterPullHaveSideEffects: true })).toMatchObject({ canPull: false });
-    expect(postmasterPullEligibility({ itemInstanceId: "201", transferStatus: 2 }, {})).toMatchObject({ canPull: false });
+    expect(postmasterPullEligibility({ itemInstanceId: "201", transferStatus: 0 }, { allowActions: false })).toMatchObject({ canPull: false });
+    expect(postmasterPullEligibility({ itemInstanceId: "0", transferStatus: 2 }, { displayProperties: { name: "Enhancement Core" } })).toMatchObject({ canPull: true });
     const profile = {
       characterInventories: { data: { c1: { items: [
         { itemHash: 20, itemInstanceId: "301", bucketHash: 1498876634, transferStatus: 0 },
@@ -48,5 +49,17 @@ describe("normalizeMailbox", () => {
       }
     };
     expect(postmasterRoomCandidate(profile, "c1", "1498876634")?.itemInstanceId).toBe("302");
+  });
+
+  it("uses the item hash to distinguish uninstanced Postmaster stacks", () => {
+    const profile = {
+      characterInventories: { data: { c1: { items: [
+        { itemHash: 3853748946, itemInstanceId: "0", bucketHash: 215593132, quantity: 3 },
+        { itemHash: 4257549984, itemInstanceId: "0", bucketHash: 215593132, quantity: 7 }
+      ] } } }
+    };
+
+    expect(postmasterItemForPull(profile, "c1", "0", "4257549984")).toMatchObject({ itemHash: 4257549984, quantity: 7 });
+    expect(postmasterItemForPull(profile, "c1", "0", "999")).toBeUndefined();
   });
 });

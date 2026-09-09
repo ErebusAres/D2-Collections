@@ -5,13 +5,11 @@ import { charactersFromProfile } from "./normalize";
 const POSTMASTER_BUCKET_HASH = "215593132";
 
 export function postmasterPullEligibility(item: any, definition: any): { canPull: boolean; needsSpace?: boolean; unavailableReason?: string } {
-  const instanceId = String(item?.itemInstanceId || "");
-  if (!/^\d+$/.test(instanceId) || instanceId === "0") return { canPull: false, unavailableReason: "Bungie did not provide a transferable item instance." };
+  const instanceId = String(item?.itemInstanceId ?? "");
+  if (!/^\d+$/.test(instanceId)) return { canPull: false, unavailableReason: "Bungie did not provide an item identifier." };
   if (definition?.allowActions === false) return { canPull: false, unavailableReason: "Bungie does not allow API actions for this item." };
   if (definition?.doesPostmasterPullHaveSideEffects) return { canPull: false, unavailableReason: "Pulling this item may consume or replace rewards, so it must be collected in Destiny." };
   const transferStatus = Number(item?.transferStatus || 0);
-  if (definition?.nonTransferrable || (transferStatus & 2) !== 0) return { canPull: false, unavailableReason: "Bungie has marked this item as non-transferable." };
-  if ((transferStatus & 1) !== 0) return { canPull: false, unavailableReason: "Bungie reports this item as equipped and will not transfer it." };
   return { canPull: true, ...((transferStatus & 4) !== 0 ? { needsSpace: true } : {}) };
 }
 
@@ -34,6 +32,12 @@ export function postmasterItemsForCharacter(profile: any, characterId: string): 
     .filter((item: any) => String(item?.bucketHash || "") === POSTMASTER_BUCKET_HASH);
 }
 
+export function postmasterItemForPull(profile: any, characterId: string, itemInstanceId: string, itemHash: string): any | undefined {
+  return postmasterItemsForCharacter(profile, characterId).find((item: any) =>
+    String(item?.itemInstanceId ?? "") === itemInstanceId && String(item?.itemHash ?? "") === itemHash
+  );
+}
+
 export function normalizeMailbox(profile: any, manifest: CompanionManifest): MailboxData {
   const characters = charactersFromProfile(profile);
   const bucket = manifest.bucketDefinitions[POSTMASTER_BUCKET_HASH] as any;
@@ -41,7 +45,7 @@ export function normalizeMailbox(profile: any, manifest: CompanionManifest): Mai
   const rows = characters.map((character) => {
     const items = postmasterItemsForCharacter(profile, character.characterId).map((item: any): MailboxItem => {
       const itemHash = String(item?.itemHash || "");
-      const instanceId = String(item?.itemInstanceId || "");
+      const instanceId = String(item?.itemInstanceId ?? "");
       const definition = manifest.itemDefinitions[itemHash] as any;
       const properties = definition?.displayProperties || {};
       const definitionAvailable = Boolean(properties.name);

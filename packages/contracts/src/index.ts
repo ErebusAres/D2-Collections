@@ -1032,6 +1032,7 @@ export interface WatchlistMatch {
 
 export interface MailboxPullRequest {
   itemInstanceId: string;
+  itemHash: string;
   characterId: string;
   quantity: number;
 }

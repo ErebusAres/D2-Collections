@@ -55,7 +55,7 @@ import { LOOT_WATCHER_LEASE_MS, LOOT_WATCHER_MAX_RUNS_PER_CRON, lootWatcherRetry
 import { backgroundTaskForCron } from "./backgroundSchedule";
 import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
-import { normalizeMailbox, postmasterItemsForCharacter, postmasterPullEligibility, postmasterRoomCandidate } from "./mailbox";
+import { normalizeMailbox, postmasterItemForPull, postmasterItemsForCharacter, postmasterPullEligibility, postmasterRoomCandidate } from "./mailbox";
 import { normalizeLoadouts } from "./loadouts";
 import { normalizeRewardCodeStatus, pendingRewardCodeStatus } from "./rewardCodes";
 import { buildsRoute, publishedBuildsForAdvisor } from "./builds";
@@ -169,7 +169,7 @@ const gearActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("groupPull"), itemInstanceIds: z.array(z.string().regex(/^\d+$/)).min(1).max(20), characterId: z.string().regex(/^\d+$/) }),
   z.object({ action: z.literal("setWeaponSocket"), itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/), socketIndex: z.number().int().nonnegative().max(99), plugItemHash: z.string().regex(/^\d+$/) })
 ]);
-const mailboxPullSchema = z.object({ itemInstanceId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/), quantity: z.number().int().positive().max(999_999_999) });
+const mailboxPullSchema = z.object({ itemInstanceId: z.string().regex(/^\d+$/), itemHash: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/), quantity: z.number().int().positive().max(999_999_999) });
 const equipLoadoutSchema = z.object({ loadoutIndex: z.number().int().nonnegative().max(99), characterId: z.string().regex(/^\d+$/) });
 const equipBuildAdvisorSchema = z.object({
   recommendationId: z.string().trim().min(1).max(160),
@@ -1458,7 +1458,7 @@ async function pullMailboxItem(request: Request, row: SessionRow, env: Env, cont
   const { profile, accessToken } = await profileFor(row, env, "mailbox");
   const character = charactersFromProfile(profile).find((entry) => entry.characterId === input.characterId);
   if (!character) throw httpError(403, "character_invalid", "That character does not belong to this Guardian.");
-  const item = postmasterItemsForCharacter(profile, input.characterId).find((entry: any) => String(entry?.itemInstanceId || "") === input.itemInstanceId);
+  const item = postmasterItemForPull(profile, input.characterId, input.itemInstanceId, input.itemHash);
   if (!item) throw httpError(404, "postmaster_item_missing", "That item is no longer in this character's Postmaster.");
   const availableQuantity = Math.max(1, Number(item?.quantity || 1));
   if (input.quantity > availableQuantity) throw httpError(409, "postmaster_quantity_changed", `Only ${availableQuantity} of that item remains in the Postmaster.`);

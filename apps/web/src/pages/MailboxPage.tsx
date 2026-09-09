@@ -50,6 +50,6 @@ function MailboxItemCard({ item, busy, onPull }: { item: MailboxItem; busy: bool
   return <article className={`${styles.itemCard} ${!item.definitionAvailable ? styles.unavailable : ""}`}>
     <div className={styles.itemArt}>{item.icon ? <img src={item.icon} alt="" loading="lazy" /> : <span>Image unavailable</span>}{item.quantity > 1 && <b>×{item.quantity.toLocaleString()}</b>}</div>
     <main><span>{item.rarity} · {item.itemType}</span><h3>{item.name}</h3>{item.description && <p>{item.description}</p>}{!item.definitionAvailable && <em>Manifest definition unavailable</em>}</main>
-    <button disabled={busy || !item.canPull} title={item.canPull ? item.needsSpace ? `Move one safe item to the Vault, then pull ${item.name}` : `Pull ${item.name} to this character` : item.unavailableReason} onClick={() => onPull({ itemInstanceId: item.instanceId, characterId: item.characterId, quantity: item.quantity })}><ArchiveRestore />{item.canPull ? item.needsSpace ? "Make room & pull" : "Pull item" : "Unavailable"}</button>
+    <button disabled={busy || !item.canPull} title={item.canPull ? item.needsSpace ? `Move one safe item to the Vault, then pull ${item.name}` : `Pull ${item.name} to this character` : item.unavailableReason} onClick={() => onPull({ itemInstanceId: item.instanceId, itemHash: item.itemHash, characterId: item.characterId, quantity: item.quantity })}><ArchiveRestore />{item.canPull ? item.needsSpace ? "Make room & pull" : "Pull item" : "Unavailable"}</button>
   </article>;
 }
