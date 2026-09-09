@@ -50,11 +50,11 @@ describe("Fireteam page", () => {
     expect(screen.getByText(/Fireteam refresh in 2:00|Fireteam refresh in 1:59/)).toBeTruthy();
 
     await act(async () => { vi.advanceTimersByTime(2 * 60_000); });
-    expect(screen.getByText("Refreshing Fireteam")).toBeTruthy();
+    expect(screen.getByText("Fireteam update queued")).toBeTruthy();
 
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(4));
-    expect(screen.getByText("Refreshing Fireteam")).toBeTruthy();
+    expect(screen.getByText("Fireteam update queued")).toBeTruthy();
 
     version = 5;
     committedAt = new Date(Date.now()).toISOString();

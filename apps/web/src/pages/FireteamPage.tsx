@@ -52,6 +52,14 @@ function watcherResultLabel(result: LootWatcherRunResult): string {
   if (result.skipped[0] && !actions.length) return result.skipped[0];
   return actions.length ? actions.join(" · ") : "Watcher settings saved.";
 }
+function persistentWatcherStatus(status: FireteamData["lootWatcherStatus"]): string | undefined {
+  if (!status?.enabled) return undefined;
+  if (status.state === "running") return "Watchers are checking your loot…";
+  if (status.state === "scheduled") return status.lastSuccessAt ? "Watchers are on. Next check queued." : "Watchers are on. First background check queued.";
+  if (status.state === "delayed") return "Watcher check delayed. A retry is scheduled.";
+  if (status.lastSuccessAt) return `Watchers checked ${new Date(status.lastSuccessAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  return "Watchers are on.";
+}
 export function FireteamPage() {
   const { session, selectedCharacterId, preferences, setPreference, autoRefresh } = useGuardian();
   const queryClient = useQueryClient();
@@ -111,7 +119,7 @@ export function FireteamPage() {
   const gearAction = useMutation({ mutationFn: async (input: GearActionRequest) => { const response = await api<GearActionResult>("/api/v1/me/gear/action", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }); if (response.data.failed[0]) throw new Error(response.data.failed[0].message); return response; }, onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }), queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] })]) });
   const watcherRun = useMutation({
     mutationFn: (config: LootWatcherConfig) => api<LootWatcherRunResult>("/api/v2/fireteam/loot-watchers/run", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, config }) }),
-    onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }), queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] })])
+    onSuccess: () => Promise.all([queryClient.invalidateQueries({ queryKey: ["fireteam"] }), queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }), queryClient.invalidateQueries({ queryKey: ["gear", selectedCharacterId] })])
   });
   const toggleLootWatcher = (key: keyof LootWatcherConfig, enabled: boolean) => {
     const next = { ...lootWatchers, [key]: enabled };
@@ -122,9 +130,8 @@ export function FireteamPage() {
     ? "Updating watchers…"
     : watcherRun.error instanceof Error
       ? watcherRun.error.message
-      : watcherRun.data
-        ? watcherResultLabel(watcherRun.data.data)
-        : undefined;
+      : persistentWatcherStatus(data?.lootWatcherStatus)
+        || (watcherRun.data ? watcherResultLabel(watcherRun.data.data) : undefined);
   const tagRecent = (item: LootItem, tag?: GearTag) => gearState.mutate({ itemInstanceId: item.instanceId, tag: tag || null });
   const preferenceTrackedItemOrder = useMemo(() => trackedPreference(preferences["fireteam.trackedOrder"]), [preferences]);
   const [trackedItemOrder, setTrackedItemOrder] = useState(preferenceTrackedItemOrder);

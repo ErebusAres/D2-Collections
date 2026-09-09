@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { RecentItemEvent, RecentItemTimelineData } from "@guardian-nexus/contracts";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { LootWorkspace } from "./LootWorkspace";
 
@@ -13,7 +13,11 @@ function event(id: string, kind: RecentItemEvent["kind"], name: string, observed
 }
 
 describe("LootWorkspace", () => {
-  afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-08-08T23:30:00Z");
+  });
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
   it("separates weapons, armor, and miscellaneous loot into newest-to-oldest rows", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));

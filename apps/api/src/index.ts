@@ -52,6 +52,7 @@ import type { Env, RequestContext, SessionRow } from "./types";
 import { gearActionItemsFromProfile, normalizeGear, type GearStateRow } from "./gear";
 import { planLootWatchers } from "./lootWatchers";
 import { LOOT_WATCHER_LEASE_MS, LOOT_WATCHER_MAX_RUNS_PER_CRON, lootWatcherRetryAt, nextLootWatcherRunAt } from "./lootWatcherSchedule";
+import { backgroundTaskForCron } from "./backgroundSchedule";
 import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
 import { normalizeMailbox, postmasterItemsForCharacter, postmasterPullEligibility, postmasterRoomCandidate } from "./mailbox";
@@ -241,22 +242,36 @@ export default {
 
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {
     const now = new Date().toISOString();
+    const task = backgroundTaskForCron(controller.cron);
+    if (!task) {
+      console.error("unknown_scheduled_cron", controller.cron);
+      return;
+    }
+    if (task === "loot-watchers") {
+      await ensureLootWatcherJobs(env);
+      await refreshDueLootWatchers(env).catch((error: any) => {
+        console.error("loot_watcher_cron_failed", String(error?.code || error?.message || "unknown"));
+      });
+      return;
+    }
+    if (task === "fireteam-presence") {
+      await refreshDueFireteamPresenceSnapshots(env).catch((error: any) => {
+        console.error("fireteam_presence_cron_failed", String(error?.code || error?.message || "unknown"));
+      });
+      return;
+    }
+    if (task === "fireteam-snapshots") {
+      await refreshDueFireteamSnapshots(env).catch((error: any) => {
+        console.error("fireteam_snapshot_cron_failed", String(error?.code || error?.message || "unknown"));
+      });
+      return;
+    }
     await env.DB.batch([
       env.DB.prepare("DELETE FROM fireteam_snapshots WHERE sharing_mode = 'temporary' AND expires_at <= ?").bind(now),
       env.DB.prepare("DELETE FROM fireteam_messages WHERE created_at < ?").bind(new Date(Date.now() - FIRETEAM_FEED_RETENTION_DAYS * 86_400_000).toISOString()),
       env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
     ]);
-    if (Math.floor(controller.scheduledTime / 60_000) % 5 === 0) await maintainNotificationStorage(env);
-    await ensureLootWatcherJobs(env);
-    await refreshDueFireteamPresenceSnapshots(env).catch((error: any) => {
-      console.error("fireteam_presence_cron_failed", String(error?.code || error?.message || "unknown"));
-    });
-    await refreshDueLootWatchers(env).catch((error: any) => {
-      console.error("loot_watcher_cron_failed", String(error?.code || error?.message || "unknown"));
-    });
-    await refreshDueFireteamSnapshots(env).catch((error: any) => {
-      console.error("fireteam_snapshot_cron_failed", String(error?.code || error?.message || "unknown"));
-    });
+    await maintainNotificationStorage(env);
   }
 };
 
@@ -1771,9 +1786,10 @@ async function runLootWatchers(request: Request, row: SessionRow, env: Env, cont
     return envelope<LootWatcherRunResult>({ movedToVault: [], locked: [], taggedJunk: [], skipped: [], warnings: [] }, env, context);
   }
   await scheduleLootWatcher(row.membership_id, input.characterId, env);
-  const result = await executeLootWatcherPass(row, input.characterId, input.config, env);
-  await completeLootWatcherJob(row.membership_id, result, env);
-  return envelope<LootWatcherRunResult>(result, env, context, { warnings: result.warnings });
+  return envelope<LootWatcherRunResult>({
+    movedToVault: [], locked: [], taggedJunk: [],
+    skipped: ["Watcher settings saved. The next background check is queued."], warnings: []
+  }, env, context);
 }
 
 interface LootWatcherJobRow {
@@ -1806,8 +1822,8 @@ async function scheduleLootWatcher(membershipId: string, characterId: string, en
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(membership_id) DO UPDATE SET character_id = excluded.character_id,
       next_run_at = MIN(loot_watcher_jobs.next_run_at, excluded.next_run_at), updated_at = excluded.updated_at,
-      run_started_at = excluded.run_started_at, last_error_code = NULL, last_error_message = NULL
-  `).bind(membershipId, characterId, now, now, now).run();
+      run_started_at = NULL, last_error_code = NULL, last_error_message = NULL
+  `).bind(membershipId, characterId, now, null, now).run();
 }
 
 async function executeLootWatcherPass(row: SessionRow, characterId: string, config: LootWatcherConfig, env: Env): Promise<LootWatcherRunResult> {
@@ -2398,20 +2414,29 @@ async function refreshRequestedFireteamSnapshot(membershipId: string, env: Env):
 
 async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const now = new Date().toISOString();
-  const ownSnapshot = await env.DB.prepare(`
-    SELECT * FROM fireteam_snapshots
-    WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)
-  `).bind(row.membership_id, now).first<FireteamSnapshotRow>();
-  if (ownSnapshot && fireteamRefreshDue({
+  const [ownSnapshot, watcherJob] = await Promise.all([
+    env.DB.prepare(`
+      SELECT * FROM fireteam_snapshots
+      WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)
+    `).bind(row.membership_id, now).first<FireteamSnapshotRow>(),
+    env.DB.prepare(`
+      SELECT next_run_at, run_started_at, last_run_at, last_success_at, last_error_code
+      FROM loot_watcher_jobs WHERE membership_id = ?
+    `).bind(row.membership_id).first<{
+      next_run_at?: string; run_started_at?: string; last_run_at?: string;
+      last_success_at?: string; last_error_code?: string;
+    }>()
+  ]);
+  const fullRefreshDue = Boolean(ownSnapshot && fireteamRefreshDue({
     nextRefreshAt: ownSnapshot.next_refresh_at,
     retryAfterAt: ownSnapshot.retry_after_at,
     refreshStartedAt: ownSnapshot.refresh_started_at
-  })) {
+  }));
+  if (fullRefreshDue) {
     context.waitUntil?.(refreshRequestedFireteamSnapshot(row.membership_id, env).catch((error: any) => {
       console.error("fireteam_requested_refresh_failed", String(error?.code || error?.message || "unknown"));
     }));
-  }
-  if (ownSnapshot && fireteamPresenceRefreshDue(ownSnapshot.presence_refreshed_at || ownSnapshot.committed_at)) {
+  } else if (ownSnapshot && fireteamPresenceRefreshDue(ownSnapshot.presence_refreshed_at || ownSnapshot.committed_at)) {
     context.waitUntil?.(refreshFireteamPresenceSnapshot(row.membership_id, env).catch((error: any) => {
       console.error("fireteam_requested_presence_failed", String(error?.code || error?.message || "unknown"));
     }));
@@ -2506,6 +2531,14 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     refreshStartedAt: ownSnapshot?.refresh_started_at,
     lastErrorCode: ownSnapshot?.last_error_code
   });
+  const watcherStartedMs = Date.parse(watcherJob?.run_started_at || "");
+  const watcherNextRunMs = Date.parse(watcherJob?.next_run_at || "");
+  const watcherRunning = Number.isFinite(watcherStartedMs) && watcherStartedMs > Date.now() - LOOT_WATCHER_LEASE_MS;
+  const watcherDue = Number.isFinite(watcherNextRunMs) && watcherNextRunMs <= Date.now();
+  const watcherState = !watcherJob ? "off"
+    : watcherRunning ? "running"
+      : watcherJob.last_error_code ? "delayed"
+        : watcherDue || !watcherJob.last_success_at ? "scheduled" : "current";
   const data: FireteamData = {
     sharingEnabled: Boolean(ownSnapshot),
     sharingMode: ownSnapshot?.sharing_mode || "off",
@@ -2520,6 +2553,14 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     refreshAttemptedAt: ownSnapshot?.last_attempt_at,
     refreshRetryAt: ownSnapshot?.retry_after_at,
     refreshErrorCode: ownSnapshot?.last_error_code,
+    lootWatcherStatus: {
+      enabled: Boolean(watcherJob),
+      state: watcherState,
+      lastRunAt: watcherJob?.last_run_at,
+      lastSuccessAt: watcherJob?.last_success_at,
+      nextRunAt: watcherJob?.next_run_at,
+      errorCode: watcherJob?.last_error_code
+    },
     activityFeedEnabled: Boolean(ownSnapshot) && configuredFireteamActivityFeedEnabled(ownSnapshot?.settings_json, ownPayload),
     members
   };

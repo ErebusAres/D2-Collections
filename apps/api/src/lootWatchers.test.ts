@@ -41,13 +41,13 @@ describe("planLootWatchers", () => {
     expect(planLootWatchers(gear([armor("old", { gearTier: 4 }), novel]), { ...off, tier5FitLock: true }, new Set(["new"])).lock).toEqual(["new"]);
   });
 
-  it("tags only newly looted inferior duplicate or unfit armor and skips protected pieces", () => {
+  it("tags only newly looted inferior duplicate fits and skips protected or unrelated pieces", () => {
     const plan = planLootWatchers(gear([armor("old", { baseTotal: 75 }), armor("new", { baseTotal: 65 })]), { ...off, duplicateFitJunk: true }, new Set(["new"]));
     expect(plan.tagJunk).toEqual(["new"]);
     const upgrade = planLootWatchers(gear([armor("old", { baseTotal: 65 }), armor("new", { baseTotal: 75 })]), { ...off, duplicateFitJunk: true }, new Set(["new"]));
     expect(upgrade.tagJunk).toEqual([]);
     const unfit = armor("unfit", { tunedStat: "melee" });
-    expect(planLootWatchers(gear([unfit]), { ...off, duplicateFitJunk: true }, new Set(["unfit"])).tagJunk).toEqual(["unfit"]);
+    expect(planLootWatchers(gear([unfit]), { ...off, duplicateFitJunk: true }, new Set(["unfit"])).tagJunk).toEqual([]);
     const exotic = [armor("e1", { rarity: "Exotic" }), armor("e2", { rarity: "Exotic" })];
     expect(planLootWatchers(gear(exotic), { ...off, duplicateFitJunk: true }, new Set(["e2"])).tagJunk).toEqual([]);
     expect(planLootWatchers(gear([armor("old", { baseTotal: 75 }), armor("new", { tag: "archive", baseTotal: 60 })]), { ...off, duplicateFitJunk: true }, new Set(["new"])).tagJunk).toEqual([]);
@@ -66,7 +66,7 @@ describe("planLootWatchers", () => {
       const fit = armor(`${name}-fit`, { archetype: { hash: name, name, description: "" }, tunedStat: allowed[0] });
       const unfitStat = (["health", "melee", "grenade", "super", "class", "weapons"] as const).find((stat) => !allowed.includes(stat as never))!;
       const unfit = armor(`${name}-unfit`, { archetype: { hash: name, name, description: "" }, tunedStat: unfitStat });
-      expect(planLootWatchers(gear([fit, unfit]), { ...off, duplicateFitJunk: true }, new Set([fit.instanceId, unfit.instanceId])).tagJunk).toEqual([unfit.instanceId]);
+      expect(planLootWatchers(gear([fit, unfit]), { ...off, duplicateFitJunk: true }, new Set([fit.instanceId, unfit.instanceId])).tagJunk).toEqual([]);
     }
   });
 

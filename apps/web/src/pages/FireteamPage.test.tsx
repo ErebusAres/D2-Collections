@@ -145,7 +145,7 @@ describe("Fireteam tracked items", () => {
     expect(JSON.parse(String(init?.body))).toEqual({ itemInstanceId: "loot-1", tag: "keep" });
   });
 
-  it("persists and immediately runs a Recent Loot watcher when its square toggle is enabled", async () => {
+  it("persists and queues a Recent Loot watcher when its square toggle is enabled", async () => {
     vi.mocked(api).mockImplementation(async (path) => {
       if (String(path).startsWith("/api/v2/fireteam/recent-items")) return recentItemsEnvelope() as never;
       if (path === "/api/v2/fireteam/loot-watchers/run") return { data: { movedToVault: [], locked: [], taggedJunk: [], skipped: [], warnings: [] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "watchers" } as never;
@@ -155,6 +155,20 @@ describe("Fireteam tracked items", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Farming Mode watcher off" }));
     expect(setPreference).toHaveBeenCalledWith("fireteam.watcher.farming.v1", "on");
     await waitFor(() => expect(vi.mocked(api).mock.calls.some(([path, init]) => path === "/api/v2/fireteam/loot-watchers/run" && String(init?.body).includes('"farmingMode":true'))).toBe(true));
+  });
+
+  it("shows the persisted result of independent watcher checks", async () => {
+    const response = envelope();
+    response.data.lootWatcherStatus = {
+      enabled: true,
+      state: "current",
+      lastSuccessAt: "2026-08-08T12:30:00.000Z",
+      nextRunAt: "2026-08-08T12:31:00.000Z"
+    };
+    vi.mocked(api).mockResolvedValue(response);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
+
+    expect(await screen.findByText(/Watchers checked/)).toBeTruthy();
   });
 
   it("shows quest-like and Guardian Rank tracking without rebuilding an unchanged share on mount", async () => {

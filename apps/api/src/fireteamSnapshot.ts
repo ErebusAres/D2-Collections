@@ -6,9 +6,10 @@ export const FIRETEAM_ACTIVE_WINDOW_MS = 10 * 60_000;
 export const FIRETEAM_SNAPSHOT_GRACE_MS = 75_000;
 export const FIRETEAM_REFRESH_LEASE_MS = 2 * 60_000;
 export const FIRETEAM_RETRY_MS = 60_000;
-// Scheduled refresh work is bounded, but retains enough capacity to keep a
-// normal multi-member Fireteam on the advertised five-minute cadence.
-export const FIRETEAM_MAX_REFRESHES_PER_CRON = 8;
+// A full snapshot requests every profile component used by Fireteam. Page reads
+// can also refresh the viewer's own snapshot, so the cron should drain this
+// queue in small reliable batches instead of exhausting one Worker invocation.
+export const FIRETEAM_MAX_REFRESHES_PER_CRON = 2;
 export const FIRETEAM_SOURCE_MAX_AGE_MS = 2 * 60_000;
 export const FIRETEAM_PARTY_MISSING_CONFIRMATIONS = 3;
 export const FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS = 60_000;
@@ -52,10 +53,11 @@ export function fireteamRefreshState(input: {
   lastErrorCode?: string;
 }, now = Date.now()): FireteamRefreshState {
   if (!input.committedAt) return input.lastErrorCode ? "delayed" : "waiting";
+  const startedMs = Date.parse(input.refreshStartedAt || "");
+  if (Number.isFinite(startedMs) && startedMs > now - FIRETEAM_REFRESH_LEASE_MS) return "refreshing";
+  if (input.lastErrorCode) return "delayed";
   const dueMs = Date.parse(input.nextRefreshAt || "");
-  if (input.refreshStartedAt || Number.isFinite(dueMs) && dueMs <= now) {
-    return input.lastErrorCode ? "delayed" : "refreshing";
-  }
+  if (Number.isFinite(dueMs) && dueMs <= now) return "waiting";
   return "current";
 }
 

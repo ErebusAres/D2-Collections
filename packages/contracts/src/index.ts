@@ -706,6 +706,7 @@ export interface FireteamData {
   refreshAttemptedAt?: string;
   refreshRetryAt?: string;
   refreshErrorCode?: string;
+  lootWatcherStatus?: LootWatcherStatus;
   activityFeedEnabled?: boolean;
   members: FireteamMember[];
   activityFeed?: FireteamActivityFeed;
@@ -900,6 +901,15 @@ export interface LootWatcherRunResult {
   taggedJunk: string[];
   skipped: string[];
   warnings: string[];
+}
+
+export interface LootWatcherStatus {
+  enabled: boolean;
+  state: "off" | "scheduled" | "running" | "current" | "delayed";
+  lastRunAt?: string;
+  lastSuccessAt?: string;
+  nextRunAt?: string;
+  errorCode?: string;
 }
 
 export type RecentItemEventKind = "weapon-found" | "armor-found" | "catalyst-found" | "catalyst-completed" | "exotic-engram-found" | "inventory-gained";

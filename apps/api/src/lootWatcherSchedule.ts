@@ -1,6 +1,8 @@
 export const LOOT_WATCHER_INTERVAL_MS = 60_000;
 export const LOOT_WATCHER_LEASE_MS = 2 * 60_000;
-export const LOOT_WATCHER_MAX_RUNS_PER_CRON = 4;
+// A watcher pass fetches a full inventory and can perform several Bungie item
+// actions. Keep each minute's Worker invocation small enough to finish.
+export const LOOT_WATCHER_MAX_RUNS_PER_CRON = 2;
 
 export function nextLootWatcherRunAt(now = Date.now()): string {
   return new Date(now + LOOT_WATCHER_INTERVAL_MS).toISOString();

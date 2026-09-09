@@ -59,10 +59,6 @@ export function planLootWatchers(data: GearData, config: LootWatcherConfig, newI
       }
     }
     if (config.duplicateFitJunk) {
-      for (const item of comparableArmor.filter((entry) => newInstanceIds.has(entry.instanceId))) {
-        if (isArmorFit(item) || protectedForJunk(item) || lock.has(item.instanceId)) continue;
-        tagJunk.add(item.instanceId);
-      }
       for (const group of grouped(comparableArmor.filter(isArmorFit), armorDuplicateKey).values()) {
         const prior = group.filter((item) => !newInstanceIds.has(item.instanceId));
         if (!prior.length) continue;

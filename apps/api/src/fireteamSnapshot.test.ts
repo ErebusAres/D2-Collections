@@ -26,9 +26,9 @@ describe("Fireteam snapshot contract", () => {
     expect(profileComponentsFor("fireteam-presence")).toBe("100,200,201,202,204,1000");
   });
 
-  it("keeps enough bounded cron capacity for a normal multi-member Fireteam", () => {
-    expect(FIRETEAM_MAX_REFRESHES_PER_CRON).toBeGreaterThanOrEqual(6);
-    expect(FIRETEAM_MAX_REFRESHES_PER_CRON).toBeLessThanOrEqual(12);
+  it("keeps full snapshot cron work within a small Worker-safe batch", () => {
+    expect(FIRETEAM_MAX_REFRESHES_PER_CRON).toBeGreaterThan(0);
+    expect(FIRETEAM_MAX_REFRESHES_PER_CRON).toBeLessThanOrEqual(2);
   });
   it("derives the only refresh deadline from the committed snapshot", () => {
     expect(nextFireteamRefreshAt("2026-08-20T11:55:00.000Z")).toBe("2026-08-20T12:00:00.000Z");
@@ -84,7 +84,8 @@ describe("Fireteam snapshot contract", () => {
 
   it("reports due and failed refreshes without inventing a new deadline", () => {
     const now = Date.parse("2026-08-20T12:00:00.000Z");
-    expect(fireteamRefreshState({ committedAt: "2026-08-20T11:55:00.000Z", nextRefreshAt: "2026-08-20T12:00:00.000Z" }, now)).toBe("refreshing");
+    expect(fireteamRefreshState({ committedAt: "2026-08-20T11:55:00.000Z", nextRefreshAt: "2026-08-20T12:00:00.000Z" }, now)).toBe("waiting");
+    expect(fireteamRefreshState({ committedAt: "2026-08-20T11:55:00.000Z", nextRefreshAt: "2026-08-20T12:00:00.000Z", refreshStartedAt: "2026-08-20T11:59:30.000Z" }, now)).toBe("refreshing");
     expect(fireteamRefreshState({ committedAt: "2026-08-20T11:55:00.000Z", nextRefreshAt: "2026-08-20T12:00:00.000Z", lastErrorCode: "worker_resource_limit" }, now)).toBe("delayed");
   });
 

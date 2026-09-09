@@ -5,7 +5,9 @@ workers_dev = true
 preview_urls = true
 
 [triggers]
-crons = ["* * * * *"]
+# Keep expensive Bungie-backed jobs in separate Worker invocations. Offsetting
+# roster and full-snapshot schedules also prevents them from landing together.
+crons = ["* * * * *", "1-59/2 * * * *", "2-59/5 * * * *", "4-59/5 * * * *"]
 
 [vars]
 BUNGIE_CLIENT_ID = "53180"

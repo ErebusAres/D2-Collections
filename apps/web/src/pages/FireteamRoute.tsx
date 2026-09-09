@@ -115,9 +115,10 @@ function FireteamRefreshCountdown() {
     }
     if (data?.refreshState === "delayed") return "Fireteam refresh delayed";
     if (data?.refreshState === "refreshing") return "Refreshing Fireteam";
+    if (data?.refreshState === "waiting") return "Fireteam update queued";
     const dueMs = Date.parse(data?.pageRefreshDueAt || "");
     if (!Number.isFinite(dueMs)) return "Preparing Fireteam";
-    if (dueMs <= now) return "Refreshing Fireteam";
+    if (dueMs <= now) return "Fireteam update queued";
     const remainingMs = Math.min(LIVE_REFRESH_INTERVAL_MS, dueMs - now);
     const seconds = Math.max(0, Math.ceil(remainingMs / 1_000));
     return `Fireteam refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
