@@ -36,7 +36,8 @@ describe("normalizeMailbox", () => {
   it("blocks destructive pulls and selects only a safe same-slot item when room is required", () => {
     expect(postmasterPullEligibility({ itemInstanceId: "200", transferStatus: 0 }, { doesPostmasterPullHaveSideEffects: true })).toMatchObject({ canPull: false });
     expect(postmasterPullEligibility({ itemInstanceId: "201", transferStatus: 0 }, { allowActions: false })).toMatchObject({ canPull: false });
-    expect(postmasterPullEligibility({ itemInstanceId: "0", transferStatus: 2 }, { displayProperties: { name: "Enhancement Core" } })).toMatchObject({ canPull: true });
+    expect(postmasterPullEligibility({ itemInstanceId: "0", transferStatus: 2 }, { itemType: 8, itemTypeDisplayName: "Tier 3 Engram" })).toMatchObject({ canPull: false, unavailableReason: expect.stringContaining("Engrams") });
+    expect(postmasterPullEligibility({ itemInstanceId: "0", transferStatus: 2 }, { itemType: 10, itemTypeDisplayName: "Material", displayProperties: { name: "Enhancement Core" } })).toMatchObject({ canPull: true });
     const profile = {
       characterInventories: { data: { c1: { items: [
         { itemHash: 20, itemInstanceId: "301", bucketHash: 1498876634, transferStatus: 0 },

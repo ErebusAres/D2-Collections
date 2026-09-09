@@ -7,7 +7,11 @@ const POSTMASTER_BUCKET_HASH = "215593132";
 export function postmasterPullEligibility(item: any, definition: any): { canPull: boolean; needsSpace?: boolean; unavailableReason?: string } {
   const instanceId = String(item?.itemInstanceId ?? "");
   if (!/^\d+$/.test(instanceId)) return { canPull: false, unavailableReason: "Bungie did not provide an item identifier." };
+  if (!definition) return { canPull: false, unavailableReason: "Item details are unavailable, so Guardian Nexus cannot verify a safe pull." };
   if (definition?.allowActions === false) return { canPull: false, unavailableReason: "Bungie does not allow API actions for this item." };
+  if (Number(definition?.itemType) === 8 || /\bengram\b/i.test(String(definition?.itemTypeDisplayName || ""))) {
+    return { canPull: false, unavailableReason: "Engrams must be collected from the Postmaster in Destiny." };
+  }
   if (definition?.doesPostmasterPullHaveSideEffects) return { canPull: false, unavailableReason: "Pulling this item may consume or replace rewards, so it must be collected in Destiny." };
   const transferStatus = Number(item?.transferStatus || 0);
   return { canPull: true, ...((transferStatus & 4) !== 0 ? { needsSpace: true } : {}) };
