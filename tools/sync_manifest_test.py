@@ -130,6 +130,7 @@ class BuildCatalogClassificationTests(unittest.TestCase):
         sword_guard = {"displayProperties": {"name": "Swordmaster's Guard"}, "itemTypeDisplayName": "Sword Guard", "plug": {"plugCategoryIdentifier": "sword_guards"}}
         bow_string = {"displayProperties": {"name": "Elastic String"}, "itemTypeDisplayName": "Bowstring", "plug": {"plugCategoryIdentifier": "bowstrings"}}
         arrow = {"displayProperties": {"name": "Fiberglass Arrow Shaft"}, "itemTypeDisplayName": "Arrow", "plug": {"plugCategoryIdentifier": "arrows"}}
+        launcher_barrel = {"displayProperties": {"name": "Quick Launch"}, "itemTypeDisplayName": "Launcher Barrel", "plug": {"plugCategoryIdentifier": ""}}
         ornament = {"displayProperties": {"name": "Weapon Ornament"}, "itemTypeDisplayName": "Weapon Ornament", "plug": {"plugCategoryIdentifier": "weapon_skins"}}
 
         self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(perk))
@@ -137,6 +138,7 @@ class BuildCatalogClassificationTests(unittest.TestCase):
         self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(sword_guard))
         self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(bow_string))
         self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(arrow))
+        self.assertTrue(SYNC_MANIFEST.relevant_weapon_plug(launcher_barrel))
         self.assertFalse(SYNC_MANIFEST.relevant_weapon_plug(ornament))
 
     def test_catalyst_artwork_prefers_the_real_plug_icon_over_bungies_generic_symbol(self) -> None:

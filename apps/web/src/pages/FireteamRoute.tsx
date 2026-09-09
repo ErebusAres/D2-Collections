@@ -97,8 +97,6 @@ function FireteamRefreshCountdown() {
     previousSnapshotVersion.current = nextVersion;
     if (previousVersion === undefined || nextVersion <= previousVersion) return;
     void Promise.allSettled([
-      queryClient.refetchQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId], exact: true, type: "active" }),
-      queryClient.refetchQueries({ queryKey: ["fireteam-activity", membershipId, selectedCharacterId], exact: true, type: "active" }),
       queryClient.refetchQueries({ queryKey: ["quests", selectedCharacterId, ""], exact: true, type: "active" })
     ]);
   }, [data?.snapshotVersion, membershipId, queryClient, selectedCharacterId]);
@@ -113,15 +111,15 @@ function FireteamRefreshCountdown() {
       const retrySeconds = Math.max(0, Math.ceil((retryMs - now) / 1_000));
       return `Fireteam retry in ${Math.floor(retrySeconds / 60)}:${String(retrySeconds % 60).padStart(2, "0")}`;
     }
-    if (data?.refreshState === "delayed") return "Fireteam refresh delayed";
-    if (data?.refreshState === "refreshing") return "Refreshing Fireteam";
-    if (data?.refreshState === "waiting") return "Fireteam update queued";
+    if (data?.refreshState === "delayed") return "Shared progress update delayed";
+    if (data?.refreshState === "refreshing") return "Updating shared progress";
+    if (data?.refreshState === "waiting") return "Shared progress update queued";
     const dueMs = Date.parse(data?.pageRefreshDueAt || "");
     if (!Number.isFinite(dueMs)) return "Preparing Fireteam";
-    if (dueMs <= now) return "Fireteam update queued";
+    if (dueMs <= now) return "Shared progress update queued";
     const remainingMs = Math.min(LIVE_REFRESH_INTERVAL_MS, dueMs - now);
     const seconds = Math.max(0, Math.ceil(remainingMs / 1_000));
-    return `Fireteam refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    return `Shared progress refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
   }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.sharingEnabled, data?.snapshotVersion, now, selectedCharacterId, session?.authenticated]);
 
   return <><CompletionPing notice={completionNotice} onDismiss={dismissCompletion} /><aside ref={timerRail} className={styles.fireteamRefreshRail}>

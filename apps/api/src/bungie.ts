@@ -470,7 +470,10 @@ export function profileComponentsFor(mode: ProfileMode): string {
         : mode === "fireteam-presence"
           ? "100,200,201,202,204,1000"
         : mode === "fireteam"
-          ? "100,102,200,201,202,204,205,300,301,304,305,307,310,800,900,1000"
+          // Recent Loot owns its inventory/socket refresh. Keeping those large
+          // item components out of the shared-progress pass prevents a gear
+          // normalization failure from freezing the Fireteam roster.
+          ? "100,102,200,201,202,204,301,310,800,900,1000"
         : mode === "recent-items"
           ? "100,102,200,201,205,300,301,304,305,307,310,800,900"
         : mode === "gear-action"

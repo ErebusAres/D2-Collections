@@ -19,7 +19,8 @@ import { profileComponentsFor } from "./bungie";
 
 describe("Fireteam snapshot contract", () => {
   it("requests every component used by the one canonical snapshot", () => {
-    expect(profileComponentsFor("fireteam").split(",")).toEqual(expect.arrayContaining(["100", "102", "200", "201", "202", "204", "205", "300", "301", "304", "305", "307", "310", "800", "900", "1000"]));
+    expect(profileComponentsFor("fireteam")).toBe("100,102,200,201,202,204,301,310,800,900,1000");
+    expect(profileComponentsFor("recent-items").split(",")).toEqual(expect.arrayContaining(["205", "300", "304", "305", "307", "310"]));
   });
 
   it("keeps roster refreshes manifest-light while retaining Bungie's party component", () => {
@@ -36,8 +37,8 @@ describe("Fireteam snapshot contract", () => {
 
   it("keeps a five-minute snapshot usable through bounded cron jitter", () => {
     const committed = "2026-08-20T11:55:00.000Z";
-    expect(fireteamSnapshotUsable(committed, Date.parse("2026-08-20T12:01:14.000Z"))).toBe(true);
-    expect(fireteamSnapshotUsable(committed, Date.parse("2026-08-20T12:01:16.000Z"))).toBe(false);
+    expect(fireteamSnapshotUsable(committed, Date.parse("2026-08-20T12:29:59.000Z"))).toBe(true);
+    expect(fireteamSnapshotUsable(committed, Date.parse("2026-08-20T12:30:01.000Z"))).toBe(false);
   });
 
   it("refreshes roster presence independently and retains it through brief progress delays", () => {

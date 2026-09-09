@@ -612,11 +612,17 @@ def relevant_weapon_plug(definition: dict) -> bool:
     ]).lower()
     if any(term in text for term in ("ornament", "shader", "tracker", "kill counter", "memento", "empty ")):
         return False
-    return "weapon" in category or any(term in category for term in (
+    item_type = str(definition.get("itemTypeDisplayName", "")).lower()
+    roll_terms = (
         "intrinsic", "frame", "barrel", "magazine", "scope", "sight", "grip",
         "stock", "blade", "guard", "haft", "string", "arrow", "trait", "perk",
         "origin", "masterwork", "enhancement",
-    ))
+    )
+    # Some current launcher plugs have a generic or empty category even though
+    # Bungie explicitly identifies the item type as Launcher Barrel. DIM can
+    # still show those physical-roll choices, so retain roll-bearing item types
+    # as well as the established category families.
+    return "weapon" in category or any(term in category for term in roll_terms) or any(term in item_type for term in roll_terms)
 
 
 def relevant_gear_plug(definition: dict) -> bool:

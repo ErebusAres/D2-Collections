@@ -10,12 +10,10 @@ import { playCompletionChime, primeCompletionAudio } from "../services/completio
 import { parseTrackedBuilds } from "../modules/buildAdvisor/buildTracking";
 import styles from "./Pages.module.css";
 
-const BUNGIE_PRESENCE_DISCLAIMER = "Fireteam membership and activity come from Bungie and may take a few minutes to catch up.";
+const BUNGIE_PRESENCE_DISCLAIMER = "Fireteam membership comes from Bungie and may take a few minutes to catch up.";
 import { CompactRecentLootBar, type LootItem } from "../components/gear/RecentLoot";
-import { FireteamActivityFeed, type FireteamActivityFeedView } from "../components/fireteam/FireteamActivityFeed";
 import { ObjectiveRequirementText } from "../components/quests/ObjectiveRequirementText";
 import { useFireteamQuery } from "../modules/fireteam/useFireteamQuery";
-import { FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS, LIVE_REFRESH_INTERVAL_MS } from "../services/liveRefresh";
 
 interface ShareVariables {
   mode: FireteamSharingMode;
@@ -25,7 +23,6 @@ interface ShareVariables {
   siteTrackedCollectionIds?: string[];
   siteTrackedBuilds?: FireteamTrackedItem[];
   hiddenTrackedItemKeys?: string[];
-  activityFeedEnabled?: boolean;
   untrackingKey?: string;
 }
 
@@ -61,7 +58,7 @@ function persistentWatcherStatus(status: FireteamData["lootWatcherStatus"]): str
   return "Watchers are on.";
 }
 export function FireteamPage() {
-  const { session, selectedCharacterId, preferences, setPreference, autoRefresh } = useGuardian();
+  const { session, selectedCharacterId, preferences, setPreference } = useGuardian();
   const queryClient = useQueryClient();
   const result = useFireteamQuery(session?.guardian?.membershipId || "", selectedCharacterId, Boolean(session?.authenticated));
   useEffect(() => {
@@ -88,7 +85,6 @@ export function FireteamPage() {
   const journeyIds = useMemo(() => trackedPreference(preferences["journey.tracked"]), [preferences]);
   const collectionIds = useMemo(() => trackedPreference(preferences["collection.tracked"]), [preferences]);
   const trackedBuilds = useMemo(() => parseTrackedBuilds(preferences["buildAdvisor.trackedBuilds.v1"]), [preferences]);
-  const activityFeedView = parseActivityFeedView(preferences["fireteam.activityFeedView.v1"]);
   const showRecentLoot = preferences["fireteam.recentLoot.v1"] !== "off";
   const lootWatchers = useMemo<LootWatcherConfig>(() => ({
     farmingMode: preferences[LOOT_WATCHER_PREFERENCES.farmingMode] === "on",
@@ -100,19 +96,10 @@ export function FireteamPage() {
     queryKey: ["fireteam-recent-items", selectedCharacterId],
     queryFn: () => api<RecentItemTimelineData>(`/api/v2/fireteam/recent-items?characterId=${encodeURIComponent(selectedCharacterId)}`),
     enabled: Boolean(session?.authenticated && selectedCharacterId && showRecentLoot),
-    staleTime: LIVE_REFRESH_INTERVAL_MS,
-    // Recent Loot is written by the canonical five-minute Fireteam snapshot.
-    // FireteamRoute refetches this active query only after a newer snapshot
-    // commits, so minute polling cannot discover additional saved data.
-    refetchInterval: false,
-    refetchIntervalInBackground: false
-  });
-  const activityFeed = useQuery({
-    queryKey: ["fireteam-activity", session?.guardian?.membershipId, selectedCharacterId],
-    queryFn: () => api<NonNullable<FireteamData["activityFeed"]>>("/api/v2/fireteam/activity"),
-    enabled: Boolean(session?.authenticated && activityFeedView !== "hidden"),
-    staleTime: FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS,
-    refetchInterval: autoRefresh ? FIRETEAM_ACTIVITY_REFRESH_INTERVAL_MS : false,
+    staleTime: 60_000,
+    // Recent Loot owns its observation job; polling this saved-data endpoint
+    // cannot delay the independently refreshed roster or shared progress.
+    refetchInterval: 60_000,
     refetchIntervalInBackground: false
   });
   const gearState = useMutation({ mutationFn: (input: { itemInstanceId: string; tag?: GearTag | null }) => queuedApi("/api/v1/me/gear/item-state", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(input) }, { persist: true }), onMutate: async (input) => { const queryKey = ["fireteam-recent-items", selectedCharacterId] as const; await queryClient.cancelQueries({ queryKey }); const previous = queryClient.getQueryData(queryKey); queryClient.setQueryData(queryKey, (value: unknown) => updateFireteamCachedTag(value, input.itemInstanceId, input.tag || undefined)); return { queryKey, previous }; }, onError: (_error, _input, context) => queryClient.setQueryData(context?.queryKey || ["fireteam-recent-items", selectedCharacterId], context?.previous), onSettled: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-recent-items", selectedCharacterId] }) });
@@ -139,32 +126,13 @@ export function FireteamPage() {
   const hiddenTrackedItemKeys = data?.hiddenTrackedItemKeys || [];
   const [manualRemovingKey, setManualRemovingKey] = useState("");
   const share = useMutation({
-    mutationFn: ({ mode, sitePinnedQuestIds = pinnedIds, siteTrackedGuardianRankIds = guardianRankIds, siteTrackedJourneyIds = journeyIds, siteTrackedCollectionIds = collectionIds, siteTrackedBuilds = trackedBuilds, hiddenTrackedItemKeys: hiddenKeys = hiddenTrackedItemKeys, activityFeedEnabled }: ShareVariables) => queuedApi("/api/v2/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedJourneyIds, siteTrackedCollectionIds, siteTrackedBuilds, hiddenTrackedItemKeys: hiddenKeys, ...(activityFeedEnabled === undefined ? {} : { activityFeedEnabled }), mode }) }),
-    onSuccess: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["fireteam"] }),
-      queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
-    ])
+    mutationFn: ({ mode, sitePinnedQuestIds = pinnedIds, siteTrackedGuardianRankIds = guardianRankIds, siteTrackedJourneyIds = journeyIds, siteTrackedCollectionIds = collectionIds, siteTrackedBuilds = trackedBuilds, hiddenTrackedItemKeys: hiddenKeys = hiddenTrackedItemKeys }: ShareVariables) => queuedApi("/api/v2/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: selectedCharacterId, sitePinnedQuestIds, siteTrackedGuardianRankIds, siteTrackedJourneyIds, siteTrackedCollectionIds, siteTrackedBuilds, hiddenTrackedItemKeys: hiddenKeys, mode }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
   const stop = useMutation({
     mutationFn: () => queuedApi("/api/v2/fireteam/share", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
-    onSuccess: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["fireteam"] }),
-      queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
-    ])
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
-  const sendMessage = useMutation({
-    mutationFn: (body: string) => queuedApi("/api/v2/fireteam/messages", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ body }) }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
-  });
-  const liveActivityFeed = activityFeed.data?.data && Array.isArray(activityFeed.data.data.entries) ? activityFeed.data.data : data?.activityFeed;
-  const visibleActivityFeed = liveActivityFeed || {
-    enabled: Boolean(data?.activityFeedEnabled),
-    channelAvailable: false,
-    entries: [],
-    historyLimit: 60,
-    retentionDays: 7,
-    messageMaxLength: 240
-  };
   const sharingMode = data?.sharingMode;
   const self = data?.members.find((member) => member.isSelf);
   const trackedOrderContext = `${membershipId}:${selectedCharacterId}`;
@@ -278,7 +246,6 @@ export function FireteamPage() {
     {data && <>
       <section className={styles.fireteamGrid}>{data.members.map((member) => <MemberCard key={member.membershipId} member={member} canManage={Boolean(self?.isLeader && !member.isSelf)} copied={copied} onCopy={copyCommand} onUntrack={member.isSelf ? untrackItem : undefined} itemOrder={member.isSelf ? trackedItemOrder : undefined} onReorder={member.isSelf ? reorderTrackedItems : undefined} untrackingKey={member.isSelf ? manualRemovingKey || (share.isPending ? share.variables?.untrackingKey : undefined) : undefined} />)}</section>
     </>}
-    {session?.authenticated && <FireteamActivityFeed feed={visibleActivityFeed} view={activityFeedView} storageKey={`guardian-nexus:fireteam-activity-window:${session?.guardian?.membershipId || "guest"}`} onViewChange={(view) => setPreference("fireteam.activityFeedView.v1", view)} onSend={(body) => sendMessage.mutate(body)} sending={sendMessage.isPending} error={sendMessage.error instanceof Error ? sendMessage.error.message : activityFeed.error instanceof Error ? activityFeed.error.message : undefined} onDisable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: false })} onEnable={() => data?.sharingMode && data.sharingMode !== "off" && share.mutate({ mode: data.sharingMode, activityFeedEnabled: true })} />}
     {data && <footer className={styles.fireteamDataNote}><AlertTriangle /><span>{BUNGIE_PRESENCE_DISCLAIMER}</span></footer>}
   </AuthGate>;
 }
@@ -519,10 +486,6 @@ function trackedPreference(value?: string): string[] {
     const parsed = JSON.parse(value || "[]");
     return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && Boolean(entry)).slice(0, 200) : [];
   } catch { return []; }
-}
-
-function parseActivityFeedView(value?: string): FireteamActivityFeedView {
-  return value === "minimized" || value === "hidden" ? value : "open";
 }
 
 function readPinnedIds(storageKey: string): string[] {

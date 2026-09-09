@@ -36,20 +36,7 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
         mode: "persistent"
       }) });
     },
-    onSuccess: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["fireteam"] }),
-      queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
-    ])
-  });
-  const setActivityFeed = useMutation({
-    mutationFn: (enabled: boolean) => {
-      const sitePinnedQuestIds = readLocalTrackedPreference(pinsKey(session?.guardian?.membershipId || "", guardianState.selectedCharacterId), 40);
-      return queuedApi("/api/v2/fireteam/share", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ characterId: guardianState.selectedCharacterId, sitePinnedQuestIds, mode: fireteam.data?.data.sharingMode === "temporary" ? "temporary" : "persistent", activityFeedEnabled: enabled }) });
-    },
-    onSuccess: () => Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["fireteam"] }),
-      queryClient.invalidateQueries({ queryKey: ["fireteam-activity"] })
-    ])
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["fireteam"] })
   });
   const signOut = useMutation({
     mutationFn: () => api("/api/v1/session", { method: "DELETE", headers: mutationHeaders(session?.csrfToken) }),
@@ -102,7 +89,6 @@ export function OptionsPanel({ open, onClose, returnFocusRef, reportSummary }: {
         {session?.authenticated && <section>
           <h3>Fireteam privacy</h3>
           <Toggle label="Always share with friends" description={fireteam.data?.data.sharingMode === "persistent" ? "Background updates are active until you disable sharing or sign out." : "Keep a timestamped last-known snapshot visible to your current fireteam."} checked={fireteam.data?.data.sharingMode === "persistent"} onChange={(value) => setPersistentSharing.mutate(value)} />
-          <Toggle label="Fireteam activity feed" description="Share recent gear finds and exchange short messages only with synced members of your current Fireteam." checked={Boolean(fireteam.data?.data.activityFeedEnabled)} disabled={!fireteam.data?.data.sharingEnabled || setActivityFeed.isPending} onChange={(value) => setActivityFeed.mutate(value)} />
         </section>}
         {hasAdminTools && <section className={styles.adminTools}>
           <h3>Admin tools{session?.rolesState === "stale" ? " · Last verified" : ""}</h3>

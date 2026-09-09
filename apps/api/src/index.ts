@@ -747,7 +747,7 @@ function guardianForRequestedCharacter(guardian: GuardianSummary, requestedChara
     ...guardian,
     selectedCharacterId: selected.characterId,
     stats: { ...guardian.stats, power: selected.power },
-    isInGame: Boolean(selected.minutesPlayedThisSession && guardian.currentActivity)
+    isInGame: guardian.isInGame && selected.characterId === guardian.selectedCharacterId
   };
 }
 
@@ -2163,15 +2163,6 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   const activity = onlineState === "online"
     ? guardianLocation(profile, questManifest, snapshotCharacter.characterId, onlineState)
     : undefined;
-  try {
-    await observeRecentItemsFromProfile(row, env, profile, snapshotCharacter.characterId, committedAt);
-  } catch (error: any) {
-    await env.DB.prepare(`
-      INSERT INTO recent_item_refresh_state (membership_id, refreshed_at, refresh_started_at, last_error)
-      VALUES (?, ?, NULL, ?)
-      ON CONFLICT(membership_id) DO UPDATE SET refresh_started_at = NULL, last_error = excluded.last_error
-    `).bind(row.membership_id, new Date(0).toISOString(), String(error?.code || error?.message || "Recent Items refresh failed.").slice(0, 240)).run().catch(() => undefined);
-  }
   return {
     sourceObservedAt,
     payload: {
@@ -2214,10 +2205,9 @@ async function refreshFireteamPresenceSnapshot(membershipId: string, env: Env): 
     SET presence_refresh_started_at = ?
     WHERE membership_id = ?
       AND payload_json IS NOT NULL
-      AND next_refresh_at > ?
       AND (presence_refreshed_at IS NULL OR presence_refreshed_at <= ?)
       AND (presence_refresh_started_at IS NULL OR presence_refresh_started_at < ?)
-  `).bind(startedAt, membershipId, startedAt, dueBefore, staleLease).run();
+  `).bind(startedAt, membershipId, dueBefore, staleLease).run();
   if (Number(claim.meta?.changes || 0) < 1) return;
 
   try {
@@ -2294,13 +2284,12 @@ async function refreshDueFireteamPresenceSnapshots(env: Env): Promise<void> {
     WHERE payload_json IS NOT NULL
       AND (sharing_mode = 'persistent' OR expires_at > ?)
       AND last_requested_at >= ?
-      AND next_refresh_at > ?
       AND (presence_refreshed_at IS NULL OR presence_refreshed_at <= ?)
       AND (presence_refresh_started_at IS NULL OR presence_refresh_started_at < ?)
     ORDER BY CASE WHEN last_requested_at >= ? THEN 0 ELSE 1 END,
       presence_refreshed_at ASC, last_requested_at DESC
     LIMIT ?
-  `).bind(now, activeSince, now, dueBefore, staleLease, activeSince, FIRETEAM_MAX_REFRESHES_PER_CRON).all<{ membership_id: string }>();
+  `).bind(now, activeSince, dueBefore, staleLease, activeSince, FIRETEAM_MAX_REFRESHES_PER_CRON).all<{ membership_id: string }>();
   for (const entry of results) await refreshFireteamPresenceSnapshot(String(entry.membership_id), env).catch(() => undefined);
 }
 
@@ -2432,13 +2421,17 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     retryAfterAt: ownSnapshot.retry_after_at,
     refreshStartedAt: ownSnapshot.refresh_started_at
   }));
-  if (fullRefreshDue) {
-    context.waitUntil?.(refreshRequestedFireteamSnapshot(row.membership_id, env).catch((error: any) => {
-      console.error("fireteam_requested_refresh_failed", String(error?.code || error?.message || "unknown"));
-    }));
-  } else if (ownSnapshot && fireteamPresenceRefreshDue(ownSnapshot.presence_refreshed_at || ownSnapshot.committed_at)) {
+  const presenceRefreshDue = Boolean(ownSnapshot && fireteamPresenceRefreshDue(ownSnapshot.presence_refreshed_at || ownSnapshot.committed_at));
+  // Roster presence is the Fireteam page's critical path. If both jobs are
+  // due, run the small presence pass now and leave the heavier shared-progress
+  // pass to its dedicated cron rather than making one request own both.
+  if (presenceRefreshDue) {
     context.waitUntil?.(refreshFireteamPresenceSnapshot(row.membership_id, env).catch((error: any) => {
       console.error("fireteam_requested_presence_failed", String(error?.code || error?.message || "unknown"));
+    }));
+  } else if (fullRefreshDue) {
+    context.waitUntil?.(refreshRequestedFireteamSnapshot(row.membership_id, env).catch((error: any) => {
+      console.error("fireteam_requested_refresh_failed", String(error?.code || error?.message || "unknown"));
     }));
   }
   let ownPayload: any = null;
@@ -2580,9 +2573,13 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
 async function fireteamRecentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const data = await readRecentItems(row.membership_id, env, undefined, FIRETEAM_RECENT_ITEM_LIMIT);
   const ageMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
-  // Fireteam's canonical five-minute snapshot already observes Recent Loot.
-  // This frequently-polled endpoint must remain a saved-data read and never
-  // launch a second Bungie inventory/manifest refresh in the request lifecycle.
+  // Recent Loot refreshes independently so inventory/socket work can never
+  // hold the roster or shared-progress lease open.
+  if (recentItemObservationDue(data)) {
+    context.waitUntil?.(refreshRecentItemObservationsWithLease(row, env, context.url.searchParams.get("characterId") || undefined).catch((error: any) => {
+      console.log(JSON.stringify({ event: "fireteam_recent_items_observation_failed", category: String(error?.code || error?.name || "unknown").slice(0, 80) }));
+    }));
+  }
   return envelope<RecentItemTimelineData>(data, env, context, {
     observedAt: data.observedAt,
     state: ageMs <= 5 * 60_000 ? "fresh" : "stale",

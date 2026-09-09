@@ -66,21 +66,7 @@ describe("Fireteam tracked items", () => {
     expect(primaryCalls()).toBe(1);
   });
 
-  it("refreshes the activity feed independently every minute", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    guardianSettings.autoRefresh = true;
-    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
-
-    await screen.findByText("Shared tracked items");
-    const activityCalls = () => vi.mocked(api).mock.calls.filter(([path]) => path === "/api/v2/fireteam/activity").length;
-    expect(activityCalls()).toBe(1);
-    await act(async () => { vi.advanceTimersByTime(59_000); });
-    expect(activityCalls()).toBe(1);
-    await act(async () => { vi.advanceTimersByTime(1_000); });
-    expect(activityCalls()).toBe(2);
-  });
-
-  it("does not poll saved Recent Loot between Fireteam snapshot commits", async () => {
+  it("refreshes saved Recent Loot independently without loading Fireteam Activity", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     guardianSettings.autoRefresh = true;
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><FireteamPage /></QueryClientProvider>);
@@ -88,8 +74,9 @@ describe("Fireteam tracked items", () => {
     await screen.findByText("Shared tracked items");
     const recentItemCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam/recent-items?")).length;
     expect(recentItemCalls()).toBe(1);
-    await act(async () => { vi.advanceTimersByTime(5 * 60_000); });
-    expect(recentItemCalls()).toBe(1);
+    expect(vi.mocked(api).mock.calls.some(([path]) => path === "/api/v2/fireteam/activity")).toBe(false);
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(recentItemCalls()).toBe(2);
   });
 
   it("uses the canonical snapshot API and saved Recent Loot paths", async () => {
@@ -105,13 +92,12 @@ describe("Fireteam tracked items", () => {
     expect(await screen.findByText("Shared tracked items")).toBeTruthy();
     const paths = vi.mocked(api).mock.calls.map(([path]) => String(path));
     expect(paths.some((path) => path.startsWith("/api/v2/fireteam?"))).toBe(true);
-    expect(paths).toContain("/api/v2/fireteam/activity");
+    expect(paths).not.toContain("/api/v2/fireteam/activity");
     expect(paths.some((path) => path.startsWith("/api/v2/fireteam/recent-items?"))).toBe(true);
     expect(paths.some((path) => path.startsWith("/api/v1/me/recent-items"))).toBe(false);
 
     fireEvent.click(screen.getByRole("button", { name: "Stop sharing" }));
     await waitFor(() => expect(vi.mocked(queuedApi).mock.calls.some(([path]) => path === "/api/v2/fireteam/share")).toBe(true));
-    await waitFor(() => expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["fireteam-activity"] }));
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["fireteam"] });
   });
 

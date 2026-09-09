@@ -1,8 +1,8 @@
-import { AlertTriangle, Copy, X } from "lucide-react";
+import { AlertTriangle, Bug, Copy, X } from "lucide-react";
 import type { ConnectionFailure } from "../../services/api/client";
 import styles from "./Shell.module.css";
 
-export function ServiceIncidentBanner({ failure, copied, onCopy, onDismiss }: { failure: ConnectionFailure; copied: boolean; onCopy: () => Promise<void>; onDismiss: () => void }) {
+export function ServiceIncidentBanner({ failure, copied, onCopy, onReport, onDismiss }: { failure: ConnectionFailure; copied: boolean; onCopy: () => Promise<void>; onReport: () => Promise<void>; onDismiss: () => void }) {
   const cause = failure.code === "worker_resource_limit"
     ? "The server reached its processing limit. Automatic requests are paused briefly before retrying."
     : failure.code === "network_error"
@@ -16,6 +16,7 @@ export function ServiceIncidentBanner({ failure, copied, onCopy, onDismiss }: { 
       <dl><div><dt>Route</dt><dd>{failure.route}</dd></div><div><dt>Error</dt><dd>{failure.code}</dd></div><div><dt>Status</dt><dd>{failure.status || "No response"}</dd></div><div><dt>Reference</dt><dd>{failure.requestId || "Unavailable"}</dd></div><div><dt>Occurred</dt><dd>{new Date(failure.occurredAt).toLocaleTimeString()}</dd></div></dl>
     </details>
     <div className={styles.incidentActions}>
+      <button type="button" onClick={() => void onReport()}><Bug />Report issue</button>
       <button type="button" onClick={() => void onCopy()}><Copy />{copied ? "Copied" : "Copy report"}</button>
       <button type="button" onClick={onDismiss} aria-label="Dismiss service incident" title="Dismiss this incident"><X /></button>
     </div>

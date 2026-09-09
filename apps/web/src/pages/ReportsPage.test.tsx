@@ -28,9 +28,27 @@ vi.mock("../services/api/client", async () => {
   return { ...actual, api: vi.fn(), mutationHeaders: () => ({ "X-CSRF-Token": "csrf" }) };
 });
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); sessionStorage.clear(); vi.clearAllMocks(); });
 
 describe("Reports page", () => {
+  it("opens a captured service incident as a ready-to-send bug report", async () => {
+    sessionStorage.setItem("guardian-nexus:incident-report-draft", JSON.stringify({
+      title: "worker_resource_limit on /api/v2/fireteam",
+      description: "Guardian Nexus could not finish the Fireteam request.",
+      actualResult: "Reference: ray-123",
+      pageUrl: "/fireteam"
+    }));
+    vi.mocked(api).mockImplementation(async () => envelope<ReportListData>({ reports: [], canManage: true }));
+
+    renderPage(<ReportsPage />, "/reports?from=%2Ffireteam&incident=1");
+
+    expect(await screen.findByDisplayValue("worker_resource_limit on /api/v2/fireteam")).toBeTruthy();
+    expect(screen.getByDisplayValue("Guardian Nexus could not finish the Fireteam request.")).toBeTruthy();
+    expect(screen.getByDisplayValue("Reference: ray-123")).toBeTruthy();
+    expect(screen.getByDisplayValue("/fireteam")).toBeTruthy();
+    expect(sessionStorage.getItem("guardian-nexus:incident-report-draft")).toBeNull();
+  });
+
   it("submits structured feedback with the originating app page", async () => {
     vi.mocked(api).mockImplementation(async (_path, init) => init?.method === "POST" ? envelope(report()) : envelope<ReportListData>({ reports: [], canManage: true }));
     renderPage(<ReportsPage />, "/reports?from=%2Fgear");

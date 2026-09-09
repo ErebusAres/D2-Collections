@@ -3,7 +3,10 @@ import type { SavedPartyMember, GuardianPresenceState } from "./fireteamReliabil
 
 export const FIRETEAM_REFRESH_INTERVAL_MS = 5 * 60_000;
 export const FIRETEAM_ACTIVE_WINDOW_MS = 10 * 60_000;
-export const FIRETEAM_SNAPSHOT_GRACE_MS = 75_000;
+// Shared progress is useful after a delayed refresh and should not disappear
+// merely because one five-minute Worker pass missed its deadline. Presence is
+// refreshed and freshness-gated independently below.
+export const FIRETEAM_SNAPSHOT_GRACE_MS = 30 * 60_000;
 export const FIRETEAM_REFRESH_LEASE_MS = 2 * 60_000;
 export const FIRETEAM_RETRY_MS = 60_000;
 // A full snapshot requests every profile component used by Fireteam. Page reads

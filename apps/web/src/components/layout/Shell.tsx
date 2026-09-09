@@ -2,7 +2,7 @@ import type { RecentItemTimelineData, ReportAdminSummaryData, RewardsPassData } 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUp, Badge, Boxes, Coins, Compass, Crosshair, Database, Globe2, Hammer, Layers3, ListTodo, Mail, Orbit, ScanSearch, Settings, ShieldEllipsis, Sparkles, Ticket, Users } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../services/api/client";
 import { hasClaimableReward, rewardLevelProgress } from "../../modules/rewards/rewardsProgress";
 import { useGuardian } from "../../context/GuardianContext";
@@ -11,6 +11,7 @@ import { HEADER_REFRESH_INTERVAL_MS } from "../../services/liveRefresh";
 import { GuardianFeed } from "../notifications/GuardianFeed";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { useGuardianNotifications } from "../../modules/notifications/useGuardianNotifications";
+import { saveIncidentReportDraft } from "../../modules/reports/incidentDraft";
 import styles from "./Shell.module.css";
 
 const OptionsPanel = lazy(() => import("./OptionsPanel").then((module) => ({ default: module.OptionsPanel })));
@@ -26,6 +27,7 @@ const tabs: Array<{ to: string; label: string; icon: typeof Globe2 }> = [
 export function Shell() {
   const { session, loading, error, signIn, selectedCharacterId, autoRefresh } = useGuardian();
   const location = useLocation();
+  const navigate = useNavigate();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [copiedIncident, setCopiedIncident] = useState("");
   const [dismissedIncident, setDismissedIncident] = useState("");
@@ -106,7 +108,19 @@ export function Shell() {
         </nav>
       </header>
       <main className={styles.main}><Outlet /></main>
-      {connection.activeFailure && dismissedIncident !== incidentKey(connection.activeFailure) && <Suspense fallback={null}><ServiceIncidentBanner failure={connection.activeFailure} copied={copiedIncident === connection.activeFailure.requestId} onDismiss={() => setDismissedIncident(incidentKey(connection.activeFailure!))} onCopy={async () => {
+      {connection.activeFailure && dismissedIncident !== incidentKey(connection.activeFailure) && <Suspense fallback={null}><ServiceIncidentBanner failure={connection.activeFailure} copied={copiedIncident === connection.activeFailure.requestId} onDismiss={() => setDismissedIncident(incidentKey(connection.activeFailure!))} onReport={async () => {
+          const failure = connection.activeFailure!;
+          const { connectionFailureReport } = await import("../../services/api/incidentReport");
+          const pageUrl = `${location.pathname}${location.search}`;
+          saveIncidentReportDraft({
+            title: `${failure.code} on ${failure.route}`,
+            description: `Guardian Nexus could not finish ${failure.route}. The incident details below were captured automatically.`,
+            actualResult: connectionFailureReport(failure),
+            pageUrl
+          });
+          setDismissedIncident(incidentKey(failure));
+          navigate(`/reports?from=${encodeURIComponent(pageUrl)}&incident=1`);
+        }} onCopy={async () => {
           const { connectionFailureReport } = await import("../../services/api/incidentReport");
           await navigator.clipboard.writeText(connectionFailureReport(connection.activeFailure!));
           setCopiedIncident(connection.activeFailure?.requestId || connection.activeFailure?.occurredAt || "copied");

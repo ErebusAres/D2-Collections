@@ -58,6 +58,7 @@ afterEach(() => {
   editorRole = false;
   connectionMock.snapshot.activeFailure = undefined;
   cleanup();
+  sessionStorage.clear();
   vi.clearAllMocks();
 });
 
@@ -223,6 +224,21 @@ describe("Shell guardian identity", () => {
     fireEvent.click(within(banner).getByRole("button", { name: "Copy report" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith("copyable incident"));
     fireEvent.click(within(banner).getByRole("button", { name: "Dismiss service incident" }));
+    expect(screen.queryByRole("alert", { name: "Guardian services incident" })).toBeNull();
+  });
+
+  it("turns a captured service incident into a report draft", async () => {
+    connectionMock.snapshot.activeFailure = { code: "worker_resource_limit", message: "Guardian services are temporarily over capacity.", route: "/api/v2/fireteam", occurredAt: "2026-08-18T14:00:00.000Z", requestId: "ray-123", status: 500 };
+    renderShell(<div>Page</div>);
+
+    const banner = await screen.findByRole("alert", { name: "Guardian services incident" });
+    fireEvent.click(within(banner).getByRole("button", { name: "Report issue" }));
+
+    await waitFor(() => expect(JSON.parse(sessionStorage.getItem("guardian-nexus:incident-report-draft") || "{}")).toMatchObject({
+      title: "worker_resource_limit on /api/v2/fireteam",
+      actualResult: "copyable incident",
+      pageUrl: "/"
+    }));
     expect(screen.queryByRole("alert", { name: "Guardian services incident" })).toBeNull();
   });
 });

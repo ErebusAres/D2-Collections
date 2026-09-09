@@ -41,27 +41,26 @@ describe("Fireteam page", () => {
 
     const client = renderFireteam();
     const refetchQueries = vi.spyOn(client, "refetchQueries");
-    expect(await screen.findByText("Fireteam refresh in 3:00")).toBeTruthy();
+    expect(await screen.findByText("Shared progress refresh in 3:00")).toBeTruthy();
     const fireteamCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam?")).length;
     expect(fireteamCalls()).toBe(1);
 
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(2));
-    expect(screen.getByText(/Fireteam refresh in 2:00|Fireteam refresh in 1:59/)).toBeTruthy();
+    expect(screen.getByText(/Shared progress refresh in 2:00|Shared progress refresh in 1:59/)).toBeTruthy();
 
     await act(async () => { vi.advanceTimersByTime(2 * 60_000); });
-    expect(screen.getByText("Fireteam update queued")).toBeTruthy();
+    expect(screen.getByText("Shared progress update queued")).toBeTruthy();
 
     await act(async () => { vi.advanceTimersByTime(60_000); });
     await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(4));
-    expect(screen.getByText("Fireteam update queued")).toBeTruthy();
+    expect(screen.getByText("Shared progress update queued")).toBeTruthy();
 
     version = 5;
     committedAt = new Date(Date.now()).toISOString();
     await act(async () => { vi.advanceTimersByTime(60_000); });
-    await waitFor(() => expect(screen.getByText(/Fireteam refresh in 4:00|Fireteam refresh in 3:59/)).toBeTruthy());
-    expect(refetchQueries).toHaveBeenCalledWith({ queryKey: ["fireteam-recent-items", "c1"], exact: true, type: "active" });
-    expect(refetchQueries).toHaveBeenCalledWith({ queryKey: ["fireteam-activity", "member-1", "c1"], exact: true, type: "active" });
+    await waitFor(() => expect(screen.getByText(/Shared progress refresh in 4:00|Shared progress refresh in 3:59/)).toBeTruthy());
+    expect(refetchQueries).toHaveBeenCalledWith({ queryKey: ["quests", "c1", ""], exact: true, type: "active" });
   });
 
   it("loads every active Hub order independently without requiring Destiny tracking", async () => {
@@ -88,7 +87,7 @@ describe("Fireteam page", () => {
     response.data.refreshState = "refreshing";
     vi.mocked(api).mockImplementation(async (path) => String(path).startsWith("/api/v1/me/quests") ? questEnvelope() as never : response);
     renderFireteam();
-    expect(await screen.findByText("Refreshing Fireteam")).toBeTruthy();
+    expect(await screen.findByText("Updating shared progress")).toBeTruthy();
     const fireteamCalls = () => vi.mocked(api).mock.calls.filter(([path]) => String(path).startsWith("/api/v2/fireteam?")).length;
     expect(fireteamCalls()).toBe(1);
 
@@ -123,7 +122,7 @@ describe("Fireteam page", () => {
     expect(fireteamCalls()).toBe(1);
     await act(async () => { vi.advanceTimersByTime(1_000); });
     await waitFor(() => expect(fireteamCalls()).toBeGreaterThanOrEqual(2));
-    expect(screen.getByText("Fireteam refresh delayed")).toBeTruthy();
+    expect(screen.getByText("Shared progress update delayed")).toBeTruthy();
   });
 
   it("honors the global auto-refresh setting without hiding committed data", async () => {

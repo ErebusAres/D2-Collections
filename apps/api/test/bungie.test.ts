@@ -17,7 +17,7 @@ describe("profileComponentsFor", () => {
     expect(profileComponentsFor("xur")).toBe("100,102,200,201,800");
     expect(profileComponentsFor("session")).toBe("100,200,201,202,204");
     expect(profileComponentsFor("quests")).toBe("100,102,200,201,204,301,310");
-    expect(profileComponentsFor("fireteam")).toBe("100,102,200,201,202,204,205,300,301,304,305,307,310,800,900,1000");
+    expect(profileComponentsFor("fireteam")).toBe("100,102,200,201,202,204,301,310,800,900,1000");
     expect(profileComponentsFor("recent-items")).toBe("100,102,200,201,205,300,301,304,305,307,310,800,900");
     expect(profileComponentsFor("loot-watcher")).toBe("100,102,200,201,205,300,304,305,307,310");
   });

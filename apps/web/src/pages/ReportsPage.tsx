@@ -7,6 +7,7 @@ import { AuthGate, Freshness, PageHeader, QueryState } from "../components/commo
 import { useGuardian } from "../context/GuardianContext";
 import { api, mutationHeaders } from "../services/api/client";
 import { categoryLabel, categoryOptions, dateTime, statusLabel } from "../modules/reports/reportMeta";
+import { takeIncidentReportDraft } from "../modules/reports/incidentDraft";
 import styles from "./ReportsPage.module.css";
 
 interface ReportFormState {
@@ -23,7 +24,7 @@ export function ReportsPage() {
   const { session } = useGuardian();
   const [searchParams] = useSearchParams();
   const sourcePage = searchParams.get("from") || "";
-  const [form, setForm] = useState<ReportFormState>(() => emptyForm(sourcePage));
+  const [form, setForm] = useState<ReportFormState>(() => initialForm(sourcePage, searchParams.get("incident") === "1"));
   const [submittedReference, setSubmittedReference] = useState("");
   const queryClient = useQueryClient();
   const reports = useQuery({
@@ -123,4 +124,11 @@ export function ReportsPage() {
 
 function emptyForm(pageUrl: string): ReportFormState {
   return { category: "bug", title: "", description: "", reproductionSteps: "", expectedResult: "", actualResult: "", pageUrl };
+}
+
+function initialForm(pageUrl: string, useIncidentDraft: boolean): ReportFormState {
+  const empty = emptyForm(pageUrl);
+  if (!useIncidentDraft) return empty;
+  const draft = takeIncidentReportDraft();
+  return draft ? { ...empty, ...draft } : empty;
 }

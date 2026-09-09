@@ -38,6 +38,19 @@ export function selectedCharacter(characters: CharacterSummary[], requested?: st
   return characters.find((character) => character.characterId === requested) || characters[0];
 }
 
+export function characterSessionClockActive(
+  character: Pick<CharacterSummary, "dateLastPlayed" | "minutesPlayedThisSession"> | undefined,
+  sourceObservedAt: string | undefined,
+  toleranceMs = 90_000
+): boolean {
+  const sourceMs = Date.parse(sourceObservedAt || "");
+  const playedAtMs = Date.parse(character?.dateLastPlayed || "");
+  const minutes = Math.max(0, Number(character?.minutesPlayedThisSession || 0));
+  return Number.isFinite(sourceMs)
+    && Number.isFinite(playedAtMs)
+    && Math.abs(sourceMs - (playedAtMs + minutes * 60_000)) <= toleranceMs;
+}
+
 export function guardianOnlineState(
   character: Pick<CharacterSummary, "minutesPlayedThisSession"> | undefined,
   activity: string | undefined,
@@ -106,7 +119,11 @@ export function normalizeGuardian(args: {
   const characters = charactersFromProfile(args.profile);
   const selected = selectedCharacter(characters, args.requestedCharacterId);
   const profileData = args.profile?.profile?.data || {};
-  const currentActivity = activityName(args.profile, args.manifest, selected?.characterId);
+  // Bungie retains both a nonzero session-minute total and the last activity
+  // after sign-out. Only expose live presence when the character session clock
+  // aligns with this exact source snapshot.
+  const isInGame = characterSessionClockActive(selected, args.profile?.responseMintedTimestamp);
+  const currentActivity = isInGame ? activityName(args.profile, args.manifest, selected?.characterId) : undefined;
   return {
     membershipId: args.membershipId,
     membershipType: args.membershipType,
@@ -124,7 +141,7 @@ export function normalizeGuardian(args: {
         .filter((item: any) => String(item?.bucketHash || "") === "215593132").length
     },
     currentActivity,
-    isInGame: Boolean(selected?.minutesPlayedThisSession && currentActivity)
+    isInGame
   };
 }
 
