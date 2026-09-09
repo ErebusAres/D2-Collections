@@ -136,6 +136,39 @@ application → page → section → component composition. Pure style-tree move
 reserved for cases where the owning TSX boundary is already correct and the
 move is the only remaining structural defect.
 
+## Upstream reconciliation rule
+
+Development may continue on `main` while this architecture branch is active.
+Before every new refactor section:
+
+1. Fetch the current `main` and `refactor/component-workflow` branch heads.
+2. Identify the newest `main` commit already incorporated into this branch and
+   inspect every later upstream commit before editing.
+3. Compare upstream changes against every file or responsibility previously
+   moved, renamed, split, or simplified on this branch. A path-level comparison
+   alone is insufficient when the branch moved that responsibility elsewhere.
+4. Preserve all current upstream behavior, fixes, contracts, tests, and user-
+   visible wording, but translate them into the destination structure required
+   by the Master rule. Never restore a retired path, reverse a dependency, or
+   move reusable behavior back into a page merely to make an upstream patch
+   apply cleanly.
+5. If an upstream change conflicts with the intended architecture, stop the
+   section, reapply the Master rule, and deliberately integrate the behavior at
+   the correct component, service, domain, or page-composition boundary.
+6. Run the affected upstream regression tests together with the selected
+   section's focused tests, then complete the normal repository validation.
+7. Record the exact reconciled `main` commit and any structural translation in
+   this document before committing and pushing the section.
+
+Current upstream checkpoint: this branch includes `main` through `788475b`.
+As of this documentation update, `origin/main` is at `7e53bbb`; commits
+`f12ec83`, `9caf4e3`, and `7e53bbb` remain to be reconciled before the next code
+slice. Their changes include Fireteam page/route refresh behavior, Fireteam and
+loot-watcher API scheduling, Postmaster behavior, shared contracts, and related
+tests. Because `FireteamPage.tsx` has already been structurally simplified on
+this branch, those Fireteam changes must be translated into its extracted hooks
+and services rather than copied over the branch version.
+
 ## Cold-start handoff
 
 This file must be committed and pushed with every bounded refactor section so a
@@ -145,14 +178,15 @@ Before continuing work:
 
 1. Check out `refactor/component-workflow`; do not perform this migration on
    `main`.
-2. Read this complete document before changing code.
-3. Reapply the Master rule and File-tree rules to the planned boundary.
-4. Confirm the latest completed section and select only the next bounded section.
-5. Preserve behavior unless the section explicitly records an approved behavior
+2. Fetch both branch heads and complete the Upstream reconciliation rule above.
+3. Read this complete document before changing code.
+4. Reapply the Master rule and File-tree rules to the planned boundary.
+5. Confirm the latest completed section and select only the next bounded section.
+6. Preserve behavior unless the section explicitly records an approved behavior
    change.
-6. Update this document with implementation details, validation results, and the
+7. Update this document with implementation details, validation results, and the
    next bounded section in the same commit as the code.
-7. Commit and push the section before beginning another one. Do not open or merge
+8. Commit and push the section before beginning another one. Do not open or merge
    into `main` until the full migration is complete and verified.
 
 ## Current section: external foundation directories — complete
