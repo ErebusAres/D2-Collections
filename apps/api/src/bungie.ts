@@ -18,6 +18,11 @@ const xurInventoryCache = new Map<string, { state: "available" | "away" | "unava
 const inFlightProfileRequests = new Map<string, Promise<{ profile: any; accessToken: string }>>();
 const XUR_VENDOR_HASH = "2190858386";
 const XUR_GEAR_VENDOR_HASH = "3751514131";
+const XUR_EXOTIC_CLASS_ITEMS = [
+  { itemHash: "266021826", className: "Titan" as const },
+  { itemHash: "2809120022", className: "Hunter" as const },
+  { itemHash: "2273643087", className: "Warlock" as const }
+];
 const XUR_ARMOR_STATS: Record<string, { name: string; icon: string }> = {
   "392767087": { name: "Health", icon: "https://www.bungie.net/common/destiny2_content/icons/717b8b218cc14325a54869bef21d2964.png" },
   "4244567218": { name: "Melee", icon: "https://www.bungie.net/common/destiny2_content/icons/fa534aca76d7f2d7e7b4ba4df4271b42.png" },
@@ -148,7 +153,7 @@ export async function publicProfileFor(
   return { expiresAt: Date.now() + 30_000 };
 }
 
-export async function xurInventoryFor(row: SessionRow, characterId: string, env: Env, accessToken: string, includeDetails = false): Promise<{
+export async function xurInventoryFor(row: SessionRow, characterId: string, env: Env, accessToken: string, includeDetails = false, forceRefresh = false): Promise<{
   state: "available" | "away" | "unavailable";
   itemHashes: string[];
   checkedAt: string;
@@ -159,7 +164,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
   pruneExpiringCache(xurInventoryCache, 32);
   const cacheKey = `${row.membership_type}:${row.membership_id}:${characterId}:${includeDetails ? "details" : "hashes"}`;
   const cached = xurInventoryCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) return cached;
+  if (!forceRefresh && cached && cached.expiresAt > Date.now()) return cached;
   const checkedAt = new Date().toISOString();
   try {
     const indexedStorefronts = new Map<string, any>();
@@ -208,11 +213,17 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
     let offers: any[] | undefined;
     if (sales.length > 0 && includeDetails) {
       const offeredItemHashes = [...new Set(sales.map(({ sale }) => String(sale?.itemHash || "")).filter(Boolean))];
+      const hasLiveExoticClassItem = liveSales.some(({ sale }) => XUR_EXOTIC_CLASS_ITEMS.some((item) => item.itemHash === String(sale?.itemHash || "")));
       const socketHashes = sales.flatMap(({ saleIndex, response }) => (response?.itemComponents?.sockets?.data?.[saleIndex]?.sockets || [])
         .filter((socket: any) => socket?.isVisible !== false && socket?.isEnabled !== false)
         .map((socket: any) => String(socket?.plugHash || "")).filter(Boolean));
       const costHashes = sales.flatMap(({ sale }) => (sale?.costs || []).map((cost: any) => String(cost?.itemHash || "")).filter(Boolean));
-      const definitions = await companionItemDefinitionsFor(env, [...new Set([...offeredItemHashes, ...socketHashes, ...costHashes])]);
+      const definitions = await companionItemDefinitionsFor(env, [...new Set([
+        ...offeredItemHashes,
+        ...socketHashes,
+        ...costHashes,
+        ...(hasLiveExoticClassItem ? XUR_EXOTIC_CLASS_ITEMS.map((item) => item.itemHash) : [])
+      ])]);
       const classes = ["Titan", "Hunter", "Warlock"] as const;
       offers = sales.flatMap(({ vendorHash, saleIndex, sale, response }) => {
         const hash = String(sale?.itemHash || "");
@@ -225,6 +236,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
         const name = String(definition.displayProperties?.name || "Unknown offer");
         const category = xurCategoryFor(definition);
         const classType = Number(definition.classType);
+        const knownClassItem = XUR_EXOTIC_CLASS_ITEMS.find((item) => item.itemHash === hash);
         const costs = (sale?.costs || []).map((cost: any) => {
           const itemHash = String(cost?.itemHash || "");
           const costDefinition: any = definitions[itemHash];
@@ -247,10 +259,42 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
           saleIndex: `${vendorHash}:${saleIndex}`, itemHash: hash, name, description: String(definition.displayProperties?.description || ""),
           icon: imageUrl(definition.displayProperties?.icon), rarity, itemType: itemTypeName, slot,
           ...(definition.collectibleHash ? { collectibleHash: String(definition.collectibleHash) } : {}),
-          ...(classType >= 0 && classType <= 2 ? { className: classes[classType] } : {}), quantity: Math.max(1, Number(sale?.quantity || 1)), category,
+          ...(knownClassItem ? { className: knownClassItem.className } : classType >= 0 && classType <= 2 ? { className: classes[classType] } : {}), quantity: Math.max(1, Number(sale?.quantity || 1)), category,
           costs, stats, ...(stats.length ? { statTotal: stats.reduce((sum: number, stat: any) => sum + stat.value, 0) } : {}), perks
         }];
       });
+      if (hasLiveExoticClassItem) {
+        // Bungie's vendor response exposes the class-item slot through the
+        // requested character. The slot itself is weekly stock shared by all
+        // three classes, so complete the storefront with the matching current
+        // manifest definitions instead of hiding the other two class choices.
+        const template = offers.find((offer) => offer.category === "exotic-class-item");
+        if (template) {
+          const present = new Set(offers.filter((offer) => offer.category === "exotic-class-item").map((offer) => offer.itemHash));
+          for (const classItem of XUR_EXOTIC_CLASS_ITEMS) {
+            if (present.has(classItem.itemHash)) continue;
+            const definition: any = definitions[classItem.itemHash];
+            if (!definition) continue;
+            offers.push({
+              saleIndex: `${XUR_GEAR_VENDOR_HASH}:class-item:${classItem.itemHash}`,
+              itemHash: classItem.itemHash,
+              name: String(definition.displayProperties?.name || "Unknown offer"),
+              description: String(definition.displayProperties?.description || ""),
+              icon: imageUrl(definition.displayProperties?.icon),
+              rarity: String(definition.inventory?.tierTypeName || "Exotic"),
+              itemType: String(definition.itemTypeDisplayName || "Class Item"),
+              slot: String(definition.equipmentSlot || "Class Armor"),
+              ...(definition.collectibleHash ? { collectibleHash: String(definition.collectibleHash) } : {}),
+              className: classItem.className,
+              quantity: template.quantity,
+              category: "exotic-class-item",
+              costs: template.costs,
+              stats: [],
+              perks: []
+            });
+          }
+        }
+      }
     }
     const result = {
       state: enabled ? "available" as const : "away" as const,
@@ -301,13 +345,14 @@ export async function xurInventoriesForCharacters(
   characterIds: string[],
   env: Env,
   accessToken: string,
-  includeDetails = false
+  includeDetails = false,
+  forceRefresh = false
 ): Promise<XurInventoryResult[]> {
   const inventories: XurInventoryResult[] = [];
   // Detail enrichment can touch many compact-manifest chunks. Keep this
   // sequential so each class reuses the first class's definition cache and the
   // Worker stays below Cloudflare's subrequest ceiling.
-  for (const characterId of characterIds) inventories.push(await xurInventoryFor(row, characterId, env, accessToken, includeDetails));
+  for (const characterId of characterIds) inventories.push(await xurInventoryFor(row, characterId, env, accessToken, includeDetails, forceRefresh));
   return inventories;
 }
 

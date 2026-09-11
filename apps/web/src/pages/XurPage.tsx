@@ -45,8 +45,14 @@ export function XurPage() {
     setChecking(true);
     try {
       await api<XurData>(`/api/v1/me/xur?characterId=${encodeURIComponent(selectedCharacterId)}&refresh=1`);
-      await new Promise((resolve) => window.setTimeout(resolve, 8_000));
-      await result.refetch();
+      // The API refreshes each class storefront sequentially to stay within
+      // Cloudflare's request budget. Keep the control visibly active and read
+      // the committed snapshot as soon as that background work completes.
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 4_000));
+        const refreshed = await result.refetch();
+        if (refreshed.data?.freshness.state === "fresh") break;
+      }
     } catch {
       await result.refetch();
     } finally {
@@ -60,7 +66,7 @@ export function XurPage() {
   const presentation = data ? xurInventoryPresentation(data, schedule.active) : undefined;
 
   return <AuthGate>
-    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="See the live storefront while Xûr is here, or review what you missed after he leaves." actions={<><Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button type="button" className={styles.xurRefresh} aria-busy={checking || result.isFetching} disabled={checking || result.isFetching} onClick={() => void checkInventory()}><RefreshCw size={14} /> {checking || result.isFetching ? "Checking…" : "Check inventory"}</button></>} />
+    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="See the live storefront while Xûr is here, or review what you missed after he leaves." actions={<><Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button type="button" className={styles.xurRefresh} aria-busy={checking || result.isFetching} disabled={checking || result.isFetching} onClick={() => void checkInventory()}><RefreshCw size={14} /> {checking ? "Refreshing Xûr…" : result.isFetching ? "Checking…" : "Check inventory"}</button></>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && presentation && <>
       <section className={`${styles.xurHero} ${schedule.active && !presentation.lastShipment ? styles.xurActive : ""}`}>

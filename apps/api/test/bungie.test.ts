@@ -224,6 +224,55 @@ describe("xurInventoryFor", () => {
     expect(result.state).toBe("available");
     expect(result.offers).toEqual([expect.objectContaining({ itemHash: "555555", name: "Stoicism", className: "Titan", category: "exotic-class-item" })]);
   });
+
+  it("shows the matching Titan, Hunter, and Warlock class items when Xûr sells the class-item slot", async () => {
+    const classItems = {
+      266021826: { displayProperties: { name: "Stoicism", icon: "/stoicism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 2, itemTypeDisplayName: "Titan Mark", equipmentSlot: "Class Armor" },
+      2809120022: { displayProperties: { name: "Relativism", icon: "/relativism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 2, itemTypeDisplayName: "Hunter Cloak", equipmentSlot: "Class Armor" },
+      2273643087: { displayProperties: { name: "Solipsism", icon: "/solipsism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 2, itemTypeDisplayName: "Warlock Bond", equipmentSlot: "Class Armor" },
+      3147280338: { displayProperties: { name: "Strange Coin", icon: "/coin.png" }, inventory: { tierTypeName: "Rare" }, itemType: 0, itemTypeDisplayName: "Currency", equipmentSlot: "Miscellaneous" }
+    };
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("companion-manifest.json")) return Promise.resolve(new Response(JSON.stringify({ version: "xur-class-items", itemDefinitionChunks: [], itemDefinitions: classItems }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      const sales = url.includes("3751514131") ? { 7: { itemHash: 2273643087, costs: [{ itemHash: 3147280338, quantity: 41 }] } } : {};
+      return Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: { vendor: { data: { enabled: true } }, sales: { data: sales } } }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    }));
+
+    const result = await xurInventoryFor(
+      { membership_type: 3, membership_id: "all-class-items-member" } as SessionRow,
+      "warlock-character",
+      { BUNGIE_API_KEY: "test", GAME_DATA_URL: "https://class-items.test/data/manifest.json" } as Env,
+      "access",
+      true
+    );
+
+    expect(result.offers?.filter((offer) => offer.category === "exotic-class-item")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ itemHash: "266021826", name: "Stoicism", className: "Titan", costs: [expect.objectContaining({ quantity: 41 })] }),
+      expect.objectContaining({ itemHash: "2809120022", name: "Relativism", className: "Hunter", costs: [expect.objectContaining({ quantity: 41 })] }),
+      expect.objectContaining({ itemHash: "2273643087", name: "Solipsism", className: "Warlock", costs: [expect.objectContaining({ quantity: 41 })] })
+    ]));
+  });
+
+  it("bypasses its short-lived character inventory cache for a forced refresh", async () => {
+    let itemHash = 111;
+    const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      const sales = url.includes("2190858386") ? { 0: { itemHash } } : {};
+      return Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: { vendor: { data: { enabled: true } }, sales: { data: sales } } }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const row = { membership_type: 3, membership_id: "force-xur-member" } as SessionRow;
+    const env = { BUNGIE_API_KEY: "test" } as Env;
+
+    await expect(xurInventoryFor(row, "force-xur-character", env, "access")).resolves.toMatchObject({ itemHashes: ["111"] });
+    const callsAfterFirstRead = fetchMock.mock.calls.length;
+    itemHash = 222;
+    await expect(xurInventoryFor(row, "force-xur-character", env, "access")).resolves.toMatchObject({ itemHashes: ["111"] });
+    expect(fetchMock).toHaveBeenCalledTimes(callsAfterFirstRead);
+    await expect(xurInventoryFor(row, "force-xur-character", env, "access", false, true)).resolves.toMatchObject({ itemHashes: ["222"] });
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsAfterFirstRead);
+  });
 });
 
 describe("xurCategoryFor", () => {

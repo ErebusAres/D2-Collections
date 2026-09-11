@@ -894,7 +894,10 @@ async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<
   const forceRefresh = context.url.searchParams.get("refresh") === "1";
   const fresh = !forceRefresh && Boolean(cachedData) && xurCacheIsFresh(cached?.expires_at, cachedData?.nextRefreshAt);
   if (cachedData) {
-    if (!fresh) context.waitUntil?.(refreshXurCacheWithLease(row, env, context.url.searchParams.get("characterId") || undefined));
+    // Once the durable snapshot is stale, an in-isolate vendor cache is stale
+    // for this purpose too. Always bypass it for the refresh job, whether the
+    // refresh was automatic or explicitly requested by the player.
+    if (!fresh) context.waitUntil?.(refreshXurCacheWithLease(row, env, context.url.searchParams.get("characterId") || undefined, true));
     return envelope<XurData>(cachedData, env, context, {
       sourceMintedAt: cached?.source_minted_at || cached?.refreshed_at,
       state: fresh ? "fresh" : "stale",
@@ -907,7 +910,7 @@ async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<
   const now = new Date().toISOString();
   await env.DB.prepare("INSERT OR IGNORE INTO guardian_xur_cache (membership_id, xur_json, source_minted_at, refreshed_at, expires_at, refresh_started_at, last_error) VALUES (?, ?, NULL, ?, ?, NULL, NULL)")
     .bind(row.membership_id, JSON.stringify(fallback), now, now).run();
-  context.waitUntil?.(refreshXurCacheWithLease(row, env, context.url.searchParams.get("characterId") || undefined));
+  context.waitUntil?.(refreshXurCacheWithLease(row, env, context.url.searchParams.get("characterId") || undefined, true));
   return envelope<XurData>(fallback, env, context, {
     observedAt: fallback.inventoryCapturedAt || fallback.checkedAt,
     state: "stale",
@@ -915,14 +918,14 @@ async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<
   });
 }
 
-async function refreshXurCache(row: SessionRow, env: Env, requestedCharacterId?: string): Promise<void> {
+async function refreshXurCache(row: SessionRow, env: Env, requestedCharacterId?: string, forceRefresh = false): Promise<void> {
   const { profile, accessToken } = await profileFor(row, env, "xur");
   const characters = uniqueXurCharacters(charactersFromProfile(profile), requestedCharacterId);
   let data: XurData;
   if (!characters.length) {
     data = { state: "unavailable", checkedAt: new Date().toISOString(), strangeCoins: xurStrangeCoinBalance(profile), offers: [] };
   } else {
-    const inventory = mergeXurInventories(await xurInventoriesForCharacters(row, characters.map((character) => character.characterId), env, accessToken, true));
+    const inventory = mergeXurInventories(await xurInventoriesForCharacters(row, characters.map((character) => character.characterId), env, accessToken, true, forceRefresh));
     const observedOffers = inventory.offers || [];
     if (observedOffers.length > 0 && inventory.state === "available") {
       const observedData: XurData = { state: "available", inventoryStatus: "live", checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers };
@@ -944,14 +947,14 @@ async function refreshXurCache(row: SessionRow, env: Env, requestedCharacterId?:
     .bind(row.membership_id, JSON.stringify(data), profile?.responseMintedTimestamp || null, refreshedAt, new Date(Date.now() + 5 * 60_000).toISOString()).run();
 }
 
-async function refreshXurCacheWithLease(row: SessionRow, env: Env, requestedCharacterId?: string): Promise<void> {
+async function refreshXurCacheWithLease(row: SessionRow, env: Env, requestedCharacterId?: string, forceRefresh = false): Promise<void> {
   const startedAt = new Date().toISOString();
   const staleLease = new Date(Date.now() - 2 * 60_000).toISOString();
   const claim = await env.DB.prepare("UPDATE guardian_xur_cache SET refresh_started_at = ? WHERE membership_id = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
     .bind(startedAt, row.membership_id, staleLease).run().catch(() => undefined);
   if (!claim || Number(claim.meta?.changes || 0) < 1) return;
   try {
-    await refreshXurCache(row, env, requestedCharacterId);
+    await refreshXurCache(row, env, requestedCharacterId, forceRefresh);
   } catch (error: any) {
     await env.DB.prepare("UPDATE guardian_xur_cache SET refresh_started_at = NULL, last_error = ? WHERE membership_id = ?")
       .bind(String(error?.code || error?.message || "Xûr refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
