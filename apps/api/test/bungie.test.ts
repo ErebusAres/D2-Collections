@@ -184,6 +184,46 @@ describe("xurInventoryFor", () => {
     expect(result.itemHashes).toEqual([]);
     expect(result.offers).toEqual([expect.objectContaining({ itemHash: "987654", name: "Hawkmoon", category: "exotic-weapon" })]);
   });
+
+  it("uses GetVendors sales when a class-specific detailed storefront is unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("companion-manifest.json")) return Promise.resolve(new Response(JSON.stringify({
+        version: "xur-index-test",
+        itemDefinitionChunks: [],
+        itemDefinitions: {
+          555555: {
+            displayProperties: { name: "Stoicism", description: "Titan exotic class item", icon: "/stoicism.png" },
+            inventory: { tierTypeName: "Exotic" },
+            itemType: 2,
+            itemTypeDisplayName: "Titan Mark",
+            equipmentSlot: "Class Armor",
+            classType: 0
+          }
+        }
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      if (url.includes("/Vendors/?components=400,402")) return Promise.resolve(new Response(JSON.stringify({
+        ErrorCode: 1,
+        Response: {
+          vendors: { data: { 3751514131: { enabled: true, nextRefreshDate: "2026-09-15T17:00:00Z" } } },
+          sales: { data: { 3751514131: { saleItems: { 7: { itemHash: 555555 } } } } }
+        }
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      if (url.includes("3751514131")) return Promise.resolve(new Response(JSON.stringify({ ErrorCode: 5, Message: "Vendor unavailable" }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      return Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: { vendor: { data: { enabled: true } }, sales: { data: {} } } }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    }));
+
+    const result = await xurInventoryFor(
+      { membership_type: 3, membership_id: "indexed-member" } as SessionRow,
+      "titan-character",
+      { BUNGIE_API_KEY: "test", GAME_DATA_URL: "https://indexed.test/data/manifest.json" } as Env,
+      "access",
+      true
+    );
+
+    expect(result.state).toBe("available");
+    expect(result.offers).toEqual([expect.objectContaining({ itemHash: "555555", name: "Stoicism", className: "Titan", category: "exotic-class-item" })]);
+  });
 });
 
 describe("xurCategoryFor", () => {

@@ -162,14 +162,30 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
   if (cached && cached.expiresAt > Date.now()) return cached;
   const checkedAt = new Date().toISOString();
   try {
+    const indexedStorefronts = new Map<string, any>();
     const storefronts: Array<{ vendorHash: string; response: any }> = [];
     const storefrontWarnings: string[] = [];
+    try {
+      // DIM discovers sales through GetVendors before requesting the heavier
+      // per-vendor item components. This also exposes character-specific
+      // subvendor sales that GetVendor may omit when a storefront is disabled.
+      const response = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/Character/${characterId}/Vendors/?components=400,402`, env, accessToken);
+      for (const vendorHash of [XUR_VENDOR_HASH, XUR_GEAR_VENDOR_HASH]) {
+        const vendor = response?.vendors?.data?.[vendorHash];
+        const sales = response?.sales?.data?.[vendorHash]?.saleItems;
+        if (vendor || sales) indexedStorefronts.set(vendorHash, { vendor: { data: vendor }, sales: { data: sales || {} } });
+      }
+    } catch {
+      storefrontWarnings.push("Xûr's vendor index could not be refreshed; using the detailed storefront response.");
+    }
     for (const vendorHash of [XUR_VENDOR_HASH, XUR_GEAR_VENDOR_HASH]) {
+      const indexed = indexedStorefronts.get(vendorHash);
       try {
-        const response = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/Character/${characterId}/Vendors/${vendorHash}/?components=304,305,400,401,402`, env, accessToken);
-        storefronts.push({ vendorHash, response });
+        const detailed = await bungieGet(`/Destiny2/${row.membership_type}/Profile/${row.membership_id}/Character/${characterId}/Vendors/${vendorHash}/?components=304,305,400,401,402`, env, accessToken);
+        storefronts.push({ vendorHash, response: mergeXurVendorResponses(indexed, detailed) });
       } catch (error) {
-        if (vendorHash === XUR_VENDOR_HASH) throw error;
+        if (!indexed && vendorHash === XUR_VENDOR_HASH) throw error;
+        if (indexed) storefronts.push({ vendorHash, response: indexed });
         storefrontWarnings.push("Xûr's Strange Gear storefront could not be refreshed.");
       }
     }
@@ -268,6 +284,16 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
     xurInventoryCache.set(cacheKey, result);
     return result;
   }
+}
+
+function mergeXurVendorResponses(indexed: any, detailed: any): any {
+  if (!indexed) return detailed;
+  return {
+    ...indexed,
+    ...detailed,
+    vendor: { ...(indexed.vendor || {}), ...(detailed?.vendor || {}), data: detailed?.vendor?.data || indexed.vendor?.data },
+    sales: { ...(indexed.sales || {}), ...(detailed?.sales || {}), data: { ...(indexed.sales?.data || {}), ...(detailed?.sales?.data || {}) } }
+  };
 }
 
 export async function xurInventoriesForCharacters(

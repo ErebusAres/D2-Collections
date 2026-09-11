@@ -18,6 +18,7 @@ type StoreSection = {
 export function XurPage() {
   const { selectedCharacterId, session, autoRefresh } = useGuardian();
   const [now, setNow] = useState(() => new Date());
+  const [checking, setChecking] = useState(false);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1_000);
     return () => window.clearInterval(timer);
@@ -40,6 +41,18 @@ export function XurPage() {
     const timer = window.setTimeout(() => void result.refetch(), 8_000);
     return () => window.clearTimeout(timer);
   }, [staleRefreshKey, result.refetch]);
+  const checkInventory = async () => {
+    setChecking(true);
+    try {
+      await api<XurData>(`/api/v1/me/xur?characterId=${encodeURIComponent(selectedCharacterId)}&refresh=1`);
+      await new Promise((resolve) => window.setTimeout(resolve, 8_000));
+      await result.refetch();
+    } catch {
+      await result.refetch();
+    } finally {
+      setChecking(false);
+    }
+  };
   const data = result.data?.data;
   const items = useMemo(() => data?.offers || [], [data]);
   const sections = useMemo(() => storefrontSections(items), [items]);
@@ -47,7 +60,7 @@ export function XurPage() {
   const presentation = data ? xurInventoryPresentation(data, schedule.active) : undefined;
 
   return <AuthGate>
-    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="See the live storefront while Xûr is here, or review what you missed after he leaves." actions={<><Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button type="button" className={styles.xurRefresh} aria-busy={result.isFetching} disabled={result.isFetching} onClick={() => void result.refetch()}><RefreshCw size={14} /> {result.isFetching ? "Checking…" : "Check inventory"}</button></>} />
+    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="See the live storefront while Xûr is here, or review what you missed after he leaves." actions={<><Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button type="button" className={styles.xurRefresh} aria-busy={checking || result.isFetching} disabled={checking || result.isFetching} onClick={() => void checkInventory()}><RefreshCw size={14} /> {checking || result.isFetching ? "Checking…" : "Check inventory"}</button></>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && presentation && <>
       <section className={`${styles.xurHero} ${schedule.active && !presentation.lastShipment ? styles.xurActive : ""}`}>

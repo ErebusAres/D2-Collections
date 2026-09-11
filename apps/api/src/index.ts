@@ -891,7 +891,8 @@ async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<
     .bind(row.membership_id).first<any>();
   let cachedData: XurData | undefined;
   try { cachedData = cached?.xur_json ? JSON.parse(cached.xur_json) : undefined; } catch { cachedData = undefined; }
-  const fresh = Boolean(cachedData) && xurCacheIsFresh(cached?.expires_at, cachedData?.nextRefreshAt);
+  const forceRefresh = context.url.searchParams.get("refresh") === "1";
+  const fresh = !forceRefresh && Boolean(cachedData) && xurCacheIsFresh(cached?.expires_at, cachedData?.nextRefreshAt);
   if (cachedData) {
     if (!fresh) context.waitUntil?.(refreshXurCacheWithLease(row, env, context.url.searchParams.get("characterId") || undefined));
     return envelope<XurData>(cachedData, env, context, {
