@@ -97,6 +97,8 @@
 }
 
 
+.xurRefresh { height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 12px; border: 1px solid var(--line-strong); background: rgba(255,255,255,.035); color: var(--cyan); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+.xurRefresh:disabled { cursor: wait; opacity: .62; }.xurRefresh[aria-busy="true"] svg { animation: xur-spin .9s linear infinite; } @keyframes xur-spin { to { transform: rotate(360deg); } }
 .xurHero { display: grid; grid-template-columns: 1.25fr .9fr .72fr 1fr; min-height: 128px; margin-bottom: 16px; border: 1px solid var(--line); background: linear-gradient(120deg, rgba(231,200,119,.08), rgba(5,13,19,.8)); }
 .xurHero > div { display: grid; grid-template-columns: 38px 1fr; grid-template-rows: auto auto auto; align-content: center; padding: 20px; border-right: 1px solid var(--line); }
 .xurHero svg { grid-row: 1/4; align-self: center; color: var(--gold); }.xurHero span{ color: var(--muted); font-size: 12px; letter-spacing: .13em; text-transform: uppercase; }.xurHero strong { font: 600 23px "Barlow Condensed"; text-transform: uppercase; }.xurHero small { color: var(--faint); font-size: 12px; }.xurCountdown strong { color: var(--gold); font-size: 30px; letter-spacing: .03em; }.xurActive { border-color: rgba(231,200,119,.4); box-shadow: inset 0 0 35px rgba(231,200,119,.035); }

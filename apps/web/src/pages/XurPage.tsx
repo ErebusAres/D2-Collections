@@ -1,7 +1,7 @@
 import type { XurData, XurOffer } from "@guardian-nexus/contracts";
 import { xurSchedule } from "@guardian-nexus/domain";
 import { useQuery } from "@tanstack/react-query";
-import { CircleCheck, CircleHelp, CircleX, Clock3, Coins, MapPin, Shield, Sparkles, Swords } from "lucide-react";
+import { CircleCheck, CircleHelp, CircleX, Clock3, Coins, MapPin, RefreshCw, Shield, Sparkles, Swords } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate, Freshness, PageHeader, QueryState } from "../components/common/Page";
 import { useGuardian } from "../context/GuardianContext";
@@ -30,6 +30,16 @@ export function XurPage() {
     refetchInterval: autoRefresh ? 5 * 60_000 : false,
     refetchIntervalInBackground: false
   });
+  const staleRefreshKey = result.data?.freshness.state === "stale"
+    ? result.data.freshness.sourceMintedAt || selectedCharacterId
+    : "";
+  useEffect(() => {
+    if (!staleRefreshKey) return;
+    // An expired cache read starts a background refresh. Read once more after
+    // that work has had time to commit so the page does not stay on old stock.
+    const timer = window.setTimeout(() => void result.refetch(), 8_000);
+    return () => window.clearTimeout(timer);
+  }, [staleRefreshKey, result.refetch]);
   const data = result.data?.data;
   const items = useMemo(() => data?.offers || [], [data]);
   const sections = useMemo(() => storefrontSections(items), [items]);
@@ -37,7 +47,7 @@ export function XurPage() {
   const presentation = data ? xurInventoryPresentation(data, schedule.active) : undefined;
 
   return <AuthGate>
-    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="See the live storefront while Xûr is here, or review what you missed after he leaves." actions={<Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} />} />
+    <PageHeader eyebrow="Agent of the Nine" title="Xûr" description="See the live storefront while Xûr is here, or review what you missed after he leaves." actions={<><Freshness observedAt={data?.inventoryCapturedAt || data?.checkedAt || result.data?.freshness.observedAt} warning={result.data?.warnings[0]} /><button type="button" className={styles.xurRefresh} aria-busy={result.isFetching} disabled={result.isFetching} onClick={() => void result.refetch()}><RefreshCw size={14} /> {result.isFetching ? "Checking…" : "Check inventory"}</button></>} />
     <QueryState loading={result.isLoading} error={result.error as Error} hasData={Boolean(data)} onRetry={() => void result.refetch()} />
     {data && presentation && <>
       <section className={`${styles.xurHero} ${schedule.active && !presentation.lastShipment ? styles.xurActive : ""}`}>

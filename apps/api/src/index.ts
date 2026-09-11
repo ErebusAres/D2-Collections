@@ -65,7 +65,7 @@ import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizeJourneyProgress, trackedJourneyItemsFromProfile } from "./journeyProgress";
 import { normalizePower, powerItemHashes } from "./power";
 import { normalizeActivityHistory } from "./activityHistory";
-import { readLatestXurShipment, saveLatestXurShipment, xurDataFromStoredShipment } from "./xurSnapshot";
+import { readLatestXurShipment, saveLatestXurShipment, xurCacheIsFresh, xurDataFromStoredShipment } from "./xurSnapshot";
 import { isReportAdmin, reportsRoute } from "./reports";
 import { applyTrackedItemVisibility, completedTrackedItemEvents, mergeTrackedItems, reconcileDestinyTrackedQuests, trackedItemKey, trackedItemsFromCollection, trackedItemsFromGuardianRanks, trackedItemsFromQuests } from "./fireteamTracking";
 import { buildAdvisorRecommendationItems, normalizeBuildAdvisorData } from "./buildAdvisor";
@@ -891,8 +891,7 @@ async function xur(row: SessionRow, env: Env, context: RequestContext): Promise<
     .bind(row.membership_id).first<any>();
   let cachedData: XurData | undefined;
   try { cachedData = cached?.xur_json ? JSON.parse(cached.xur_json) : undefined; } catch { cachedData = undefined; }
-  const expiresAt = Date.parse(cached?.expires_at || "");
-  const fresh = Boolean(cachedData) && Number.isFinite(expiresAt) && expiresAt > Date.now();
+  const fresh = Boolean(cachedData) && xurCacheIsFresh(cached?.expires_at, cachedData?.nextRefreshAt);
   if (cachedData) {
     if (!fresh) context.waitUntil?.(refreshXurCacheWithLease(row, env, context.url.searchParams.get("characterId") || undefined));
     return envelope<XurData>(cachedData, env, context, {
@@ -924,10 +923,8 @@ async function refreshXurCache(row: SessionRow, env: Env, requestedCharacterId?:
   } else {
     const inventory = mergeXurInventories(await xurInventoriesForCharacters(row, characters.map((character) => character.characterId), env, accessToken, true));
     const observedOffers = inventory.offers || [];
-    if (observedOffers.length > 0) {
-      const observedData: XurData = inventory.state === "available"
-        ? { state: "available", inventoryStatus: "live", checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers }
-        : { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers };
+    if (observedOffers.length > 0 && inventory.state === "available") {
+      const observedData: XurData = { state: "available", inventoryStatus: "live", checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers };
       await saveLatestXurShipment(env, observedData);
       data = { ...observedData, strangeCoins: xurStrangeCoinBalance(profile, observedData.offers), offers: addXurOfferCollectionStates(profile, observedData.offers) };
     } else {
@@ -935,7 +932,9 @@ async function refreshXurCache(row: SessionRow, env: Env, requestedCharacterId?:
       const liveData: XurData = { state: inventory.state, checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: [] };
       const storefront: XurData = previous
         ? { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, inventoryCapturedAt: previous.capturedAt, nextRefreshAt: inventory.nextRefreshAt, offers: previous.offers }
-        : liveData;
+        : observedOffers.length > 0
+          ? { state: inventory.state, inventoryStatus: "last-shipment", checkedAt: inventory.checkedAt, nextRefreshAt: inventory.nextRefreshAt, offers: observedOffers }
+          : liveData;
       data = { ...storefront, strangeCoins: xurStrangeCoinBalance(profile, storefront.offers), offers: addXurOfferCollectionStates(profile, storefront.offers) };
     }
   }

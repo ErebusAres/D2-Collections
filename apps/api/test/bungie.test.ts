@@ -232,6 +232,23 @@ describe("mergeXurInventories", () => {
     ]);
   });
 
+  it("retains readable class items when only the selected character storefront is enabled", () => {
+    const shared = { saleIndex: "2190858386:0", itemHash: "100", category: "exotic-weapon", perks: [], stats: [], costs: [] };
+    const result = mergeXurInventories([
+      { state: "available", checkedAt: "2026-09-11T17:00:00Z", itemHashes: ["100", "warlock"], offers: [shared, { ...shared, saleIndex: "3751514131:1", itemHash: "warlock", category: "exotic-class-item", className: "Warlock" }] },
+      { state: "away", checkedAt: "2026-09-11T17:00:01Z", itemHashes: [], offers: [shared, { ...shared, saleIndex: "3751514131:1", itemHash: "titan", category: "exotic-class-item", className: "Titan" }] },
+      { state: "away", checkedAt: "2026-09-11T17:00:02Z", itemHashes: [], offers: [shared, { ...shared, saleIndex: "3751514131:1", itemHash: "hunter", category: "exotic-class-item", className: "Hunter" }] }
+    ] as any);
+
+    expect(result.state).toBe("available");
+    expect(result.offers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ itemHash: "titan", className: "Titan" }),
+      expect.objectContaining({ itemHash: "hunter", className: "Hunter" }),
+      expect.objectContaining({ itemHash: "warlock", className: "Warlock" })
+    ]));
+    expect(result.itemHashes).toEqual(["100", "warlock"]);
+  });
+
   it("retains distinct sale slots of the same item", () => {
     const base = { state: "available" as const, checkedAt: "2026-07-18T17:00:00Z", itemHashes: ["100"] };
     const offer = { saleIndex: "0", itemHash: "100", category: "legendary-weapon", stats: [], costs: [] };

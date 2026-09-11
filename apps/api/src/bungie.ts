@@ -290,10 +290,15 @@ type XurInventoryResult = Awaited<ReturnType<typeof xurInventoryFor>>;
 /** Merge Bungie's character-scoped Xur storefronts into one complete inventory. */
 export function mergeXurInventories(inventories: XurInventoryResult[]): XurInventoryResult {
   const available = inventories.filter((inventory) => inventory.state === "available");
-  const source = available.length ? available : inventories;
+  // Xur's primary storefront can be enabled for the selected character while
+  // Bungie leaves the other characters' class-specific storefronts readable
+  // but disabled. Those readable offers contain the Titan, Hunter, and Warlock
+  // exotic class items, so merging only enabled inventories drops two classes.
+  const offerSource = inventories;
+  const liveSource = available.length ? available : inventories;
   const offers = new Map<string, NonNullable<XurInventoryResult["offers"]>[number]>();
 
-  for (const inventory of source) {
+  for (const inventory of offerSource) {
     for (const offer of inventory.offers || []) {
       // The same vendor sale can return character-dependent socket visibility.
       // Its vendor hash + sale index is the stable storefront identity; item
@@ -304,13 +309,15 @@ export function mergeXurInventories(inventories: XurInventoryResult[]): XurInven
     }
   }
 
-  const checkedAt = source.map((inventory) => inventory.checkedAt).sort().at(-1) || new Date().toISOString();
-  const refreshDates = source.map((inventory) => inventory.nextRefreshAt).filter((value): value is string => Boolean(value)).sort();
-  const warnings = [...new Set(source.map((inventory) => inventory.warning).filter(Boolean))];
+  const checkedAt = offerSource.map((inventory) => inventory.checkedAt).sort().at(-1) || new Date().toISOString();
+  const refreshDates = liveSource.map((inventory) => inventory.nextRefreshAt).filter((value): value is string => Boolean(value)).sort();
+  const warnings = [...new Set(offerSource.map((inventory) => inventory.warning).filter(Boolean))];
   return {
     state: available.length ? "available" : inventories.length > 0 && inventories.every((inventory) => inventory.state === "away") ? "away" : "unavailable",
-    itemHashes: [...new Set(source.flatMap((inventory) => inventory.itemHashes))],
-    ...(source.some((inventory) => inventory.offers) ? { offers: [...offers.values()] } : {}),
+    // Collection availability is still based only on live storefronts. Unlike
+    // detailed offers, stale item hashes must never be marked as purchasable.
+    itemHashes: [...new Set(liveSource.flatMap((inventory) => inventory.itemHashes))],
+    ...(offerSource.some((inventory) => inventory.offers) ? { offers: [...offers.values()] } : {}),
     checkedAt,
     ...(refreshDates[0] ? { nextRefreshAt: refreshDates[0] } : {}),
     ...(warnings[0] ? { warning: warnings[0] } : {})

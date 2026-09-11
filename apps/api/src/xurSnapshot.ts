@@ -26,6 +26,16 @@ export function xurDataFromStoredShipment(snapshot: StoredXurSnapshot | undefine
     : { state: "unavailable", checkedAt, offers: [] };
 }
 
+export function xurCacheIsFresh(expiresAt: unknown, nextRefreshAt: unknown, now = Date.now()): boolean {
+  const expires = typeof expiresAt === "string" ? Date.parse(expiresAt) : Number.NaN;
+  const nextRefresh = typeof nextRefreshAt === "string" ? Date.parse(nextRefreshAt) : Number.NaN;
+  return Number.isFinite(expires) && expires > now && (!Number.isFinite(nextRefresh) || nextRefresh > now);
+}
+
+export function isVerifiedXurShipment(data: XurData): boolean {
+  return data.state === "available" && data.inventoryStatus === "live" && data.offers.length > 0;
+}
+
 export function parseStoredXurSnapshot(row: StoredXurSnapshotRow | null | undefined): StoredXurSnapshot | undefined {
   if (!row || typeof row.captured_at !== "string" || !Number.isFinite(Date.parse(row.captured_at)) || typeof row.offers_json !== "string") return undefined;
   try {
@@ -42,7 +52,9 @@ export function parseStoredXurSnapshot(row: StoredXurSnapshotRow | null | undefi
 }
 
 export async function saveLatestXurShipment(env: Env, data: XurData): Promise<void> {
-  if (data.offers.length === 0) return;
+  // Disabled Xur vendors can expose the prior visit's sales. Never stamp those
+  // historical rows as a newly verified shipment or old stock looks current.
+  if (!isVerifiedXurShipment(data)) return;
   try {
     await env.DB.prepare(`
       INSERT INTO xur_inventory_snapshot (snapshot_key, captured_at, next_refresh_at, offers_json)
