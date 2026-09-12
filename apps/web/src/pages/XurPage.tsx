@@ -43,15 +43,16 @@ export function XurPage() {
   }, [staleRefreshKey, result.refetch]);
   const checkInventory = async () => {
     setChecking(true);
+    const previousCheckedAt = result.data?.data.checkedAt;
     try {
       await api<XurData>(`/api/v1/me/xur?characterId=${encodeURIComponent(selectedCharacterId)}&refresh=1`);
       // The API refreshes each class storefront sequentially to stay within
       // Cloudflare's request budget. Keep the control visibly active and read
       // the committed snapshot as soon as that background work completes.
-      for (let attempt = 0; attempt < 6; attempt += 1) {
+      for (let attempt = 0; attempt < 15; attempt += 1) {
         await new Promise((resolve) => window.setTimeout(resolve, 4_000));
         const refreshed = await result.refetch();
-        if (refreshed.data?.freshness.state === "fresh") break;
+        if (refreshed.data?.freshness.state === "fresh" && refreshed.data.data.checkedAt !== previousCheckedAt) break;
       }
     } catch {
       await result.refetch();

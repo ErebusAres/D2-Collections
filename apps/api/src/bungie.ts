@@ -18,11 +18,21 @@ const xurInventoryCache = new Map<string, { state: "available" | "away" | "unava
 const inFlightProfileRequests = new Map<string, Promise<{ profile: any; accessToken: string }>>();
 const XUR_VENDOR_HASH = "2190858386";
 const XUR_GEAR_VENDOR_HASH = "3751514131";
-const XUR_EXOTIC_CLASS_ITEMS = [
-  { itemHash: "266021826", className: "Titan" as const },
-  { itemHash: "2809120022", className: "Hunter" as const },
-  { itemHash: "2273643087", className: "Warlock" as const }
+const XUR_EXOTIC_CLASS_ITEM_SETS = [
+  // Armor 3.0 definitions used by the current Xûr storefront.
+  [
+    { itemHash: "2362430352", className: "Titan" as const },
+    { itemHash: "102374420", className: "Hunter" as const },
+    { itemHash: "3546314515", className: "Warlock" as const }
+  ],
+  // Legacy definitions remain readable in historical vendor responses.
+  [
+    { itemHash: "266021826", className: "Titan" as const },
+    { itemHash: "2809120022", className: "Hunter" as const },
+    { itemHash: "2273643087", className: "Warlock" as const }
+  ]
 ];
+const XUR_EXOTIC_CLASS_ITEMS = XUR_EXOTIC_CLASS_ITEM_SETS.flat();
 const XUR_ARMOR_STATS: Record<string, { name: string; icon: string }> = {
   "392767087": { name: "Health", icon: "https://www.bungie.net/common/destiny2_content/icons/717b8b218cc14325a54869bef21d2964.png" },
   "4244567218": { name: "Melee", icon: "https://www.bungie.net/common/destiny2_content/icons/fa534aca76d7f2d7e7b4ba4df4271b42.png" },
@@ -216,7 +226,9 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
       // Bungie can mark the character-specific Strange Gear storefront disabled
       // while still returning its current sale rows. If Xûr is live and one of
       // the three class-item hashes is present, that weekly slot is active.
-      const hasCurrentExoticClassItem = enabled && offeredItemHashes.some((hash) => XUR_EXOTIC_CLASS_ITEMS.some((item) => item.itemHash === hash));
+      const currentExoticClassItemSet = enabled
+        ? XUR_EXOTIC_CLASS_ITEM_SETS.find((items) => offeredItemHashes.some((hash) => items.some((item) => item.itemHash === hash)))
+        : undefined;
       const socketHashes = sales.flatMap(({ saleIndex, response }) => (response?.itemComponents?.sockets?.data?.[saleIndex]?.sockets || [])
         .filter((socket: any) => socket?.isVisible !== false && socket?.isEnabled !== false)
         .map((socket: any) => String(socket?.plugHash || "")).filter(Boolean));
@@ -225,7 +237,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
         ...offeredItemHashes,
         ...socketHashes,
         ...costHashes,
-        ...(hasCurrentExoticClassItem ? XUR_EXOTIC_CLASS_ITEMS.map((item) => item.itemHash) : [])
+        ...(currentExoticClassItemSet ? currentExoticClassItemSet.map((item) => item.itemHash) : [])
       ])]);
       const classes = ["Titan", "Hunter", "Warlock"] as const;
       offers = sales.flatMap(({ vendorHash, saleIndex, sale, response }) => {
@@ -267,7 +279,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
           costs, stats: displayedStats, ...(displayedStats.length ? { statTotal: displayedStats.reduce((sum: number, stat: any) => sum + stat.value, 0) } : {}), perks
         }];
       });
-      if (hasCurrentExoticClassItem) {
+      if (currentExoticClassItemSet) {
         // Bungie's vendor response exposes the class-item slot through the
         // requested character. The slot itself is weekly stock shared by all
         // three classes, so complete the storefront with the matching current
@@ -275,7 +287,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
         const template = offers.find((offer) => offer.category === "exotic-class-item");
         if (template) {
           const present = new Set(offers.filter((offer) => offer.category === "exotic-class-item").map((offer) => offer.itemHash));
-          for (const classItem of XUR_EXOTIC_CLASS_ITEMS) {
+          for (const classItem of currentExoticClassItemSet) {
             if (present.has(classItem.itemHash)) continue;
             const definition: any = definitions[classItem.itemHash];
             if (!definition) continue;

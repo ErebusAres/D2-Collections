@@ -256,9 +256,9 @@ describe("xurInventoryFor", () => {
 
   it("completes class items when Strange Gear is character-disabled but Xûr is live", async () => {
     const classItems = {
-      266021826: { displayProperties: { name: "Stoicism", icon: "/stoicism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 2, itemTypeDisplayName: "Titan Mark", equipmentSlot: "Class Armor" },
-      2809120022: { displayProperties: { name: "Relativism", icon: "/relativism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 2, itemTypeDisplayName: "Hunter Cloak", equipmentSlot: "Class Armor" },
-      2273643087: { displayProperties: { name: "Solipsism", icon: "/solipsism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 2, itemTypeDisplayName: "Warlock Bond", equipmentSlot: "Class Armor" }
+      2362430352: { displayProperties: { name: "Stoicism", icon: "/stoicism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 0, itemTypeDisplayName: "Titan Mark", equipmentSlot: "" },
+      102374420: { displayProperties: { name: "Relativism", icon: "/relativism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 0, itemTypeDisplayName: "Hunter Cloak", equipmentSlot: "" },
+      3546314515: { displayProperties: { name: "Solipsism", icon: "/solipsism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 0, itemTypeDisplayName: "Warlock Bond", equipmentSlot: "" }
     };
     vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL | Request) => {
       const url = String(input);
@@ -266,7 +266,7 @@ describe("xurInventoryFor", () => {
       const gear = url.includes("3751514131");
       return Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: {
         vendor: { data: { enabled: !gear } },
-        sales: { data: gear ? { 7: { itemHash: 2273643087, costs: [] } } : {} },
+        sales: { data: gear ? { 7: { itemHash: 3546314515, costs: [] } } : {} },
         itemComponents: { stats: { data: gear ? { 7: { stats: { 392767087: { value: 0 } } } } : {} } }
       } }), { status: 200, headers: { "Content-Type": "application/json" } }));
     }));
