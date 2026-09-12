@@ -213,7 +213,10 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
     let offers: any[] | undefined;
     if (sales.length > 0 && includeDetails) {
       const offeredItemHashes = [...new Set(sales.map(({ sale }) => String(sale?.itemHash || "")).filter(Boolean))];
-      const hasLiveExoticClassItem = liveSales.some(({ sale }) => XUR_EXOTIC_CLASS_ITEMS.some((item) => item.itemHash === String(sale?.itemHash || "")));
+      // Bungie can mark the character-specific Strange Gear storefront disabled
+      // while still returning its current sale rows. If Xûr is live and one of
+      // the three class-item hashes is present, that weekly slot is active.
+      const hasCurrentExoticClassItem = enabled && offeredItemHashes.some((hash) => XUR_EXOTIC_CLASS_ITEMS.some((item) => item.itemHash === hash));
       const socketHashes = sales.flatMap(({ saleIndex, response }) => (response?.itemComponents?.sockets?.data?.[saleIndex]?.sockets || [])
         .filter((socket: any) => socket?.isVisible !== false && socket?.isEnabled !== false)
         .map((socket: any) => String(socket?.plugHash || "")).filter(Boolean));
@@ -222,7 +225,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
         ...offeredItemHashes,
         ...socketHashes,
         ...costHashes,
-        ...(hasLiveExoticClassItem ? XUR_EXOTIC_CLASS_ITEMS.map((item) => item.itemHash) : [])
+        ...(hasCurrentExoticClassItem ? XUR_EXOTIC_CLASS_ITEMS.map((item) => item.itemHash) : [])
       ])]);
       const classes = ["Titan", "Hunter", "Warlock"] as const;
       offers = sales.flatMap(({ vendorHash, saleIndex, sale, response }) => {
@@ -247,6 +250,7 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
           if (!definition) return [];
           return [{ statHash, ...definition, value: Number(stat?.value || 0) }];
         });
+        const displayedStats = category === "exotic-class-item" && stats.every((stat) => stat.value === 0) ? [] : stats;
         const perks = (socketsBySale[saleIndex]?.sockets || []).flatMap((socket: any) => {
           if (!socket?.plugHash || socket?.isVisible === false || socket?.isEnabled === false) return [];
           const itemHash = String(socket.plugHash);
@@ -260,10 +264,10 @@ export async function xurInventoryFor(row: SessionRow, characterId: string, env:
           icon: imageUrl(definition.displayProperties?.icon), rarity, itemType: itemTypeName, slot,
           ...(definition.collectibleHash ? { collectibleHash: String(definition.collectibleHash) } : {}),
           ...(knownClassItem ? { className: knownClassItem.className } : classType >= 0 && classType <= 2 ? { className: classes[classType] } : {}), quantity: Math.max(1, Number(sale?.quantity || 1)), category,
-          costs, stats, ...(stats.length ? { statTotal: stats.reduce((sum: number, stat: any) => sum + stat.value, 0) } : {}), perks
+          costs, stats: displayedStats, ...(displayedStats.length ? { statTotal: displayedStats.reduce((sum: number, stat: any) => sum + stat.value, 0) } : {}), perks
         }];
       });
-      if (hasLiveExoticClassItem) {
+      if (hasCurrentExoticClassItem) {
         // Bungie's vendor response exposes the class-item slot through the
         // requested character. The slot itself is weekly stock shared by all
         // three classes, so complete the storefront with the matching current

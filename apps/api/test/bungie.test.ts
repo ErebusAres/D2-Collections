@@ -254,6 +254,37 @@ describe("xurInventoryFor", () => {
     ]));
   });
 
+  it("completes class items when Strange Gear is character-disabled but Xûr is live", async () => {
+    const classItems = {
+      266021826: { displayProperties: { name: "Stoicism", icon: "/stoicism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 2, itemTypeDisplayName: "Titan Mark", equipmentSlot: "Class Armor" },
+      2809120022: { displayProperties: { name: "Relativism", icon: "/relativism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 2, itemTypeDisplayName: "Hunter Cloak", equipmentSlot: "Class Armor" },
+      2273643087: { displayProperties: { name: "Solipsism", icon: "/solipsism.png" }, inventory: { tierTypeName: "Exotic" }, itemType: 2, itemTypeDisplayName: "Warlock Bond", equipmentSlot: "Class Armor" }
+    };
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("companion-manifest.json")) return Promise.resolve(new Response(JSON.stringify({ version: "xur-disabled-class-items", itemDefinitionChunks: [], itemDefinitions: classItems }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      const gear = url.includes("3751514131");
+      return Promise.resolve(new Response(JSON.stringify({ ErrorCode: 1, Response: {
+        vendor: { data: { enabled: !gear } },
+        sales: { data: gear ? { 7: { itemHash: 2273643087, costs: [] } } : {} },
+        itemComponents: { stats: { data: gear ? { 7: { stats: { 392767087: { value: 0 } } } } : {} } }
+      } }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    }));
+
+    const result = await xurInventoryFor(
+      { membership_type: 3, membership_id: "disabled-class-items-member" } as SessionRow,
+      "warlock-character",
+      { BUNGIE_API_KEY: "test", GAME_DATA_URL: "https://disabled-class-items.test/data/manifest.json" } as Env,
+      "access",
+      true
+    );
+
+    const offers = result.offers?.filter((offer) => offer.category === "exotic-class-item") || [];
+    expect(offers).toHaveLength(3);
+    expect(offers.find((offer) => offer.name === "Solipsism")).not.toHaveProperty("statTotal");
+    expect(offers.find((offer) => offer.name === "Solipsism")?.stats).toEqual([]);
+  });
+
   it("bypasses its short-lived character inventory cache for a forced refresh", async () => {
     let itemHash = 111;
     const fetchMock = vi.fn().mockImplementation((input: string | URL | Request) => {
