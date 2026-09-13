@@ -1,6 +1,7 @@
 import { Activity, CheckCircle2, Clipboard, Copy, LogOut, Play, ShieldAlert, TriangleAlert, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { api, describeApiError, getClientReliabilityDiagnostics, getLastApiErrorDiagnostics } from "../services/api/client";
+import { api, describeApiError } from "../services/api/client";
+import { connectionFailureReport, getLastServiceIncident, getClientReliabilityDiagnostics, getLastApiErrorDiagnostics } from "../services/api/incidentReport";
 import styles from "./SupportPage.module.css";
 
 type Status = "pass" | "warning" | "fail" | "not-applicable";
@@ -8,6 +9,8 @@ interface DiagnosticTest { id: string; name: string; status: Status; durationMs:
 interface DiagnosticReport { reportVersion: number; timestamp: string; guardianNexus: Record<string, unknown>; session: Record<string, unknown>; tests: DiagnosticTest[]; profileTests: Array<Record<string, unknown>>; applicationBootstrap: Record<string, unknown>; diagnosis: { code: string; summary: string; nextSteps: string[] }; browser?: Record<string, unknown> }
 
 export function SupportPage() {
+  const lastIncident = useMemo(getLastServiceIncident, []);
+  const [incidentCopied, setIncidentCopied] = useState(false);
   const [report, setReport] = useState<DiagnosticReport>();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
@@ -49,6 +52,7 @@ export function SupportPage() {
     }
   };
   return <main className={styles.page}>
+    {lastIncident && <section className={styles.runPanel}><div><TriangleAlert /><span><b>Last service issue</b><small>{lastIncident.message} · {new Date(lastIncident.occurredAt).toLocaleString()}</small></span></div><button onClick={() => void navigator.clipboard.writeText(connectionFailureReport(lastIncident)).then(() => setIncidentCopied(true)).catch(() => setError("Could not copy the report. Try again."))}><Copy />{incidentCopied ? "Copied" : "Copy last issue"}</button></section>}
     <header className={styles.hero}><div><span><ShieldAlert /> Guardian Nexus support</span><h1>Account & Login Diagnostics</h1><p>This private tool follows the same session, Bungie membership, profile, character, and account-normalization chain used by Guardian Nexus. It does not move gear, change settings, or upload the report.</p></div><a href="/">Return to Guardian Nexus</a></header>
     <section className={styles.runPanel}><div><Activity /><span><b>Find the exact failed stage</b><small>Only the current browser session is inspected. Credentials, cookies, API keys, and authorization headers are never included.</small></span></div><div className={styles.runActions}><button onClick={() => void run()} disabled={running || resetting}><Play />{running ? "Running diagnostics…" : "Run Diagnostics"}</button><button className={styles.resetAction} onClick={() => void resetSignIn()} disabled={running || resetting}><LogOut />{resetting ? "Clearing sign-in…" : resetArmed ? "Confirm clear & reconnect" : "Cannot sign out?"}</button></div></section>
     {resetArmed && !resetting && <section className={styles.resetWarning}><TriangleAlert /><div><b>Clear Guardian Nexus sign-in on every browser?</b><p>This removes all Guardian Nexus login sessions for this account, clears this browser cookie, and starts Bungie authorization again. It does not alter the Destiny or Bungie account.</p></div><button onClick={() => setResetArmed(false)}>Cancel</button></section>}

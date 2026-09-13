@@ -1,4 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { mergeNewerFireteamPresence } from "./fireteamSnapshot";
+
+describe("independent roster and progress commits", () => {
+  it("keeps newer roster evidence while accepting refreshed shared progress", () => {
+    const progress = { activityPartySourceObservedAt: "2026-09-12T12:00:00Z", activityPartyMembers: ["old"], trackedItems: ["new progress"] };
+    const presence = { activityPartySourceObservedAt: "2026-09-12T12:00:10Z", activityPartyMembers: ["new ally"], trackedItems: ["old progress"] };
+    expect(mergeNewerFireteamPresence(progress, presence)).toMatchObject({ activityPartyMembers: ["new ally"], trackedItems: ["new progress"] });
+    expect(mergeNewerFireteamPresence(presence, progress)).toBe(presence);
+  });
+});
 import {
   authoritativeFireteamParty,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
@@ -109,6 +119,13 @@ describe("Fireteam snapshot contract", () => {
     expect(authoritativeFireteamParty(observed, "self", "unknown", false)).toEqual([
       { membershipId: "self", displayName: "Self", status: 0, observedInParty: false }
     ]);
+  });
+
+  it("does not treat unavailable party data as a departure observation", () => {
+    const previous = [{ membershipId: "ally", displayName: "Ally", status: 1, observedInParty: true }];
+    const result = reconcileFireteamParty([], previous, "self", "unknown", false, 2);
+    expect(result.missingObservations).toBe(2);
+    expect(result.members).toEqual([{ ...previous[0], status: 0, observedInParty: false }]);
   });
 
   it("requires three consecutive missing observations before removing known teammates", () => {

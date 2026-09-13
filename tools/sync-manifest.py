@@ -410,6 +410,23 @@ def minimal_companion_item(definition: dict, damage_types: dict[str, dict], buck
     }
 
 
+def observation_item(definition: dict) -> dict:
+    """Only fields consumed by Recent Loot's stack/currency observations."""
+    if definition.get("itemType") in (2, 3):
+        return {"itemType": definition["itemType"]}
+    return {key: definition.get(key, {}) for key in ("displayProperties", "itemType", "itemTypeDisplayName", "inventory")}
+
+
+def write_observation_manifest(companion_items: dict, version: str, generated_at: str) -> None:
+    chunks: list[dict] = [{} for _ in range(8)]
+    for key, value in companion_items.items():
+        chunks[int(key) % len(chunks)][key] = observation_item(value)
+    paths = [f"observation-items-{index}.json" for index in range(len(chunks))]
+    for path, definitions in zip(paths, chunks):
+        OUTPUT.with_name(path).write_text(json.dumps({"version": version, "itemDefinitions": definitions}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    OUTPUT.with_name("observation-items.json").write_text(json.dumps({"version": version, "generatedAt": generated_at, "chunks": paths}, separators=(",", ":")), encoding="utf-8")
+
+
 def is_build_advisor_definition(definition: dict) -> bool:
     """Keep only the non-gear definitions the runtime advisor actually resolves."""
     kind = build_catalog_kind(definition)
@@ -1311,6 +1328,7 @@ def main() -> None:
         for key, value in inventory.items()
         if not value.get("redacted") and (value.get("displayProperties") or {}).get("name")
     }
+    write_observation_manifest(companion_items, version, generated_at)
     companion_chunks: list[dict[str, dict]] = [{} for _ in range(COMPANION_CHUNK_COUNT)]
     for key, value in companion_items.items():
         companion_chunks[int(key) % COMPANION_CHUNK_COUNT][key] = value

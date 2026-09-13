@@ -28,6 +28,17 @@ beforeEach(() => {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("API client", () => {
+  it("ends a stalled read after fifteen seconds", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation((_path, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
+    }));
+    const request = api("/api/v2/fireteam?characterId=timeout");
+    const assertion = expect(request).rejects.toMatchObject({ code: "request_timeout", status: 408 });
+    await vi.advanceTimersByTimeAsync(15_000);
+    await assertion;
+  });
+
   it("expires abandoned saved-data warning entries after two minutes", () => {
     const failedAt = Date.parse("2026-08-10T12:00:00.000Z");
     expect(savedReadFailureIsCurrent(failedAt, failedAt + 120_000)).toBe(true);
@@ -89,13 +100,13 @@ describe("API client", () => {
   it("retains a Fireteam 1102 Ray ID and opens a per-route circuit breaker", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("error code: 1102 Worker exceeded resource limits", { status: 500, headers: { "cf-ray": "abc123-ORD" } }));
     await expect(api("/api/v2/fireteam?characterId=c1")).rejects.toMatchObject({ code: "worker_resource_limit", message: "Fireteam snapshot delayed—showing the last committed version.", requestId: "abc123" });
-    await expect(api("/api/v2/fireteam?characterId=c2")).rejects.toMatchObject({ code: "worker_resource_limit" });
+    await expect(api("/api/v2/fireteam?characterId=c2")).rejects.toMatchObject({ code: "retry_scheduled" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     offlineCache.readApiResponse.mockResolvedValue({
       savedAt: new Date(Date.now() - 3 * 60_000).toISOString(),
       envelope: { data: { members: [{ membershipId: "2", isSelf: false }], trackedItems: ["stale"] }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "saved" }
     });
-    await expect(api<any>("/api/v2/fireteam?characterId=c3")).rejects.toMatchObject({ code: "worker_resource_limit" });
+    await expect(api<any>("/api/v2/fireteam?characterId=c3")).rejects.toMatchObject({ code: "retry_scheduled" });
     expect(offlineCache.readApiResponse).not.toHaveBeenCalled();
   });
 

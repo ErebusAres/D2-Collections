@@ -701,6 +701,8 @@ export interface FireteamData {
   pageUpdatedAt?: string;
   pageRefreshDueAt?: string;
   presenceObservedAt?: string;
+  presenceCheckedAt?: string;
+  presenceState?: "waiting" | "current" | "refreshing" | "delayed";
   snapshotVersion?: number;
   refreshState?: "waiting" | "current" | "refreshing" | "delayed";
   refreshAttemptedAt?: string;
@@ -904,6 +906,7 @@ export interface LootWatcherRunResult {
 }
 
 export interface LootWatcherStatus {
+  lastSummary?: string;
   enabled: boolean;
   state: "off" | "scheduled" | "running" | "current" | "delayed";
   lastRunAt?: string;

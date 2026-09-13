@@ -649,6 +649,26 @@ async function loadCompanionManifestIndex(env: Env): Promise<CompanionManifest> 
   return value;
 }
 
+export async function loadObservationManifest(env: Env, itemHashes: string[]): Promise<CompanionManifest> {
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "observation-items.json");
+  const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+  // Compatibility during the API-before-web deployment window.
+  if (response.status === 404) return loadCompanionManifestForHashes(env, itemHashes);
+  if (!response.ok) throw new Error("Recent Loot item definitions are unavailable.");
+  const index = await response.json() as { version: string; generatedAt: string; chunks: string[] };
+  if (index.chunks?.length !== 8 || !index.version) throw new Error("Recent Loot item definitions are invalid.");
+  const wanted = new Set(itemHashes);
+  const definitions: Record<string, any> = {};
+  for (const chunkIndex of new Set(itemHashes.map((hash) => Number(hash) % 8))) {
+    const chunkResponse = await fetch(new URL(index.chunks[chunkIndex]!, url).toString(), { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!chunkResponse.ok) throw new Error("Recent Loot item definitions are unavailable.");
+    const chunk = await chunkResponse.json() as { version: string; itemDefinitions: Record<string, any> };
+    if (chunk.version !== index.version) throw new Error("Recent Loot item definitions are updating.");
+    for (const [hash, definition] of Object.entries(chunk.itemDefinitions)) if (wanted.has(hash)) definitions[hash] = definition;
+  }
+  return { version: index.version, generatedAt: index.generatedAt, itemDefinitions: definitions, bucketDefinitions: {}, loadoutNameDefinitions: {}, loadoutIconDefinitions: {}, loadoutColorDefinitions: {} };
+}
+
 export async function loadCompanionManifestForHashes(env: Env, itemHashes: string[]): Promise<CompanionManifest> {
   const index = await loadCompanionManifestIndex(env);
   const definitions = await companionItemDefinitionsFor(env, [...new Set(itemHashes.filter((hash) => /^\d+$/.test(hash)))]);

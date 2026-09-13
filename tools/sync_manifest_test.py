@@ -14,6 +14,11 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_observation_items_keep_inventory_labels_but_not_weapon_rolls(self) -> None:
+        self.assertEqual(SYNC_MANIFEST.observation_item({"itemType": 3, "sockets": [1, 2]}), {"itemType": 3})
+        material = {"itemType": 8, "itemTypeDisplayName": "Material", "displayProperties": {"name": "Core"}, "inventory": {"tierTypeName": "Legendary"}, "unused": "discard"}
+        self.assertEqual(SYNC_MANIFEST.observation_item(material), {key: value for key, value in material.items() if key != "unused"})
+
     def test_build_advisor_manifest_keeps_abilities_mods_and_collection_items_only(self) -> None:
         inventory = {
             "1": item_definition(name="Bleak Watcher", item_type="Stasis Aspect", plug="warlock.stasis.totems", trait_id="item.plug.aspect"),

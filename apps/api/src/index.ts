@@ -43,6 +43,7 @@ import type {
   UserPreferencesData,
   XurData
 } from "@guardian-nexus/contracts";
+import { loadObservationManifest } from "./bungie";
 import { z } from "zod";
 import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifestForHashes, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadLootWatcherManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
@@ -84,18 +85,18 @@ import {
 import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
-import { FIRETEAM_RECENT_ITEM_LIMIT, observeRecentItems, readRecentItems, recentItemObservationDue, removeRecentGearItem } from "./recentItems";
+import { FIRETEAM_RECENT_ITEM_LIMIT, observeRecentItems, readRecentItems, removeRecentGearItem } from "./recentItems";
 import { configuredFireteamActivityFeedEnabled, FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
 import { equippedCharacterPower, guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
 import {
   FIRETEAM_ACTIVE_WINDOW_MS,
   FIRETEAM_REFRESH_LEASE_MS,
   FIRETEAM_MAX_REFRESHES_PER_CRON,
+  FIRETEAM_MAX_PRESENCE_REFRESHES_PER_CRON,
+  mergeNewerFireteamPresence,
   FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS,
   fireteamMemberDisplayName,
-  fireteamPresenceRefreshDue,
   fireteamPresenceUsable,
-  fireteamRefreshDue,
   fireteamRefreshState,
   fireteamRetryAfter,
   fireteamSharedQuests,
@@ -245,6 +246,10 @@ export default {
     const task = backgroundTaskForCron(controller.cron);
     if (!task) {
       console.error("unknown_scheduled_cron", controller.cron);
+      return;
+    }
+    if (task === "recent-loot") {
+      await refreshDueRecentItems(env);
       return;
     }
     if (task === "loot-watchers") {
@@ -1314,6 +1319,11 @@ async function updateUserPreference(request: Request, row: SessionRow, env: Env,
   await env.DB.prepare(`INSERT INTO user_preferences (membership_id, preference_key, preference_value, updated_at) VALUES (?, ?, ?, ?)
     ON CONFLICT(membership_id, preference_key) DO UPDATE SET preference_value = excluded.preference_value, updated_at = excluded.updated_at`)
     .bind(row.membership_id, input.key, input.value, now).run();
+  if (input.key === "site.character") {
+    await env.DB.prepare(`UPDATE loot_watcher_jobs SET character_id = ?, run_started_at = NULL,
+      next_run_at = ?, updated_at = ? WHERE membership_id = ? AND character_id <> ?`)
+      .bind(input.value, now, now, row.membership_id, input.value).run();
+  }
   return envelope<UserPreferencesData>({ values: { [input.key]: input.value } }, env, context);
 }
 
@@ -1335,11 +1345,7 @@ async function gear(row: SessionRow, env: Env, context: RequestContext): Promise
 async function recentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const data = await readRecentItems(row.membership_id, env);
   const observationAgeMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
-  if (recentItemObservationDue(data)) {
-    context.waitUntil?.(refreshRecentItemObservationsWithLease(row, env, context.url.searchParams.get("characterId") || undefined).catch((error: any) => {
-      console.log(JSON.stringify({ event: "recent_items_observation_failed", category: String(error?.code || error?.name || "unknown").slice(0, 80) }));
-    }));
-  }
+  await requestRecentItemsRefresh(row.membership_id, context.url.searchParams.get("characterId"), env);
   return envelope<RecentItemTimelineData>(data, env, context, {
     observedAt: data.observedAt,
     state: observationAgeMs > 2 * 60_000 ? "stale" : "fresh",
@@ -1347,20 +1353,59 @@ async function recentItems(row: SessionRow, env: Env, context: RequestContext): 
   });
 }
 
+async function requestRecentItemsRefresh(membershipId: string, characterId: string | null, env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO recent_item_refresh_state (membership_id, refreshed_at, requested_at, character_id)
+    VALUES (?, '1970-01-01T00:00:00.000Z', ?, ?)
+    ON CONFLICT(membership_id) DO UPDATE SET requested_at = excluded.requested_at,
+      character_id = COALESCE(excluded.character_id, recent_item_refresh_state.character_id)
+    WHERE requested_at IS NULL OR requested_at < ? OR character_id IS NOT excluded.character_id`)
+    .bind(membershipId, now, characterId, new Date(Date.now() - 55_000).toISOString()).run();
+}
+
+async function refreshDueRecentItems(env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  const jobs = await env.DB.prepare(`SELECT r.membership_id, COALESCE(w.character_id, r.character_id) AS character_id
+    FROM recent_item_refresh_state r LEFT JOIN loot_watcher_jobs w ON w.membership_id = r.membership_id
+    WHERE (r.requested_at >= ? OR w.membership_id IS NOT NULL)
+      AND r.refreshed_at <= ? AND (r.retry_after_at IS NULL OR r.retry_after_at <= ?)
+      AND (r.refresh_started_at IS NULL OR r.refresh_started_at < ?)
+    ORDER BY COALESCE(r.retry_after_at, r.refreshed_at) ASC LIMIT 1`)
+    .bind(new Date(Date.now() - FIRETEAM_ACTIVE_WINDOW_MS).toISOString(),
+      new Date(Date.now() - 60_000).toISOString(), now,
+      new Date(Date.now() - 2 * 60_000).toISOString())
+    .all<{ membership_id: string; character_id?: string }>();
+  for (const job of jobs.results || []) {
+    const started = Date.now();
+    try {
+      const row = await fireteamSessionFor(job.membership_id, env);
+      if (!row) {
+        await env.DB.prepare("UPDATE recent_item_refresh_state SET last_error = 'authorization_required', retry_after_at = ? WHERE membership_id = ?")
+          .bind(new Date(Date.now() + 5 * 60_000).toISOString(), job.membership_id).run();
+        continue;
+      }
+      await refreshRecentItemObservationsWithLease(row, env, job.character_id);
+      console.log(JSON.stringify({ event: "recent_loot_job", outcome: "success", durationMs: Date.now() - started }));
+    } catch (error: any) {
+      console.error(JSON.stringify({ event: "recent_loot_job", outcome: "failed", code: String(error?.code || "refresh_failed"), durationMs: Date.now() - started }));
+    }
+  }
+}
+
 async function refreshRecentItemObservationsWithLease(row: SessionRow, env: Env, characterId?: string): Promise<void> {
   const startedAt = new Date().toISOString();
   await env.DB.prepare("INSERT OR IGNORE INTO recent_item_refresh_state (membership_id, refreshed_at, refresh_started_at, last_error) VALUES (?, ?, NULL, NULL)")
     .bind(row.membership_id, new Date(0).toISOString()).run();
-  const claim = await env.DB.prepare("UPDATE recent_item_refresh_state SET refresh_started_at = ? WHERE membership_id = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
-    .bind(startedAt, row.membership_id, new Date(Date.now() - 2 * 60_000).toISOString()).run();
+  const claim = await env.DB.prepare("UPDATE recent_item_refresh_state SET refresh_started_at = ? WHERE membership_id = ? AND (retry_after_at IS NULL OR retry_after_at <= ?) AND (refresh_started_at IS NULL OR refresh_started_at < ?)")
+    .bind(startedAt, row.membership_id, startedAt, new Date(Date.now() - 2 * 60_000).toISOString()).run();
   if (Number(claim.meta?.changes || 0) < 1) return;
   try {
     await refreshRecentItemObservations(row, env, characterId);
-    await env.DB.prepare("UPDATE recent_item_refresh_state SET refreshed_at = ?, refresh_started_at = NULL, last_error = NULL WHERE membership_id = ?")
-      .bind(new Date().toISOString(), row.membership_id).run();
+    await env.DB.prepare("UPDATE recent_item_refresh_state SET refreshed_at = ?, refresh_started_at = NULL, last_error = NULL, retry_after_at = NULL WHERE membership_id = ? AND refresh_started_at = ?")
+      .bind(new Date().toISOString(), row.membership_id, startedAt).run();
   } catch (error: any) {
-    await env.DB.prepare("UPDATE recent_item_refresh_state SET refresh_started_at = NULL, last_error = ? WHERE membership_id = ?")
-      .bind(String(error?.code || error?.message || "Recent Items refresh failed.").slice(0, 240), row.membership_id).run().catch(() => undefined);
+    await env.DB.prepare("UPDATE recent_item_refresh_state SET refresh_started_at = NULL, last_error = ?, retry_after_at = ? WHERE membership_id = ? AND refresh_started_at = ?")
+      .bind(String(error?.code || error?.message || "Recent Items refresh failed.").slice(0, 240), fireteamRetryAfter(error), row.membership_id, startedAt).run().catch(() => undefined);
     throw error;
   }
 }
@@ -1378,7 +1423,7 @@ async function observeRecentItemsFromProfile(
   observedAt = new Date().toISOString()
 ): Promise<void> {
   const [gearManifest, collectionManifest] = await Promise.all([loadGearManifest(env), loadManifest(env)]);
-  const companionManifest = await loadCompanionManifestForHashes(env, uninstancedInventoryItemHashes(profile));
+  const companionManifest = await loadObservationManifest(env, uninstancedInventoryItemHashes(profile));
   const character = selectedCharacter(charactersFromProfile(profile), characterId);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const states = await gearStates(row.membership_id, env);
@@ -1389,11 +1434,6 @@ async function observeRecentItemsFromProfile(
   }
   const collectionData = normalizeCollection(profile, collectionManifest, character.className);
   await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now: observedAt });
-  await env.DB.prepare(`
-    INSERT INTO recent_item_refresh_state (membership_id, refreshed_at, refresh_started_at, last_error)
-    VALUES (?, ?, NULL, NULL)
-    ON CONFLICT(membership_id) DO UPDATE SET refreshed_at = excluded.refreshed_at, refresh_started_at = NULL, last_error = NULL
-  `).bind(row.membership_id, observedAt).run();
 }
 
 function uninstancedInventoryItemHashes(profile: any): string[] {
@@ -1789,6 +1829,7 @@ async function runLootWatchers(request: Request, row: SessionRow, env: Env, cont
     return envelope<LootWatcherRunResult>({ movedToVault: [], locked: [], taggedJunk: [], skipped: [], warnings: [] }, env, context);
   }
   await scheduleLootWatcher(row.membership_id, input.characterId, env);
+  await requestRecentItemsRefresh(row.membership_id, input.characterId, env);
   return envelope<LootWatcherRunResult>({
     movedToVault: [], locked: [], taggedJunk: [],
     skipped: ["Watcher settings saved. The next background check is queued."], warnings: []
@@ -1813,7 +1854,7 @@ async function ensureLootWatcherJobs(env: Env): Promise<void> {
       ON character.membership_id = enabled.membership_id AND character.preference_key = 'site.character'
     LEFT JOIN fireteam_snapshots snapshot ON snapshot.membership_id = enabled.membership_id
     WHERE COALESCE(character.preference_value, snapshot.character_id) IS NOT NULL
-    ON CONFLICT(membership_id) DO UPDATE SET character_id = excluded.character_id, updated_at = excluded.updated_at
+    ON CONFLICT(membership_id) DO UPDATE SET character_id = excluded.character_id, updated_at = excluded.updated_at, run_started_at = NULL
     WHERE loot_watcher_jobs.character_id <> excluded.character_id
   `).bind(now, now, ...Object.values(LOOT_WATCHER_PREFERENCE_KEYS)).run();
 }
@@ -1829,7 +1870,7 @@ async function scheduleLootWatcher(membershipId: string, characterId: string, en
   `).bind(membershipId, characterId, now, null, now).run();
 }
 
-async function executeLootWatcherPass(row: SessionRow, characterId: string, config: LootWatcherConfig, env: Env): Promise<LootWatcherRunResult> {
+async function executeLootWatcherPass(row: SessionRow, characterId: string, config: LootWatcherConfig, env: Env, assertCurrent: () => Promise<void>): Promise<LootWatcherRunResult> {
   const { profile, accessToken } = await profileFor(row, env, "loot-watcher", true);
   const character = charactersFromProfile(profile).find((entry) => entry.characterId === characterId);
   if (!character) throw httpError(403, "character_invalid", "That character does not belong to this Guardian.");
@@ -1849,7 +1890,8 @@ async function executeLootWatcherPass(row: SessionRow, characterId: string, conf
   for (let offset = 0; offset < missingStates.length; offset += 80) {
     await env.DB.batch(missingStates.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
   }
-  const result = await applyLootWatcherActions(row, env, profile, accessToken, data, config, newInstanceIds, seen.size > 0);
+  const result = await applyLootWatcherActions(row, env, profile, accessToken, data, config, newInstanceIds, seen.size > 0, assertCurrent);
+  await assertCurrent();
   if (!result.warnings.length) {
     for (let offset = 0; offset < physicalItems.length; offset += 80) {
       await env.DB.batch(physicalItems.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO loot_watcher_seen_items (membership_id, item_instance_id, first_seen_at) VALUES (?, ?, ?)").bind(row.membership_id, item.instanceId, now)));
@@ -1858,17 +1900,19 @@ async function executeLootWatcherPass(row: SessionRow, characterId: string, conf
   return result;
 }
 
-async function completeLootWatcherJob(membershipId: string, result: LootWatcherRunResult, env: Env): Promise<void> {
+async function completeLootWatcherJob(membershipId: string, startedAt: string, result: LootWatcherRunResult, env: Env): Promise<void> {
   const now = new Date().toISOString();
   const nextRunAt = nextLootWatcherRunAt();
   const warning = result.warnings[0];
+  const actionSummary = [result.locked.length ? `${result.locked.length} locked` : "", result.movedToVault.length ? `${result.movedToVault.length} moved to vault` : "", result.taggedJunk.length ? `${result.taggedJunk.length} tagged junk` : ""].filter(Boolean).join(" · ");
+  const summary = [actionSummary || "No changes needed", warning || result.skipped[0]].filter(Boolean).join(" · ").slice(0, 500);
   await env.DB.prepare(`
     UPDATE loot_watcher_jobs SET run_started_at = NULL, last_run_at = ?, next_run_at = ?, updated_at = ?,
       last_success_at = CASE WHEN ? IS NULL THEN ? ELSE last_success_at END,
       last_error_code = CASE WHEN ? IS NULL THEN NULL ELSE 'action_partial' END,
-      last_error_message = ?
-    WHERE membership_id = ?
-  `).bind(now, nextRunAt, now, warning || null, now, warning || null, warning || null, membershipId).run();
+      last_error_message = ?, last_summary = ?
+    WHERE membership_id = ? AND run_started_at = ?
+  `).bind(now, nextRunAt, now, warning || null, now, warning || null, warning || null, summary, membershipId, startedAt).run();
 }
 
 async function refreshDueLootWatchers(env: Env): Promise<void> {
@@ -1891,11 +1935,19 @@ async function refreshDueLootWatchers(env: Env): Promise<void> {
       if (!row) throw httpError(401, "authorization_required", "Bungie authorization must be renewed.");
       const config = await lootWatcherConfigFor(job.membership_id, env);
       if (!Object.values(config).some(Boolean)) {
-        await env.DB.prepare("DELETE FROM loot_watcher_jobs WHERE membership_id = ?").bind(job.membership_id).run();
+        await env.DB.prepare("DELETE FROM loot_watcher_jobs WHERE membership_id = ? AND run_started_at = ?").bind(job.membership_id, startedAt).run();
         continue;
       }
-      const result = await executeLootWatcherPass(row, job.character_id, config, env);
-      await completeLootWatcherJob(job.membership_id, result, env);
+      const assertCurrent = async () => {
+        const current = await env.DB.prepare(`SELECT 1 AS valid FROM loot_watcher_jobs
+          WHERE membership_id = ? AND character_id = ? AND run_started_at = ?
+            AND run_started_at > ?`)
+          .bind(job.membership_id, job.character_id, startedAt, new Date(Date.now() - LOOT_WATCHER_LEASE_MS).toISOString())
+          .first<{ valid: number }>();
+        if (!current) throw httpError(409, "watcher_superseded", "Watcher settings changed; the previous check stopped.");
+      };
+      const result = await executeLootWatcherPass(row, job.character_id, config, env, assertCurrent);
+      await completeLootWatcherJob(job.membership_id, startedAt, result, env);
     } catch (error: any) {
       await env.DB.prepare(`
         UPDATE loot_watcher_jobs SET run_started_at = NULL, next_run_at = ?, updated_at = ?,
@@ -1912,11 +1964,12 @@ async function refreshDueLootWatchers(env: Env): Promise<void> {
   }
 }
 
-async function applyLootWatcherActions(row: SessionRow, env: Env, profile: any, accessToken: string, data: GearData, config: LootWatcherConfig, newInstanceIds: Set<string>, baselineEstablished: boolean): Promise<LootWatcherRunResult> {
+async function applyLootWatcherActions(row: SessionRow, env: Env, profile: any, accessToken: string, data: GearData, config: LootWatcherConfig, newInstanceIds: Set<string>, baselineEstablished: boolean, assertCurrent: () => Promise<void>): Promise<LootWatcherRunResult> {
   const plan = planLootWatchers(data, config, newInstanceIds, baselineEstablished);
   const byId = gearActionItemsFromProfile(profile);
   const result: LootWatcherRunResult = { movedToVault: [], locked: [], taggedJunk: [], skipped: [...plan.skipped], warnings: [] };
-  for (const instanceId of plan.lock.slice(0, 20)) {
+  for (const instanceId of plan.lock.slice(0, 5)) {
+    await assertCurrent();
     const item = byId.get(instanceId);
     if (!item) { result.skipped.push(`${instanceId} is no longer owned.`); continue; }
     try {
@@ -1928,16 +1981,22 @@ async function applyLootWatcherActions(row: SessionRow, env: Env, profile: any, 
       await auditGear(row, env, "lootWatcherLock", instanceId, item.ownerCharacterId || data.selectedCharacterId, Number(error?.status || 500), String(error?.code || "action_failed"), 0);
     }
   }
-  if (plan.lock.length > 20) result.warnings.push(`${plan.lock.length - 20} additional Power locks will be retried on the next watcher run.`);
+  if (plan.lock.length > 5) result.warnings.push(`${plan.lock.length - 5} additional locks will be retried on the next watcher run.`);
   const junkItems = data.items.filter((item) => plan.tagJunk.includes(item.instanceId));
   for (let offset = 0; offset < junkItems.length; offset += 80) {
-    await env.DB.batch(junkItems.slice(offset, offset + 80).map((item) => env.DB.prepare(`
+    await assertCurrent();
+    const batch = junkItems.slice(offset, offset + 80);
+    const writes = await env.DB.batch(batch.map((item) => env.DB.prepare(`
       INSERT INTO gear_item_state (membership_id, item_instance_id, tag, first_seen_at, updated_at) VALUES (?, ?, 'junk', ?, ?)
       ON CONFLICT(membership_id, item_instance_id) DO UPDATE SET tag = 'junk', updated_at = excluded.updated_at
+        WHERE gear_item_state.tag IS NULL OR gear_item_state.tag = ''
     `).bind(row.membership_id, item.instanceId, item.firstSeenAt, new Date().toISOString())));
+    writes.forEach((write, index) => {
+      if (Number(write.meta?.changes || 0) > 0) result.taggedJunk.push(batch[index]!.instanceId);
+    });
   }
-  result.taggedJunk.push(...junkItems.map((item) => item.instanceId));
   for (const instanceId of plan.moveToVault.slice(0, 5)) {
+    await assertCurrent();
     const item = byId.get(instanceId);
     if (!item || !item.ownerCharacterId || item.location !== "inventory" || item.equipped) { result.skipped.push(`${instanceId} is not movable inventory gear.`); continue; }
     try {
@@ -2084,6 +2143,10 @@ async function buildFireteamSnapshot(row: SessionRow, refresh: FireteamRefreshRo
   ]);
   const committedAt = new Date().toISOString();
   const rawSourceObservedAt = typeof profile?.responseMintedTimestamp === "string" ? profile.responseMintedTimestamp : undefined;
+  if (previousPayload?.progressSourceObservedAt === rawSourceObservedAt
+    && fireteamSourceAdvanced(undefined, rawSourceObservedAt, Date.parse(committedAt))) {
+    throw httpError(409, "fireteam_source_unchanged", "Bungie data has not changed.");
+  }
   if (!fireteamSourceAdvanced(previousPayload?.progressSourceObservedAt, rawSourceObservedAt, Date.parse(committedAt))) {
     throw httpError(503, "fireteam_source_not_advanced", "Bungie has not produced a newer Fireteam source snapshot yet.", 60);
   }
@@ -2232,6 +2295,15 @@ async function refreshFireteamPresenceSnapshot(membershipId: string, env: Env): 
       throw httpError(503, "fireteam_presence_source_stale", "Bungie has not produced a current Fireteam roster yet.", 60);
     }
     const sourceObservedAt = new Date(Date.parse(rawSourceObservedAt!)).toISOString();
+    if (Date.parse(sourceObservedAt) <= Date.parse(previousPayload?.activityPartySourceObservedAt || "")) {
+      // A successful check of an unchanged source is not another absence
+      // observation. Keep the source timestamp intact and release the lease.
+      await env.DB.prepare(`UPDATE fireteam_snapshots
+        SET presence_refreshed_at = ?, presence_refresh_started_at = NULL, presence_error = NULL
+        WHERE membership_id = ? AND presence_refresh_started_at = ?`)
+        .bind(refreshedAt, membershipId, startedAt).run();
+      return;
+    }
     const characters = charactersFromProfile(profile);
     const sessionObservation = observeGuardianSession(characters, previousPayload?.sessionPresenceEvidence, sourceObservedAt);
     const observedPartyMembers = savedPartyMembers(profile?.profileTransitoryData?.data || profile?.profileTransitory?.data || {}, sessionRow);
@@ -2292,7 +2364,7 @@ async function refreshDueFireteamPresenceSnapshots(env: Env): Promise<void> {
     ORDER BY CASE WHEN last_requested_at >= ? THEN 0 ELSE 1 END,
       presence_refreshed_at ASC, last_requested_at DESC
     LIMIT ?
-  `).bind(now, activeSince, dueBefore, staleLease, activeSince, FIRETEAM_MAX_REFRESHES_PER_CRON).all<{ membership_id: string }>();
+  `).bind(now, activeSince, dueBefore, staleLease, activeSince, FIRETEAM_MAX_PRESENCE_REFRESHES_PER_CRON).all<{ membership_id: string }>();
   for (const entry of results) await refreshFireteamPresenceSnapshot(String(entry.membership_id), env).catch(() => undefined);
 }
 
@@ -2319,7 +2391,7 @@ async function refreshDueFireteamSnapshots(env: Env): Promise<void> {
       v.sharing_mode, v.expires_at, v.settings_json,
       v.payload_json AS snapshot_payload_json, v.refresh_started_at
     FROM fireteam_snapshots v
-    WHERE (v.sharing_mode = 'persistent' OR v.last_requested_at >= ?)
+    WHERE v.last_requested_at >= ?
       AND v.next_refresh_at <= ?
       AND (v.retry_after_at IS NULL OR v.retry_after_at <= ?)
       AND (v.refresh_started_at IS NULL OR v.refresh_started_at < ?)
@@ -2355,6 +2427,10 @@ async function refreshFireteamSnapshot(refresh: FireteamRefreshRow, env: Env): P
   }
   try {
     const snapshot = await buildFireteamSnapshot(sessionRow, refresh, env);
+    const latest = await env.DB.prepare("SELECT payload_json FROM fireteam_snapshots WHERE membership_id = ? AND refresh_started_at = ?")
+      .bind(refresh.membership_id, startedAt).first<{ payload_json?: string }>();
+    const latestPayload = latest?.payload_json ? JSON.parse(latest.payload_json) : {};
+    const payload = mergeNewerFireteamPresence(snapshot.payload, latestPayload);
     const committedAt = new Date().toISOString();
     const nextRefreshAt = nextFireteamRefreshAt(committedAt)!;
     const commit = await env.DB.prepare(`
@@ -2367,12 +2443,22 @@ async function refreshFireteamSnapshot(refresh: FireteamRefreshRow, env: Env): P
             ELSE expires_at
           END,
           refresh_started_at = NULL, retry_after_at = NULL, last_error_code = NULL, last_error_message = NULL
-        WHERE membership_id = ? AND refresh_started_at = ?
-      `).bind(JSON.stringify(snapshot.payload), snapshot.sourceObservedAt, committedAt, nextRefreshAt, committedAt, new Date(Date.now() + 15 * 60_000).toISOString(), refresh.membership_id, startedAt).run();
+        WHERE membership_id = ? AND refresh_started_at = ? AND payload_json IS ?
+          AND character_id = ? AND settings_json IS ? AND site_pinned_quest_ids_json IS ?
+      `).bind(JSON.stringify(payload), payload.activityPartySourceObservedAt || snapshot.sourceObservedAt, committedAt, nextRefreshAt, committedAt, new Date(Date.now() + 15 * 60_000).toISOString(), refresh.membership_id, startedAt, latest?.payload_json || null, refresh.character_id, refresh.settings_json, refresh.site_pinned_quest_ids_json).run();
     if (Number(commit.meta?.changes || 0) < 1) {
       console.log(JSON.stringify({ event: "fireteam_snapshot_commit_superseded" }));
+      await env.DB.prepare("UPDATE fireteam_snapshots SET refresh_started_at = NULL WHERE membership_id = ? AND refresh_started_at = ?")
+        .bind(refresh.membership_id, startedAt).run();
     }
   } catch (error: any) {
+    if (error?.code === "fireteam_source_unchanged") {
+      await env.DB.prepare(`UPDATE fireteam_snapshots SET refresh_started_at = NULL,
+        next_refresh_at = ?, retry_after_at = NULL, last_error_code = NULL, last_error_message = NULL
+        WHERE membership_id = ? AND refresh_started_at = ?`)
+        .bind(nextFireteamRefreshAt(new Date().toISOString()), refresh.membership_id, startedAt).run();
+      return;
+    }
     await env.DB.prepare(`
         UPDATE fireteam_snapshots
         SET refresh_started_at = NULL, retry_after_at = ?, last_error_code = ?, last_error_message = ?
@@ -2387,23 +2473,6 @@ async function refreshFireteamSnapshot(refresh: FireteamRefreshRow, env: Env): P
   }
 }
 
-async function refreshRequestedFireteamSnapshot(membershipId: string, env: Env): Promise<void> {
-  const now = new Date().toISOString();
-  const staleLease = new Date(Date.now() - FIRETEAM_REFRESH_LEASE_MS).toISOString();
-  const refresh = await env.DB.prepare(`
-    SELECT membership_id, display_name, character_id, site_pinned_quest_ids_json,
-      sharing_mode, expires_at, settings_json, payload_json AS snapshot_payload_json,
-      refresh_started_at
-    FROM fireteam_snapshots
-    WHERE membership_id = ?
-      AND (sharing_mode = 'persistent' OR expires_at > ?)
-      AND next_refresh_at <= ?
-      AND (retry_after_at IS NULL OR retry_after_at <= ?)
-      AND (refresh_started_at IS NULL OR refresh_started_at < ?)
-  `).bind(membershipId, now, now, now, staleLease).first<FireteamRefreshRow>();
-  if (refresh) await refreshFireteamSnapshot(refresh, env);
-}
-
 async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const now = new Date().toISOString();
   const [ownSnapshot, watcherJob] = await Promise.all([
@@ -2412,35 +2481,19 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
       WHERE membership_id = ? AND (sharing_mode = 'persistent' OR expires_at > ?)
     `).bind(row.membership_id, now).first<FireteamSnapshotRow>(),
     env.DB.prepare(`
-      SELECT next_run_at, run_started_at, last_run_at, last_success_at, last_error_code
+      SELECT next_run_at, run_started_at, last_run_at, last_success_at, last_error_code, last_summary
       FROM loot_watcher_jobs WHERE membership_id = ?
     `).bind(row.membership_id).first<{
       next_run_at?: string; run_started_at?: string; last_run_at?: string;
-      last_success_at?: string; last_error_code?: string;
+      last_success_at?: string; last_error_code?: string; last_summary?: string;
     }>()
   ]);
-  const fullRefreshDue = Boolean(ownSnapshot && fireteamRefreshDue({
-    nextRefreshAt: ownSnapshot.next_refresh_at,
-    retryAfterAt: ownSnapshot.retry_after_at,
-    refreshStartedAt: ownSnapshot.refresh_started_at
-  }));
-  const presenceRefreshDue = Boolean(ownSnapshot && fireteamPresenceRefreshDue(ownSnapshot.presence_refreshed_at || ownSnapshot.committed_at));
-  // Roster presence is the Fireteam page's critical path. If both jobs are
-  // due, run the small presence pass now and leave the heavier shared-progress
-  // pass to its dedicated cron rather than making one request own both.
-  if (presenceRefreshDue) {
-    context.waitUntil?.(refreshFireteamPresenceSnapshot(row.membership_id, env).catch((error: any) => {
-      console.error("fireteam_requested_presence_failed", String(error?.code || error?.message || "unknown"));
-    }));
-  } else if (fullRefreshDue) {
-    context.waitUntil?.(refreshRequestedFireteamSnapshot(row.membership_id, env).catch((error: any) => {
-      console.error("fireteam_requested_refresh_failed", String(error?.code || error?.message || "unknown"));
-    }));
-  }
+  // Reads only mark viewer demand below. Scheduled invocations own refresh
+  // execution, so a reload cannot start expensive Bungie/manifest work.
   let ownPayload: any = null;
   try { ownPayload = ownSnapshot?.payload_json ? JSON.parse(ownSnapshot.payload_json) : null; } catch { ownPayload = null; }
   const usable = fireteamSnapshotUsable(ownSnapshot?.committed_at);
-  const presenceObservedAt = ownSnapshot?.presence_refreshed_at || ownSnapshot?.committed_at;
+  const presenceObservedAt = ownPayload?.activityPartySourceObservedAt || ownSnapshot?.source_observed_at;
   const presenceUsable = fireteamPresenceUsable(presenceObservedAt);
   // Keep the last committed roster visible when presence becomes delayed. Its
   // live status is still gated below; confirmed solo/offline observations own
@@ -2544,6 +2597,12 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
     pageUpdatedAt: ownSnapshot?.committed_at,
     pageRefreshDueAt: ownSnapshot?.next_refresh_at,
     presenceObservedAt: ownPayload?.activityPartySourceObservedAt || ownSnapshot?.source_observed_at,
+    presenceCheckedAt: ownSnapshot?.presence_refreshed_at,
+    presenceState: fireteamRefreshState({
+      committedAt: ownSnapshot?.presence_refreshed_at,
+      refreshStartedAt: ownSnapshot?.presence_refresh_started_at,
+      lastErrorCode: ownSnapshot?.presence_error || (!presenceUsable ? "presence_stale" : undefined)
+    }),
     snapshotVersion: Number(ownSnapshot?.snapshot_version || 0),
     refreshState,
     refreshAttemptedAt: ownSnapshot?.last_attempt_at,
@@ -2555,7 +2614,8 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
       lastRunAt: watcherJob?.last_run_at,
       lastSuccessAt: watcherJob?.last_success_at,
       nextRunAt: watcherJob?.next_run_at,
-      errorCode: watcherJob?.last_error_code
+      errorCode: watcherJob?.last_error_code,
+      lastSummary: watcherJob?.last_summary
     },
     activityFeedEnabled: Boolean(ownSnapshot) && configuredFireteamActivityFeedEnabled(ownSnapshot?.settings_json, ownPayload),
     members
@@ -2576,13 +2636,7 @@ async function fireteamSnapshot(row: SessionRow, env: Env, context: RequestConte
 async function fireteamRecentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const data = await readRecentItems(row.membership_id, env, undefined, FIRETEAM_RECENT_ITEM_LIMIT);
   const ageMs = Math.max(0, Date.now() - Date.parse(data.observedAt));
-  // Recent Loot refreshes independently so inventory/socket work can never
-  // hold the roster or shared-progress lease open.
-  if (recentItemObservationDue(data)) {
-    context.waitUntil?.(refreshRecentItemObservationsWithLease(row, env, context.url.searchParams.get("characterId") || undefined).catch((error: any) => {
-      console.log(JSON.stringify({ event: "fireteam_recent_items_observation_failed", category: String(error?.code || error?.name || "unknown").slice(0, 80) }));
-    }));
-  }
+  await requestRecentItemsRefresh(row.membership_id, context.url.searchParams.get("characterId"), env);
   return envelope<RecentItemTimelineData>(data, env, context, {
     observedAt: data.observedAt,
     state: ageMs <= 5 * 60_000 ? "fresh" : "stale",

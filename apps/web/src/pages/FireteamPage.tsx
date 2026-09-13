@@ -51,10 +51,11 @@ function watcherResultLabel(result: LootWatcherRunResult): string {
 }
 function persistentWatcherStatus(status: FireteamData["lootWatcherStatus"]): string | undefined {
   if (!status?.enabled) return undefined;
+  if (status.errorCode === "authorization_required") return "Reconnect Bungie to resume loot watchers.";
   if (status.state === "running") return "Watchers are checking your loot…";
   if (status.state === "scheduled") return status.lastSuccessAt ? "Watchers are on. Next check queued." : "Watchers are on. First background check queued.";
-  if (status.state === "delayed") return "Watcher check delayed. A retry is scheduled.";
-  if (status.lastSuccessAt) return `Watchers checked ${new Date(status.lastSuccessAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  if (status.state === "delayed") return status.lastSummary ? `${status.lastSummary} · Another check is scheduled.` : "Watcher check delayed. A retry is scheduled.";
+  if (status.lastSuccessAt) return `Watchers checked ${new Date(status.lastSuccessAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${status.lastSummary ? ` · ${status.lastSummary}` : ""}`;
   return "Watchers are on.";
 }
 export function FireteamPage() {
@@ -228,7 +229,7 @@ export function FireteamPage() {
 
   return <AuthGate>
     <div className={styles.fireteamUpper}>
-    <PageHeader eyebrow="Your current team" title="Fireteam" description="See who is in your fireteam, the goals they share, and your recent loot. Updates automatically every five minutes." actions={<>
+    <PageHeader eyebrow="Your current team" title="Fireteam" description="See your team, shared goals, and recent loot. Team and loot checks run automatically; shared goals update every five minutes." actions={<>
       <Freshness observedAt={data?.pageUpdatedAt} label="Last updated" warning={result.data?.warnings.find((warning) => warning !== BUNGIE_PRESENCE_DISCLAIMER)} />
       {data && !data.sharingEnabled && <>
         <button className={styles.primaryAction} onClick={() => share.mutate({ mode: "temporary" })} disabled={share.isPending}><Timer size={15} />Share 15 minutes</button>

@@ -105,6 +105,7 @@ function FireteamRefreshCountdown() {
     if (!autoRefresh) return "Fireteam refresh off";
     if (!session?.authenticated || !selectedCharacterId) return "Fireteam refresh unavailable";
     if (!data?.sharingEnabled) return "Share to enable Fireteam sync";
+    if (data?.refreshErrorCode === "authorization_required") return "Reconnect Bungie to update your team";
     if (Number(data?.snapshotVersion || 0) <= 0) return "Preparing Fireteam";
     const retryMs = Date.parse(data?.refreshRetryAt || "");
     if (data?.refreshState === "delayed" && Number.isFinite(retryMs) && retryMs > now) {
@@ -112,7 +113,8 @@ function FireteamRefreshCountdown() {
       return `Fireteam retry in ${Math.floor(retrySeconds / 60)}:${String(retrySeconds % 60).padStart(2, "0")}`;
     }
     if (data?.refreshState === "delayed") return "Shared progress update delayed";
-    if (data?.refreshState === "refreshing") return "Updating shared progress";
+    if (data?.refreshState === "refreshing") return now - Date.parse(data.refreshAttemptedAt || "") < 30_000
+      ? "Updating shared progress" : "Shared progress is taking longer than usual";
     if (data?.refreshState === "waiting") return "Shared progress update queued";
     const dueMs = Date.parse(data?.pageRefreshDueAt || "");
     if (!Number.isFinite(dueMs)) return "Preparing Fireteam";
@@ -120,11 +122,12 @@ function FireteamRefreshCountdown() {
     const remainingMs = Math.min(LIVE_REFRESH_INTERVAL_MS, dueMs - now);
     const seconds = Math.max(0, Math.ceil(remainingMs / 1_000));
     return `Shared progress refresh in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-  }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.sharingEnabled, data?.snapshotVersion, now, selectedCharacterId, session?.authenticated]);
+  }, [autoRefresh, data?.pageRefreshDueAt, data?.refreshRetryAt, data?.refreshState, data?.refreshErrorCode, data?.refreshAttemptedAt, data?.sharingEnabled, data?.snapshotVersion, now, selectedCharacterId, session?.authenticated]);
 
   return <><CompletionPing notice={completionNotice} onDismiss={dismissCompletion} /><aside ref={timerRail} className={styles.fireteamRefreshRail}>
     <div className={`${styles.fireteamRefreshDock} ${timerPinned ? styles.fireteamRefreshDockPinned : ""}`}>
       <span className={styles.fireteamRefreshTimer} aria-live="polite"><Timer size={15} />{label}</span>
+      {data?.presenceCheckedAt && <small>{data.presenceState === "delayed" ? "Team update delayed · last checked " : "Team checked "}{Math.max(0, Math.floor((now - Date.parse(data.presenceCheckedAt)) / 60_000)) < 1 ? "just now" : `${Math.floor((now - Date.parse(data.presenceCheckedAt)) / 60_000)} minutes ago`}</small>}
       <section className={styles.fireteamTrackedOrders}>
         <header>
           <span>Active Orders · {orders.length}</span>

@@ -85,6 +85,7 @@ describe("Fireteam page", () => {
   it("checks promptly for the committed snapshot while a backend refresh is running", async () => {
     const response = fireteamEnvelope(4, "2026-08-20T11:55:00.000Z");
     response.data.refreshState = "refreshing";
+    response.data.refreshAttemptedAt = new Date(Date.now()).toISOString();
     vi.mocked(api).mockImplementation(async (path) => String(path).startsWith("/api/v1/me/quests") ? questEnvelope() as never : response);
     renderFireteam();
     expect(await screen.findByText("Updating shared progress")).toBeTruthy();

@@ -1,8 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { bungieGet, destinyDisplayName, loadBuildAdvisorManifests, loadCompanionManifest, loadGearManifest, loadLootWatcherManifest, loadQuestManifest, mergeXurInventories, profileComponentsFor, profileFor, pruneExpiringCache, publicProfileFor, pvpHistoricalStatsFor, seasonPassProgress, xurCategoryFor, xurInventoriesForCharacters, xurInventoryFor } from "../src/bungie";
 import type { Env, SessionRow } from "../src/types";
+import { loadObservationManifest } from "../src/bungie";
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe("Recent Loot definition request budget", () => {
+  it("uses at most eight chunks and keeps only the requested definitions", async () => {
+    const chunks = Array.from({ length: 8 }, (_, index) => `observation-items-${index}.json`);
+    const request = vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith("observation-items.json")
+      ? { version: "v1", generatedAt: "now", chunks }
+      : { version: "v1", itemDefinitions: { "1": { itemType: 8 }, "999": { itemType: 8 } } })));
+    vi.stubGlobal("fetch", request);
+    const result = await loadObservationManifest({ GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env,
+      Array.from({ length: 24 }, (_, index) => String(index)));
+    expect(request).toHaveBeenCalledTimes(9);
+    expect(Object.keys(result.itemDefinitions)).toEqual(["1"]);
+  });
+
+  it("rejects mixed manifest versions without accepting incomplete inventory definitions", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith("observation-items.json")
+      ? { version: "v1", chunks: Array.from({ length: 8 }, (_, index) => `${index}.json`) }
+      : { version: "v2", itemDefinitions: {} }))));
+    await expect(loadObservationManifest({ GAME_DATA_URL: "https://example.test/data/manifest.json" } as Env, ["1"]))
+      .rejects.toThrow("updating");
+  });
+});
 
 describe("destinyDisplayName", () => {
   it("formats Bungie's public global display name and discriminator", () => {

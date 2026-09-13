@@ -8,11 +8,11 @@ export function useFireteamQuery(membershipId: string, characterId: string, enab
     queryFn: () => api<FireteamData>(`/api/v2/fireteam?characterId=${encodeURIComponent(characterId)}`),
     enabled: Boolean(enabled && characterId),
     staleTime: 60e3,
-    // The first due read starts the Worker refresh after returning the last
-    // committed snapshot. Poll briefly while that commit is in flight so the
-    // page actually receives it, then return to the bounded one-minute read.
+    // Poll briefly only during the first thirty seconds of a claimed job.
+    // A stalled background job must not keep every browser polling rapidly.
     refetchInterval: ({ state }) => autoRefresh && state.data?.data.sharingEnabled
-      ? state.data.data.refreshState === "refreshing" ? 5_000 : 60_000
+      ? state.data.data.refreshState === "refreshing"
+        && Date.now() - Date.parse(state.data.data.refreshAttemptedAt || "") < 30_000 ? 5_000 : 60_000
       : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false

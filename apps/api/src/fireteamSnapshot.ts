@@ -9,16 +9,24 @@ export const FIRETEAM_ACTIVE_WINDOW_MS = 10 * 60_000;
 export const FIRETEAM_SNAPSHOT_GRACE_MS = 30 * 60_000;
 export const FIRETEAM_REFRESH_LEASE_MS = 2 * 60_000;
 export const FIRETEAM_RETRY_MS = 60_000;
-// A full snapshot requests every profile component used by Fireteam. Page reads
-// can also refresh the viewer's own snapshot, so the cron should drain this
-// queue in small reliable batches instead of exhausting one Worker invocation.
-export const FIRETEAM_MAX_REFRESHES_PER_CRON = 2;
+// Drain one expensive full snapshot per invocation; presence has its own pass.
+export const FIRETEAM_MAX_REFRESHES_PER_CRON = 1;
+export const FIRETEAM_MAX_PRESENCE_REFRESHES_PER_CRON = 3;
 export const FIRETEAM_SOURCE_MAX_AGE_MS = 2 * 60_000;
 export const FIRETEAM_PARTY_MISSING_CONFIRMATIONS = 3;
 export const FIRETEAM_PRESENCE_REFRESH_INTERVAL_MS = 60_000;
 export const FIRETEAM_PRESENCE_GRACE_MS = 10 * 60_000;
 
 export type FireteamRefreshState = "waiting" | "current" | "refreshing" | "delayed";
+
+export function mergeNewerFireteamPresence(candidate: Record<string, any>, latest: Record<string, any>): Record<string, any> {
+  if (!(Date.parse(latest.activityPartySourceObservedAt || "") > Date.parse(candidate.activityPartySourceObservedAt || ""))) return candidate;
+  const merged = { ...candidate };
+  for (const key of ["onlineState", "activity", "sessionPresenceEvidence", "activityPartyMembers", "activityPartyMembershipIds", "activityPartySourceObservedAt", "partyMissingObservationCount"]) {
+    merged[key] = latest[key];
+  }
+  return merged;
+}
 
 export function nextFireteamRefreshAt(committedAt: string | undefined): string | undefined {
   const committedMs = Date.parse(committedAt || "");
@@ -121,6 +129,12 @@ export function reconcileFireteamParty(
 
   const previousTeammates = previous.filter((member) => member.membershipId !== selfMembershipId);
   if (!previousTeammates.length) return { members: current, missingObservations: 0 };
+  if (!transitoryAvailable) {
+    return {
+      members: previous.map((member) => ({ ...member, status: 0, observedInParty: false })),
+      missingObservations: previousMissingObservations
+    };
+  }
   const missingObservations = Math.max(0, previousMissingObservations) + 1;
   if (missingObservations >= FIRETEAM_PARTY_MISSING_CONFIRMATIONS) return { members: current, missingObservations };
 

@@ -1,5 +1,22 @@
 import type { ConnectionFailure } from "./client";
 
+function readDiagnostic(key: string): Record<string, unknown> | undefined {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(key) || "null");
+    return value && typeof value === "object" ? value : undefined;
+  } catch { return undefined; }
+}
+
+export const getClientReliabilityDiagnostics = () => getLastServiceIncident()?.code === "worker_resource_limit" ? getLastServiceIncident() : readDiagnostic("guardian-nexus:last-worker-resource-limit");
+export const getLastApiErrorDiagnostics = () => getLastServiceIncident() || readDiagnostic("guardian-nexus:last-api-error");
+
+export function getLastServiceIncident(): ConnectionFailure | undefined {
+  try {
+    const value = JSON.parse(sessionStorage.getItem("guardian-nexus:last-service-incident") || "null");
+    return value && typeof value.code === "string" && typeof value.route === "string" && typeof value.occurredAt === "string" ? value : undefined;
+  } catch { return undefined; }
+}
+
 export function connectionFailureReport(failure: ConnectionFailure): string {
   const diagnostics = failure.diagnostics || {};
   const page = typeof location !== "undefined" ? location.pathname : "unknown";

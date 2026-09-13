@@ -126,7 +126,7 @@ export function Shell() {
           setCopiedIncident(connection.activeFailure?.requestId || connection.activeFailure?.occurredAt || "copied");
         }} /></Suspense>}
       {showScrollTop && <button type="button" className={styles.scrollTop} aria-label="Scroll to top" title="Scroll to top" onClick={() => window.scrollTo({ top: 0, behavior: document.documentElement.dataset.reducedMotion === "true" ? "auto" : "smooth" })}><ArrowUp /></button>}
-      <footer className={styles.footer}><span>Guardian Nexus</span><span>Destiny companion</span><span>Activity data may be delayed</span></footer>
+      <footer className={styles.footer}><span>Guardian Nexus</span><span>Destiny companion</span><a href="/support">Help & last service issue</a></footer>
       <Suspense fallback={<aside aria-label="Guardian options" aria-hidden="true" inert />}>
         <OptionsPanel open={optionsOpen} onClose={() => setOptionsOpen(false)} returnFocusRef={optionsTriggerRef} reportSummary={reportSummary.data?.data} />
       </Suspense>

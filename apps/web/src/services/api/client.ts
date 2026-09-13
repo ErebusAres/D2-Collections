@@ -62,8 +62,7 @@ interface PendingMutation {
 }
 
 interface QueueOptions { persist?: boolean; priority?: number }
-const RELIABILITY_DIAGNOSTIC_KEY = "guardian-nexus:last-worker-resource-limit";
-const LAST_API_ERROR_DIAGNOSTIC_KEY = "guardian-nexus:last-api-error";
+const LAST_SERVICE_INCIDENT_KEY = "guardian-nexus:last-service-incident";
 const RELOAD_READ_ATTEMPT_PREFIX = "guardian-nexus:read-attempt:";
 
 let connectionSnapshot: ConnectionSnapshot = { queued: 0, retrying: false, ...(typeof navigator !== "undefined" && !navigator.onLine ? { lastError: "Device is offline" } : {}) };
@@ -189,26 +188,36 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
   const startedAt = performance.now();
   const blockedUntil = routeCircuitBreakers.get(route) || 0;
   if (blockedUntil > Date.now()) {
-    const error = new ApiRequestError(503, { code: "worker_resource_limit", message: sectionFailureMessage(path), retryAfterSeconds: Math.max(1, Math.ceil((blockedUntil - Date.now()) / 1_000)), diagnostics: { failureSource: "client-circuit-breaker", method, breakerUntil: new Date(blockedUntil).toISOString() } });
-    traceRequest(route, method, startedAt, 503, error.code, error.requestId);
-    activateFailure(route, error);
+    const error = new ApiRequestError(503, { code: "retry_scheduled", message: "Waiting before retrying this section.", retryAfterSeconds: Math.max(1, Math.ceil((blockedUntil - Date.now()) / 1_000)), diagnostics: { failureSource: "client-circuit-breaker", method, breakerUntil: new Date(blockedUntil).toISOString() } });
     throw error;
   }
   if (blockedUntil) routeCircuitBreakers.delete(route);
   let response: Response;
+  const controller = new AbortController();
+  const abort = () => controller.abort(init.signal?.reason);
+  if (init.signal?.aborted) abort();
+  else init.signal?.addEventListener("abort", abort, { once: true });
+  const timeout = method === "GET" ? setTimeout(() => controller.abort(new Error("Request timed out")), 15_000) : undefined;
+  let raw: string;
   try {
     response = await fetch(path, {
       credentials: "include",
       ...init,
+      signal: controller.signal,
       headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), ...init.headers }
     });
+    raw = await response.text();
   } catch (error) {
-    const requestError = new ApiRequestError(0, { code: "network_error", message: messageOf(error), requestId: clientRequestId(), diagnostics: { failureSource: "network", method, durationMs: elapsed(startedAt) } });
+    if (init.signal?.aborted) throw error;
+    const timedOut = controller.signal.aborted;
+    const requestError = new ApiRequestError(timedOut ? 408 : 0, { code: timedOut ? "request_timeout" : "network_error", message: timedOut ? "This section took too long to respond. Please retry." : messageOf(error), requestId: clientRequestId(), diagnostics: { failureSource: timedOut ? "timeout" : "network", method, durationMs: elapsed(startedAt) } });
     traceRequest(route, method, startedAt, 0, requestError.code, requestError.requestId);
     activateFailure(route, requestError);
     throw requestError;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+    init.signal?.removeEventListener("abort", abort);
   }
-  const raw = await response.text();
   let body: any = {};
   try { body = raw ? JSON.parse(raw) : {}; } catch {
     if (!response.ok && /1102|exceeded resource limits/i.test(raw)) {
@@ -230,7 +239,6 @@ async function performRequest<T>(path: string, init: RequestInit): Promise<ApiEn
     activateFailure(route, error);
     if (error.code === "worker_resource_limit") {
       routeCircuitBreakers.set(route, Date.now() + 60_000 + Math.round(Math.random() * 10_000));
-      rememberWorkerResourceLimit(route, error.requestId);
     }
     throw error;
   }
@@ -293,24 +301,6 @@ function isIndependentFireteamSection(path: string): boolean {
   return isLiveFireteamStatePath(path) || pathname === "/api/v2/fireteam/recent-items";
 }
 
-function rememberWorkerResourceLimit(route: string, rayId?: string): void {
-  if (typeof sessionStorage === "undefined") return;
-  try { sessionStorage.setItem(RELIABILITY_DIAGNOSTIC_KEY, JSON.stringify({ category: "worker_resource_limit", route, occurredAt: new Date().toISOString(), rayId })); } catch { /* Diagnostics are best-effort only. */ }
-}
-
-function rememberApiFailure(route: string, error: ApiRequestError): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    sessionStorage.setItem(LAST_API_ERROR_DIAGNOSTIC_KEY, JSON.stringify({
-      code: error.code,
-      status: error.status || undefined,
-      route,
-      occurredAt: new Date().toISOString(),
-      requestId: error.requestId
-    }));
-  } catch { /* Diagnostics are best-effort only. */ }
-}
-
 function activateFailure(route: string, error: ApiRequestError): void {
   const activeFailure: ConnectionFailure = {
     code: error.code,
@@ -323,7 +313,7 @@ function activateFailure(route: string, error: ApiRequestError): void {
     diagnostics: error.diagnostics,
     recentRequests: recentRequestTraces.slice(-6)
   };
-  rememberApiFailure(route, error);
+  try { sessionStorage.setItem(LAST_SERVICE_INCIDENT_KEY, JSON.stringify(activeFailure)); } catch { /* Restricted storage must not prevent recovery. */ }
   updateConnection({ activeFailure, lastError: describeApiError(error) });
 }
 
@@ -350,22 +340,6 @@ export function describeApiError(error: unknown): string {
   if (!(error instanceof ApiRequestError)) return messageOf(error);
   const reference = error.requestId ? ` · Reference: ${error.requestId}` : "";
   return `${error.message} Error code: ${error.code}${reference}`;
-}
-
-export function getClientReliabilityDiagnostics(): Record<string, unknown> | undefined {
-  if (typeof sessionStorage === "undefined") return undefined;
-  try {
-    const value = JSON.parse(sessionStorage.getItem(RELIABILITY_DIAGNOSTIC_KEY) || "null");
-    return value && typeof value === "object" ? value : undefined;
-  } catch { return undefined; }
-}
-
-export function getLastApiErrorDiagnostics(): Record<string, unknown> | undefined {
-  if (typeof sessionStorage === "undefined") return undefined;
-  try {
-    const value = JSON.parse(sessionStorage.getItem(LAST_API_ERROR_DIAGNOSTIC_KEY) || "null");
-    return value && typeof value === "object" ? value : undefined;
-  } catch { return undefined; }
 }
 
 function updateConnection(value: Partial<ConnectionSnapshot>): void {
