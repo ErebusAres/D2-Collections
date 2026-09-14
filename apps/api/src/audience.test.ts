@@ -1,6 +1,6 @@
 import type { GuardianSummary } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { canViewAudienceMetrics, rankUpNotifications } from "./audience";
+import { audienceLocalization, canViewAudienceMetrics, rankUpNotifications } from "./audience";
 
 const guardian = {
   membershipId: "membership",
@@ -18,6 +18,18 @@ const guardian = {
   },
   isInGame: false
 } satisfies GuardianSummary;
+
+describe("coarse audience localization", () => {
+  it("retains only coarse edge geography and the highest preference language", () => {
+    const request = new Request("https://example.com", { headers: { "Accept-Language": "en;q=0.5,fr-CA;q=0.9,de;q=0" } });
+    Object.defineProperty(request, "cf", { value: { country: "CA", region: "Quebec", city: "Montreal", latitude: "45.5", longitude: "-73.5" } });
+    expect(audienceLocalization(request)).toEqual({ country: "CA", region: "Quebec", preferredLanguage: "fr-ca" });
+  });
+  it("does not trust spoofed geography headers or invent a VPN score", () => {
+    const request = new Request("https://example.com", { headers: { "CF-IPCountry": "US", "X-Country": "US", "Accept-Language": "*, en;q=0, garbage;q=5" } });
+    expect(audienceLocalization(request)).toEqual({ country: null, region: null, preferredLanguage: null });
+  });
+});
 
 describe("rank-up account notifications", () => {
   it("does not celebrate the initial profile baseline", () => {

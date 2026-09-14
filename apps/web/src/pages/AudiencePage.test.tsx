@@ -17,6 +17,18 @@ vi.mock("../services/api/client", () => ({ api: vi.fn(), mutationHeaders: vi.fn(
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("Audience administrator sessions", () => {
+  it("shows coarse location and language without inventing VPN confidence", async () => {
+    vi.mocked(api).mockResolvedValue({ data: { ...audience(), visitors: [
+      { visitorId: "anonymous", firstSeenAt: "2026-09-13T00:00:00Z", country: "CA", region: "Quebec", preferredLanguage: "fr-ca", locationSampledAt: "2026-09-13T00:00:00Z" },
+      { visitorId: "older", firstSeenAt: "2026-08-01T00:00:00Z" }
+    ] } } as never);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AudiencePage /></QueryClientProvider>);
+    expect(await screen.findByText("Quebec, Canada")).toBeTruthy();
+    expect(screen.getByText("fr-ca")).toBeTruthy();
+    expect(screen.getByText("Not sampled yet")).toBeTruthy();
+    expect(screen.getByText(/VPN detection: unavailable/)).toBeTruthy();
+  });
+
   it("requires confirmation and invalidates every session for the selected Guardian", async () => {
     vi.mocked(api).mockImplementation(async (path, init) => {
       if (path === "/api/v1/audience/sessions") return { data: { membershipId: "2000000000000000002", invalidatedSessions: 2 }, freshness: { state: "fresh", observedAt: "now" }, warnings: [], requestId: "delete" } as never;

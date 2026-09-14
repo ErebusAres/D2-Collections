@@ -1427,6 +1427,10 @@ export interface AudienceLoginRow {
 export interface AudienceVisitorRow {
   visitorId: string;
   firstSeenAt: string;
+  country?: string;
+  region?: string;
+  preferredLanguage?: string;
+  locationSampledAt?: string;
 }
 
 export interface AudienceDetailData extends AudienceMetrics {

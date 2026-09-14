@@ -14,11 +14,32 @@ export function canViewAudienceMetrics(membershipId: string, configuredMembershi
 }
 
 export async function recordAudienceVisitor(request: Request, env: Env, context: RequestContext): Promise<string | undefined> {
-  if (validVisitorToken(parseCookies(request)[VISITOR_COOKIE])) return undefined;
-  const token = randomToken(24);
+  const existing = parseCookies(request)[VISITOR_COOKIE];
+  const returning = validVisitorToken(existing);
+  const token = returning ? existing : randomToken(24);
   const visitorHash = await sha256(`${token}:guardian-nexus-audience:${env.OAUTH_ENCRYPTION_KEY}`);
-  await env.DB.prepare("INSERT OR IGNORE INTO audience_visitors (visitor_hash) VALUES (?)").bind(visitorHash).run();
+  const sample = audienceLocalization(request);
+  await env.DB.prepare(`INSERT INTO audience_visitors (visitor_hash, country, region, preferred_language, location_sampled_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(visitor_hash) DO UPDATE SET country = excluded.country, region = excluded.region,
+      preferred_language = excluded.preferred_language, location_sampled_at = excluded.location_sampled_at
+    WHERE audience_visitors.location_sampled_at IS NULL`)
+    .bind(visitorHash, sample.country, sample.region, sample.preferredLanguage, new Date().toISOString()).run();
+  if (returning) return undefined;
   return cookie(VISITOR_COOKIE, token, { maxAge: VISITOR_MAX_AGE_SECONDS, secure: context.url.protocol === "https:" });
+}
+
+// Use edge metadata, never caller-supplied location headers. No IP, city or coordinates are retained.
+export function audienceLocalization(request: Request) {
+  const cf = (request as Request & { cf?: { country?: unknown; region?: unknown } }).cf;
+  const country = typeof cf?.country === "string" && /^[A-Z]{2}$/.test(cf.country) && cf.country !== "XX" ? cf.country : null;
+  const region = country && typeof cf?.region === "string" ? [...cf.region].filter((char) => char.charCodeAt(0) >= 32 && char.charCodeAt(0) !== 127).join("").slice(0, 80) || null : null;
+  const languages = (request.headers.get("Accept-Language") || "").slice(0, 1024).split(",").map((entry) => {
+    const [tag = "", weight] = entry.trim().split(";");
+    const q = weight ? Number(weight.trim().replace(/^q=/, "")) : 1;
+    return { tag, q };
+  }).filter(({ tag, q }) => /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(tag) && Number.isFinite(q) && q > 0 && q <= 1).sort((a, b) => b.q - a.q);
+  return { country, region, preferredLanguage: languages[0]?.tag.toLowerCase() || null };
 }
 
 export async function readAudienceMetrics(env: Env): Promise<AudienceMetrics> {
@@ -117,7 +138,7 @@ export async function readAudienceDetails(env: Env): Promise<AudienceDetailData>
       last_profile_at, last_character_class, last_power, last_guardian_rank, last_rewards_pass_rank, last_emblem_path
       , (SELECT COUNT(*) FROM oauth_sessions WHERE oauth_sessions.membership_id = users.membership_id) AS active_sessions
       FROM users WHERE audience_removed_at IS NULL ORDER BY updated_at DESC`).all<any>(),
-    env.DB.prepare("SELECT substr(visitor_hash, 1, 12) AS visitor_id, created_at FROM audience_visitors ORDER BY created_at DESC LIMIT 500").all<any>()
+    env.DB.prepare("SELECT substr(visitor_hash, 1, 12) AS visitor_id, created_at, country, region, preferred_language, location_sampled_at FROM audience_visitors ORDER BY created_at DESC LIMIT 500").all<any>()
   ]);
   return {
     ...metrics,
@@ -128,6 +149,6 @@ export async function readAudienceDetails(env: Env): Promise<AudienceDetailData>
       rewardsPassRank: row.last_rewards_pass_rank == null ? undefined : Number(row.last_rewards_pass_rank), emblemPath: row.last_emblem_path || undefined,
       activeSessions: Math.max(0, Number(row.active_sessions || 0))
     })),
-    visitors: (visitors.results || []).map((row: any) => ({ visitorId: String(row.visitor_id), firstSeenAt: String(row.created_at) }))
+    visitors: (visitors.results || []).map((row: any) => ({ visitorId: String(row.visitor_id), firstSeenAt: String(row.created_at), country: row.country || undefined, region: row.region || undefined, preferredLanguage: row.preferred_language || undefined, locationSampledAt: row.location_sampled_at || undefined }))
   };
 }

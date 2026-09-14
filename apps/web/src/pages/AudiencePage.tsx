@@ -43,7 +43,9 @@ export function AudiencePage() {
       </section>
       <section className={styles.panel}>
         <header><Eye /><div><span>Anonymous visitors</span><strong>Most recent {data.visitors.length}</strong></div></header>
-        <div className={styles.visitors}>{data.visitors.map((row) => <span key={`${row.visitorId}-${row.firstSeenAt}`}><code>{row.visitorId}</code><time dateTime={row.firstSeenAt}>{dateTime(row.firstSeenAt)}</time></span>)}</div>
+        <p className={styles.locationNote}>Rough network locations, not home addresses. VPNs, mobile networks and proxies can change the apparent location. Language is the browser preference, not a nationality. Counts represent browsers, not necessarily people.</p>
+        <p className={styles.locationNote}>VPN detection: unavailable. Our current data cannot reliably identify VPN use or assign a confidence percentage. Location samples are collected once per visitor after this feature was added; older visitors appear when they return.</p>
+        <div className={styles.tableWrap}><table><thead><tr><th>Visitor</th><th>First seen</th><th>Approximate country / region</th><th>Preferred language</th><th>Sampled</th></tr></thead><tbody>{data.visitors.map((row) => <tr key={row.visitorId}><td><code>{row.visitorId}</code></td><td>{dateTime(row.firstSeenAt)}</td><td>{[row.region, countryName(row.country)].filter(Boolean).join(", ") || "Unavailable"}</td><td>{row.preferredLanguage || "Unavailable"}</td><td>{row.locationSampledAt ? dateTime(row.locationSampledAt) : "Not sampled yet"}</td></tr>)}</tbody></table></div>
       </section>
     </>}
   </AuthGate>;
@@ -56,4 +58,9 @@ function AudienceGuardianRow({ row, self, confirming, removing, busy, onForce, o
 function dateTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "Unavailable" : date.toLocaleString();
+}
+
+function countryName(code?: string): string {
+  if (!code) return "";
+  try { return new Intl.DisplayNames(["en"], { type: "region" }).of(code) || code; } catch { return code; }
 }
