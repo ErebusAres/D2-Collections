@@ -42,6 +42,12 @@ export function audienceLocalization(request: Request) {
   return { country, region, preferredLanguage: languages[0]?.tag.toLowerCase() || null };
 }
 
+export async function recordAudienceSessionSeen(env: Env, membershipId: string, now = new Date()): Promise<void> {
+  await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE membership_id = ?
+    AND (last_seen_at IS NULL OR last_seen_at < ?)`)
+    .bind(now.toISOString(), membershipId, new Date(now.getTime() - 5 * 60_000).toISOString()).run();
+}
+
 export async function readAudienceMetrics(env: Env): Promise<AudienceMetrics> {
   const [visitors, logins] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS total, MIN(created_at) AS tracking_since FROM audience_visitors").first<{ total: number; tracking_since: string | null }>(),
@@ -134,7 +140,7 @@ export function rankUpNotifications(
 export async function readAudienceDetails(env: Env): Promise<AudienceDetailData> {
   const [metrics, logins, visitors] = await Promise.all([
     readAudienceMetrics(env),
-    env.DB.prepare(`SELECT membership_id, membership_type, display_name, bungie_name, created_at, updated_at,
+    env.DB.prepare(`SELECT membership_id, membership_type, display_name, bungie_name, created_at, updated_at, last_seen_at,
       last_profile_at, last_character_class, last_power, last_guardian_rank, last_rewards_pass_rank, last_emblem_path
       , (SELECT COUNT(*) FROM oauth_sessions WHERE oauth_sessions.membership_id = users.membership_id) AS active_sessions
       FROM users WHERE audience_removed_at IS NULL ORDER BY updated_at DESC`).all<any>(),
@@ -144,7 +150,7 @@ export async function readAudienceDetails(env: Env): Promise<AudienceDetailData>
     ...metrics,
     logins: (logins.results || []).map((row: any) => ({
       membershipId: String(row.membership_id), membershipType: Number(row.membership_type), displayName: String(row.display_name), bungieName: String(row.bungie_name || ""),
-      firstLoginAt: String(row.created_at), lastLoginAt: String(row.updated_at), lastProfileAt: row.last_profile_at || undefined,
+      firstLoginAt: String(row.created_at), lastLoginAt: String(row.updated_at), lastSeenAt: row.last_seen_at || undefined, lastProfileAt: row.last_profile_at || undefined,
       characterClass: row.last_character_class || undefined, power: row.last_power == null ? undefined : Number(row.last_power), guardianRank: row.last_guardian_rank == null ? undefined : Number(row.last_guardian_rank),
       rewardsPassRank: row.last_rewards_pass_rank == null ? undefined : Number(row.last_rewards_pass_rank), emblemPath: row.last_emblem_path || undefined,
       activeSessions: Math.max(0, Number(row.active_sessions || 0))

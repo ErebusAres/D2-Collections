@@ -26,7 +26,9 @@ describe("Audience administrator sessions", () => {
     expect(await screen.findByText("Quebec, Canada")).toBeTruthy();
     expect(screen.getByText("fr-ca")).toBeTruthy();
     expect(screen.getByText("Awaiting return visit")).toBeTruthy();
-    expect(screen.getAllByText("Not previously recorded")).toHaveLength(2);
+    expect(screen.getAllByText("Not previously recorded")).toHaveLength(4);
+    expect(screen.getByRole("columnheader", { name: "Last sign-in" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Last seen" })).toBeTruthy();
     expect(screen.getByText(/VPN detection: unavailable/)).toBeTruthy();
   });
 

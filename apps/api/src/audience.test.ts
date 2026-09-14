@@ -1,6 +1,7 @@
 import type { GuardianSummary } from "@guardian-nexus/contracts";
-import { describe, expect, it } from "vitest";
-import { audienceLocalization, canViewAudienceMetrics, rankUpNotifications } from "./audience";
+import { describe, expect, it, vi } from "vitest";
+import { audienceLocalization, canViewAudienceMetrics, rankUpNotifications, recordAudienceSessionSeen } from "./audience";
+import type { Env } from "./types";
 
 const guardian = {
   membershipId: "membership",
@@ -20,6 +21,15 @@ const guardian = {
 } satisfies GuardianSummary;
 
 describe("coarse audience localization", () => {
+  it("records browser checks with a five-minute write guard without changing sign-in time", async () => {
+    const run = vi.fn().mockResolvedValue({});
+    const bind = vi.fn().mockReturnValue({ run });
+    const prepare = vi.fn().mockReturnValue({ bind });
+    await recordAudienceSessionSeen({ DB: { prepare } } as unknown as Env, "guardian", new Date("2026-09-14T12:00:00Z"));
+    expect(prepare).toHaveBeenCalledWith(expect.stringContaining("last_seen_at IS NULL OR last_seen_at < ?"));
+    expect(prepare.mock.calls[0]?.[0]).not.toContain("updated_at");
+    expect(bind).toHaveBeenCalledWith("2026-09-14T12:00:00.000Z", "guardian", "2026-09-14T11:55:00.000Z");
+  });
   it("retains only coarse edge geography and the highest preference language", () => {
     const request = new Request("https://example.com", { headers: { "Accept-Language": "en;q=0.5,fr-CA;q=0.9,de;q=0" } });
     Object.defineProperty(request, "cf", { value: { country: "CA", region: "Quebec", city: "Montreal", latitude: "45.5", longitude: "-73.5" } });

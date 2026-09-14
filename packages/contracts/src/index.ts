@@ -1415,6 +1415,7 @@ export interface AudienceLoginRow {
   bungieName: string;
   firstLoginAt: string;
   lastLoginAt: string;
+  lastSeenAt?: string;
   lastProfileAt?: string;
   characterClass?: string;
   power?: number;
