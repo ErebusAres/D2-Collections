@@ -25,7 +25,8 @@ describe("Audience administrator sessions", () => {
     render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AudiencePage /></QueryClientProvider>);
     expect(await screen.findByText("Quebec, Canada")).toBeTruthy();
     expect(screen.getByText("fr-ca")).toBeTruthy();
-    expect(screen.getByText("Not sampled yet")).toBeTruthy();
+    expect(screen.getByText("Awaiting return visit")).toBeTruthy();
+    expect(screen.getAllByText("Not previously recorded")).toHaveLength(2);
     expect(screen.getByText(/VPN detection: unavailable/)).toBeTruthy();
   });
 
