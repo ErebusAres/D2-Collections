@@ -1,4 +1,5 @@
 import type { Env, SessionRow } from "./types";
+import { recordAudienceSessionSeen } from "./audienceActivity";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -75,15 +76,19 @@ export async function sessionFromRequest(request: Request, env: Env): Promise<{ 
   const token = parseCookies(request).gn_session;
   if (!token) return null;
   const row = await env.DB.prepare(`
-    SELECT s.session_hash, s.membership_id, u.membership_type, u.display_name, u.bungie_name,
+    SELECT s.session_hash, s.membership_id, u.membership_type, u.display_name, u.bungie_name, u.last_seen_at,
       s.access_token_cipher, s.refresh_token_cipher, s.access_expires_at, s.refresh_expires_at
     FROM oauth_sessions s JOIN users u ON u.membership_id = s.membership_id
     WHERE s.session_hash = ?
-  `).bind(await sha256(token)).first<SessionRow>();
+  `).bind(await sha256(token)).first<SessionRow & { last_seen_at?: string }>();
   if (!row) return null;
   if (row.refresh_expires_at <= Math.floor(Date.now() / 1000)) {
     await env.DB.prepare("DELETE FROM oauth_sessions WHERE session_hash = ?").bind(row.session_hash).run();
     return null;
+  }
+  // Only browser requests use this path; scheduled jobs resolve their sessions separately.
+  if (!row.last_seen_at || Date.parse(row.last_seen_at) < Date.now() - 5 * 60_000) {
+    await recordAudienceSessionSeen(env, row.membership_id).catch(() => undefined);
   }
   return { token, row };
 }

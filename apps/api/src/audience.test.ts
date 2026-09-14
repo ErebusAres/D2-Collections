@@ -1,6 +1,7 @@
 import type { GuardianSummary } from "@guardian-nexus/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { audienceLocalization, canViewAudienceMetrics, rankUpNotifications, recordAudienceSessionSeen } from "./audience";
+import { audienceLocalization, canViewAudienceMetrics, rankUpNotifications } from "./audience";
+import { recordAudienceSessionSeen } from "./audienceActivity";
 import type { Env } from "./types";
 
 const guardian = {

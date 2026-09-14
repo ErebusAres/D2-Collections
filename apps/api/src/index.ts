@@ -60,7 +60,7 @@ import { normalizeMailbox, postmasterItemForPull, postmasterItemsForCharacter, p
 import { normalizeLoadouts } from "./loadouts";
 import { normalizeRewardCodeStatus, pendingRewardCodeStatus } from "./rewardCodes";
 import { buildsRoute, publishedBuildsForAdvisor } from "./builds";
-import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceSessionSeen, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
+import { canViewAudienceMetrics, readAudienceDetails, readAudienceMetrics, recordAudienceVisitor, rememberAudienceGuardian } from "./audience";
 import { ironBannerHistoryResponse, normalizePvpData, normalizePvpProgressions } from "./pvp";
 import { normalizeGuardianRanks } from "./guardianRank";
 import { normalizeJourneyProgress, trackedJourneyItemsFromProfile } from "./journeyProgress";
@@ -683,8 +683,6 @@ async function readSession(request: Request, env: Env, context: RequestContext):
   const session = await sessionFromRequest(request, env);
   if (!session) return withSetCookie(envelope<SessionData>({ authenticated: false, roles: { dev: false, matrixWriter: false, buildEditor: false, reportAdmin: false }, rolesState: "verified" }, env, context), visitorCookie);
   const requestedCharacterId = context.url.searchParams.get("characterId") || undefined;
-  // Browser session checks only; scheduled Bungie refreshes must not imply a site visit.
-  await recordAudienceSessionSeen(env, session.row.membership_id).catch(() => undefined);
   const cached = await env.DB.prepare("SELECT guardian_json, refreshed_at, expires_at, last_error FROM guardian_session_cache WHERE membership_id = ?")
     .bind(session.row.membership_id).first<any>();
   let cachedGuardian: GuardianSummary | undefined;

@@ -42,12 +42,6 @@ export function audienceLocalization(request: Request) {
   return { country, region, preferredLanguage: languages[0]?.tag.toLowerCase() || null };
 }
 
-export async function recordAudienceSessionSeen(env: Env, membershipId: string, now = new Date()): Promise<void> {
-  await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE membership_id = ?
-    AND (last_seen_at IS NULL OR last_seen_at < ?)`)
-    .bind(now.toISOString(), membershipId, new Date(now.getTime() - 5 * 60_000).toISOString()).run();
-}
-
 export async function readAudienceMetrics(env: Env): Promise<AudienceMetrics> {
   const [visitors, logins] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS total, MIN(created_at) AS tracking_since FROM audience_visitors").first<{ total: number; tracking_since: string | null }>(),
