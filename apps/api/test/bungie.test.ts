@@ -35,6 +35,10 @@ describe("destinyDisplayName", () => {
 });
 
 describe("profileComponentsFor", () => {
+  it("bounds Gear to inventory evidence without unrelated records, currencies or presentation trees", () => {
+    expect(profileComponentsFor("gear")).toBe("100,102,200,201,205,300,301,304,305,307,310");
+    expect(profileComponentsFor("cleanup")).toContain("206");
+  });
   it("keeps common pages on narrow Bungie component sets", () => {
     expect(profileComponentsFor("collection")).toBe("100,102,200,201,800,900");
     expect(profileComponentsFor("xur")).toBe("100,102,200,201,800");

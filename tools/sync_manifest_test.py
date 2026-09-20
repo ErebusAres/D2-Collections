@@ -14,6 +14,10 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_cleanup_manifest_keeps_shader_definitions(self) -> None:
+        shader = item_definition(name="Cleanup Shader", item_type="Shader", plug="shader")
+        self.assertTrue(SYNC_MANIFEST.relevant_gear_plug(shader))
+
     def test_observation_items_keep_inventory_labels_but_not_weapon_rolls(self) -> None:
         self.assertEqual(SYNC_MANIFEST.observation_item({"itemType": 3, "sockets": [1, 2]}), {"itemType": 3})
         material = {"itemType": 8, "itemTypeDisplayName": "Material", "displayProperties": {"name": "Core"}, "inventory": {"tierTypeName": "Legendary"}, "unused": "discard"}

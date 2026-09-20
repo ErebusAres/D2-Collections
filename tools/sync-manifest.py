@@ -643,7 +643,8 @@ def relevant_weapon_plug(definition: dict) -> bool:
 
 
 def relevant_gear_plug(definition: dict) -> bool:
-    return relevant_armor_plug(definition) or relevant_weapon_plug(definition)
+    category = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
+    return "shader" in category or relevant_armor_plug(definition) or relevant_weapon_plug(definition)
 
 
 def build_icon(path: str) -> str:

@@ -11,7 +11,7 @@ const GEAR_TAGS: ReadonlyArray<{ value: GearTag; label: string }> = [
   { value: "archive", label: "Archive" }
 ];
 
-type GearTagFilterValue = "all" | "none" | GearTag;
+type GearTagFilterValue = "all" | "none" | "cleanup" | GearTag;
 
 export function GearTagPicker({ value, onChange, disabled = false, compact = false }: { value?: GearTag; onChange: (value?: GearTag) => void; disabled?: boolean; compact?: boolean }) {
   const options: Array<{ value?: GearTag; label: string }> = [{ label: "No tag" }, ...GEAR_TAGS];
@@ -30,6 +30,7 @@ export function GearTagFilter({ value, onChange }: { value: GearTagFilterValue; 
   const options: Array<{ value: GearTagFilterValue; label: string; tag?: GearTag }> = [
     { value: "all", label: "All tags" },
     { value: "none", label: "Untagged" },
+    { value: "cleanup", label: "Recommended dismantle" },
     ...GEAR_TAGS.map((option) => ({ ...option, tag: option.value }))
   ];
   const selected = options.find((option) => option.value === value) || options[0]!;

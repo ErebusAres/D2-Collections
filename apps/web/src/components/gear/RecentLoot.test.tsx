@@ -3,13 +3,24 @@ import type { ArmorItem, WeaponItem } from "@guardian-nexus/contracts";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { CompactRecentLootBar, RecentItemRow, observedLootWithin, parseRecentLootDisplayLimit, recentLoot, recentLootPageSize } from "./RecentLoot";
+import { CompactRecentLootBar, LootHistoryGrid, RecentItemRow, observedLootWithin, parseRecentLootDisplayLimit, recentLoot, recentLootPageSize } from "./RecentLoot";
 
 const weapon = { instanceId: "1", itemHash: "2", name: "Recent Rifle", icon: "", itemType: "Auto Rifle", slot: "Energy", damageType: "Arc", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, gearTier: 3, crafted: false, enhanced: false, perkColumns: [], originTraits: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: "2026-08-06T12:00:00Z", isNew: true } as WeaponItem;
 const armor = { instanceId: "armor-1", itemHash: "armor-2", name: "Recent Grips", icon: "", className: "Hunter", slot: "Arms", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, gearTier: 5, archetype: { hash: "paragon", name: "Paragon", description: "Improves class ability-focused stat potential.", icon: "/paragon.png" }, setBonuses: [], perks: [], baseStats: { health: 10, melee: 10, grenade: 10, super: 10, class: 10, weapons: 10 }, currentStats: { health: 10, melee: 10, grenade: 10, super: 10, class: 10, weapons: 10 }, adjustments: [], baseTotal: 60, currentTotal: 60, grade: { letter: "A", score: 90 }, firstSeenAt: "2026-08-06T12:00:00Z", isNew: true } as ArmorItem;
 
 describe("RecentItemRow", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  it("requires selection for cleanup pulls and ignores typing and closed cards", () => {
+    const pull = vi.fn();
+    render(<LootHistoryGrid detailActions title="Cleanup" subtitle="Review" items={[{ ...weapon, kind: "weapon" }]} onTag={vi.fn()} onPull={pull} empty="" itemActions={() => <label>Notes<input aria-label="Cleanup notes" /></label>} />);
+    fireEvent.mouseEnter(screen.getByRole("button", { name: "Inspect Recent Rifle" }).closest("article")!);
+    fireEvent.keyDown(window, { key: "p" }); expect(pull).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
+    expect(screen.getByRole("dialog").textContent).toContain("Notes");
+    fireEvent.keyDown(screen.getByLabelText("Cleanup notes"), { key: "p" }); expect(pull).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "p" }); expect(pull).toHaveBeenCalledTimes(1);
+    fireEvent.pointerDown(document.body); fireEvent.keyDown(window, { key: "p" }); expect(pull).toHaveBeenCalledTimes(1);
+  });
   it("orders new loot and applies a tag shortcut only to the active item", () => {
     const onTag = vi.fn();
     render(<RecentItemRow title="Recently acquired" items={recentLoot([], [weapon])} onTag={onTag} />);

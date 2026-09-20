@@ -1,6 +1,7 @@
 import type { ArmorItem, CollectionData, CompanionManifest, RecentItemEvent, RecentItemTimelineData, WeaponItem } from "@guardian-nexus/contracts";
 import { imageUrl } from "@guardian-nexus/domain";
 import type { Env } from "./types";
+import { cleanupMarks } from "./cleanup";
 
 type GearLoot = ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & WeaponItem);
 
@@ -74,6 +75,8 @@ export async function readRecentItems(membershipId: string, env: Env, now = new 
       } catch { /* A malformed observation must not hide the rest of the saved timeline. */ }
     }
   }
+  const marks = await cleanupMarks(membershipId, env);
+  for (const item of currentGear.values()) item.cleanupRecommendation = marks[item.instanceId];
   return {
     timelineSchemaVersion: 1,
     events: events.map((event) => event.instanceId && currentGear.has(event.instanceId) ? { ...event, gear: currentGear.get(event.instanceId) } : event),

@@ -136,6 +136,7 @@ describe("recent item timeline transitions", () => {
       all: async () => {
         bindings.push(values);
         queries.push(sql);
+        if (sql.includes("cleanup_marks")) return { results: [{ item_id: "instance", batch_id: "batch", reason: "Identical copy", confidence: 99 }] };
         if (sql.includes("recent_item_events")) return { results: [{ id: "event", membership_id: "member", event_kind: "weapon-found", source_key: "gear:instance", item_hash: "10", instance_id: "instance", record_hash: null, name: "Saved Rifle", description: "", icon: "", quantity: 1, metadata_json: JSON.stringify({ id: "event", kind: "weapon-found", sourceKey: "gear:instance", name: "Saved Rifle", icon: "", quantity: 1, observedAt: now, lastObservedAt: now }), observed_at: now, last_observed_at: now }] };
         return { results: [{ observation_key: "gear:instance", metadata_json: JSON.stringify({ instanceId: "instance", gear: { kind: "weapon", instanceId: "instance", itemHash: "10", name: "Saved Rifle", icon: "", rarity: "Legendary", power: 550, slot: "Kinetic", damageType: "Kinetic", itemType: "Auto Rifle", location: "vault", equipped: false, locked: false, masterworked: false, crafted: false, enhanced: false, perkColumns: [], originTraits: [], stats: [], rollDataState: "unavailable", reviewState: "incomplete-data", reviewReasons: [], duplicateCount: 1, wishlisted: false, firstSeenAt: now, isNew: true } }) }] };
       }
@@ -143,8 +144,9 @@ describe("recent item timeline transitions", () => {
 
     const data = await readRecentItems("member", env, now, FIRETEAM_RECENT_ITEM_LIMIT);
     expect(data).toMatchObject({ observedAt: now, firstObservationEstablished: true, events: [{ name: "Saved Rifle", gear: { kind: "weapon", power: 550 } }] });
-    expect(queries).toHaveLength(3);
-    expect(queries.every((query) => /recent_item_(?:observations|events|refresh_state)/.test(query))).toBe(true);
+    expect(queries).toHaveLength(4);
+    expect(queries.every((query) => /recent_item_(?:observations|events|refresh_state)|cleanup_marks/.test(query))).toBe(true);
+    expect(data.events[0]?.gear?.cleanupRecommendation).toMatchObject({ batchId: "batch", confidence: 99 });
     const eventQuery = queries.find((query) => query.includes("recent_item_events")) || "";
     expect(eventQuery).not.toMatch(/SELECT\s+\*/i);
     expect(eventQuery).not.toMatch(/json_extract/i);

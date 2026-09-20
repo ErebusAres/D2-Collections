@@ -113,7 +113,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
       const originTraits = activePlugs.filter((plug) => weaponPlugKind(plug) === "origin").map(perk).filter((value) => value.name);
       const masterwork = activePlugs.find((plug) => weaponPlugKind(plug) === "masterwork");
       const rollDataState: WeaponItem["rollDataState"] = observedPerkColumns.length >= 2 && observedPerkColumns.every((column) => column.active) ? "complete" : activePlugs.length || observedPerkColumns.length ? "partial" : "unavailable";
-      const enhanced = activePlugs.some((plug) => /enhanced|enhancement/i.test(`${plug?.displayProperties?.name} ${plug?.plug?.plugCategoryIdentifier}`));
+      const enhanced = Boolean(itemState & 32) || activePlugs.some((plug) => /enhanced|enhancement/i.test(`${plug?.displayProperties?.name} ${plug?.plug?.plugCategoryIdentifier}`));
       const weaponStats = Object.entries(stats[instanceId]?.stats || {}).flatMap(([hash, value]: [string, any]) => {
         const definition = WEAPON_STATS[hash];
         return definition ? [{ hash, name: definition.name, value: Number(value?.value || 0), maximumValue: definition.maximumValue, displayAsNumeric: definition.displayAsNumeric }] : [];
@@ -123,7 +123,7 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
         instanceId, itemHash, name: String(definition.displayProperties?.name || "Unknown Weapon"), icon: imageUrl(definition.displayProperties?.icon), itemType: String(definition.itemTypeDisplayName || "Weapon"),
         slot: WEAPON_SLOT_HASHES[String(definition.inventory?.bucketTypeHash || "")] || "Unknown", damageType: DAMAGE_TYPES[Number(definition.defaultDamageType)] || "Unknown",
         rarity: String(definition.inventory?.tierTypeName || "Unknown"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
-        location: entry.location, ...(entry.inPostmaster ? { inPostmaster: true } : {}), equipped: entry.equipped, locked: Boolean(itemState & 1), masterworked: Boolean(itemState & 4), gearTier: Number(instance.gearTier || 0), crafted: Boolean(instance.isCrafted), enhanced,
+        location: entry.location, ...(entry.inPostmaster ? { inPostmaster: true } : {}), equipped: entry.equipped, locked: Boolean(itemState & 1), masterworked: Boolean(itemState & 4), gearTier: Number(instance.gearTier || 0), crafted: Boolean(itemState & 8) || Boolean(instance.isCrafted), enhanced,
         perkColumns, originTraits, ...(masterwork ? { masterwork: perk(masterwork) } : {}), stats: weaponStats, ...(trackerValue !== undefined ? { trackerValue } : {}), rollDataState, reviewState: "unique", reviewReasons: [], duplicateCount: 1, wishlisted: false,
         tag: state?.tag, firstSeenAt: state?.first_seen_at || now, dismissedAt: state?.dismissed_at, isNew: !state?.dismissed_at && !state?.tag
       });

@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { normalizeGear } from "../src/gear";
 
 describe("normalizeGear", () => {
+  it("honors Bungie's crafted and enhanced state flags even without instance hints", () => {
+    const profile = { profileInventory: { data: { items: [{ itemHash: 11, itemInstanceId: "101", state: 8 }, { itemHash: 11, itemInstanceId: "102", state: 32 }] } } };
+    const manifest: any = { version: "flags", gearItemDefinitions: { "11": { itemType: 3, inventory: { bucketTypeHash: 2465295065 } } }, plugDefinitions: {}, statDefinitions: {} };
+    const result = normalizeGear(profile, manifest, "char", "Warlock", new Map(), "now");
+    expect(result.weapons?.[0]?.crafted).toBe(true);
+    expect(result.weapons?.[1]?.enhanced).toBe(true);
+  });
   it("normalizes physical weapon rolls, selectable perks, and explainable duplicate review state", () => {
     const profile = {
       profileInventory: { data: { items: [

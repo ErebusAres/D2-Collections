@@ -25,7 +25,7 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
   const [search, setSearch] = useState("");
   const [slot, setSlot] = useState("all");
   const [location, setLocation] = useState("all");
-  const [tag, setTag] = useState<"all" | "none" | GearTag>("all");
+  const [tag, setTag] = useState<"all" | "none" | "cleanup" | GearTag>("all");
   const [review, setReview] = useState("all");
   const [compareHash, setCompareHash] = useState("");
   const ratingContext = useResolvedWeaponRatings();
@@ -50,7 +50,7 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
     return (!query || query.split(/\s+/).every((part) => haystack.includes(part)))
       && (slot === "all" || weapon.slot === slot)
       && (location === "all" || weapon.location === location)
-      && (tag === "all" || (tag === "none" ? !weapon.tag : weapon.tag === tag))
+      && (tag === "all" || (tag === "cleanup" ? Boolean(weapon.cleanupRecommendation) : tag === "none" ? !weapon.tag : weapon.tag === tag))
       && (review === "all" || review === "wishlisted" ? review !== "wishlisted" || wishlist.has(weapon.itemHash) : weapon.reviewState === review);
   }).sort((left, right) => Number(wishlist.has(right.itemHash)) - Number(wishlist.has(left.itemHash)) || right.duplicateCount - left.duplicateCount || right.power - left.power || left.name.localeCompare(right.name)), [data.weapons, location, review, search, slot, tag, wishlist]);
   const comparison = (data.weapons || []).filter((weapon) => weapon.itemHash === compareHash);
@@ -91,7 +91,7 @@ export function WeaponWorkspace({ data, selectedCharacterId, preferences, setPre
 
 function WeaponCard({ weapon, ratings, selectedCharacterId, onWishlist, onCompare, onTag, onAction, busy }: { weapon: WeaponItem; ratings?: WeaponRatingDatabase; selectedCharacterId: string; onWishlist: () => void; onCompare: () => void; onTag: (tag: "" | GearTag) => void; onAction: Props["onAction"]; busy: boolean }) {
   return <article tabIndex={0} data-gear-instance={weapon.instanceId} onMouseEnter={activateGearShortcut} onMouseLeave={deactivateGearShortcut} onFocus={activateGearShortcut} onBlur={deactivateGearShortcut} className={`${styles.weaponCard} ${weapon.rarity === "Exotic" ? styles.exoticArmor : ""} ${weapon.masterworked ? styles.masterworkedArmor : ""}`} data-review={weapon.reviewState}>
-    <header><div className={styles.weaponArt}><GearTierRail tier={weapon.gearTier} kind="Weapon" />{weapon.icon && <img src={weapon.icon} alt="" />}<GearTagBadge tag={weapon.tag} /><b>{weapon.power || ""}</b></div><div><span>{weapon.damageType} · {weapon.itemType}</span><h2>{weapon.name}</h2><p>{weapon.location}{weapon.equipped ? " · Equipped" : ""}</p></div><button className={weapon.wishlisted ? styles.weaponWishlisted : ""} onClick={onWishlist} title={weapon.wishlisted ? "Remove weapon from wishlist" : "Add weapon to wishlist"}><Star /></button></header>
+    <header><div className={styles.weaponArt}><GearTierRail tier={weapon.gearTier} kind="Weapon" />{weapon.icon && <img src={weapon.icon} alt="" />}<GearTagBadge tag={weapon.tag} /><CleanupBadge value={weapon.cleanupRecommendation} /><b>{weapon.power || ""}</b></div><div><span>{weapon.damageType} · {weapon.itemType}</span><h2>{weapon.name}</h2><p>{weapon.location}{weapon.equipped ? " · Equipped" : ""}</p></div><button className={weapon.wishlisted ? styles.weaponWishlisted : ""} onClick={onWishlist} title={weapon.wishlisted ? "Remove weapon from wishlist" : "Add weapon to wishlist"}><Star /></button></header>
     <div className={styles.weaponSignals}>{weapon.crafted && <span><Hammer /> Crafted</span>}{weapon.enhanced && <span><Sparkles /> Enhanced</span>}{weapon.originTraits.map((trait) => <span key={trait.hash} title={trait.description}>{trait.icon && <img src={trait.icon} alt="" />}{trait.name}</span>)}</div>
     <WeaponRatingPanel weapon={weapon} ratings={ratings} busy={busy} onSelectPlug={(socketIndex, plugItemHash) => onAction({ action: "setWeaponSocket", itemInstanceId: weapon.instanceId, characterId: selectedCharacterId, socketIndex, plugItemHash })} />
     <div className={styles.weaponReview}><CheckCircle2 /><span><b>{reviewLabel(weapon.reviewState)}</b><small>{weapon.reviewReasons[0]}</small></span>{weapon.duplicateCount > 1 && <button onClick={onCompare}>Compare {weapon.duplicateCount}</button>}</div>
@@ -127,3 +127,4 @@ function reviewLabel(value: WeaponItem["reviewState"]): string { return value ==
 function stringSet(value?: string): Set<string> { try { const parsed = JSON.parse(value || "[]"); return new Set(Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : []); } catch { return new Set(); } }
 function activateGearShortcut(event: React.SyntheticEvent<HTMLElement>): void { document.querySelectorAll<HTMLElement>("[data-gear-shortcut-active='true']").forEach((entry) => delete entry.dataset.gearShortcutActive); event.currentTarget.dataset.gearShortcutActive = "true"; }
 function deactivateGearShortcut(event: React.SyntheticEvent<HTMLElement>): void { delete event.currentTarget.dataset.gearShortcutActive; }
+import { CleanupBadge } from "./CleanupBadge";

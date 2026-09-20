@@ -783,6 +783,7 @@ export interface ArmorPerk {
 export interface ArmorGrade { letter: "S" | "A" | "B" | "C" | "D" | "F" | "—"; score?: number }
 
 export interface ArmorItem {
+  cleanupRecommendation?: { batchId: string; reason: string; confidence: number };
   instanceId: string;
   itemHash: string;
   name: string;
@@ -839,6 +840,7 @@ export interface WeaponStat {
 }
 
 export interface WeaponItem {
+  cleanupRecommendation?: { batchId: string; reason: string; confidence: number };
   instanceId: string;
   itemHash: string;
   name: string;
@@ -875,6 +877,7 @@ export interface WeaponItem {
 }
 
 export interface GearData {
+  cleanup?: Record<string, { batchId: string; reason: string; confidence: number }>;
   gearSchemaVersion?: 2;
   manifestVersion: string;
   selectedCharacterId: string;
@@ -1432,6 +1435,40 @@ export interface AudienceVisitorRow {
   region?: string;
   preferredLanguage?: string;
   locationSampledAt?: string;
+}
+
+export interface CleanupSettings {
+  cosmetics?: { enabled: boolean; weaponShader?: string; armorShader?: string; ornaments: Record<string, string> };
+  focus: "pve" | "pvp" | "both";
+  location: "vault" | "all";
+  exact: boolean;
+  dominance: boolean;
+  preferences: boolean;
+  aggressive: boolean;
+  sources: Array<"voltron" | "choosy-voltron" | "just-another-team">;
+  priorities: Record<ArmorStatKey, number>;
+}
+export interface CleanupRecommendation {
+  itemId: string;
+  keeperId: string;
+  confidence: 99 | 95 | 70;
+  reason: string;
+  protections: string[];
+  actionable: boolean;
+  key: string;
+}
+export interface CleanupAnalysis {
+  cosmetics: Array<{ hash: string; name: string; kind: "shader" | "ornament"; group: string }>;
+  version: string;
+  observedAt: string;
+  settings: CleanupSettings;
+  gear: GearData;
+  recommendations: CleanupRecommendation[];
+  warnings: string[];
+  insufficient: string[];
+  dismissed: string[];
+  marks: Record<string, { batchId: string; reason: string; confidence: number }>;
+  sources: Array<{ id: string; name: string; reviewedAt?: string }>;
 }
 
 export interface AudienceDetailData extends AudienceMetrics {

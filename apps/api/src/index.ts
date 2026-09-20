@@ -1,3 +1,5 @@
+import { cleanupMarks, cleanupSettings, cleanupSettingsSchema, cleanupSnapshot, mutateCleanup, validateCleanupPull } from "./cleanup";
+import { markCleanupCosmetics, restoreCleanupCosmetics } from "./cleanupCosmetics";
 import type {
   ApiEnvelope,
   ActivityHistoryData,
@@ -184,7 +186,7 @@ const preferenceSchema = z.discriminatedUnion("key", [
   z.object({ key: z.literal("projects.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("fashion.looks.v1"), value: z.string().max(40_000) }),
   z.object({ key: z.literal("challenges.v1"), value: z.string().max(40_000) }),
-  z.object({ key: z.literal("gear.workspace"), value: z.enum(["armor", "weapons", "loot", "vault"]) }),
+  z.object({ key: z.literal("gear.workspace"), value: z.enum(["armor", "weapons", "loot", "vault", "cleanup"]) }),
   z.object({ key: z.literal("fireteam.recentLoot.v1"), value: z.enum(["on", "off"]) }),
   z.object({ key: z.literal("fireteam.recentLootLimit.v1"), value: z.enum(["12", "24", "48"]) }),
   z.object({ key: z.literal("fireteam.activityFeedView.v1"), value: z.enum(["open", "minimized", "hidden"]) }),
@@ -306,6 +308,36 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (snapshotsResponse) return snapshotsResponse;
 
   const session = await requireSession(request, env);
+  if (path === "/api/v1/me/cleanup" && request.method === "GET") {
+    const cosmetics = await env.DB.prepare("SELECT DISTINCT item_id FROM cleanup_cosmetics WHERE membership_id = ?").bind(session.row.membership_id).all<{ item_id: string }>();
+    return envelope({ settings: await cleanupSettings(session.row.membership_id, env), marks: await cleanupMarks(session.row.membership_id, env), cosmeticItems: (cosmetics.results || []).map((item) => item.item_id) }, env, context);
+  }
+  if (path === "/api/v1/me/cleanup/analyze" && request.method === "POST") {
+    await requireCsrf(request, session.token, env);
+    const settings = cleanupSettingsSchema.parse(await request.json());
+    const { analysis } = await cleanupSnapshot(session.row, env, settings);
+    await env.DB.prepare("INSERT INTO cleanup_preferences (membership_id, settings_json) VALUES (?, ?) ON CONFLICT(membership_id) DO UPDATE SET settings_json = excluded.settings_json").bind(session.row.membership_id, JSON.stringify(settings)).run();
+    return envelope(analysis, env, context);
+  }
+  if (path === "/api/v1/me/cleanup" && request.method === "POST") {
+    await requireCsrf(request, session.token, env);
+    return envelope(await mutateCleanup(request, session.row, env), env, context);
+  }
+  if (path === "/api/v1/me/cleanup/pull" && request.method === "POST") {
+    await requireCsrf(request, session.token, env);
+    const settings = cleanupSettingsSchema.parse((await request.clone().json() as any).settings);
+    const input = await validateCleanupPull(request, session.row, env);
+    const response = await gearAction(new Request(request.url, { method: "POST", body: JSON.stringify(input) }), session.row, env, context);
+    const result = await response.json() as { data: GearActionResult };
+    const warnings = result.data.succeeded.includes(input.itemInstanceId) ? await markCleanupCosmetics(session.row, env, input.itemInstanceId, input.targetCharacterId, settings).catch(() => ["Pulled successfully; appearance could not be changed."]) : [];
+    return envelope(result.data, env, context, { warnings });
+  }
+  if (path === "/api/v1/me/cleanup/restore" && request.method === "POST") {
+    await requireCsrf(request, session.token, env);
+    const input = z.object({ itemId: z.string().regex(/^\d+$/) }).parse(await request.json());
+    const warnings = await restoreCleanupCosmetics(session.row, env, input.itemId);
+    return envelope({ itemId: input.itemId, restored: !warnings.length }, env, context, { warnings });
+  }
   const reportsResponse = await reportsRoute(request, env, context, session);
   if (reportsResponse) return reportsResponse;
   if (path === "/api/v1/me/overview" && request.method === "GET") return overview(session.row, env, context);
@@ -1328,13 +1360,15 @@ async function updateUserPreference(request: Request, row: SessionRow, env: Env,
 }
 
 async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const { profile } = await profileFor(row, env, "gear");
-  const manifest = await loadGearManifest(env);
+  const [{ profile }, manifest, states, marks] = await Promise.all([
+    profileFor(row, env, "gear"), loadGearManifest(env), gearStates(row.membership_id, env), cleanupMarks(row.membership_id, env)
+  ]);
   const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const states = await gearStates(row.membership_id, env);
   const now = new Date().toISOString();
   const data = normalizeGear(profile, manifest, character.characterId, character.className, states, now);
+  data.cleanup = marks;
+  for (const item of [...data.items, ...(data.weapons || [])]) item.cleanupRecommendation = data.cleanup[item.instanceId];
   const missing = [...data.items, ...(data.weapons || [])].filter((item) => !states.has(item.instanceId));
   for (let offset = 0; offset < missing.length; offset += 80) {
     await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));

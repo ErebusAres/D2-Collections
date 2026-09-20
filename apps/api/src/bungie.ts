@@ -548,9 +548,11 @@ export function primaryMembership(memberships: any): any {
     || entries[0];
 }
 
-export type ProfileMode = "full" | "session" | "collection" | "xur" | "quests" | "journey" | "fireteam" | "fireteam-presence" | "gear" | "gear-action" | "loot-watcher" | "recent-items" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
+export type ProfileMode = "cleanup" | "full" | "session" | "collection" | "xur" | "quests" | "journey" | "fireteam" | "fireteam-presence" | "gear" | "gear-action" | "loot-watcher" | "recent-items" | "mailbox" | "loadouts" | "collectibles" | "guardian-rank" | "power" | "build-advisor";
 
 export function profileComponentsFor(mode: ProfileMode): string {
+  if (mode === "gear") return "100,102,200,201,205,300,301,304,305,307,310";
+  if (mode === "cleanup") return "100,102,200,201,205,206,300,301,304,305,307,310,800";
   return mode === "session"
     ? "100,200,201,202,204"
     : mode === "collection"
@@ -586,7 +588,7 @@ export function profileComponentsFor(mode: ProfileMode): string {
             ? "100,200,900"
             : mode === "power"
               ? "100,102,103,104,200,201,205,300"
-    : `100,102,103,104,200,201,202,204,205,300,301,304,305,307${mode === "gear" ? ",310" : ""},800,900,1000,1200`;
+    : "100,102,103,104,200,201,202,204,205,300,301,304,305,307,800,900,1000,1200";
 }
 
 export async function profileFor(row: SessionRow, env: Env, mode: ProfileMode = "full", force = false, accessTokenOverride?: string): Promise<{ profile: any; accessToken: string }> {

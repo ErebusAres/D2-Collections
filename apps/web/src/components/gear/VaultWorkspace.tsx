@@ -32,7 +32,7 @@ export function VaultWorkspace({ data, selectedCharacterId, onTag, onAction, bus
   const [weaponType, setWeaponType] = useState("all");
   const [damageType, setDamageType] = useState("all");
   const [armorClass, setArmorClass] = useState("all");
-  const [tag, setTag] = useState<"all" | "none" | GearTag>("all");
+  const [tag, setTag] = useState<"all" | "none" | "cleanup" | GearTag>("all");
   const [lockState, setLockState] = useState("all");
   const [sort, setSort] = useState<VaultSort>("type");
   const [statSource, setStatSource] = useState<VaultStatSource>("base");
@@ -57,7 +57,7 @@ export function VaultWorkspace({ data, selectedCharacterId, onTag, onAction, bus
     if (weaponType !== "all" && (item.kind !== "weapon" || item.itemType !== weaponType)) return false;
     if (damageType !== "all" && (item.kind !== "weapon" || item.damageType !== damageType)) return false;
     if (armorClass !== "all" && (item.kind !== "armor" || item.className !== armorClass)) return false;
-    if (tag !== "all" && (tag === "none" ? Boolean(item.tag) : item.tag !== tag)) return false;
+    if (tag !== "all" && (tag === "cleanup" ? !item.cleanupRecommendation : tag === "none" ? Boolean(item.tag) : item.tag !== tag)) return false;
     if (lockState !== "all" && item.locked !== (lockState === "locked")) return false;
     if (!matchesSearch(item, search) || !matchesStats(item, statRanges, statSource)) return false;
     return true;

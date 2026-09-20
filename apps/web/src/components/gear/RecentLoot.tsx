@@ -53,10 +53,10 @@ export function RecentItemRow({ title, items, onTag, onSocketChange, busy = fals
   return <section className={styles.row}><header><Sparkles /><span><strong>{title}</strong><small>{items.length} new · first observed by Guardian Nexus</small></span></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} onSocketChange={onSocketChange} busy={busy} />)}</div> : <p>{empty}</p>}</section>;
 }
 
-export function LootHistoryGrid({ title, subtitle, items, onTag, onPull, onSocketChange, busy = false, empty, itemActions }: { title: string; subtitle: string; items: LootItem[]; onTag: (item: LootItem, tag?: GearTag) => void; onPull?: LootPull; onSocketChange?: WeaponSocketChange; busy?: boolean; empty: string; itemActions?: (item: LootItem) => ReactNode }) {
+export function LootHistoryGrid({ title, subtitle, items, onTag, onPull, onSocketChange, busy = false, empty, itemActions, detailActions = false, itemSummary }: { title: string; subtitle: string; items: LootItem[]; onTag: (item: LootItem, tag?: GearTag) => void; onPull?: LootPull; onSocketChange?: WeaponSocketChange; busy?: boolean; empty: string; itemActions?: (item: LootItem) => ReactNode; detailActions?: boolean; itemSummary?: (item: LootItem) => ReactNode }) {
   const active = useRef<LootItem | undefined>(undefined);
   useLootShortcuts(active, onTag, onPull, busy);
-  return <section className={styles.history}><header><span><strong>{title}</strong><small>{subtitle}</small></span><b>{items.length}</b></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} onSocketChange={onSocketChange} busy={busy} pullShortcut={Boolean(onPull)} actions={itemActions?.(item)} />)}</div> : <p>{empty}</p>}</section>;
+  return <section className={styles.history}><header><span><strong>{title}</strong><small>{subtitle}</small></span><b>{items.length}</b></header>{items.length ? <div>{items.map((item) => <RecentItemCard key={item.instanceId} item={item} onActivate={() => { active.current = item; }} onDeactivate={() => { if (active.current?.instanceId === item.instanceId) active.current = undefined; }} onTag={(tag) => onTag(item, tag)} onSocketChange={onSocketChange} busy={busy} pullShortcut={Boolean(onPull)} actions={itemActions?.(item)} detailActions={detailActions} summary={itemSummary?.(item)} />)}</div> : <p>{empty}</p>}</section>;
 }
 
 export function parseRecentLootDisplayLimit(value?: string): RecentLootDisplayLimit {
@@ -212,7 +212,7 @@ export function TimelineEventTooltip({ event, id }: { event: RecentItemEvent; id
   return <aside id={id} className={styles.tooltip} role="tooltip"><header>{event.icon && <img src={event.icon} alt="" />}<span><small>{type}</small><strong>{event.name}</strong><em>{event.rarity || (inventory ? "Inventory" : "Exotic")}</em></span></header><div className={styles.identity}><b>{label}</b><span>{type}</span></div>{event.description && <p>{event.description}</p>}<nav className={styles.sourceLinks}>{event.itemHash ? <a href={`https://www.light.gg/db/items/${event.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a> : <Link to="/collection?view=catalysts">Open catalyst details</Link>}<span><Clock3 /> First seen {observationLabel}</span></nav><footer>Guardian Nexus may notice an item a little later than it dropped in game.</footer></aside>;
 }
 
-export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocketChange, busy, compact = false, pullShortcut = false, actions }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy: boolean; compact?: boolean; pullShortcut?: boolean; actions?: ReactNode }) {
+export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocketChange, busy, compact = false, pullShortcut = false, actions, detailActions = false, summary }: { item: LootItem; onActivate: () => void; onDeactivate: () => void; onTag: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy: boolean; compact?: boolean; pullShortcut?: boolean; actions?: ReactNode; detailActions?: boolean; summary?: ReactNode }) {
   const [selected, setSelected] = useState(false);
   const card = useRef<HTMLElement>(null);
   const tooltipId = useId();
@@ -227,18 +227,18 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocket
   }, [selected, onDeactivate]);
   const close = () => { setSelected(false); onDeactivate(); };
   const value = item.kind === "weapon" ? evaluateWeapon(item, ratingContext.database) : undefined;
-  return <article ref={card} className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions)} data-selected={selected} onKeyDown={(key) => { if (key.key === "Escape") close(); }} onFocus={onActivate} onBlur={(event) => { if (!selected && !event.currentTarget.contains(event.relatedTarget)) onDeactivate(); }} onMouseEnter={onActivate} onMouseLeave={() => { if (!selected) onDeactivate(); }}>
+  return <article ref={card} className={`${styles.card} ${compact ? styles.compactCard : ""}`} data-rarity={item.rarity} data-actions={Boolean(actions && !detailActions)} data-selected={selected} onKeyDown={(key) => { if (key.key === "Escape") close(); }} onFocus={() => { if (!detailActions || selected) onActivate(); }} onBlur={(event) => { if (!selected && !event.currentTarget.contains(event.relatedTarget)) onDeactivate(); }} onMouseEnter={() => { if (!detailActions || selected) onActivate(); }} onMouseLeave={() => { if (!selected) onDeactivate(); }}>
     <button className={styles.tile} type="button" aria-label={`Inspect ${item.name}`} aria-expanded={selected} aria-controls={selected ? tooltipId : undefined} onClick={() => { if (selected) close(); else { setSelected(true); onActivate(); } }}>
       <span className={styles.art}><GearTierRail tier={item.gearTier} kind={item.kind === "weapon" ? "Weapon" : "Armor"} />{item.icon ? <img src={item.icon} alt="" /> : <Sparkles />}</span>
       <span className={styles.metrics}><b>{item.power || "—"}</b>{item.kind === "weapon" && <strong className={styles.score} data-state={value?.state} data-quality={value?.quality}>{value?.state === "scored" ? <><span>{item.rollDataState === "complete" ? "Roll" : "Est."} {value.overall ?? "—"}%</span><small>{qualityLabel(value.quality)}</small></> : value?.state === "incomplete" ? "Roll pending" : "No rating"}</strong>}</span>
     </button>
-    <span className={styles.cardName}>{item.name}</span>
-    <div className={styles.cardActions}>{!selected && <><ItemLocationBadge item={item} /><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} /></>}{actions}</div>
-    {selected && <ItemTooltip id={tooltipId} item={item} utility onClose={close} onTag={onTag} onSocketChange={onSocketChange} busy={busy} pullShortcut={pullShortcut} />}
+    <span className={styles.cardName}>{item.name}<CleanupBadge value={item.cleanupRecommendation} />{summary}</span>
+    <div className={styles.cardActions}>{!selected && <><ItemLocationBadge item={item} /><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} /></>}{!detailActions && actions}</div>
+    {selected && <ItemTooltip id={tooltipId} item={item} utility onClose={close} onTag={onTag} onSocketChange={onSocketChange} busy={busy} pullShortcut={pullShortcut} details={detailActions ? actions : undefined} />}
   </article>;
 }
 
-export function ItemTooltip({ item, id, utility = false, onClose, onTag, onSocketChange, busy = false, pullShortcut = false }: { item: LootItem; id?: string; utility?: boolean; onClose?: () => void; onTag?: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean; pullShortcut?: boolean }) {
+export function ItemTooltip({ item, id, utility = false, onClose, onTag, onSocketChange, busy = false, pullShortcut = false, details }: { item: LootItem; id?: string; utility?: boolean; onClose?: () => void; onTag?: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean; pullShortcut?: boolean; details?: ReactNode }) {
   return <aside id={id} className={`${styles.tooltip} ${utility ? styles.utilityCard : ""}`} role={utility ? "dialog" : "tooltip"} aria-label={utility ? `${item.name} details` : undefined}><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span>{utility && <button className={styles.utilityClose} type="button" aria-label={`Close ${item.name} details`} onClick={onClose}><X /></button>}</header>
     <div className={styles.identity}><b>{item.power || "—"} Power</b><span>{item.kind === "weapon" ? item.slot : item.className}</span>{item.kind === "armor" && item.archetype && <ArmorArchetypeBadge archetype={item.archetype} />}<span>{item.inPostmaster ? "Postmaster" : item.location}{item.equipped ? " · Equipped" : ""}</span></div>
     <nav className={styles.sourceLinks}><a href={`https://www.light.gg/db/items/${item.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a><span><Clock3 /> First observed {new Date(item.firstSeenAt).toLocaleString()}</span></nav>
@@ -249,6 +249,7 @@ export function ItemTooltip({ item, id, utility = false, onClose, onTag, onSocke
       <WeaponRatingPanel weapon={item} compact busy={busy} onSelectPlug={onSocketChange ? (socketIndex, plugItemHash) => onSocketChange(item, socketIndex, plugItemHash) : undefined} />
     </> : <div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal}</strong></div>}
     {utility && onTag && <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} /></div>}
+    {details}
     <footer>First observed time is Guardian Nexus history, not an exact Bungie drop timestamp. Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse{pullShortcut ? " · P Pull to selected character" : ""}</footer>
   </aside>;
 }
@@ -282,7 +283,7 @@ function useLootShortcuts(active: React.RefObject<LootItem | undefined>, onTag: 
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       const item = active.current;
-      if (!item || isTyping(event.target)) return;
+      if (!item || busy || isTyping(event.target)) return;
       if (event.key.toLocaleLowerCase() === "p" && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && onPull && !busy) {
         event.preventDefault(); onPull(item); return;
       }
@@ -294,3 +295,4 @@ function useLootShortcuts(active: React.RefObject<LootItem | undefined>, onTag: 
     return () => window.removeEventListener("keydown", shortcut);
   }, [active, busy, onPull, onTag]);
 }
+import { CleanupBadge } from "./CleanupBadge";
