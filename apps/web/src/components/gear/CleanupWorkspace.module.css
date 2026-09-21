@@ -2,5 +2,5 @@
 .workspace h2 { margin-top: 0; }.workspace p { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin: 16px 0; }
 .workspace label { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; font-size: 13px; }
-.workspace button,.workspace select { background: #15252e; color: var(--ink); border: 1px solid var(--line); padding: 8px; cursor: pointer; }.workspace button:disabled { opacity: .45; cursor: not-allowed; }
+.workspace button:not([class]),.workspace select { background: #15252e; color: var(--ink); border: 1px solid var(--line); padding: 8px; cursor: pointer; }.workspace button:disabled { opacity: .45; cursor: not-allowed; }
 .reason { white-space: normal; max-width: 300px; padding: 8px; }.reason p { margin: 5px 0; }.reason button { margin: 3px; font-size: 11px; }.reason strong { color: var(--gold); font-size: 12px; }

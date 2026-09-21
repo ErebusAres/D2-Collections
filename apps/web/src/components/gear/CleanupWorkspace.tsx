@@ -1,11 +1,12 @@
 import type { CleanupAnalysis, CleanupSettings, GearActionResult, GearTag } from "@guardian-nexus/contracts";
 import { CLEANUP_DEFAULTS } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useGuardian } from "../../context/GuardianContext";
 import { api, mutationHeaders } from "../../services/api/client";
 import { gearLootItems, LootHistoryGrid, type LootItem } from "./RecentLoot";
 import styles from "./CleanupWorkspace.module.css";
+import { CleanupComparison } from "./CleanupComparison";
 import { WEAPON_RATING_SOURCES } from "../../modules/loot/weaponEvaluator";
 import { cleanupSettingsKey, updateCleanupCache } from "./cleanupState";
 import { Trash2 } from "lucide-react";
@@ -15,11 +16,11 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
   const stored = useQuery({ queryKey: ["cleanup-state", session?.guardian?.membershipId], queryFn: () => api<{ settings: CleanupSettings; marks: CleanupAnalysis["marks"]; cosmeticItems: string[] }>("/api/v1/me/cleanup") });
   const [settings, setSettings] = useState<CleanupSettings>(CLEANUP_DEFAULTS);
   const [analysis, setAnalysis] = useState<CleanupAnalysis>(); const [selected, setSelected] = useState<string[]>([]);
-  const [confidence, setConfidence] = useState(0); const [onlyMarked, setOnlyMarked] = useState(false); const [keeper, setKeeper] = useState(""); const [lastBatch, setLastBatch] = useState("");
+  const [confidence, setConfidence] = useState(0); const [onlyMarked, setOnlyMarked] = useState(false); const [comparisonId, setComparisonId] = useState(""); const [lastBatch, setLastBatch] = useState("");
   const [notice, setNotice] = useState("");
   const initialized = useRef(false);
   useEffect(() => { if (stored.data && !initialized.current) { initialized.current = true; setSettings(stored.data.data.settings); } }, [stored.data]);
-  const scan = useMutation({ mutationFn: (requestedSettings?: CleanupSettings) => api<CleanupAnalysis>("/api/v1/me/cleanup/analyze", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(requestedSettings || settings) }), onSuccess: (result) => { setAnalysis(result.data); setSelected([]); setKeeper(""); } });
+  const scan = useMutation({ mutationFn: (requestedSettings?: CleanupSettings) => api<CleanupAnalysis>("/api/v1/me/cleanup/analyze", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(requestedSettings || settings) }), onSuccess: (result) => { setAnalysis(result.data); setSelected([]); setComparisonId(""); } });
   const handledRequest = useRef(0);
   useEffect(() => {
     if (stored.data && analysisRequest > handledRequest.current) { handledRequest.current = analysisRequest; scan.mutate(stored.data.data.settings); }
@@ -49,6 +50,8 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
   const rows = (analysis?.recommendations || []).filter((r) => !analysis?.dismissed.includes(r.key) && r.confidence >= confidence && (!onlyMarked || marks[r.itemId]));
   const all: LootItem[] = analysis ? gearLootItems(analysis.gear.items, analysis.gear.weapons || []).map((item) => ({ ...item, cleanupRecommendation: marks[item.instanceId] })) : [];
   const byId = new Map(all.map((item) => [item.instanceId, item]));
+  const comparison = analysis?.recommendations.find((entry) => entry.itemId === comparisonId);
+  const closeComparison = useCallback(() => setComparisonId(""), []);
   const busy = scan.isPending || changes.isPending || transfer.isPending || restore.isPending;
   const pull = (item: LootItem) => {
     const recommendation = analysis?.recommendations.find((r) => r.itemId === item.instanceId);
@@ -97,10 +100,10 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
         <button disabled={busy || stale || !selected.length} onClick={() => changes.mutate({ action: "approve", itemIds: selected })}>Tag selected ({selected.length})</button>
         <button disabled={busy || !lastBatch} onClick={() => changes.mutate({ action: "undo", batchId: lastBatch })}>Undo last batch</button>
       </div>
-      {keeper && byId.has(keeper) && <><button onClick={() => setKeeper("")}>Close keeper comparison</button><LootHistoryGrid title="Retained keeper" subtitle="This item will not be tagged by this analysis." items={[byId.get(keeper)!]} onTag={onTag} busy empty="" /></>}
-      <LootHistoryGrid detailActions itemSummary={(item) => { const r = rows.find((entry) => entry.itemId === item.instanceId)!; return <small title={r.reason}><Trash2 size={12} /> {r.confidence}% · {r.actionable ? "Review" : "Protected"}</small>; }} title="Cleanup candidates" subtitle="Select a tile for details. Approve its tag before using [P] to pull. Protected items are review-only." items={rows.map((r) => byId.get(r.itemId)).filter((item): item is LootItem => Boolean(item))} onTag={onTag} onPull={pull} busy={busy || stale} empty="No eligible recommendations for these rules. Unique items and protected gear are retained." itemActions={(item) => {
+      {comparison && byId.has(comparison.itemId) && byId.has(comparison.keeperId) && <CleanupComparison candidate={byId.get(comparison.itemId)!} keeper={byId.get(comparison.keeperId)!} recommendation={comparison} sources={analysis.sources} onClose={closeComparison} />}
+      <LootHistoryGrid detailActions itemSummary={(item) => { const r = rows.find((entry) => entry.itemId === item.instanceId)!; return <><small title={r.reason}><Trash2 size={12} /> {r.confidence}% · {r.actionable ? "Review" : "Protected"}</small><button type="button" onClick={() => setComparisonId(r.itemId)}>Compare</button></>; }} title="Cleanup candidates" subtitle="Select a tile for details. Approve its tag before using [P] to pull. Protected items are review-only." items={rows.map((r) => byId.get(r.itemId)).filter((item): item is LootItem => Boolean(item))} onTag={onTag} onPull={pull} busy={busy || stale} empty="No eligible recommendations for these rules. Unique items and protected gear are retained." itemActions={(item) => {
         const r = rows.find((entry) => entry.itemId === item.instanceId)!;
-        return <div className={styles.reason}><strong>{r.confidence}% · {marks[item.instanceId] ? "Recommended dismantle" : "Review"}</strong><p>{r.reason}</p><p>Keeping: {byId.get(r.keeperId)?.name || r.keeperId} · {byId.get(r.keeperId)?.power} Power</p><p>{r.confidence === 70 && item.kind === "weapon" ? `Sources: ${analysis.sources.map((s) => `${s.name} (${s.reviewedAt})`).join(", ")}` : "Source: local comparison of your owned items."}</p>{r.protections.length > 0 && <p>Protected: {r.protections.join(", ")}</p>}<label><input type="checkbox" aria-label={`Select ${item.name} for cleanup`} checked={selected.includes(item.instanceId)} disabled={!r.actionable || busy || stale || Boolean(marks[item.instanceId])} onChange={(e) => setSelected((ids) => e.target.checked ? [...ids, item.instanceId].slice(0, 50) : ids.filter((id) => id !== item.instanceId))} /> Approve</label><button onClick={() => setKeeper(r.keeperId)}>Show keeper</button><button disabled={busy || stale} onClick={() => changes.mutate({ action: "dismiss", itemIds: [item.instanceId] })}>Keep / dismiss</button><button disabled={busy || stale || !r.actionable || !marks[item.instanceId]} onClick={() => pull(item)}>Pull [P]</button>{marks[item.instanceId] && <button disabled={busy} onClick={() => changes.mutate({ action: "undo", batchId: marks[item.instanceId]!.batchId })}>Undo this batch</button>}</div>;
+        return <div className={styles.reason}><strong>{r.confidence}% · {marks[item.instanceId] ? "Recommended dismantle" : "Review"}</strong><p>{r.reason}</p><p>Keeping: {byId.get(r.keeperId)?.name || r.keeperId} · {byId.get(r.keeperId)?.power} Power</p><p>{r.confidence === 70 && item.kind === "weapon" ? `Sources: ${analysis.sources.map((s) => `${s.name} (${s.reviewedAt})`).join(", ")}` : "Source: local comparison of your owned items."}</p>{r.protections.length > 0 && <p>Protected: {r.protections.join(", ")}</p>}<label><input type="checkbox" aria-label={`Select ${item.name} for cleanup`} checked={selected.includes(item.instanceId)} disabled={!r.actionable || busy || stale || Boolean(marks[item.instanceId])} onChange={(e) => setSelected((ids) => e.target.checked ? [...ids, item.instanceId].slice(0, 50) : ids.filter((id) => id !== item.instanceId))} /> Approve</label><button onClick={() => setComparisonId(r.itemId)}>Compare with keeper</button><button disabled={busy || stale} onClick={() => changes.mutate({ action: "dismiss", itemIds: [item.instanceId] })}>Keep / dismiss</button><button disabled={busy || stale || !r.actionable || !marks[item.instanceId]} onClick={() => pull(item)}>Pull [P]</button>{marks[item.instanceId] && <button disabled={busy} onClick={() => changes.mutate({ action: "undo", batchId: marks[item.instanceId]!.batchId })}>Undo this batch</button>}</div>;
       }} />
     </>}
   </section>;
