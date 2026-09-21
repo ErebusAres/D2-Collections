@@ -8,15 +8,19 @@ import type { Env, SessionRow } from "./types";
 import { cosmeticChoices } from "./cleanupCosmetics";
 
 const weight = z.number().int().min(0).max(1);
-const cosmeticsSchema = z.object({ enabled: z.boolean(), weaponShader: z.string().regex(/^\d+$/).optional(), armorShader: z.string().regex(/^\d+$/).optional(), ornaments: z.record(z.union([z.string().regex(/^\d+$/), z.literal("")])) });
-export const cleanupSettingsSchema = z.object({ cosmetics: cosmeticsSchema.optional(), focus: z.enum(["pve", "pvp", "both"]), location: z.enum(["vault", "all"]), exact: z.boolean(), dominance: z.boolean(), preferences: z.boolean(), aggressive: z.boolean(), sources: z.array(z.enum(["voltron", "choosy-voltron", "just-another-team"])).min(1).max(3), priorities: z.object({ health: weight, melee: weight, grenade: weight, super: weight, class: weight, weapons: weight }) });
+const cosmeticsSchema = z.object({ enabled: z.boolean(), weaponShader: z.string().regex(/^\d+$/).optional(), armorShader: z.string().regex(/^\d+$/).optional(), ornaments: z.record(z.union([z.string().regex(/^\d+$/), z.literal("")])), classStyles: z.record(z.string().max(80)).optional() });
+export const cleanupSettingsSchema = z.object({ cosmetics: cosmeticsSchema.optional(), fullComparison: z.boolean().default(true), legacyReview: z.boolean().default(true), focus: z.enum(["pve", "pvp", "both"]), location: z.enum(["vault", "all"]), exact: z.boolean(), dominance: z.boolean(), preferences: z.boolean(), aggressive: z.boolean(), sources: z.array(z.enum(["voltron", "choosy-voltron", "just-another-team"])).min(1).max(3), priorities: z.object({ health: weight, melee: weight, grenade: weight, super: weight, class: weight, weapons: weight }) });
 export async function cleanupMarks(membershipId: string, env: Env): Promise<NonNullable<GearData["cleanup"]>> {
   const rows = await env.DB.prepare("SELECT item_id, batch_id, reason, confidence FROM cleanup_marks WHERE membership_id = ?").bind(membershipId).all<{ item_id: string; batch_id: string; reason: string; confidence: number }>();
   return Object.fromEntries((rows.results || []).map((r) => [r.item_id, { batchId: r.batch_id, reason: r.reason, confidence: r.confidence }]));
 }
 export async function cleanupSettings(membershipId: string, env: Env): Promise<CleanupSettings> {
   const row = await env.DB.prepare("SELECT settings_json FROM cleanup_preferences WHERE membership_id = ?").bind(membershipId).first<{ settings_json: string }>();
-  if (row) { try { return cleanupSettingsSchema.parse(JSON.parse(row.settings_json)); } catch { /* obsolete settings */ } }
+  if (row) { try {
+    const saved = JSON.parse(row.settings_json);
+    // Upgrade the original narrow defaults once; later explicit rule choices remain intact.
+    return cleanupSettingsSchema.parse(saved.fullComparison === undefined ? { ...saved, fullComparison: true, legacyReview: true, preferences: true } : saved);
+  } catch { /* obsolete settings */ } }
   const rating = await env.DB.prepare("SELECT preference_value FROM user_preferences WHERE membership_id = ? AND preference_key = 'weapons.ratingSource.v1'").bind(membershipId).first<{ preference_value: string }>();
   const source = rating?.preference_value === "choosy-voltron" || rating?.preference_value === "just-another-team" ? rating.preference_value : "voltron";
   return { ...CLEANUP_DEFAULTS, sources: [source] };
@@ -27,6 +31,8 @@ function savedReferences(value: unknown, owned: Set<string>, result: Set<string>
   else if (value && typeof value === "object") Object.values(value).forEach((entry) => savedReferences(entry, owned, result));
 }
 export async function cleanupSnapshot(row: SessionRow, env: Env, settings: CleanupSettings): Promise<{ analysis: CleanupAnalysis; profile: any }> {
+  // Canonical field order/defaults keep preview, approval and pull evidence identical.
+  settings = cleanupSettingsSchema.parse(settings);
   const [{ profile }, manifest, stateRows, builds, drafts, marks, dismissals] = await Promise.all([
     profileFor(row, env, "cleanup", true), loadGearManifest(env),
     env.DB.prepare("SELECT * FROM gear_item_state WHERE membership_id = ?").bind(row.membership_id).all<GearStateRow>(),
@@ -40,6 +46,19 @@ export async function cleanupSnapshot(row: SessionRow, env: Env, settings: Clean
   if (!characterId) throw httpError(409, "cleanup_inventory_incomplete", "Your character inventory is unavailable. No cleanup recommendations were made.");
   const states = new Map((stateRows.results || []).map((s) => [s.item_instance_id, s]));
   const gear = normalizeGear(profile, manifest, characterId, "Unknown", states, new Date().toISOString());
+  await Promise.all(gear.items.map(async (item) => {
+    const sockets: any[] = profile?.itemComponents?.sockets?.data?.[item.instanceId]?.sockets || [];
+    const definition = manifest.gearItemDefinitions[item.itemHash] as any;
+    const capability = definition?.cleanupCapabilities;
+    const energy = profile?.itemComponents?.instances?.data?.[item.instanceId]?.energy;
+    if (!capability?.socketTypes?.length || !sockets.length || !sockets.every((socket) => !socket.plugHash || manifest.plugDefinitions[String(socket.plugHash)])) return;
+    const capabilities = sockets.flatMap((socket, index) => {
+      const plug = manifest.plugDefinitions[String(socket.plugHash)] as any;
+      if (/shader|ornament|skin|tracker/i.test(String(plug?.plug?.plugCategoryIdentifier || ""))) return [];
+      return [[index, String(socket.plugHash || ""), (profile?.itemComponents?.reusablePlugs?.data?.[item.instanceId]?.plugs?.[String(index)] || []).map((entry: any) => String(entry.plugItemHash)).sort()]];
+    });
+    item.cleanupSocketKey = await sha256(JSON.stringify([capability, energy?.energyCapacity, capabilities]));
+  }));
   const all = [...gear.items, ...(gear.weapons || [])].sort((a, b) => a.instanceId.localeCompare(b.instanceId));
   const owned = new Set(all.map((item) => item.instanceId)); const saved = new Set<string>();
   let complete = manifest.version !== "unavailable" && Array.isArray(profile?.profileInventory?.data?.items) && characters.every((id) => Array.isArray(profile?.characterInventories?.data?.[id]?.items) && Array.isArray(profile?.characterEquipment?.data?.[id]?.items) && Array.isArray(profile?.characterLoadouts?.data?.[id]?.loadouts));
@@ -72,7 +91,7 @@ export async function cleanupSnapshot(row: SessionRow, env: Env, settings: Clean
     } catch { complete = false; }
   }
   const sources: CleanupWishlist[] = [];
-  if (settings.preferences && settings.aggressive) for (const id of [...new Set(settings.sources)]) {
+  if (settings.preferences) for (const id of [...new Set(settings.sources)]) {
     try {
       const file = id === "voltron" ? "weapon-value.v4.json" : `weapon-value.${id}.v4.json`;
       const response = await fetch(new URL(file, env.GAME_DATA_URL), { signal: AbortSignal.timeout(10_000) });
@@ -86,10 +105,12 @@ export async function cleanupSnapshot(row: SessionRow, env: Env, settings: Clean
   const cosmetics = cosmeticChoices(profile, gear, manifest);
   const sourceVersions = await Promise.all(sources.map((source) => sha256(JSON.stringify(source))));
   const version = await sha256(JSON.stringify(["cleanup-v1", manifest.version, settings, sourceVersions, [...saved].sort(), complete, [...incompleteIds].sort(), [...armorSockets], all.map(({ firstSeenAt: _first, isNew: _new, dismissedAt: _dismissed, ...item }) => item)]));
-  const recommendations = await Promise.all(result.recommendations.filter((entry) => !marks[entry.keeperId] && armorSockets.get(entry.itemId) === armorSockets.get(entry.keeperId)).map(async (entry) => ({ ...entry, key: await sha256(JSON.stringify([entry.key, armorSockets.get(entry.itemId), entry.confidence === 70 ? sourceVersions : []])) })));
-  return { profile, analysis: { cosmetics, version, observedAt: String(profile?.responseMintedTimestamp || new Date().toISOString()), settings, gear, recommendations, insufficient: result.insufficient, marks, dismissed: (dismissals.results || []).map((r) => r.recommendation_key), sources: sources.map(({ id, name, reviewedAt }) => ({ id, name, reviewedAt })), warnings: [
+  const recommendations = await Promise.all(result.recommendations.filter((entry) => !marks[entry.keeperId] && (!entry.actionable || (settings.fullComparison && gear.items.find((item) => item.instanceId === entry.itemId)?.cleanupSocketKey) || armorSockets.get(entry.itemId) === armorSockets.get(entry.keeperId))).map(async (entry) => ({ ...entry, key: await sha256(JSON.stringify([entry.key, armorSockets.get(entry.itemId), entry.confidence === 70 ? sourceVersions : []])) })));
+  const available = new Set(cosmetics.filter((choice) => choice.kind === "ornament").map((choice) => choice.hash));
+  const cosmeticSets = (manifest.cosmeticSets || []).map((set) => ({ ...set, owned: Object.values(set.pieces).filter((hash) => available.has(hash)).length })).filter((set) => set.owned > 0);
+  return { profile, analysis: { cosmeticSets, cosmetics, version, observedAt: String(profile?.responseMintedTimestamp || new Date().toISOString()), settings, gear, recommendations, insufficient: result.insufficient, marks, dismissed: (dismissals.results || []).map((r) => r.recommendation_key), sources: sources.map(({ id, name, reviewedAt }) => ({ id, name, reviewedAt })), warnings: [
     ...(!complete ? ["Inventory or saved-loadout protection data is incomplete or more than two minutes old. Tagging is disabled; try analyzing again."] : []),
-    ...(settings.preferences && settings.aggressive && sources.length !== new Set(settings.sources).size ? ["One or more selected rating catalogs are unavailable. Source-based weapon recommendations are disabled."] : [])
+    ...(settings.preferences && sources.length !== new Set(settings.sources).size ? ["One or more selected rating catalogs are unavailable. Source-based weapon recommendations are disabled."] : [])
   ] } };
 }
 export async function validateCleanupPull(request: Request, row: SessionRow, env: Env) {

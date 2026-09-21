@@ -14,6 +14,26 @@ function gear(items: ArmorItem[] = [], weapons: WeaponItem[] = []): GearData {
 const scan = (data: GearData, extra = {}, saved = new Set<string>(), complete = true, sources: CleanupWishlist[] = []) => analyzeCleanup(data, { ...CLEANUP_DEFAULTS, ...extra }, saved, complete, sources);
 
 describe("cleanup safety", () => {
+  it("defaults to the full rule set without exposing protected items", () => {
+    expect(CLEANUP_DEFAULTS).toMatchObject({ exact: true, dominance: true, preferences: true, fullComparison: true, legacyReview: true, aggressive: false });
+  });
+  it("compares differently named armor only with verified matching capabilities", () => {
+    const keeper = armor("1", { cleanupSocketKey: "same", power: 510 });
+    const candidate = armor("2", { itemHash: "different", cleanupSocketKey: "same" });
+    expect(scan(gear([keeper, candidate])).recommendations[0]).toMatchObject({ itemId: "2", keeperId: "1", confidence: 99 });
+    expect(scan(gear([keeper, { ...candidate, cleanupSocketKey: "raid-slot" }])).recommendations).toEqual([]);
+    expect(scan(gear([keeper, candidate]), { fullComparison: false }).recommendations).toEqual([]);
+  });
+  it("offers legacy armor as review-only and never nominates its keeper for removal", () => {
+    const keeper = armor("1", { armorSystem: "tiered", power: 510 });
+    const old = armor("2", { armorSystem: "legacy", gearTier: 0, itemHash: "old" });
+    const result = scan(gear([keeper, old]));
+    expect(result.recommendations).toHaveLength(1);
+    expect(result.recommendations[0]).toMatchObject({ itemId: "2", keeperId: "1", confidence: 70, actionable: false });
+    expect(scan(gear([keeper, { ...old, locked: true }])).recommendations).toEqual([]);
+    expect(scan(gear([keeper, { ...old, baseStats: { ...old.baseStats, health: 40 } }])).recommendations).toEqual([]);
+    expect(scan(gear([keeper, { ...old, armorSystem: undefined }])).recommendations).toEqual([]);
+  });
   it("preserves one deterministic keeper for identical copies even at the Power cap", () => {
     const result = scan(gear([armor("1"), armor("2"), armor("3")]));
     expect(result.recommendations.map((r) => r.itemId).sort()).toEqual(["2", "3"]);

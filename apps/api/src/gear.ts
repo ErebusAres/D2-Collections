@@ -141,7 +141,9 @@ export function normalizeGear(profile: any, manifest: GearManifest, selectedChar
     const ornamentDef = activePlugs.find(isEquippedArmorOrnament);
     const setDefs = activePlugs.filter((plug) => /set bonus|piece bonus|pieces equipped/i.test(`${plug?.displayProperties?.name} ${plug?.displayProperties?.description}`));
     const baseTotal = total(baseStats); const currentTotal = total(currentStats);
+    const armorSystem = archetypeDef || Number(instance.gearTier) > 0 ? "tiered" as const : instance.energy && activePlugs.some((plug) => /^v(400|460)\.plugs\.armor\.masterworks/.test(String(plug?.plug?.plugCategoryIdentifier || ""))) ? "legacy" as const : undefined;
     items.push({
+      armorSystem,
       instanceId, itemHash, name: String(definition.displayProperties?.name || "Unknown Armor"), icon: imageUrl(ornamentDef?.displayProperties?.icon || definition.displayProperties?.icon), className: CLASS_NAMES[Number(definition.classType)] || "Unknown",
       slot: String(definition.itemTypeDisplayName || "Armor"), rarity: String(definition.inventory?.tierTypeName || "Unknown"), power: Number(instance.primaryStat?.value || entry.item?.primaryStat?.value || 0), ownerCharacterId: entry.owner,
       location: entry.location, ...(entry.inPostmaster ? { inPostmaster: true } : {}), equipped: entry.equipped, locked: Boolean(Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0) & 1), masterworked: Boolean(Number(itemStates[instanceId]?.state ?? entry.item?.state ?? 0) & 4), gearTier: Number(instance.gearTier || 0),

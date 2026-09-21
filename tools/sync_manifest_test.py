@@ -14,6 +14,22 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_cleanup_styles_use_complete_collection_sets_not_name_prefixes(self) -> None:
+        inventory, collectibles, children = {}, {}, []
+        for index, part in enumerate(["head", "arms", "chest", "legs", "class"]):
+            name = f"Different piece name {index}"
+            inventory[str(index)] = {"classType": 2, "displayProperties": {"name": name}}
+            inventory[str(index + 10)] = {"hash": index + 10, "displayProperties": {"name": name}, "plug": {"plugCategoryIdentifier": f"armor_skins_warlock_{part}"}}
+            collectibles[str(index)] = {"itemHash": index}
+            children.append({"collectibleHash": index})
+        nodes = {"set": {"displayProperties": {"name": "Official suit"}, "children": {"collectibles": children}}}
+        sets = SYNC_MANIFEST.cosmetic_sets(inventory, collectibles, nodes)
+        self.assertEqual(len(sets), 1)
+        self.assertEqual(sets[0]["pieces"]["Warlock:Warlock Bond"], "14")
+        self.assertEqual(sets[0]["name"], "Official suit")
+        inventory.pop("14")
+        self.assertEqual(SYNC_MANIFEST.cosmetic_sets(inventory, collectibles, nodes), [])
+
     def test_cleanup_manifest_keeps_shader_definitions(self) -> None:
         shader = item_definition(name="Cleanup Shader", item_type="Shader", plug="shader")
         self.assertTrue(SYNC_MANIFEST.relevant_gear_plug(shader))

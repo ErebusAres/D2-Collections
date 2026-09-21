@@ -13,6 +13,18 @@ beforeEach(() => {
   mock.manifest = { gearItemDefinitions: { "10": { itemType: 3 } }, plugDefinitions: { "30": { plug: { plugCategoryIdentifier: "shader" }, displayProperties: { name: "Cleanup shader" } } } };
 });
 describe("cleanup cosmetic safety", () => {
+  it("resolves a class style to the correct slot and rechecks ownership", async () => {
+    mock.manifest.gearItemDefinitions["10"] = { itemType: 2, classType: 2, itemTypeDisplayName: "Helmet" };
+    mock.manifest.plugDefinitions["30"].plug.plugCategoryIdentifier = "armor_skins_warlock_head";
+    mock.manifest.cosmeticSets = [{ id: "set", className: "Warlock", pieces: { "Warlock:Helmet": "30", "Warlock:Gauntlets": "99" } }];
+    const settings = { ...CLEANUP_DEFAULTS, cosmetics: { enabled: true, ornaments: {}, classStyles: { Warlock: "set" } } };
+    await markCleanupCosmetics(row, env, "1", "9", settings);
+    expect(mock.post).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ plug: { socketIndex: 0, socketArrayType: 0, plugItemHash: 30 } }), env, "test");
+    mock.post.mockClear();
+    mock.profile.itemComponents.reusablePlugs.data["1"].plugs["0"][1].canInsert = false;
+    expect((await markCleanupCosmetics(row, env, "1", "9", settings))[0]).toMatch(/not owned or insertable/);
+    expect(mock.post).not.toHaveBeenCalled();
+  });
   it("offers only owned insertable cosmetics, never arbitrary socket plugs", () => {
     mock.profile.itemComponents.reusablePlugs.data["1"].plugs["0"].push({ plugItemHash: 40, canInsert: false, enabled: true });
     mock.manifest.plugDefinitions["40"] = { plug: { plugCategoryIdentifier: "shader" }, displayProperties: { name: "Unowned" } };

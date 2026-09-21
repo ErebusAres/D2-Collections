@@ -783,6 +783,9 @@ export interface ArmorPerk {
 export interface ArmorGrade { letter: "S" | "A" | "B" | "C" | "D" | "F" | "—"; score?: number }
 
 export interface ArmorItem {
+  /** Complete socket capabilities used for cross-definition cleanup comparisons. */
+  cleanupSocketKey?: string;
+  armorSystem?: "legacy" | "tiered";
   cleanupRecommendation?: { batchId: string; reason: string; confidence: number };
   instanceId: string;
   itemHash: string;
@@ -1438,7 +1441,9 @@ export interface AudienceVisitorRow {
 }
 
 export interface CleanupSettings {
-  cosmetics?: { enabled: boolean; weaponShader?: string; armorShader?: string; ornaments: Record<string, string> };
+  cosmetics?: { enabled: boolean; weaponShader?: string; armorShader?: string; ornaments: Record<string, string>; classStyles?: Record<string, string> };
+  legacyReview?: boolean;
+  fullComparison?: boolean;
   focus: "pve" | "pvp" | "both";
   location: "vault" | "all";
   exact: boolean;
@@ -1458,6 +1463,7 @@ export interface CleanupRecommendation {
   key: string;
 }
 export interface CleanupAnalysis {
+  cosmeticSets?: Array<{ id: string; name: string; className: string; pieces: Record<string, string>; owned: number }>;
   cosmetics: Array<{ hash: string; name: string; kind: "shader" | "ornament"; group: string }>;
   version: string;
   observedAt: string;
@@ -2105,6 +2111,7 @@ export interface ActivityNameManifest {
 }
 
 export interface GearManifest {
+  cosmeticSets?: Array<{ id: string; name: string; className: string; pieces: Record<string, string> }>;
   version: string;
   generatedAt: string;
   gearItemDefinitions: Record<string, Record<string, unknown>>;

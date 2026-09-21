@@ -549,11 +549,52 @@ def minimal_gear_item(definition: dict) -> dict:
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
         "classType": definition.get("classType"),
         "defaultDamageType": definition.get("defaultDamageType"),
+        "cleanupCapabilities": {
+            "setHash": str(definition.get("equipableItemSetHash") or ""),
+            "perks": sorted(str(perk.get("perkHash")) for perk in definition.get("perks") or []),
+            "socketTypes": [str(socket.get("socketTypeHash")) for socket in (definition.get("sockets") or {}).get("socketEntries") or []],
+        } if int(definition.get("itemType", -1)) == 2 else None,
         "inventory": {
             "tierTypeName": inventory.get("tierTypeName", ""),
             "bucketTypeHash": str(inventory.get("bucketTypeHash") or ""),
         },
     }
+
+
+def cosmetic_sets(inventory: dict, collectibles: dict, nodes: dict) -> list[dict]:
+    """Resolve complete five-piece styles from Bungie's collection nodes, never name prefixes."""
+    slots = {"head": "Helmet", "arms": "Gauntlets", "chest": "Chest Armor", "legs": "Leg Armor", "class": None}
+    classes = {"titan": "Titan", "hunter": "Hunter", "warlock": "Warlock"}
+    ornaments = {}
+    for value in inventory.values():
+        category = str((value.get("plug") or {}).get("plugCategoryIdentifier", ""))
+        match = re.fullmatch(r"armor_skins_(titan|hunter|warlock)_(head|arms|chest|legs|class)", category)
+        if not match:
+            continue
+        cls, part = match.groups()
+        slot = slots[part] or {"titan": "Titan Mark", "hunter": "Hunter Cloak", "warlock": "Warlock Bond"}[cls]
+        name = (value.get("displayProperties") or {}).get("name", "")
+        ornaments.setdefault((name, classes[cls]), []).append((str(value.get("hash")), slot))
+    result = []
+    for key, node in nodes.items():
+        children = (node.get("children") or {}).get("collectibles") or []
+        if len(children) != 5:
+            continue
+        pieces = {}
+        class_names = set()
+        for child in children:
+            collectible = collectibles.get(str(child.get("collectibleHash")), {})
+            item = inventory.get(str(collectible.get("itemHash")), {})
+            class_name = {0: "Titan", 1: "Hunter", 2: "Warlock"}.get(item.get("classType"))
+            matches = ornaments.get(((item.get("displayProperties") or {}).get("name", ""), class_name), [])
+            if len(matches) != 1:
+                break
+            plug_hash, slot = matches[0]
+            pieces[f"{class_name}:{slot}"] = plug_hash
+            class_names.add(class_name)
+        if len(pieces) == 5 and len(class_names) == 1:
+            result.append({"id": str(key), "name": (node.get("displayProperties") or {}).get("name") or "Armor style", "className": next(iter(class_names)), "pieces": pieces})
+    return sorted(result, key=lambda entry: (entry["className"], entry["name"]))
 
 
 def minimal_plug(definition: dict) -> dict:
@@ -579,6 +620,7 @@ def minimal_plug(definition: dict) -> dict:
 
 def minimal_loot_watcher_item(definition: dict) -> dict:
     value = minimal_gear_item(definition)
+    value.pop("cleanupCapabilities", None)
     value["displayProperties"].pop("icon", None)
     value.pop("defaultDamageType", None)
     return value
@@ -1306,6 +1348,7 @@ def main() -> None:
             "version": version,
             "generatedAt": generated_at,
             "gearItemDefinitions": {key: minimal_gear_item(value) for key, value in gear_defs.items()},
+            "cosmeticSets": cosmetic_sets(inventory, collectibles, presentation_nodes),
             "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
             "weaponPerkColumns": {
                 key: columns for key, value in gear_defs.items()
@@ -1494,6 +1537,7 @@ def main() -> None:
         "version": version,
         "generatedAt": compact["generatedAt"],
         "gearItemDefinitions": {key: minimal_gear_item(value) for key, value in gear_defs.items()},
+        "cosmeticSets": cosmetic_sets(inventory, collectibles, presentation_nodes),
         "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
         "weaponPerkColumns": {
             key: columns for key, value in gear_defs.items()

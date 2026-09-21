@@ -31,7 +31,11 @@ export async function markCleanupCosmetics(row: SessionRow, env: Env, itemId: st
   const isWeapon = Number(def?.itemType) === 3;
   const className = ["Titan", "Hunter", "Warlock"][Number(def?.classType)] || "Unknown";
   const group = `${className}:${String(def?.itemTypeDisplayName || "Armor")}`;
-  const selected = [isWeapon ? settings.cosmetics.weaponShader : settings.cosmetics.armorShader, !isWeapon ? settings.cosmetics.ornaments[group] : undefined].filter((v): v is string => Boolean(v));
+  const styleId = settings.cosmetics.classStyles?.[className];
+  const style = styleId ? manifest.cosmeticSets?.find((set) => set.id === styleId && set.className === className) : undefined;
+  const ornament = styleId ? style?.pieces[group] : settings.cosmetics.ornaments[group];
+  if (!isWeapon && styleId && !ornament) warnings.push("Pulled successfully; the selected class style has no compatible piece for this slot. Appearance left unchanged.");
+  const selected = [isWeapon ? settings.cosmetics.weaponShader : settings.cosmetics.armorShader, !isWeapon ? ornament : undefined].filter((v): v is string => Boolean(v));
   for (const hash of selected) {
     const plug = manifest.plugDefinitions[hash] as any;
     if (!/shader|ornament|skin/i.test(String(plug?.plug?.plugCategoryIdentifier || ""))) { warnings.push("Pulled successfully; selected cosmetic definition is unavailable."); continue; }
