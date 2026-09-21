@@ -5,7 +5,7 @@ import { loadGearManifest, profileFor } from "./bungie";
 import { gearActionItemsFromProfile, normalizeGear, type GearStateRow } from "./gear";
 import { httpError, sha256 } from "./security";
 import type { Env, SessionRow } from "./types";
-import { cosmeticChoices } from "./cleanupCosmetics";
+import { cosmeticChoices, cosmeticSetChoices } from "./cleanupCosmetics";
 
 const weight = z.number().int().min(0).max(1);
 const cosmeticsSchema = z.object({ enabled: z.boolean(), weaponShader: z.string().regex(/^\d+$/).optional(), armorShader: z.string().regex(/^\d+$/).optional(), ornaments: z.record(z.union([z.string().regex(/^\d+$/), z.literal("")])), classStyles: z.record(z.string().max(80)).optional() });
@@ -106,8 +106,7 @@ export async function cleanupSnapshot(row: SessionRow, env: Env, settings: Clean
   const sourceVersions = await Promise.all(sources.map((source) => sha256(JSON.stringify(source))));
   const version = await sha256(JSON.stringify(["cleanup-v1", manifest.version, settings, sourceVersions, [...saved].sort(), complete, [...incompleteIds].sort(), [...armorSockets], all.map(({ firstSeenAt: _first, isNew: _new, dismissedAt: _dismissed, ...item }) => item)]));
   const recommendations = await Promise.all(result.recommendations.filter((entry) => !marks[entry.keeperId] && (!entry.actionable || (settings.fullComparison && gear.items.find((item) => item.instanceId === entry.itemId)?.cleanupSocketKey) || armorSockets.get(entry.itemId) === armorSockets.get(entry.keeperId))).map(async (entry) => ({ ...entry, key: await sha256(JSON.stringify([entry.key, armorSockets.get(entry.itemId), entry.confidence === 70 ? sourceVersions : []])) })));
-  const available = new Set(cosmetics.filter((choice) => choice.kind === "ornament").map((choice) => choice.hash));
-  const cosmeticSets = (manifest.cosmeticSets || []).map((set) => ({ ...set, owned: Object.values(set.pieces).filter((hash) => available.has(hash)).length })).filter((set) => set.owned > 0);
+  const cosmeticSets = cosmeticSetChoices(manifest, cosmetics, settings.cosmetics?.classStyles);
   return { profile, analysis: { cosmeticSets, cosmetics, version, observedAt: String(profile?.responseMintedTimestamp || new Date().toISOString()), settings, gear, recommendations, insufficient: result.insufficient, marks, dismissed: (dismissals.results || []).map((r) => r.recommendation_key), sources: sources.map(({ id, name, reviewedAt }) => ({ id, name, reviewedAt })), warnings: [
     ...(!complete ? ["Inventory or saved-loadout protection data is incomplete or more than two minutes old. Tagging is disabled; try analyzing again."] : []),
     ...(settings.preferences && sources.length !== new Set(settings.sources).size ? ["One or more selected rating catalogs are unavailable. Source-based weapon recommendations are disabled."] : [])

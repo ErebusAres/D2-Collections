@@ -4,6 +4,19 @@ import { gearActionItemsFromProfile } from "./gear";
 import { httpError } from "./security";
 import type { Env, SessionRow } from "./types";
 
+export function cosmeticSetChoices(manifest: GearManifest, choices: CleanupAnalysis["cosmetics"], selected: Record<string, string> = {}): NonNullable<CleanupAnalysis["cosmeticSets"]> {
+  const available = new Set(choices.filter((choice) => choice.kind === "ornament").map((choice) => choice.hash));
+  const unique = new Map<string, NonNullable<CleanupAnalysis["cosmeticSets"]>[number]>();
+  for (const set of manifest.cosmeticSets || []) {
+    const owned = Object.values(set.pieces).filter((hash) => available.has(hash)).length;
+    if (!owned) continue;
+    const key = JSON.stringify([set.className, Object.entries(set.pieces).sort(([a], [b]) => a.localeCompare(b))]);
+    // Bungie can publish several collection nodes for an identical suit. Preserve a saved choice.
+    if (!unique.has(key) || selected[set.className] === set.id) unique.set(key, { ...set, owned });
+  }
+  return [...unique.values()];
+}
+
 export function cosmeticChoices(profile: any, gear: GearData, manifest: GearManifest): CleanupAnalysis["cosmetics"] {
   const result = new Map<string, CleanupAnalysis["cosmetics"][number]>();
   for (const item of [...gear.items, ...(gear.weapons || [])]) {

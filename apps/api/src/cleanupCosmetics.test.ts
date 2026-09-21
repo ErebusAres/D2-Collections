@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CLEANUP_DEFAULTS } from "@guardian-nexus/domain";
-import { cosmeticChoices, markCleanupCosmetics, restoreCleanupCosmetics } from "./cleanupCosmetics";
+import { cosmeticChoices, cosmeticSetChoices, markCleanupCosmetics, restoreCleanupCosmetics } from "./cleanupCosmetics";
 const mock = vi.hoisted(() => ({ profile: {} as any, manifest: {} as any, post: vi.fn() }));
 vi.mock("./bungie", () => ({ profileFor: async () => ({ profile: mock.profile, accessToken: "test" }), loadGearManifest: async () => mock.manifest, bungiePost: mock.post }));
 const row = { membership_id: "m", membership_type: 3 } as any;
@@ -13,6 +13,11 @@ beforeEach(() => {
   mock.manifest = { gearItemDefinitions: { "10": { itemType: 3 } }, plugDefinitions: { "30": { plug: { plugCategoryIdentifier: "shader" }, displayProperties: { name: "Cleanup shader" } } } };
 });
 describe("cleanup cosmetic safety", () => {
+  it("deduplicates identical collection styles without hiding the selected one", () => {
+    const pieces = { "Warlock:Helmet": "30" };
+    mock.manifest.cosmeticSets = [{ id: "a", name: "Suit", className: "Warlock", pieces }, { id: "b", name: "Suit", className: "Warlock", pieces }];
+    expect(cosmeticSetChoices(mock.manifest, [{ hash: "30", name: "Helm", kind: "ornament", group: "Warlock:Helmet" }], { Warlock: "b" })).toEqual([{ id: "b", name: "Suit", className: "Warlock", pieces, owned: 1 }]);
+  });
   it("resolves a class style to the correct slot and rechecks ownership", async () => {
     mock.manifest.gearItemDefinitions["10"] = { itemType: 2, classType: 2, itemTypeDisplayName: "Helmet" };
     mock.manifest.plugDefinitions["30"].plug.plugCategoryIdentifier = "armor_skins_warlock_head";
