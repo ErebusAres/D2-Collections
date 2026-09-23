@@ -9,6 +9,19 @@ const weapon = { instanceId: "1", itemHash: "2", name: "Recent Rifle", icon: "",
 const armor = { instanceId: "armor-1", itemHash: "armor-2", name: "Recent Grips", icon: "", className: "Hunter", slot: "Arms", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, gearTier: 5, archetype: { hash: "paragon", name: "Paragon", description: "Improves class ability-focused stat potential.", icon: "/paragon.png" }, setBonuses: [], perks: [], baseStats: { health: 10, melee: 10, grenade: 10, super: 10, class: 10, weapons: 10 }, currentStats: { health: 10, melee: 10, grenade: 10, super: 10, class: 10, weapons: 10 }, adjustments: [], baseTotal: 60, currentTotal: 60, grade: { letter: "A", score: 90 }, firstSeenAt: "2026-08-06T12:00:00Z", isNew: true } as ArmorItem;
 
 describe("RecentItemRow", () => {
+  it("keeps the selected detail card inside the viewport", () => {
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ left: 900, bottom: 740 } as DOMRect);
+    const width = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(400);
+    const height = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(540);
+    try {
+      render(<RecentItemRow title="Recently acquired" items={recentLoot([], [weapon])} onTag={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Inspect Recent Rifle" }));
+      const dialog = screen.getByRole("dialog");
+      expect(dialog.style.position).toBe("fixed");
+      expect(Number.parseInt(dialog.style.top) + 540).toBeLessThanOrEqual(window.innerHeight - 12);
+      expect(Number.parseInt(dialog.style.left) + 400).toBeLessThanOrEqual(window.innerWidth - 12);
+    } finally { rect.mockRestore(); width.mockRestore(); height.mockRestore(); }
+  });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
   it("requires selection for cleanup pulls and ignores typing and closed cards", () => {
     const pull = vi.fn();

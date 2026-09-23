@@ -1,6 +1,6 @@
 import type { ArmorItem, ArmorPerk, GearTag, LootWatcherConfig, RecentItemEvent, WeaponItem } from "@guardian-nexus/contracts";
 import { Archive, BarChart3, Check, ChevronLeft, ChevronRight, Clock3, ExternalLink, Inbox, LockKeyhole, PackageOpen, Shield, ShieldCheck, Sparkles, Tags, UserRound, X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { evaluateWeapon, qualityLabel } from "../../modules/loot/weaponEvaluator";
@@ -240,7 +240,27 @@ export function RecentItemCard({ item, onActivate, onDeactivate, onTag, onSocket
 }
 
 export function ItemTooltip({ item, id, utility = false, onClose, onTag, onSocketChange, busy = false, pullShortcut = false, details }: { item: LootItem; id?: string; utility?: boolean; onClose?: () => void; onTag?: (tag?: GearTag) => void; onSocketChange?: WeaponSocketChange; busy?: boolean; pullShortcut?: boolean; details?: ReactNode }) {
-  return <aside id={id} className={`${styles.tooltip} ${utility ? styles.utilityCard : ""}`} role={utility ? "dialog" : "tooltip"} aria-label={utility ? `${item.name} details` : undefined}><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span>{utility && <button className={styles.utilityClose} type="button" aria-label={`Close ${item.name} details`} onClick={onClose}><X /></button>}</header>
+  const panel = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const element = panel.current;
+    if (!utility || !element?.parentElement) return;
+    const anchor = element.parentElement;
+    const fit = () => {
+      const box = anchor.getBoundingClientRect();
+      element.style.position = "fixed";
+      element.style.right = "auto";
+      element.style.bottom = "auto";
+      element.style.left = `${Math.max(12, Math.min(box.left, window.innerWidth - element.offsetWidth - 12))}px`;
+      element.style.top = `${Math.max(12, Math.min(box.bottom + 7, window.innerHeight - element.offsetHeight - 12))}px`;
+    };
+    fit();
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(fit);
+    observer?.observe(element);
+    window.addEventListener("resize", fit);
+    window.addEventListener("scroll", fit, true);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", fit); window.removeEventListener("scroll", fit, true); };
+  }, [utility]);
+  return <aside ref={panel} id={id} className={`${styles.tooltip} ${utility ? styles.utilityCard : ""}`} role={utility ? "dialog" : "tooltip"} aria-label={utility ? `${item.name} details` : undefined}><header>{item.icon && <img src={item.icon} alt="" />}<span><small>{item.rarity} {item.kind}</small><strong>{item.name}</strong><em>{item.kind === "weapon" ? `${item.damageType} · ${item.itemType}` : item.slot}</em></span>{utility && <button className={styles.utilityClose} type="button" aria-label={`Close ${item.name} details`} onClick={onClose}><X /></button>}</header>
     <div className={styles.identity}><b>{item.power || "—"} Power</b><span>{item.kind === "weapon" ? item.slot : item.className}</span>{item.kind === "armor" && item.archetype && <ArmorArchetypeBadge archetype={item.archetype} />}<span>{item.inPostmaster ? "Postmaster" : item.location}{item.equipped ? " · Equipped" : ""}</span></div>
     <nav className={styles.sourceLinks}><a href={`https://www.light.gg/db/items/${item.itemHash}`} target="_blank" rel="noreferrer">light.gg <ExternalLink /></a><span><Clock3 /> First observed {new Date(item.firstSeenAt).toLocaleString()}</span></nav>
     {item.kind === "weapon" ? <>
