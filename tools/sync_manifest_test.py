@@ -14,6 +14,18 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_direct_ornament_collectibles_resolve_unknown_class_type(self) -> None:
+        inventory, collectibles, children = {}, {}, []
+        for index, part in enumerate(["head", "arms", "chest", "legs", "class"]):
+            inventory[str(index)] = {"hash": index, "classType": 3, "displayProperties": {"name": f"Piece {index}"}, "plug": {"plugCategoryIdentifier": f"armor_skins_warlock_{part}"}}
+            collectibles[str(index)] = {"itemHash": index}
+            children.append({"collectibleHash": index})
+        nodes = {"set": {"displayProperties": {"name": "Ornament suit"}, "children": {"collectibles": children}}}
+        sets = SYNC_MANIFEST.cosmetic_sets(inventory, collectibles, nodes)
+        self.assertEqual(len(sets), 1)
+        self.assertEqual(sets[0]["className"], "Warlock")
+        self.assertEqual(sets[0]["pieces"]["Warlock:Helmet"], "0")
+
     def test_appearance_socket_sources_survive_compaction(self) -> None:
         item = {"itemType": 2, "sockets": {"socketEntries": [{"reusablePlugSetHash": 100, "plugSources": 14}]}}
         self.assertEqual(SYNC_MANIFEST.minimal_gear_item(item)["cosmeticSockets"], {"0": {"reusablePlugSetHash": "100", "plugSources": 14}})

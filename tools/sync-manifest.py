@@ -571,6 +571,7 @@ def cosmetic_sets(inventory: dict, collectibles: dict, nodes: dict) -> list[dict
     slots = {"head": "Helmet", "arms": "Gauntlets", "chest": "Chest Armor", "legs": "Leg Armor", "class": None}
     classes = {"titan": "Titan", "hunter": "Hunter", "warlock": "Warlock"}
     ornaments = {}
+    ornament_hashes = {}
     for value in inventory.values():
         category = str((value.get("plug") or {}).get("plugCategoryIdentifier", ""))
         match = re.fullmatch(r"armor_skins_(titan|hunter|warlock)_(head|arms|chest|legs|class)", category)
@@ -580,6 +581,7 @@ def cosmetic_sets(inventory: dict, collectibles: dict, nodes: dict) -> list[dict
         slot = slots[part] or {"titan": "Titan Mark", "hunter": "Hunter Cloak", "warlock": "Warlock Bond"}[cls]
         name = (value.get("displayProperties") or {}).get("name", "")
         ornaments.setdefault((name, classes[cls]), []).append((str(value.get("hash")), slot))
+        ornament_hashes[str(value.get("hash"))] = (classes[cls], slot)
     result = []
     for key, node in nodes.items():
         children = (node.get("children") or {}).get("collectibles") or []
@@ -589,7 +591,15 @@ def cosmetic_sets(inventory: dict, collectibles: dict, nodes: dict) -> list[dict
         class_names = set()
         for child in children:
             collectible = collectibles.get(str(child.get("collectibleHash")), {})
-            item = inventory.get(str(collectible.get("itemHash")), {})
+            item_hash = str(collectible.get("itemHash"))
+            item = inventory.get(item_hash, {})
+            # Universal ornament collectibles may have classType=Unknown. Their exact
+            # plug category supplies class/slot without guessing from display names.
+            if item_hash in ornament_hashes:
+                class_name, slot = ornament_hashes[item_hash]
+                pieces[f"{class_name}:{slot}"] = item_hash
+                class_names.add(class_name)
+                continue
             class_name = {0: "Titan", 1: "Hunter", 2: "Warlock"}.get(item.get("classType"))
             matches = ornaments.get(((item.get("displayProperties") or {}).get("name", ""), class_name), [])
             if len(matches) != 1:
