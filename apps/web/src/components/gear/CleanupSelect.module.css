@@ -9,3 +9,5 @@
 .option:hover,.option:focus-visible { background: #203a48; outline: 1px solid var(--cyan); }
 .option[aria-pressed=true] { color: var(--cyan); background: #193340; }
 .empty { padding: 12px; color: var(--muted); }
+.thumbnails { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.thumbnails img { width: 36px; height: 36px; object-fit: cover; border: 1px solid #577080; }

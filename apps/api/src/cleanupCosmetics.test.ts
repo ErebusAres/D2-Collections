@@ -33,7 +33,7 @@ describe("cleanup cosmetic safety", () => {
   it("offers only owned insertable cosmetics, never arbitrary socket plugs", () => {
     mock.profile.itemComponents.reusablePlugs.data["1"].plugs["0"].push({ plugItemHash: 40, canInsert: false, enabled: true });
     mock.manifest.plugDefinitions["40"] = { plug: { plugCategoryIdentifier: "shader" }, displayProperties: { name: "Unowned" } };
-    expect(cosmeticChoices(mock.profile, { items: [], weapons: [{ instanceId: "1" }] } as any, mock.manifest)).toEqual([{ hash: "30", name: "Cleanup shader", kind: "shader", group: "weapons" }]);
+    expect(cosmeticChoices(mock.profile, { items: [], weapons: [{ instanceId: "1", itemHash: "10" }] } as any, mock.manifest)).toEqual([expect.objectContaining({ hash: "30", name: "Cleanup shader", kind: "shader", group: "weapons" })]);
   });
   it("does nothing by default and refuses irreversible changes", async () => {
     expect(await markCleanupCosmetics(row, env, "1", "9", CLEANUP_DEFAULTS)).toEqual([]);

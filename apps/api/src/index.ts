@@ -1,5 +1,6 @@
 import { cleanupMarks, cleanupSettings, cleanupSettingsSchema, cleanupSnapshot, mutateCleanup, validateCleanupPull } from "./cleanup";
 import { markCleanupCosmetics, restoreCleanupCosmetics } from "./cleanupCosmetics";
+import { readItemCosmetics, applyItemCosmetic } from "./itemCosmetics";
 import type {
   ApiEnvelope,
   ActivityHistoryData,
@@ -308,6 +309,15 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
   if (snapshotsResponse) return snapshotsResponse;
 
   const session = await requireSession(request, env);
+  if (path === "/api/v1/me/gear/cosmetics" && request.method === "GET") {
+    const itemId = z.string().regex(/^\d+$/).parse(new URL(request.url).searchParams.get("itemId"));
+    return envelope(await readItemCosmetics(session.row, env, itemId), env, context);
+  }
+  if (path === "/api/v1/me/gear/cosmetics" && request.method === "POST") {
+    await requireCsrf(request, session.token, env);
+    const input = z.object({ itemId: z.string().regex(/^\d+$/), socketIndex: z.number().int().min(0).max(100), hash: z.string().regex(/^\d+$/), expectedHash: z.string().regex(/^\d+$/) }).parse(await request.json());
+    return envelope(await applyItemCosmetic(session.row, env, input), env, context);
+  }
   if (path === "/api/v1/me/cleanup" && request.method === "GET") {
     const cosmetics = await env.DB.prepare("SELECT DISTINCT item_id FROM cleanup_cosmetics WHERE membership_id = ?").bind(session.row.membership_id).all<{ item_id: string }>();
     return envelope({ settings: await cleanupSettings(session.row.membership_id, env), marks: await cleanupMarks(session.row.membership_id, env), cosmeticItems: (cosmetics.results || []).map((item) => item.item_id) }, env, context);

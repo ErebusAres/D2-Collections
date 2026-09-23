@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { evaluateWeapon, qualityLabel } from "../../modules/loot/weaponEvaluator";
 import { useResolvedWeaponRatings } from "../../modules/loot/useResolvedWeaponRatings";
 import { GearTagPicker } from "./GearTagPicker";
+import { ItemAppearance } from "./ItemAppearance";
 import { GearTierRail } from "./GearTierRail";
 import { WeaponRatingPanel } from "./WeaponRatingPanel";
 import styles from "./RecentLoot.module.css";
@@ -249,6 +250,7 @@ export function ItemTooltip({ item, id, utility = false, onClose, onTag, onSocke
       <WeaponRatingPanel weapon={item} compact busy={busy} onSelectPlug={onSocketChange ? (socketIndex, plugItemHash) => onSocketChange(item, socketIndex, plugItemHash) : undefined} />
     </> : <div className={styles.stats}>{Object.entries(item.baseStats).map(([name, score]) => <span key={name}><small>{name}</small><b>{score}</b></span>)}<strong>Base {item.baseTotal} · Current {item.currentTotal}</strong></div>}
     {utility && onTag && <div className={styles.cardActions}><GearTagPicker value={item.tag} onChange={onTag} compact disabled={busy} /></div>}
+    {utility && onTag && <ItemAppearance key={item.instanceId} itemId={item.instanceId} />}
     {details}
     <footer>First observed time is Guardian Nexus history, not an exact Bungie drop timestamp. Shortcuts: Shift+1 Favorite · 2 Keep · 3 Junk · 4 Archive · 5 Infuse{pullShortcut ? " · P Pull to selected character" : ""}</footer>
   </aside>;

@@ -539,7 +539,7 @@ def minimal_pvp_progression(definition: dict, kind: str) -> dict:
     }
 
 
-def minimal_gear_item(definition: dict) -> dict:
+def minimal_gear_item(definition: dict, cosmetic_set_hashes: set[str] | None = None) -> dict:
     inventory = definition.get("inventory") or {}
     props = definition.get("displayProperties") or {}
     return {
@@ -549,6 +549,11 @@ def minimal_gear_item(definition: dict) -> dict:
         "itemTypeDisplayName": definition.get("itemTypeDisplayName", ""),
         "classType": definition.get("classType"),
         "defaultDamageType": definition.get("defaultDamageType"),
+        "cosmeticSockets": {
+            str(index): {"reusablePlugSetHash": str(socket.get("reusablePlugSetHash") or ""), "plugSources": socket.get("plugSources", 0)}
+            for index, socket in enumerate((definition.get("sockets") or {}).get("socketEntries") or [])
+            if socket.get("reusablePlugSetHash") and (cosmetic_set_hashes is None or str(socket["reusablePlugSetHash"]) in cosmetic_set_hashes)
+        },
         "cleanupCapabilities": {
             "setHash": str(definition.get("equipableItemSetHash") or ""),
             "perks": sorted(str(perk.get("perkHash")) for perk in definition.get("perks") or []),
@@ -621,6 +626,7 @@ def minimal_plug(definition: dict) -> dict:
 def minimal_loot_watcher_item(definition: dict) -> dict:
     value = minimal_gear_item(definition)
     value.pop("cleanupCapabilities", None)
+    value.pop("cosmeticSockets", None)
     value["displayProperties"].pop("icon", None)
     value.pop("defaultDamageType", None)
     return value
@@ -686,7 +692,7 @@ def relevant_weapon_plug(definition: dict) -> bool:
 
 def relevant_gear_plug(definition: dict) -> bool:
     category = str((definition.get("plug") or {}).get("plugCategoryIdentifier", "")).lower()
-    return "shader" in category or relevant_armor_plug(definition) or relevant_weapon_plug(definition)
+    return any(word in category for word in ("shader", "skin", "ornament")) or relevant_armor_plug(definition) or relevant_weapon_plug(definition)
 
 
 def build_icon(path: str) -> str:
@@ -1334,6 +1340,8 @@ def main() -> None:
             presentation_nodes = table_rows(connection, "DestinyPresentationNodeDefinition")
 
     generated_at = datetime.now(timezone.utc).isoformat()
+    cosmetic_hashes = {key for key, value in inventory.items() if any(word in str((value.get("plug") or {}).get("plugCategoryIdentifier", "")).lower() for word in ("shader", "skin", "ornament"))}
+    cosmetic_set_hashes = {key for key, value in plug_sets.items() if any(str(plug.get("plugItemHash")) in cosmetic_hashes for plug in value.get("reusablePlugItems") or [])}
     reward_code_compact = reward_code_manifest(reward_code_catalog, inventory, version, generated_at)
     if args.reward_codes_only:
         OUTPUT.parent.mkdir(parents=True, exist_ok=True)
@@ -1347,7 +1355,7 @@ def main() -> None:
         gear_compact = {
             "version": version,
             "generatedAt": generated_at,
-            "gearItemDefinitions": {key: minimal_gear_item(value) for key, value in gear_defs.items()},
+            "gearItemDefinitions": {key: minimal_gear_item(value, cosmetic_set_hashes) for key, value in gear_defs.items()},
             "cosmeticSets": cosmetic_sets(inventory, collectibles, presentation_nodes),
             "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
             "weaponPerkColumns": {
@@ -1536,7 +1544,7 @@ def main() -> None:
     gear_compact = {
         "version": version,
         "generatedAt": compact["generatedAt"],
-        "gearItemDefinitions": {key: minimal_gear_item(value) for key, value in gear_defs.items()},
+        "gearItemDefinitions": {key: minimal_gear_item(value, cosmetic_set_hashes) for key, value in gear_defs.items()},
         "cosmeticSets": cosmetic_sets(inventory, collectibles, presentation_nodes),
         "plugDefinitions": {key: minimal_plug(value) for key, value in plug_defs.items()},
         "weaponPerkColumns": {

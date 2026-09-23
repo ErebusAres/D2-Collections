@@ -14,6 +14,12 @@ SPEC.loader.exec_module(SYNC_MANIFEST)
 
 
 class BuildCatalogClassificationTests(unittest.TestCase):
+    def test_appearance_socket_sources_survive_compaction(self) -> None:
+        item = {"itemType": 2, "sockets": {"socketEntries": [{"reusablePlugSetHash": 100, "plugSources": 14}]}}
+        self.assertEqual(SYNC_MANIFEST.minimal_gear_item(item)["cosmeticSockets"], {"0": {"reusablePlugSetHash": "100", "plugSources": 14}})
+        self.assertNotIn("cosmeticSockets", SYNC_MANIFEST.minimal_loot_watcher_item(item))
+        self.assertTrue(SYNC_MANIFEST.relevant_gear_plug({"plug": {"plugCategoryIdentifier": "weapon_skins"}}))
+
     def test_cleanup_styles_use_complete_collection_sets_not_name_prefixes(self) -> None:
         inventory, collectibles, children = {}, {}, []
         for index, part in enumerate(["head", "arms", "chest", "legs", "class"]):

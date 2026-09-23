@@ -1464,7 +1464,7 @@ export interface CleanupRecommendation {
 }
 export interface CleanupAnalysis {
   cosmeticSets?: Array<{ id: string; name: string; className: string; pieces: Record<string, string>; owned: number }>;
-  cosmetics: Array<{ hash: string; name: string; kind: "shader" | "ornament"; group: string }>;
+  cosmetics: Array<{ hash: string; name: string; icon?: string; kind: "shader" | "ornament"; group: string }>;
   version: string;
   observedAt: string;
   settings: CleanupSettings;
