@@ -8,6 +8,7 @@ import { WEAPON_RATING_SOURCES, type WeaponRatingDatabase, type WeaponRatingSour
 import { useResolvedWeaponRatings } from "../../modules/loot/useResolvedWeaponRatings";
 import styles from "../../pages/Pages.module.css";
 import { RecentItemRow, recentLoot } from "./RecentLoot";
+import { ItemAppearance } from "./ItemAppearance";
 import { WeaponRatingPanel } from "./WeaponRatingPanel";
 import { trapFocusWithin } from "../common/focusTrap";
 
@@ -95,6 +96,7 @@ function WeaponCard({ weapon, ratings, selectedCharacterId, onWishlist, onCompar
     <div className={styles.weaponSignals}>{weapon.crafted && <span><Hammer /> Crafted</span>}{weapon.enhanced && <span><Sparkles /> Enhanced</span>}{weapon.originTraits.map((trait) => <span key={trait.hash} title={trait.description}>{trait.icon && <img src={trait.icon} alt="" />}{trait.name}</span>)}</div>
     <WeaponRatingPanel weapon={weapon} ratings={ratings} busy={busy} onSelectPlug={(socketIndex, plugItemHash) => onAction({ action: "setWeaponSocket", itemInstanceId: weapon.instanceId, characterId: selectedCharacterId, socketIndex, plugItemHash })} />
     <div className={styles.weaponReview}><CheckCircle2 /><span><b>{reviewLabel(weapon.reviewState)}</b><small>{weapon.reviewReasons[0]}</small></span>{weapon.duplicateCount > 1 && <button onClick={onCompare}>Compare {weapon.duplicateCount}</button>}</div>
+    <ItemAppearance itemId={weapon.instanceId} />
     <footer><GearTagPicker value={weapon.tag} onChange={(value) => onTag(value || "")} disabled={busy} compact /><span className={styles.footerSpacer} /><button title={weapon.locked ? "Unlock" : "Lock"} onClick={() => onAction({ action: "setLock", itemInstanceId: weapon.instanceId, locked: !weapon.locked, characterId: weapon.ownerCharacterId || selectedCharacterId })}>{weapon.locked ? <Lock /> : <LockOpen />}</button>{weapon.location === "vault" ? <button title="Pull to Selected Guardian" onClick={() => onAction({ action: "transfer", itemInstanceId: weapon.instanceId, target: "character", targetCharacterId: selectedCharacterId })}><ArrowDownToLine /></button> : <button disabled={weapon.equipped} title={weapon.equipped ? "Equip another weapon before vaulting this one" : "Move to vault"} onClick={() => onAction({ action: "transfer", itemInstanceId: weapon.instanceId, target: "vault" })}><ArrowUpFromLine /></button>}<button title="Equip on Selected Guardian" onClick={() => onAction({ action: "equip", itemInstanceId: weapon.instanceId, characterId: selectedCharacterId }, `Equip ${weapon.name} on the Selected Guardian? This may move it between characters first.`)}><Shield /></button></footer>
   </article>;
 }
