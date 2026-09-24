@@ -177,7 +177,7 @@ export async function cleanupSnapshotFromObservations(row: SessionRow, env: Env,
     dismissed: (dismissals.results || []).map((entry) => entry.recommendation_key), sources: [], cosmetics: [], cosmeticSets: [],
     warnings: [
       "Showing review-only recommendations from your last saved Gear observation while live enrichment continues. Tagging and pulling remain disabled.",
-      `Incremental saved analysis checked page ${page + 1} of ${pages} (${Math.min((page + 1) * CLEANUP_OBSERVATION_PAGE_SIZE, total)} of ${total} current items). Prior review recommendations remain saved while later pages are checked.`,
+      `This incremental pass checked ${observations.results?.length || 0} items on page ${page + 1} of ${pages} (${total} current items observed). Recommendations from earlier completed pages remain saved.`,
       ...(settings.preferences ? ["Community-source preference comparisons will be added after the live enrichment pass completes."] : []),
       ...(settings.fullComparison ? ["Cross-name armor comparisons use saved socket evidence when available; items without that evidence remain excluded from capability matching."] : [])
     ]
