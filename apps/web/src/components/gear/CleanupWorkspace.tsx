@@ -1,4 +1,4 @@
-import type { CleanupAnalysis, CleanupSettings, GearActionResult, GearTag } from "@guardian-nexus/contracts";
+import type { CleanupAnalysis, CleanupAnalyzeData, CleanupSettings, CleanupWorkspaceData, GearActionResult, GearTag } from "@guardian-nexus/contracts";
 import { CLEANUP_DEFAULTS } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -15,14 +15,27 @@ import { Trash2 } from "lucide-react";
 
 export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item: LootItem, tag?: GearTag) => void; analysisRequest?: number }) {
   const { session, selectedCharacterId } = useGuardian(); const client = useQueryClient();
-  const stored = useQuery({ queryKey: ["cleanup-state", session?.guardian?.membershipId], queryFn: () => api<{ settings: CleanupSettings; marks: CleanupAnalysis["marks"]; cosmeticItems: string[] }>("/api/v1/me/cleanup") });
+  const stored = useQuery({ queryKey: ["cleanup-state", session?.guardian?.membershipId], queryFn: () => api<CleanupWorkspaceData>("/api/v1/me/cleanup"),
+    refetchInterval: (query) => query.state.data?.data.analysisStatus === "refreshing" ? 10_000 : false });
   const [settings, setSettings] = useState<CleanupSettings>(CLEANUP_DEFAULTS);
   const [analysis, setAnalysis] = useState<CleanupAnalysis>(); const [selected, setSelected] = useState<string[]>([]);
   const [confidence, setConfidence] = useState(0); const [onlyMarked, setOnlyMarked] = useState(false); const [comparisonId, setComparisonId] = useState(""); const [lastBatch, setLastBatch] = useState("");
   const [notice, setNotice] = useState("");
   const initialized = useRef(false);
-  useEffect(() => { if (stored.data && !initialized.current) { initialized.current = true; setSettings(stored.data.data.settings); } }, [stored.data]);
-  const scan = useMutation({ mutationFn: (requestedSettings?: CleanupSettings) => api<CleanupAnalysis>("/api/v1/me/cleanup/analyze", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(requestedSettings || settings) }), onSuccess: (result) => { setAnalysis(result.data); setSelected([]); setComparisonId(""); } });
+  const loadedSavedVersion = useRef("");
+  useEffect(() => {
+    if (!stored.data) return;
+    if (!initialized.current) { initialized.current = true; setSettings(stored.data.data.settings); }
+    if (stored.data.data.savedAnalysis && loadedSavedVersion.current !== stored.data.data.savedAnalysis.version) {
+      loadedSavedVersion.current = stored.data.data.savedAnalysis.version;
+      setAnalysis(stored.data.data.savedAnalysis);
+    }
+  }, [stored.data]);
+  const scan = useMutation({ mutationFn: (requestedSettings?: CleanupSettings) => api<CleanupAnalyzeData>("/api/v1/me/cleanup/analyze", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(requestedSettings || settings) }), onSuccess: (result) => {
+    if (result.data.analysis) { setAnalysis(result.data.analysis); setSelected([]); setComparisonId(""); }
+    setNotice(result.data.status === "current" ? "Cleanup analysis is current." : result.data.analysis ? "Refreshing cleanup in the background; the last complete recommendations remain available." : "Cleanup analysis is queued. You can leave this page while it finishes.");
+    void client.invalidateQueries({ queryKey: ["cleanup-state", session?.guardian?.membershipId] });
+  } });
   const handledRequest = useRef(0);
   useEffect(() => {
     if (stored.data && analysisRequest > handledRequest.current) { handledRequest.current = analysisRequest; scan.mutate(stored.data.data.settings); }

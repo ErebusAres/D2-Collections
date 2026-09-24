@@ -1477,6 +1477,24 @@ export interface CleanupAnalysis {
   sources: Array<{ id: string; name: string; reviewedAt?: string }>;
 }
 
+export interface CleanupAnalyzeData {
+  analysis?: CleanupAnalysis;
+  status: "current" | "refreshing" | "saved" | "failed";
+  requestedSettings: CleanupSettings;
+  refreshedAt?: string;
+  lastError?: string;
+}
+
+export interface CleanupWorkspaceData {
+  settings: CleanupSettings;
+  marks: CleanupAnalysis["marks"];
+  cosmeticItems: string[];
+  savedAnalysis?: CleanupAnalysis;
+  analysisStatus?: CleanupAnalyzeData["status"];
+  analysisRefreshedAt?: string;
+  analysisError?: string;
+}
+
 export interface AudienceDetailData extends AudienceMetrics {
   logins: AudienceLoginRow[];
   visitors: AudienceVisitorRow[];
