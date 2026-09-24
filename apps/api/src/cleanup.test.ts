@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CLEANUP_DEFAULTS } from "@guardian-nexus/domain";
-import { cleanupSnapshot, mutateCleanup, validateCleanupPull } from "./cleanup";
+import { cleanupAnalyzeData, cleanupSettingsKey, cleanupSnapshot, mutateCleanup, validateCleanupPull } from "./cleanup";
 
 const mocks = vi.hoisted(() => ({ profile: {} as any, gear: {} as any }));
 vi.mock("./bungie", () => ({ profileFor: vi.fn(async () => ({ profile: mocks.profile })), loadGearManifest: vi.fn(async () => ({ version: "1", plugDefinitions: {}, gearItemDefinitions: {} })) }));
@@ -32,6 +32,12 @@ beforeEach(() => {
   mocks.profile = { responseMintedTimestamp: new Date().toISOString(), characters: { data: { "9": {} } }, profileInventory: { data: { items: [1, 2].map((id) => ({ itemInstanceId: String(id), itemHash: 10, state: 0, bucketHash: 99 })) } }, characterInventories: { data: { "9": { items: [] } } }, characterEquipment: { data: { "9": { items: [] } } }, characterLoadouts: { data: { "9": { loadouts: [] } } }, itemComponents: { reusablePlugs: { data: {} }, instances: { data: { "1": {}, "2": {} } }, stats: { data: { "1": { stats: {} }, "2": { stats: {} } } }, sockets: { data: { "1": { sockets: [] }, "2": { sockets: [] } } } } };
 });
 describe("cleanup server approvals", () => {
+  it("uses stable settings keys and keeps saved analysis available while refreshing", async () => {
+    expect(await cleanupSettingsKey(CLEANUP_DEFAULTS)).toBe(await cleanupSettingsKey({ ...CLEANUP_DEFAULTS }));
+    const analysis = (await cleanupSnapshot(row, database().env, CLEANUP_DEFAULTS)).analysis;
+    expect(cleanupAnalyzeData({ settingsKey: "saved", settings: CLEANUP_DEFAULTS, analysis, requestedAt: new Date().toISOString(), refreshedAt: new Date().toISOString(), expiresAt: new Date(Date.now() - 1).toISOString() }, CLEANUP_DEFAULTS)).toMatchObject({ status: "saved", analysis });
+    expect(cleanupAnalyzeData(undefined, CLEANUP_DEFAULTS)).toMatchObject({ status: "refreshing", requestedSettings: CLEANUP_DEFAULTS });
+  });
   it("previews without writes and rejects stale approvals", async () => {
     const db = database(); const { analysis } = await cleanupSnapshot(row, db.env, CLEANUP_DEFAULTS);
     expect(analysis.recommendations).toHaveLength(1); expect(db.statements).toEqual([]);

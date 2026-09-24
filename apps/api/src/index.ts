@@ -1,4 +1,4 @@
-import { cleanupMarks, cleanupSettings, cleanupSettingsSchema, cleanupSnapshot, mutateCleanup, validateCleanupPull } from "./cleanup";
+import { cleanupAnalyzeData, cleanupMarks, cleanupSettings, cleanupSettingsKey, cleanupSettingsSchema, ensureCleanupAnalysisRefresh, readCleanupAnalysisCache, refreshCleanupAnalysisCacheWithLease, requestCleanupAnalysisRefresh, mutateCleanup, validateCleanupPull } from "./cleanup";
 import { markCleanupCosmetics, restoreCleanupCosmetics } from "./cleanupCosmetics";
 import { readItemCosmetics, applyItemCosmetic } from "./itemCosmetics";
 import type {
@@ -6,6 +6,8 @@ import type {
   ActivityHistoryData,
   AudienceDetailData,
   BuildAdvisorData,
+  CleanupAnalyzeData,
+  CleanupWorkspaceData,
   CollectionData,
   DevProbeKey,
   DevProbeResult,
@@ -274,12 +276,17 @@ export default {
       });
       return;
     }
-    await env.DB.batch([
-      env.DB.prepare("DELETE FROM fireteam_snapshots WHERE sharing_mode = 'temporary' AND expires_at <= ?").bind(now),
-      env.DB.prepare("DELETE FROM fireteam_messages WHERE created_at < ?").bind(new Date(Date.now() - FIRETEAM_FEED_RETENTION_DAYS * 86_400_000).toISOString()),
-      env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
-    ]);
-    await maintainNotificationStorage(env);
+    if (new Date(controller.scheduledTime).getUTCMinutes() % 5 === 4) {
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM fireteam_snapshots WHERE sharing_mode = 'temporary' AND expires_at <= ?").bind(now),
+        env.DB.prepare("DELETE FROM fireteam_messages WHERE created_at < ?").bind(new Date(Date.now() - FIRETEAM_FEED_RETENTION_DAYS * 86_400_000).toISOString()),
+        env.DB.prepare("DELETE FROM oauth_sessions WHERE refresh_expires_at <= ?").bind(Math.floor(Date.now() / 1000))
+      ]);
+      await maintainNotificationStorage(env);
+    }
+    await refreshDueCleanupAnalysis(env).catch((error: any) => {
+      console.error("cleanup_analysis_cron_failed", String(error?.code || error?.message || "unknown"));
+    });
   }
 };
 
@@ -319,15 +326,38 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     return envelope(await applyItemCosmetic(session.row, env, input), env, context);
   }
   if (path === "/api/v1/me/cleanup" && request.method === "GET") {
-    const cosmetics = await env.DB.prepare("SELECT DISTINCT item_id FROM cleanup_cosmetics WHERE membership_id = ?").bind(session.row.membership_id).all<{ item_id: string }>();
-    return envelope({ settings: await cleanupSettings(session.row.membership_id, env), marks: await cleanupMarks(session.row.membership_id, env), cosmeticItems: (cosmetics.results || []).map((item) => item.item_id) }, env, context);
+    const [cosmetics, settings, marks] = await Promise.all([
+      env.DB.prepare("SELECT DISTINCT item_id FROM cleanup_cosmetics WHERE membership_id = ?").bind(session.row.membership_id).all<{ item_id: string }>(),
+      cleanupSettings(session.row.membership_id, env), cleanupMarks(session.row.membership_id, env)
+    ]);
+    const settingsKey = await cleanupSettingsKey(settings);
+    const exact = await readCleanupAnalysisCache(session.row.membership_id, env, settingsKey);
+    const exactFresh = Boolean(exact?.analysis && exact.expiresAt && Date.parse(exact.expiresAt) > Date.now());
+    if (!exactFresh) await ensureCleanupAnalysisRefresh(session.row.membership_id, env, settings);
+    const saved = exact?.analysis ? exact : await readCleanupAnalysisCache(session.row.membership_id, env);
+    const analysisStatus = exactFresh ? cleanupAnalyzeData(exact, settings).status : "refreshing";
+    return envelope<CleanupWorkspaceData>({ settings, marks, cosmeticItems: (cosmetics.results || []).map((item) => item.item_id),
+      ...(saved?.analysis ? { savedAnalysis: saved.analysis } : {}),
+      analysisStatus, analysisRefreshedAt: saved?.refreshedAt, analysisError: exact?.lastError
+    }, env, context, { observedAt: saved?.refreshedAt, state: exactFresh ? "fresh" : saved?.analysis ? "stale" : "unavailable",
+      warnings: exactFresh ? [] : [saved?.analysis ? "Cleanup is refreshing in the background; showing the last complete saved analysis." : "Cleanup analysis is queued in the background."] });
   }
   if (path === "/api/v1/me/cleanup/analyze" && request.method === "POST") {
     await requireCsrf(request, session.token, env);
     const settings = cleanupSettingsSchema.parse(await request.json());
-    const { analysis } = await cleanupSnapshot(session.row, env, settings);
     await env.DB.prepare("INSERT INTO cleanup_preferences (membership_id, settings_json) VALUES (?, ?) ON CONFLICT(membership_id) DO UPDATE SET settings_json = excluded.settings_json").bind(session.row.membership_id, JSON.stringify(settings)).run();
-    return envelope(analysis, env, context);
+    const settingsKey = await cleanupSettingsKey(settings);
+    let cached = await readCleanupAnalysisCache(session.row.membership_id, env, settingsKey);
+    const fresh = Boolean(cached?.analysis && cached.expiresAt && Date.parse(cached.expiresAt) > Date.now());
+    if (!fresh) {
+      await requestCleanupAnalysisRefresh(session.row.membership_id, env, settings);
+      cached = cached || await readCleanupAnalysisCache(session.row.membership_id, env);
+    }
+    const data = { ...cleanupAnalyzeData(cached, settings), ...(!fresh ? { status: "refreshing" as const } : {}) };
+    const warning = data.analysis
+      ? fresh ? undefined : "Cleanup is refreshing in the background; showing the last complete saved analysis."
+      : "Cleanup analysis is queued. You can leave this page; saved recommendations will appear when it finishes.";
+    return envelope<CleanupAnalyzeData>(data, env, context, { observedAt: data.refreshedAt, state: fresh ? "fresh" : data.analysis ? "stale" : "unavailable", warnings: warning ? [warning] : [] });
   }
   if (path === "/api/v1/me/cleanup" && request.method === "POST") {
     await requireCsrf(request, session.token, env);
@@ -1405,6 +1435,30 @@ async function requestRecentItemsRefresh(membershipId: string, characterId: stri
       character_id = COALESCE(excluded.character_id, recent_item_refresh_state.character_id)
     WHERE requested_at IS NULL OR requested_at < ? OR character_id IS NOT excluded.character_id`)
     .bind(membershipId, now, characterId, new Date(Date.now() - 55_000).toISOString()).run();
+}
+
+async function refreshDueCleanupAnalysis(env: Env): Promise<void> {
+  const now = new Date().toISOString();
+  const due = await env.DB.prepare(`SELECT membership_id, settings_key FROM guardian_cleanup_analysis_cache
+    WHERE requested_at <= ? AND (refreshed_at IS NULL OR requested_at > refreshed_at)
+      AND (refresh_started_at IS NULL OR refresh_started_at < ?)
+    ORDER BY requested_at ASC LIMIT 1`)
+    .bind(now, new Date(Date.now() - 4 * 60_000).toISOString())
+    .first<{ membership_id: string; settings_key: string }>();
+  if (!due) return;
+  const session = await fireteamSessionFor(due.membership_id, env);
+  if (!session) {
+    await env.DB.prepare("UPDATE guardian_cleanup_analysis_cache SET last_error = 'authorization_required', requested_at = ? WHERE membership_id = ? AND settings_key = ?")
+      .bind(new Date(Date.now() + 15 * 60_000).toISOString(), due.membership_id, due.settings_key).run();
+    return;
+  }
+  const started = performance.now();
+  try {
+    await refreshCleanupAnalysisCacheWithLease(session, env, due.settings_key);
+    console.log(JSON.stringify({ event: "cleanup_analysis_job", outcome: "success", durationMs: Math.round(performance.now() - started) }));
+  } catch (error: any) {
+    console.error(JSON.stringify({ event: "cleanup_analysis_job", outcome: "failed", code: String(error?.code || error?.message || "refresh_failed"), durationMs: Math.round(performance.now() - started) }));
+  }
 }
 
 async function refreshDueRecentItems(env: Env): Promise<void> {

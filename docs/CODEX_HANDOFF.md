@@ -1,10 +1,20 @@
 # Guardian Nexus Codex handoff
 
-Last updated: 2026-08-20
+Last updated: 2026-09-23
 
 This file is the operational handoff for Chris Codex or another maintainer continuing the current Guardian Nexus roadmap implementation. Keep it current when scope, validation, or publish state changes.
 
 ## Current objective
+
+### 2026-09-23 Cleanup analysis durability and Worker isolation
+
+Production incident `a3fe086089e8fb2a` / Cloudflare Ray `a3fe086089e8fb2a-BNA` confirmed another Worker resource-limit failure on `POST /api/v1/me/cleanup/analyze`. The request ran immediately after successful Gear, Cleanup-state, and Collection reads, but Cleanup repeated a forced full Bungie profile, parsed the 11 MB gear manifest, loaded rating catalogs, rebuilt every comparison, and discarded the successful result when the browser left the page. This is a route workload/lifecycle defect, not evidence of a D1 synchronization failure.
+
+Branch `codex/cleanup-analysis-reliability` makes Analyze a lightweight durable request. Migration `0038_cleanup_analysis_cache.sql` stores complete analyses by account and canonical settings hash, including timestamps, expiry, refresh lease, requested time, and the last recoverable error. Analyze now saves preferences, enqueues the requested settings, and immediately returns either the exact saved result, the most recent complete fallback, or an honest queued state. It never performs the expensive rebuild on the browser response path. The existing fifth minute trigger claims at most one due account/settings job per invocation, still runs storage maintenance every fifth minute, retries failed Cleanup work after two minutes, and atomically replaces the saved analysis only after a complete successful rebuild. Ten-minute freshness avoids redundant work while older results remain usable and explicitly stale; explicit searches retain only the eight most recent settings variants per account.
+
+The Gear Cleanup UI restores the last complete server-saved analysis on load, keeps it visible while a replacement is built, polls only while refresh is pending, and distinguishes current, saved-refreshing, and first-analysis-queued states. Settings mismatches still make tagging/pulling stale and disabled. The analysis builder also replaces hundreds of per-armor WebCrypto equality hashes with an equivalent deterministic comparison key; cryptographic hashes remain on analysis versions and recommendation identities where stable opaque identifiers matter.
+
+Release validation passes the complete `pnpm run audit`: archive/source/CSS boundaries across 45 stylesheets, ESLint, every TypeScript target, 43 domain tests, 299 API tests, 336 Web tests, tooling/Python tests, API and Web production builds, and performance budgets at 373,604 bytes entry JavaScript (115,379 gzip) and 36,321 bytes CSS. PR, merge, migration application, deployment, and signed-in production acceptance are pending at this checkpoint.
 
 ### 2026-08-20 canonical Fireteam snapshot replacement
 

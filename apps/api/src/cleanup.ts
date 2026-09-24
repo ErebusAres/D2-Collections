@@ -1,4 +1,4 @@
-import type { CleanupAnalysis, CleanupSettings, GearData } from "@guardian-nexus/contracts";
+import type { CleanupAnalysis, CleanupAnalyzeData, CleanupSettings, GearData } from "@guardian-nexus/contracts";
 import { analyzeCleanup, CLEANUP_DEFAULTS, type CleanupWishlist } from "@guardian-nexus/domain";
 import { z } from "zod";
 import { loadGearManifest, profileFor } from "./bungie";
@@ -10,6 +10,111 @@ import { cosmeticChoices, cosmeticSetChoices } from "./cleanupCosmetics";
 const weight = z.number().int().min(0).max(1);
 const cosmeticsSchema = z.object({ enabled: z.boolean(), weaponShader: z.string().regex(/^\d+$/).optional(), armorShader: z.string().regex(/^\d+$/).optional(), ornaments: z.record(z.union([z.string().regex(/^\d+$/), z.literal("")])), classStyles: z.record(z.string().max(80)).optional() });
 export const cleanupSettingsSchema = z.object({ cosmetics: cosmeticsSchema.optional(), fullComparison: z.boolean().default(true), legacyReview: z.boolean().default(true), focus: z.enum(["pve", "pvp", "both"]), location: z.enum(["vault", "all"]), exact: z.boolean(), dominance: z.boolean(), preferences: z.boolean(), aggressive: z.boolean(), sources: z.array(z.enum(["voltron", "choosy-voltron", "just-another-team"])).min(1).max(3), priorities: z.object({ health: weight, melee: weight, grenade: weight, super: weight, class: weight, weapons: weight }) });
+const CLEANUP_CACHE_TTL_MS = 10 * 60_000;
+const CLEANUP_REFRESH_LEASE_MS = 4 * 60_000;
+
+export interface StoredCleanupAnalysis {
+  settingsKey: string;
+  settings: CleanupSettings;
+  analysis?: CleanupAnalysis;
+  refreshedAt?: string;
+  expiresAt?: string;
+  requestedAt: string;
+  refreshStartedAt?: string;
+  lastError?: string;
+}
+
+export async function cleanupSettingsKey(settings: CleanupSettings): Promise<string> {
+  return sha256(JSON.stringify(cleanupSettingsSchema.parse(settings)));
+}
+
+function storedCleanup(row: any): StoredCleanupAnalysis | undefined {
+  if (!row?.settings_json) return undefined;
+  try {
+    return {
+      settingsKey: String(row.settings_key),
+      settings: cleanupSettingsSchema.parse(JSON.parse(row.settings_json)),
+      ...(row.analysis_json ? { analysis: JSON.parse(row.analysis_json) as CleanupAnalysis } : {}),
+      refreshedAt: row.refreshed_at || undefined,
+      expiresAt: row.expires_at || undefined,
+      requestedAt: String(row.requested_at),
+      refreshStartedAt: row.refresh_started_at || undefined,
+      lastError: row.last_error || undefined
+    };
+  } catch { return undefined; }
+}
+
+export async function readCleanupAnalysisCache(membershipId: string, env: Env, settingsKey?: string): Promise<StoredCleanupAnalysis | undefined> {
+  const query = settingsKey
+    ? "SELECT * FROM guardian_cleanup_analysis_cache WHERE membership_id = ? AND settings_key = ?"
+    : "SELECT * FROM guardian_cleanup_analysis_cache WHERE membership_id = ? AND analysis_json IS NOT NULL ORDER BY refreshed_at DESC LIMIT 1";
+  const value = settingsKey
+    ? await env.DB.prepare(query).bind(membershipId, settingsKey).first<any>()
+    : await env.DB.prepare(query).bind(membershipId).first<any>();
+  return storedCleanup(value);
+}
+
+export async function requestCleanupAnalysisRefresh(membershipId: string, env: Env, settings: CleanupSettings): Promise<string> {
+  const parsed = cleanupSettingsSchema.parse(settings);
+  const key = await cleanupSettingsKey(parsed);
+  await env.DB.prepare(`INSERT INTO guardian_cleanup_analysis_cache
+    (membership_id, settings_key, settings_json, requested_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(membership_id, settings_key) DO UPDATE SET settings_json = excluded.settings_json, requested_at = excluded.requested_at`)
+    .bind(membershipId, key, JSON.stringify(parsed), new Date().toISOString()).run();
+  await env.DB.prepare(`DELETE FROM guardian_cleanup_analysis_cache WHERE membership_id = ? AND settings_key NOT IN
+    (SELECT settings_key FROM guardian_cleanup_analysis_cache WHERE membership_id = ? ORDER BY requested_at DESC LIMIT 8)`)
+    .bind(membershipId, membershipId).run();
+  return key;
+}
+
+export async function ensureCleanupAnalysisRefresh(membershipId: string, env: Env, settings: CleanupSettings): Promise<string> {
+  const parsed = cleanupSettingsSchema.parse(settings);
+  const key = await cleanupSettingsKey(parsed);
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO guardian_cleanup_analysis_cache
+    (membership_id, settings_key, settings_json, requested_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(membership_id, settings_key) DO UPDATE SET settings_json = excluded.settings_json, requested_at = excluded.requested_at
+    WHERE guardian_cleanup_analysis_cache.expires_at <= excluded.requested_at
+      AND guardian_cleanup_analysis_cache.requested_at <= excluded.requested_at
+      AND guardian_cleanup_analysis_cache.requested_at <= guardian_cleanup_analysis_cache.refreshed_at`)
+    .bind(membershipId, key, JSON.stringify(parsed), now).run();
+  return key;
+}
+
+export async function refreshCleanupAnalysisCacheWithLease(row: SessionRow, env: Env, settingsKey: string): Promise<void> {
+  const startedAt = new Date().toISOString();
+  const claim = await env.DB.prepare(`UPDATE guardian_cleanup_analysis_cache SET refresh_started_at = ?, last_error = NULL
+    WHERE membership_id = ? AND settings_key = ? AND (refresh_started_at IS NULL OR refresh_started_at < ?)`)
+    .bind(startedAt, row.membership_id, settingsKey, new Date(Date.now() - CLEANUP_REFRESH_LEASE_MS).toISOString()).run();
+  if (Number(claim.meta?.changes || 0) < 1) return;
+  const cached = await readCleanupAnalysisCache(row.membership_id, env, settingsKey);
+  if (!cached) return;
+  try {
+    const { analysis } = await cleanupSnapshot(row, env, cached.settings);
+    const refreshedAt = new Date().toISOString();
+    await env.DB.prepare(`UPDATE guardian_cleanup_analysis_cache SET analysis_json = ?, source_minted_at = ?,
+      refreshed_at = ?, expires_at = ?, requested_at = ?, refresh_started_at = NULL, last_error = NULL
+      WHERE membership_id = ? AND settings_key = ? AND refresh_started_at = ?`)
+      .bind(JSON.stringify(analysis), analysis.observedAt, refreshedAt, new Date(Date.now() + CLEANUP_CACHE_TTL_MS).toISOString(), refreshedAt, row.membership_id, settingsKey, startedAt).run();
+  } catch (error: any) {
+    await env.DB.prepare(`UPDATE guardian_cleanup_analysis_cache SET refresh_started_at = NULL, last_error = ?, requested_at = ?
+      WHERE membership_id = ? AND settings_key = ? AND refresh_started_at = ?`)
+      .bind(String(error?.code || error?.message || "Cleanup refresh failed.").slice(0, 240), new Date(Date.now() + 2 * 60_000).toISOString(), row.membership_id, settingsKey, startedAt).run().catch(() => undefined);
+    throw error;
+  }
+}
+
+export function cleanupAnalyzeData(cached: StoredCleanupAnalysis | undefined, requestedSettings: CleanupSettings): CleanupAnalyzeData {
+  const refreshing = Boolean(cached?.refreshStartedAt) || !cached?.analysis;
+  const fresh = Boolean(cached?.analysis && cached.expiresAt && Date.parse(cached.expiresAt) > Date.now());
+  return {
+    ...(cached?.analysis ? { analysis: cached.analysis } : {}),
+    status: fresh ? "current" : refreshing ? "refreshing" : cached?.lastError ? "failed" : "saved",
+    requestedSettings,
+    refreshedAt: cached?.refreshedAt,
+    lastError: cached?.lastError
+  };
+}
 export async function cleanupMarks(membershipId: string, env: Env): Promise<NonNullable<GearData["cleanup"]>> {
   const rows = await env.DB.prepare("SELECT item_id, batch_id, reason, confidence FROM cleanup_marks WHERE membership_id = ?").bind(membershipId).all<{ item_id: string; batch_id: string; reason: string; confidence: number }>();
   return Object.fromEntries((rows.results || []).map((r) => [r.item_id, { batchId: r.batch_id, reason: r.reason, confidence: r.confidence }]));
@@ -46,19 +151,20 @@ export async function cleanupSnapshot(row: SessionRow, env: Env, settings: Clean
   if (!characterId) throw httpError(409, "cleanup_inventory_incomplete", "Your character inventory is unavailable. No cleanup recommendations were made.");
   const states = new Map((stateRows.results || []).map((s) => [s.item_instance_id, s]));
   const gear = normalizeGear(profile, manifest, characterId, "Unknown", states, new Date().toISOString());
-  await Promise.all(gear.items.map(async (item) => {
+  for (const item of gear.items) {
     const sockets: any[] = profile?.itemComponents?.sockets?.data?.[item.instanceId]?.sockets || [];
     const definition = manifest.gearItemDefinitions[item.itemHash] as any;
     const capability = definition?.cleanupCapabilities;
     const energy = profile?.itemComponents?.instances?.data?.[item.instanceId]?.energy;
-    if (!capability?.socketTypes?.length || !sockets.length || !sockets.every((socket) => !socket.plugHash || manifest.plugDefinitions[String(socket.plugHash)])) return;
+    if (!capability?.socketTypes?.length || !sockets.length || !sockets.every((socket) => !socket.plugHash || manifest.plugDefinitions[String(socket.plugHash)])) continue;
     const capabilities = sockets.flatMap((socket, index) => {
       const plug = manifest.plugDefinitions[String(socket.plugHash)] as any;
       if (/shader|ornament|skin|tracker/i.test(String(plug?.plug?.plugCategoryIdentifier || ""))) return [];
       return [[index, String(socket.plugHash || ""), (profile?.itemComponents?.reusablePlugs?.data?.[item.instanceId]?.plugs?.[String(index)] || []).map((entry: any) => String(entry.plugItemHash)).sort()]];
     });
-    item.cleanupSocketKey = await sha256(JSON.stringify([capability, energy?.energyCapacity, capabilities]));
-  }));
+    // Equality evidence only; hashing every armor item adds avoidable Worker CPU.
+    item.cleanupSocketKey = JSON.stringify([capability, energy?.energyCapacity, capabilities]);
+  }
   const all = [...gear.items, ...(gear.weapons || [])].sort((a, b) => a.instanceId.localeCompare(b.instanceId));
   const owned = new Set(all.map((item) => item.instanceId)); const saved = new Set<string>();
   let complete = manifest.version !== "unavailable" && Array.isArray(profile?.profileInventory?.data?.items) && characters.every((id) => Array.isArray(profile?.characterInventories?.data?.[id]?.items) && Array.isArray(profile?.characterEquipment?.data?.[id]?.items) && Array.isArray(profile?.characterLoadouts?.data?.[id]?.loadouts));
