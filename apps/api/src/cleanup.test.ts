@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CLEANUP_DEFAULTS } from "@guardian-nexus/domain";
-import { cleanupAnalyzeData, cleanupSettingsKey, cleanupSnapshot, mutateCleanup, validateCleanupPull } from "./cleanup";
+import { cleanupAnalyzeData, cleanupSettingsKey, cleanupSnapshot, cleanupSnapshotFromObservations, mutateCleanup, validateCleanupPull } from "./cleanup";
 
 const mocks = vi.hoisted(() => ({ profile: {} as any, gear: {} as any }));
 vi.mock("./bungie", () => ({ profileFor: vi.fn(async () => ({ profile: mocks.profile })), loadGearManifest: vi.fn(async () => ({ version: "1", plugDefinitions: {}, gearItemDefinitions: {} })) }));
@@ -8,7 +8,7 @@ vi.mock("./gear", async (original) => ({ ...await original<typeof import("./gear
 const row = { membership_id: "member" } as any;
 const batchId = "10000000-0000-4000-8000-000000000001";
 const request = (body: unknown) => new Request("https://example.test", { method: "POST", body: JSON.stringify(body) });
-function database() {
+function database(observations: Array<{ metadata_json: string }> = []) {
   const marks = new Map<string, any>(); const batches = new Map<string, any>(); const dismissed = new Set<string>();
   const statements: string[] = []; let concurrentTag = false;
   const DB: any = { prepare: (sql: string) => ({ bind: (...v: any[]) => {
@@ -21,8 +21,8 @@ function database() {
       if (sql.startsWith("DELETE FROM cleanup_marks") && sql.includes("batch_id")) for (const [id, mark] of marks) if (mark.batch_id === v[1]) marks.delete(id);
       return { success: true };
     };
-    return { run, first: async () => sql.includes("cleanup_batches") ? batches.get(v[1]) : sql.includes("cleanup_marks") ? marks.get(v[1]) : null,
-      all: async () => ({ results: sql.includes("cleanup_marks") ? [...marks.values()] : sql.includes("cleanup_dismissals") ? [...dismissed].map((key) => ({ recommendation_key: key })) : [] }) };
+    return { run, first: async () => sql.includes("recent_item_refresh_state") ? { refreshed_at: "2026-09-23T20:00:00.000Z" } : sql.includes("cleanup_batches") ? batches.get(v[1]) : sql.includes("cleanup_marks") ? marks.get(v[1]) : null,
+      all: async () => ({ results: sql.includes("recent_item_observations") ? observations : sql.includes("cleanup_marks") ? [...marks.values()] : sql.includes("cleanup_dismissals") ? [...dismissed].map((key) => ({ recommendation_key: key })) : [] }) };
   } }), batch: async (entries: any[]) => { for (const entry of entries) await entry.run(); } };
   return { env: { DB } as any, marks, batches, statements, setConcurrentTag: () => { concurrentTag = true; } };
 }
@@ -37,6 +37,17 @@ describe("cleanup server approvals", () => {
     const analysis = (await cleanupSnapshot(row, database().env, CLEANUP_DEFAULTS)).analysis;
     expect(cleanupAnalyzeData({ settingsKey: "saved", settings: CLEANUP_DEFAULTS, analysis, requestedAt: new Date().toISOString(), refreshedAt: new Date().toISOString(), expiresAt: new Date(Date.now() - 1).toISOString() }, CLEANUP_DEFAULTS)).toMatchObject({ status: "saved", analysis });
     expect(cleanupAnalyzeData(undefined, CLEANUP_DEFAULTS)).toMatchObject({ status: "refreshing", requestedSettings: CLEANUP_DEFAULTS });
+  });
+  it("builds a review-only baseline from saved current gear observations", async () => {
+    const observations = mocks.gear.items.map((item: any) => ({ metadata_json: JSON.stringify({ gear: { ...item, kind: "armor" } }) }));
+    const db = database(observations);
+    const analysis = await cleanupSnapshotFromObservations(row, db.env, CLEANUP_DEFAULTS);
+    expect(analysis.observedAt).toBe("2026-09-23T20:00:00.000Z");
+    expect(analysis.gear.items).toHaveLength(2);
+    expect(analysis.recommendations).toHaveLength(1);
+    expect(analysis.recommendations[0]).toMatchObject({ actionable: false });
+    expect(analysis.recommendations[0]?.protections).toContain("Saved snapshot: live protection verification pending");
+    expect(analysis.warnings[0]).toMatch(/review-only recommendations/);
   });
   it("previews without writes and rejects stale approvals", async () => {
     const db = database(); const { analysis } = await cleanupSnapshot(row, db.env, CLEANUP_DEFAULTS);
