@@ -21,7 +21,7 @@ function database(observations: Array<{ metadata_json: string }> = []) {
       if (sql.startsWith("DELETE FROM cleanup_marks") && sql.includes("batch_id")) for (const [id, mark] of marks) if (mark.batch_id === v[1]) marks.delete(id);
       return { success: true };
     };
-    return { run, first: async () => sql.includes("recent_item_refresh_state") ? { refreshed_at: "2026-09-23T20:00:00.000Z" } : sql.includes("cleanup_batches") ? batches.get(v[1]) : sql.includes("cleanup_marks") ? marks.get(v[1]) : null,
+    return { run, first: async () => sql.includes("COUNT(*) AS count FROM recent_item_observations") ? { count: observations.length } : sql.includes("recent_item_refresh_state") ? { refreshed_at: "2026-09-23T20:00:00.000Z" } : sql.includes("cleanup_batches") ? batches.get(v[1]) : sql.includes("cleanup_marks") ? marks.get(v[1]) : null,
       all: async () => ({ results: sql.includes("recent_item_observations") ? observations : sql.includes("cleanup_marks") ? [...marks.values()] : sql.includes("cleanup_dismissals") ? [...dismissed].map((key) => ({ recommendation_key: key })) : [] }) };
   } }), batch: async (entries: any[]) => { for (const entry of entries) await entry.run(); } };
   return { env: { DB } as any, marks, batches, statements, setConcurrentTag: () => { concurrentTag = true; } };

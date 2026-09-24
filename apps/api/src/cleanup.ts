@@ -11,7 +11,8 @@ const weight = z.number().int().min(0).max(1);
 const cosmeticsSchema = z.object({ enabled: z.boolean(), weaponShader: z.string().regex(/^\d+$/).optional(), armorShader: z.string().regex(/^\d+$/).optional(), ornaments: z.record(z.union([z.string().regex(/^\d+$/), z.literal("")])), classStyles: z.record(z.string().max(80)).optional() });
 export const cleanupSettingsSchema = z.object({ cosmetics: cosmeticsSchema.optional(), fullComparison: z.boolean().default(true), legacyReview: z.boolean().default(true), focus: z.enum(["pve", "pvp", "both"]), location: z.enum(["vault", "all"]), exact: z.boolean(), dominance: z.boolean(), preferences: z.boolean(), aggressive: z.boolean(), sources: z.array(z.enum(["voltron", "choosy-voltron", "just-another-team"])).min(1).max(3), priorities: z.object({ health: weight, melee: weight, grenade: weight, super: weight, class: weight, weapons: weight }) });
 const CLEANUP_CACHE_TTL_MS = 10 * 60_000;
-const CLEANUP_REFRESH_LEASE_MS = 4 * 60_000;
+const CLEANUP_REFRESH_LEASE_MS = 30_000;
+const CLEANUP_OBSERVATION_PAGE_SIZE = 200;
 
 export interface StoredCleanupAnalysis {
   settingsKey: string;
@@ -93,7 +94,7 @@ export async function refreshCleanupAnalysisCacheWithLease(row: SessionRow, env:
     // Scheduled work must stay below the Worker CPU ceiling. Recent Items already
     // maintains a durable current-gear snapshot, so refresh the review queue from
     // that snapshot rather than repeating Bungie + full-manifest normalization.
-    const analysis = await cleanupSnapshotFromObservations(row, env, cached.settings);
+    const analysis = await cleanupSnapshotFromObservations(row, env, cached.settings, cached.analysis);
     const refreshedAt = new Date().toISOString();
     await env.DB.prepare(`UPDATE guardian_cleanup_analysis_cache SET analysis_json = ?, source_minted_at = ?,
       refreshed_at = ?, expires_at = ?, requested_at = ?, refresh_started_at = NULL, last_error = NULL
@@ -107,10 +108,19 @@ export async function refreshCleanupAnalysisCacheWithLease(row: SessionRow, env:
   }
 }
 
-export async function cleanupSnapshotFromObservations(row: SessionRow, env: Env, settings: CleanupSettings): Promise<CleanupAnalysis> {
+export async function cleanupSnapshotFromObservations(row: SessionRow, env: Env, settings: CleanupSettings, previous?: CleanupAnalysis): Promise<CleanupAnalysis> {
   settings = cleanupSettingsSchema.parse(settings);
+  const count = await env.DB.prepare("SELECT COUNT(*) AS count FROM recent_item_observations WHERE membership_id = ? AND observation_kind = 'gear' AND state_value IN ('armor', 'weapon')")
+    .bind(row.membership_id).first<{ count: number }>();
+  const total = Number(count?.count || 0);
+  if (!total) throw httpError(409, "cleanup_snapshot_missing", "Saved Gear observations are not ready yet. Open Gear once and let Recent Loot finish its background refresh.");
+  const pages = Math.max(1, Math.ceil(total / CLEANUP_OBSERVATION_PAGE_SIZE));
+  const page = Math.floor(Date.now() / CLEANUP_CACHE_TTL_MS) % pages;
   const [observations, refresh, builds, drafts, marks, dismissals] = await Promise.all([
-    env.DB.prepare("SELECT metadata_json FROM recent_item_observations WHERE membership_id = ? AND observation_kind = 'gear' AND state_value IN ('armor', 'weapon')").bind(row.membership_id).all<{ metadata_json: string }>(),
+    env.DB.prepare(`SELECT metadata_json FROM recent_item_observations
+      WHERE membership_id = ? AND observation_kind = 'gear' AND state_value IN ('armor', 'weapon')
+      ORDER BY CAST(json_extract(metadata_json, '$.itemHash') AS INTEGER), observation_key
+      LIMIT ? OFFSET ?`).bind(row.membership_id, CLEANUP_OBSERVATION_PAGE_SIZE, page * CLEANUP_OBSERVATION_PAGE_SIZE).all<{ metadata_json: string }>(),
     env.DB.prepare("SELECT refreshed_at FROM recent_item_refresh_state WHERE membership_id = ?").bind(row.membership_id).first<{ refreshed_at: string }>(),
     env.DB.prepare("SELECT build_json FROM builds WHERE author_membership_id = ?").bind(row.membership_id).all<{ build_json: string }>(),
     env.DB.prepare("SELECT build_json FROM build_working_drafts WHERE editor_membership_id = ?").bind(row.membership_id).all<{ build_json: string }>(),
@@ -128,32 +138,46 @@ export async function cleanupSnapshotFromObservations(row: SessionRow, env: Env,
       if (gear.kind === "weapon") weapons.push(item);
     } catch { /* A malformed retained observation is excluded, never guessed. */ }
   }
-  if (!armor.length && !weapons.length) throw httpError(409, "cleanup_snapshot_missing", "Saved Gear observations are not ready yet. Open Gear once and let Recent Loot finish its background refresh.");
+  if (!armor.length && !weapons.length) throw httpError(409, "cleanup_snapshot_missing", "The next saved Gear analysis page is not ready yet. Cleanup will retry without discarding prior recommendations.");
   const all = [...armor, ...weapons]; const owned = new Set(all.map((item) => item.instanceId)); const saved = new Set<string>();
   for (const build of [...(builds.results || []), ...(drafts.results || [])]) {
     try { savedReferences(JSON.parse(build.build_json), owned, saved); } catch { /* Treat unreadable builds as an enrichment requirement below. */ }
   }
-  const gear: GearData = {
-    gearSchemaVersion: 2, manifestVersion: "saved-observations", selectedCharacterId: "saved", selectedClass: "Unknown",
+  const chunkGear: GearData = {
+    gearSchemaVersion: 2, manifestVersion: `saved-observations:${page + 1}/${pages}`, selectedCharacterId: "saved", selectedClass: "Unknown",
     items: armor, weapons, statIcons: {}, totals: {
       armor: armor.length, weapons: weapons.length, vault: all.filter((item) => item.location === "vault").length,
       equipped: all.filter((item) => item.equipped).length, locked: all.filter((item) => item.locked).length,
       grouped: 0, newItems: all.filter((item) => item.isNew).length
     }
   };
-  const result = analyzeCleanup(gear, settings, saved, true, []);
+  const result = analyzeCleanup(chunkGear, settings, saved, true, []);
   const observedAt = refresh?.refreshed_at || new Date(0).toISOString();
-  const version = await sha256(JSON.stringify(["cleanup-saved-v1", observedAt, settings, all.map((item) => item.instanceId)]));
-  const recommendations = await Promise.all(result.recommendations.filter((entry) => !marks[entry.keeperId]).map(async (entry) => ({
+  const currentRecommendations = await Promise.all(result.recommendations.filter((entry) => !marks[entry.keeperId]).map(async (entry) => ({
     ...entry, actionable: false,
     protections: [...new Set([...entry.protections, "Saved snapshot: live protection verification pending"])],
     key: await sha256(JSON.stringify(["cleanup-saved-v1", entry.key, observedAt]))
   })));
+  const prior = previous?.gear.manifestVersion.startsWith("saved-observations:") ? previous : undefined;
+  const recommendations = [...new Map([...(prior?.recommendations || []), ...currentRecommendations].map((entry) => [entry.itemId, entry])).values()];
+  const referenced = new Set(recommendations.flatMap((entry) => [entry.itemId, entry.keeperId]));
+  const priorItems = [...(prior?.gear.items || []), ...(prior?.gear.weapons || [])];
+  const itemById = new Map([...priorItems, ...all].map((item) => [item.instanceId, item]));
+  const retained = [...referenced].flatMap((instanceId) => itemById.get(instanceId) || []);
+  const retainedArmor = retained.filter((item) => !("perkColumns" in item)) as GearData["items"];
+  const retainedWeapons = retained.filter((item) => "perkColumns" in item) as NonNullable<GearData["weapons"]>;
+  const gear: GearData = { ...chunkGear, items: retainedArmor, weapons: retainedWeapons, totals: {
+    armor: retainedArmor.length, weapons: retainedWeapons.length, vault: retained.filter((item) => item.location === "vault").length,
+    equipped: retained.filter((item) => item.equipped).length, locked: retained.filter((item) => item.locked).length,
+    grouped: 0, newItems: retained.filter((item) => item.isNew).length
+  } };
+  const version = await sha256(JSON.stringify(["cleanup-saved-v2", observedAt, settings, page, recommendations.map((entry) => entry.key)]));
   return {
-    version, observedAt, settings, gear, recommendations, insufficient: result.insufficient, marks,
+    version, observedAt, settings, gear, recommendations, insufficient: [...new Set([...(prior?.insufficient || []), ...result.insufficient])].filter((id) => itemById.has(id)), marks,
     dismissed: (dismissals.results || []).map((entry) => entry.recommendation_key), sources: [], cosmetics: [], cosmeticSets: [],
     warnings: [
       "Showing review-only recommendations from your last saved Gear observation while live enrichment continues. Tagging and pulling remain disabled.",
+      `Incremental saved analysis checked page ${page + 1} of ${pages} (${Math.min((page + 1) * CLEANUP_OBSERVATION_PAGE_SIZE, total)} of ${total} current items). Prior review recommendations remain saved while later pages are checked.`,
       ...(settings.preferences ? ["Community-source preference comparisons will be added after the live enrichment pass completes."] : []),
       ...(settings.fullComparison ? ["Cross-name armor comparisons use saved socket evidence when available; items without that evidence remain excluded from capability matching."] : [])
     ]
