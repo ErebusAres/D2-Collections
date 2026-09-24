@@ -333,7 +333,12 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     const settingsKey = await cleanupSettingsKey(settings);
     const exact = await readCleanupAnalysisCache(session.row.membership_id, env, settingsKey);
     const exactFresh = Boolean(exact?.analysis && exact.expiresAt && Date.parse(exact.expiresAt) > Date.now());
-    if (!exactFresh) await ensureCleanupAnalysisRefresh(session.row.membership_id, env, settings);
+    if (!exactFresh) {
+      await ensureCleanupAnalysisRefresh(session.row.membership_id, env, settings);
+      context.waitUntil?.(refreshCleanupAnalysisCacheWithLease(session.row, env, settingsKey).catch((error: any) => {
+        console.error(JSON.stringify({ event: "cleanup_analysis_request_job", outcome: "failed", code: String(error?.code || error?.message || "refresh_failed") }));
+      }));
+    }
     const saved = exact?.analysis ? exact : await readCleanupAnalysisCache(session.row.membership_id, env);
     const analysisStatus = exactFresh ? cleanupAnalyzeData(exact, settings).status : "refreshing";
     return envelope<CleanupWorkspaceData>({ settings, marks, cosmeticItems: (cosmetics.results || []).map((item) => item.item_id),
@@ -352,6 +357,9 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     if (!fresh) {
       await requestCleanupAnalysisRefresh(session.row.membership_id, env, settings);
       cached = cached || await readCleanupAnalysisCache(session.row.membership_id, env);
+      context.waitUntil?.(refreshCleanupAnalysisCacheWithLease(session.row, env, settingsKey).catch((error: any) => {
+        console.error(JSON.stringify({ event: "cleanup_analysis_request_job", outcome: "failed", code: String(error?.code || error?.message || "refresh_failed") }));
+      }));
     }
     const data = { ...cleanupAnalyzeData(cached, settings), ...(!fresh ? { status: "refreshing" as const } : {}) };
     const warning = data.analysis
