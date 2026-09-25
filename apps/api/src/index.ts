@@ -56,6 +56,7 @@ import { addXurOfferCollectionStates, applyQuestPins, charactersFromProfile, gua
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
 import type { Env, RequestContext, SessionRow } from "./types";
 import { gearActionItemsFromProfile, normalizeGear, type GearStateRow } from "./gear";
+import { GEAR_SNAPSHOT_FRESH_MS, hydrateGearSnapshot, readGearSnapshot, saveGearSnapshot } from "./gearSnapshot";
 import { planLootWatchers } from "./lootWatchers";
 import { LOOT_WATCHER_LEASE_MS, LOOT_WATCHER_MAX_RUNS_PER_CRON, lootWatcherRetryAt, nextLootWatcherRunAt } from "./lootWatcherSchedule";
 import { backgroundTaskForCron } from "./backgroundSchedule";
@@ -1408,20 +1409,25 @@ async function updateUserPreference(request: Request, row: SessionRow, env: Env,
 }
 
 async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
-  const [{ profile }, manifest, states, marks] = await Promise.all([
-    profileFor(row, env, "gear"), loadGearManifest(env), gearStates(row.membership_id, env), cleanupMarks(row.membership_id, env)
+  const characterId = context.url.searchParams.get("characterId") || undefined;
+  const [snapshot, states, marks] = await Promise.all([
+    readGearSnapshot(row.membership_id, env), gearStates(row.membership_id, env), cleanupMarks(row.membership_id, env)
   ]);
-  const character = selectedCharacter(charactersFromProfile(profile), context.url.searchParams.get("characterId") || undefined);
-  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const now = new Date().toISOString();
-  const data = normalizeGear(profile, manifest, character.characterId, character.className, states, now);
-  data.cleanup = marks;
-  for (const item of [...data.items, ...(data.weapons || [])]) item.cleanupRecommendation = data.cleanup[item.instanceId];
-  const missing = [...data.items, ...(data.weapons || [])].filter((item) => !states.has(item.instanceId));
-  for (let offset = 0; offset < missing.length; offset += 80) {
-    await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
+  await requestRecentItemsRefresh(row.membership_id, characterId || null, env);
+  if (!snapshot) {
+    await env.DB.prepare("UPDATE recent_item_refresh_state SET refreshed_at = ?, retry_after_at = NULL WHERE membership_id = ?")
+      .bind(new Date(0).toISOString(), row.membership_id).run();
+    throw httpError(503, "gear_snapshot_pending", "Your saved Gear snapshot is being prepared. Recent Loot will refresh it in the background; retry in a moment.", 30);
   }
-  return envelope<GearData>(data, env, context, { sourceMintedAt: profile?.responseMintedTimestamp, warnings: manifest.version !== "unavailable" ? [] : ["Gear manifest data is unavailable; refresh the deployment manifest before using Gear."] });
+  const data = hydrateGearSnapshot(snapshot.data, characterId, states, marks);
+  const ageMs = Math.max(0, Date.now() - Date.parse(snapshot.refreshedAt));
+  const stale = !Number.isFinite(ageMs) || ageMs > GEAR_SNAPSHOT_FRESH_MS;
+  return envelope<GearData>(data, env, context, {
+    sourceMintedAt: snapshot.sourceMintedAt,
+    observedAt: snapshot.refreshedAt,
+    state: stale ? "stale" : "fresh",
+    warnings: stale ? ["Gear live refresh is delayed—showing your last saved account snapshot."] : []
+  });
 }
 
 async function recentItems(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
@@ -1539,6 +1545,7 @@ async function observeRecentItemsFromProfile(
     await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, observedAt, observedAt)));
   }
   const collectionData = normalizeCollection(profile, collectionManifest, character.className);
+  await saveGearSnapshot(row.membership_id, gearData, String(profile?.responseMintedTimestamp || observedAt), observedAt, env);
   await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, gearManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now: observedAt });
 }
 
