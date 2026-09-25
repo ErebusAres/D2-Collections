@@ -1415,8 +1415,6 @@ async function gear(row: SessionRow, env: Env, context: RequestContext): Promise
   ]);
   await requestRecentItemsRefresh(row.membership_id, characterId || null, env);
   if (!snapshot) {
-    await env.DB.prepare("UPDATE recent_item_refresh_state SET refreshed_at = ?, retry_after_at = NULL WHERE membership_id = ?")
-      .bind(new Date(0).toISOString(), row.membership_id).run();
     throw httpError(503, "gear_snapshot_pending", "Your saved Gear snapshot is being prepared. Recent Loot will refresh it in the background; retry in a moment.", 30);
   }
   const data = hydrateGearSnapshot(snapshot.data, characterId, states, marks);
@@ -1482,7 +1480,8 @@ async function refreshDueRecentItems(env: Env): Promise<void> {
     WHERE (r.requested_at >= ? OR w.membership_id IS NOT NULL)
       AND r.refreshed_at <= ? AND (r.retry_after_at IS NULL OR r.retry_after_at <= ?)
       AND (r.refresh_started_at IS NULL OR r.refresh_started_at < ?)
-    ORDER BY COALESCE(r.retry_after_at, r.refreshed_at) ASC LIMIT 1`)
+    ORDER BY CASE WHEN EXISTS (SELECT 1 FROM guardian_gear_cache g WHERE g.membership_id = r.membership_id) THEN 1 ELSE 0 END,
+      COALESCE(r.retry_after_at, r.refreshed_at) ASC LIMIT 1`)
     .bind(new Date(Date.now() - FIRETEAM_ACTIVE_WINDOW_MS).toISOString(),
       new Date(Date.now() - 60_000).toISOString(), now,
       new Date(Date.now() - 2 * 60_000).toISOString())
@@ -1534,8 +1533,7 @@ async function observeRecentItemsFromProfile(
   characterId?: string,
   observedAt = new Date().toISOString()
 ): Promise<void> {
-  const [gearManifest, collectionManifest] = await Promise.all([loadGearManifest(env), loadManifest(env)]);
-  const companionManifest = await loadObservationManifest(env, uninstancedInventoryItemHashes(profile));
+  const gearManifest = await loadGearManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), characterId);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const states = await gearStates(row.membership_id, env);
@@ -1544,8 +1542,12 @@ async function observeRecentItemsFromProfile(
   for (let offset = 0; offset < missing.length; offset += 80) {
     await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, observedAt, observedAt)));
   }
-  const collectionData = normalizeCollection(profile, collectionManifest, character.className);
   await saveGearSnapshot(row.membership_id, gearData, String(profile?.responseMintedTimestamp || observedAt), observedAt, env);
+  const [collectionManifest, companionManifest] = await Promise.all([
+    loadManifest(env),
+    loadObservationManifest(env, uninstancedInventoryItemHashes(profile))
+  ]);
+  const collectionData = normalizeCollection(profile, collectionManifest, character.className);
   await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, gearManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now: observedAt });
 }
 
