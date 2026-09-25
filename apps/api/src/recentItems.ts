@@ -1,7 +1,8 @@
-import type { ArmorItem, CollectionData, CompanionManifest, RecentItemEvent, RecentItemTimelineData, WeaponItem } from "@guardian-nexus/contracts";
+import type { ArmorItem, CollectionData, CompanionManifest, GearData, GearManifest, RecentItemEvent, RecentItemTimelineData, WeaponItem } from "@guardian-nexus/contracts";
 import { imageUrl } from "@guardian-nexus/domain";
 import type { Env } from "./types";
 import { cleanupMarks } from "./cleanup";
+import { cosmeticChoices, ownedCosmeticSets } from "./cleanupCosmetics";
 
 type GearLoot = ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & WeaponItem);
 
@@ -90,6 +91,7 @@ export async function observeRecentItems(input: {
   membershipId: string;
   profile: any;
   companionManifest: CompanionManifest;
+  gearManifest: GearManifest;
   collection: CollectionData;
   armor: ArmorItem[];
   weapons: WeaponItem[];
@@ -101,6 +103,29 @@ export async function observeRecentItems(input: {
     ...input.armor.map((item) => ({ ...item, kind: "armor" as const })),
     ...input.weapons.map((item) => ({ ...item, kind: "weapon" as const }))
   ];
+  // This refresh already owns the live profile and parsed Gear manifest. Save
+  // its verified catalog so Cleanup does not repeat that expensive work.
+  try {
+    const cosmeticGear = { items: input.armor, weapons: input.weapons } as GearData;
+    const choices = cosmeticChoices(input.profile, cosmeticGear, input.gearManifest);
+    const sets = ownedCosmeticSets(input.gearManifest, choices);
+    const saved = await input.env.DB.prepare(`INSERT INTO guardian_cleanup_cosmetic_cache
+      (membership_id, choices_json, sets_json, source_minted_at, manifest_version, refreshed_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(membership_id) DO UPDATE SET choices_json = excluded.choices_json, sets_json = excluded.sets_json,
+        source_minted_at = excluded.source_minted_at, manifest_version = excluded.manifest_version, refreshed_at = excluded.refreshed_at
+      WHERE guardian_cleanup_cosmetic_cache.choices_json <> excluded.choices_json
+        OR guardian_cleanup_cosmetic_cache.sets_json <> excluded.sets_json
+        OR guardian_cleanup_cosmetic_cache.manifest_version <> excluded.manifest_version`)
+      .bind(input.membershipId, JSON.stringify(choices), JSON.stringify(sets), String(input.profile?.responseMintedTimestamp || now), input.gearManifest.version, now).run();
+    if (Number(saved.meta?.changes || 0) > 0) {
+      await input.env.DB.prepare("UPDATE guardian_cleanup_analysis_cache SET expires_at = ?, requested_at = ? WHERE membership_id = ?")
+        .bind(now, now, input.membershipId).run();
+    }
+  } catch (error: any) {
+    // Recent Loot remains independent during rolling deploys and isolated cache failures.
+    console.error(JSON.stringify({ event: "cleanup_cosmetic_cache", outcome: "failed", code: String(error?.code || error?.message || "cache_failed") }));
+  }
   const inventoryAvailable = inventorySnapshotAvailable(input.profile, input.companionManifest);
   const observations: Observation[] = [
     ...gear.map(gearObservation),
