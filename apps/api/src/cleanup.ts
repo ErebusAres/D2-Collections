@@ -116,12 +116,13 @@ export async function cleanupSnapshotFromObservations(row: SessionRow, env: Env,
   if (!total) throw httpError(409, "cleanup_snapshot_missing", "Saved Gear observations are not ready yet. Open Gear once and let Recent Loot finish its background refresh.");
   const pages = Math.max(1, Math.ceil(total / CLEANUP_OBSERVATION_PAGE_SIZE));
   const page = Math.floor(Date.now() / CLEANUP_CACHE_TTL_MS) % pages;
-  const [observations, refresh, builds, drafts, marks, dismissals, cosmeticCache] = await Promise.all([
+  const [observations, refresh, gearSnapshot, builds, drafts, marks, dismissals, cosmeticCache] = await Promise.all([
     env.DB.prepare(`SELECT metadata_json FROM recent_item_observations
       WHERE membership_id = ? AND observation_kind = 'gear' AND state_value IN ('armor', 'weapon')
       ORDER BY CAST(json_extract(metadata_json, '$.itemHash') AS INTEGER), observation_key
       LIMIT ? OFFSET ?`).bind(row.membership_id, CLEANUP_OBSERVATION_PAGE_SIZE, page * CLEANUP_OBSERVATION_PAGE_SIZE).all<{ metadata_json: string }>(),
     env.DB.prepare("SELECT refreshed_at FROM recent_item_refresh_state WHERE membership_id = ?").bind(row.membership_id).first<{ refreshed_at: string }>(),
+    env.DB.prepare("SELECT refreshed_at FROM guardian_gear_cache WHERE membership_id = ?").bind(row.membership_id).first<{ refreshed_at: string }>().catch(() => undefined),
     env.DB.prepare("SELECT build_json FROM builds WHERE author_membership_id = ?").bind(row.membership_id).all<{ build_json: string }>(),
     env.DB.prepare("SELECT build_json FROM build_working_drafts WHERE editor_membership_id = ?").bind(row.membership_id).all<{ build_json: string }>(),
     cleanupMarks(row.membership_id, env),
@@ -154,7 +155,11 @@ export async function cleanupSnapshotFromObservations(row: SessionRow, env: Env,
     }
   };
   const result = analyzeCleanup(chunkGear, settings, saved, true, []);
-  const observedAt = refresh?.refreshed_at || new Date(0).toISOString();
+  // A short-lived rollout reset some legacy Recent Loot timestamps to the Unix
+  // epoch. Prefer the independently refreshed Gear snapshot until Recent Loot
+  // records another trustworthy observation instead of presenting 1969/1970.
+  const recentItemsRefreshedAt = usableObservationTimestamp(refresh?.refreshed_at);
+  const observedAt = recentItemsRefreshedAt || usableObservationTimestamp(gearSnapshot?.refreshed_at) || new Date().toISOString();
   const currentRecommendations = await Promise.all(result.recommendations.filter((entry) => !marks[entry.keeperId]).map(async (entry) => ({
     ...entry, actionable: false,
     protections: [...new Set([...entry.protections, "Saved snapshot: live protection verification pending"])],
@@ -191,6 +196,12 @@ export async function cleanupSnapshotFromObservations(row: SessionRow, env: Env,
       ...(!cosmeticCache && !cosmetics.length ? ["Owned shader and ornament choices are syncing from your next Gear refresh. Existing choices remain unchanged until verified data is available."] : [])
     ]
   };
+}
+
+function usableObservationTimestamp(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && parsed >= Date.UTC(2020, 0, 1) ? value : undefined;
 }
 
 export function cleanupAnalyzeData(cached: StoredCleanupAnalysis | undefined, requestedSettings: CleanupSettings): CleanupAnalyzeData {
