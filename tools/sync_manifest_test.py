@@ -52,6 +52,23 @@ class BuildCatalogClassificationTests(unittest.TestCase):
         shader = item_definition(name="Cleanup Shader", item_type="Shader", plug="shader")
         self.assertTrue(SYNC_MANIFEST.relevant_gear_plug(shader))
 
+    def test_runtime_gear_manifest_keeps_roll_data_but_excludes_cosmetics(self) -> None:
+        weapon = item_definition(name="Trait", item_type="Trait", plug="weapon.traits")
+        shader = item_definition(name="Shader", item_type="Shader", plug="shader")
+        artifact = SYNC_MANIFEST.gear_runtime_manifest(
+            {"1": {"hash": 1, "itemType": 3, "displayProperties": {"name": "Rifle", "icon": "/rifle.png"}}},
+            {"2": weapon, "3": shader}, {}, "v1", "now")
+        self.assertEqual(artifact["gearItemDefinitions"]["1"]["displayProperties"]["icon"], "/rifle.png")
+        self.assertIn("2", artifact["plugDefinitions"])
+        self.assertNotIn("3", artifact["plugDefinitions"])
+
+    def test_deployed_runtime_gear_manifest_matches_version_and_size_budget(self) -> None:
+        full = json.loads(SYNC_MANIFEST.GEAR_OUTPUT.read_text(encoding="utf-8"))
+        runtime = json.loads(SYNC_MANIFEST.GEAR_RUNTIME_OUTPUT.read_text(encoding="utf-8"))
+        self.assertEqual(runtime["version"], full["version"])
+        self.assertEqual(runtime["generatedAt"], full["generatedAt"])
+        self.assertLess(SYNC_MANIFEST.GEAR_RUNTIME_OUTPUT.stat().st_size, 5_000_000)
+
     def test_observation_items_keep_inventory_labels_but_not_weapon_rolls(self) -> None:
         self.assertEqual(SYNC_MANIFEST.observation_item({"itemType": 3, "sockets": [1, 2]}), {"itemType": 3})
         material = {"itemType": 8, "itemTypeDisplayName": "Material", "displayProperties": {"name": "Core"}, "inventory": {"tierTypeName": "Legendary"}, "unused": "discard"}

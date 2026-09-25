@@ -50,7 +50,7 @@ import type {
 } from "@guardian-nexus/contracts";
 import { loadObservationManifest } from "./bungie";
 import { z } from "zod";
-import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifestForHashes, loadGearManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadLootWatcherManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, xurInventoriesForCharacters } from "./bungie";
+import { accessTokenFor, bungieGet, bungiePost, companionItemDefinitionsFor, exchangeCode, loadActivityManifest, loadActivityNames, loadBuildAdvisorManifests, loadCompanionManifestForHashes, loadGearRuntimeManifest, loadGuardianRankManifest, loadJourneyProgressManifest, loadLootWatcherManifest, loadManifest, loadQuestManifest, loadRewardCodeManifest, loadRewardsManifest, membershipsFor, mergeXurInventories, primaryMembership, profileFor, pvpHistoricalStatsFor, pvpRecentActivitiesFor, recentActivitiesFor, seasonPassProgress, xurInventoriesForCharacters } from "./bungie";
 import { partyPresenceLabel } from "@guardian-nexus/domain";
 import { addXurOfferCollectionStates, applyQuestPins, charactersFromProfile, guardianLocation, normalizeCollection, normalizeGuardian, normalizeQuests, selectedCharacter, xurStrangeCoinBalance } from "./normalize";
 import { allowlist, cookie, csrfToken, decrypt, encrypt, httpError, parseCookies, randomToken, redact, requireCsrf, sessionFromRequest, sha256 } from "./security";
@@ -1533,7 +1533,7 @@ async function observeRecentItemsFromProfile(
   characterId?: string,
   observedAt = new Date().toISOString()
 ): Promise<void> {
-  const gearManifest = await loadGearManifest(env);
+  const gearManifest = await loadGearRuntimeManifest(env);
   const character = selectedCharacter(charactersFromProfile(profile), characterId);
   if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
   const states = await gearStates(row.membership_id, env);
@@ -1548,7 +1548,7 @@ async function observeRecentItemsFromProfile(
     loadObservationManifest(env, uninstancedInventoryItemHashes(profile))
   ]);
   const collectionData = normalizeCollection(profile, collectionManifest, character.className);
-  await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, gearManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now: observedAt });
+  await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, gearManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now: observedAt, cacheCosmetics: false });
 }
 
 function uninstancedInventoryItemHashes(profile: any): string[] {

@@ -96,6 +96,7 @@ export async function observeRecentItems(input: {
   armor: ArmorItem[];
   weapons: WeaponItem[];
   env: Env;
+  cacheCosmetics?: boolean;
   now?: string;
 }): Promise<RecentItemTimelineData> {
   const now = input.now || new Date().toISOString();
@@ -105,7 +106,7 @@ export async function observeRecentItems(input: {
   ];
   // This refresh already owns the live profile and parsed Gear manifest. Save
   // its verified catalog so Cleanup does not repeat that expensive work.
-  try {
+  if (input.cacheCosmetics !== false) try {
     const cosmeticGear = { items: input.armor, weapons: input.weapons } as GearData;
     const choices = cosmeticChoices(input.profile, cosmeticGear, input.gearManifest);
     const sets = ownedCosmeticSets(input.gearManifest, choices);
