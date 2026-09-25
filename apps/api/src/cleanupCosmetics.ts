@@ -7,14 +7,23 @@ import { cosmeticSocketEntries, cosmeticKind } from "./itemCosmetics";
 import { imageUrl } from "@guardian-nexus/domain";
 
 export function cosmeticSetChoices(manifest: GearManifest, choices: CleanupAnalysis["cosmetics"], selected: Record<string, string> = {}): NonNullable<CleanupAnalysis["cosmeticSets"]> {
+  return selectCosmeticSets(ownedCosmeticSets(manifest, choices), selected);
+}
+
+export function ownedCosmeticSets(manifest: GearManifest, choices: CleanupAnalysis["cosmetics"]): NonNullable<CleanupAnalysis["cosmeticSets"]> {
   const available = new Set(choices.filter((choice) => choice.kind === "ornament").map((choice) => choice.hash));
-  const unique = new Map<string, NonNullable<CleanupAnalysis["cosmeticSets"]>[number]>();
-  for (const set of manifest.cosmeticSets || []) {
+  return (manifest.cosmeticSets || []).flatMap((set) => {
     const owned = Object.values(set.pieces).filter((hash) => available.has(hash)).length;
-    if (!owned) continue;
+    return owned ? [{ ...set, owned }] : [];
+  });
+}
+
+export function selectCosmeticSets(sets: NonNullable<CleanupAnalysis["cosmeticSets"]>, selected: Record<string, string> = {}): NonNullable<CleanupAnalysis["cosmeticSets"]> {
+  const unique = new Map<string, NonNullable<CleanupAnalysis["cosmeticSets"]>[number]>();
+  for (const set of sets) {
     const key = JSON.stringify([set.className, Object.entries(set.pieces).sort(([a], [b]) => a.localeCompare(b))]);
     // Bungie can publish several collection nodes for an identical suit. Preserve a saved choice.
-    if (!unique.has(key) || selected[set.className] === set.id) unique.set(key, { ...set, owned });
+    if (!unique.has(key) || selected[set.className] === set.id) unique.set(key, set);
   }
   return [...unique.values()];
 }

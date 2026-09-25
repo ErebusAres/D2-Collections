@@ -1539,7 +1539,7 @@ async function observeRecentItemsFromProfile(
     await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, observedAt, observedAt)));
   }
   const collectionData = normalizeCollection(profile, collectionManifest, character.className);
-  await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now: observedAt });
+  await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, gearManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now: observedAt });
 }
 
 function uninstancedInventoryItemHashes(profile: any): string[] {

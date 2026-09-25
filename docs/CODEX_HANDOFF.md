@@ -456,3 +456,12 @@ Git and GitHub CLI authentication were verified successfully outside the restric
 - Do not automate gameplay or dismantling.
 - Keep seasonal facts and recommendation templates versioned and updateable.
 - Preserve backward compatibility for stored preferences and cached response shapes.
+
+## 2026-09-24 Cleanup cosmetic regression repair
+
+- Root cause confirmed: the Worker-safe saved-observation Cleanup path introduced in PR #152 explicitly returned empty `cosmetics` and `cosmeticSets` arrays. That made shader/style selectors empty and prevented the selected appearance workflow from being usable even though the live application path still revalidated cosmetics correctly.
+- The repair adds migration `0039_cleanup_cosmetic_cache.sql`. The existing Recent Loot background refresh already owns the current Bungie profile, normalized account gear, and parsed Gear manifest; it now derives the same verified owned/insertable cosmetic catalog used by the prior full Cleanup analysis and saves it independently in D1.
+- Incremental Cleanup analysis reads that durable catalog, restores all verified shader and armor-style options, deduplicates equivalent Bungie collection nodes while preserving an already selected node, and retains the last valid catalog if a refresh is unavailable or malformed. Any actual application still rechecks current ownership, compatibility, item location, and free insertability against Bungie before writing.
+- A changed catalog invalidates the account's Cleanup analysis caches so the next background pass publishes a new version; unchanged catalogs do not create needless Cleanup work. Recent Loot remains independently usable if the additive table is unavailable during a rolling deployment.
+- Verification: `pnpm run audit` passed outside the known OneDrive/esbuild sandbox restriction on 2026-09-24: archive/source/CSS boundaries, ESLint, every TypeScript target, 43 domain tests, 301 API tests, 336 web tests, 7 Node tooling tests, 29 Python manifest tests, API/Web production builds, and performance budgets of 373,604 bytes entry JavaScript (115,379 gzip) and 36,321 bytes CSS.
+- Release and live checks still required at the time of this note: commit, push, PR, merge, production workflow, then signed-in inspection-only verification that a Recent Loot refresh populates shaders and all prior armor-style choices. Do not apply a shader, move gear, tag items, or otherwise mutate the account during verification.

@@ -8,7 +8,7 @@ vi.mock("./gear", async (original) => ({ ...await original<typeof import("./gear
 const row = { membership_id: "member" } as any;
 const batchId = "10000000-0000-4000-8000-000000000001";
 const request = (body: unknown) => new Request("https://example.test", { method: "POST", body: JSON.stringify(body) });
-function database(observations: Array<{ metadata_json: string }> = []) {
+function database(observations: Array<{ metadata_json: string }> = [], cosmeticCache?: { choices_json: string; sets_json: string; refreshed_at: string }) {
   const marks = new Map<string, any>(); const batches = new Map<string, any>(); const dismissed = new Set<string>();
   const statements: string[] = []; let concurrentTag = false;
   const DB: any = { prepare: (sql: string) => ({ bind: (...v: any[]) => {
@@ -21,7 +21,7 @@ function database(observations: Array<{ metadata_json: string }> = []) {
       if (sql.startsWith("DELETE FROM cleanup_marks") && sql.includes("batch_id")) for (const [id, mark] of marks) if (mark.batch_id === v[1]) marks.delete(id);
       return { success: true };
     };
-    return { run, first: async () => sql.includes("COUNT(*) AS count FROM recent_item_observations") ? { count: observations.length } : sql.includes("recent_item_refresh_state") ? { refreshed_at: "2026-09-23T20:00:00.000Z" } : sql.includes("cleanup_batches") ? batches.get(v[1]) : sql.includes("cleanup_marks") ? marks.get(v[1]) : null,
+    return { run, first: async () => sql.includes("COUNT(*) AS count FROM recent_item_observations") ? { count: observations.length } : sql.includes("recent_item_refresh_state") ? { refreshed_at: "2026-09-23T20:00:00.000Z" } : sql.includes("guardian_cleanup_cosmetic_cache") ? cosmeticCache : sql.includes("cleanup_batches") ? batches.get(v[1]) : sql.includes("cleanup_marks") ? marks.get(v[1]) : null,
       all: async () => ({ results: sql.includes("recent_item_observations") ? observations : sql.includes("cleanup_marks") ? [...marks.values()] : sql.includes("cleanup_dismissals") ? [...dismissed].map((key) => ({ recommendation_key: key })) : [] }) };
   } }), batch: async (entries: any[]) => { for (const entry of entries) await entry.run(); } };
   return { env: { DB } as any, marks, batches, statements, setConcurrentTag: () => { concurrentTag = true; } };
@@ -48,6 +48,20 @@ describe("cleanup server approvals", () => {
     expect(analysis.recommendations[0]).toMatchObject({ actionable: false });
     expect(analysis.recommendations[0]?.protections).toContain("Saved snapshot: live protection verification pending");
     expect(analysis.warnings[0]).toMatch(/review-only recommendations/);
+  });
+  it("keeps the complete saved cosmetic catalog on incremental analysis", async () => {
+    const observations = mocks.gear.items.map((item: any) => ({ metadata_json: JSON.stringify({ gear: { ...item, kind: "armor" } }) }));
+    const choices = [{ hash: "30", name: "Shader", kind: "shader" as const, group: "Hunter:Helmet" }];
+    const sets = [
+      { id: "original", name: "Suit", className: "Hunter", pieces: { "Hunter:Helmet": "30" }, owned: 1 },
+      { id: "selected", name: "Suit duplicate", className: "Hunter", pieces: { "Hunter:Helmet": "30" }, owned: 1 }
+    ];
+    const settings = { ...CLEANUP_DEFAULTS, cosmetics: { enabled: false, ornaments: {}, classStyles: { Hunter: "selected" } } };
+    const analysis = await cleanupSnapshotFromObservations(row, database(observations, {
+      choices_json: JSON.stringify(choices), sets_json: JSON.stringify(sets), refreshed_at: "2026-09-23T20:00:00.000Z"
+    }).env, settings);
+    expect(analysis.cosmetics).toEqual(choices);
+    expect(analysis.cosmeticSets).toEqual([sets[1]]);
   });
   it("previews without writes and rejects stale approvals", async () => {
     const db = database(); const { analysis } = await cleanupSnapshot(row, db.env, CLEANUP_DEFAULTS);
