@@ -1410,12 +1410,22 @@ async function updateUserPreference(request: Request, row: SessionRow, env: Env,
 
 async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const characterId = context.url.searchParams.get("characterId") || undefined;
-  const [snapshot, states, marks] = await Promise.all([
+  const [initialSnapshot, initialStates, marks] = await Promise.all([
     readGearSnapshot(row.membership_id, env), gearStates(row.membership_id, env), cleanupMarks(row.membership_id, env)
   ]);
+  let snapshot = initialSnapshot;
+  let states = initialStates;
   await requestRecentItemsRefresh(row.membership_id, characterId || null, env);
   if (!snapshot) {
-    throw httpError(503, "gear_snapshot_pending", "Your saved Gear snapshot is being prepared. Recent Loot will refresh it in the background; retry in a moment.", 30);
+    try {
+      const { profile } = await profileFor(row, env, "gear");
+      await saveGearSnapshotFromProfile(row, env, profile, characterId, states);
+      snapshot = await readGearSnapshot(row.membership_id, env);
+      states = await gearStates(row.membership_id, env);
+    } catch (error: any) {
+      console.error(JSON.stringify({ event: "gear_snapshot_bootstrap", outcome: "failed", code: String(error?.code || error?.message || "refresh_failed") }));
+    }
+    if (!snapshot) throw httpError(503, "gear_snapshot_pending", "Your saved Gear snapshot is being prepared. Recent Loot will refresh it in the background; retry in a moment.", 30);
   }
   const data = hydrateGearSnapshot(snapshot.data, characterId, states, marks);
   const ageMs = Math.max(0, Date.now() - Date.parse(snapshot.refreshedAt));
@@ -1533,22 +1543,27 @@ async function observeRecentItemsFromProfile(
   characterId?: string,
   observedAt = new Date().toISOString()
 ): Promise<void> {
-  const gearManifest = await loadGearRuntimeManifest(env);
-  const character = selectedCharacter(charactersFromProfile(profile), characterId);
-  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
-  const states = await gearStates(row.membership_id, env);
-  const gearData = normalizeGear(profile, gearManifest, character.characterId, character.className, states, observedAt);
-  const missing = [...gearData.items, ...(gearData.weapons || [])].filter((item) => !states.has(item.instanceId));
-  for (let offset = 0; offset < missing.length; offset += 80) {
-    await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, observedAt, observedAt)));
-  }
-  await saveGearSnapshot(row.membership_id, gearData, String(profile?.responseMintedTimestamp || observedAt), observedAt, env);
+  const { gearData, gearManifest, character } = await saveGearSnapshotFromProfile(row, env, profile, characterId, undefined, observedAt);
   const [collectionManifest, companionManifest] = await Promise.all([
     loadManifest(env),
     loadObservationManifest(env, uninstancedInventoryItemHashes(profile))
   ]);
   const collectionData = normalizeCollection(profile, collectionManifest, character.className);
   await observeRecentItems({ membershipId: row.membership_id, profile, companionManifest, gearManifest, collection: collectionData, armor: gearData.items, weapons: gearData.weapons || [], env, now: observedAt, cacheCosmetics: false });
+}
+
+async function saveGearSnapshotFromProfile(row: SessionRow, env: Env, profile: any, characterId?: string, knownStates?: Map<string, GearStateRow>, observedAt = new Date().toISOString()) {
+  const gearManifest = await loadGearRuntimeManifest(env);
+  const character = selectedCharacter(charactersFromProfile(profile), characterId);
+  if (!character) throw httpError(404, "character_missing", "No Destiny character is available.");
+  const states = knownStates || await gearStates(row.membership_id, env);
+  const gearData = normalizeGear(profile, gearManifest, character.characterId, character.className, states, observedAt);
+  const missing = [...gearData.items, ...(gearData.weapons || [])].filter((item) => !states.has(item.instanceId));
+  for (let offset = 0; offset < missing.length; offset += 80) {
+    await env.DB.batch(missing.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, observedAt, observedAt)));
+  }
+  await saveGearSnapshot(row.membership_id, gearData, String(profile?.responseMintedTimestamp || observedAt), observedAt, env);
+  return { gearData, gearManifest, character };
 }
 
 function uninstancedInventoryItemHashes(profile: any): string[] {
