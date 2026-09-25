@@ -875,6 +875,19 @@ export async function loadGearManifest(env: Env): Promise<GearManifest> {
   }
 }
 
+export async function loadGearRuntimeManifest(env: Env): Promise<GearManifest> {
+  const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "gear-runtime-manifest.json");
+  try {
+    const response = await fetch(url, { cf: { cacheTtl: 300, cacheEverything: true } });
+    if (!response.ok) throw new Error(`Gear runtime manifest request returned ${response.status}.`);
+    const value = await response.json() as GearManifest;
+    if (!value?.version || !value.gearItemDefinitions || !value.plugDefinitions) throw new Error("Gear runtime manifest artifact is invalid.");
+    return value;
+  } catch {
+    return loadLootWatcherManifest(env);
+  }
+}
+
 export async function loadLootWatcherManifest(env: Env): Promise<GearManifest> {
   const url = env.GAME_DATA_URL.replace(/manifest\.json(?:\?.*)?$/, "loot-watcher-manifest.json");
   try {
