@@ -184,6 +184,11 @@ export function notificationStatusAt(
   return notification.status;
 }
 
+export function notificationOccurrenceCount(notification: GuardianNotification): number {
+  const count = Number(notification.metadata?.stackCount || 1);
+  return Number.isFinite(count) && count > 1 ? Math.floor(count) : 1;
+}
+
 function readJson<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try { return JSON.parse(localStorage.getItem(key) || "") as T; } catch { return fallback; }

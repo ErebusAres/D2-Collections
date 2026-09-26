@@ -88,4 +88,18 @@ describe("NotificationCenter", () => {
     expect(restore).toHaveBeenCalledWith(notification);
     expect(savePreferences).toHaveBeenCalledWith(expect.objectContaining({ bannerVisible: true }));
   });
+
+  it("shows repeated service alerts as one labeled stack", () => {
+    const notification = {
+      id: "world:alert:latest", type: "alert", category: "outage" as const, scope: "global" as const,
+      priority: "critical" as const, status: "active" as const, title: "Destiny service alert",
+      subtitle: "Service interruption", createdAt: "2026-09-25T00:00:00.000Z",
+      dismissible: false, autoDismiss: false, metadata: { stackCount: 13 }
+    };
+    render(<MemoryRouter><NotificationCenter controller={{ ...controller, notifications: [notification] }} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Open notifications" }));
+
+    expect(screen.getByText(/13 stacked/)).toBeTruthy();
+    expect(screen.getAllByText("Destiny service alert")).toHaveLength(1);
+  });
 });

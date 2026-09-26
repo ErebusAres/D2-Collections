@@ -4,7 +4,7 @@ import { useMemo, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../components/common/Page";
 import { categoryFor, notificationCategoryConfig } from "../modules/notifications/categoryConfig";
-import { useGuardianNotifications } from "../modules/notifications/useGuardianNotifications";
+import { notificationOccurrenceCount, useGuardianNotifications } from "../modules/notifications/useGuardianNotifications";
 import { relativeTime } from "../components/notifications/GuardianFeed";
 import { primeCompletionAudio } from "../services/completionAudio";
 import styles from "./WorldState.module.css";
@@ -33,7 +33,8 @@ export function NotificationsPage() {
       <section className={styles.notificationHistory}>
         {filtered.map((entry) => {
           const config = categoryFor(entry.category); const Icon = config.icon;
-          const content = <><i style={{ color: config.accentColor }}><Icon /></i><span><small>{config.label} · {entry.scope} · {relativeTime(entry.updatedAt || entry.createdAt)}</small><strong>{entry.title}</strong>{entry.subtitle && <em>{entry.subtitle}</em>}<b>{(entry.sourceConfidence || "unavailable").replace("-", " ")} · {entry.sourceLabel || "Source unavailable"}</b></span></>;
+          const occurrences = notificationOccurrenceCount(entry);
+          const content = <><i style={{ color: config.accentColor }}><Icon /></i><span><small>{config.label} · {entry.scope} · {relativeTime(entry.updatedAt || entry.createdAt)}{occurrences > 1 ? ` · ${occurrences} occurrences` : ""}</small><strong>{entry.title}</strong>{entry.subtitle && <em>{entry.subtitle}</em>}<b>{(entry.sourceConfidence || "unavailable").replace("-", " ")} · {entry.sourceLabel || "Source unavailable"}</b></span></>;
           return <article key={entry.id} data-read={Boolean(entry.readAt)} style={{ borderLeftColor: config.primaryColor }}>
             {entry.destinationUrl ? <Link to={entry.destinationUrl} onClick={() => controller.markRead(entry)}>{content}</Link> : <button onClick={() => controller.markRead(entry)}>{content}</button>}
             <nav><button onClick={() => controller.markRead(entry, !entry.readAt)} title={entry.readAt ? "Mark unread" : "Mark read"} aria-label={`${entry.readAt ? "Mark unread" : "Mark read"}: ${entry.title}`}><Check /></button><button onClick={() => controller.archive(entry)} title="Archive" aria-label={`Archive: ${entry.title}`}><Archive /></button></nav>

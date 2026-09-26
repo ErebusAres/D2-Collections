@@ -1,7 +1,7 @@
 import { Bell, BellRing, CheckCheck, ChevronRight, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { GuardianNotificationsController } from "../../modules/notifications/useGuardianNotifications";
+import { notificationOccurrenceCount, type GuardianNotificationsController } from "../../modules/notifications/useGuardianNotifications";
 import { categoryFor } from "../../modules/notifications/categoryConfig";
 import { relativeTime, replayNotificationInBanner } from "./GuardianFeed";
 import { trapFocusWithin } from "../common/focusTrap";
@@ -48,13 +48,14 @@ export function NotificationCenter({ controller }: { controller: GuardianNotific
         {filtered.map((notification) => {
           const config = categoryFor(notification.category);
           const Icon = config.icon;
+          const occurrences = notificationOccurrenceCount(notification);
           const destination = notification.destinationUrl || notification.externalUrl;
           const replay = () => {
             controller.savePreferences({ ...controller.preferences, bannerVisible: true });
             controller.restore(notification);
             replayNotificationInBanner(notification);
           };
-          const item = <><i style={{ color: config.accentColor }}><Icon /></i><span><small>{config.label} · {relativeTime(notification.updatedAt || notification.createdAt)}</small><strong>{notification.title}</strong>{notification.subtitle && <em>{notification.subtitle}</em>}</span>{destination && <ChevronRight />}</>;
+          const item = <><i style={{ color: config.accentColor }}><Icon /></i><span><small>{config.label} · {relativeTime(notification.updatedAt || notification.createdAt)}{occurrences > 1 ? ` · ${occurrences} stacked` : ""}</small><strong>{notification.title}</strong>{notification.subtitle && <em>{notification.subtitle}</em>}</span>{destination && <ChevronRight />}</>;
           return <article key={notification.id} data-read={Boolean(notification.readAt)} style={{ borderLeftColor: config.primaryColor }}>
             {notification.destinationUrl ? <Link to={notification.destinationUrl} onClick={() => { controller.markRead(notification); setOpen(false); }}>{item}</Link>
               : notification.externalUrl ? <a href={notification.externalUrl} target="_blank" rel="noopener noreferrer" onClick={() => controller.markRead(notification)}>{item}</a>
