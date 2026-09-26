@@ -131,7 +131,7 @@ describe("recent item timeline transitions", () => {
       first: async () => {
         bindings.push(values);
         queries.push(sql);
-        return { observation_count: 4, observed_at: now, refreshed_at: now };
+        return { has_observations: 1, refreshed_at: now };
       },
       all: async () => {
         bindings.push(values);
@@ -150,6 +150,9 @@ describe("recent item timeline transitions", () => {
     const eventQuery = queries.find((query) => query.includes("recent_item_events")) || "";
     expect(eventQuery).not.toMatch(/SELECT\s+\*/i);
     expect(eventQuery).not.toMatch(/json_extract/i);
+    const observationSummaryQuery = queries.find((query) => query.includes("has_observations")) || "";
+    expect(observationSummaryQuery).toMatch(/EXISTS/i);
+    expect(observationSummaryQuery).not.toMatch(/COUNT\(\*\)|MAX\(/i);
     expect(bindings.some((values) => values.at(-1) === FIRETEAM_RECENT_ITEM_LIMIT * 5)).toBe(true);
   });
 });
