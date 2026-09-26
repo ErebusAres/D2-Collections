@@ -329,6 +329,9 @@ export function normalizeGlobalAlerts(response: unknown, observedAt: string): Ha
     const level = Number(alert.AlertLevel ?? alert.alertLevel ?? 0);
     const critical = level >= 3 || /offline|outage|unavailable|emergency/i.test(message);
     const timestamp = validDate(alert.AlertTimestamp || alert.alertTimestamp) || observedAt;
+    // Bungie's endpoint can retain resolved alerts long after an incident. A
+    // ten-day-old record is not a live outage even if it is still returned.
+    if (Date.parse(observedAt) - Date.parse(timestamp) > 48 * 60 * 60_000) return [];
     return [{
       id: `alert:${text(alert.AlertKey) || slug(message.slice(0, 80)) || index}`,
       section: "live",

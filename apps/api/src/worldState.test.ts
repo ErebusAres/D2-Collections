@@ -201,6 +201,15 @@ describe("official news and service alerts", () => {
       title: "Destiny service alert"
     })]);
   });
+
+  it("drops alerts Bungie's endpoint retains long after the incident", () => {
+    expect(normalizeGlobalAlerts([{
+      AlertKey: "stale-outage",
+      AlertLevel: 3,
+      AlertHtml: "Destiny services are temporarily unavailable.",
+      AlertTimestamp: "2026-07-19T11:55:00.000Z"
+    }], observedAt)).toEqual([]);
+  });
 });
 
 describe("world notification projection", () => {
