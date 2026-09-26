@@ -58,7 +58,7 @@ import type { Env, RequestContext, SessionRow } from "./types";
 import { gearActionItemsFromProfile, normalizeGear, type GearStateRow } from "./gear";
 import { GEAR_SNAPSHOT_FRESH_MS, hydrateGearSnapshot, readGearSnapshot, saveGearSnapshot } from "./gearSnapshot";
 import { planLootWatchers } from "./lootWatchers";
-import { LOOT_WATCHER_LEASE_MS, LOOT_WATCHER_MAX_RUNS_PER_CRON, lootWatcherRetryAt, nextLootWatcherRunAt } from "./lootWatcherSchedule";
+import { LOOT_WATCHER_LEASE_MS, LOOT_WATCHER_MAX_RUNS_PER_CRON, lootWatcherItemIsNew, lootWatcherRetryAt, nextLootWatcherRunAt } from "./lootWatcherSchedule";
 import { backgroundTaskForCron } from "./backgroundSchedule";
 import { matrixGuardianRoster } from "./matrix";
 import { normalizeRewardsPass } from "./rewards";
@@ -91,7 +91,7 @@ import {
 import { readRaidRotations } from "./worldState";
 import { guardianSnapshotsRoute } from "./guardianSnapshots";
 import { membershipDiagnosis, oauthRefreshRequiredDiagnosis, probeDestinyMemberships, sanitizedMembershipProbe, selectBestMembership, type DiagnosticTest } from "./supportDiagnostics";
-import { FIRETEAM_RECENT_ITEM_LIMIT, observeRecentItems, readRecentItems, removeRecentGearItem } from "./recentItems";
+import { FIRETEAM_RECENT_ITEM_LIMIT, RECENT_ITEM_REFRESH_INTERVAL_MS, observeRecentItems, readRecentItems, removeRecentGearItem } from "./recentItems";
 import { configuredFireteamActivityFeedEnabled, FIRETEAM_FEED_RETENTION_DAYS, FIRETEAM_MESSAGE_MAX_LENGTH, fireteamActivitySnapshotEnabled, fireteamChannelKey, normalizeFireteamMessage, readFireteamActivityFeed } from "./fireteamActivityFeed";
 import { equippedCharacterPower, guardianSessionCacheState, observeGuardianSession } from "./fireteamReliability";
 import {
@@ -1410,18 +1410,20 @@ async function updateUserPreference(request: Request, row: SessionRow, env: Env,
 
 async function gear(row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
   const characterId = context.url.searchParams.get("characterId") || undefined;
-  const [initialSnapshot, initialStates, marks] = await Promise.all([
-    readGearSnapshot(row.membership_id, env), gearStates(row.membership_id, env), cleanupMarks(row.membership_id, env)
+  const [initialSnapshot, marks] = await Promise.all([
+    readGearSnapshot(row.membership_id, env), cleanupMarks(row.membership_id, env)
   ]);
   let snapshot = initialSnapshot;
-  let states = initialStates;
+  let states = snapshot
+    ? await gearStateOverrides(row.membership_id, snapshot.refreshedAt, env)
+    : await gearStates(row.membership_id, env);
   await requestRecentItemsRefresh(row.membership_id, characterId || null, env);
   if (!snapshot) {
     try {
       const { profile } = await profileFor(row, env, "gear");
       await saveGearSnapshotFromProfile(row, env, profile, characterId, states);
       snapshot = await readGearSnapshot(row.membership_id, env);
-      states = await gearStates(row.membership_id, env);
+      if (snapshot) states = await gearStateOverrides(row.membership_id, snapshot.refreshedAt, env);
     } catch (error: any) {
       console.error(JSON.stringify({ event: "gear_snapshot_bootstrap", outcome: "failed", code: String(error?.code || error?.message || "refresh_failed") }));
     }
@@ -1444,8 +1446,8 @@ async function recentItems(row: SessionRow, env: Env, context: RequestContext): 
   await requestRecentItemsRefresh(row.membership_id, context.url.searchParams.get("characterId"), env);
   return envelope<RecentItemTimelineData>(data, env, context, {
     observedAt: data.observedAt,
-    state: observationAgeMs > 2 * 60_000 ? "stale" : "fresh",
-    warnings: observationAgeMs > 2 * 60_000 ? ["Recent item observation is refreshing in the background; the saved timeline remains available."] : []
+    state: observationAgeMs > RECENT_ITEM_REFRESH_INTERVAL_MS + 60_000 ? "stale" : "fresh",
+    warnings: observationAgeMs > RECENT_ITEM_REFRESH_INTERVAL_MS + 60_000 ? ["Recent item observation is refreshing in the background; the saved timeline remains available."] : []
   });
 }
 
@@ -1456,7 +1458,7 @@ async function requestRecentItemsRefresh(membershipId: string, characterId: stri
     ON CONFLICT(membership_id) DO UPDATE SET requested_at = excluded.requested_at,
       character_id = COALESCE(excluded.character_id, recent_item_refresh_state.character_id)
     WHERE requested_at IS NULL OR requested_at < ? OR character_id IS NOT excluded.character_id`)
-    .bind(membershipId, now, characterId, new Date(Date.now() - 55_000).toISOString()).run();
+    .bind(membershipId, now, characterId, new Date(Date.now() - RECENT_ITEM_REFRESH_INTERVAL_MS + 5_000).toISOString()).run();
 }
 
 async function refreshDueCleanupAnalysis(env: Env): Promise<void> {
@@ -1493,7 +1495,7 @@ async function refreshDueRecentItems(env: Env): Promise<void> {
     ORDER BY CASE WHEN EXISTS (SELECT 1 FROM guardian_gear_cache g WHERE g.membership_id = r.membership_id) THEN 1 ELSE 0 END,
       COALESCE(r.retry_after_at, r.refreshed_at) ASC LIMIT 1`)
     .bind(new Date(Date.now() - FIRETEAM_ACTIVE_WINDOW_MS).toISOString(),
-      new Date(Date.now() - 60_000).toISOString(), now,
+      new Date(Date.now() - RECENT_ITEM_REFRESH_INTERVAL_MS).toISOString(), now,
       new Date(Date.now() - 2 * 60_000).toISOString())
     .all<{ membership_id: string; character_id?: string }>();
   for (const job of jobs.results || []) {
@@ -1969,6 +1971,7 @@ async function runLootWatchers(request: Request, row: SessionRow, env: Env, cont
 interface LootWatcherJobRow {
   membership_id: string;
   character_id: string;
+  last_success_at?: string;
 }
 
 async function ensureLootWatcherJobs(env: Env): Promise<void> {
@@ -2000,33 +2003,30 @@ async function scheduleLootWatcher(membershipId: string, characterId: string, en
   `).bind(membershipId, characterId, now, null, now).run();
 }
 
-async function executeLootWatcherPass(row: SessionRow, characterId: string, config: LootWatcherConfig, env: Env, assertCurrent: () => Promise<void>): Promise<LootWatcherRunResult> {
+async function executeLootWatcherPass(row: SessionRow, characterId: string, config: LootWatcherConfig, previousSuccessAt: string | undefined, env: Env, assertCurrent: () => Promise<void>): Promise<LootWatcherRunResult> {
   const { profile, accessToken } = await profileFor(row, env, "loot-watcher", true);
   const character = charactersFromProfile(profile).find((entry) => entry.characterId === characterId);
   if (!character) throw httpError(403, "character_invalid", "That character does not belong to this Guardian.");
-  const [manifest, states, seenResult] = await Promise.all([
+  const [manifest, states] = await Promise.all([
     loadLootWatcherManifest(env),
-    gearStates(row.membership_id, env),
-    env.DB.prepare("SELECT item_instance_id FROM loot_watcher_seen_items WHERE membership_id = ?").bind(row.membership_id).all<{ item_instance_id: string }>()
+    gearStates(row.membership_id, env)
   ]);
   if (manifest.version === "unavailable") throw httpError(503, "loot_watcher_manifest_unavailable", "Loot watcher item definitions are temporarily unavailable.", 60);
   const now = new Date().toISOString();
   const data = normalizeGear(profile, manifest, character.characterId, character.className, states, now);
   const physicalItems = [...data.items, ...(data.weapons || [])];
   if (gearActionItemsFromProfile(profile).size > 0 && !physicalItems.length) throw httpError(503, "loot_watcher_inventory_unavailable", "Bungie inventory data could not be classified safely.", 60);
-  const seen = new Set((seenResult.results || []).map((item) => String(item.item_instance_id)));
-  const newInstanceIds = new Set(physicalItems.filter((item) => !seen.has(item.instanceId)).map((item) => item.instanceId));
+  const baselineEstablished = Boolean(previousSuccessAt && Number.isFinite(Date.parse(previousSuccessAt)));
+  const newInstanceIds = new Set(physicalItems.filter((item) => {
+    const state = states.get(item.instanceId);
+    return lootWatcherItemIsNew(state?.first_seen_at, previousSuccessAt);
+  }).map((item) => item.instanceId));
   const missingStates = physicalItems.filter((item) => !states.has(item.instanceId));
   for (let offset = 0; offset < missingStates.length; offset += 80) {
     await env.DB.batch(missingStates.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO gear_item_state (membership_id, item_instance_id, first_seen_at, updated_at) VALUES (?, ?, ?, ?)").bind(row.membership_id, item.instanceId, now, now)));
   }
-  const result = await applyLootWatcherActions(row, env, profile, accessToken, data, config, newInstanceIds, seen.size > 0, assertCurrent);
+  const result = await applyLootWatcherActions(row, env, profile, accessToken, data, config, newInstanceIds, baselineEstablished, assertCurrent);
   await assertCurrent();
-  if (!result.warnings.length) {
-    for (let offset = 0; offset < physicalItems.length; offset += 80) {
-      await env.DB.batch(physicalItems.slice(offset, offset + 80).map((item) => env.DB.prepare("INSERT OR IGNORE INTO loot_watcher_seen_items (membership_id, item_instance_id, first_seen_at) VALUES (?, ?, ?)").bind(row.membership_id, item.instanceId, now)));
-    }
-  }
   return result;
 }
 
@@ -2049,7 +2049,7 @@ async function refreshDueLootWatchers(env: Env): Promise<void> {
   const now = new Date().toISOString();
   const staleLease = new Date(Date.now() - LOOT_WATCHER_LEASE_MS).toISOString();
   const { results = [] } = await env.DB.prepare(`
-    SELECT membership_id, character_id FROM loot_watcher_jobs
+    SELECT membership_id, character_id, last_success_at FROM loot_watcher_jobs
     WHERE next_run_at <= ? AND (run_started_at IS NULL OR run_started_at < ?)
     ORDER BY next_run_at ASC LIMIT ?
   `).bind(now, staleLease, LOOT_WATCHER_MAX_RUNS_PER_CRON).all<LootWatcherJobRow>();
@@ -2076,7 +2076,7 @@ async function refreshDueLootWatchers(env: Env): Promise<void> {
           .first<{ valid: number }>();
         if (!current) throw httpError(409, "watcher_superseded", "Watcher settings changed; the previous check stopped.");
       };
-      const result = await executeLootWatcherPass(row, job.character_id, config, env, assertCurrent);
+      const result = await executeLootWatcherPass(row, job.character_id, config, job.last_success_at, env, assertCurrent);
       await completeLootWatcherJob(job.membership_id, startedAt, result, env);
     } catch (error: any) {
       await env.DB.prepare(`
@@ -2144,6 +2144,19 @@ async function applyLootWatcherActions(row: SessionRow, env: Env, profile: any, 
 async function gearStates(membershipId: string, env: Env): Promise<Map<string, GearStateRow>> {
   const { results = [] } = await env.DB.prepare("SELECT item_instance_id, tag, first_seen_at, dismissed_at FROM gear_item_state WHERE membership_id = ?").bind(membershipId).all<GearStateRow>();
   return new Map(results.map((row) => [String(row.item_instance_id), row]));
+}
+
+async function gearStateOverrides(membershipId: string, snapshotRefreshedAt: string, env: Env): Promise<Map<string, GearStateRow>> {
+  const [meaningful, changed] = await Promise.all([
+    env.DB.prepare(`SELECT item_instance_id, tag, first_seen_at, dismissed_at FROM gear_item_state
+      WHERE membership_id = ? AND (tag IS NOT NULL OR dismissed_at IS NOT NULL)`)
+      .bind(membershipId).all<GearStateRow>(),
+    env.DB.prepare(`SELECT item_instance_id, tag, first_seen_at, dismissed_at FROM gear_item_state
+      WHERE membership_id = ? AND updated_at > ?`)
+      .bind(membershipId, snapshotRefreshedAt).all<GearStateRow>()
+  ]);
+  return new Map([...(meaningful.results || []), ...(changed.results || [])]
+    .map((state) => [String(state.item_instance_id), state]));
 }
 
 async function transfer(item: any, toVault: boolean, characterId: string, row: SessionRow, env: Env, accessToken: string): Promise<void> {

@@ -42,10 +42,11 @@ export async function readRecentItems(membershipId: string, env: Env, now = new 
   const rawEventScanLimit = Math.min(RAW_EVENT_SCAN_LIMIT, maxEvents * 5);
   const [observationSummary, rows] = await Promise.all([
     env.DB.prepare(`
-      SELECT COUNT(*) AS observation_count, MAX(updated_at) AS observed_at,
+      SELECT EXISTS(
+        SELECT 1 FROM recent_item_observations WHERE membership_id = ? LIMIT 1
+      ) AS has_observations,
         (SELECT refreshed_at FROM recent_item_refresh_state WHERE membership_id = ?) AS refreshed_at
-      FROM recent_item_observations WHERE membership_id = ?
-    `).bind(membershipId, membershipId).first<{ observation_count: number; observed_at: string | null; refreshed_at: string | null }>(),
+    `).bind(membershipId, membershipId).first<{ has_observations: number; refreshed_at: string | null }>(),
     // Event rows historically embedded the complete gear object in metadata_json.
     // Select only the small timeline fields here; current gear is loaded once
     // from its observation after coalescing and limiting the timeline.
@@ -82,8 +83,8 @@ export async function readRecentItems(membershipId: string, env: Env, now = new 
     timelineSchemaVersion: 1,
     events: events.map((event) => event.instanceId && currentGear.has(event.instanceId) ? { ...event, gear: currentGear.get(event.instanceId) } : event),
     retentionDays: RETENTION_DAYS,
-    firstObservationEstablished: Number(observationSummary?.observation_count || 0) > 0,
-    observedAt: observationSummary?.refreshed_at || observationSummary?.observed_at || now
+    firstObservationEstablished: Number(observationSummary?.has_observations || 0) > 0,
+    observedAt: observationSummary?.refreshed_at || now
   };
 }
 
@@ -133,7 +134,8 @@ export async function observeRecentItems(input: {
     ...catalystObservations(input.collection),
     ...(inventoryAvailable ? inventoryObservations(input.profile, input.companionManifest) : [])
   ];
-  const previousResult = await input.env.DB.prepare("SELECT * FROM recent_item_observations WHERE membership_id = ?")
+  const previousResult = await input.env.DB.prepare(`SELECT observation_key, observation_kind, state_value, quantity,
+    metadata_json, observed_at, updated_at FROM recent_item_observations WHERE membership_id = ?`)
     .bind(input.membershipId).all<ObservationRow>();
   const previous = new Map((previousResult.results || []).map((row) => [row.observation_key, row]));
   const firstAccountObservation = previous.size === 0;

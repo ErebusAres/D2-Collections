@@ -52,12 +52,13 @@ export function hydrateGearSnapshot(data: GearData, characterId: string | undefi
 }
 
 function hydrateItem<T extends GearData["items"][number] | NonNullable<GearData["weapons"]>[number]>(item: T, state: GearStateRow | undefined, cleanup: NonNullable<GearData["cleanup"]>): T {
+  if (!state) return { ...item, cleanupRecommendation: cleanup[item.instanceId] };
   return {
     ...item,
-    tag: state?.tag,
-    firstSeenAt: state?.first_seen_at || item.firstSeenAt,
-    dismissedAt: state?.dismissed_at,
-    isNew: !state?.dismissed_at && !state?.tag,
+    tag: state.tag,
+    firstSeenAt: state.first_seen_at || item.firstSeenAt,
+    dismissedAt: state.dismissed_at,
+    isNew: !state.dismissed_at && !state.tag,
     cleanupRecommendation: cleanup[item.instanceId]
   };
 }

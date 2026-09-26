@@ -16,6 +16,12 @@ describe("durable Gear snapshots", () => {
     expect(data.items[0]).toMatchObject({ tag: "keep", dismissedAt: "2026-09-02", isNew: false, cleanupRecommendation: { confidence: 99 } });
   });
 
+  it("preserves cached item state when no newer or meaningful override exists", () => {
+    const cached = { ...base, items: [{ ...base.items[0]!, tag: "favorite" as const, dismissedAt: "2026-09-03", isNew: false }] };
+    const data = hydrateGearSnapshot(cached, undefined, new Map(), {});
+    expect(data.items[0]).toMatchObject({ tag: "favorite", dismissedAt: "2026-09-03", isNew: false });
+  });
+
   it("rejects malformed or obsolete cached payloads", async () => {
     const env = { DB: { prepare: () => ({ bind: () => ({ first: async () => ({ data_json: "{}", source_minted_at: "x", refreshed_at: "y" }) }) }) } } as any;
     expect(await readGearSnapshot("m", env)).toBeUndefined();
