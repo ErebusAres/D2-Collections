@@ -114,23 +114,49 @@ export async function readNotificationFeed(request: Request, env: Env): Promise<
   const now = new Date().toISOString();
   const rowsPromise = membershipId
     ? env.DB.prepare(`
-        SELECT n.*, s.read_at, s.dismissed_at, s.archived_at, s.deleted_at
-        FROM guardian_notifications n
-        LEFT JOIN notification_user_state s ON s.notification_id = n.id AND s.membership_id = ?
-        WHERE (n.scope = 'global' OR n.account_membership_id = ?)
-          AND (? = 1 OR ((n.starts_at IS NULL OR n.starts_at <= ?) AND (n.expires_at IS NULL OR n.expires_at > ?)))
-          AND (? IS NULL OR n.created_at < ?)
-          AND s.deleted_at IS NULL
-        ORDER BY CASE n.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, n.created_at DESC
+        WITH visible AS (
+          SELECT n.*, s.read_at, s.dismissed_at, s.archived_at, s.deleted_at,
+            CASE WHEN n.source = 'bungie-global-alerts'
+              THEN 'service:' || lower(trim(n.title)) || ':' || lower(trim(COALESCE(n.subtitle, '')))
+              ELSE n.id END AS stack_key
+          FROM guardian_notifications n
+          LEFT JOIN notification_user_state s ON s.notification_id = n.id AND s.membership_id = ?
+          WHERE (n.scope = 'global' OR n.account_membership_id = ?)
+            AND (? = 1 OR ((n.starts_at IS NULL OR n.starts_at <= ?) AND (n.expires_at IS NULL OR n.expires_at > ?)))
+            AND s.deleted_at IS NULL
+        ), ranked AS (
+          SELECT visible.*,
+            COUNT(*) OVER (PARTITION BY stack_key) AS stack_count,
+            MIN(created_at) OVER (PARTITION BY stack_key) AS stack_first_created_at,
+            ROW_NUMBER() OVER (PARTITION BY stack_key
+              ORDER BY COALESCE(updated_at, created_at) DESC, created_at DESC, id DESC) AS stack_rank
+          FROM visible
+        )
+        SELECT * FROM ranked
+        WHERE stack_rank = 1 AND (? IS NULL OR created_at < ?)
+        ORDER BY CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, created_at DESC
         LIMIT ?
       `).bind(membershipId, membershipId, history ? 1 : 0, now, now, cursor, cursor, limit + 1).all<NotificationRow>()
     : env.DB.prepare(`
-        SELECT n.*
-        FROM guardian_notifications n
-        WHERE n.scope = 'global'
-          AND (? = 1 OR ((n.starts_at IS NULL OR n.starts_at <= ?) AND (n.expires_at IS NULL OR n.expires_at > ?)))
-          AND (? IS NULL OR n.created_at < ?)
-        ORDER BY CASE n.priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, n.created_at DESC
+        WITH visible AS (
+          SELECT n.*,
+            CASE WHEN n.source = 'bungie-global-alerts'
+              THEN 'service:' || lower(trim(n.title)) || ':' || lower(trim(COALESCE(n.subtitle, '')))
+              ELSE n.id END AS stack_key
+          FROM guardian_notifications n
+          WHERE n.scope = 'global'
+            AND (? = 1 OR ((n.starts_at IS NULL OR n.starts_at <= ?) AND (n.expires_at IS NULL OR n.expires_at > ?)))
+        ), ranked AS (
+          SELECT visible.*,
+            COUNT(*) OVER (PARTITION BY stack_key) AS stack_count,
+            MIN(created_at) OVER (PARTITION BY stack_key) AS stack_first_created_at,
+            ROW_NUMBER() OVER (PARTITION BY stack_key
+              ORDER BY COALESCE(updated_at, created_at) DESC, created_at DESC, id DESC) AS stack_rank
+          FROM visible
+        )
+        SELECT * FROM ranked
+        WHERE stack_rank = 1 AND (? IS NULL OR created_at < ?)
+        ORDER BY CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, created_at DESC
         LIMIT ?
       `).bind(history ? 1 : 0, now, now, cursor, cursor, limit + 1).all<NotificationRow>();
   const preferencesPromise: Promise<NotificationPreferences> = membershipId
@@ -412,12 +438,18 @@ export async function maintainNotificationStorage(env: Env): Promise<void> {
   const nowDate = new Date();
   const now = nowDate.toISOString();
   const retention = new Date(nowDate.getTime() - 180 * 86_400_000).toISOString();
+  const serviceAlertRetention = new Date(nowDate.getTime() - 7 * 86_400_000).toISOString();
   await syncCommunityDistortionObservation(env, nowDate);
   await refreshPublicWorldState(env);
-  await materializeGeneratedNotifications(env, await generatedWorldNotifications(env));
+  const generated = await generatedWorldNotifications(env);
+  await materializeGeneratedNotifications(env, generated);
+  await expireMissingServiceAlerts(env, generated, now);
   await env.DB.batch([
     env.DB.prepare("DELETE FROM notification_user_state WHERE updated_at < ?").bind(retention),
     env.DB.prepare("DELETE FROM guardian_notifications WHERE expires_at IS NOT NULL AND expires_at < ? AND created_at < ?").bind(now, retention),
+    env.DB.prepare(`DELETE FROM guardian_notifications
+      WHERE source = 'bungie-global-alerts' AND expires_at IS NOT NULL
+        AND expires_at <= ? AND created_at < ?`).bind(now, serviceAlertRetention),
     env.DB.prepare(`
       INSERT INTO world_provider_status (provider_key, state, last_attempt_at, last_success_at, error_code, error_message)
       VALUES ('distortion', 'observed', ?, ?, NULL, NULL)
@@ -425,6 +457,23 @@ export async function maintainNotificationStorage(env: Env): Promise<void> {
         last_success_at = excluded.last_success_at, error_code = NULL, error_message = NULL
     `).bind(now, now)
   ]);
+}
+
+export async function expireMissingServiceAlerts(env: Env, notifications: GuardianNotification[], now: string): Promise<void> {
+  const provider = await env.DB.prepare(
+    "SELECT state FROM world_provider_status WHERE provider_key = 'bungie-global-alerts'"
+  ).first<{ state: string }>();
+  // A missing alert is evidence of resolution only after Bungie answered
+  // successfully. Preserve the last-known active stack during outages.
+  if (provider?.state !== "live") return;
+  const currentIds = notifications
+    .filter((entry) => entry.source === "bungie-global-alerts")
+    .map((entry) => entry.id);
+  const exclusion = currentIds.length ? ` AND id NOT IN (${currentIds.map(() => "?").join(",")})` : "";
+  await env.DB.prepare(`UPDATE guardian_notifications
+    SET expires_at = COALESCE(expires_at, ?), updated_at = ?
+    WHERE source = 'bungie-global-alerts' AND expires_at IS NULL${exclusion}`)
+    .bind(now, now, ...currentIds).run();
 }
 
 async function syncCommunityDistortionObservation(env: Env, now: Date): Promise<void> {
@@ -658,6 +707,14 @@ function notificationFromRow(row: NotificationRow): GuardianNotification {
   const archivedAt = text(row.archived_at);
   let metadata: Record<string, unknown> | undefined;
   try { metadata = row.metadata_json ? JSON.parse(String(row.metadata_json)) : undefined; } catch { metadata = undefined; }
+  const stackCount = Number(row.stack_count || 1);
+  if (Number.isFinite(stackCount) && stackCount > 1) {
+    metadata = {
+      ...metadata,
+      stackCount,
+      stackFirstCreatedAt: text(row.stack_first_created_at)
+    };
+  }
   return {
     id: String(row.id),
     eventKey: text(row.event_key),

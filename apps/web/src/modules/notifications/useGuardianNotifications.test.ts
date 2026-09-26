@@ -1,6 +1,6 @@
 import type { GuardianNotification } from "@guardian-nexus/contracts";
 import { describe, expect, it } from "vitest";
-import { notificationStatusAt } from "./useGuardianNotifications";
+import { notificationOccurrenceCount, notificationStatusAt } from "./useGuardianNotifications";
 
 const notification: GuardianNotification = {
   id: "expiring",
@@ -24,5 +24,10 @@ describe("notification temporal state", () => {
 
   it("preserves explicit user dismissal over temporal state", () => {
     expect(notificationStatusAt(notification, { dismissedAt: "2026-07-30T00:30:00.000Z" }, Date.parse("2026-07-30T00:45:00.000Z"))).toBe("dismissed");
+  });
+
+  it("reports a safe occurrence count for stacked notifications", () => {
+    expect(notificationOccurrenceCount({ ...notification, metadata: { stackCount: 13 } })).toBe(13);
+    expect(notificationOccurrenceCount({ ...notification, metadata: { stackCount: "invalid" } })).toBe(1);
   });
 });

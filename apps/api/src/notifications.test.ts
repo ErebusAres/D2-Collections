@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DistortionObservation } from "@guardian-nexus/contracts";
 import type { StoredXurSnapshot } from "./xurSnapshot";
 import type { Env } from "./types";
-import { calculateDistortionPrediction, calculateDistortionStatistics, communityDistortionAt, materializeGeneratedNotifications, readCurrentDistortionForNotifications, xurHappeningCard, xurVisitNotification } from "./notifications";
+import { calculateDistortionPrediction, calculateDistortionStatistics, communityDistortionAt, expireMissingServiceAlerts, materializeGeneratedNotifications, readCurrentDistortionForNotifications, xurHappeningCard, xurVisitNotification } from "./notifications";
 
 function observation(destination: string, hour: number): DistortionObservation {
   const start = new Date(Date.UTC(2026, 6, 1, hour)).toISOString();
@@ -153,6 +153,62 @@ describe("generated notification persistence", () => {
       expect.objectContaining({ notificationIds: ["daily-reset:2026-07-30T19:00:00.000Z"] })
     );
     consoleError.mockRestore();
+  });
+
+  it("expires service-alert occurrences that Bungie no longer reports", async () => {
+    let preparedQuery = "";
+    let boundValues: unknown[] = [];
+    const run = vi.fn().mockResolvedValue({});
+    const first = vi.fn().mockResolvedValue({ state: "live" });
+    const env = {
+      DB: {
+        prepare: vi.fn((query: string) => {
+          if (query.includes("world_provider_status")) return { first };
+          preparedQuery = query;
+          return {
+            bind: (...values: unknown[]) => {
+              boundValues = values;
+              return { run };
+            }
+          };
+        })
+      }
+    } as unknown as Env;
+    const now = "2026-09-25T20:00:00.000Z";
+
+    await expireMissingServiceAlerts(env, [{
+      id: "world:alert:current",
+      type: "alert",
+      category: "outage",
+      scope: "global",
+      priority: "critical",
+      status: "active",
+      title: "Destiny service alert",
+      createdAt: now,
+      dismissible: false,
+      autoDismiss: false,
+      source: "bungie-global-alerts"
+    }], now);
+
+    expect(preparedQuery).toContain("source = 'bungie-global-alerts'");
+    expect(preparedQuery).toContain("id NOT IN (?)");
+    expect(boundValues).toEqual([now, now, "world:alert:current"]);
+    expect(run).toHaveBeenCalledOnce();
+  });
+
+  it("preserves service alerts when Bungie's alert source is unavailable", async () => {
+    const run = vi.fn();
+    const env = {
+      DB: {
+        prepare: vi.fn((query: string) => query.includes("world_provider_status")
+          ? { first: vi.fn().mockResolvedValue({ state: "unavailable" }) }
+          : { bind: vi.fn(() => ({ run })) })
+      }
+    } as unknown as Env;
+
+    await expireMissingServiceAlerts(env, [], "2026-09-25T20:00:00.000Z");
+
+    expect(run).not.toHaveBeenCalled();
   });
 });
 
