@@ -19,6 +19,7 @@ describe("appearance picker", () => {
     expect(mock.api).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /Appearance/ }));
     await screen.findByRole("button", { name: "Owned look" });
+    expect(screen.getByRole("button", { name: "Owned look" }).className).not.toBe("");
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Owned" } });
     expect(screen.queryByRole("button", { name: "Default look (applied)" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Owned look" }));
