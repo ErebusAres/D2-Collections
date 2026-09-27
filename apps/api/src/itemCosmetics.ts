@@ -42,7 +42,22 @@ export function itemCosmeticChoices(profile: any, manifest: GearManifest, itemId
     }
     return [...unique.values()].sort((a, b) => Number(b.selected) - Number(a.selected) || a.name.localeCompare(b.name));
   });
-  return { itemId, characterId: owner, canApply: Boolean(owner && !item.inPostmaster && item.location !== "vault"), choices, warning: !sockets.length ? "Bungie did not return this item's sockets. Refresh before changing appearance." : item.location === "vault" ? "Pull this item to a character before changing its appearance." : undefined };
+  const canMoveToCharacter = item.location === "vault";
+  return {
+    itemId,
+    characterId: owner,
+    location: item.inPostmaster ? "postmaster" : item.location,
+    canApply: Boolean(owner && !item.inPostmaster && !canMoveToCharacter),
+    canMoveToCharacter,
+    choices,
+    warning: !sockets.length
+      ? "Bungie did not return this item's sockets. Refresh before changing appearance."
+      : item.inPostmaster
+        ? "Collect this item from the Postmaster before changing its appearance."
+        : canMoveToCharacter
+          ? "Move this item to your selected character before applying an appearance."
+          : undefined
+  };
 }
 
 export async function readItemCosmetics(row: SessionRow, env: Env, itemId: string, characterId?: string) {
