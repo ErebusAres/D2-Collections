@@ -49,20 +49,37 @@ function insertable(profile: any, manifest: GearManifest, itemId: string, index:
   return item && cosmeticSocketEntries(profile, manifest, item.itemHash, itemId, index, item.ownerCharacterId).some((p: any) => String(p.plugItemHash) === hash && p.canInsert === true && p.enabled === true);
 }
 export async function markCleanupCosmetics(row: SessionRow, env: Env, itemId: string, characterId: string, settings: CleanupSettings): Promise<string[]> {
+  return markPulledGearCosmetics(row, env, [itemId], characterId, settings);
+}
+
+/**
+ * Applies the saved pull appearance to a completed pull batch. The post-transfer
+ * profile and manifest are loaded once so group pulls do not repeat the most
+ * expensive reads for every item.
+ */
+export async function markPulledGearCosmetics(row: SessionRow, env: Env, itemIds: string[], characterId: string, settings: CleanupSettings): Promise<string[]> {
   if (!settings.cosmetics?.enabled) return [];
   const warnings: string[] = [];
-  const [{ profile, accessToken }, manifest] = await Promise.all([profileFor(row, env, "build-advisor", true), loadGearManifest(env)]);
+  const [{ profile, accessToken }, manifest] = await Promise.all([profileFor(row, env, "gear-action", true), loadGearManifest(env)]);
+  for (const itemId of itemIds) warnings.push(...await markPulledGearCosmetic(profile, accessToken, manifest, row, env, itemId, characterId, settings));
+  return warnings;
+}
+
+async function markPulledGearCosmetic(profile: any, accessToken: string, manifest: GearManifest, row: SessionRow, env: Env, itemId: string, characterId: string, settings: CleanupSettings): Promise<string[]> {
+  const warnings: string[] = [];
+  const cosmetics = settings.cosmetics;
+  if (!cosmetics?.enabled) return warnings;
   const item = gearActionItemsFromProfile(profile).get(itemId);
   if (!item || item.ownerCharacterId !== characterId || item.equipped || item.locked) return ["Pulled successfully; appearance not changed because ownership or protection changed."];
   const def = manifest.gearItemDefinitions[item.itemHash] as any;
   const isWeapon = Number(def?.itemType) === 3;
   const className = ["Titan", "Hunter", "Warlock"][Number(def?.classType)] || "Unknown";
   const group = `${className}:${String(def?.itemTypeDisplayName || "Armor")}`;
-  const styleId = settings.cosmetics.classStyles?.[className];
+  const styleId = cosmetics.classStyles?.[className];
   const style = styleId ? manifest.cosmeticSets?.find((set) => set.id === styleId && set.className === className) : undefined;
-  const ornament = styleId ? style?.pieces[group] : settings.cosmetics.ornaments[group];
+  const ornament = styleId ? style?.pieces[group] : cosmetics.ornaments[group];
   if (!isWeapon && styleId && !ornament) warnings.push("Pulled successfully; the selected class style has no compatible piece for this slot. Appearance left unchanged.");
-  const selected = [isWeapon ? settings.cosmetics.weaponShader : settings.cosmetics.armorShader, !isWeapon ? ornament : undefined].filter((v): v is string => Boolean(v));
+  const selected = [isWeapon ? cosmetics.weaponShader : cosmetics.armorShader, !isWeapon ? ornament : undefined].filter((v): v is string => Boolean(v));
   for (const hash of selected) {
     const plug = manifest.plugDefinitions[hash] as any;
     if (!/shader|ornament|skin/i.test(String(plug?.plug?.plugCategoryIdentifier || ""))) { warnings.push("Pulled successfully; selected cosmetic definition is unavailable."); continue; }
