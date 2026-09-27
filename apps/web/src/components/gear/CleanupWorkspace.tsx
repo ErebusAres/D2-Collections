@@ -60,6 +60,10 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
     return result;
   }, onSuccess: (result) => { setNotice(result.warnings.length ? result.warnings.join(" ") : "Pulled successfully."); void client.invalidateQueries({ queryKey: ["gear"] }); void client.invalidateQueries({ queryKey: ["recent-items"] }); void client.invalidateQueries({ queryKey: ["cleanup-state"] }); void client.invalidateQueries({ queryKey: ["fireteam-recent-items"] }); scan.mutate(undefined); } });
   const restore = useMutation({ mutationFn: (itemId: string) => api<{ restored: boolean }>("/api/v1/me/cleanup/restore", { method: "POST", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify({ itemId }) }), onSuccess: (result) => { void client.invalidateQueries({ queryKey: ["cleanup-state"] }); void client.invalidateQueries({ queryKey: ["gear"] }); void client.invalidateQueries({ queryKey: ["recent-items"] }); void client.invalidateQueries({ queryKey: ["fireteam-recent-items"] }); setNotice(result.warnings.length ? result.warnings.join(" ") : "Original appearance restored."); } });
+  const saveAppearance = useMutation({ mutationFn: (value: CleanupSettings) => api<CleanupSettings>("/api/v1/me/cleanup/settings", { method: "PUT", headers: mutationHeaders(session?.csrfToken), body: JSON.stringify(value) }), onSuccess: (result) => {
+    client.setQueryData(["cleanup-state", session?.guardian?.membershipId], (current: typeof stored.data) => current ? { ...current, data: { ...current.data, settings: result.data } } : current);
+    setNotice(result.data.cosmetics?.enabled ? "Global pull appearance saved and enabled." : "Global pull appearance saved and disabled.");
+  } });
   const change = (next: Partial<CleanupSettings>) => { setSettings((s) => ({ ...s, ...next })); setSelected([]); };
   const stale = Boolean(analysis && cleanupSettingsKey(settings) !== cleanupSettingsKey(analysis.settings));
   const marks = stored.data?.data.marks || analysis?.marks || {};
@@ -74,6 +78,7 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
   const taggedCount = Object.keys(marks).length;
   const eligibleCount = rows.filter((entry) => entry.actionable && !marks[entry.itemId]).length;
   const protectedCount = rows.filter((entry) => !entry.actionable).length;
+  const appearanceDirty = cleanupSettingsKey(settings.cosmetics || {}) !== cleanupSettingsKey(stored.data?.data.settings.cosmetics || {});
   const exactMode = settings.exact && !settings.dominance && settings.fullComparison === false && settings.legacyReview === false && !settings.preferences;
   const pull = (item: LootItem) => {
     const recommendation = analysis?.recommendations.find((r) => r.itemId === item.instanceId);
@@ -104,17 +109,18 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
       <p>Sources supplement owned-inventory comparisons when rating and stat preferences are enabled. All selected catalogs must agree; unknown ratings are not negative evidence.</p>
       {WEAPON_RATING_SOURCES.map((source) => <label key={source.id} title={source.note}><input type="checkbox" checked={settings.sources.includes(source.id)} disabled={settings.sources.length === 1 && settings.sources.includes(source.id)} onChange={(e) => change({ sources: e.target.checked ? [...settings.sources, source.id] : settings.sources.filter((id) => id !== source.id) })} />{source.label} · Used by: {source.usedBy}</label>)}
       {analysis?.sources.map((source) => <p key={source.id}>{source.name} · Catalog dated {source.reviewedAt}</p>)}
-    </details><details className={styles.advanced}><summary><Sparkles size={14} /> Optional appearance marking</summary>
-      <h3>Identify approved items in game</h3>
-      <label><input type="checkbox" checked={settings.cosmetics?.enabled || false} onChange={(e) => change({ cosmetics: { ornaments: {}, ...settings.cosmetics, enabled: e.target.checked } })} /> Apply selected cosmetics on approved pulls only</label>
-      <p>Only choices Bungie currently reports as owned and insertable are offered. No purchases or paid socket actions. Undo tags does not restore appearance; use Restore appearance after pulling.</p>
+    </details><details className={styles.advanced}><summary><Sparkles size={14} /> Global pull appearance</summary>
+      <h3>Apply a consistent look when gear is pulled</h3>
+      <label><input type="checkbox" checked={settings.cosmetics?.enabled || false} onChange={(e) => change({ cosmetics: { ornaments: {}, ...settings.cosmetics, enabled: e.target.checked } })} /> Auto-apply selected shaders and ornaments after any pull to a Guardian</label>
+      <p>This applies to Pull buttons and the P shortcut across Gear, Vault, Recent Loot, Fireteam, and Cleanup. Only choices Bungie currently reports as owned and insertable are used. Incompatible choices are skipped, and pulls still succeed.</p>
       {(["weaponShader", "armorShader"] as const).map((key) => <label key={key}>{key === "weaponShader" ? "Weapon shader" : "Armor shader"}<CleanupSelect icons={cosmeticIcons} value={settings.cosmetics?.[key] || ""} onChange={(e) => change({ cosmetics: { enabled: false, ornaments: {}, ...settings.cosmetics, [key]: e.target.value || undefined } })}><option value="">Leave unchanged</option>{[...new Map((analysis?.cosmetics || []).filter((c) => c.kind === "shader" && (key === "weaponShader" ? c.group === "weapons" : c.group !== "weapons")).map((c) => [c.hash, c])).values()].map((c) => <option key={c.hash} value={c.hash}>{c.name}</option>)}</CleanupSelect></label>)}
       <div className={styles.classStyles}>{["Titan", "Hunter", "Warlock"].map((className) => <div className={styles.classStyle} key={className}><h3>{className}</h3><CleanupSelect icons={styleIcons} value={settings.cosmetics?.classStyles?.[className] || ""} onChange={(e) => change({ cosmetics: { enabled: false, ...settings.cosmetics, classStyles: { ...settings.cosmetics?.classStyles, [className]: e.target.value }, ornaments: Object.fromEntries(Object.entries(settings.cosmetics?.ornaments || {}).filter(([group]) => !group.startsWith(`${className}:`))) } })}><option value="">Leave appearance unchanged</option>{analysis?.cosmeticSets?.filter((set) => set.className === className).map((set) => <option key={set.id} value={set.id}>{set.name} · {set.owned}/5 available pieces</option>)}</CleanupSelect><small>One choice covers helmet, arms, chest, legs and class item. Unowned or incompatible pieces are skipped.</small></div>)}</div>
-      <p>For an individual skin or shader, open a candidate and choose Appearance. Vault items now provide an explicit move-to-character step before Apply becomes available.</p>
+      <button className={styles.primaryAction} disabled={saveAppearance.isPending || !appearanceDirty} onClick={() => saveAppearance.mutate(settings)}>{saveAppearance.isPending ? "Saving…" : appearanceDirty ? "Save global appearance" : "Global appearance saved"}</button>
+      <p>For a one-item override, open that item and choose Appearance. Undo tags does not restore an automatically applied look; use Restore appearance after pulling.</p>
       {analysis && !analysis.cosmeticSets?.length && <p>No verified, owned collection styles are available in this snapshot. Analyze again after the game catalog updates. No sets are guessed from similar names.</p>}
       {analysis && !analysis.cosmetics.length && <p>No owned, insertable cosmetic choices were returned for this inventory. Appearance will remain unchanged.</p>}
     </details>
-    {(scan.error || changes.error || stored.error || transfer.error) && <p role="alert">{(scan.error || changes.error || stored.error || transfer.error)?.message}</p>}
+    {(scan.error || changes.error || stored.error || transfer.error || saveAppearance.error) && <p role="alert">{(scan.error || changes.error || stored.error || transfer.error || saveAppearance.error)?.message}</p>}
     {stale && <p role="status">Settings changed. Analyze again before tagging or pulling.</p>}
     {analysis && <>
       {settings.focus === "pve" && <CleanupHealthReview items={all} onTag={onTag} />}

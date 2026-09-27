@@ -1,5 +1,5 @@
 import { cleanupAnalyzeData, cleanupMarks, cleanupSettings, cleanupSettingsKey, cleanupSettingsSchema, ensureCleanupAnalysisRefresh, readCleanupAnalysisCache, refreshCleanupAnalysisCacheWithLease, requestCleanupAnalysisRefresh, mutateCleanup, validateCleanupPull } from "./cleanup";
-import { markCleanupCosmetics, restoreCleanupCosmetics } from "./cleanupCosmetics";
+import { markPulledGearCosmetics, restoreCleanupCosmetics } from "./cleanupCosmetics";
 import { readItemCosmetics, applyItemCosmetic } from "./itemCosmetics";
 import type {
   ApiEnvelope,
@@ -7,6 +7,7 @@ import type {
   AudienceDetailData,
   BuildAdvisorData,
   CleanupAnalyzeData,
+  CleanupSettings,
   CleanupWorkspaceData,
   CollectionData,
   DevProbeKey,
@@ -348,6 +349,13 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     }, env, context, { observedAt: saved?.refreshedAt, state: exactFresh ? "fresh" : saved?.analysis ? "stale" : "unavailable",
       warnings: exactFresh ? [] : [saved?.analysis ? "Cleanup is refreshing in the background; showing the last complete saved analysis." : "Cleanup analysis is queued in the background."] });
   }
+  if (path === "/api/v1/me/cleanup/settings" && request.method === "PUT") {
+    await requireCsrf(request, session.token, env);
+    const settings = cleanupSettingsSchema.parse(await request.json());
+    await env.DB.prepare("INSERT INTO cleanup_preferences (membership_id, settings_json) VALUES (?, ?) ON CONFLICT(membership_id) DO UPDATE SET settings_json = excluded.settings_json")
+      .bind(session.row.membership_id, JSON.stringify(settings)).run();
+    return envelope(settings, env, context);
+  }
   if (path === "/api/v1/me/cleanup/analyze" && request.method === "POST") {
     await requireCsrf(request, session.token, env);
     const settings = cleanupSettingsSchema.parse(await request.json());
@@ -376,10 +384,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     await requireCsrf(request, session.token, env);
     const settings = cleanupSettingsSchema.parse((await request.clone().json() as any).settings);
     const input = await validateCleanupPull(request, session.row, env);
-    const response = await gearAction(new Request(request.url, { method: "POST", body: JSON.stringify(input) }), session.row, env, context);
-    const result = await response.json() as { data: GearActionResult };
-    const warnings = result.data.succeeded.includes(input.itemInstanceId) ? await markCleanupCosmetics(session.row, env, input.itemInstanceId, input.targetCharacterId, settings).catch(() => ["Pulled successfully; appearance could not be changed."]) : [];
-    return envelope(result.data, env, context, { warnings });
+    return gearAction(new Request(request.url, { method: "POST", body: JSON.stringify(input) }), session.row, env, context, settings);
   }
   if (path === "/api/v1/me/cleanup/restore" && request.method === "POST") {
     await requireCsrf(request, session.token, env);
@@ -1871,7 +1876,7 @@ async function updateGearState(request: Request, row: SessionRow, env: Env, cont
   return envelope({ itemInstanceId: item.instanceId, tag: input.tag, dismissed: Boolean(input.dismissed) }, env, context, { warnings: warning ? [warning] : [] });
 }
 
-async function gearAction(request: Request, row: SessionRow, env: Env, context: RequestContext): Promise<Response> {
+async function gearAction(request: Request, row: SessionRow, env: Env, context: RequestContext, requestedSettings?: CleanupSettings): Promise<Response> {
   const input = gearActionSchema.parse(await request.json()) as GearActionRequest;
   const started = performance.now();
   const { profile, accessToken } = await profileFor(row, env, "gear-action");
@@ -1919,7 +1924,17 @@ async function gearAction(request: Request, row: SessionRow, env: Env, context: 
       await auditGear(row, env, input.action, instanceId, targetId, Number(error?.status || 500), String(error?.code || "action_failed"), performance.now() - started);
     }
   }
-  return envelope(result, env, context, { warnings: result.failed.length ? ["One or more Gear actions failed. Inventory was refreshed from Bungie after the completed steps."] : [] });
+  const pullsToCharacter = input.action === "groupPull" || (input.action === "transfer" && input.target === "character");
+  const warnings = result.failed.length ? ["One or more Gear actions failed. Inventory was refreshed from Bungie after the completed steps."] : [];
+  if (pullsToCharacter && result.succeeded.length) {
+    try {
+      const settings = requestedSettings || await cleanupSettings(row.membership_id, env);
+      if (settings.cosmetics?.enabled) warnings.push(...await markPulledGearCosmetics(row, env, result.succeeded, selected.characterId, settings));
+    } catch {
+      warnings.push("Items were pulled successfully, but the global appearance could not be applied.");
+    }
+  }
+  return envelope(result, env, context, { warnings });
 }
 
 const LOOT_WATCHER_PREFERENCE_KEYS = {
