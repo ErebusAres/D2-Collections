@@ -31,7 +31,9 @@ describe("owned item appearances", () => {
     const result = itemCosmeticChoices(mock.profile, mock.manifest, "1");
     expect(result.choices.some(choice => choice.hash === "70")).toBe(true);
     expect(result.canApply).toBe(false);
-    await expect(applyItemCosmetic({} as any, {} as any, { itemId: "1", socketIndex: 0, hash: "40", expectedHash: "20" })).rejects.toThrow(/Pull/);
+    expect(result.canMoveToCharacter).toBe(true);
+    expect(result.location).toBe("vault");
+    await expect(applyItemCosmetic({} as any, {} as any, { itemId: "1", socketIndex: 0, hash: "40", expectedHash: "20" })).rejects.toThrow(/Move/);
     expect(mock.post).not.toHaveBeenCalled();
   });
   it("rejects stale changes and unavailable choices", async () => {
