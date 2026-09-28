@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ArmorItem, GearData, WeaponItem } from "@guardian-nexus/contracts";
-import { analyzeCleanup, CLEANUP_DEFAULTS, type CleanupWishlist } from "./cleanup";
+import { analyzeCleanup, cleanupDataIssues, CLEANUP_DEFAULTS, type CleanupWishlist } from "./cleanup";
 
 function armor(id: string, extra: Partial<ArmorItem> = {}): ArmorItem {
   return { instanceId: id, itemHash: "100", name: "Armor", icon: "", className: "Warlock", slot: "Helmet", rarity: "Legendary", power: 500, location: "vault", equipped: false, locked: false, masterworked: false, gearTier: 5, setBonuses: [], perks: [], baseStats: { health: 10, melee: 10, grenade: 10, super: 10, class: 10, weapons: 10 }, currentStats: { health: 10, melee: 10, grenade: 10, super: 10, class: 10, weapons: 10 }, adjustments: [], baseTotal: 60, currentTotal: 60, grade: { letter: "A" }, firstSeenAt: "now", isNew: false, ...extra };
@@ -14,6 +14,10 @@ function gear(items: ArmorItem[] = [], weapons: WeaponItem[] = []): GearData {
 const scan = (data: GearData, extra = {}, saved = new Set<string>(), complete = true, sources: CleanupWishlist[] = []) => analyzeCleanup(data, { ...CLEANUP_DEFAULTS, ...extra }, saved, complete, sources);
 
 describe("cleanup safety", () => {
+  it("explains why an item cannot be compared instead of only returning an id", () => {
+    const item = weapon("broken", { power: 0, rollDataState: "partial", stats: [], perkColumns: [] });
+    expect(cleanupDataIssues(item)).toEqual(expect.arrayContaining(["Power unavailable", "Selectable roll data incomplete", "Weapon stats unavailable", "Perk columns unavailable"]));
+  });
   it("defaults to the full rule set without exposing protected items", () => {
     expect(CLEANUP_DEFAULTS).toMatchObject({ exact: true, dominance: true, preferences: true, fullComparison: true, legacyReview: true, aggressive: false });
   });

@@ -334,7 +334,8 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     ]);
     const settingsKey = await cleanupSettingsKey(settings);
     const exact = await readCleanupAnalysisCache(session.row.membership_id, env, settingsKey);
-    const exactFresh = Boolean(exact?.analysis && exact.expiresAt && Date.parse(exact.expiresAt) > Date.now());
+    const exactComplete = exact?.analysis?.coverage?.complete !== false;
+    const exactFresh = Boolean(exact?.analysis && exactComplete && exact.expiresAt && Date.parse(exact.expiresAt) > Date.now());
     if (!exactFresh) {
       await ensureCleanupAnalysisRefresh(session.row.membership_id, env, settings);
       context.waitUntil?.(refreshCleanupAnalysisCacheWithLease(session.row, env, settingsKey).catch((error: any) => {
@@ -362,7 +363,7 @@ async function route(request: Request, env: Env, context: RequestContext): Promi
     await env.DB.prepare("INSERT INTO cleanup_preferences (membership_id, settings_json) VALUES (?, ?) ON CONFLICT(membership_id) DO UPDATE SET settings_json = excluded.settings_json").bind(session.row.membership_id, JSON.stringify(settings)).run();
     const settingsKey = await cleanupSettingsKey(settings);
     let cached = await readCleanupAnalysisCache(session.row.membership_id, env, settingsKey);
-    const fresh = Boolean(cached?.analysis && cached.expiresAt && Date.parse(cached.expiresAt) > Date.now());
+    const fresh = Boolean(cached?.analysis && cached.analysis.coverage?.complete !== false && cached.expiresAt && Date.parse(cached.expiresAt) > Date.now());
     if (!fresh) {
       await requestCleanupAnalysisRefresh(session.row.membership_id, env, settings);
       cached = cached || await readCleanupAnalysisCache(session.row.membership_id, env);

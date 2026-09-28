@@ -7,6 +7,13 @@ export function cleanupSettingsKey(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
+export function cleanupAnalysisSettingsKey(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return cleanupSettingsKey(value);
+  const comparison = { ...value as Record<string, unknown> };
+  delete comparison.cosmetics;
+  return cleanupSettingsKey(comparison);
+}
+
 export function updateCleanupCache(value: unknown, marks: CleanupAnalysis["marks"], changed: Set<string>): unknown {
   if (Array.isArray(value)) return value.map((entry) => updateCleanupCache(entry, marks, changed));
   if (!value || typeof value !== "object") return value;

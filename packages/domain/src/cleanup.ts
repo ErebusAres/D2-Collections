@@ -25,9 +25,25 @@ function comparisonFamily(item: Item, settings: CleanupSettings): string {
 function evidence(item: Item) {
   return [family(item), item.power, item.masterworked, weapon(item) ? [roll(item), item.stats, item.trackerValue] : [item.baseStats, item.tuning]];
 }
-function complete(item: Item) {
-  if (!item.instanceId || item.slot === "Unknown" || item.power <= 0 || item.inPostmaster || (item.location !== "vault" && !item.ownerCharacterId)) return false;
-  return weapon(item) ? item.rollDataState === "complete" && Boolean(item.stats?.length) && item.perkColumns.length > 0 && item.perkColumns.every((c) => Boolean(c.selectablePlugHashes?.length)) : item.className !== "Unknown" && item.baseTotal > 0 && stats.every((key) => Number.isFinite(item.baseStats[key]));
+export function cleanupDataIssues(item: Item): string[] {
+  const issues = [
+    !item.instanceId && "Missing item instance",
+    item.slot === "Unknown" && "Equipment slot unavailable",
+    item.power <= 0 && "Power unavailable",
+    item.inPostmaster && "Still in Postmaster",
+    item.location !== "vault" && !item.ownerCharacterId && "Owner unavailable"
+  ].filter(Boolean) as string[];
+  if (weapon(item)) {
+    if (item.rollDataState !== "complete") issues.push("Selectable roll data incomplete");
+    if (!item.stats?.length) issues.push("Weapon stats unavailable");
+    if (!item.perkColumns.length) issues.push("Perk columns unavailable");
+    else if (item.perkColumns.some((column) => !column.selectablePlugHashes?.length)) issues.push("One or more perk choices unavailable");
+  } else {
+    if (item.className === "Unknown") issues.push("Class unavailable");
+    if (item.baseTotal <= 0) issues.push("Base stat total unavailable");
+    if (stats.some((key) => !Number.isFinite(item.baseStats[key]))) issues.push("One or more base stats unavailable");
+  }
+  return [...new Set(issues)];
 }
 function endorsed(item: WeaponItem, source: CleanupWishlist, mode: "pve" | "pvp"): boolean | undefined {
   const record = source.items[item.itemHash]; const bucket = record?.[mode];
@@ -70,7 +86,7 @@ export function analyzeCleanup(gear: GearData, settings: CleanupSettings, saved:
   const highest = new Map<string, string>();
   [...items].sort((a, b) => b.power - a.power || Number(b.locked || b.equipped || Boolean(b.tag) || saved.has(b.instanceId)) - Number(a.locked || a.equipped || Boolean(a.tag) || saved.has(a.instanceId)) || Number(b.masterworked) - Number(a.masterworked) || a.instanceId.localeCompare(b.instanceId)).forEach((item) => { if (!highest.has(slotKey(item))) highest.set(slotKey(item), item.instanceId); });
   const protections = new Map(items.map((item) => [item.instanceId, cleanupProtections(item, highest, saved)]));
-  const insufficient = items.filter((item) => !protectionComplete || !complete(item)).map((item) => item.instanceId);
+  const insufficient = items.filter((item) => !protectionComplete || cleanupDataIssues(item).length > 0).map((item) => item.instanceId);
   const incomplete = new Set(insufficient);
   const usable = items.filter((item) => !incomplete.has(item.instanceId));
   // Fixed ordering plus candidate/keeper reservation prevents cycles and keeper chains.

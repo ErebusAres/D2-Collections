@@ -22,7 +22,7 @@ function database(observations: Array<{ metadata_json: string }> = [], cosmeticC
       return { success: true };
     };
     return { run, first: async () => sql.includes("COUNT(*) AS count FROM recent_item_observations") ? { count: observations.length } : sql.includes("recent_item_refresh_state") ? { refreshed_at: timestamps.recentItems } : sql.includes("guardian_gear_cache") ? { refreshed_at: timestamps.gear } : sql.includes("guardian_cleanup_cosmetic_cache") ? cosmeticCache : sql.includes("cleanup_batches") ? batches.get(v[1]) : sql.includes("cleanup_marks") ? marks.get(v[1]) : null,
-      all: async () => ({ results: sql.includes("recent_item_observations") ? observations : sql.includes("cleanup_marks") ? [...marks.values()] : sql.includes("cleanup_dismissals") ? [...dismissed].map((key) => ({ recommendation_key: key })) : [] }) };
+      all: async () => ({ results: sql.includes("recent_item_observations") ? observations.slice(Number(v[2] || 0), Number(v[2] || 0) + Number(v[1] || observations.length)) : sql.includes("cleanup_marks") ? [...marks.values()] : sql.includes("cleanup_dismissals") ? [...dismissed].map((key) => ({ recommendation_key: key })) : [] }) };
   } }), batch: async (entries: any[]) => { for (const entry of entries) await entry.run(); } };
   return { env: { DB } as any, marks, batches, statements, setConcurrentTag: () => { concurrentTag = true; } };
 }
@@ -34,6 +34,7 @@ beforeEach(() => {
 describe("cleanup server approvals", () => {
   it("uses stable settings keys and keeps saved analysis available while refreshing", async () => {
     expect(await cleanupSettingsKey(CLEANUP_DEFAULTS)).toBe(await cleanupSettingsKey({ ...CLEANUP_DEFAULTS }));
+    expect(await cleanupSettingsKey({ ...CLEANUP_DEFAULTS, cosmetics: { enabled: false, ornaments: {} } })).toBe(await cleanupSettingsKey({ ...CLEANUP_DEFAULTS, cosmetics: { enabled: true, armorShader: "30", ornaments: {} } }));
     const analysis = (await cleanupSnapshot(row, database().env, CLEANUP_DEFAULTS)).analysis;
     expect(cleanupAnalyzeData({ settingsKey: "saved", settings: CLEANUP_DEFAULTS, analysis, requestedAt: new Date().toISOString(), refreshedAt: new Date().toISOString(), expiresAt: new Date(Date.now() - 1).toISOString() }, CLEANUP_DEFAULTS)).toMatchObject({ status: "saved", analysis });
     expect(cleanupAnalyzeData(undefined, CLEANUP_DEFAULTS)).toMatchObject({ status: "refreshing", requestedSettings: CLEANUP_DEFAULTS });
@@ -48,6 +49,18 @@ describe("cleanup server approvals", () => {
     expect(analysis.recommendations[0]).toMatchObject({ actionable: false });
     expect(analysis.recommendations[0]?.protections).toContain("Saved snapshot: live protection verification pending");
     expect(analysis.warnings[0]).toMatch(/review-only recommendations/);
+    expect(analysis.coverage).toMatchObject({ totalItems: 2, processedItems: 2, page: 1, pages: 1, complete: true });
+  });
+  it("advances saved analysis batches on each refresh and retains recommendations", async () => {
+    const observations = Array.from({ length: 401 }, (_, index) => ({ metadata_json: JSON.stringify({ gear: { ...mocks.gear.items[0], instanceId: String(index + 1), kind: "armor" } }) }));
+    const db = database(observations);
+    const first = await cleanupSnapshotFromObservations(row, db.env, CLEANUP_DEFAULTS);
+    const second = await cleanupSnapshotFromObservations(row, db.env, CLEANUP_DEFAULTS, first);
+    const third = await cleanupSnapshotFromObservations(row, db.env, CLEANUP_DEFAULTS, second);
+    expect(first.coverage).toMatchObject({ processedItems: 200, page: 1, pages: 3, complete: false });
+    expect(second.coverage).toMatchObject({ processedItems: 400, page: 2, pages: 3, complete: false });
+    expect(third.coverage).toMatchObject({ processedItems: 401, page: 3, pages: 3, complete: true });
+    expect(third.recommendations.length).toBeGreaterThan(first.recommendations.length);
   });
   it("uses the durable Gear timestamp when a legacy Recent Loot timestamp was reset to the epoch", async () => {
     const observations = mocks.gear.items.map((item: any) => ({ metadata_json: JSON.stringify({ gear: { ...item, kind: "armor" } }) }));

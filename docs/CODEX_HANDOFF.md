@@ -1,10 +1,20 @@
 # Guardian Nexus Codex handoff
 
-Last updated: 2026-09-25
+Last updated: 2026-09-28
 
 This file is the operational handoff for Chris Codex or another maintainer continuing the current Guardian Nexus roadmap implementation. Keep it current when scope, validation, or publish state changes.
 
 ## Current objective
+
+### 2026-09-28 Cleanup completeness and progress repair
+
+The Cleanup regression was traced to presentation and cache progression, not to the comparison rules suddenly finding only two valid items. The Worker intentionally analyzes at most 200 saved gear observations per turn to stay below Cloudflare's resource ceiling, but the deployed version selected one page from the ten-minute wall clock, left that page in place until the next interval, and presented its partial results as the latest analysis. Changing the recently added global pull shader or ornament also changed the analysis cache key even though appearance has no bearing on duplicate or dominance comparisons, so a cosmetic change could make the visible recommendation set restart from the first slice.
+
+The current work makes saved analysis a deterministic, resumable pass. Every successful bounded refresh advances to the next page, incomplete results expire immediately so the existing ten-second client poll can schedule the next batch, recommendations and data issues accumulate across the pass, and a completed pass resumes the normal ten-minute freshness window. Stable ordering groups comparable armor and weapon records more closely. Cosmetic preferences are removed from both server and browser comparison keys and analysis versions while the complete settings remain available for pull-time appearance behavior. The saved path remains deliberately review-only until live mutation-time protection verification; it does not weaken the existing tag or pull safety boundary.
+
+The Cleanup page now has an explicit processing panel with a determinate item count, percentage, batch number, accumulated recommendation count, unreadable-record count, and expandable item-specific explanations for every record that cannot be compared. It distinguishes initial preparation, an in-progress pass, a complete analysis, and a refresh that is safely showing the prior complete result. The decorative four-step strip and repeated generic warning paragraphs were removed, fine-grained rules are collapsed behind a clear control, and candidate cards use the same Tagged, Eligible, and Protected vocabulary in summaries and details. Empty results explicitly say whether more batches remain. Contract, domain, API, and Web regression coverage was added for issue explanations, appearance-independent settings keys, sequential 401-item pagination, accumulated recommendations, progress UI, and retained results during refresh.
+
+The complete repository audit passes: archive/source/CSS boundaries across 45 stylesheets, ESLint, every TypeScript target, 44 domain tests, 311 API tests, 346 Web tests, seven Node tool tests, 31 manifest Python tests, API and Web production builds, and performance budgets at 373,810 bytes entry JavaScript (115,274 gzip) and 36,321 bytes CSS. `git diff --check` is clean apart from expected Windows line-ending notices. Commit, PR, merge, deployment, and signed-in production acceptance are still pending and must not be reported as complete until recorded below.
 
 ### 2026-09-23 Cleanup analysis durability and Worker isolation
 
