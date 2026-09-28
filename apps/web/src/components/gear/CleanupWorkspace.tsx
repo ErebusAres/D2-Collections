@@ -1,4 +1,4 @@
-import type { CleanupAnalysis, CleanupAnalyzeData, CleanupSettings, CleanupWorkspaceData, GearActionResult, GearTag } from "@guardian-nexus/contracts";
+import type { CleanupAnalysis, CleanupAnalyzeData, CleanupSettings, CleanupWorkspaceData, GearActionResult, GearData, GearTag } from "@guardian-nexus/contracts";
 import { CLEANUP_DEFAULTS } from "@guardian-nexus/domain";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -10,12 +10,12 @@ import { CleanupComparison } from "./CleanupComparison";
 import { CleanupSelect } from "./CleanupSelect";
 import { CleanupHealthReview } from "./CleanupHealthReview";
 import { WEAPON_RATING_SOURCES } from "../../modules/loot/weaponEvaluator";
-import { cleanupAnalysisSettingsKey, cleanupSettingsKey, updateCleanupCache } from "./cleanupState";
+import { cleanupAnalysisSettingsKey, cleanupSettingsKey, manualJunkItems, updateCleanupCache } from "./cleanupState";
 import { CheckCircle2, ScanSearch, ShieldCheck, SlidersHorizontal, Sparkles, Tags, Trash2, Undo2 } from "lucide-react";
 import { CleanupApprovalControl } from "./CleanupApprovalControl";
 import { CleanupAnalysisStatus } from "./CleanupAnalysisStatus";
 
-export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item: LootItem, tag?: GearTag) => void; analysisRequest?: number }) {
+export function CleanupWorkspace({ gear, onTag, analysisRequest = 0 }: { gear: GearData; onTag: (item: LootItem, tag?: GearTag) => void; analysisRequest?: number }) {
   const { session, selectedCharacterId } = useGuardian(); const client = useQueryClient();
   const stored = useQuery({ queryKey: ["cleanup-state", session?.guardian?.membershipId], queryFn: () => api<CleanupWorkspaceData>("/api/v1/me/cleanup"),
     refetchInterval: (query) => query.state.data?.data.analysisStatus === "refreshing" ? 10_000 : false });
@@ -68,8 +68,12 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
   const change = (next: Partial<CleanupSettings>) => { setSettings((s) => ({ ...s, ...next })); setSelected([]); };
   const stale = Boolean(analysis && cleanupAnalysisSettingsKey(settings) !== cleanupAnalysisSettingsKey(analysis.settings));
   const marks = stored.data?.data.marks || analysis?.marks || {};
-  const rows = (analysis?.recommendations || []).filter((r) => !analysis?.dismissed.includes(r.key) && r.confidence >= confidence && (!onlyMarked || marks[r.itemId]));
-  const all: LootItem[] = analysis ? gearLootItems(analysis.gear.items, analysis.gear.weapons || []).map((item) => ({ ...item, cleanupRecommendation: marks[item.instanceId] })) : [];
+  const accountItems = gearLootItems(gear.items, gear.weapons || []);
+  const manualJunk = manualJunkItems(gear);
+  const manualJunkIds = new Set(manualJunk.map((item) => item.instanceId));
+  const rows = (analysis?.recommendations || []).filter((r) => !manualJunkIds.has(r.itemId) && !analysis?.dismissed.includes(r.key) && r.confidence >= confidence && (!onlyMarked || marks[r.itemId]));
+  const analysisItems: LootItem[] = analysis ? gearLootItems(analysis.gear.items, analysis.gear.weapons || []).map((item) => ({ ...item, cleanupRecommendation: marks[item.instanceId] })) : [];
+  const all = [...new Map([...analysisItems, ...accountItems].map((item) => [item.instanceId, item])).values()];
   const byId = new Map(all.map((item) => [item.instanceId, item]));
   const comparison = analysis?.recommendations.find((entry) => entry.itemId === comparisonId);
   const cosmeticIcons = Object.fromEntries((analysis?.cosmetics || []).filter((choice) => choice.icon).map((choice) => [choice.hash, [{ icon: choice.icon!, name: choice.name }]]));
@@ -83,7 +87,7 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
   const exactMode = settings.exact && !settings.dominance && settings.fullComparison === false && settings.legacyReview === false && !settings.preferences;
   const pull = (item: LootItem) => {
     const recommendation = analysis?.recommendations.find((r) => r.itemId === item.instanceId);
-    if (stale || !recommendation?.actionable || !marks[item.instanceId]) return;
+    if (item.tag !== "junk" && (stale || !recommendation?.actionable || !marks[item.instanceId])) return;
     transfer.mutate(item.instanceId);
   };
   const candidateState = (itemId: string, actionable: boolean) => marks[itemId] ? "Tagged" : actionable ? "Eligible" : "Protected";
@@ -124,6 +128,7 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
     </details>
     {(scan.error || changes.error || stored.error || transfer.error || saveAppearance.error) && <p role="alert">{(scan.error || changes.error || stored.error || transfer.error || saveAppearance.error)?.message}</p>}
     {stale && <p role="status">Settings changed. Analyze again before tagging or pulling.</p>}
+    <LootHistoryGrid detailActions itemSummary={() => <small className={styles.manualJunkLabel}><Trash2 size={12} /> Junk</small>} title="Manual junk" subtitle="Items you marked Junk anywhere in Gear. Pull moves the selected item after the same live safety checks." items={manualJunk} onTag={onTag} onPull={pull} busy={busy} empty="No manually tagged Junk items." itemActions={(item) => <div className={styles.reason}><strong className={styles.manualJunkTitle}>Manually marked Junk</strong><p>This is your own Junk tag, not an analyzer recommendation. Pull it to the selected Guardian for in-game review.</p><button disabled={busy} onClick={() => pull(item)}>Pull [P]</button></div>} />
     {analysis && <>
       {settings.focus === "pve" && <CleanupHealthReview items={all} onTag={onTag} />}
       <section className={styles.resultsHeader}><div><span className={styles.eyebrow}>REVIEW RESULTS</span><h3>{rows.length} cleanup candidates</h3><p>{analysis.coverage?.complete === false ? "Results are still filling in as the remaining saved gear is checked." : `Checked ${new Date(analysis.observedAt).toLocaleString()}.`} Open a tile to see the candidate, keeper, and evidence.</p></div><div className={styles.metrics}><span><strong>{eligibleCount}</strong><small>eligible</small></span><span><strong>{protectedCount}</strong><small>protected</small></span><span><strong>{taggedCount}</strong><small>tagged</small></span><span><strong>{analysis.recommendations.length}</strong><small>found</small></span></div></section>
@@ -136,7 +141,7 @@ export function CleanupWorkspace({ onTag, analysisRequest = 0 }: { onTag: (item:
         <button disabled={busy || !lastBatch} onClick={() => changes.mutate({ action: "undo", batchId: lastBatch })}><Undo2 size={14} /> Undo batch</button>
       </div>
       {comparison && byId.has(comparison.itemId) && byId.has(comparison.keeperId) && <CleanupComparison candidate={byId.get(comparison.itemId)!} keeper={byId.get(comparison.keeperId)!} recommendation={comparison} sources={analysis.sources} onClose={closeComparison} />}
-      <LootHistoryGrid detailActions itemSummary={(item) => { const r = rows.find((entry) => entry.itemId === item.instanceId)!; return <><small title={r.reason}><Trash2 size={12} /> {r.confidence}% · {candidateState(item.instanceId, r.actionable)}</small><button type="button" onClick={() => setComparisonId(r.itemId)}>Compare</button></>; }} title="Cleanup candidates" subtitle={eligibleCount ? "Eligible items can be approved here. Protected items remain review-only and explain why." : "Current candidates are protected. Open a tile to see the exact reason and comparison evidence."} items={rows.map((r) => byId.get(r.itemId)).filter((item): item is LootItem => Boolean(item))} onTag={onTag} onPull={pull} busy={busy || stale} empty={analysis.coverage?.complete === false ? "No candidates in the processed batches yet. The list updates as analysis continues." : "No recommendations match these rules. Unique items and protected gear are retained."} itemActions={(item) => {
+      <LootHistoryGrid detailActions itemSummary={(item) => { const r = rows.find((entry) => entry.itemId === item.instanceId)!; return <><small className={styles.recommendedJunkLabel} title={r.reason}><Trash2 size={12} /> {r.confidence}% · {candidateState(item.instanceId, r.actionable)}</small><button type="button" onClick={() => setComparisonId(r.itemId)}>Compare</button></>; }} title="Cleanup candidates" subtitle={eligibleCount ? "Eligible items can be approved here. Protected items remain review-only and explain why." : "Current candidates are protected. Open a tile to see the exact reason and comparison evidence."} items={rows.map((r) => byId.get(r.itemId)).filter((item): item is LootItem => Boolean(item))} onTag={onTag} onPull={pull} busy={busy || stale} empty={analysis.coverage?.complete === false ? "No candidates in the processed batches yet. The list updates as analysis continues." : "No recommendations match these rules. Unique items and protected gear are retained."} itemActions={(item) => {
         const r = rows.find((entry) => entry.itemId === item.instanceId)!;
         return <div className={styles.reason}><strong>{r.confidence}% · {candidateState(item.instanceId, r.actionable)}</strong><p>{r.reason}</p><p>Keeping: {byId.get(r.keeperId)?.name || r.keeperId} · {byId.get(r.keeperId)?.power} Power</p><p>{r.confidence === 70 && item.kind === "weapon" ? `Sources: ${analysis.sources.map((s) => `${s.name} (${s.reviewedAt})`).join(", ")}` : "Source: local comparison of your owned items."}</p>{r.protections.length > 0 && <p>Protected: {r.protections.join(", ")}</p>}<CleanupApprovalControl actionable={r.actionable} tagged={Boolean(marks[item.instanceId])} busy={busy} stale={stale} protections={r.protections} onApprove={() => changes.mutate({ action: "approve", itemIds: [item.instanceId] })} /><button onClick={() => setComparisonId(r.itemId)}>Compare with keeper</button><button disabled={busy || stale} onClick={() => changes.mutate({ action: "dismiss", itemIds: [item.instanceId] })}>Keep / dismiss</button><button disabled={busy || stale || !r.actionable || !marks[item.instanceId]} onClick={() => pull(item)}>Pull [P]</button>{marks[item.instanceId] && <button disabled={busy} onClick={() => changes.mutate({ action: "undo", batchId: marks[item.instanceId]!.batchId })}>Undo this batch</button>}</div>;
       }} />

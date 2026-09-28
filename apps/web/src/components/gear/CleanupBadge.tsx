@@ -1,4 +1,5 @@
 import { Trash2 } from "lucide-react";
+import styles from "./CleanupBadge.module.css";
 export function CleanupBadge({ value }: { value?: { reason: string; confidence: number } }) {
-  return value ? <span title={`Recommended dismantle · ${value.confidence}% rules-based confidence · ${value.reason}`} aria-label="Recommended dismantle"><Trash2 size={15} /></span> : null;
+  return value ? <span className={styles.junk} title={`Recommended junk · ${value.confidence}% rules-based confidence · ${value.reason}`} aria-label="Recommended junk"><Trash2 size={15} /></span> : null;
 }

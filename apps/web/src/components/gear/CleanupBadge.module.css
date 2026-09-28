@@ -1,0 +1,10 @@
+.junk {
+  display: inline-grid;
+  place-items: center;
+  color: #e76874;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .72));
+}
+
+.junk svg {
+  stroke-width: 2.5;
+}

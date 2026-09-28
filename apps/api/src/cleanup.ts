@@ -362,7 +362,8 @@ export async function validateCleanupPull(request: Request, row: SessionRow, env
   ]);
   const analysis = cached?.analysis;
   const entry = analysis?.recommendations.find((recommendation) => recommendation.itemId === input.itemId);
-  if (!entry?.actionable || !approval || analysis?.dismissed.includes(entry.key)) throw httpError(409, "cleanup_changed", "This item is no longer an approved, unprotected cleanup candidate. Analyze again.");
+  const manuallyJunk = state?.tag === "junk";
+  if (!manuallyJunk && (!entry?.actionable || !approval || analysis?.dismissed.includes(entry.key))) throw httpError(409, "cleanup_changed", "This item is no longer an approved, unprotected cleanup candidate. Analyze again.");
   const profile = live.profile;
   if (!profile.characters.data[input.characterId]) throw httpError(403, "character_invalid", "Choose one of your characters.");
   const item = gearActionItemsFromProfile(profile).get(input.itemId);
@@ -370,7 +371,7 @@ export async function validateCleanupPull(request: Request, row: SessionRow, env
   for (const build of [...(builds.results || []), ...(drafts.results || [])]) {
     try { savedReferences(JSON.parse(build.build_json), new Set([input.itemId]), referenced); } catch { throw httpError(409, "cleanup_builds_unavailable", "Saved build protection could not be verified. Try again."); }
   }
-  if (!item || item.locked || item.equipped || item.inPostmaster || state?.tag || referenced.has(input.itemId)) throw httpError(409, "cleanup_changed", "This item is now locked, equipped, tagged, in the Postmaster, used by a saved build, or no longer owned. Analyze again.");
+  if (!item || item.locked || item.equipped || item.inPostmaster || (state?.tag && state.tag !== "junk") || referenced.has(input.itemId)) throw httpError(409, "cleanup_changed", "This item is now locked, equipped, protected by another tag, in the Postmaster, used by a saved build, or no longer owned. Analyze again.");
   if (!item?.bucketHash) throw httpError(409, "cleanup_capacity_unknown", "Cannot verify the destination slot.");
   if (item.ownerCharacterId !== input.characterId) {
     const used = (profile.characterInventories.data[input.characterId]?.items || []).filter((other: any) => String(other.bucketHash) === item.bucketHash).length;
