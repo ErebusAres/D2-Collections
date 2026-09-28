@@ -1463,6 +1463,15 @@ export interface CleanupRecommendation {
   key: string;
 }
 export interface CleanupAnalysis {
+  coverage?: {
+    totalItems: number;
+    processedItems: number;
+    unreadableItems: number;
+    page: number;
+    pages: number;
+    complete: boolean;
+  };
+  dataIssues?: Array<{ itemId: string; name: string; reasons: string[] }>;
   cosmeticSets?: Array<{ id: string; name: string; className: string; pieces: Record<string, string>; owned: number }>;
   cosmetics: Array<{ hash: string; name: string; icon?: string; kind: "shader" | "ornament"; group: string }>;
   version: string;

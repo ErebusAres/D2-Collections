@@ -1,4 +1,4 @@
-export { analyzeCleanup, CLEANUP_DEFAULTS } from "./cleanup";
+export { analyzeCleanup, cleanupDataIssues, CLEANUP_DEFAULTS } from "./cleanup";
 export type { CleanupWishlist } from "./cleanup";
 import type {
   ArmorGrade,

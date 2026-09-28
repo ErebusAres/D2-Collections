@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { cleanupSettingsKey, updateCleanupCache } from "./cleanupState";
+import { cleanupAnalysisSettingsKey, cleanupSettingsKey, updateCleanupCache } from "./cleanupState";
 describe("cleanup UI state", () => {
   it("ignores object insertion order, but detects real setting changes", () => {
     expect(cleanupSettingsKey({ b: 2, a: { d: 4, c: 3 } })).toBe(cleanupSettingsKey({ a: { c: 3, d: 4 }, b: 2 }));
     expect(cleanupSettingsKey({ b: 2 })).not.toBe(cleanupSettingsKey({ b: 3 }));
+  });
+  it("does not invalidate gear comparisons when only the global pull appearance changes", () => {
+    expect(cleanupAnalysisSettingsKey({ exact: true, cosmetics: { enabled: false } })).toBe(cleanupAnalysisSettingsKey({ exact: true, cosmetics: { enabled: true, armorShader: "1" } }));
   });
   it("updates gear and timeline badges without changing manual tags or another Guardian's marks", () => {
     const value = { data: { events: [{ gear: { instanceId: "1", tag: "keep" } }, { gear: { instanceId: "2", cleanupRecommendation: { batchId: "old" } } }, { gear: { instanceId: "other", cleanupRecommendation: { batchId: "theirs" } } }] } };
