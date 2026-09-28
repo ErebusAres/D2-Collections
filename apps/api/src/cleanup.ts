@@ -180,8 +180,7 @@ export async function cleanupSnapshotFromObservations(row: SessionRow, env: Env,
   const recentItemsRefreshedAt = usableObservationTimestamp(refresh?.refreshed_at);
   const observedAt = recentItemsRefreshedAt || usableObservationTimestamp(gearSnapshot?.refreshed_at) || new Date().toISOString();
   const currentRecommendations = await Promise.all(result.recommendations.filter((entry) => !marks[entry.keeperId]).map(async (entry) => ({
-    ...entry, actionable: false,
-    protections: [...new Set([...entry.protections, "Saved snapshot: live protection verification pending"])],
+    ...entry,
     key: await sha256(JSON.stringify(["cleanup-saved-v1", entry.key, observedAt]))
   })));
   const prior = previous?.gear.manifestVersion.startsWith("saved-observations:") ? previous : undefined;
@@ -211,7 +210,7 @@ export async function cleanupSnapshotFromObservations(row: SessionRow, env: Env,
     version, observedAt, settings, coverage, dataIssues, gear, recommendations, insufficient: dataIssues.map((entry) => entry.itemId), marks,
     dismissed: (dismissals.results || []).map((entry) => entry.recommendation_key), sources: [], cosmetics, cosmeticSets,
     warnings: [
-      "Showing review-only recommendations from your last saved Gear observation while live enrichment continues. Tagging and pulling remain disabled.",
+      "Recommendations use your saved Gear observation. Approval creates a private tag; every pull is rechecked against live Bungie inventory and protection data before anything moves.",
       coverage.complete
         ? `Finished checking ${processedItems} of ${total} observed gear items across ${pages} batches.`
         : `Checking saved gear batch ${page + 1} of ${pages}. ${processedItems} of ${total} items processed; results update automatically.`,
@@ -352,12 +351,26 @@ export async function cleanupSnapshot(row: SessionRow, env: Env, settings: Clean
 }
 export async function validateCleanupPull(request: Request, row: SessionRow, env: Env) {
   const input = z.object({ itemId: z.string().regex(/^\d+$/), characterId: z.string().regex(/^\d+$/), settings: cleanupSettingsSchema }).parse(await request.json());
-  const { analysis, profile } = await cleanupSnapshot(row, env, input.settings);
-  const entry = analysis.recommendations.find((r) => r.itemId === input.itemId);
-  const approval = await env.DB.prepare("SELECT recommendation_key FROM cleanup_marks WHERE membership_id = ? AND item_id = ?").bind(row.membership_id, input.itemId).first<{ recommendation_key: string }>();
-  if (!entry?.actionable || approval?.recommendation_key !== entry.key || analysis.dismissed.includes(entry.key)) throw httpError(409, "cleanup_changed", "This item is no longer an approved, unprotected cleanup candidate. Analyze again.");
+  const settingsKey = await cleanupSettingsKey(input.settings);
+  const [cached, approval, state, builds, drafts, live] = await Promise.all([
+    readCleanupAnalysisCache(row.membership_id, env, settingsKey),
+    env.DB.prepare("SELECT recommendation_key FROM cleanup_marks WHERE membership_id = ? AND item_id = ?").bind(row.membership_id, input.itemId).first<{ recommendation_key: string }>(),
+    env.DB.prepare("SELECT tag FROM gear_item_state WHERE membership_id = ? AND item_instance_id = ?").bind(row.membership_id, input.itemId).first<{ tag?: string }>(),
+    env.DB.prepare("SELECT build_json FROM builds WHERE author_membership_id = ?").bind(row.membership_id).all<{ build_json: string }>(),
+    env.DB.prepare("SELECT build_json FROM build_working_drafts WHERE editor_membership_id = ?").bind(row.membership_id).all<{ build_json: string }>(),
+    profileFor(row, env, "gear-action")
+  ]);
+  const analysis = cached?.analysis;
+  const entry = analysis?.recommendations.find((recommendation) => recommendation.itemId === input.itemId);
+  if (!entry?.actionable || !approval || analysis?.dismissed.includes(entry.key)) throw httpError(409, "cleanup_changed", "This item is no longer an approved, unprotected cleanup candidate. Analyze again.");
+  const profile = live.profile;
   if (!profile.characters.data[input.characterId]) throw httpError(403, "character_invalid", "Choose one of your characters.");
   const item = gearActionItemsFromProfile(profile).get(input.itemId);
+  const referenced = new Set<string>();
+  for (const build of [...(builds.results || []), ...(drafts.results || [])]) {
+    try { savedReferences(JSON.parse(build.build_json), new Set([input.itemId]), referenced); } catch { throw httpError(409, "cleanup_builds_unavailable", "Saved build protection could not be verified. Try again."); }
+  }
+  if (!item || item.locked || item.equipped || item.inPostmaster || state?.tag || referenced.has(input.itemId)) throw httpError(409, "cleanup_changed", "This item is now locked, equipped, tagged, in the Postmaster, used by a saved build, or no longer owned. Analyze again.");
   if (!item?.bucketHash) throw httpError(409, "cleanup_capacity_unknown", "Cannot verify the destination slot.");
   if (item.ownerCharacterId !== input.characterId) {
     const used = (profile.characterInventories.data[input.characterId]?.items || []).filter((other: any) => String(other.bucketHash) === item.bucketHash).length;
@@ -382,8 +395,14 @@ export async function mutateCleanup(request: Request, row: SessionRow, env: Env)
     const marks = await cleanupMarks(row.membership_id, env);
     return { ...result, ...(result.action === "approve" ? { itemIds: Object.keys(marks).filter((id) => marks[id]?.batchId === input.batchId) } : {}), undone: Boolean(existing.undone), marks };
   }
-  const { analysis } = await cleanupSnapshot(row, env, input.settings);
-  if (analysis.version !== input.version) throw httpError(409, "cleanup_changed", "Your gear, protections, or settings changed. Analyze again before approving.");
+  const settingsKey = await cleanupSettingsKey(input.settings);
+  const cached = await readCleanupAnalysisCache(row.membership_id, env, settingsKey);
+  let analysis = cached?.analysis && cached.analysis.version === input.version ? cached.analysis : undefined;
+  if (!analysis) {
+    const live = await cleanupSnapshot(row, env, input.settings);
+    analysis = live.analysis;
+    if (analysis.version !== input.version) throw httpError(409, "cleanup_changed", "Your gear, protections, or settings changed. Analyze again before approving.");
+  }
   const chosen = [...new Set(input.itemIds)].map((id) => analysis.recommendations.find((r) => r.itemId === id));
   if (chosen.some((entry) => !entry || (input.action === "approve" && (!entry.actionable || analysis.dismissed.includes(entry.key))))) throw httpError(409, "cleanup_protected", "A selected item is protected, dismissed, or no longer recommended.");
   const keeperIds = new Set(analysis.recommendations.map((r) => r.keeperId));
