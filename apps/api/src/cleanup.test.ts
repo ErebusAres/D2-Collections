@@ -9,7 +9,7 @@ const row = { membership_id: "member" } as any;
 const batchId = "10000000-0000-4000-8000-000000000001";
 const request = (body: unknown) => new Request("https://example.test", { method: "POST", body: JSON.stringify(body) });
 function database(observations: Array<{ metadata_json: string }> = [], cosmeticCache?: { choices_json: string; sets_json: string; refreshed_at: string }, timestamps = { recentItems: "2026-09-23T20:00:00.000Z", gear: "2026-09-23T20:01:00.000Z" }, cachedAnalysis?: any) {
-  const marks = new Map<string, any>(); const batches = new Map<string, any>(); const dismissed = new Set<string>();
+  const marks = new Map<string, any>(); const batches = new Map<string, any>(); const dismissed = new Set<string>(); const stateTags = new Map<string, string>();
   const statements: string[] = []; let concurrentTag = false;
   const DB: any = { prepare: (sql: string) => ({ bind: (...v: any[]) => {
     const run = async () => {
@@ -21,10 +21,10 @@ function database(observations: Array<{ metadata_json: string }> = [], cosmeticC
       if (sql.startsWith("DELETE FROM cleanup_marks") && sql.includes("batch_id")) for (const [id, mark] of marks) if (mark.batch_id === v[1]) marks.delete(id);
       return { success: true };
     };
-    return { run, first: async () => sql.includes("COUNT(*) AS count FROM recent_item_observations") ? { count: observations.length } : sql.includes("recent_item_refresh_state") ? { refreshed_at: timestamps.recentItems } : sql.includes("guardian_gear_cache") ? { refreshed_at: timestamps.gear } : sql.includes("guardian_cleanup_cosmetic_cache") ? cosmeticCache : sql.includes("guardian_cleanup_analysis_cache") && cachedAnalysis ? { settings_key: v[1], settings_json: JSON.stringify(CLEANUP_DEFAULTS), analysis_json: JSON.stringify(cachedAnalysis), requested_at: timestamps.recentItems, refreshed_at: timestamps.recentItems, expires_at: new Date(Date.now() + 60_000).toISOString() } : sql.includes("cleanup_batches") ? batches.get(v[1]) : sql.includes("cleanup_marks") ? marks.get(v[1]) : null,
+    return { run, first: async () => sql.includes("COUNT(*) AS count FROM recent_item_observations") ? { count: observations.length } : sql.includes("recent_item_refresh_state") ? { refreshed_at: timestamps.recentItems } : sql.includes("guardian_gear_cache") ? { refreshed_at: timestamps.gear } : sql.includes("guardian_cleanup_cosmetic_cache") ? cosmeticCache : sql.includes("guardian_cleanup_analysis_cache") && cachedAnalysis ? { settings_key: v[1], settings_json: JSON.stringify(CLEANUP_DEFAULTS), analysis_json: JSON.stringify(cachedAnalysis), requested_at: timestamps.recentItems, refreshed_at: timestamps.recentItems, expires_at: new Date(Date.now() + 60_000).toISOString() } : sql.includes("cleanup_batches") ? batches.get(v[1]) : sql.includes("gear_item_state") ? (stateTags.has(v[1]) ? { tag: stateTags.get(v[1]) } : null) : sql.includes("cleanup_marks") ? marks.get(v[1]) : null,
       all: async () => ({ results: sql.includes("recent_item_observations") ? observations.slice(Number(v[2] || 0), Number(v[2] || 0) + Number(v[1] || observations.length)) : sql.includes("cleanup_marks") ? [...marks.values()] : sql.includes("cleanup_dismissals") ? [...dismissed].map((key) => ({ recommendation_key: key })) : [] }) };
   } }), batch: async (entries: any[]) => { for (const entry of entries) await entry.run(); } };
-  return { env: { DB } as any, marks, batches, statements, setConcurrentTag: () => { concurrentTag = true; } };
+  return { env: { DB } as any, marks, batches, statements, setConcurrentTag: () => { concurrentTag = true; }, setStateTag: (itemId: string, tag: string) => stateTags.set(itemId, tag) };
 }
 beforeEach(() => {
   mocks.modes = [];
@@ -124,6 +124,14 @@ describe("cleanup server approvals", () => {
     await expect(validateCleanupPull(request(body), row, db.env)).rejects.toThrow(/full/);
     mocks.profile.characterInventories.data["9"].items = [];
     expect(await validateCleanupPull(request(body), row, db.env)).toMatchObject({ itemInstanceId: "2", targetCharacterId: "9" });
+  });
+  it("allows manually tagged Junk through the same live pull protections", async () => {
+    const db = database();
+    db.setStateTag("2", "junk");
+    const body = { itemId: "2", characterId: "9", settings: CLEANUP_DEFAULTS };
+    expect(await validateCleanupPull(request(body), row, db.env)).toMatchObject({ itemInstanceId: "2", targetCharacterId: "9" });
+    db.setStateTag("2", "keep");
+    await expect(validateCleanupPull(request(body), row, db.env)).rejects.toThrow(/no longer/);
   });
   it("blocks recommendations with missing protection, stat or freshness evidence", async () => {
     const db = database(); delete mocks.profile.characterLoadouts;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanupAnalysisSettingsKey, cleanupSettingsKey, updateCleanupCache } from "./cleanupState";
+import { cleanupAnalysisSettingsKey, cleanupSettingsKey, manualJunkItems, updateCleanupCache } from "./cleanupState";
 describe("cleanup UI state", () => {
   it("ignores object insertion order, but detects real setting changes", () => {
     expect(cleanupSettingsKey({ b: 2, a: { d: 4, c: 3 } })).toBe(cleanupSettingsKey({ a: { c: 3, d: 4 }, b: 2 }));
@@ -16,5 +16,11 @@ describe("cleanup UI state", () => {
     expect(updated.data.events[1]?.gear.cleanupRecommendation).toBeUndefined();
     expect(updated.data.events[2]?.gear.cleanupRecommendation).toEqual({ batchId: "theirs" });
     expect(value.data.events[1]?.gear.cleanupRecommendation).toEqual({ batchId: "old" });
+  });
+  it("collects every manually tagged Junk armor and weapon", () => {
+    const armor = { instanceId: "armor", tag: "junk" };
+    const weapon = { instanceId: "weapon", tag: "junk" };
+    const keep = { instanceId: "keep", tag: "keep" };
+    expect(manualJunkItems({ items: [armor, keep], weapons: [weapon] } as any).map((item) => [item.instanceId, item.kind])).toEqual([["armor", "armor"], ["weapon", "weapon"]]);
   });
 });

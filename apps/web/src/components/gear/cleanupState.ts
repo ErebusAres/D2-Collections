@@ -1,4 +1,13 @@
-import type { CleanupAnalysis } from "@guardian-nexus/contracts";
+import type { ArmorItem, CleanupAnalysis, GearData, WeaponItem } from "@guardian-nexus/contracts";
+
+export type ManualJunkItem = ({ kind: "armor" } & ArmorItem) | ({ kind: "weapon" } & WeaponItem);
+
+export function manualJunkItems(gear: GearData): ManualJunkItem[] {
+  return [
+    ...gear.items.map((item) => ({ ...item, kind: "armor" as const })),
+    ...(gear.weapons || []).map((item) => ({ ...item, kind: "weapon" as const }))
+  ].filter((item) => item.tag === "junk");
+}
 
 /** Object insertion order is not a settings change. */
 export function cleanupSettingsKey(value: unknown): string {

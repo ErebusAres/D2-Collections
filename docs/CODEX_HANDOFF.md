@@ -6,6 +6,12 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
+### 2026-09-28 Manual Junk cleanup queue and visual alignment
+
+Cleanup now treats the user's explicit Junk tag as a first-class review queue. The page reads all manually tagged weapons and armor from the already-loaded durable Gear snapshot, displays them in a separate Manual junk row even when analyzer recommendations are unavailable, and supports the same button and `P` shortcut pull workflow. Manual Junk is intentional approval, so it does not require a generated recommendation or Cleanup batch mark; the server still revalidates live ownership, lock/equipped/Postmaster state, saved-build references, target character, and destination capacity immediately before transfer. Any non-Junk manual tag remains protected.
+
+Recommended-cleanup trash badges and summaries now use the same red Junk color as the manual tag picker instead of the previous unstyled white icon. Manually tagged items are excluded from the generated-candidate row to avoid duplicate cards. API regression coverage proves Junk can use the pull path while another manual tag cannot. No live inventory transfer is part of automated or production acceptance.
+
 ### 2026-09-28 Cleanup approval and Pull restoration
 
 Production feedback immediately after PR #171 exposed that the saved-analysis safety boundary was too broad: every saved recommendation was forcibly converted to `actionable: false`, so the new UI accurately labeled all candidates Protected but made Approve and Pull impossible. This contradicted the intended workflow. Saved observation analysis now preserves the domain evaluator's actual actionability: genuinely protected or manual-review recommendations remain blocked, while recommendations with complete evidence can be privately approved and pulled. The comparison cache namespace is bumped to `cleanup-comparison-v2` so previously saved all-Protected analyses cannot survive the release's normal ten-minute freshness window; the next Cleanup load starts a corrected bounded pass immediately.
