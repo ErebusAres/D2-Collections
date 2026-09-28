@@ -26,7 +26,7 @@ export interface StoredCleanupAnalysis {
 }
 
 export async function cleanupSettingsKey(settings: CleanupSettings): Promise<string> {
-  return sha256(JSON.stringify(cleanupComparisonSettings(settings)));
+  return sha256(JSON.stringify(["cleanup-comparison-v2", cleanupComparisonSettings(settings)]));
 }
 
 /** Appearance changes affect what happens after a pull, not which gear is redundant. */
