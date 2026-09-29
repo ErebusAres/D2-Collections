@@ -16,13 +16,13 @@ describe("CleanupApprovalControl", () => {
   it("uses a direct approval action for eligible candidates", () => {
     const onApprove = vi.fn();
     render(<CleanupApprovalControl actionable tagged={false} busy={false} stale={false} protections={[]} onApprove={onApprove} />);
-    fireEvent.click(screen.getByRole("button", { name: "Approve & tag" }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve for cleanup" }));
     expect(onApprove).toHaveBeenCalledTimes(1);
   });
 
   it("shows the resulting tag state instead of a dead checkbox", () => {
     render(<CleanupApprovalControl actionable tagged busy={false} stale={false} protections={[]} onApprove={vi.fn()} />);
-    expect(screen.getByText("Approved and tagged")).toBeTruthy();
+    expect(screen.getByText("Approved for cleanup")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /approve/i })).toBeNull();
   });
 });

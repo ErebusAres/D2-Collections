@@ -6,7 +6,7 @@ export function manualJunkItems(gear: GearData): ManualJunkItem[] {
   return [
     ...gear.items.map((item) => ({ ...item, kind: "armor" as const })),
     ...(gear.weapons || []).map((item) => ({ ...item, kind: "weapon" as const }))
-  ].filter((item) => item.tag === "junk");
+  ].filter((item) => item.tag === "junk").sort((left, right) => (Date.parse(right.firstSeenAt || "") || 0) - (Date.parse(left.firstSeenAt || "") || 0) || String(left.name || "").localeCompare(String(right.name || "")));
 }
 
 /** Object insertion order is not a settings change. */

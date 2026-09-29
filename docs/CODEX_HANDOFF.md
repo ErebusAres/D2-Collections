@@ -6,6 +6,14 @@ This file is the operational handoff for Chris Codex or another maintainer conti
 
 ## Current objective
 
+### 2026-09-28 Cleanup UI/UX consistency pass
+
+The post-Junk UI review found several workflow problems in source after the signed-in Edge bridge failed to bind twice: the Manual junk row was buried below both advanced panels, mutation errors rendered far from the controls that caused them, approved items repeated the same batch-level Undo action once per item, filtered-out selections could remain active, and manual tag writes were absent from Cleanup's shared busy state. These were implementation defects and inconsistencies, not visually verified production findings.
+
+Manual junk is now an immediate-action row directly below Cleanup status and feedback, appears only when it has items, and remains usable when changed analyzer settings make generated recommendations stale. Notices, errors, and stale-rule guidance share the top feedback area. Manual junk is newest-first. Cleanup now disables conflicting controls during manual tag writes, clears bulk selections whenever result filters change, and uses consistent **Ready / Approved / Protected** vocabulary across metrics, filters, buttons, cards, and approval state.
+
+The old per-item `Tagged items and appearance restore` block is replaced with an **Approved cleanup list** grouped by approval batch. Each batch has one Undo action, while Restore appearance appears only for items that actually have a saved cosmetic journal. Appearance-only restores remain separate, avoiding duplicate or nonfunctional restore controls. The results metrics now all describe the currently visible filtered set instead of mixing global and filtered counts. Focused Cleanup UI tests and Web typechecks cover the adjusted wording and manual-Junk selection behavior; a real transfer remains intentionally outside automated acceptance.
+
 ### 2026-09-28 Manual Junk cleanup queue and visual alignment
 
 Cleanup now treats the user's explicit Junk tag as a first-class review queue. The page reads all manually tagged weapons and armor from the already-loaded durable Gear snapshot, displays them in a separate Manual junk row even when analyzer recommendations are unavailable, and supports the same button and `P` shortcut pull workflow. Manual Junk is intentional approval, so it does not require a generated recommendation or Cleanup batch mark; the server still revalidates live ownership, lock/equipped/Postmaster state, saved-build references, target character, and destination capacity immediately before transfer. Any non-Junk manual tag remains protected.
